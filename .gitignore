@@ -1,0 +1,13 @@
+__pycache__
+.DS_Store
+.ipynb_checkpoints
+jobs
+saved_nets
+Preds
+old_files
+data
+videos
+wandb
+.LOCAL
+train
+save_data

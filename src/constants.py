@@ -1,16 +1,41 @@
 # Experiment inputs and outputs
-INPT_VARS = {"1":["um","vm"],"2":["um","vm","ur","vr"],"3":["um","vm","Tm"],
-            "4":["um","vm","ur","vr","Tm","Tr"],"5":["ur","vr"],"6":["ur","vr","Tr"],
-            "7":["Tm"],"8":["Tm","Tr"],"9":["u","v"],"10":["u","v","T"],
-            "11":["tau_u","tau_v"],"12":["tau_u","tau_v","t_ref"]} 
-EXTRA_VARS = {"1":["ur","vr"],"2":["ur","vr","Tm"],
-            "3":["Tm"],"4":["ur","vr","Tm","Tr"],"5":[],"6":["um","vm"],
-             "7":["um","vm","Tm"], "8": ["um","vm","Tm","Tr"],
-              "9":["ur","vr","tau_u","tau_v"],"10":["tau_u","tau_v"],
-              "11":["t_ref"],"12":["tau_u","tau_v","t_ref"],
-             "13":["ur","vr","Tr","tau_u","tau_v","t_ref"]} 
-OUT_VARS = {"1":["um","vm"],"2":["um","vm","Tm"],"3":["ur","vr"],
-           "4":["ur","vr","Tr"],"5":["u","v"],"6":["u","v","T"]}
+INPT_VARS = {
+    "1": ["um", "vm"],
+    "2": ["um", "vm", "ur", "vr"],
+    "3": ["um", "vm", "Tm"],
+    "4": ["um", "vm", "ur", "vr", "Tm", "Tr"],
+    "5": ["ur", "vr"],
+    "6": ["ur", "vr", "Tr"],
+    "7": ["Tm"],
+    "8": ["Tm", "Tr"],
+    "9": ["u", "v"],
+    "10": ["u", "v", "T"],
+    "11": ["tau_u", "tau_v"],
+    "12": ["tau_u", "tau_v", "t_ref"],
+}
+EXTRA_VARS = {
+    "1": ["ur", "vr"],
+    "2": ["ur", "vr", "Tm"],
+    "3": ["Tm"],
+    "4": ["ur", "vr", "Tm", "Tr"],
+    "5": [],
+    "6": ["um", "vm"],
+    "7": ["um", "vm", "Tm"],
+    "8": ["um", "vm", "Tm", "Tr"],
+    "9": ["ur", "vr", "tau_u", "tau_v"],
+    "10": ["tau_u", "tau_v"],
+    "11": ["t_ref"],
+    "12": ["tau_u", "tau_v", "t_ref"],
+    "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
+}
+OUT_VARS = {
+    "1": ["um", "vm"],
+    "2": ["um", "vm", "Tm"],
+    "3": ["ur", "vr"],
+    "4": ["ur", "vr", "Tr"],
+    "5": ["u", "v"],
+    "6": ["u", "v", "T"],
+}
 
 # Region boundaries
 REGIONS = {
@@ -26,5 +51,5 @@ REGIONS = {
     "Quiescent": {"lat": [-42.5, -17.5], "lon": [-155, -120]},
     "Quiescent_Ext": {"lat": [-55, -10], "lon": [-170, -110]},
     "Pacific": {"lat": [-35, 35], "lon": [-230, -80]},
-    "Indian": {"lat": [-30, 28], "lon": [30, 79]}
+    "Indian": {"lat": [-30, 28], "lon": [30, 79]},
 }

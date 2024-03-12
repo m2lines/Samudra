@@ -11,4 +11,18 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: actions/setup-python@v3
-    - uses: pre-commit/action@v3.0.1
+    - name: Run pre-commit
+      id: pre-commit
+      uses: pre-commit/action@v3.0.1
+      with:
+        fail-fast: false
+    - name: Check for changes
+      run: |
+        git diff --exit-code || (git commit -am "Pre-commit fixes" && git push)
+    - name: Rerun pre-commit
+      if: ${{ failure() }}
+      run: |
+        git pull origin ${{ github.ref }}
+        pre-commit run --all-files
+
+

@@ -179,17 +179,15 @@ class data_CNN_steps(torch.utils.data.Dataset):
         for j in range(steps):
             for i in range(num_outputs):
                 data_out[j][:, :, :, i] = (
-                    data_out[j][:, :, :, i] - mean_label[i]
-                ) / std_label[i]
+
+                    data_out[j][:, :, :, i] - mean_label[i]) / std_label[i]
             for i in range(num_inputs):
                 data_in[j][:, :, :, i] = (
-                    data_in[j][:, :, :, i] - mean_data[i]
-                ) / std_data[i]
+                    data_in[j][:, :, :, i] - mean_data[i]) / std_data[i]
 
         for j in range(steps):
             data_out[j] = (
-                torch.from_numpy(data_out[j]).type(torch.float32).to(device=device)
-            )
+                torch.from_numpy(data_out[j]).type(torch.float32).to(device=device))
             data_in[j] = (
                 torch.from_numpy(data_in[j]).type(torch.float32).to(device=device)
             )

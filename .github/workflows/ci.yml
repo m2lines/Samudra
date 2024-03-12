@@ -18,7 +18,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       run: |
         pre-commit run --all-files || true
-```     if [ -n "$(git status --porcelain)" ]; then # Check if there are any changes
+        if [ -n "$(git status --porcelain)" ]; then # Check if there are any changes
           git add .
           git commit -m "Apply pre-commit fixes"
           git push origin ${{github.head_ref}} 

@@ -9,6 +9,7 @@ permissions:
   contents: write
   pull-requests: write
   repository-projects: write
+  workflows: write
 
 jobs:
   pre-commit:

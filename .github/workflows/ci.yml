@@ -5,6 +5,11 @@ on:
   push:
     branches: [master, test]
 
+permissions:
+  contents: write
+  pull-requests: write
+  repository-projects: write
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest

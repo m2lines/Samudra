@@ -5,8 +5,8 @@
 # enable resubmission.
 
 # Somewhat hacky, this expects SUBMITTED_COMMAND to not be modified between
-# the submission of the SBATCH call and the execution of .resubmit.sh. 
-# Ideally 
+# the submission of the SBATCH call and the execution of .resubmit.sh.
+# Ideally
 export SOURCE_SLURM_COMMAND=$SUBMITTED_COMMAND
 command=$@
 
@@ -15,8 +15,8 @@ if [[ "$RESUBMIT_COUNT" == "" ]]; then
 fi
 echo "RESUBMIT: resubmits remaining -- $RESUBMIT_COUNT"
 
-resubmit () 
-{ 
+resubmit ()
+{
     echo "RESUBMIT: USR2 signal received. Job is timing out."
     if [[ "$RESUBMIT_COUNT" -le 0 ]]; then
         echo "RESUBMIT_COUNT reached $RESUBMIT_COUNT. Exiting"

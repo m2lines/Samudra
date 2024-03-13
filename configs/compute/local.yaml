@@ -12,7 +12,7 @@ hydra:
   mode: RUN
   job:
     num: 0
-  run: 
+  run:
     dir: ${base_output_dir}/.LOCAL/${sub_dir}/${hydra.job.name}
   sweep: # Naming convention for slurm sweep (or non-sweep jobs)
     dir: ${hydra.run.dir}

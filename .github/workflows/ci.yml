@@ -16,12 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.WORKFLOW_TOKEN }}
     - name: Set up git
       run: |
         git config --global user.email "you@example.com"
         git config --global user.name "CI Auto Formatter"
         git fetch
-        git checkout ${{github.head_ref}} 
+        git checkout ${{github.head_ref}}
       shell: bash
       env:
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -35,7 +37,7 @@ jobs:
         if [ -n "$(git status --porcelain)" ]; then # Check if there are any changes
           git add .
           git commit -m "Apply pre-commit fixes"
-          git push origin ${{github.head_ref}} 
+          git push origin ${{github.head_ref}}
           echo "Pushed changes"
         else
           echo "No changes to commit"
@@ -43,10 +45,3 @@ jobs:
       shell: bash
       env:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-
-
-
-
-      
-
-

@@ -830,3 +830,22 @@ def get_norms(region,inputs,extra_in,outputs,Lateral = True):
     std_dict = {'s_in':std_in,'s_out':std_out,'m_in':mean_in, 'm_out':mean_out}
     
     return std_dict
+
+
+def get_train_test_ranges(N_samples, N_val, lag, hist, interval):
+    s_train = lag*hist # 1*0=0
+    e_train = s_train + N_samples*interval # 0 + 4000*1 = 4000
+    e_test = e_train + interval*N_val # 4000 + 1*300 = 4300
+    return s_train, e_train, e_test
+
+def get_wet_mask(inputs, device="cpu"):
+    wet = xr.zeros_like(inputs[0][0])
+    # inputs[0][0,12,12] = np.nan
+    for data in inputs:
+        wet +=np.isnan(data[0])
+    
+    wet_nan = xr.where(wet!=0,np.nan,1).to_numpy()
+    wet = np.isnan(xr.where(wet==0,np.nan,0))
+    wet = np.nan_to_num(wet.to_numpy())
+    wet = torch.from_numpy(wet).type(torch.float32).to(device=device)
+    return wet, wet_nan

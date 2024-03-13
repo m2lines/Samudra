@@ -16,7 +16,7 @@ experiment: train
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
 grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
-data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/save_data/2024-03-06-1GPU_save_data_8steps/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-06-save_data_test/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
+data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-12-save_data_1step/data #/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/save_data/2024-03-06-1GPU_save_data_8steps/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-06-save_data_test/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
 
@@ -29,7 +29,7 @@ epochs: 100
 batch_size: 6
 
 # Optimizer
-lr: 1e-3
+lr: 1e-4
 T: 10 # CosineA / CosineAWarm param
 
 # Parameters
@@ -41,7 +41,7 @@ network: "ViT"
 N_samples: 4000 #4000
 N_val: 300 #300
 N_test: 500 #500
-steps: 8 # 8
+steps: 1 # 8
 interval: 1
 hist: 0
 lag: 1

@@ -43,10 +43,9 @@ class Trainer:
             else ".LOCAL" + "//" + args.name
         )
         wandb.init(
-            config=OmegaConf.to_container(args, resolve=True ),
+            config=OmegaConf.to_container(args, resolve=True),
             name=name,
-
-            dir= args.experiment_dir,
+            dir=args.experiment_dir,
             **args.wandb,
         )
         self.wandb = args.wandb.mode == "online"
@@ -94,7 +93,6 @@ class Trainer:
             + "_out"
             + self.str_out
             + "N_train_"
-            
             + str(args.N_samples)
             + "_Lateral_Data_025_no_smooth"
         )

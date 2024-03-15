@@ -7,6 +7,8 @@ from pathlib import Path
 from constants import REGIONS, INPT_VARS, EXTRA_VARS, OUT_VARS
 from utils.subgrid_utils import coarse_grid
 from utils.data_utils import (
+    get_wet_mask,
+    get_train_test_ranges,
     gen_data_025_lateral,
     gen_data_in,
     gen_data_out,
@@ -14,23 +16,6 @@ from utils.data_utils import (
     data_CNN_steps_Lateral,
 )
 from utils.dist_utils import set_seed
-
-
-def get_train_test_ranges(N_samples, N_val, lag, hist, interval):
-    s_train = lag * hist  # 1*0=0
-    e_train = s_train + N_samples * interval  # 0 + 4000*1 = 4000
-    e_test = e_train + interval * N_val  # 4000 + 1*300 = 4300
-    return s_train, e_train, e_test
-
-
-def get_wet_mask(inputs):
-    wet = xr.zeros_like(inputs[0][0])
-    # inputs[0][0,12,12] = np.nan
-    for data in inputs:
-        wet += np.isnan(data[0])
-    wet = np.isnan(xr.where(wet == 0, np.nan, 0))
-    wet = np.nan_to_num(wet.to_numpy())
-    wet = torch.from_numpy(wet).type(torch.float32).to(device="cpu")  # change to device
 
 
 def main(args):
@@ -101,7 +86,7 @@ def main(args):
     )
 
     # Generate Wet mask
-    wet = get_wet_mask(inputs)
+    wet, _ = get_wet_mask(inputs, "cpu")
 
     # Generating Validation dataset
     data_in_val = gen_data_in(

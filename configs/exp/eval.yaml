@@ -40,7 +40,7 @@ exp_num_extra: "12"
 exp_num_out: "2"
 region: "Gulf_Stream_Ext"
 N_samples: 4000
-N_val: 200 
+N_val: 200
 N_test: 3000
 interval: 1
 hist: 0

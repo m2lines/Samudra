@@ -273,8 +273,9 @@ def train_one_epoch(
         loss_value = loss.item()
 
         optimizer.step()
-        # scheduler.step()
-        scheduler.step(epoch + data_iter_step / iters)
+        if scheduler is not None:
+            # scheduler.step()
+            scheduler.step(epoch + data_iter_step/iters)
         torch.cuda.synchronize()
         torch.cuda.empty_cache()
 

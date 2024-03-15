@@ -20,7 +20,7 @@ region: "Gulf_Stream_Ext"
 N_samples: 4000 #4000
 N_val: 300 #300
 N_test: 500 #500
-steps: 8 # 8
+steps: 1
 interval: 1
 hist: 0
 lag: 1

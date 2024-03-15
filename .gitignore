@@ -11,3 +11,5 @@ wandb
 .LOCAL
 train
 save_data
+outputs
+job_*

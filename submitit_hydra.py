@@ -19,13 +19,13 @@ from hydra.core.plugins import Plugins
 from hydra.core.singleton import Singleton
 from hydra.core.utils import JobReturn, JobStatus, filter_overrides
 from hydra.experimental.callback import Callback
-from hydra_plugins.hydra_submitit_launcher.submitit_launcher import \
-    BaseQueueConf
+from hydra_plugins.hydra_submitit_launcher.submitit_launcher import BaseQueueConf
 from omegaconf import DictConfig, OmegaConf, open_dict
 
 log = logging.getLogger(__name__)
 CONFIG_PATH = "configs"
 NAME_MAX = 255
+
 
 @hydra.main(version_base=None, config_name="conf", config_path=CONFIG_PATH)
 def my_app(cfg: DictConfig) -> None:
@@ -34,13 +34,14 @@ def my_app(cfg: DictConfig) -> None:
         log.info(env.__repr__())
     except:
         log.info("Running locally.")
-    
+
     # OmegaConf.set_struct(cfg, False)
     sys.path.append("src/")
     main_fn = __import__("src." + cfg.experiment, fromlist=[None]).main
     log.info(f"Beginning experiment [{cfg.experiment}].")
     main_fn(cfg)
     log.info(f"Completed experiment.")
+
 
 class LogJobReturnCallback(Callback):
     def __init__(self) -> None:
@@ -52,24 +53,39 @@ class LogJobReturnCallback(Callback):
         if job_return.status == JobStatus.COMPLETED:
             self.log.info(f"Succeeded with return value: {job_return.return_value}")
         elif job_return.status == JobStatus.FAILED:
-            e_str = "".join(traceback.format_exception(None, # <- type(e) by docs, but ignored 
-                                                                job_return._return_value,
-                                                                job_return._return_value.__traceback__))
+            e_str = "".join(
+                traceback.format_exception(
+                    None,  # <- type(e) by docs, but ignored
+                    job_return._return_value,
+                    job_return._return_value.__traceback__,
+                )
+            )
             # We use sys.stderr to ensure that it always prints as some code overwrites print.
-            sys.stderr.write(e_str) 
+            sys.stderr.write(e_str)
             self.log.error("", exc_info=job_return._return_value)
         else:
             self.log.error("Status unknown. This should never happen.")
 
+
 if __name__ == "__main__":
     # Omegaconf resolvers for managing configs.
-    OmegaConf.register_new_resolver("prod", lambda *args: np.prod(args).item()) # product arguments
-    OmegaConf.register_new_resolver("replace_slash", lambda s: s.replace("/", ".")) # replaces slashes in str
-    OmegaConf.register_new_resolver("join_path", lambda *args: os.path.join(*args)) # joins paths
-    OmegaConf.register_new_resolver("join_overlays", lambda *args: ','.join(filter(None, args))) # joins overlays")
-    OmegaConf.register_new_resolver("limit_path_length", lambda s: s[:NAME_MAX]) # limits path length
-    
-    # [HACK] 1 
+    OmegaConf.register_new_resolver(
+        "prod", lambda *args: np.prod(args).item()
+    )  # product arguments
+    OmegaConf.register_new_resolver(
+        "replace_slash", lambda s: s.replace("/", ".")
+    )  # replaces slashes in str
+    OmegaConf.register_new_resolver(
+        "join_path", lambda *args: os.path.join(*args)
+    )  # joins paths
+    OmegaConf.register_new_resolver(
+        "join_overlays", lambda *args: ",".join(filter(None, args))
+    )  # joins overlays")
+    OmegaConf.register_new_resolver(
+        "limit_path_length", lambda s: s[:NAME_MAX]
+    )  # limits path length
+
+    # [HACK] 1
     # We overwrite the _submitit_command_str function to use a alternative script that will:
     # (1) load infiniband configs and run the command inside a preconfigured singularity container
     # (2) redirect the initial __main__ function to a custom one that sets up code for automatic resubmission
@@ -77,16 +93,30 @@ if __name__ == "__main__":
     @property
     def _submitit_command_str(self) -> str:
         return " ".join(
-            ["--cpu-bind=verbose", "\\\n",
-             shlex.quote(os.path.join(os.path.dirname(os.path.realpath(__file__)), ".resubmit.sh")), "\\\n",
-             shlex.quote(os.path.join(os.path.dirname(os.path.realpath(__file__)), ".python-greene")), "\\\n",
-             "-u -m submitit.core._submit",
-             shlex.quote(str(self.folder))]
+            [
+                "--cpu-bind=verbose",
+                "\\\n",
+                shlex.quote(
+                    os.path.join(
+                        os.path.dirname(os.path.realpath(__file__)), ".resubmit.sh"
+                    )
+                ),
+                "\\\n",
+                shlex.quote(
+                    os.path.join(
+                        os.path.dirname(os.path.realpath(__file__)), ".python-greene"
+                    )
+                ),
+                "\\\n",
+                "-u -m submitit.core._submit",
+                shlex.quote(str(self.folder)),
+            ]
         )
+
     submitit_slurm.SlurmExecutor._submitit_command_str = _submitit_command_str
-    
+
     # [HACK] 2
-    # We overwrite the submit command as well. We allow it to specify an array and cpus-per-task 
+    # We overwrite the submit command as well. We allow it to specify an array and cpus-per-task
     # command line argument. Note, cpus-per-task and mem are not typically useful, however they're used
     # during resubmission.
     # This allows us to:
@@ -101,7 +131,10 @@ if __name__ == "__main__":
     parser.add_argument("--cpus-per-task", type=str, required=False)
     parser.add_argument("--mem", type=str, required=False)
     args, replace = parser.parse_known_args()
-    sys.argv = sys.argv[:1] + replace # we may further modify argv to prevent creating extra directories that aren't run
+    sys.argv = (
+        sys.argv[:1] + replace
+    )  # we may further modify argv to prevent creating extra directories that aren't run
+
     def _make_submission_command(self, submission_file_path: Path) -> List[str]:
         command_list = ["sbatch", str(submission_file_path)]
         if args.mem is not None:
@@ -111,8 +144,9 @@ if __name__ == "__main__":
         if args.array is not None:
             command_list.insert(1, f"--array={args.array}")
         return command_list
+
     submitit_slurm.SlurmExecutor._make_submission_command = _make_submission_command
-    
+
     # [HACK] 3
     # We need to modify the SlurmExecutor with a wrapper to copy code into the correct job directory once the job has been submitted.
     # This is so that our job is not impacted by the state of the code when it eventually gets allocated resources.
@@ -121,21 +155,32 @@ if __name__ == "__main__":
         def fn(self, delayed_submissions):
             jobs = func(self, delayed_submissions)
             source_path = os.getcwd()
-            copy_path = os.path.join(str(self.folder).rsplit("/", 2)[0], ".snapshot") # per-experiment batch in $output_dir/.src
-            if not os.path.exists(copy_path): # do not recopy.
+            copy_path = os.path.join(
+                str(self.folder).rsplit("/", 2)[0], ".snapshot"
+            )  # per-experiment batch in $output_dir/.src
+            if not os.path.exists(copy_path):  # do not recopy.
                 os.makedirs(copy_path, exist_ok=False)
-                shutil.copy(os.path.join(source_path, "submitit_hydra.py"), 
-                            os.path.join(copy_path, "submitit_hydra.py"))
-                shutil.copytree(os.path.join(source_path, "src"), 
-                                os.path.join(copy_path, "src"))
-                shutil.copytree(os.path.normpath(os.path.join(os.getcwd(), CONFIG_PATH)), 
-                                os.path.join(copy_path, "configs"))
+                shutil.copy(
+                    os.path.join(source_path, "submitit_hydra.py"),
+                    os.path.join(copy_path, "submitit_hydra.py"),
+                )
+                shutil.copytree(
+                    os.path.join(source_path, "src"), os.path.join(copy_path, "src")
+                )
+                shutil.copytree(
+                    os.path.normpath(os.path.join(os.getcwd(), CONFIG_PATH)),
+                    os.path.join(copy_path, "configs"),
+                )
             return jobs
+
         return fn
+
     submitit_slurm.SlurmExecutor._internal_process_submissions = (
-        _internal_process_submissions_wrapper(submitit_slurm.SlurmExecutor._internal_process_submissions)
+        _internal_process_submissions_wrapper(
+            submitit_slurm.SlurmExecutor._internal_process_submissions
+        )
     )
-    
+
     # [HACK] 4
     # This one's an absolute nightmare of a hack to address an actual bug in submitit-hydra
     # Upon running on a SLURM worker node, the submitit launcher attempts to re-read the configs even if they have changed.
@@ -199,13 +244,20 @@ if __name__ == "__main__":
                     Singleton.get_state(),
                 )
             )
-        
+
         job_dir = str(OmegaConf.select(self.config, job_params[0][1]))
-        self.config.hydra.runtime.config_sources[1].path = os.path.join(job_dir, ".snapshot", "configs")
-        self.hydra_context.config_loader = ConfigLoaderImpl(create_config_search_path(os.path.join(job_dir, ".snapshot", "configs")))
-        
+        self.config.hydra.runtime.config_sources[1].path = os.path.join(
+            job_dir, ".snapshot", "configs"
+        )
+        self.hydra_context.config_loader = ConfigLoaderImpl(
+            create_config_search_path(os.path.join(job_dir, ".snapshot", "configs"))
+        )
+
         jobs = executor.map_array(self, *zip(*job_params))
         return [j.results()[0] for j in jobs]
-    Plugins.instance().class_name_to_class['hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher'].launch = launch
+
+    Plugins.instance().class_name_to_class[
+        "hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher"
+    ].launch = launch
 
     my_app()

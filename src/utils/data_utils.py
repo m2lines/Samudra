@@ -547,26 +547,27 @@ class data_CNN_steps_Lateral(torch.utils.data.Dataset):
             data.append(self.output[k][idx].to(device=self.device))
 
         return tuple(data)
-    
+
+
 def get_vqvae_train_data(s, e, steps, inputs, extra_in):
     # inputs, extra_in and outputs are xarrays
-    
+
     print(len(inputs))
     print(inputs[0].shape)
     print(len(extra_in))
     print(extra_in[0].shape)
 
-    inputs = torch.stack([torch.tensor(data_input.to_numpy()) for data_input in inputs], dim=0)
-    inputs = rearrange(inputs, 'C N H W -> N C H W')
+    inputs = torch.stack(
+        [torch.tensor(data_input.to_numpy()) for data_input in inputs], dim=0
+    )
+    inputs = rearrange(inputs, "C N H W -> N C H W")
     print(inputs.shape)
 
     inputs = inputs.unfold(0, steps, steps)
     print(inputs.shape)
 
-    
     # extra_in = torch.stack([torch.tensor(data_input.to_numpy()) for data_input in extra_in], dim=0)
     # outputs = torch.stack([torch.tensor(data_input.to_numpy()) for data_input in outputs], dim=0)
-
 
     return None
 

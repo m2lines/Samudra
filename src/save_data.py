@@ -131,6 +131,7 @@ def main(args):
     torch.save(train_data, Path(args.data_dir) / "train_data_{0}.pt".format(str_video))
     torch.save(val_data, Path(args.data_dir) / "val_data_{0}.pt".format(str_video))
 
+
 ###
 # Running without workflow
 ###
@@ -138,12 +139,15 @@ import hydra
 from omegaconf import DictConfig
 import logging
 
+
 @hydra.main(config_path="../configs/exp", config_name="save_data_without_workflow")
 def run_without_workflow(args):
     num_gpus = torch.cuda.device_count()
-    logging.info(f"Process ID {os.getpid()} executing task {args.experiment} with {num_gpus} gpu(s).")
+    logging.info(
+        f"Process ID {os.getpid()} executing task {args.experiment} with {num_gpus} gpu(s)."
+    )
     main(args)
-    
+
 
 if __name__ == "__main__":
     run_without_workflow()

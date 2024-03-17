@@ -16,7 +16,13 @@ import numpy as np
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS
 from utils.train_utils import train_one_epoch, validate, loss_KE_pointwise
-from utils.dist_utils import set_seed, init_distributed_mode, get_world_size, get_rank, is_main_process
+from utils.dist_utils import (
+    set_seed,
+    init_distributed_mode,
+    get_world_size,
+    get_rank,
+    is_main_process,
+)
 from utils.data_utils import data_CNN_Lateral, data_CNN_steps_Lateral
 
 

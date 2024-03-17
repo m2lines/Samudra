@@ -239,23 +239,24 @@ def main(args):
     trainer.run()
 
 
-"""
-# WIP: Running without my workflow. Ideally, this should run with python3 train.py. (Comment the above main function to test.)
+###
+# Running without workflow
+###
+import hydra
+import logging
+
 
 @hydra.main(config_path="../configs/exp", config_name="train_without_workflow")
-def main(args):
-    OmegaConf.set_struct(args, False)
-    OmegaConf.register_new_resolver("prod", lambda *args: np.prod(args).item()) # product arguments
-    OmegaConf.register_new_resolver("replace_slash", lambda s: s.replace("/", ".")) # replaces slashes in str
-    OmegaConf.register_new_resolver("join_path", lambda *args: os.path.join(*args)) # joins paths
-    OmegaConf.register_new_resolver("join_overlays", lambda *args: ','.join(filter(None, args))) # joins overlays")
-    OmegaConf.register_new_resolver("limit_path_length", lambda s: s[:NAME_MAX]) # limits path length
+def run_without_workflow(args):
+    num_gpus = torch.cuda.device_count()
+    logging.info(
+        f"Process ID {os.getpid()} executing task {args.experiment} with {num_gpus} gpu(s)."
+    )
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir, exist_ok=True)
+    main(args)
 
-    args.name = "Test" # Expt name
-
-    trainer = Trainer(args)
-    trainer.run()
 
 if __name__ == "__main__":
-    main()
-"""
+    run_without_workflow()
+

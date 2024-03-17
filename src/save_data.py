@@ -97,46 +97,45 @@ def main(args):
     )
 
     # Generating Training dataset
-    data_in_train = []
-    data_out_train = []
-    for i in range(args.steps):
-        offset = 0 * args.interval
-        data_in_train.append(
-            gen_data_in(
-                i,
-                s_train + offset,
-                e_train,
-                args.interval,
-                args.lag,
-                args.hist,
-                inputs,
-                extra_in,
-            )
-        )
-        data_out_train.append(
-            gen_data_out(i, s_train + offset, e_train, args.lag, args.interval, outputs)
-        )
+    # data_in_train = []
+    # data_out_train = []
+    # for i in range(args.steps):
+    #     offset = 0 * args.interval
+    #     data_in_train.append(
+    #         gen_data_in(
+    #             i,
+    #             s_train + offset,
+    #             e_train,
+    #             args.interval,
+    #             args.lag,
+    #             args.hist,
+    #             inputs,
+    #             extra_in,
+    #         )
+    #     )
+    #     data_out_train.append(
+    #         gen_data_out(i, s_train + offset, e_train, args.lag, args.interval, outputs)
+    #     )
 
-    train_data = data_CNN_steps_Lateral(
-        data_in_train,
-        data_out_train,
-        args.steps,
-        wet,
-        N_atm,
-        args.Nb,
-        device=args.device,
-    )
+    # train_data = data_CNN_steps_Lateral(
+    #     data_in_train,
+    #     data_out_train,
+    #     args.steps,
+    #     wet,
+    #     N_atm,
+    #     args.Nb,
+    #     device=args.device,
+    # )
 
     # Saving datasets
-    torch.save(train_data, Path(args.data_dir) / "train_data_{0}.pt".format(str_video))
-    torch.save(val_data, Path(args.data_dir) / "val_data_{0}.pt".format(str_video))
+    # torch.save(train_data, Path(args.data_dir) / "train_data_{0}.pt".format(str_video))
+    # torch.save(val_data, Path(args.data_dir) / "val_data_{0}.pt".format(str_video))
 
 
 ###
 # Running without workflow
 ###
 import hydra
-from omegaconf import DictConfig
 import logging
 
 

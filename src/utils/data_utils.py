@@ -567,7 +567,7 @@ def get_oceanGPT_data(s, e, steps, inputs, extra_in, wet):
     extra_in = extra_in[:-num_input_vars]
     extra_in = torch.stack(
         [torch.tensor(data_input.to_numpy()) for data_input in extra_in], dim=0
-        )
+    )
     extra_in = rearrange(extra_in, "C N H W -> N C H W")
     extra_in = extra_in[s:e]
     extra_in = torch.nan_to_num(extra_in)

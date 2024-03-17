@@ -88,9 +88,15 @@ def main(args):
     # Generate Wet mask
     wet, _ = get_wet_mask(inputs, "cpu")
 
-    train_input_data, train_extra_data = get_oceanGPT_data(s_train, e_train, args.steps, inputs, extra_in, wet)
-    val_input_data, val_extra_data = get_oceanGPT_data(e_train, e_test, args.steps, inputs, extra_in, wet)
-    train_data = torch.concat([train_input_data.unsqueeze(0), train_extra_data.unsqueeze(0)])
+    train_input_data, train_extra_data = get_oceanGPT_data(
+        s_train, e_train, args.steps, inputs, extra_in, wet
+    )
+    val_input_data, val_extra_data = get_oceanGPT_data(
+        e_train, e_test, args.steps, inputs, extra_in, wet
+    )
+    train_data = torch.concat(
+        [train_input_data.unsqueeze(0), train_extra_data.unsqueeze(0)]
+    )
     val_data = torch.concat([val_input_data.unsqueeze(0), val_extra_data.unsqueeze(0)])
 
     train_data = train_data.type(torch.FloatTensor)
@@ -98,7 +104,10 @@ def main(args):
     print(train_data.shape)
     print(val_data.shape)
 
-
     # Saving datasets
-    torch.save(train_data, Path(args.data_dir) / 'train_OceanGPT_data_{0}.pt'.format(str_video))
-    torch.save(val_data, Path(args.data_dir) / 'val_OceanGPT_data_{0}.pt'.format(str_video))
+    torch.save(
+        train_data, Path(args.data_dir) / "train_OceanGPT_data_{0}.pt".format(str_video)
+    )
+    torch.save(
+        val_data, Path(args.data_dir) / "val_OceanGPT_data_{0}.pt".format(str_video)
+    )

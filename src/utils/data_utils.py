@@ -549,27 +549,33 @@ class data_CNN_steps_Lateral(torch.utils.data.Dataset):
         return tuple(data)
 
 
-def get_vqvae_train_data(s, e, steps, inputs, extra_in):
+def get_oceanGPT_data(s, e, steps, inputs, extra_in, wet):
     # inputs, extra_in and outputs are xarrays
-
-    print(len(inputs))
-    print(inputs[0].shape)
-    print(len(extra_in))
-    print(extra_in[0].shape)
+    num_input_vars = len(inputs)
 
     inputs = torch.stack(
         [torch.tensor(data_input.to_numpy()) for data_input in inputs], dim=0
     )
     inputs = rearrange(inputs, "C N H W -> N C H W")
-    print(inputs.shape)
-
+    inputs = inputs[s:e]
+    inputs = torch.nan_to_num(inputs)
+    inputs = torch.mul(inputs, wet)
     inputs = inputs.unfold(0, steps, steps)
-    print(inputs.shape)
+    inputs = rearrange(inputs, "N C H W T -> N C T H W")
 
-    # extra_in = torch.stack([torch.tensor(data_input.to_numpy()) for data_input in extra_in], dim=0)
-    # outputs = torch.stack([torch.tensor(data_input.to_numpy()) for data_input in outputs], dim=0)
+    # Do not use lateral boundary conditions here
+    extra_in = extra_in[:-num_input_vars]
+    extra_in = torch.stack(
+        [torch.tensor(data_input.to_numpy()) for data_input in extra_in], dim=0
+        )
+    extra_in = rearrange(extra_in, "C N H W -> N C H W")
+    extra_in = extra_in[s:e]
+    extra_in = torch.nan_to_num(extra_in)
+    extra_in = torch.mul(extra_in, wet)
+    extra_in = extra_in.unfold(0, steps, steps)
+    extra_in = rearrange(extra_in, "N C H W T -> N C T H W")
 
-    return None
+    return inputs, extra_in
 
 
 def gen_data_in(step, s, e, interval, lag, hist, inputs, extra_in):

@@ -5,7 +5,7 @@ compute:
   gpu: ALL
   nodes: ???
   gpus_per_node: ???
-  mem_per_task: 90
+  mem_per_task: 150
   cpus_per_task: 12
   timeout: ${prod:60,24,2}
 

@@ -13,7 +13,7 @@ from utils.data_utils import (
     gen_data_out,
     data_CNN_Lateral,
     data_CNN_steps_Lateral,
-    get_data_tensors,
+    get_oceanGPT_data,
 )
 from utils.dist_utils import set_seed
 
@@ -88,30 +88,17 @@ def main(args):
     # Generate Wet mask
     wet, _ = get_wet_mask(inputs, "cpu")
 
-    train_data = get_vqvae_train_data(s_train, e_train, args.steps, inputs, extra_in)
-    # val_data = get_data_tensors(e_train, e_test, args.interval, inputs, extra_in)
+    train_input_data, train_extra_data = get_oceanGPT_data(s_train, e_train, args.steps, inputs, extra_in, wet)
+    val_input_data, val_extra_data = get_oceanGPT_data(e_train, e_test, args.steps, inputs, extra_in, wet)
+    train_data = torch.concat([train_input_data.unsqueeze(0), train_extra_data.unsqueeze(0)])
+    val_data = torch.concat([val_input_data.unsqueeze(0), val_extra_data.unsqueeze(0)])
 
-    # # Generating Validation dataset
-    # data_in_val = gen_data_in(0,e_train,e_test,args.interval,args.lag,args.hist,inputs,extra_in)
-    # data_out_val = gen_data_out(0,e_train,e_test,args.lag,args.interval,outputs)
-    # val_data = data_CNN_Lateral(data_in_val,data_out_val,wet,N_atm,args.Nb,args.device)
+    train_data = train_data.type(torch.FloatTensor)
+    val_data = train_data.type(torch.FloatTensor)
+    print(train_data.shape)
+    print(val_data.shape)
 
-    # print(len(val_data))
 
-    # Generating Training dataset
-    # data_in_train = []
-    # data_out_train = []
-    # for i in range(args.steps):
-    #     offset = 0*args.interval
-    #     data_in_train.append(gen_data_in(i,s_train+offset,e_train,
-    #                                     args.interval,args.lag, args.hist,inputs,extra_in))
-    #     data_out_train.append(gen_data_out(i,s_train+offset,e_train,
-    #                                     args.lag,args.interval, outputs))
-
-    # train_data = data_CNN_steps_Lateral(data_in_train,data_out_train,
-    #                                     args.steps,wet,N_atm,args.Nb,device=args.device)
-
-    # print(len(train_data))
     # Saving datasets
-    # torch.save(train_data, Path(args.data_dir) / 'train_data_{0}.pt'.format(str_video))
-    # torch.save(val_data, Path(args.data_dir) / 'val_data_{0}.pt'.format(str_video))
+    torch.save(train_data, Path(args.data_dir) / 'train_OceanGPT_data_{0}.pt'.format(str_video))
+    torch.save(val_data, Path(args.data_dir) / 'val_OceanGPT_data_{0}.pt'.format(str_video))

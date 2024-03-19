@@ -164,7 +164,9 @@ class Trainer:
 
         # Scheduler
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, args.T)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, args.T)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            self.optimizer, args.T
+        )
         # self.scheduler = None
 
         # Training

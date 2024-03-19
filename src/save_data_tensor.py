@@ -9,10 +9,6 @@ from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
     gen_data_025_lateral,
-    gen_data_in,
-    gen_data_out,
-    data_CNN_Lateral,
-    data_CNN_steps_Lateral,
     get_oceanGPT_data,
 )
 from utils.dist_utils import set_seed

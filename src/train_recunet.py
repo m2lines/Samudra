@@ -95,7 +95,7 @@ class Trainer:
             + str(args.N_samples)
             + "_Lateral_Data_025_no_smooth"
         )
-        
+
         print("Getting model")
         # Model
         if args.network == "ViT":
@@ -116,9 +116,22 @@ class Trainer:
         elif args.network == "recunet":
             model = instantiate(args.recunet)
 
-            train_data = RecUnetDataset(args.train_data_path, args.steps, model.input_time_dim, model.presteps, model.output_channels, args.Nb)
-            val_data = RecUnetDataset(args.val_data_path, args.steps, model.input_time_dim, model.presteps, model.output_channels, args.Nb)
-            
+            train_data = RecUnetDataset(
+                args.train_data_path,
+                args.steps,
+                model.input_time_dim,
+                model.presteps,
+                model.output_channels,
+                args.Nb,
+            )
+            val_data = RecUnetDataset(
+                args.val_data_path,
+                args.steps,
+                model.input_time_dim,
+                model.presteps,
+                model.output_channels,
+                args.Nb,
+            )
 
         model = model.to(args.device)
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -129,7 +142,6 @@ class Trainer:
         self.device = args.device
 
         print("Loading data")
-        
 
         self.train_sampler = torch.utils.data.distributed.DistributedSampler(
             train_data, shuffle=True, seed=args.rand_seed
@@ -152,7 +164,6 @@ class Trainer:
             num_workers=args.num_workers,
             pin_memory=args.pin_mem,
         )
-
 
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
@@ -204,7 +215,7 @@ class Trainer:
                 self.optimizer,
                 self.scheduler,
                 self.device,
-                self.wandb
+                self.wandb,
             )
 
             val_stats = model.validate(self.test_loader, self.device, self.wandb)

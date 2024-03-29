@@ -10,7 +10,7 @@ from utils.data_utils import (
     get_train_test_ranges,
     gen_data_025_lateral,
     get_oceanGPT_data,
-    get_recunet_data
+    get_recunet_data,
 )
 from utils.dist_utils import set_seed
 
@@ -96,7 +96,9 @@ def main(args):
         train_data = torch.concat(
             [train_input_data.unsqueeze(0), train_extra_data.unsqueeze(0)]
         )
-        val_data = torch.concat([val_input_data.unsqueeze(0), val_extra_data.unsqueeze(0)])
+        val_data = torch.concat(
+            [val_input_data.unsqueeze(0), val_extra_data.unsqueeze(0)]
+        )
 
         train_data = train_data.type(torch.FloatTensor)
         val_data = val_data.type(torch.FloatTensor)
@@ -105,7 +107,8 @@ def main(args):
 
         # Saving datasets
         torch.save(
-            train_data, Path(args.data_dir) / "train_OceanGPT_data_{0}.pt".format(str_video)
+            train_data,
+            Path(args.data_dir) / "train_OceanGPT_data_{0}.pt".format(str_video),
         )
         torch.save(
             val_data, Path(args.data_dir) / "val_OceanGPT_data_{0}.pt".format(str_video)
@@ -113,12 +116,8 @@ def main(args):
 
     elif args.model == "recunet":
         print("Saving data for OceanGPT")
-        train_data = get_recunet_data(
-            s_train, e_train, inputs, extra_in, wet
-        )
-        val_data = get_recunet_data(
-            e_train, e_test, inputs, extra_in, wet
-        )
+        train_data = get_recunet_data(s_train, e_train, inputs, extra_in, wet)
+        val_data = get_recunet_data(e_train, e_test, inputs, extra_in, wet)
         train_data = train_data.type(torch.FloatTensor)
         val_data = val_data.type(torch.FloatTensor)
         print(train_data.shape)
@@ -128,6 +127,4 @@ def main(args):
         torch.save(
             train_data, Path(args.data_dir) / "train_data_{0}.pt".format(str_video)
         )
-        torch.save(
-            val_data, Path(args.data_dir) / "val_data_{0}.pt".format(str_video)
-        )
+        torch.save(val_data, Path(args.data_dir) / "val_data_{0}.pt".format(str_video))

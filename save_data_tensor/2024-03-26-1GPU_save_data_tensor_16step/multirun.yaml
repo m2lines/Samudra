@@ -1,0 +1,238 @@
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ${base_output_dir}/${sub_dir}/${hydra.job.name}
+    subdir: ${limit_path_length:${replace_slash:${hydra.job.override_dirname}}}
+  launcher:
+    submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+    timeout_min: ${compute.timeout}
+    cpus_per_task: ${compute.cpus_per_task}
+    gpus_per_node: null
+    tasks_per_node: ${compute.gpus_per_node}
+    mem_gb: ${prod:${compute.mem_per_task},${compute.gpus_per_node}}
+    nodes: ${compute.nodes}
+    name: ${hydra.job.name}
+    stderr_to_stdout: false
+    _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+    partition: null
+    qos: null
+    comment: null
+    constraint: null
+    exclude: ${compute.exclude}
+    gres: gpu:${compute.gpu}:${compute.gpus_per_node}
+    cpus_per_gpu: null
+    gpus_per_task: null
+    mem_per_gpu: null
+    mem_per_cpu: null
+    account: null
+    signal_delay_s: 120
+    max_num_timeout: 0
+    additional_parameters: {}
+    array_parallelism: 256
+    setup:
+    - cd ${hydra.sweep.dir}/.snapshot
+    - export DATA_OVERLAY=${data_overlay}
+    - export RESUBMIT_COUNT=${compute.resubmit}
+    - export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)-ib0
+    - export MASTER_PORT=$(for port in $(shuf -i 30000-65500 -n 20); do if [[ $(netstat
+      -tupln 2>&1 | grep $port | wc -l) -eq 0 ]] ; then echo $port; break; fi; done;)
+  sweeper:
+    _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
+    max_batch_size: null
+    params: null
+  help:
+    app_name: ${hydra.job.name}
+    header: '${hydra.help.app_name} is powered by Hydra.
+
+      '
+    footer: 'Powered by Hydra (https://hydra.cc)
+
+      Use --hydra-help to view Hydra specific help
+
+      '
+    template: '${hydra.help.header}
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (group=option)
+
+
+      $APP_CONFIG_GROUPS
+
+
+      == Config ==
+
+      Override anything in the config (foo.bar=value)
+
+
+      $CONFIG
+
+
+      ${hydra.help.footer}
+
+      '
+  hydra_help:
+    template: 'Hydra (${hydra.runtime.version})
+
+      See https://hydra.cc for more info.
+
+
+      == Flags ==
+
+      $FLAGS_HELP
+
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (For example, append hydra/job_logging=disabled
+      to command line)
+
+
+      $HYDRA_CONFIG_GROUPS
+
+
+      Use ''--cfg hydra'' to Show the Hydra config.
+
+      '
+    hydra_help: ???
+  hydra_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][HYDRA] %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+      - console
+    loggers:
+      logging_example:
+        level: DEBUG
+    disable_existing_loggers: false
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][%(name)s][%(levelname)s] - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra.runtime.output_dir}/${hydra.job.name}.log
+    root:
+      level: INFO
+      handlers:
+      - console
+      - file
+    disable_existing_loggers: false
+  env: {}
+  mode: MULTIRUN
+  searchpath: []
+  callbacks:
+    log_job_return_callback:
+      _target_: submitit_hydra.LogJobReturnCallback
+  output_subdir: .hydra
+  overrides:
+    hydra: []
+    task:
+    - compute/greene=1x1
+    - compute/greene/node=rtx8000_2hrs
+    - exp=save_data_tensor
+    - name=2024-03-26-1GPU_save_data_tensor_16step
+  job:
+    name: ${name}
+    chdir: null
+    override_dirname: ''
+    id: ???
+    num: ???
+    config_name: conf
+    env_set: {}
+    env_copy: []
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys:
+        - exp
+        - name
+        - compute/resubmit
+        - compute/greene
+        - compute/greene/node
+        - finetune
+        - output_dir
+  runtime:
+    version: 1.2.0
+    version_base: '1.2'
+    cwd: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator
+    config_sources:
+    - path: hydra.conf
+      schema: pkg
+      provider: hydra
+    - path: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs
+      schema: file
+      provider: main
+    - path: ''
+      schema: structured
+      provider: schema
+    output_dir: ???
+    choices:
+      exp: save_data_tensor
+      compute: slurm
+      compute/greene/node: rtx8000_2hrs
+      compute/greene: 1x1
+      hydra/env: default
+      hydra/callbacks: null
+      hydra/job_logging: default
+      hydra/hydra_logging: default
+      hydra/hydra_help: default
+      hydra/help: default
+      hydra/sweeper: basic
+      hydra/launcher: submitit_slurm
+      hydra/output: default
+  verbose: false
+base_output_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator
+experiment: save_data_tensor
+sub_dir: ${experiment}
+name: 2024-03-26-1GPU_save_data_tensor_16step
+experiment_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
+compute:
+  gpu: rtx8000
+  nodes: 1
+  gpus_per_node: 1
+  mem_per_task: 150
+  cpus_per_task: 12
+  timeout: 120
+  exclude: null
+  resubmit: 2
+sub_name: ${hydra:sweep.subdir}
+output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
+data_overlay: ''
+grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
+data_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'data'}
+rand_seed: 1
+device: cuda
+batch_size: 1
+exp_num_in: '3'
+exp_num_extra: '12'
+exp_num_out: '2'
+region: Gulf_Stream_Ext2
+N_samples: 3000
+N_val: 1300
+N_test: 500
+steps: 16
+interval: 1
+hist: 0
+lag: 1
+lam: 0.05
+Nb: 4
+factor: 10
+lateral: true

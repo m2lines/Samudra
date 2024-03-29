@@ -4,6 +4,7 @@ defaults:
 
 ### experiment args
 experiment: save_data_tensor
+model: oceangpt
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
 grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
@@ -17,8 +18,8 @@ exp_num_in: "3"
 exp_num_extra: "12"
 exp_num_out: "2"
 region: "Gulf_Stream_Ext2"
-N_samples: 4000 #4000
-N_val: 300 #300
+N_samples: 4000
+N_val: 304
 N_test: 500 #500
 steps: 16
 interval: 1

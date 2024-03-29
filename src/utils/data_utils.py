@@ -579,6 +579,7 @@ def get_oceanGPT_data(s, e, steps, inputs, extra_in, wet):
 
     return inputs, extra_in
 
+
 def get_recunet_data(s, e, inputs, extra_in, wet):
     # Returns data of shape - N, C, H, W
     # inputs, extra_in and outputs are xarrays
@@ -602,13 +603,22 @@ def get_recunet_data(s, e, inputs, extra_in, wet):
 
 class RecUnetDataset(torch.utils.data.Dataset):
     # N C H W
-    def __init__(self, data_path, steps, input_time_dim, presteps, output_channels, Nb, device="cuda"):
+    def __init__(
+        self,
+        data_path,
+        steps,
+        input_time_dim,
+        presteps,
+        output_channels,
+        Nb,
+        device="cuda",
+    ):
         super().__init__()
         self.data_path = data_path
         self.input = torch.load(data_path, map_location=torch.device("cpu"))
-        self.input_steps = steps + presteps*input_time_dim
+        self.input_steps = steps + presteps * input_time_dim
         self.output_steps = steps
-        self.output_offset = (1+presteps)*input_time_dim
+        self.output_offset = (1 + presteps) * input_time_dim
 
         self.Nb = Nb
         self.output_channels = output_channels
@@ -619,16 +629,20 @@ class RecUnetDataset(torch.utils.data.Dataset):
 
     def preprocess(self):
         N, C, H, W = self.input.shape
-        inputs = rearrange(self.input, 'N C H W -> N H W C')
+        inputs = rearrange(self.input, "N C H W -> N H W C")
         std_data = torch.std(inputs, dim=[0, 1, 2])
         mean_data = torch.mean(inputs, dim=[0, 1, 2])
 
-        assert (std_data[-self.output_channels:] == std_data[:self.output_channels]).all()
-        assert (mean_data[-self.output_channels:] == mean_data[:self.output_channels]).all()
+        assert (
+            std_data[-self.output_channels :] == std_data[: self.output_channels]
+        ).all()
+        assert (
+            mean_data[-self.output_channels :] == mean_data[: self.output_channels]
+        ).all()
 
         inputs = (inputs - mean_data) / (std_data + 1e-7)
 
-        inputs[:, self.Nb:-self.Nb, self.Nb:-self.Nb, -self.output_channels:] = 0.0
+        inputs[:, self.Nb : -self.Nb, self.Nb : -self.Nb, -self.output_channels :] = 0.0
 
         std_dict = {
             "s_in": std_data,
@@ -636,15 +650,18 @@ class RecUnetDataset(torch.utils.data.Dataset):
         }
 
         self.norm_vals = std_dict
-        self.input = rearrange(inputs, 'N H W C -> N C H W')
+        self.input = rearrange(inputs, "N H W C -> N C H W")
 
     def __len__(self):
-        return len(self.input) - (self.output_steps+self.output_offset)
+        return len(self.input) - (self.output_steps + self.output_offset)
 
     def __getitem__(self, idx):
         # print(f"Input indices- {idx}:{idx+self.input_steps}\nTarget indices- {idx+self.output_offset}:{idx+self.output_offset+self.output_steps}")
-        inputs = self.input[idx:idx+self.input_steps]
-        targets = self.input[idx+self.output_offset:idx+self.output_offset+self.output_steps, :self.output_channels]
+        inputs = self.input[idx : idx + self.input_steps]
+        targets = self.input[
+            idx + self.output_offset : idx + self.output_offset + self.output_steps,
+            : self.output_channels,
+        ]
         assert inputs.shape[0] != 0
         assert targets.shape[0] != 0
         return inputs, targets

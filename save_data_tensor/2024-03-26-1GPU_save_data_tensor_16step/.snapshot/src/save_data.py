@@ -9,8 +9,10 @@ from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
     gen_data_025_lateral,
-    get_oceanGPT_data,
-    get_recunet_data
+    gen_data_in,
+    gen_data_out,
+    data_CNN_Lateral,
+    data_CNN_steps_Lateral,
 )
 from utils.dist_utils import set_seed
 
@@ -72,7 +74,7 @@ def main(args):
     )
 
     # Generate inputs, extra inputs and outputs
-    inputs, extra_in, _ = gen_data_025_lateral(
+    inputs, extra_in, outputs = gen_data_025_lateral(
         inputs,
         extra_in,
         outputs,
@@ -85,49 +87,66 @@ def main(args):
     # Generate Wet mask
     wet, _ = get_wet_mask(inputs, "cpu")
 
-    if args.model == "oceangpt":
-        print("Saving data for OceanGPT")
-        train_input_data, train_extra_data = get_oceanGPT_data(
-            s_train, e_train, args.steps, inputs, extra_in, wet
-        )
-        val_input_data, val_extra_data = get_oceanGPT_data(
-            e_train, e_test, args.steps, inputs, extra_in, wet
-        )
-        train_data = torch.concat(
-            [train_input_data.unsqueeze(0), train_extra_data.unsqueeze(0)]
-        )
-        val_data = torch.concat([val_input_data.unsqueeze(0), val_extra_data.unsqueeze(0)])
+    # Generating Validation dataset
+    data_in_val = gen_data_in(
+        0, e_train, e_test, args.interval, args.lag, args.hist, inputs, extra_in
+    )
+    data_out_val = gen_data_out(0, e_train, e_test, args.lag, args.interval, outputs)
+    val_data = data_CNN_Lateral(
+        data_in_val, data_out_val, wet, N_atm, args.Nb, args.device
+    )
 
-        train_data = train_data.type(torch.FloatTensor)
-        val_data = val_data.type(torch.FloatTensor)
-        print(train_data.shape)
-        print(val_data.shape)
+    # Generating Training dataset
+    # data_in_train = []
+    # data_out_train = []
+    # for i in range(args.steps):
+    #     offset = 0 * args.interval
+    #     data_in_train.append(
+    #         gen_data_in(
+    #             i,
+    #             s_train + offset,
+    #             e_train,
+    #             args.interval,
+    #             args.lag,
+    #             args.hist,
+    #             inputs,
+    #             extra_in,
+    #         )
+    #     )
+    #     data_out_train.append(
+    #         gen_data_out(i, s_train + offset, e_train, args.lag, args.interval, outputs)
+    #     )
 
-        # Saving datasets
-        torch.save(
-            train_data, Path(args.data_dir) / "train_OceanGPT_data_{0}.pt".format(str_video)
-        )
-        torch.save(
-            val_data, Path(args.data_dir) / "val_OceanGPT_data_{0}.pt".format(str_video)
-        )
+    # train_data = data_CNN_steps_Lateral(
+    #     data_in_train,
+    #     data_out_train,
+    #     args.steps,
+    #     wet,
+    #     N_atm,
+    #     args.Nb,
+    #     device=args.device,
+    # )
 
-    elif args.model == "recunet":
-        print("Saving data for OceanGPT")
-        train_data = get_recunet_data(
-            s_train, e_train, inputs, extra_in, wet
-        )
-        val_data = get_recunet_data(
-            e_train, e_test, inputs, extra_in, wet
-        )
-        train_data = train_data.type(torch.FloatTensor)
-        val_data = val_data.type(torch.FloatTensor)
-        print(train_data.shape)
-        print(val_data.shape)
+    # Saving datasets
+    # torch.save(train_data, Path(args.data_dir) / "train_data_{0}.pt".format(str_video))
+    # torch.save(val_data, Path(args.data_dir) / "val_data_{0}.pt".format(str_video))
 
-        # Saving datasets
-        torch.save(
-            train_data, Path(args.data_dir) / "train_data_{0}.pt".format(str_video)
-        )
-        torch.save(
-            val_data, Path(args.data_dir) / "val_data_{0}.pt".format(str_video)
-        )
+
+###
+# Running without workflow
+###
+import hydra
+import logging
+
+
+@hydra.main(config_path="../configs/exp", config_name="save_data_without_workflow")
+def run_without_workflow(args):
+    num_gpus = torch.cuda.device_count()
+    logging.info(
+        f"Process ID {os.getpid()} executing task {args.experiment} with {num_gpus} gpu(s)."
+    )
+    main(args)
+
+
+if __name__ == "__main__":
+    run_without_workflow()

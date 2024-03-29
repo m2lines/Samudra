@@ -1,0 +1,60 @@
+# @package _global_
+defaults:
+  - _self_
+  - recunet: default
+
+wandb:
+  mode: disabled # online, disabled
+  project: ocean_emu
+  entity: suryadheeshjith
+  group: null
+  tags: null
+  notes: null
+
+### experiment args
+experiment: train
+output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
+data_overlay: ''
+grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
+train_data_path: # fill
+val_data_path: # fill
+nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
+rand_seed: 1
+
+device: "cuda"
+distributed: True
+num_workers: 0 # Keep 0
+pin_mem: False # Keep false
+save_freq: 10
+epochs: 100
+batch_size: 6
+
+# Optimizer
+lr: 2e-4
+T: 10 # CosineA / CosineAWarm param
+
+# Parameters
+exp_num_in: "3"
+exp_num_extra: "12"
+exp_num_out: "2"
+region: "Gulf_Stream_Ext"
+network: "recunet"
+N_samples: 4000 #4000
+N_val: 300 #300
+N_test: 500 #500
+steps: 8 # 8
+interval: 1
+hist: 0
+lag: 1
+lam: 0.05
+Nb: 4
+factor: 10
+lateral: true
+
+### Do not touch these
+# distributed args
+dist_url: null
+world_size: null
+rank: null
+gpu: null
+dist_backend: null

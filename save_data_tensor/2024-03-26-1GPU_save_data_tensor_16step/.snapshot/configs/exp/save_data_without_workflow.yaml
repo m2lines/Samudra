@@ -1,0 +1,29 @@
+# @package _global_
+defaults:
+  - _self_
+
+### experiment args
+experiment: save_data
+data_overlay: ''
+grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
+data_dir: data
+rand_seed: 1
+device: "cuda"
+batch_size: 6
+
+# Parameters
+exp_num_in: "3"
+exp_num_extra: "12"
+exp_num_out: "2"
+region: "Gulf_Stream_Ext"
+N_samples: 4000 #4000
+N_val: 300 #300
+N_test: 500 #500
+steps: 1
+interval: 1
+hist: 0
+lag: 1
+lam: 0.05
+Nb: 4
+factor: 10
+lateral: true

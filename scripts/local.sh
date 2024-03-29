@@ -10,7 +10,7 @@ comp="compute=local"
 # ./.python-greene submitit_hydra.py $comp exp=save_data name="$(date +%F)-save_data_test"
 
 # local save data tensor
-./.python-greene submitit_hydra.py $comp exp=save_data_tensor name="$(date +%F)-1GPU_save_data_tensor_16step"
+./.python-greene submitit_hydra.py $comp exp=save_data_tensor_oceangpt name="$(date +%F)-test_save_data_tensor_16step"
 
 # local train
 # ./.python-greene submitit_hydra.py $comp exp=train name="$(date +%F)-train_1step"

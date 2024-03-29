@@ -556,7 +556,6 @@ def get_oceanGPT_data(s, e, steps, inputs, extra_in, wet):
     inputs = torch.stack(
         [torch.tensor(data_input.to_numpy()) for data_input in inputs], dim=0
     )
-    C, N, H, W = inputs.shape
     inputs = rearrange(inputs, "C N H W -> N C H W")
     inputs = inputs[s:e]
     inputs = torch.nan_to_num(inputs)
@@ -569,7 +568,6 @@ def get_oceanGPT_data(s, e, steps, inputs, extra_in, wet):
     extra_in = torch.stack(
         [torch.tensor(data_input.to_numpy()) for data_input in extra_in], dim=0
     )
-    C, N, H, W = extra_in.shape
     extra_in = rearrange(extra_in, "C N H W -> N C H W")
     extra_in = extra_in[s:e]
     extra_in = torch.nan_to_num(extra_in)
@@ -578,76 +576,6 @@ def get_oceanGPT_data(s, e, steps, inputs, extra_in, wet):
     extra_in = rearrange(extra_in, "N T C H W -> N C T H W")
 
     return inputs, extra_in
-
-def get_recunet_data(s, e, inputs, extra_in, wet):
-    # Returns data of shape - N, C, H, W
-    # inputs, extra_in and outputs are xarrays
-    num_input_vars = len(inputs)
-
-    inputs = torch.stack(
-        [torch.tensor(data_input.to_numpy()) for data_input in inputs], dim=0
-    )
-    extra_in = torch.stack(
-        [torch.tensor(data_input.to_numpy()) for data_input in extra_in], dim=0
-    )
-    inputs = torch.cat([inputs, extra_in], dim=0)
-    C, N, H, W = inputs.shape
-    inputs = rearrange(inputs, "C N H W -> N C H W")
-    inputs = inputs[s:e]
-    inputs = torch.nan_to_num(inputs)
-    inputs = torch.mul(inputs, wet)
-
-    return data
-
-
-class RecUnetDataset(torch.utils.data.Dataset):
-    # N C H W
-    def __init__(self, data_path, steps, input_time_dim, presteps, output_channels, Nb, device="cuda"):
-        super().__init__()
-        self.data_path = data_path
-        self.input = torch.load(data_path, map_location=torch.device("cpu"))
-        self.input_steps = steps + presteps*input_time_dim
-        self.output_steps = steps
-        self.output_offset = (1+presteps)*input_time_dim
-
-        self.Nb = Nb
-        self.output_channels = output_channels
-        self.presteps = presteps
-        self.time_dim = input_time_dim
-        self.device = device
-        self.preprocess()
-
-    def preprocess(self):
-        N, C, H, W = self.input.shape
-        inputs = rearrange(self.input, 'N C H W -> N H W C')
-        std_data = torch.std(inputs, dim=[0, 1, 2])
-        mean_data = torch.mean(inputs, dim=[0, 1, 2])
-
-        assert (std_data[-self.output_channels:] == std_data[:self.output_channels]).all()
-        assert (mean_data[-self.output_channels:] == mean_data[:self.output_channels]).all()
-
-        inputs = (inputs - mean_data) / (std_data + 1e-7)
-
-        inputs[:, self.Nb:-self.Nb, self.Nb:-self.Nb, -self.output_channels:] = 0.0
-
-        std_dict = {
-            "s_in": std_data,
-            "m_in": mean_data,
-        }
-
-        self.norm_vals = std_dict
-        self.input = rearrange(inputs, 'N H W C -> N C H W')
-
-    def __len__(self):
-        return len(self.input) - (self.output_steps+self.output_offset)
-
-    def __getitem__(self, idx):
-        # print(f"Input indices- {idx}:{idx+self.input_steps}\nTarget indices- {idx+self.output_offset}:{idx+self.output_offset+self.output_steps}")
-        inputs = self.input[idx:idx+self.input_steps]
-        targets = self.input[idx+self.output_offset:idx+self.output_offset+self.output_steps, :self.output_channels]
-        assert inputs.shape[0] != 0
-        assert targets.shape[0] != 0
-        return inputs, targets
 
 
 def gen_data_in(step, s, e, interval, lag, hist, inputs, extra_in):

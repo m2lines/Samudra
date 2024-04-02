@@ -385,7 +385,6 @@ def train_one_epoch(
 # ):
 #     assert hist == 0
 #     model.train(True)
-#     torch.autograd.set_detect_anomaly(True)
 #     metric_logger = MetricLogger(delimiter="  ")
 #     metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
 #     header = "Epoch: [{}]".format(epoch)

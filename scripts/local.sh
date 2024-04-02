@@ -7,13 +7,9 @@ comp="compute=local"
 # GO BOTTOM TO TOP
 
 # local save data
-# ./.python-greene submitit_hydra.py $comp exp=save_data name="$(date +%F)-save_data_test"
+# ./.python-greene submitit_hydra.py $comp exp=save_data name="$(date +%F)-save_data_gulfext3"
 
 # local save data tensor
-./.python-greene submitit_hydra.py $comp exp=save_data_tensor_oceangpt name="$(date +%F)-test_save_data_tensor_16step"
+# ./.python-greene submitit_hydra.py $comp exp=save_data_tensor_oceangpt name="$(date +%F)-test_save_data_tensor_16step"
 
-# local train
-# ./.python-greene submitit_hydra.py $comp exp=train name="$(date +%F)-train_1step"
-
-# local eval
-# ./.python-greene submitit_hydra.py $comp exp=eval name="$(date +%F)-eval_test"
+./.python-greene submitit_hydra.py $comp exp=save_data_tensor_recunet name="$(date +%F)-save_data_tensor_recunet_Gulfext_with_wet"

@@ -14,3 +14,4 @@ save_data
 outputs
 job_*
 save_data_tensor
+train_recunet

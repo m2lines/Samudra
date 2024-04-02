@@ -9,14 +9,12 @@ import matplotlib.pyplot as plt
 from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
-    gen_data_025_lateral,
-    gen_data_in_test,
-    gen_data_out_test,
-    data_CNN_Lateral,
+    get_recunet_data,
+    RecUnetEvalDataset,
+    gen_data_025_lateral
 )
 from utils.eval_utils import (
-    recur_pred_lateral,
-    recur_pred_lateral_norecunet,
+    generate_recunet_rollout,
     compute_mean,
     compute_var,
     compute_corrs_area,
@@ -126,6 +124,23 @@ class Eval:
             + str(args.N_samples)
         )
 
+        print("Loading model")
+        # Model
+        if args.network == "recunet":
+            model = instantiate(args.recunet)
+            full_model_path = args.recunet_ckpt_path
+            self.full_model_name = args.network + "_" + self.post_model_name
+            self.input_time_dim = model.input_time_dim
+            self.presteps = model.presteps 
+            self.output_channels = model.output_channels
+
+        model = model.to(args.device)        
+        model.load_state_dict(
+            torch.load(full_model_path, map_location=torch.device(args.device))
+        )
+
+        self.model = model
+
         # Getting start and end indices of train and test
         s_train, e_train, e_test = get_train_test_ranges(
             args.N_samples, args.N_val, args.lag, args.hist, args.interval
@@ -162,41 +177,25 @@ class Eval:
 
         if args.save_test_data:
             print("Saving data")
-            data_in_test = gen_data_in_test(
-                0, e_test, args.N_test, args.lag, args.hist, inputs, extra_in
+            test_data = get_recunet_data(
+                e_test, -1, inputs, extra_in
             )
-            data_out_test = gen_data_out_test(
-                0, e_test, args.N_test, args.lag, args.hist, outputs
-            )
-            self.test_data = data_CNN_Lateral(
-                data_in_test,
-                data_out_test,
-                self.wet.to(device="cpu"),
-                self.N_atm,
-                args.Nb,
-                device=args.device,
-            )
+            self.test_data = test_data.type(torch.FloatTensor)
             torch.save(
                 self.test_data,
-                Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save),
+                Path(args.data_dir) / "test_data_{0}.pt".format(self.str_save),
             )
 
         else:
             print("Loading test data")
             self.test_data = torch.load(
-                Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save)
+                Path(args.data_dir) / "test_data_{0}.pt".format(self.str_save)
             )
         
-        # from utils.data_utils import RecUnetEvalDataset
-        # recdata = RecUnetEvalDataset('/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data/test_data_steps_8_Gulf_Stream_Ext2_in_um_vm_Tm_ext_tau_u_tau_v_t_ref_N_samples_4000.pt', 8, 2, 1, 3, 4)
-        # import pdb; pdb.set_trace()
+        self.test_data = RecUnetEvalDataset(Path(args.data_dir) / "test_data_{0}.pt".format(self.str_save), args.steps, self.input_time_dim, self.presteps, self.output_channels, args.Nb, args.wet_path)
+        self.model.set_input_size([*self.test_data[0][0].shape[2:]])
 
-        # Stats
-        self.mean_out = self.test_data.norm_vals["m_out"]
-        self.std_out = self.test_data.norm_vals["s_out"]
-        self.mean_in = self.test_data.norm_vals["m_in"]
-        self.std_in = self.test_data.norm_vals["s_in"]
-
+        # clim
         self.clim = None
         if args.run_short_pred or args.run_plot_metrics:
             print("Saving clim")
@@ -223,73 +222,34 @@ class Eval:
         self.dx = self.grids["dxu"].to_numpy()
         self.dy = self.grids["dyu"].to_numpy()
 
-        # Model
-        if args.network == "ViT":
-            model = instantiate(
-                args.vit,
-                in_channels=self.num_in,
-                output_channels=self.N_in,
-                img_size=[*self.test_data[0][0].shape[1:]],
-            )
-        elif args.network == "norecunet":
-            model = instantiate(
-                args.norecunet
-            )
-
-        model = model.to(args.device)
-        self.full_model_name = args.short_model_name + self.post_model_name
-        full_model_path = Path(args.nets_dir) / (
-            args.short_model_name + self.post_model_name + ".pt"
-        )
-        model.load_state_dict(
-            torch.load(full_model_path, map_location=torch.device(args.device))
-        )
-
-        self.model = model
-
         # Pred model path dir
         self.pred_model_path = Path(args.path_dir) / self.full_model_name
         if not os.path.isdir(self.pred_model_path):
             os.makedirs(self.pred_model_path)
-
+        
         self.Nb = args.Nb
         self.hist = args.hist
         self.lag = args.lag
         self.N_test = args.N_test
         self.output_dir = args.output_dir
         self.region = args.region
-        self.unet_path = args.unet_path
+        self.use_unet = args.use_unet
+        self.unet_region = args.unet_region
+        self.unet_path = Path(args.unet_path)
         self.steps = args.steps
         self.network = args.network
         self.only_unet = args.only_unet
-        self.use_unet = args.use_unet
-        self.unet_region = args.unet_region
 
     def generate_pred_lateral(self):
         print("Generation Pred begin...")
         for ns in [4000]:
             for rand_ind in range(1, 4):
                 print(ns, rand_ind)
-                if self.network == "ViT":
-                    model_pred = recur_pred_lateral(
-                        self.N_test,
-                        self.test_data,
-                        self.model,
-                        self.hist,
-                        self.N_in,
-                        self.N_extra,
-                        self.Nb,
+                if self.network == "recunet":
+                    model_pred = generate_recunet_rollout(
+                        self.N_test, self.test_data, self.model, self.Nb, self.N_in
                     )
-                elif self.network == "norecunet":
-                    model_pred = recur_pred_lateral_norecunet(
-                        self.N_test,
-                        self.test_data,
-                        self.model,
-                        self.hist,
-                        self.N_in,
-                        self.N_extra,
-                        self.Nb,
-                    )
+                    
                 print("data_gen")
                 da = xr.DataArray(
                     data=model_pred,
@@ -307,6 +267,8 @@ class Eval:
                     ),
                     mode="w",
                 )
+                print(f"Model pred shape {model_pred.shape}")
+                del model_pred
 
     def generate_short_pred_lateral(self):
         print("Generation Short Pred begin...")
@@ -315,38 +277,20 @@ class Eval:
 
         for ns in [4000]:
             for rand_ind in range(1, 4):
-                data_shape = self.test_data[0][1].shape
+                N, C, H, W = self.test_data.input.shape
                 model_pred = np.zeros(
-                    (int(N_run * len_run), data_shape[1], data_shape[2], data_shape[0])
+                    (int(N_run * len_run), H, W, self.N_in)
                 )
 
                 for i in range(N_run):
                     print(ns, rand_ind)
                     temp = copy.deepcopy(self.test_data)
-                    temp.input = temp.input[int(i * len_run) : int((i + 1) * len_run)]
-                    temp.output = temp.output[int(i * len_run) : int((i + 1) * len_run)]
-                    temp.size = len_run
+                    temp.set_input(i*len_run, len_run)
 
-                    if self.network == "ViT":
-                        model_pred_temp = recur_pred_lateral(
-                            len_run,
-                            temp,
-                            self.model,
-                            self.hist,
-                            self.N_in,
-                            self.N_extra,
-                            self.Nb,
-                            )
-                    elif self.network == "norecunet":
-                        model_pred_temp = recur_pred_lateral_norecunet(
-                            len_run,
-                            temp,
-                            self.model,
-                            self.hist,
-                            self.N_in,
-                            self.N_extra,
-                            self.Nb,
-                            )
+                    if self.network == "recunet":
+                        model_pred_temp = generate_recunet_rollout(
+                            len_run, temp, self.model, self.Nb, self.N_in
+                        )
                     print("data_gen")
                     model_pred[int(i * len_run) : int((i + 1) * len_run)] = (
                         model_pred_temp
@@ -368,6 +312,7 @@ class Eval:
                     ),
                     mode="w",
                 )
+                print(f"Model pred shape {model_pred.shape}")
 
     ### Need to Refactor the following functions
     def compare_pred_lateral(self):
@@ -936,13 +881,13 @@ class Eval:
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")
         u_test = np.array(
-            self.test_data[:][1][:, 0] * self.std_out[0] + self.mean_out[0]
+            self.test_data[:][1][:, 0] * self.std[0] + self.mean[0]
         )
         v_test = np.array(
-            self.test_data[:][1][:, 1] * self.std_out[1] + self.mean_out[1]
+            self.test_data[:][1][:, 1] * self.std[1] + self.mean[1]
         )
         T_test = np.array(
-            self.test_data[:][1][:, 2] * self.std_out[2] + self.mean_out[2]
+            self.test_data[:][1][:, 2] * self.std[2] + self.mean[2]
         )
 
         # Corr
@@ -956,8 +901,8 @@ class Eval:
                 model_pred_net[:, :, :, 2],
                 self.area,
                 self.wet_bool,
-                self.std_out[2],
-                self.mean_out[2],
+                self.std[2],
+                self.mean[2],
             )
         corr_T_unet = None
         if self.use_unet:
@@ -967,8 +912,8 @@ class Eval:
                 model_pred_unet[:, :, :, 2],
                 self.area,
                 self.wet_bool,
-                self.std_out[2],
-                self.mean_out[2],
+                self.std[2],
+                self.mean[2],
             )
 
         # RMSE
@@ -1043,8 +988,6 @@ class Eval:
             ACC_T_net,
         )
 
-
-    # Cant plot this without the right overlay
     def plot_animation(self):
         def compute_rmse_snapshot(test_data, model_pred, area, wet, mean, std, index):
             area_flat = np.array(area[wet].flatten())
@@ -1154,8 +1097,8 @@ class Eval:
             model_pred_unet = None
             if self.use_unet:
                 model_pred_unet = get_stats(
-                    Path(self.unet_path),
-                    self.region,
+                    self.unet_path,
+                    self.unet_region,
                     self.str_in,
                     self.str_ext,
                     self.test_data,
@@ -1168,15 +1111,15 @@ class Eval:
                 # torch.save(model_pred_unet, f'model_pred_{ind_plot}.pt')
             
             var_list = {"1": r"v", "0": r"u", "2": r"T"}
-            fig, plt0, plt1, plt2, a = get_initial_snapshot_fig(self.network, N_plot, self.region, self.grids, self.test_data, self.wet_nan, model_pred_net, model_pred_unet, self.mean_out, self.std_out, ind_plot, self.Nb, self.use_unet, self.only_unet)
+            fig, plt0, plt1, plt2, a = get_initial_snapshot_fig(self.network, N_plot, self.region, self.grids, self.test_data, self.wet_nan, model_pred_net, model_pred_unet, self.mean, self.std, ind_plot, self.Nb, self.use_unet, self.only_unet)
             plt.savefig(Path(self.output_dir) / 'initial_snapshot.png')
             def update_snapshot(i):
                 plt0.set_array(
                     (
                         self.test_data[i][1][ind_plot, self.Nb:-self.Nb, self.Nb:-self.Nb].cpu()
                         * self.wet_nan[self.Nb:-self.Nb, self.Nb:-self.Nb]
-                        * self.std_out[ind_plot]
-                        + self.mean_out[ind_plot]
+                        * self.std[ind_plot]
+                        + self.mean[ind_plot]
                     ).flatten()
                 )
                 if plt1 is not None:
@@ -1210,9 +1153,11 @@ class Eval:
                 + ".gif")
             )
 
-
-    def send_data_to_cpu(self):
-        self.test_data.set_device(device="cpu")
+    def prepare_data_eval(self):
+        self.test_data.set_device_and_convert_returns(self.N_test, device="cpu")
+        # Stats
+        self.mean = self.test_data.norm_vals['m_out']
+        self.std = self.test_data.norm_vals['s_out']
 
 
 def main(args):
@@ -1228,8 +1173,8 @@ def main(args):
     else:
         print("Skipping short pred generation")
 
-    # Sending the data back to cpu
-    e.send_data_to_cpu()
+    # Sending the data back to cpu and converting dims
+    e.prepare_data_eval()
 
     if args.run_full_pred:
         e.compare_pred_lateral()

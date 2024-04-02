@@ -17,7 +17,7 @@ batch_size: 1
 exp_num_in: "3"
 exp_num_extra: "12"
 exp_num_out: "2"
-region: "Gulf_Stream_Ext2"
+region: "Gulf_Stream_Ext"
 N_samples: 4000
 N_val: 300
 N_test: 500 #500

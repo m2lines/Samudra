@@ -5,6 +5,12 @@ import torch.nn.functional as F
 from typing import Sequence
 from utils.train_utils import SmoothedValue, MetricLogger
 
+from utils.dist_utils import all_reduce_mean
+import wandb
+from torch.cuda import amp
+from torchvision.transforms import Resize
+import copy
+
 class CappedGELU(torch.nn.Module):
     """
     Implements a ReLU with capped maximum value.
@@ -321,6 +327,252 @@ class UNetDecoder(torch.nn.Module):
             layer["recurrent"].reset()
 
 
+class NoRecUNetSimple(torch.nn.Module):
+    def __init__(
+            self,
+            input_time_dim: int,
+            output_time_dim: int,
+            input_channels: int=9,
+            output_channels: int=3,
+    ):
+        super().__init__()
+        self.input_channels = input_channels
+        self.output_channels = output_channels
+        self.input_time_dim = input_time_dim
+        self.output_time_dim = output_time_dim
+        self.time_dim = 1
+
+        assert input_time_dim == 1
+
+
+        # Number of passes through the model, or a diagnostic model with only one output time
+        self.is_diagnostic = self.output_time_dim == 1 and self.input_time_dim > 1
+        if not self.is_diagnostic and (self.output_time_dim % self.input_time_dim != 0):
+            raise ValueError(f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
+                             f"{self.output_time_dim} and {self.input_time_dim})")
+
+        # Build the model layers
+        self.encoder = UNetEncoder(input_channels=self._compute_input_channels())
+        self.encoder_depth = len(self.encoder.n_channels)
+        self.decoder = UNetDecoder(output_channels=self._compute_output_channels(), use_rec=False)
+
+    @property
+    def integration_steps(self):
+        return max(self.output_time_dim // self.input_time_dim, 1)
+
+    def _compute_input_channels(self) -> int:
+        return self.input_time_dim * self.input_channels
+
+    def _compute_output_channels(self) -> int:
+        return (1 if self.is_diagnostic else self.input_time_dim) * self.output_channels
+
+    def forward(self, x) -> torch.Tensor:
+        return x[:, :self.output_channels] + self.decoder(self.encoder(x))
+        # return self.decoder(self.encoder(x))
+
+
+class NoRecUNetEff(torch.nn.Module):
+    def __init__(
+            self,
+            input_time_dim: int,
+            output_time_dim: int,
+            input_channels: int=9,
+            output_channels: int=3,
+    ):
+        super().__init__()
+        self.input_channels = input_channels
+        self.output_channels = output_channels
+        self.input_time_dim = input_time_dim
+        self.output_time_dim = output_time_dim
+        self.channel_dim = 1
+
+        assert input_time_dim == 1
+
+
+        # Number of passes through the model, or a diagnostic model with only one output time
+        self.is_diagnostic = self.output_time_dim == 1 and self.input_time_dim > 1
+        if not self.is_diagnostic and (self.output_time_dim % self.input_time_dim != 0):
+            raise ValueError(f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
+                             f"{self.output_time_dim} and {self.input_time_dim})")
+
+        # Build the model layers
+        self.encoder = UNetEncoder(input_channels=self._compute_input_channels())
+        self.encoder_depth = len(self.encoder.n_channels)
+        self.decoder = UNetDecoder(output_channels=self._compute_output_channels(), use_rec=False)
+
+    @property
+    def integration_steps(self):
+        return max(self.output_time_dim // self.input_time_dim, 1)
+
+    def _compute_input_channels(self) -> int:
+        return self.input_time_dim * self.input_channels
+
+    def _compute_output_channels(self) -> int:
+        return (1 if self.is_diagnostic else self.input_time_dim) * self.output_channels
+
+    def forward(self, inputs: Sequence, resize_fn, final_img_size, output_only_last=False, loss_fn=None) -> torch.Tensor:
+
+        outputs = []
+        loss = None
+        N, C, H, W = inputs[0].shape
+
+        for step in range(len(inputs) // 2 ):
+            if step == 0:
+                input_tensor = resize_fn(inputs[0])
+            else:
+                inputs_0 = outputs[-1]
+                input_tensor = torch.cat([inputs_0, resize_fn(inputs[2*step][:, self.output_channels:])], dim=1)
+            
+            encodings = self.encoder(input_tensor)
+            decodings = self.decoder(encodings)
+            #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
+            reshaped = input_tensor[:, :self.output_channels] + decodings  # Residual prediction
+            reshaped = reshaped[:, :, :final_img_size[0], :final_img_size[1]]
+            
+            if loss_fn is not None:
+                if loss is None:
+                    loss = loss_fn(reshaped, inputs[2*step+1][:, :self.output_channels])
+                else:
+                    loss += loss_fn(reshaped, inputs[2*step+1][:, :self.output_channels])
+
+            outputs.append(reshaped)
+        
+        if loss_fn is None:
+            if output_only_last:
+                res = outputs[-1]
+            else:
+                res = outputs
+
+            return res
+        else:
+            return loss
+
+class NoRecUNet(torch.nn.Module):
+    def __init__(
+            self,
+            input_time_dim: int,
+            output_time_dim: int,
+            input_channels: int=9,
+            output_channels: int=3,
+    ):
+        super().__init__()
+        self.input_channels = input_channels
+        self.output_channels = output_channels
+        self.input_time_dim = input_time_dim
+        self.output_time_dim = output_time_dim
+        self.channel_dim = 1
+
+        assert input_time_dim == 1
+
+
+        # Number of passes through the model, or a diagnostic model with only one output time
+        self.is_diagnostic = self.output_time_dim == 1 and self.input_time_dim > 1
+        if not self.is_diagnostic and (self.output_time_dim % self.input_time_dim != 0):
+            raise ValueError(f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
+                             f"{self.output_time_dim} and {self.input_time_dim})")
+
+        # Build the model layers
+        self.encoder = UNetEncoder(input_channels=self._compute_input_channels())
+        self.encoder_depth = len(self.encoder.n_channels)
+        self.decoder = UNetDecoder(output_channels=self._compute_output_channels(), use_rec=False)
+
+    @property
+    def integration_steps(self):
+        return max(self.output_time_dim // self.input_time_dim, 1)
+
+    def _compute_input_channels(self) -> int:
+        return self.input_time_dim * self.input_channels
+
+    def _compute_output_channels(self) -> int:
+        return (1 if self.is_diagnostic else self.input_time_dim) * self.output_channels
+
+    # def forward(self, inputs: Sequence, output_only_last=False) -> torch.Tensor:
+
+    #     N, C, H, W = inputs[0].shape
+    #     outputs = []
+    #     for step in range(len(inputs)):
+    #         if step == 0:
+    #             input_tensor = inputs[0]
+    #         else:
+    #             inputs_0 = outputs[-1]
+    #             input_tensor = torch.cat([inputs_0, inputs[step][:, self.output_channels:]], dim=1)
+            
+    #         encodings = self.encoder(input_tensor)
+    #         decodings = self.decoder(encodings)
+    #         #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
+    #         reshaped = input_tensor[:, :self.output_channels] + decodings  # Residual prediction
+    #         outputs.append(reshaped)
+            
+    #     if output_only_last:
+    #         res = outputs[-1]
+    #     else:
+    #         res = outputs
+
+    #     return res
+
+    # def forward(self, inputs: Sequence, resize_fn, final_img_size, output_only_last=False, loss_fn=None) -> torch.Tensor:
+
+    #     outputs = []
+    #     loss = None
+    #     N, C, H, W = inputs[0].shape
+
+    #     for step in range(len(inputs) // 2 ):
+    #         if step == 0:
+    #             input_tensor = resize_fn(inputs[0])
+    #         else:
+    #             inputs_0 = outputs[-1]
+    #             input_tensor = torch.cat([inputs_0, resize_fn(inputs[2*step][:, self.output_channels:])], dim=1)
+            
+    #         encodings = self.encoder(input_tensor)
+    #         decodings = self.decoder(encodings)
+    #         #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
+    #         reshaped = input_tensor[:, :self.output_channels] + decodings  # Residual prediction
+    #         reshaped = reshaped[:, :, :final_img_size[0], :final_img_size[1]]
+            
+    #         if loss_fn is not None:
+    #             if loss is None:
+    #                 loss = loss_fn(reshaped, inputs[2*step+1][:, :self.output_channels])
+    #             else:
+    #                 loss += loss_fn(reshaped, inputs[2*step+1][:, :self.output_channels])
+
+    #         outputs.append(reshaped)
+        
+    #     if loss_fn is None:
+    #         if output_only_last:
+    #             res = outputs[-1]
+    #         else:
+    #             res = outputs
+
+    #         return res
+    #     else:
+    #         return loss
+    
+    def inference(self, inputs: Sequence, resize_fn, final_img_size, num_steps=None, output_only_last=False) -> torch.Tensor:
+        outputs = []
+        for step in range(num_steps):
+            if step == 0:
+                input_tensor = resize_fn(inputs[0][0].unsqueeze(0))
+            else:
+                inputs_0 = outputs[-1]
+                input_tensor = torch.cat([inputs_0.unsqueeze(0), resize_fn(inputs[step][0][self.output_channels:].unsqueeze(0))], dim=1)
+            
+            encodings = self.encoder(input_tensor)
+            decodings = self.decoder(encodings)
+            #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
+            reshaped = input_tensor[0, :self.output_channels] + decodings.squeeze(0)  # Residual prediction
+
+            outputs.append(reshaped)
+        
+        if output_only_last:
+            res = outputs[-1]
+        else:
+            res = outputs
+        
+        return res
+
+
+
+
 class RecUNet(torch.nn.Module):
     def __init__(
             self,
@@ -366,6 +618,22 @@ class RecUNet(torch.nn.Module):
         self.encoder_depth = len(self.encoder.n_channels)
         self.decoder = UNetDecoder(output_channels=self._compute_output_channels())
 
+        self.input_size_set = False
+    
+    def get_resize_fn(self, input_size):
+        new_img_size = copy.deepcopy(input_size)
+        if new_img_size[0] % 16 != 0:
+            new_img_size[0] = (int(new_img_size[0] / 16) + 1) * 16
+
+        if new_img_size[1] % 16 != 0:
+            new_img_size[1] = (int(new_img_size[1] / 16) + 1) * 16
+        return Resize(new_img_size)
+    
+    def set_input_size(self, input_size):
+        self.input_size = input_size
+        self.resize_fn = self.get_resize_fn(input_size)
+        self.input_size_set = True
+
     @property
     def integration_steps(self):
         return max(self.output_time_dim // self.input_time_dim, 1)# + self.presteps
@@ -378,13 +646,15 @@ class RecUNet(torch.nn.Module):
 
     def _reshape(self, input) -> torch.Tensor:
         B, T, C, H, W = input.shape
-        return input.reshape(B, T*C, H, W)
+        input = input.reshape(B, T*C, H, W)
+        return self.resize_fn(input)
 
     def _reshape_output(self, output) -> torch.Tensor:
         B, _, H, W = output.shape
-        return output.reshape(B, -1, self.output_channels, H, W)
+        output = output.reshape(B, -1, self.output_channels, H, W)
+        return output[:, :, :, :self.input_size[0], :self.input_size[1]]
 
-    def _initialize_hidden(self, inputs: Sequence, outputs: Sequence, step: int) -> None:
+    def _initialize_hidden(self, inputs: Sequence, outputs: Sequence, step: int, local_step: int) -> None:
         self.reset()
         for prestep in range(self.presteps):
             if step < self.presteps:
@@ -393,41 +663,50 @@ class RecUNet(torch.nn.Module):
                 if self.verbose:
                     print(f"Initialize Hidden: Using input indices: {s*self.input_time_dim} : {(s+1)*self.input_time_dim} to produce (not saved) output at indices: {(s+1)*self.input_time_dim} : {(s+2)*self.input_time_dim}")
             else:
-                s = step - self.presteps + prestep
-                input_tensor = self._reshape(torch.cat([outputs[s-1], inputs[:, (s+1)*self.input_time_dim:(s+2)*self.input_time_dim, self.output_channels:]], dim=2))
+                s_ = step - self.presteps + prestep
+                s = local_step - self.presteps + prestep
+                input_tensor = self._reshape(torch.cat([outputs[s_-1], inputs[:, (s+1)*self.input_time_dim:(s+2)*self.input_time_dim, self.output_channels:]], dim=2))
                 if self.verbose:
-                    print(f"Initialize Hidden: Using output indices: {(s+self.presteps)*self.input_time_dim}:{(s+1+self.presteps)*self.input_time_dim} to produce (not saved) output at indices: {(s+1+self.presteps)*self.input_time_dim}:{(s+2+self.presteps)*self.input_time_dim}")
-                    print(f"Also, Concatenating extra input in range of indices {(s+1)*self.input_time_dim}:{(s+2)*self.input_time_dim}")
+                    print(f"Initialize Hidden: Using output indices: {(s_+self.presteps)*self.input_time_dim}:{(s_+1+self.presteps)*self.input_time_dim} to produce (not saved) output at indices: {(s_+1+self.presteps)*self.input_time_dim}:{(s_+2+self.presteps)*self.input_time_dim}")
+                    print(f"Also, Concatenating extra input in range of local indices {(s+1)*self.input_time_dim}:{(s+2)*self.input_time_dim} and global indices {(s_+1)*self.input_time_dim}:{(s_+2)*self.input_time_dim}")
 
             # Forward the data through the model to initialize hidden states
             self.decoder(self.encoder(input_tensor))
 
     # [B, T, C, H, W]
-    def forward(self, inputs: Sequence, output_only_last=False) -> torch.Tensor:
-        self.reset()
-        outputs = []
-        for step in range(self.integration_steps):
+    def forward(self, inputs: Sequence, last_outputs: Sequence=None, inference=False, output_only_last=False) -> torch.Tensor:
+        assert self.input_size_set
+        if last_outputs is not None:
+            assert inference 
+            outputs = last_outputs
+            step_range = range(len(outputs), len(outputs) + self.integration_steps)
+        else:
+            self.reset()
+            outputs = []
+            step_range = range(self.integration_steps)
+
+        for local_step, step in enumerate(step_range):# use local_step for all inputs
             if self.verbose:
                 print(f"Step: {step}")
             # (Re-)initialize recurrent hidden states
             if step % self.reset_cycle == 0:
                 if self.verbose:
                     print(f"Reinitializing at Step: {step}")
-                self._initialize_hidden(inputs=inputs, outputs=outputs, step=step)
+                self._initialize_hidden(inputs=inputs, outputs=outputs, step=step, local_step=local_step)
 
-            # Construct input: [prognostics|TISR|constants]
             if step == 0:
                 s = self.presteps
                 input_tensor = self._reshape(inputs[:, s*self.input_time_dim:(s+1)*self.input_time_dim])
                 if self.verbose:
                     print(f"Using input at indices: {s*self.input_time_dim} : {(s+1)*self.input_time_dim}, to produce output at indices: {(s+1)*self.input_time_dim} : {(s+2)*self.input_time_dim}")
             else:
-                s = step + self.presteps
+                s = local_step + self.presteps
+                s_ = step + self.presteps
                 input_tensor = self._reshape(torch.cat([outputs[-1], inputs[:, s*self.input_time_dim:(s+1)*self.input_time_dim, self.output_channels:]], dim=2))
                 if self.verbose:
                     # When you refer to indices in output, they will always be shift by 1 as they never output indices from 0:n. Then, additional offset by self.presteps.
                     print(f"Using output at indices {(len(outputs)+self.presteps)*self.input_time_dim}:{(len(outputs)+self.presteps+1)*self.input_time_dim} to produce output at indices: {(len(outputs)+self.presteps+1)*self.input_time_dim}:{(len(outputs)+self.presteps+2)*self.input_time_dim}")
-                    print(f"Also, Concatenating extra input in range of indices {s*self.input_time_dim}:{(s+1)*self.input_time_dim}")
+                    print(f"Also, Concatenating extra input in range of local indices {s*self.input_time_dim}:{(s+1)*self.input_time_dim} and global indices {s_*self.input_time_dim}:{(s_+1)*self.input_time_dim}")
 
             if self.verbose:
                 print("Passing through UNET")
@@ -442,83 +721,159 @@ class RecUNet(torch.nn.Module):
         if output_only_last:
             return outputs[-1]
 
+        if inference:
+            return outputs
+        
         return torch.cat(outputs, dim=self.time_dim)
 
     def reset(self):
+        if self.verbose:
+            print("Resetting hiddens")
         self.encoder.reset()
         self.decoder.reset()
 
 
-    def train_one_epoch(
-        self,
-        epoch,
-        train_loader,
-        loss_fn,
-        optimizer,
-        scheduler,
-        device,
-        wandb_flag,
+def train_one_epoch(
+    model,
+    epoch,
+    train_loader,
+    loss_fn,
+    optimizer,
+    scheduler,
+    device,
+    wandb_flag,
+    gscaler
+):
+
+    model.train(True)
+    metric_logger = MetricLogger(delimiter="  ")
+    metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
+    header = "Epoch: [{}]".format(epoch)
+    iters = len(train_loader)
+
+    for data_iter_step, data in enumerate(
+        metric_logger.log_every(train_loader, 1, header)
     ):
-        model.train(True)
-        metric_logger = MetricLogger(delimiter="  ")
-        metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
-        header = "Epoch: [{}]".format(epoch)
-        iters = len(train_loader)
 
-        for data_iter_step, data in enumerate(
-            metric_logger.log_every(train_loader, 1, header)
-        ):
 
-            optimizer.zero_grad()
+        # optimizer.zero_grad()
+        model.zero_grad(set_to_none=True)
+        with amp.autocast(enabled=gscaler is not None, dtype=torch.float16):
             outs = model(data[0].to(device=device))
             loss = loss_fn(data[1].to(device=device), outs)
-            loss.backward()
 
-            loss_value = loss.item()
+        # loss.backward()
+        gscaler.scale(loss).backward()
+        gscaler.unscale_(optimizer)
+        curr_lr = optimizer.param_groups[-1]["lr"] if scheduler is None else scheduler.get_last_lr()[0]
+        torch.nn.utils.clip_grad_norm_(model.parameters(), curr_lr)
 
-            optimizer.step()
-            if scheduler is not None:
-                # scheduler.step()
-                scheduler.step(epoch + data_iter_step / iters)
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
+        gscaler.step(optimizer)
+        gscaler.update()
 
-            metric_logger.update(loss=loss_value)
+        loss_value = loss.item()
 
-            lr = optimizer.param_groups[0]["lr"]
-            metric_logger.update(lr=lr)
+        # optimizer.step()
+        if scheduler is not None:
+            # scheduler.step()
+            scheduler.step(epoch + data_iter_step / iters)
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
 
-            loss_value_reduce = all_reduce_mean(loss_value)
+        metric_logger.update(loss=loss_value)
 
-            if wandb_flag:
-                wandb.log({"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr})
+        lr = curr_lr
+        metric_logger.update(lr=lr)
 
-        metric_logger.synchronize_between_processes()
-        print("Averaged train stats:", metric_logger)
-        return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+        loss_value_reduce = all_reduce_mean(loss_value)
+
+        if wandb_flag:
+            wandb.log({"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr})
+
+    metric_logger.synchronize_between_processes()
+    print("Averaged train stats:", metric_logger)
+    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
-    @torch.no_grad()
-    def validate(self, test_loader, device, wandb_flag):
-        model.eval()
-        mse = nn.MSELoss()
+@torch.no_grad()
+def validate(model, test_loader, device, wandb_flag, gscaler):
+    model.eval()
+    mse = nn.MSELoss()
 
-        metric_logger = MetricLogger(delimiter="  ")
-        header = "Test:"
-        for data, label in test_loader:
-            with torch.no_grad():
+    metric_logger = MetricLogger(delimiter="  ")
+    header = "Test:"
+    for data, label in test_loader:
+        with torch.no_grad():
+            with amp.autocast(enabled=gscaler is not None, dtype=torch.float16):
                 outs = model(data.to(device=device))
                 loss = mse(outs, label.to(device=device))
-                loss_value = loss.item()
-                metric_logger.update(loss=loss_value)
+            loss_value = loss.item()
+            metric_logger.update(loss=loss_value)
 
-                loss_value_reduce = all_reduce_mean(loss_value)
-                if wandb_flag:
-                    wandb.log({"eval_loss_per_batch": loss_value_reduce})
+            loss_value_reduce = all_reduce_mean(loss_value)
+            if wandb_flag:
+                wandb.log({"eval_loss_per_batch": loss_value_reduce})
 
-        metric_logger.synchronize_between_processes()
-        print("Averaged eval stats:", metric_logger)
+    metric_logger.synchronize_between_processes()
+    print("Averaged eval stats:", metric_logger)
 
-        return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
+# if __name__ == "__main__":
+#     from torchsummary import summary
+#     ####
+#     # model = RecUNet(2, 8)
+#     # # model(torch.zeros([1, 10, 9, 128, 192]))
+#     # summary(model.cuda(), (10, 9, 128, 192))
+
+#     ####
+#     # model = NoRecUNet(1,8)
+#     # res = model(torch.zeros([5, 8, 9, 128, 192]))
+#     # print(res.shape)
+#     # # summary(model.cuda(), (8, 9, 128, 192))
+
+#     ####
+#     model = NoRecUNetSimple(1,8)
+#     res = model(torch.zeros([5, 9, 128, 192]))
+#     print(res.shape)
+#     summary(model.cuda(), (9, 128, 192))
+
+#     model = model.cuda()
+#     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+#     weights = [
+#                 1.0
+#             ] * 8
+#     scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+#                 optimizer, 10
+#             )
+#     epochs = 10
+#     steps = 8
+#     loss_fn = torch.nn.MSELoss()
+
+#     data = torch.rand([16, 1, 9, 128, 192])
+#     data2 = torch.rand([16, 1, 9, 128, 192])
+
+#     for data in [data, data2]:
+#         optimizer.zero_grad()
+#         outs = []
+#         out = model(data[0].cuda())
+#         outs.append(out)
+#         for step in range(1, steps):
+#             print("Step: ",step)
+#             step_in = torch.concat(
+#                 (outs[-1], data[int(step * 2)][:, 3:].cuda()), 1
+#             )
+
+#             out = model(step_in)
+#             outs.append(out)
+
+#     loss = loss_fn(data[1][:,:3].cuda(), outs[0]) * weights[0]
+#     for step in range(1, steps):
+#         loss += (
+#             loss_fn(data[int(step * 2 + 1)][:,:3].cuda(), outs[step])
+#             * weights[step]
+#         )
+#     loss.backward()
+
+#     loss_value = loss.item()

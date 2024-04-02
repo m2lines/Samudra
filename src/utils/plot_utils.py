@@ -3,9 +3,13 @@ import matplotlib.ticker as ticker
 import cmocean
 from pathlib import Path
 import numpy as np
+import cartopy.crs as ccrs
+import cartopy as cart
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 
 def plot_time_spec(
+    network,
     axs,
     plt_index,
     index,
@@ -13,7 +17,7 @@ def plot_time_spec(
     freqs,
     auto_FFT,
     FFTs_unet,
-    FFTs_vit,
+    FFTs_net,
     clist,
     legend=True,
 ):
@@ -32,35 +36,37 @@ def plot_time_spec(
         freqs[:N_int], auto_FFT[:N_int, index], "--k", label="CM2.6", zorder=5
     )
 
-    axs[plt_index].plot(
-        freqs[:N_int],
-        FFTs_unet.mean(axis=0)[:N_int, index],
-        color=clist[2],
-        label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)",
-    )
-    axs[plt_index].fill_between(
-        freqs[:N_int],
-        FFTs_unet.mean(axis=0)[:N_int, index] - FFTs_unet.std(axis=0)[:N_int, index],
-        FFTs_unet.mean(axis=0)[:N_int, index] + FFTs_unet.std(axis=0)[:N_int, index],
-        ls="--",
-        color=clist[2],
-        alpha=0.25,
-    )
+    if FFTs_unet is not None:
+        axs[plt_index].plot(
+            freqs[:N_int],
+            FFTs_unet.mean(axis=0)[:N_int, index],
+            color=clist[2],
+            label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)",
+        )
+        axs[plt_index].fill_between(
+            freqs[:N_int],
+            FFTs_unet.mean(axis=0)[:N_int, index] - FFTs_unet.std(axis=0)[:N_int, index],
+            FFTs_unet.mean(axis=0)[:N_int, index] + FFTs_unet.std(axis=0)[:N_int, index],
+            ls="--",
+            color=clist[2],
+            alpha=0.25,
+        )
 
-    axs[plt_index].plot(
-        freqs[:N_int],
-        FFTs_vit.mean(axis=0)[:N_int, index],
-        color=clist[3],
-        label=r"ViT($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)",
-    )
-    axs[plt_index].fill_between(
-        freqs[:N_int],
-        FFTs_vit.mean(axis=0)[:N_int, index] - FFTs_vit.std(axis=0)[:N_int, index],
-        FFTs_vit.mean(axis=0)[:N_int, index] + FFTs_vit.std(axis=0)[:N_int, index],
-        ls="--",
-        color=clist[3],
-        alpha=0.25,
-    )
+    if FFTs_net is not None:
+        axs[plt_index].plot(
+            freqs[:N_int],
+            FFTs_net.mean(axis=0)[:N_int, index],
+            color=clist[3],
+            label=network + r"($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)",
+        )
+        axs[plt_index].fill_between(
+            freqs[:N_int],
+            FFTs_net.mean(axis=0)[:N_int, index] - FFTs_net.std(axis=0)[:N_int, index],
+            FFTs_net.mean(axis=0)[:N_int, index] + FFTs_net.std(axis=0)[:N_int, index],
+            ls="--",
+            color=clist[3],
+            alpha=0.25,
+        )
 
     axs[plt_index].set_ylabel(r"" + var_list[str(index)])
     axs[plt_index].set_xlabel("Frequency (1/day)")
@@ -74,7 +80,7 @@ def plot_time_spec(
     # plt.tight_layout()
 
 
-def plot_var(axs, plt_index, index, N_test, lag, auto_var, var_unet, var_vit, clist):
+def plot_var(network, axs, plt_index, index, N_test, lag, auto_var, var_unet, var_net, clist):
     T_plot = 1098
 
     N_int = int(T_plot / lag)
@@ -94,35 +100,37 @@ def plot_var(axs, plt_index, index, N_test, lag, auto_var, var_unet, var_vit, cl
         zorder=5,
     )
 
-    axs[plt_index].plot(
-        (np.arange(N_int) * lag) / 366,
-        var_unet.mean(axis=0)[:N_int, index],
-        color=clist[2],
-        label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_index].fill_between(
-        (np.arange(N_int) * lag) / 366,
-        var_unet.mean(axis=0)[:N_int, index] - var_unet.std(axis=0)[:N_int, index],
-        var_unet.mean(axis=0)[:N_int, index] + var_unet.std(axis=0)[:N_int, index],
-        ls="--",
-        color=clist[2],
-        alpha=0.25,
-    )
+    if var_unet is not None:
+        axs[plt_index].plot(
+            (np.arange(N_int) * lag) / 366,
+            var_unet.mean(axis=0)[:N_int, index],
+            color=clist[2],
+            label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_index].fill_between(
+            (np.arange(N_int) * lag) / 366,
+            var_unet.mean(axis=0)[:N_int, index] - var_unet.std(axis=0)[:N_int, index],
+            var_unet.mean(axis=0)[:N_int, index] + var_unet.std(axis=0)[:N_int, index],
+            ls="--",
+            color=clist[2],
+            alpha=0.25,
+        )
 
-    axs[plt_index].plot(
-        (np.arange(N_int) * lag) / 366,
-        var_vit.mean(axis=0)[:N_int, index],
-        color=clist[3],
-        label=r"ViT($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_index].fill_between(
-        (np.arange(N_int) * lag) / 366,
-        var_vit.mean(axis=0)[:N_int, index] - var_vit.std(axis=0)[:N_int, index],
-        var_vit.mean(axis=0)[:N_int, index] + var_vit.std(axis=0)[:N_int, index],
-        ls="--",
-        color=clist[3],
-        alpha=0.25,
-    )
+    if var_net is not None:
+        axs[plt_index].plot(
+            (np.arange(N_int) * lag) / 366,
+            var_net.mean(axis=0)[:N_int, index],
+            color=clist[3],
+            label=network + r"($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_index].fill_between(
+            (np.arange(N_int) * lag) / 366,
+            var_net.mean(axis=0)[:N_int, index] - var_net.std(axis=0)[:N_int, index],
+            var_net.mean(axis=0)[:N_int, index] + var_net.std(axis=0)[:N_int, index],
+            ls="--",
+            color=clist[3],
+            alpha=0.25,
+        )
 
     axs[plt_index].set_ylabel(r"" + var_list[str(index)])
     axs[plt_index].set_xlabel("Time (years)")
@@ -141,10 +149,10 @@ def plot_var(axs, plt_index, index, N_test, lag, auto_var, var_unet, var_vit, cl
 
 
 def plot_mean(
-    axs, plt_index, index, N_test, lag, auto_mean, mean_unet, mean_vit, clist
+   network, axs, plt_index, index, N_test, lag, auto_mean, mean_unet, mean_net, clist
 ):
 
-    T_plot = 3000
+    T_plot = N_test
 
     N_int = int(T_plot / lag)
     N_true = min(N_test, N_int)
@@ -162,36 +170,38 @@ def plot_mean(
         label="CM2.6",
         zorder=5,
     )
+    
+    if mean_unet is not None:
+        axs[plt_index].plot(
+            (np.arange(N_int) * lag) / 366,
+            mean_unet.mean(axis=0)[:N_int, index],
+            color=clist[2],
+            label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_index].fill_between(
+            (np.arange(N_int) * lag) / 366,
+            mean_unet.mean(axis=0)[:N_int, index] - mean_unet.std(axis=0)[:N_int, index],
+            mean_unet.mean(axis=0)[:N_int, index] + mean_unet.std(axis=0)[:N_int, index],
+            ls="--",
+            color=clist[2],
+            alpha=0.25,
+        )
 
-    axs[plt_index].plot(
-        (np.arange(N_int) * lag) / 366,
-        mean_unet.mean(axis=0)[:N_int, index],
-        color=clist[2],
-        label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_index].fill_between(
-        (np.arange(N_int) * lag) / 366,
-        mean_unet.mean(axis=0)[:N_int, index] - mean_unet.std(axis=0)[:N_int, index],
-        mean_unet.mean(axis=0)[:N_int, index] + mean_unet.std(axis=0)[:N_int, index],
-        ls="--",
-        color=clist[2],
-        alpha=0.25,
-    )
-
-    axs[plt_index].plot(
-        (np.arange(N_int) * lag) / 366,
-        mean_vit.mean(axis=0)[:N_int, index],
-        color=clist[3],
-        label=r"ViT($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_index].fill_between(
-        (np.arange(N_int) * lag) / 366,
-        mean_vit.mean(axis=0)[:N_int, index] - mean_vit.std(axis=0)[:N_int, index],
-        mean_vit.mean(axis=0)[:N_int, index] + mean_vit.std(axis=0)[:N_int, index],
-        ls="--",
-        color=clist[3],
-        alpha=0.25,
-    )
+    if mean_net is not None:
+        axs[plt_index].plot(
+            (np.arange(N_int) * lag) / 366,
+            mean_net.mean(axis=0)[:N_int, index],
+            color=clist[3],
+            label=network + r"($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_index].fill_between(
+            (np.arange(N_int) * lag) / 366,
+            mean_net.mean(axis=0)[:N_int, index] - mean_net.std(axis=0)[:N_int, index],
+            mean_net.mean(axis=0)[:N_int, index] + mean_net.std(axis=0)[:N_int, index],
+            ls="--",
+            color=clist[3],
+            alpha=0.25,
+        )
 
     axs[plt_index].set_ylabel(r"" + var_list[str(index)])
     axs[plt_index].set_xlabel("Time (years)")
@@ -224,7 +234,7 @@ def plot_mean(
         )  # Adjust base as needed
 
 
-def plot_acc(axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_vit, clist):
+def plot_acc(network, axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist):
     T_plot = 100
 
     N_int = int(T_plot / lag)
@@ -251,35 +261,37 @@ def plot_acc(axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_vit, 
         alpha=0.2,
     )
 
-    axs[plt_ind_acc].plot(
-        (np.arange(N_int) * lag),
-        ACC_unet.mean(axis=0)[:N_int, index],
-        color=clist[2],
-        label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag),
-        ACC_unet.mean(axis=0)[:N_int, index] - ACC_unet.std(axis=0)[:N_int, index],
-        ACC_unet.mean(axis=0)[:N_int, index] + ACC_unet.std(axis=0)[:N_int, index],
-        ls="-",
-        color=clist[2],
-        alpha=0.2,
-    )
+    if ACC_unet is not None:
+        axs[plt_ind_acc].plot(
+            (np.arange(N_int) * lag),
+            ACC_unet.mean(axis=0)[:N_int, index],
+            color=clist[2],
+            label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_ind_acc].fill_between(
+            (np.arange(N_int) * lag),
+            ACC_unet.mean(axis=0)[:N_int, index] - ACC_unet.std(axis=0)[:N_int, index],
+            ACC_unet.mean(axis=0)[:N_int, index] + ACC_unet.std(axis=0)[:N_int, index],
+            ls="-",
+            color=clist[2],
+            alpha=0.2,
+        )
 
-    axs[plt_ind_acc].plot(
-        (np.arange(N_int) * lag),
-        ACC_vit.mean(axis=0)[:N_int, index],
-        color=clist[3],
-        label=r"ViT($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag),
-        ACC_vit.mean(axis=0)[:N_int, index] - ACC_vit.std(axis=0)[:N_int, index],
-        ACC_vit.mean(axis=0)[:N_int, index] + ACC_vit.std(axis=0)[:N_int, index],
-        ls="-",
-        color=clist[3],
-        alpha=0.2,
-    )
+    if ACC_net is not None:
+        axs[plt_ind_acc].plot(
+            (np.arange(N_int) * lag),
+            ACC_net.mean(axis=0)[:N_int, index],
+            color=clist[3],
+            label=network + r"($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_ind_acc].fill_between(
+            (np.arange(N_int) * lag),
+            ACC_net.mean(axis=0)[:N_int, index] - ACC_net.std(axis=0)[:N_int, index],
+            ACC_net.mean(axis=0)[:N_int, index] + ACC_net.std(axis=0)[:N_int, index],
+            ls="-",
+            color=clist[3],
+            alpha=0.2,
+        )
 
     axs[plt_ind_acc].set_ylabel(r"ACC $" + var_list[str(index)][6] + "$")
     axs[plt_ind_acc].set_xlabel("Time (days)")
@@ -294,7 +306,7 @@ def plot_acc(axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_vit, 
 
 
 def plot_corr(
-    axs, plt_ind_acc, index, N_test, lag, auto_corrs, corrs_unet, corrs_vit, clist
+    network, axs, plt_ind_acc, index, N_test, lag, auto_corrs, corrs_unet, corrs_net, clist
 ):
 
     T_plot = 100
@@ -323,35 +335,37 @@ def plot_corr(
         alpha=0.2,
     )
 
-    axs[plt_ind_acc].plot(
-        (np.arange(N_int) * lag),
-        corrs_unet.mean(axis=0)[:N_int, index],
-        color=clist[2],
-        label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag),
-        corrs_unet.mean(axis=0)[:N_int, index] - corrs_unet.std(axis=0)[:N_int, index],
-        corrs_unet.mean(axis=0)[:N_int, index] + corrs_unet.std(axis=0)[:N_int, index],
-        ls="-",
-        color=clist[2],
-        alpha=0.2,
-    )
+    if corrs_unet is not None:
+        axs[plt_ind_acc].plot(
+            (np.arange(N_int) * lag),
+            corrs_unet.mean(axis=0)[:N_int, index],
+            color=clist[2],
+            label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_ind_acc].fill_between(
+            (np.arange(N_int) * lag),
+            corrs_unet.mean(axis=0)[:N_int, index] - corrs_unet.std(axis=0)[:N_int, index],
+            corrs_unet.mean(axis=0)[:N_int, index] + corrs_unet.std(axis=0)[:N_int, index],
+            ls="-",
+            color=clist[2],
+            alpha=0.2,
+        )
 
-    axs[plt_ind_acc].plot(
-        (np.arange(N_int) * lag),
-        corrs_vit.mean(axis=0)[:N_int, index],
-        color=clist[3],
-        label=r"ViT($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag),
-        corrs_vit.mean(axis=0)[:N_int, index] - corrs_vit.std(axis=0)[:N_int, index],
-        corrs_vit.mean(axis=0)[:N_int, index] + corrs_vit.std(axis=0)[:N_int, index],
-        ls="-",
-        color=clist[3],
-        alpha=0.2,
-    )
+    if corrs_net is not None:
+        axs[plt_ind_acc].plot(
+            (np.arange(N_int) * lag),
+            corrs_net.mean(axis=0)[:N_int, index],
+            color=clist[3],
+            label=network + r"($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_ind_acc].fill_between(
+            (np.arange(N_int) * lag),
+            corrs_net.mean(axis=0)[:N_int, index] - corrs_net.std(axis=0)[:N_int, index],
+            corrs_net.mean(axis=0)[:N_int, index] + corrs_net.std(axis=0)[:N_int, index],
+            ls="-",
+            color=clist[3],
+            alpha=0.2,
+        )
 
     axs[plt_ind_acc].set_ylabel(r"Correlation $" + var_list[str(index)][6] + "$")
     axs[plt_ind_acc].set_xlabel("Time (days)")
@@ -365,7 +379,7 @@ def plot_corr(
 #     axs[plt_ind_acc].set_title("Short Rollout "+ region)
 
 
-def plot_KE(axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_vit, clist):
+def plot_KE(network, axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_net, clist):
 
     T_plot = 200
 
@@ -393,35 +407,37 @@ def plot_KE(axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_vit, clist):
         alpha=0.2,
     )
 
-    axs[plt_ind_acc].plot(
-        (np.arange(N_int) * lag) / 366,
-        KE_unet.mean(axis=0)[:N_int],
-        color=clist[2],
-        label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag) / 366,
-        KE_unet.mean(axis=0)[:N_int] - KE_unet.std(axis=0)[:N_int],
-        KE_unet.mean(axis=0)[:N_int] + KE_unet.std(axis=0)[:N_int],
-        ls="-",
-        color=clist[2],
-        alpha=0.2,
-    )
+    if KE_unet is not None:
+        axs[plt_ind_acc].plot(
+            (np.arange(N_int) * lag) / 366,
+            KE_unet.mean(axis=0)[:N_int],
+            color=clist[2],
+            label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_ind_acc].fill_between(
+            (np.arange(N_int) * lag) / 366,
+            KE_unet.mean(axis=0)[:N_int] - KE_unet.std(axis=0)[:N_int],
+            KE_unet.mean(axis=0)[:N_int] + KE_unet.std(axis=0)[:N_int],
+            ls="-",
+            color=clist[2],
+            alpha=0.2,
+        )
 
-    axs[plt_ind_acc].plot(
-        (np.arange(N_int) * lag) / 366,
-        KE_vit.mean(axis=0)[:N_int],
-        color=clist[3],
-        label=r"ViT($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag) / 366,
-        KE_vit.mean(axis=0)[:N_int] - KE_vit.std(axis=0)[:N_int],
-        KE_vit.mean(axis=0)[:N_int] + KE_vit.std(axis=0)[:N_int],
-        ls="-",
-        color=clist[3],
-        alpha=0.2,
-    )
+    if KE_net is not None:
+        axs[plt_ind_acc].plot(
+            (np.arange(N_int) * lag) / 366,
+            KE_net.mean(axis=0)[:N_int],
+            color=clist[3],
+            label=network + r"($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_ind_acc].fill_between(
+            (np.arange(N_int) * lag) / 366,
+            KE_net.mean(axis=0)[:N_int] - KE_net.std(axis=0)[:N_int],
+            KE_net.mean(axis=0)[:N_int] + KE_net.std(axis=0)[:N_int],
+            ls="-",
+            color=clist[3],
+            alpha=0.2,
+        )
 
     axs[plt_ind_acc].set_ylabel(r"KE")
     axs[plt_ind_acc].set_xlabel("Time (days)")
@@ -442,7 +458,7 @@ def plot_KE(axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_vit, clist):
 
 
 def plot_rmse(
-    axs, plt_ind_acc, index, N_test, lag, auto_rmse, rmse_unet, rmse_vit, clist
+    network, axs, plt_ind_acc, index, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
 ):
     T_plot = 200
 
@@ -470,35 +486,37 @@ def plot_rmse(
         alpha=0.2,
     )
 
-    axs[plt_ind_acc].plot(
-        (np.arange(N_int) * lag),
-        rmse_unet.mean(axis=0)[:N_int, index],
-        color=clist[2],
-        label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag),
-        rmse_unet.mean(axis=0)[:N_int, index] - rmse_unet.std(axis=0)[:N_int, index],
-        rmse_unet.mean(axis=0)[:N_int, index] + rmse_unet.std(axis=0)[:N_int, index],
-        ls="-",
-        color=clist[2],
-        alpha=0.2,
-    )
+    if rmse_unet is not None:
+        axs[plt_ind_acc].plot(
+            (np.arange(N_int) * lag),
+            rmse_unet.mean(axis=0)[:N_int, index],
+            color=clist[2],
+            label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_ind_acc].fill_between(
+            (np.arange(N_int) * lag),
+            rmse_unet.mean(axis=0)[:N_int, index] - rmse_unet.std(axis=0)[:N_int, index],
+            rmse_unet.mean(axis=0)[:N_int, index] + rmse_unet.std(axis=0)[:N_int, index],
+            ls="-",
+            color=clist[2],
+            alpha=0.2,
+        )
 
-    axs[plt_ind_acc].plot(
-        (np.arange(N_int) * lag),
-        rmse_vit.mean(axis=0)[:N_int, index],
-        color=clist[3],
-        label=r"ViT($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
-    )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag),
-        rmse_vit.mean(axis=0)[:N_int, index] - rmse_vit.std(axis=0)[:N_int, index],
-        rmse_vit.mean(axis=0)[:N_int, index] + rmse_vit.std(axis=0)[:N_int, index],
-        ls="-",
-        color=clist[3],
-        alpha=0.2,
-    )
+    if rmse_net is not None:
+        axs[plt_ind_acc].plot(
+            (np.arange(N_int) * lag),
+            rmse_net.mean(axis=0)[:N_int, index],
+            color=clist[3],
+            label=network + r"($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+        )
+        axs[plt_ind_acc].fill_between(
+            (np.arange(N_int) * lag),
+            rmse_net.mean(axis=0)[:N_int, index] - rmse_net.std(axis=0)[:N_int, index],
+            rmse_net.mean(axis=0)[:N_int, index] + rmse_net.std(axis=0)[:N_int, index],
+            ls="-",
+            color=clist[3],
+            alpha=0.2,
+        )
 
     axs[plt_ind_acc].set_ylabel(r"RMSE" + var_list[str(index)])
     axs[plt_ind_acc].set_xlabel("Time (days)")
@@ -518,6 +536,7 @@ def plot_rmse(
 
 
 def plot_long_time_stats(
+    network,
     region,
     save_str,
     output_dir,
@@ -526,10 +545,10 @@ def plot_long_time_stats(
     freqs,
     auto_FFT,
     FFTs_unet,
-    FFTs_vit,
+    FFTs_net,
     auto_mean,
     mean_unet,
-    mean_vit,
+    mean_net
 ):
 
     N = 5
@@ -561,11 +580,11 @@ def plot_long_time_stats(
         },
     )
     plot_time_spec(
-        axs, (0, 0), 0, N_test, freqs, auto_FFT, FFTs_unet, FFTs_vit, clist, False
+        network, axs, (0, 0), 0, N_test, freqs, auto_FFT, FFTs_unet, FFTs_net, clist, False
     )
-    plot_mean(axs, (0, 1), 0, N_test, lag, auto_mean, mean_unet, mean_vit, clist)
-    plot_time_spec(axs, (1, 0), 1, N_test, freqs, auto_FFT, FFTs_unet, FFTs_vit, clist)
-    plot_mean(axs, (1, 1), 2, N_test, lag, auto_mean, mean_unet, mean_vit, clist)
+    plot_mean(network, axs, (0, 1), 0, N_test, lag, auto_mean, mean_unet, mean_net, clist)
+    plot_time_spec(network, axs, (1, 0), 1, N_test, freqs, auto_FFT, FFTs_unet, FFTs_net, clist)
+    plot_mean(network, axs, (1, 1), 2, N_test, lag, auto_mean, mean_unet, mean_net, clist)
 
     region_title = ""
 
@@ -593,6 +612,7 @@ def plot_long_time_stats(
 
 
 def plot_short_time_stats(
+    network,
     region,
     save_str,
     output_dir,
@@ -600,66 +620,82 @@ def plot_short_time_stats(
     lag,
     auto_ACC,
     ACC_unet,
-    ACC_vit,
+    ACC_net,
     auto_rmse,
     rmse_unet,
-    rmse_vit,
+    rmse_net,
     auto_KE,
     KE_unet,
-    KE_vit,
+    KE_net,
     auto_corrs,
     corrs_unet,
-    corrs_vit,
+    corrs_net,
 ):
     N = 5
-    plt.clf()
-    plt.style.use("bmh")
 
     clist_1 = [cmocean.cm.thermal(i / (N - 0.5)) for i in range(1, N)]
     clist_2 = ["#d7191c", "#abd9e9", "#2c7bb6", "#fdae61"]
     clist_3 = ["#91B59A", "#D6A922", "#1E88E5", "#A00B41"]
     clist = clist_3
 
-    # plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
-    plt.rc("axes", titlesize=20)  # fontsize of the axes title
-    plt.rc("axes", labelsize=18)  # fontsize of the x and y labels
-    plt.rc("xtick", labelsize=18)  # fontsize of the tick labels
-    plt.rc("ytick", labelsize=18)  # fontsize of the tick labels
-    plt.rc("legend", fontsize=10)  # legend fontsize
-    plt.rc("figure", titlesize=18)
+    def init_plt():
+        plt.clf()
+        plt.style.use("bmh")
 
-    fig, axs = plt.subplots(
-        2,
-        2,
-        figsize=(11, 6),
-        gridspec_kw={
-            "width_ratios": [1, 1],
-            "height_ratios": [1, 1],
-            "wspace": 0.4,
-            "hspace": 0.5,
-        },
-    )
-    # plot_acc((0,0), 2, N_test, lag, auto_ACC, ACC_unet, ACC_vit, clist)
-    # plot_corr((0,1), 1, N_test, lag, auto_corrs, corrs_unet, corrs_vit, clist)
-    # plot_rmse((1,0), 2, N_test, lag, auto_rmse, rmse_unet, rmse_vit, clist)
-    # plot_KE((1,1), N_test, lag, auto_KE, KE_unet, KE_vit, clist)
+        # plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+        plt.rc("axes", titlesize=20)  # fontsize of the axes title
+        plt.rc("axes", labelsize=18)  # fontsize of the x and y labels
+        plt.rc("xtick", labelsize=18)  # fontsize of the tick labels
+        plt.rc("ytick", labelsize=18)  # fontsize of the tick labels
+        plt.rc("legend", fontsize=10)  # legend fontsize
+        plt.rc("figure", titlesize=18)
 
-    plot_acc(axs, (0, 0), 0, N_test, lag, auto_ACC, ACC_unet, ACC_vit, clist)
-    plot_acc(axs, (0, 1), 1, N_test, lag, auto_ACC, ACC_unet, ACC_vit, clist)
-    plot_rmse(axs, (1, 0), 0, N_test, lag, auto_rmse, rmse_unet, rmse_vit, clist)
-    plot_rmse(axs, (1, 1), 1, N_test, lag, auto_rmse, rmse_unet, rmse_vit, clist)
+        fig, axs = plt.subplots(
+            2,
+            2,
+            figsize=(11, 6),
+            gridspec_kw={
+                "width_ratios": [1, 1],
+                "height_ratios": [1, 1],
+                "wspace": 0.4,
+                "hspace": 0.5,
+            },
+        )
+        return fig, axs
+    
+    fig, axs = init_plt()
+    plot_acc(network, axs, (0,0), 2, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
+    plot_corr(network, axs, (0,1), 1, N_test, lag, auto_corrs, corrs_unet, corrs_net, clist)
+    plot_rmse(network, axs, (1,0), 2, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist)
+    plot_KE(network, axs, (1,1), N_test, lag, auto_KE, KE_unet, KE_net, clist)
 
-    fig.suptitle("Short-Time Statistics " + region, fontsize=16)
+    fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
 
     plt.savefig(
         Path(output_dir)
-        / ("Short_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
+        / ("Short_Time_Comp_Boundary1_" + region + "_" + save_str + ".png"),
         bbox_inches="tight",
     )
+
+    fig, axs = init_plt()
+    plot_acc(network, axs, (0, 0), 0, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
+    plot_acc(network, axs, (0, 1), 1, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
+    plot_rmse(network, axs, (1, 0), 0, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist)
+    plot_rmse(network, axs, (1, 1), 1, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist)
+
+    fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
+
+    plt.savefig(
+        Path(output_dir)
+        / ("Short_Time_Comp_Boundary2_" + region + "_" + save_str + ".png"),
+        bbox_inches="tight",
+    )
+
     plt.clf()
 
 
 def plot_all_metrics(
+    network,
     region,
     save_str,
     output_dir,
@@ -667,25 +703,25 @@ def plot_all_metrics(
     steps,
     KE_spec_true,
     KE_spec_unet,
-    KE_spec_vit,
+    KE_spec_net,
     KE_true,
     KE_unet,
-    KE_vit,
+    KE_net,
     enst_spec_true,
     enst_spec_unet,
-    enst_spec_vit,
+    enst_spec_net,
     corr_T_true,
     corr_T_unet,
-    corr_T_vit,
+    corr_T_net,
     enst_true,
     enst_unet,
-    enst_vit,
+    enst_net,
     RMSE_T_true,
     RMSE_T_unet,
-    RMSE_T_vit,
+    RMSE_T_net,
     ACC_T_true,
     ACC_T_unet,
-    ACC_T_vit,
+    ACC_T_net,
 ):
     N = 5
     N_plot = 200
@@ -700,18 +736,20 @@ def plot_all_metrics(
     clist = clist_5
 
     # KE Spectrum
-    plt.loglog(
-        KE_spec_vit.freq_r,
-        KE_spec_vit,
-        c=clist[0],
-        label=f"VIT ~ $\Delta t = {lag},~ N = {steps}$",
-    )
-    plt.loglog(
-        KE_spec_unet.freq_r,
-        KE_spec_unet,
-        c=clist[3],
-        label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
-    )
+    if KE_spec_net is not None:
+        plt.loglog(
+            KE_spec_net.freq_r,
+            KE_spec_net,
+            c=clist[0],
+            label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
+    if KE_spec_unet is not None:
+        plt.loglog(
+            KE_spec_unet.freq_r,
+            KE_spec_unet,
+            c=clist[3],
+            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
     plt.loglog(KE_spec_true.freq_r, KE_spec_true, "--k")
 
@@ -728,18 +766,20 @@ def plot_all_metrics(
     # KE
     rho = 1020
 
-    plt.plot(
-        np.arange(1, N_plot + 1),
-        KE_vit * rho,
-        c=clist[0],
-        label=f"VIT ~ $\Delta t = {lag},~ N = {steps}$",
-    )
-    plt.plot(
-        np.arange(1, N_plot + 1),
-        KE_unet * rho,
-        c=clist[3],
-        label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
-    )
+    if KE_net is not None:
+        plt.plot(
+            np.arange(1, N_plot + 1),
+            KE_net * rho,
+            c=clist[0],
+            label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
+    if KE_unet is not None:
+        plt.plot(
+            np.arange(1, N_plot + 1),
+            KE_unet * rho,
+            c=clist[3],
+            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
     plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k")
     plt.xlabel("time (days)")
@@ -752,18 +792,20 @@ def plot_all_metrics(
     plt.clf()
 
     # Enstrophy Spectrum
-    plt.loglog(
-        enst_spec_vit.freq_r,
-        enst_spec_vit,
-        c=clist[0],
-        label=f"VIT ~ $\Delta t = {lag},~ N = {steps}$",
-    )
-    plt.loglog(
-        enst_spec_unet.freq_r,
-        enst_spec_unet,
-        c=clist[3],
-        label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
-    )
+    if enst_spec_net is not None:
+        plt.loglog(
+            enst_spec_net.freq_r,
+            enst_spec_net,
+            c=clist[0],
+            label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
+    if enst_spec_unet is not None:
+        plt.loglog(
+            enst_spec_unet.freq_r,
+            enst_spec_unet,
+            c=clist[3],
+            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
     plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k")
     plt.xlabel("Wave number (1/km)")
@@ -776,18 +818,21 @@ def plot_all_metrics(
     plt.clf()
 
     # Enstrophy
-    plt.plot(
-        np.arange(1, N_plot + 1),
-        enst_vit,
-        c=clist[0],
-        label=f"VIT ~ $\Delta t = {lag},~ N = {steps}$",
-    )
-    plt.plot(
-        np.arange(1, N_plot + 1),
-        enst_unet,
-        c=clist[3],
-        label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
-    )
+    if enst_net is not None:
+        plt.plot(
+            np.arange(1, N_plot + 1),
+            enst_net,
+            c=clist[0],
+            label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
+
+    if enst_unet is not None:
+        plt.plot(
+            np.arange(1, N_plot + 1),
+            enst_unet,
+            c=clist[3],
+            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
     plt.plot(np.arange(1, N_plot + 1), enst_true, "--k")
     plt.xlabel("time (days)")
@@ -801,18 +846,21 @@ def plot_all_metrics(
 
     # Corr
     N_eval = 200
-    plt.plot(
-        np.arange(1, N_eval + 1),
-        corr_T_vit,
-        c=clist[0],
-        label=f"VIT ~ $\Delta t = {lag},~ N = {steps}$",
-    )
-    plt.plot(
-        np.arange(1, N_eval + 1),
-        corr_T_unet,
-        c=clist[3],
-        label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
-    )
+    if corr_T_net is not None:
+        plt.plot(
+            np.arange(1, N_eval + 1),
+            corr_T_net,
+            c=clist[0],
+            label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
+
+    if corr_T_unet is not None:
+        plt.plot(
+            np.arange(1, N_eval + 1),
+            corr_T_unet,
+            c=clist[3],
+            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
     plt.plot(np.arange(1, N_eval + 1), corr_T_true, "--k")
     plt.xlabel("time (days)")
@@ -828,19 +876,21 @@ def plot_all_metrics(
     plt.clf()
 
     # RMSE
+    if RMSE_T_net is not None:
+        plt.plot(
+            np.arange(1, N_eval + 1),
+            RMSE_T_net,
+            c=clist[0],
+            label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
-    plt.plot(
-        np.arange(1, N_eval + 1),
-        RMSE_T_vit,
-        c=clist[0],
-        label=f"VIT ~ $\Delta t = {lag},~ N = {steps}$",
-    )
-    plt.plot(
-        np.arange(1, N_eval + 1),
-        RMSE_T_unet,
-        c=clist[3],
-        label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
-    )
+    if RMSE_T_unet is not None:
+        plt.plot(
+            np.arange(1, N_eval + 1),
+            RMSE_T_unet,
+            c=clist[3],
+            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
     plt.plot(np.arange(1, N_eval + 1), RMSE_T_true, "--k")
     plt.xlabel("time (days)")
@@ -856,18 +906,21 @@ def plot_all_metrics(
 
     # ACC
     N_eval = 100
-    plt.plot(
-        np.arange(1, N_eval + 1),
-        ACC_T_vit,
-        c=clist[0],
-        label=f"VIT ~ $\Delta t = {lag},~ N = {steps}$",
-    )
-    plt.plot(
-        np.arange(1, N_eval + 1),
-        ACC_T_unet,
-        c=clist[3],
-        label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
-    )
+    if ACC_T_net is not None:
+        plt.plot(
+            np.arange(1, N_eval + 1),
+            ACC_T_net,
+            c=clist[0],
+            label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
+
+    if ACC_T_unet is not None:
+        plt.plot(
+            np.arange(1, N_eval + 1),
+            ACC_T_unet,
+            c=clist[3],
+            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
     plt.plot(np.arange(1, N_eval + 1), ACC_T_true, "--k")
     plt.xlabel("time (days)")
@@ -881,3 +934,212 @@ def plot_all_metrics(
         bbox_inches="tight",
     )
     plt.clf()
+
+
+def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan, model_pred_net, model_pred_unet, mean_out, std_out, ind_plot, Nb, use_unet=True, only_unet=False):
+
+    plt.rcParams.update({"font.size": 15})
+    var_list = {
+        "1": r"$\bar{v}~~\mathrm{(m/s)}$",
+        "0": r"$\bar{u}~~\mathrm{(m/s)}$",
+        "2": r"$\bar{T} ~ (^\circ C)$",
+    }
+    if use_unet:
+        fig, axs = plt.subplots(
+            2,
+            3,
+            figsize=(12, 5),
+            gridspec_kw={
+                "width_ratios": [1, 1, 1],
+                "height_ratios": [1, 1],
+                "wspace": 0.25,
+                "hspace": 0.5,
+            },
+            subplot_kw={"projection": ccrs.PlateCarree()},
+        )
+    else:
+        fig, axs = plt.subplots(
+            2,
+            2,
+            figsize=(12, 5),
+            gridspec_kw={
+                "width_ratios": [1, 1],
+                "height_ratios": [1, 1],
+                "wspace": 0.25,
+                "hspace": 0.5,
+            },
+            subplot_kw={"projection": ccrs.PlateCarree()},
+        )
+
+    T_plot = 1000
+
+
+    vmin = mean_out[ind_plot] - std_out[ind_plot]
+    vmax = mean_out[ind_plot] + std_out[ind_plot]
+
+    if region == "Tropics_Ext" and ind_plot == 2:
+        vmin = mean_out[ind_plot] - (0.5 * std_out[ind_plot])
+        vmax = mean_out[ind_plot] + (std_out[ind_plot])
+    elif region == "Africa_Ext" and ind_plot == 2:
+        vmin = mean_out[ind_plot] - (1.25 * std_out[ind_plot])
+        vmax = mean_out[ind_plot] + (2 * std_out[ind_plot])
+    elif region == "Gulf_Stream_Ext" and ind_plot == 2:
+        vmin = mean_out[ind_plot] - (1.75 * std_out[ind_plot])
+        vmax = mean_out[ind_plot] + (1.75 * std_out[ind_plot])
+
+    if ind_plot in [0, 1]:
+        vmin -= std_out[ind_plot]
+        vmax += std_out[ind_plot]
+        limit = np.round(np.max([abs(vmin), abs(vmax)]), 1)
+        vmin = -limit
+        vmax = limit
+
+    x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+    y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    if ind_plot == 2:
+        cmap = cmocean.cm.thermal
+    else:
+        cmap = cmocean.cm.diff
+
+
+    plt0 = axs[0, 0].pcolormesh(
+        x_plot,
+        y_plot,
+        test_data[N_plot - 1][1][ind_plot, Nb:-Nb, Nb:-Nb].cpu()
+        * wet_nan[Nb:-Nb, Nb:-Nb]
+        * std_out[ind_plot]
+        + mean_out[ind_plot],
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        shading="auto",
+    )
+
+
+    axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0, 0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    axs[0, 0].set_title(r"CM2.6", size=15)
+
+    pos = axs[1, 1].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.075,
+        pos.y0 + 0.15,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+
+    cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+    if ind_plot == 2:
+        cbar.set_ticks([np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)])
+    else:
+        cbar.set_ticks([vmin, 0, vmax])
+
+    cbar.set_label(var_list[str(ind_plot)], fontsize=20)
+
+    fig.delaxes(axs[1, 1])
+    fig.delaxes(cax)
+
+    plt1 = None
+    if not only_unet:
+        plt1 = axs[0, 1].pcolormesh(
+            x_plot,
+            y_plot,
+            model_pred_net[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+        axs[0, 1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+        gl = axs[0, 1].gridlines(
+            crs=ccrs.PlateCarree(),
+            draw_labels=True,
+            linewidth=2,
+            color="gray",
+            alpha=0.5,
+            linestyle="--",
+        )
+        gl.top_labels = False
+        gl.right_labels = False
+        gl.yrotation = False
+        gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        axs[0, 1].set_title(network + r"($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15)
+
+    plt2 = None
+    if use_unet:
+        plt2 = axs[0, 2].pcolormesh(
+            x_plot,
+            y_plot,
+            model_pred_unet[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+        axs[0, 2].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+        gl = axs[0, 2].gridlines(
+            crs=ccrs.PlateCarree(),
+            draw_labels=True,
+            linewidth=2,
+            color="gray",
+            alpha=0.5,
+            linestyle="--",
+        )
+        gl.top_labels = False
+        gl.right_labels = False
+        gl.yrotation = False
+        gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        axs[0, 2].set_title(r"Unet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15)
+        axs[1, 2].set_axis_off()
+        
+    axs[1, 0].set_axis_off()
+
+
+    region_title = ""
+
+    for i in region:
+        if region == "Quiescent_Ext":
+            region_title = "South Pacific"
+        elif region == "Africa_Ext":
+            region_title = "African Cape"
+        elif i == "_":
+            region_title += " "
+        elif i == "E":
+            break
+        else:
+            region_title += i
+    region_title = str(region_title)
+
+    a = fig.suptitle(
+        r"Benefit of Atmospheric Boundary Terms "
+        + region_title
+        + ": $t = "
+        + str(N_plot)
+        + "$ days ",
+        fontsize=16,
+    )
+    return fig, plt0, plt1, plt2, a

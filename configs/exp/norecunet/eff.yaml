@@ -1,0 +1,3 @@
+_target_: models.recunet.NoRecUNetEff
+input_time_dim: 1
+output_time_dim: 8

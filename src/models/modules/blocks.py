@@ -2,6 +2,7 @@ import torch
 from .activations import CappedGELU
 from typing import Sequence
 
+
 class TransposedConvUpsample(torch.nn.Module):
     def __init__(
         self,

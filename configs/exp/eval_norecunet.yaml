@@ -29,7 +29,7 @@ short_model_name: "norecunet_best_steps_8_"
 use_unet: false
 only_unet: false
 unet_region: Gulf_Stream_Ext
-unet_path: # /scratch/as15415/Emulation/Preds 
+unet_path: # /scratch/as15415/Emulation/Preds
 
 save_test_data: false # change if already saved in prior experiments
 run_gen_pred: true

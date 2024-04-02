@@ -425,6 +425,7 @@ class NoRecUNetSimple(torch.nn.Module):
         return x[:, : self.output_channels] + self.decoder(self.encoder(x))
         # return self.decoder(self.encoder(x))
 
+
 class NoRecUNet(torch.nn.Module):
     def __init__(
         self,
@@ -492,28 +493,46 @@ class NoRecUNet(torch.nn.Module):
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
-            #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
-            reshaped = input_tensor[:, :self.output_channels] + decodings  # Residual prediction
-            
+            # reshaped = self._reshape_outputs(decodings)  # Absolute prediction
+            reshaped = (
+                input_tensor[:, : self.output_channels] + decodings
+            )  # Residual prediction
+
             if loss_fn is not None:
                 if loss is None:
-                    loss = loss_fn(reshaped[:, :, :final_img_size[0], :final_img_size[1]], inputs[2*step+1][:, :self.output_channels])
+                    loss = loss_fn(
+                        reshaped[:, :, : final_img_size[0], : final_img_size[1]],
+                        inputs[2 * step + 1][:, : self.output_channels],
+                    )
                 else:
-                    loss += loss_fn(reshaped[:, :, :final_img_size[0], :final_img_size[1]], inputs[2*step+1][:, :self.output_channels])
+                    loss += loss_fn(
+                        reshaped[:, :, : final_img_size[0], : final_img_size[1]],
+                        inputs[2 * step + 1][:, : self.output_channels],
+                    )
 
             outputs.append(reshaped)
 
         if loss_fn is None:
             if output_only_last:
-                res = outputs[-1][:, :, :final_img_size[0], :final_img_size[1]]
+                res = outputs[-1][:, :, : final_img_size[0], : final_img_size[1]]
             else:
-                res = [output[:, :, :final_img_size[0], :final_img_size[1]] for output in outputs]
+                res = [
+                    output[:, :, : final_img_size[0], : final_img_size[1]]
+                    for output in outputs
+                ]
 
             return res
         else:
             return loss
-    
-    def inference(self, inputs: Sequence, resize_fn, final_img_size, num_steps=None, output_only_last=False) -> torch.Tensor:
+
+    def inference(
+        self,
+        inputs: Sequence,
+        resize_fn,
+        final_img_size,
+        num_steps=None,
+        output_only_last=False,
+    ) -> torch.Tensor:
         outputs = []
         for step in range(num_steps):
             if step == 0:

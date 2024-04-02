@@ -45,8 +45,10 @@ def plot_time_spec(
         )
         axs[plt_index].fill_between(
             freqs[:N_int],
-            FFTs_unet.mean(axis=0)[:N_int, index] - FFTs_unet.std(axis=0)[:N_int, index],
-            FFTs_unet.mean(axis=0)[:N_int, index] + FFTs_unet.std(axis=0)[:N_int, index],
+            FFTs_unet.mean(axis=0)[:N_int, index]
+            - FFTs_unet.std(axis=0)[:N_int, index],
+            FFTs_unet.mean(axis=0)[:N_int, index]
+            + FFTs_unet.std(axis=0)[:N_int, index],
             ls="--",
             color=clist[2],
             alpha=0.25,
@@ -80,7 +82,9 @@ def plot_time_spec(
     # plt.tight_layout()
 
 
-def plot_var(network, axs, plt_index, index, N_test, lag, auto_var, var_unet, var_net, clist):
+def plot_var(
+    network, axs, plt_index, index, N_test, lag, auto_var, var_unet, var_net, clist
+):
     T_plot = 1098
 
     N_int = int(T_plot / lag)
@@ -149,7 +153,7 @@ def plot_var(network, axs, plt_index, index, N_test, lag, auto_var, var_unet, va
 
 
 def plot_mean(
-   network, axs, plt_index, index, N_test, lag, auto_mean, mean_unet, mean_net, clist
+    network, axs, plt_index, index, N_test, lag, auto_mean, mean_unet, mean_net, clist
 ):
 
     T_plot = N_test
@@ -170,7 +174,7 @@ def plot_mean(
         label="CM2.6",
         zorder=5,
     )
-    
+
     if mean_unet is not None:
         axs[plt_index].plot(
             (np.arange(N_int) * lag) / 366,
@@ -180,8 +184,10 @@ def plot_mean(
         )
         axs[plt_index].fill_between(
             (np.arange(N_int) * lag) / 366,
-            mean_unet.mean(axis=0)[:N_int, index] - mean_unet.std(axis=0)[:N_int, index],
-            mean_unet.mean(axis=0)[:N_int, index] + mean_unet.std(axis=0)[:N_int, index],
+            mean_unet.mean(axis=0)[:N_int, index]
+            - mean_unet.std(axis=0)[:N_int, index],
+            mean_unet.mean(axis=0)[:N_int, index]
+            + mean_unet.std(axis=0)[:N_int, index],
             ls="--",
             color=clist[2],
             alpha=0.25,
@@ -234,7 +240,9 @@ def plot_mean(
         )  # Adjust base as needed
 
 
-def plot_acc(network, axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist):
+def plot_acc(
+    network, axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist
+):
     T_plot = 100
 
     N_int = int(T_plot / lag)
@@ -306,7 +314,16 @@ def plot_acc(network, axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, 
 
 
 def plot_corr(
-    network, axs, plt_ind_acc, index, N_test, lag, auto_corrs, corrs_unet, corrs_net, clist
+    network,
+    axs,
+    plt_ind_acc,
+    index,
+    N_test,
+    lag,
+    auto_corrs,
+    corrs_unet,
+    corrs_net,
+    clist,
 ):
 
     T_plot = 100
@@ -344,8 +361,10 @@ def plot_corr(
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
-            corrs_unet.mean(axis=0)[:N_int, index] - corrs_unet.std(axis=0)[:N_int, index],
-            corrs_unet.mean(axis=0)[:N_int, index] + corrs_unet.std(axis=0)[:N_int, index],
+            corrs_unet.mean(axis=0)[:N_int, index]
+            - corrs_unet.std(axis=0)[:N_int, index],
+            corrs_unet.mean(axis=0)[:N_int, index]
+            + corrs_unet.std(axis=0)[:N_int, index],
             ls="-",
             color=clist[2],
             alpha=0.2,
@@ -360,8 +379,10 @@ def plot_corr(
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
-            corrs_net.mean(axis=0)[:N_int, index] - corrs_net.std(axis=0)[:N_int, index],
-            corrs_net.mean(axis=0)[:N_int, index] + corrs_net.std(axis=0)[:N_int, index],
+            corrs_net.mean(axis=0)[:N_int, index]
+            - corrs_net.std(axis=0)[:N_int, index],
+            corrs_net.mean(axis=0)[:N_int, index]
+            + corrs_net.std(axis=0)[:N_int, index],
             ls="-",
             color=clist[3],
             alpha=0.2,
@@ -495,8 +516,10 @@ def plot_rmse(
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
-            rmse_unet.mean(axis=0)[:N_int, index] - rmse_unet.std(axis=0)[:N_int, index],
-            rmse_unet.mean(axis=0)[:N_int, index] + rmse_unet.std(axis=0)[:N_int, index],
+            rmse_unet.mean(axis=0)[:N_int, index]
+            - rmse_unet.std(axis=0)[:N_int, index],
+            rmse_unet.mean(axis=0)[:N_int, index]
+            + rmse_unet.std(axis=0)[:N_int, index],
             ls="-",
             color=clist[2],
             alpha=0.2,
@@ -548,7 +571,7 @@ def plot_long_time_stats(
     FFTs_net,
     auto_mean,
     mean_unet,
-    mean_net
+    mean_net,
 ):
 
     N = 5
@@ -580,11 +603,27 @@ def plot_long_time_stats(
         },
     )
     plot_time_spec(
-        network, axs, (0, 0), 0, N_test, freqs, auto_FFT, FFTs_unet, FFTs_net, clist, False
+        network,
+        axs,
+        (0, 0),
+        0,
+        N_test,
+        freqs,
+        auto_FFT,
+        FFTs_unet,
+        FFTs_net,
+        clist,
+        False,
     )
-    plot_mean(network, axs, (0, 1), 0, N_test, lag, auto_mean, mean_unet, mean_net, clist)
-    plot_time_spec(network, axs, (1, 0), 1, N_test, freqs, auto_FFT, FFTs_unet, FFTs_net, clist)
-    plot_mean(network, axs, (1, 1), 2, N_test, lag, auto_mean, mean_unet, mean_net, clist)
+    plot_mean(
+        network, axs, (0, 1), 0, N_test, lag, auto_mean, mean_unet, mean_net, clist
+    )
+    plot_time_spec(
+        network, axs, (1, 0), 1, N_test, freqs, auto_FFT, FFTs_unet, FFTs_net, clist
+    )
+    plot_mean(
+        network, axs, (1, 1), 2, N_test, lag, auto_mean, mean_unet, mean_net, clist
+    )
 
     region_title = ""
 
@@ -662,12 +701,16 @@ def plot_short_time_stats(
             },
         )
         return fig, axs
-    
+
     fig, axs = init_plt()
-    plot_acc(network, axs, (0,0), 2, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
-    plot_corr(network, axs, (0,1), 1, N_test, lag, auto_corrs, corrs_unet, corrs_net, clist)
-    plot_rmse(network, axs, (1,0), 2, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist)
-    plot_KE(network, axs, (1,1), N_test, lag, auto_KE, KE_unet, KE_net, clist)
+    plot_acc(network, axs, (0, 0), 2, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
+    plot_corr(
+        network, axs, (0, 1), 1, N_test, lag, auto_corrs, corrs_unet, corrs_net, clist
+    )
+    plot_rmse(
+        network, axs, (1, 0), 2, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+    )
+    plot_KE(network, axs, (1, 1), N_test, lag, auto_KE, KE_unet, KE_net, clist)
 
     fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
 
@@ -680,8 +723,12 @@ def plot_short_time_stats(
     fig, axs = init_plt()
     plot_acc(network, axs, (0, 0), 0, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
     plot_acc(network, axs, (0, 1), 1, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
-    plot_rmse(network, axs, (1, 0), 0, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist)
-    plot_rmse(network, axs, (1, 1), 1, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist)
+    plot_rmse(
+        network, axs, (1, 0), 0, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+    )
+    plot_rmse(
+        network, axs, (1, 1), 1, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+    )
 
     fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
 
@@ -936,7 +983,22 @@ def plot_all_metrics(
     plt.clf()
 
 
-def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan, model_pred_net, model_pred_unet, mean_out, std_out, ind_plot, Nb, use_unet=True, only_unet=False):
+def get_initial_snapshot_fig(
+    network,
+    N_plot,
+    region,
+    grids,
+    test_data,
+    wet_nan,
+    model_pred_net,
+    model_pred_unet,
+    mean_out,
+    std_out,
+    ind_plot,
+    Nb,
+    use_unet=True,
+    only_unet=False,
+):
 
     plt.rcParams.update({"font.size": 15})
     var_list = {
@@ -973,7 +1035,6 @@ def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan,
 
     T_plot = 1000
 
-
     vmin = mean_out[ind_plot] - std_out[ind_plot]
     vmax = mean_out[ind_plot] + std_out[ind_plot]
 
@@ -1002,7 +1063,6 @@ def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan,
     else:
         cmap = cmocean.cm.diff
 
-
     plt0 = axs[0, 0].pcolormesh(
         x_plot,
         y_plot,
@@ -1015,7 +1075,6 @@ def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan,
         vmax=vmax,
         shading="auto",
     )
-
 
     axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
     gl = axs[0, 0].gridlines(
@@ -1046,7 +1105,6 @@ def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan,
     # Create a new axes with the adjusted position
     cax = fig.add_axes(new_pos)
 
-
     cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
     cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
     if ind_plot == 2:
@@ -1064,7 +1122,8 @@ def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan,
         plt1 = axs[0, 1].pcolormesh(
             x_plot,
             y_plot,
-            model_pred_net[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot] * wet_nan[Nb:-Nb, Nb:-Nb],
+            model_pred_net[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot]
+            * wet_nan[Nb:-Nb, Nb:-Nb],
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
@@ -1085,14 +1144,17 @@ def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan,
         gl.yrotation = False
         gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
-        axs[0, 1].set_title(network + r"($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15)
+        axs[0, 1].set_title(
+            network + r"($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15
+        )
 
     plt2 = None
     if use_unet:
         plt2 = axs[0, 2].pcolormesh(
             x_plot,
             y_plot,
-            model_pred_unet[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot] * wet_nan[Nb:-Nb, Nb:-Nb],
+            model_pred_unet[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot]
+            * wet_nan[Nb:-Nb, Nb:-Nb],
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
@@ -1113,11 +1175,12 @@ def get_initial_snapshot_fig(network, N_plot, region, grids, test_data, wet_nan,
         gl.yrotation = False
         gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
-        axs[0, 2].set_title(r"Unet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15)
+        axs[0, 2].set_title(
+            r"Unet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15
+        )
         axs[1, 2].set_axis_off()
-        
-    axs[1, 0].set_axis_off()
 
+    axs[1, 0].set_axis_off()
 
     region_title = ""
 

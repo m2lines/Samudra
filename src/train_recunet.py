@@ -118,10 +118,26 @@ class Trainer:
         elif args.network == "recunet":
             model = instantiate(args.recunet)
 
-            train_data = RecUnetDataset(args.train_data_path, args.steps, model.input_time_dim, model.presteps, model.output_channels, args.Nb, args.wet_path)
-            val_data = RecUnetDataset(args.val_data_path, args.steps, model.input_time_dim, model.presteps, model.output_channels, args.Nb, args.wet_path)
+            train_data = RecUnetDataset(
+                args.train_data_path,
+                args.steps,
+                model.input_time_dim,
+                model.presteps,
+                model.output_channels,
+                args.Nb,
+                args.wet_path,
+            )
+            val_data = RecUnetDataset(
+                args.val_data_path,
+                args.steps,
+                model.input_time_dim,
+                model.presteps,
+                model.output_channels,
+                args.Nb,
+                args.wet_path,
+            )
             model.set_input_size([*train_data[0][0].shape[2:]])
-            
+
         model = model.to(args.device)
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         model = nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
@@ -176,7 +192,7 @@ class Trainer:
         # Scheduler
         self.scheduler = None
         if args.scheduler:
-        # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, args.T)
+            # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, args.T)
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 self.optimizer, args.T
             )
@@ -211,10 +227,12 @@ class Trainer:
                 self.scheduler,
                 self.device,
                 self.wandb,
-                self.gscaler
+                self.gscaler,
             )
 
-            val_stats = validate(self.model, self.test_loader, self.device, self.wandb, self.gscaler)
+            val_stats = validate(
+                self.model, self.test_loader, self.device, self.wandb, self.gscaler
+            )
 
             v_loss = val_stats["loss"]
 

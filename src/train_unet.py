@@ -254,8 +254,8 @@ class Trainer:
             metric_logger.log_every(self.train_loader, 1, header)
         ):
 
-            if (data_iter_step + 1) % 5 == 0:
-                break
+            # if (data_iter_step + 1) % 5 == 0:
+            #     break
 
             # self.optimizer.zero_grad()
             self.model.zero_grad(set_to_none=True)

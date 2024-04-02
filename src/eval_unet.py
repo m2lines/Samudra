@@ -126,13 +126,12 @@ class Eval:
 
         print("Loading model")
         # Model
-        if args.network == "recunet":
-            model = instantiate(args.recunet)
-            full_model_path = args.recunet_ckpt_path
-            self.full_model_name = args.network + "_" + self.post_model_name
-            self.input_time_dim = model.input_time_dim
-            self.presteps = model.presteps
-            self.output_channels = model.output_channels
+        model = instantiate(args.unet)
+        full_model_path = args.ckpt_path
+        self.full_model_name = args.network + "_" + self.post_model_name
+        self.input_time_dim = model.input_time_dim
+        self.presteps = model.presteps
+        self.output_channels = model.output_channels
 
         model = model.to(args.device)
         model.load_state_dict(
@@ -253,10 +252,9 @@ class Eval:
         for ns in [4000]:
             for rand_ind in range(1, 4):
                 print(ns, rand_ind)
-                if self.network == "recunet":
-                    model_pred = generate_recunet_rollout(
-                        self.N_test, self.test_data, self.model, self.Nb, self.N_in
-                    )
+                model_pred = generate_recunet_rollout(
+                    self.N_test, self.test_data, self.model, self.Nb, self.N_in
+                )
 
                 print("data_gen")
                 da = xr.DataArray(
@@ -293,10 +291,9 @@ class Eval:
                     temp = copy.deepcopy(self.test_data)
                     temp.set_input(i * len_run, len_run)
 
-                    if self.network == "recunet":
-                        model_pred_temp = generate_recunet_rollout(
-                            len_run, temp, self.model, self.Nb, self.N_in
-                        )
+                    model_pred_temp = generate_recunet_rollout(
+                        len_run, temp, self.model, self.Nb, self.N_in
+                    )
                     print("data_gen")
                     model_pred[int(i * len_run) : int((i + 1) * len_run)] = (
                         model_pred_temp

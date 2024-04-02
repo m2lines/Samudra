@@ -6,7 +6,7 @@ comp="compute=local"
 # EXPERIMENT LAUNCHES
 # GO BOTTOM TO TOP
 
-# local train 
+# local train
 # Simple UNet - No scheduler
 ./.python-greene submitit_hydra.py $comp exp=train_unet name="$(date +%F)-test_train_unet_nosched" batch_size=32 unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] +exp/unet/modules/activations@model.encoder.conv_block.activation=capped_leaky_relu +exp/unet/modules/activations@model.decoder.conv_block.activation=capped_leaky_relu
 

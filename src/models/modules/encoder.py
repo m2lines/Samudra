@@ -3,6 +3,7 @@ from typing import Sequence
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 
+
 class UNetEncoder(torch.nn.Module):
     """
     Generic UNet3Encoder that can be applied to arbitrary meshes.

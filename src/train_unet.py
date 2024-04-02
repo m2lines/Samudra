@@ -23,7 +23,7 @@ from utils.dist_utils import (
     get_world_size,
     get_rank,
     is_main_process,
-    all_reduce_mean
+    all_reduce_mean,
 )
 from utils.data_utils import RecUnetDataset
 
@@ -242,8 +242,7 @@ class Trainer:
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print("Training time {}".format(total_time_str))
-    
-    
+
     def train_one_epoch(self, epoch):
         self.model.train(True)
         metric_logger = MetricLogger(delimiter="  ")
@@ -255,7 +254,7 @@ class Trainer:
             metric_logger.log_every(self.train_loader, 1, header)
         ):
 
-            if (data_iter_step+1) % 5 == 0:
+            if (data_iter_step + 1) % 5 == 0:
                 break
 
             # self.optimizer.zero_grad()
@@ -294,12 +293,13 @@ class Trainer:
             loss_value_reduce = all_reduce_mean(loss_value)
 
             if self.wandb:
-                wandb.log({"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr})
+                wandb.log(
+                    {"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr}
+                )
 
         metric_logger.synchronize_between_processes()
         print("Averaged train stats:", metric_logger)
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-
 
     @torch.no_grad()
     def validate(self):
@@ -309,7 +309,9 @@ class Trainer:
         header = "Test:"
         for data, label in self.test_loader:
             with torch.no_grad():
-                with amp.autocast(enabled=self.gscaler is not None, dtype=torch.float16):
+                with amp.autocast(
+                    enabled=self.gscaler is not None, dtype=torch.float16
+                ):
                     outs = self.model(data.to(device=self.device))
                     loss = self.loss(label.to(device=self.device), outs)
                 loss_value = loss.item()

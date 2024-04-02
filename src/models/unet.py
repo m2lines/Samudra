@@ -17,7 +17,8 @@ class BaseUNet(torch.nn.Module):
         output_time_dim: int,
         input_channels: int,
         output_channels: int,
-        presteps: int):
+        presteps: int,
+    ):
 
         super().__init__()
         self.input_channels = input_channels
@@ -35,14 +36,16 @@ class BaseUNet(torch.nn.Module):
             )
 
         # Build the model layers
-        self.encoder = instantiate(encoder, input_channels=self._compute_input_channels())
+        self.encoder = instantiate(
+            encoder, input_channels=self._compute_input_channels()
+        )
         self.encoder_depth = len(self.encoder.n_channels)
-        self.decoder = instantiate(decoder,
-            output_channels=self._compute_output_channels()
+        self.decoder = instantiate(
+            decoder, output_channels=self._compute_output_channels()
         )
 
         self.input_size_set = False
-    
+
     def get_resize_fn(self, input_size):
         new_img_size = copy.deepcopy(input_size)
         if new_img_size[0] % 16 != 0:
@@ -66,7 +69,7 @@ class BaseUNet(torch.nn.Module):
 
     def _compute_output_channels(self) -> int:
         return (1 if self.is_diagnostic else self.input_time_dim) * self.output_channels
-    
+
     def _reshape(self, input) -> torch.Tensor:
         B, T, C, H, W = input.shape
         input = input.reshape(B, T * C, H, W)
@@ -87,7 +90,8 @@ class UNet(BaseUNet):
         output_time_dim: int,
         input_channels: int = 9,
         output_channels: int = 3,
-        presteps: int = 0):
+        presteps: int = 0,
+    ):
 
         super().__init__(
             encoder,
@@ -96,7 +100,7 @@ class UNet(BaseUNet):
             output_time_dim,
             input_channels,
             output_channels,
-            presteps
+            presteps,
         )
         assert input_time_dim == 1
         self.time_dim = 1
@@ -121,7 +125,9 @@ class UNet(BaseUNet):
 
         for local_step, step in enumerate(step_range):  # use local_step for all inputs
             if step == 0:
-                input_tensor = self._reshape(inputs[:, 0:1]) # 0:1 is just 0, but retains shape
+                input_tensor = self._reshape(
+                    inputs[:, 0:1]
+                )  # 0:1 is just 0, but retains shape
             else:
                 s = local_step
                 input_tensor = self._reshape(
@@ -130,7 +136,7 @@ class UNet(BaseUNet):
                             outputs[-1],
                             inputs[
                                 :,
-                                s:s+1,
+                                s : s + 1,
                                 self.output_channels :,
                             ],
                         ],
@@ -144,8 +150,7 @@ class UNet(BaseUNet):
             # reshaped = self._reshape_outputs(decodings)
             # Residual prediction
             reshaped = self._reshape_output(
-                input_tensor[:, :self.output_channels]
-                + decodings
+                input_tensor[:, : self.output_channels] + decodings
             )
             outputs.append(reshaped)
 
@@ -156,6 +161,7 @@ class UNet(BaseUNet):
             return outputs
 
         return torch.cat(outputs, dim=self.time_dim)
+
 
 class RecUNet(BaseUNet):
     def __init__(
@@ -189,7 +195,7 @@ class RecUNet(BaseUNet):
             output_time_dim,
             input_channels,
             output_channels,
-            presteps
+            presteps,
         )
         self.time_dim = 1
         self.reset_cycle = reset_cycle

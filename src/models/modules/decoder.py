@@ -3,6 +3,7 @@ from typing import Sequence
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 
+
 class UNetDecoder(torch.nn.Module):
     """
     Generic UNetDecoder that can be applied to arbitrary meshes.
@@ -59,10 +60,7 @@ class UNetDecoder(torch.nn.Module):
 
             # Recurrent module
             if recurrent_block:
-                rec_module = instantiate(
-                    recurrent_block,
-                    in_channels=next_channel
-                    )
+                rec_module = instantiate(recurrent_block, in_channels=next_channel)
             else:
                 rec_module = None
 

@@ -17,25 +17,27 @@ experiment: eval
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
 grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
-unet_path: /scratch/as15415/Emulation/Preds
 path_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds
 data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-06-save_data_test/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
-nets_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/train/2024-04-01-train_norecunet_gulfext3/saved_nets
-network: "norecunet" # change
-short_model_name: "norecunet_best_steps_8_"
+network: "norecunet"
 steps: 8 # 8
+
+region: "Gulf_Stream_Ext3"
+nets_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext3/saved_nets # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext/saved_nets
+short_model_name: "norecunet_best_steps_8_"
 
 use_unet: false
 only_unet: false
 unet_region: Gulf_Stream_Ext
+unet_path: # /scratch/as15415/Emulation/Preds 
 
-save_test_data: true # change if already saved in prior experiments
+save_test_data: false # change if already saved in prior experiments
 run_gen_pred: true
 run_gen_short_pred: true
 run_full_pred: true
 run_short_pred: true
 run_plot_metrics: true
-run_plot_animation: true # Cant run this without the right overlay
+run_plot_animation: true
 
 device: "cuda" # keep this cuda to get preds in gpu
 
@@ -43,7 +45,6 @@ device: "cuda" # keep this cuda to get preds in gpu
 exp_num_in: "3"
 exp_num_extra: "12"
 exp_num_out: "2"
-region: "Gulf_Stream_Ext3"
 N_samples: 4000
 N_val: 200
 N_test: 3000

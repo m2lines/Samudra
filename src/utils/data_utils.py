@@ -617,7 +617,7 @@ class RecUnetDataset(torch.utils.data.Dataset):
         self.wet = torch.load(wet_path, map_location=torch.device("cpu"))
         self.input_steps = steps + presteps*input_time_dim
         self.output_steps = steps
-        self.output_offset = (1+presteps)*input_time_dim
+        self.output_offset = (1 + presteps) * input_time_dim
 
         self.Nb = Nb
         self.output_channels = output_channels
@@ -638,7 +638,7 @@ class RecUnetDataset(torch.utils.data.Dataset):
 
         inputs = (inputs - mean_data) / (std_data)
 
-        inputs[:, self.Nb:-self.Nb, self.Nb:-self.Nb, -self.output_channels:] = 0.0
+        inputs[:, self.Nb : -self.Nb, self.Nb : -self.Nb, -self.output_channels :] = 0.0
 
         std_dict = {
             "s_in": std_data,
@@ -655,12 +655,15 @@ class RecUnetDataset(torch.utils.data.Dataset):
         
 
     def __len__(self):
-        return len(self.input) - (self.output_steps+self.output_offset)
+        return len(self.input) - (self.output_steps + self.output_offset)
 
     def __getitem__(self, idx):
         # print(f"Input indices- {idx}:{idx+self.input_steps}\nTarget indices- {idx+self.output_offset}:{idx+self.output_offset+self.output_steps}")
-        inputs = self.input[idx:idx+self.input_steps]
-        targets = self.input[idx+self.output_offset:idx+self.output_offset+self.output_steps, :self.output_channels]
+        inputs = self.input[idx : idx + self.input_steps]
+        targets = self.input[
+            idx + self.output_offset : idx + self.output_offset + self.output_steps,
+            : self.output_channels,
+        ]
         assert inputs.shape[0] != 0
         assert targets.shape[0] != 0
         return inputs.to(self.device), targets.to(self.device)

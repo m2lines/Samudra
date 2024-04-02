@@ -1,0 +1,11 @@
+defaults:
+  - modules/encoder@encoder: rec_unet_enc
+  - modules/decoder@decoder: rec_unet_dec
+
+_target_: models.unet.RecUNet
+_recursive_: false
+presteps: 1
+input_time_dim: 2
+output_time_dim: 8
+input_channels: 9
+output_channels: 3

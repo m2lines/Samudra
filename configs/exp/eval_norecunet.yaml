@@ -22,8 +22,8 @@ data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313
 network: "norecunet"
 steps: 8 # 8
 
-region: "Gulf_Stream_Ext3"
-nets_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext3/saved_nets # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext/saved_nets
+region: "Gulf_Stream_Ext"
+nets_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext/saved_nets # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext/saved_nets # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext/saved_nets
 short_model_name: "norecunet_best_steps_8_"
 
 use_unet: false

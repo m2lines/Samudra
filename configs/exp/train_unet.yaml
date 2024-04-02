@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - _self_
-  - unet: rec_unet
+  - unet: unet
 
 wandb:
   mode: disabled # online, disabled
@@ -22,7 +22,7 @@ rand_seed: 1
 
 #####
 region: "Gulf_Stream_Ext"
-network: "recunet"
+network: "unet"
 train_data_path: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data_tensor/2024-04-01-save_data_tensor_recunet_Gulfext_with_wet/data/train_data_steps_0_Gulf_Stream_Ext_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt
 val_data_path: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data_tensor/2024-04-01-save_data_tensor_recunet_Gulfext_with_wet/data/val_data_steps_0_Gulf_Stream_Ext_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt
 wet_path: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data_tensor/2024-04-01-save_data_tensor_recunet_Gulfext_with_wet/data/wet_steps_0_Gulf_Stream_Ext_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt

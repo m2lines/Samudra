@@ -1,0 +1,20 @@
+defaults:
+  - /exp/unet/modules/blocks@conv_block: basic_conv_block
+  - /exp/unet/modules/blocks@up_sampling_block: transposed_conv_upsample
+  - /exp/unet/modules/blocks@recurrent_block: null
+  - /exp/unet/modules/blocks@output_layer: output_layer
+
+_target_: models.unet.UNetDecoder
+_recursive_: false
+n_channels:
+  - 256
+  - 128
+  - 64
+n_layers:
+  - 1
+  - 2
+  - 2
+dilations:
+  - 1
+  - 1
+  - 1

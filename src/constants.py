@@ -44,6 +44,7 @@ REGIONS = {
     "Gulf_Stream": {"lat": [25, 50], "lon": [-70, -35]},
     "Gulf_Stream_Ext": {"lat": [27, 50], "lon": [-82, -35]},
     "Gulf_Stream_Ext2": {"lat": [26, 50.65], "lon": [-82, -50.25]},
+    "Gulf_Stream_Ext3": {"lat": [26, 50.65], "lon": [-82, -34.25]},
     "Tropics": {"lat": [-5, 25], "lon": [-95, -65]},
     "Tropics_Ext": {"lat": [-5, 25], "lon": [-115, -45]},
     "South_America": {"lat": [-60, -30], "lon": [-70, -35]},

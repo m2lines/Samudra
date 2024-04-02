@@ -2,6 +2,7 @@
 defaults:
   - _self_
   - vit: default
+  - norecunet: default
 
 wandb:
   mode: online # online, disabled
@@ -16,9 +17,12 @@ experiment: train
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
 grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
-data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-31-save_data_gulfext2/data
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
+
+data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-31-save_data_gulfext/data
+region: "Gulf_Stream_Ext"
+network: "norecunet"
 
 device: "cuda"
 distributed: True
@@ -36,8 +40,6 @@ T: 10 # CosineA / CosineAWarm param
 exp_num_in: "3"
 exp_num_extra: "12"
 exp_num_out: "2"
-region: "Gulf_Stream_Ext2"
-network: "ViT"
 N_samples: 4000 #4000
 N_val: 300 #300
 N_test: 500 #500

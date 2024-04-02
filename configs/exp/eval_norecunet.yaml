@@ -2,6 +2,7 @@
 defaults:
   - _self_
   - vit: default
+  - norecunet: default
 
 wandb:
   mode: disabled # online, disabled
@@ -19,18 +20,18 @@ grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
 unet_path: /scratch/as15415/Emulation/Preds
 path_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds
 data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-06-save_data_test/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
-nets_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/train/2024-04-01-train_vit_gulfext3/saved_nets # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/train/2024-04-01-train_vit_gulfext_sanity/saved_nets
-network: "ViT" # change
-short_model_name: "ViT_best_steps_8_"
+nets_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/train/2024-04-01-train_norecunet_gulfext3/saved_nets
+network: "norecunet" # change
+short_model_name: "norecunet_best_steps_8_"
 steps: 8 # 8
 
 use_unet: false
 only_unet: false
 unet_region: Gulf_Stream_Ext
 
-save_test_data: false # change if already saved in prior experiments
-run_gen_pred: false
-run_gen_short_pred: false
+save_test_data: true # change if already saved in prior experiments
+run_gen_pred: true
+run_gen_short_pred: true
 run_full_pred: true
 run_short_pred: true
 run_plot_metrics: true

@@ -112,12 +112,12 @@ def main(args):
         )
 
     elif args.model == "recunet":
-        print("Saving data for OceanGPT")
+        print("Saving data for Recunet")
         train_data = get_recunet_data(
-            s_train, e_train, inputs, extra_in, wet
+            s_train, e_train, inputs, extra_in
         )
         val_data = get_recunet_data(
-            e_train, e_test, inputs, extra_in, wet
+            e_train, e_test, inputs, extra_in
         )
         train_data = train_data.type(torch.FloatTensor)
         val_data = val_data.type(torch.FloatTensor)
@@ -130,4 +130,7 @@ def main(args):
         )
         torch.save(
             val_data, Path(args.data_dir) / "val_data_{0}.pt".format(str_video)
+        )
+        torch.save(
+            wet,  Path(args.data_dir) / "wet_{0}.pt".format(str_video)
         )

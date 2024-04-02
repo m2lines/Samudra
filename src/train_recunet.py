@@ -13,6 +13,7 @@ import torch.nn as nn
 import torch_geometric
 import torch.backends.cudnn as cudnn
 import numpy as np
+from torch.cuda import amp
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS
 from utils.train_utils import loss_KE_pointwise
@@ -24,6 +25,7 @@ from utils.dist_utils import (
     is_main_process,
 )
 from utils.data_utils import data_CNN_Lateral, data_CNN_steps_Lateral, RecUnetDataset
+from models.recunet import train_one_epoch, validate
 
 
 class Trainer:
@@ -116,10 +118,10 @@ class Trainer:
         elif args.network == "recunet":
             model = instantiate(args.recunet)
 
-            train_data = RecUnetDataset(args.train_data_path, args.steps, model.input_time_dim, model.presteps, model.output_channels, args.Nb)
-            val_data = RecUnetDataset(args.val_data_path, args.steps, model.input_time_dim, model.presteps, model.output_channels, args.Nb)
+            train_data = RecUnetDataset(args.train_data_path, args.steps, model.input_time_dim, model.presteps, model.output_channels, args.Nb, args.wet_path)
+            val_data = RecUnetDataset(args.val_data_path, args.steps, model.input_time_dim, model.presteps, model.output_channels, args.Nb, args.wet_path)
+            model.set_input_size([*train_data[0][0].shape[2:]])
             
-
         model = model.to(args.device)
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         model = nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
@@ -161,10 +163,11 @@ class Trainer:
         # Loss function
         lam = args.lam
         mse = nn.MSELoss()
-        self.loss = (
-            lambda out, pred: mse(out, pred) * (1 - lam)
-            + loss_KE_pointwise(out, pred) * lam
-        )
+        # self.loss = (
+        #     lambda out, pred: mse(out, pred) * (1 - lam)
+        #     + loss_KE_pointwise(out, pred) * lam
+        # )
+        self.loss = lambda out, pred: mse(out, pred)
 
         # Optimizer
         self.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -173,11 +176,15 @@ class Trainer:
         ] * args.steps  # Constant weighting of losses across steps
 
         # Scheduler
+        self.scheduler = None
+        if args.scheduler:
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, args.T)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            self.optimizer, args.T
-        )
-        # self.scheduler = None
+            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                self.optimizer, args.T
+            )
+
+        # Gscaler
+        self.gscaler = amp.GradScaler(enabled=args.grad_clip)
 
         # Training
         self.epochs = args.epochs
@@ -197,17 +204,19 @@ class Trainer:
             self.train_sampler.set_epoch(epoch)
             self.test_sampler.set_epoch(epoch)
 
-            train_stats = model.train_one_epoch(
+            train_stats = train_one_epoch(
+                self.model,
                 epoch,
                 self.train_loader,
                 self.loss,
                 self.optimizer,
                 self.scheduler,
                 self.device,
-                self.wandb
+                self.wandb,
+                self.gscaler
             )
 
-            val_stats = model.validate(self.test_loader, self.device, self.wandb)
+            val_stats = validate(self.model, self.test_loader, self.device, self.wandb, self.gscaler)
 
             v_loss = val_stats["loss"]
 

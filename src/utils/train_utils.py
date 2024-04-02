@@ -14,6 +14,8 @@ from pathlib import Path
 import torch.distributed as dist
 import wandb
 import logging
+from torchvision.transforms import Resize
+import copy
 
 from .dist_utils import is_dist_avail_and_initialized, all_reduce_mean
 
@@ -195,6 +197,99 @@ def loss_KE_pointwise(data, out):
     return ((data[:, :2] ** 2 - out[:, :2] ** 2) ** 2).mean()
 
 
+def get_resize_func(old_size):
+    new_img_size = copy.deepcopy(old_size)
+    if new_img_size[0] % 16 != 0:
+        new_img_size[0] = (int(new_img_size[0] / 16) + 1) * 16
+
+    if new_img_size[1] % 16 != 0:
+        new_img_size[1] = (int(new_img_size[1] / 16) + 1) * 16
+    return Resize(new_img_size)
+
+def train_one_epoch_recunet(
+        epoch,
+        model,
+        train_loader,
+        N_in,
+        N_extra,
+        hist,
+        loss_fn,
+        optimizer,
+        scheduler,
+        steps,
+        weight,
+        device,
+        wandb_flag,
+    ):
+
+    assert hist == 0
+    model.train(True)
+    metric_logger = MetricLogger(delimiter="  ")
+    metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
+    header = "Epoch: [{}]".format(epoch)
+    iters = len(train_loader)
+
+    img_size = [*train_loader.dataset[0][0].shape[1:]]
+    resize = get_resize_func(img_size)
+
+    for data_iter_step, data in enumerate(
+        metric_logger.log_every(train_loader, 1, header)
+    ):
+        # if (data_iter_step+1) % 5 == 0:
+        #     break
+        optimizer.zero_grad()
+        
+        loss = model(data, resize, img_size, loss_fn=loss_fn)
+        loss.backward()
+        loss_value = loss.item()
+
+        optimizer.step()
+        if scheduler is not None:
+            # scheduler.step()
+            scheduler.step(epoch + data_iter_step / iters)
+        torch.cuda.synchronize()
+        torch.cuda.empty_cache()
+
+        metric_logger.update(loss=loss_value)
+
+        lr = optimizer.param_groups[-1]["lr"] if scheduler is None else scheduler.get_last_lr()[0]
+        metric_logger.update(lr=lr)
+
+        loss_value_reduce = all_reduce_mean(loss_value)
+
+        if wandb_flag:
+            wandb.log({"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr})
+
+    metric_logger.synchronize_between_processes()
+    print("Averaged train stats:", metric_logger)
+    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+
+@torch.no_grad()
+def validate_recunet(model, test_loader, device, wandb_flag):
+    model.eval()
+    mse = nn.MSELoss()
+
+    img_size = [*test_loader.dataset[0][0].shape[1:]]
+    resize = get_resize_func(img_size)
+    metric_logger = MetricLogger(delimiter="  ")
+    header = "Test:"
+    for data in test_loader:
+        with torch.no_grad():
+            
+            loss = model(data, resize, img_size, loss_fn=mse)
+            loss_value = loss.item()
+            metric_logger.update(loss=loss_value)
+
+            loss_value_reduce = all_reduce_mean(loss_value)
+            if wandb_flag:
+                wandb.log({"eval_loss_per_batch": loss_value_reduce})
+
+    metric_logger.synchronize_between_processes()
+    print("Averaged eval stats:", metric_logger)
+
+    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
 def train_one_epoch(
     epoch,
     model,
@@ -210,6 +305,7 @@ def train_one_epoch(
     device,
     wandb_flag,
 ):
+    assert hist == 0
     model.train(True)
     metric_logger = MetricLogger(delimiter="  ")
     metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
@@ -223,53 +319,22 @@ def train_one_epoch(
         optimizer.zero_grad()
         outs = model(data[0].to(device=device))
         outs = outs
-        loss = loss_fn(data[1].to(device=device), outs) * weight[0]
+        loss = loss_fn(data[1].to(device=device), outs)
 
-        if len(weight) == 1:
-            loss.backward()
-        else:
-            for step in range(1, steps):
+        for step in range(1, steps):
+            step_in = torch.concat(
+                (outs, data[int(step * 2)][:, N_in:].to(device=device)), 1
+            )
 
-                if (step == 1) or (hist == 0):
-                    step_in = torch.concat(
-                        (outs, data[int(step * 2)][:, N_in:].to(device=device)), 1
-                    )
-                    outs_old = outs
-                elif (step > 1) and (hist == 1):
-                    step_in = torch.concat(
-                        (
-                            outs,
-                            data[int(step * 2)][:, N_in : (N_in + N_extra)].to(
-                                device=device
-                            ),
-                            outs_old,
-                        ),
-                        1,
-                    )
-                    outs_old = outs
-                else:
-                    step_in = torch.concat(
-                        (
-                            outs,
-                            data[int(step * 2)][:, N_in : (N_in + N_extra)].to(
-                                device=device
-                            ),
-                            outs_old,
-                            step_in[:, (N_in + N_extra) : -N_in],
-                        ),
-                        1,
-                    )
-                    outs_old = outs
+            outs = model(step_in)
+            outs = outs
 
-                outs = model(step_in)
-                outs = outs
-
-                loss += (
-                    loss_fn(data[int(step * 2 + 1)].to(device=device), outs)
-                    * weight[step]
-                )
-            loss.backward()
-
+            loss += (
+                loss_fn(data[int(step * 2 + 1)].to(device=device), outs)
+                * weight[step]
+            )
+        
+        loss.backward()
         loss_value = loss.item()
 
         optimizer.step()
@@ -281,7 +346,7 @@ def train_one_epoch(
 
         metric_logger.update(loss=loss_value)
 
-        lr = optimizer.param_groups[0]["lr"]
+        lr = optimizer.param_groups[-1]["lr"] if scheduler is None else scheduler.get_last_lr()[0]
         metric_logger.update(lr=lr)
 
         loss_value_reduce = all_reduce_mean(loss_value)
@@ -292,6 +357,89 @@ def train_one_epoch(
     metric_logger.synchronize_between_processes()
     print("Averaged train stats:", metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+
+# def train_one_epoch(
+#     epoch,
+#     model,
+#     train_loader,
+#     N_in,
+#     N_extra,
+#     hist,
+#     loss_fn,
+#     optimizer,
+#     scheduler,
+#     steps,
+#     weight,
+#     device,
+#     wandb_flag,
+# ):
+#     assert hist == 0
+#     model.train(True)
+#     torch.autograd.set_detect_anomaly(True)
+#     metric_logger = MetricLogger(delimiter="  ")
+#     metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
+#     header = "Epoch: [{}]".format(epoch)
+#     iters = len(train_loader)
+
+#     for data_iter_step, data in enumerate(
+#         metric_logger.log_every(train_loader, 1, header)
+#     ):
+
+#         optimizer.zero_grad()
+#         outs = model(data[0].to(device=device))
+#         outs = outs
+#         loss = loss_fn(data[1].to(device=device), outs)
+
+#         # step_in = torch.concat(
+#         #     (outs, data[2][:, N_in:].to(device=device)), 1
+#         # )
+
+#         step_in = torch.ones([6, 9, 128, 192]).to(device=device)
+#         model(step_in)
+#         # outs = outs
+
+#         # loss += (
+#         #     loss_fn(data[3].to(device=device), outs)
+#         # )
+
+
+#         # for step in range(1, steps):
+#             # step_in = torch.concat(
+#             #     (outs, data[int(step * 2)][:, N_in:].to(device=device)), 1
+#             # )
+
+#             # outs = model(step_in)
+#             # outs = outs
+
+#             # loss += (
+#             #     loss_fn(data[int(step * 2 + 1)].to(device=device), outs)
+#             #     * weight[step]
+#             # )
+        
+#         loss.backward()
+#         # loss_value = loss.item()
+
+#         # optimizer.step()
+#         # if scheduler is not None:
+#         #     # scheduler.step()
+#         #     scheduler.step(epoch + data_iter_step / iters)
+#         # torch.cuda.synchronize()
+#         # torch.cuda.empty_cache()
+
+#         # metric_logger.update(loss=loss_value)
+
+#         # lr = optimizer.param_groups[-1]["lr"] if scheduler is None else scheduler.get_last_lr()[0]
+#         # metric_logger.update(lr=lr)
+
+#         # loss_value_reduce = all_reduce_mean(loss_value)
+
+#         # if wandb_flag:
+#         #     wandb.log({"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr})
+
+#     metric_logger.synchronize_between_processes()
+#     print("Averaged train stats:", metric_logger)
+#     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
 @torch.no_grad()

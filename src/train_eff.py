@@ -16,7 +16,7 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS
-from utils.train_utils import train_one_epoch, train_one_epoch_recunet, validate, validate_recunet, loss_KE_pointwise
+from utils.train_utils import train_one_epoch, train_one_epoch_recunet, train_one_epoch_recunet_eff, validate_recunet_eff, validate, validate_recunet, loss_KE_pointwise
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -215,7 +215,8 @@ class Trainer:
                     self.wandb,
                 )
             else:
-                train_stats = train_one_epoch_recunet(
+                # train_stats = train_one_epoch_recunet(
+                train_stats = train_one_epoch_recunet_eff(
                     epoch,
                     self.model,
                     self.train_loader,
@@ -233,7 +234,8 @@ class Trainer:
             if self.network == "ViT":
                 val_stats = validate(self.model, self.test_loader, self.device, self.wandb)
             else:
-                val_stats = validate_recunet(self.model, self.test_loader, self.device, self.wandb)
+                # val_stats = validate_recunet(self.model, self.test_loader, self.device, self.wandb)
+                val_stats = validate_recunet_eff(self.model, self.test_loader, self.device, self.wandb)
 
             v_loss = val_stats["loss"]
 

@@ -1,0 +1,11 @@
+defaults:
+  - modules/encoder@encoder: unet_enc
+  - modules/decoder@decoder: unet_dec
+
+_target_: models.unet.UNet
+_recursive_: false
+input_time_dim: 1
+output_time_dim: 8
+input_channels: 9
+output_channels: 3
+presteps: 0

@@ -1,0 +1,15 @@
+defaults:
+  - /exp/unet/modules/blocks@conv_block: basic_conv_block
+  - /exp/unet/modules/blocks@down_sampling_block: avg_pool
+  - /exp/unet/modules/blocks@recurrent_block: conv_gru_block
+
+_target_: models.modules.encoder.UNetEncoder
+_recursive_: false
+n_channels:
+  - 64
+  - 128
+  - 256
+dilations:
+  - 1
+  - 2
+  - 4

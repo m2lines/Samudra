@@ -206,21 +206,22 @@ def get_resize_func(old_size):
         new_img_size[1] = (int(new_img_size[1] / 16) + 1) * 16
     return Resize(new_img_size)
 
+
 def train_one_epoch_recunet(
-        epoch,
-        model,
-        train_loader,
-        N_in,
-        N_extra,
-        hist,
-        loss_fn,
-        optimizer,
-        scheduler,
-        steps,
-        weight,
-        device,
-        wandb_flag,
-    ):
+    epoch,
+    model,
+    train_loader,
+    N_in,
+    N_extra,
+    hist,
+    loss_fn,
+    optimizer,
+    scheduler,
+    steps,
+    weight,
+    device,
+    wandb_flag,
+):
 
     assert hist == 0
     model.train(True)
@@ -238,7 +239,7 @@ def train_one_epoch_recunet(
         # if (data_iter_step+1) % 5 == 0:
         #     break
         optimizer.zero_grad()
-        
+
         loss = model(data, resize, img_size, loss_fn=loss_fn)
         loss.backward()
         loss_value = loss.item()
@@ -252,7 +253,11 @@ def train_one_epoch_recunet(
 
         metric_logger.update(loss=loss_value)
 
-        lr = optimizer.param_groups[-1]["lr"] if scheduler is None else scheduler.get_last_lr()[0]
+        lr = (
+            optimizer.param_groups[-1]["lr"]
+            if scheduler is None
+            else scheduler.get_last_lr()[0]
+        )
         metric_logger.update(lr=lr)
 
         loss_value_reduce = all_reduce_mean(loss_value)
@@ -276,7 +281,7 @@ def validate_recunet(model, test_loader, device, wandb_flag):
     header = "Test:"
     for data in test_loader:
         with torch.no_grad():
-            
+
             loss = model(data, resize, img_size, loss_fn=mse)
             loss_value = loss.item()
             metric_logger.update(loss=loss_value)
@@ -289,6 +294,7 @@ def validate_recunet(model, test_loader, device, wandb_flag):
     print("Averaged eval stats:", metric_logger)
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
 
 def train_one_epoch(
     epoch,
@@ -330,10 +336,9 @@ def train_one_epoch(
             outs = outs
 
             loss += (
-                loss_fn(data[int(step * 2 + 1)].to(device=device), outs)
-                * weight[step]
+                loss_fn(data[int(step * 2 + 1)].to(device=device), outs) * weight[step]
             )
-        
+
         loss.backward()
         loss_value = loss.item()
 
@@ -346,7 +351,11 @@ def train_one_epoch(
 
         metric_logger.update(loss=loss_value)
 
-        lr = optimizer.param_groups[-1]["lr"] if scheduler is None else scheduler.get_last_lr()[0]
+        lr = (
+            optimizer.param_groups[-1]["lr"]
+            if scheduler is None
+            else scheduler.get_last_lr()[0]
+        )
         metric_logger.update(lr=lr)
 
         loss_value_reduce = all_reduce_mean(loss_value)
@@ -416,7 +425,7 @@ def train_one_epoch(
 #             #     loss_fn(data[int(step * 2 + 1)].to(device=device), outs)
 #             #     * weight[step]
 #             # )
-        
+
 #         loss.backward()
 #         # loss_value = loss.item()
 

@@ -579,6 +579,7 @@ def get_oceanGPT_data(s, e, steps, inputs, extra_in, wet):
 
     return inputs, extra_in
 
+
 def get_recunet_data(s, e, inputs, extra_in):
     # Returns data of shape - N, C, H, W
     num_input_vars = len(inputs)
@@ -589,9 +590,18 @@ def get_recunet_data(s, e, inputs, extra_in):
     extra_in = torch.stack(
         [torch.tensor(data_input.to_numpy()) for data_input in extra_in], dim=0
     )
-    assert (torch.nan_to_num(inputs[0,:,:4,:4]) == torch.nan_to_num(extra_in[3,:,:4,:4])).all()
-    assert (torch.nan_to_num(inputs[1,:,:4,:4]) == torch.nan_to_num(extra_in[4,:,:4,:4])).all()
-    assert (torch.nan_to_num(inputs[2,:,:4,:4]) == torch.nan_to_num(extra_in[5,:,:4,:4])).all()
+    assert (
+        torch.nan_to_num(inputs[0, :, :4, :4])
+        == torch.nan_to_num(extra_in[3, :, :4, :4])
+    ).all()
+    assert (
+        torch.nan_to_num(inputs[1, :, :4, :4])
+        == torch.nan_to_num(extra_in[4, :, :4, :4])
+    ).all()
+    assert (
+        torch.nan_to_num(inputs[2, :, :4, :4])
+        == torch.nan_to_num(extra_in[5, :, :4, :4])
+    ).all()
 
     inputs = torch.cat([inputs, extra_in], dim=0)
     C, N, H, W = inputs.shape
@@ -610,12 +620,22 @@ def get_recunet_data(s, e, inputs, extra_in):
 
 class RecUnetDataset(torch.utils.data.Dataset):
     # N C H W
-    def __init__(self, data_path, steps, input_time_dim, presteps, output_channels, Nb, wet_path, device="cuda"):
+    def __init__(
+        self,
+        data_path,
+        steps,
+        input_time_dim,
+        presteps,
+        output_channels,
+        Nb,
+        wet_path,
+        device="cuda",
+    ):
         super().__init__()
         self.data_path = data_path
         self.input = torch.load(data_path, map_location=torch.device("cpu"))
         self.wet = torch.load(wet_path, map_location=torch.device("cpu"))
-        self.input_steps = steps + presteps*input_time_dim
+        self.input_steps = steps + presteps * input_time_dim
         self.output_steps = steps
         self.output_offset = (1 + presteps) * input_time_dim
 
@@ -628,13 +648,13 @@ class RecUnetDataset(torch.utils.data.Dataset):
 
     def preprocess(self):
         N, C, H, W = self.input.shape
-        inputs = rearrange(self.input, 'N C H W -> N H W C')
+        inputs = rearrange(self.input, "N C H W -> N H W C")
 
         std_data = torch.std(inputs, dim=[0, 1, 2])
         mean_data = torch.mean(inputs, dim=[0, 1, 2])
 
-        std_data[-self.output_channels:] = std_data[:self.output_channels]
-        mean_data[-self.output_channels:] = mean_data[:self.output_channels]
+        std_data[-self.output_channels :] = std_data[: self.output_channels]
+        mean_data[-self.output_channels :] = mean_data[: self.output_channels]
 
         inputs = (inputs - mean_data) / (std_data)
 
@@ -643,16 +663,15 @@ class RecUnetDataset(torch.utils.data.Dataset):
         std_dict = {
             "s_in": std_data,
             "m_in": mean_data,
-            "s_out": std_data[:self.output_channels], # same
-            "m_out": mean_data[:self.output_channels], # same
+            "s_out": std_data[: self.output_channels],  # same
+            "m_out": mean_data[: self.output_channels],  # same
         }
 
         print("Current norms: ", std_dict)
-        
+
         self.norm_vals = std_dict
-        inputs = rearrange(inputs, 'N H W C -> N C H W')
+        inputs = rearrange(inputs, "N H W C -> N C H W")
         self.input = torch.mul(inputs, self.wet)
-        
 
     def __len__(self):
         return len(self.input) - (self.output_steps + self.output_offset)
@@ -669,19 +688,28 @@ class RecUnetDataset(torch.utils.data.Dataset):
         return inputs.to(self.device), targets.to(self.device)
 
 
-
 class RecUnetEvalDataset(torch.utils.data.Dataset):
     # N C H W
-    def __init__(self, data_path, steps, input_time_dim, presteps, output_channels, Nb, wet_path, device="cuda"):
+    def __init__(
+        self,
+        data_path,
+        steps,
+        input_time_dim,
+        presteps,
+        output_channels,
+        Nb,
+        wet_path,
+        device="cuda",
+    ):
         super().__init__()
         self.data_path = data_path
         self.input = torch.load(data_path, map_location=torch.device("cpu"))
         self.wet = torch.load(wet_path, map_location=torch.device("cpu"))
-        self.input_steps = steps + presteps*input_time_dim
+        self.input_steps = steps + presteps * input_time_dim
         self.steps = steps
         self.output_steps = steps
-        self.output_offset = (1+presteps)*input_time_dim
-        self.input_offset = presteps*input_time_dim
+        self.output_offset = (1 + presteps) * input_time_dim
+        self.input_offset = presteps * input_time_dim
 
         self.Nb = Nb
         self.output_channels = output_channels
@@ -693,29 +721,29 @@ class RecUnetEvalDataset(torch.utils.data.Dataset):
 
     def preprocess(self):
         N, C, H, W = self.input.shape
-        inputs = rearrange(self.input, 'N C H W -> N H W C')
-        
+        inputs = rearrange(self.input, "N C H W -> N H W C")
+
         std_data = torch.std(inputs, dim=[0, 1, 2])
         mean_data = torch.mean(inputs, dim=[0, 1, 2])
 
-        std_data[-self.output_channels:] = std_data[:self.output_channels]
-        mean_data[-self.output_channels:] = mean_data[:self.output_channels]
+        std_data[-self.output_channels :] = std_data[: self.output_channels]
+        mean_data[-self.output_channels :] = mean_data[: self.output_channels]
 
         inputs = (inputs - mean_data) / (std_data)
 
-        inputs[:, self.Nb:-self.Nb, self.Nb:-self.Nb, -self.output_channels:] = 0.0
+        inputs[:, self.Nb : -self.Nb, self.Nb : -self.Nb, -self.output_channels :] = 0.0
 
         std_dict = {
             "s_in": std_data,
             "m_in": mean_data,
-            "s_out": std_data[:self.output_channels], # same
-            "m_out": mean_data[:self.output_channels], # same
+            "s_out": std_data[: self.output_channels],  # same
+            "m_out": mean_data[: self.output_channels],  # same
         }
 
         print("Current norms: ", std_dict)
 
         self.norm_vals = std_dict
-        inputs = rearrange(inputs, 'N H W C -> N C H W')
+        inputs = rearrange(inputs, "N H W C -> N C H W")
         self.input = torch.mul(inputs, self.wet)
 
     def __len__(self):
@@ -725,42 +753,57 @@ class RecUnetEvalDataset(torch.utils.data.Dataset):
         if not self.converted_:
             # print(f"Input indices- {idx}:{idx+self.input_steps}\nTarget indices- {idx+self.output_offset}:{idx+self.output_offset+self.output_steps}")
             if idx == 0:
-                inputs = self.input[idx:idx+self.input_steps] # 0-10
-                targets = self.input[idx+self.output_offset:idx+self.output_offset+self.output_steps, :self.output_channels] # 4-12
+                inputs = self.input[idx : idx + self.input_steps]  # 0-10
+                targets = self.input[
+                    idx
+                    + self.output_offset : idx
+                    + self.output_offset
+                    + self.output_steps,
+                    : self.output_channels,
+                ]  # 4-12
             else:
-                inputs = self.input[idx*(self.steps):self.input_offset+(idx+1)*(self.steps)] # i*8-2+(i+1)*8
-                targets = self.input[self.output_offset+idx*(self.steps):self.output_offset+(idx+1)*(self.steps), :self.output_channels] # 4+i*8-4+(i+1)*8
+                inputs = self.input[
+                    idx * (self.steps) : self.input_offset + (idx + 1) * (self.steps)
+                ]  # i*8-2+(i+1)*8
+                targets = self.input[
+                    self.output_offset
+                    + idx * (self.steps) : self.output_offset
+                    + (idx + 1) * (self.steps),
+                    : self.output_channels,
+                ]  # 4+i*8-4+(i+1)*8
             assert inputs.shape[0] != 0
             assert targets.shape[0] != 0
             return inputs.to(self.device), targets.to(self.device)
         else:
             return self.input[idx].to(self.device), self.output[idx].to(self.device)
-    
+
     def set_input(self, start, interval):
-        self.input = self.input[start:start+interval+self.output_offset]
+        self.input = self.input[start : start + interval + self.output_offset]
 
     def set_device_and_convert_returns(self, N_test, device="cpu"):
         self.device = device
         self.input.to(device)
-        
-        self.norm_vals['s_in'].to(device)
-        self.norm_vals['m_in'].to(device)
 
-        self.norm_vals['s_in'] = self.norm_vals['s_in'].numpy()
-        self.norm_vals['m_in'] = self.norm_vals['m_in'].numpy()
+        self.norm_vals["s_in"].to(device)
+        self.norm_vals["m_in"].to(device)
 
-        self.norm_vals['s_out'].to(device)
-        self.norm_vals['m_out'].to(device)
+        self.norm_vals["s_in"] = self.norm_vals["s_in"].numpy()
+        self.norm_vals["m_in"] = self.norm_vals["m_in"].numpy()
 
-        self.norm_vals['s_out'] = self.norm_vals['s_out'].numpy()
-        self.norm_vals['m_out'] = self.norm_vals['m_out'].numpy()
+        self.norm_vals["s_out"].to(device)
+        self.norm_vals["m_out"].to(device)
+
+        self.norm_vals["s_out"] = self.norm_vals["s_out"].numpy()
+        self.norm_vals["m_out"] = self.norm_vals["m_out"].numpy()
 
         self.converted_ = True
         # hack
-        self.output = self.input[self.output_offset:self.output_offset+N_test, :self.output_channels]
-        self.input = self.input[self.output_offset-1:self.output_offset-1+N_test]
-        
-
+        self.output = self.input[
+            self.output_offset : self.output_offset + N_test, : self.output_channels
+        ]
+        self.input = self.input[
+            self.output_offset - 1 : self.output_offset - 1 + N_test
+        ]
 
 
 def gen_data_in(step, s, e, interval, lag, hist, inputs, extra_in):
@@ -1170,10 +1213,12 @@ def gen_data_025_lateral(
                 )
 
         extra_in.append(data[var_dict[var]])
-    
+
     cur_extra_len = len(extra_vars)
     for i, var in enumerate(input_vars):
-        print(f"Extracting {var_dict[var]} and appending to extra at index {i+cur_extra_len}")
+        print(
+            f"Extracting {var_dict[var]} and appending to extra at index {i+cur_extra_len}"
+        )
         temp = data[var_dict[var]].copy(deep=True)
         temp[:, Nb:-Nb, Nb:-Nb] = 0.0 * temp[0, Nb:-Nb, Nb:-Nb]
         extra_in.append(temp)

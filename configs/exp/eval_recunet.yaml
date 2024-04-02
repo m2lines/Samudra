@@ -25,7 +25,7 @@ network: "recunet"
 steps: 8 # 8
 
 # UNET
-use_unet: true 
+use_unet: true
 only_unet: false
 unet_path: /scratch/as15415/Emulation/Preds # /scratch/sd5313/M2Lines/emulator/OceanGPT/Preds/UNET_Gulf_Stream_Ext2
 unet_region: "Gulf_Stream_Ext"
@@ -33,7 +33,7 @@ unet_region: "Gulf_Stream_Ext"
 save_test_data: false # change if already saved in prior experiments
 run_gen_pred: true
 run_gen_short_pred: false
-run_full_pred: true 
+run_full_pred: true
 run_short_pred: true
 run_plot_metrics: true
 run_plot_animation: true # Cant run this without the right overlay

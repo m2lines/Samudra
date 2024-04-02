@@ -12,6 +12,7 @@ from torch.cuda import amp
 from torchvision.transforms import Resize
 import copy
 
+
 class CappedGELU(torch.nn.Module):
     """
     Implements a ReLU with capped maximum value.
@@ -380,11 +381,11 @@ class UNetDecoder(torch.nn.Module):
 
 class NoRecUNetSimple(torch.nn.Module):
     def __init__(
-            self,
-            input_time_dim: int,
-            output_time_dim: int,
-            input_channels: int=9,
-            output_channels: int=3,
+        self,
+        input_time_dim: int,
+        output_time_dim: int,
+        input_channels: int = 9,
+        output_channels: int = 3,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -395,17 +396,20 @@ class NoRecUNetSimple(torch.nn.Module):
 
         assert input_time_dim == 1
 
-
         # Number of passes through the model, or a diagnostic model with only one output time
         self.is_diagnostic = self.output_time_dim == 1 and self.input_time_dim > 1
         if not self.is_diagnostic and (self.output_time_dim % self.input_time_dim != 0):
-            raise ValueError(f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
-                             f"{self.output_time_dim} and {self.input_time_dim})")
+            raise ValueError(
+                f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
+                f"{self.output_time_dim} and {self.input_time_dim})"
+            )
 
         # Build the model layers
         self.encoder = UNetEncoder(input_channels=self._compute_input_channels())
         self.encoder_depth = len(self.encoder.n_channels)
-        self.decoder = UNetDecoder(output_channels=self._compute_output_channels(), use_rec=False)
+        self.decoder = UNetDecoder(
+            output_channels=self._compute_output_channels(), use_rec=False
+        )
 
     @property
     def integration_steps(self):
@@ -418,17 +422,17 @@ class NoRecUNetSimple(torch.nn.Module):
         return (1 if self.is_diagnostic else self.input_time_dim) * self.output_channels
 
     def forward(self, x) -> torch.Tensor:
-        return x[:, :self.output_channels] + self.decoder(self.encoder(x))
+        return x[:, : self.output_channels] + self.decoder(self.encoder(x))
         # return self.decoder(self.encoder(x))
 
 
 class NoRecUNetEff(torch.nn.Module):
     def __init__(
-            self,
-            input_time_dim: int,
-            output_time_dim: int,
-            input_channels: int=9,
-            output_channels: int=3,
+        self,
+        input_time_dim: int,
+        output_time_dim: int,
+        input_channels: int = 9,
+        output_channels: int = 3,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -439,17 +443,20 @@ class NoRecUNetEff(torch.nn.Module):
 
         assert input_time_dim == 1
 
-
         # Number of passes through the model, or a diagnostic model with only one output time
         self.is_diagnostic = self.output_time_dim == 1 and self.input_time_dim > 1
         if not self.is_diagnostic and (self.output_time_dim % self.input_time_dim != 0):
-            raise ValueError(f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
-                             f"{self.output_time_dim} and {self.input_time_dim})")
+            raise ValueError(
+                f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
+                f"{self.output_time_dim} and {self.input_time_dim})"
+            )
 
         # Build the model layers
         self.encoder = UNetEncoder(input_channels=self._compute_input_channels())
         self.encoder_depth = len(self.encoder.n_channels)
-        self.decoder = UNetDecoder(output_channels=self._compute_output_channels(), use_rec=False)
+        self.decoder = UNetDecoder(
+            output_channels=self._compute_output_channels(), use_rec=False
+        )
 
     @property
     def integration_steps(self):
@@ -461,33 +468,49 @@ class NoRecUNetEff(torch.nn.Module):
     def _compute_output_channels(self) -> int:
         return (1 if self.is_diagnostic else self.input_time_dim) * self.output_channels
 
-    def forward(self, inputs: Sequence, resize_fn, final_img_size, output_only_last=False, loss_fn=None) -> torch.Tensor:
+    def forward(
+        self,
+        inputs: Sequence,
+        resize_fn,
+        final_img_size,
+        output_only_last=False,
+        loss_fn=None,
+    ) -> torch.Tensor:
 
         outputs = []
         loss = None
         N, C, H, W = inputs[0].shape
 
-        for step in range(len(inputs) // 2 ):
+        for step in range(len(inputs) // 2):
             if step == 0:
                 input_tensor = resize_fn(inputs[0])
             else:
                 inputs_0 = outputs[-1]
-                input_tensor = torch.cat([inputs_0, resize_fn(inputs[2*step][:, self.output_channels:])], dim=1)
-            
+                input_tensor = torch.cat(
+                    [inputs_0, resize_fn(inputs[2 * step][:, self.output_channels :])],
+                    dim=1,
+                )
+
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
-            #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
-            reshaped = input_tensor[:, :self.output_channels] + decodings  # Residual prediction
-            reshaped = reshaped[:, :, :final_img_size[0], :final_img_size[1]]
-            
+            # reshaped = self._reshape_outputs(decodings)  # Absolute prediction
+            reshaped = (
+                input_tensor[:, : self.output_channels] + decodings
+            )  # Residual prediction
+            reshaped = reshaped[:, :, : final_img_size[0], : final_img_size[1]]
+
             if loss_fn is not None:
                 if loss is None:
-                    loss = loss_fn(reshaped, inputs[2*step+1][:, :self.output_channels])
+                    loss = loss_fn(
+                        reshaped, inputs[2 * step + 1][:, : self.output_channels]
+                    )
                 else:
-                    loss += loss_fn(reshaped, inputs[2*step+1][:, :self.output_channels])
+                    loss += loss_fn(
+                        reshaped, inputs[2 * step + 1][:, : self.output_channels]
+                    )
 
             outputs.append(reshaped)
-        
+
         if loss_fn is None:
             if output_only_last:
                 res = outputs[-1]
@@ -498,13 +521,14 @@ class NoRecUNetEff(torch.nn.Module):
         else:
             return loss
 
+
 class NoRecUNet(torch.nn.Module):
     def __init__(
-            self,
-            input_time_dim: int,
-            output_time_dim: int,
-            input_channels: int=9,
-            output_channels: int=3,
+        self,
+        input_time_dim: int,
+        output_time_dim: int,
+        input_channels: int = 9,
+        output_channels: int = 3,
     ):
         super().__init__()
         self.input_channels = input_channels
@@ -515,17 +539,20 @@ class NoRecUNet(torch.nn.Module):
 
         assert input_time_dim == 1
 
-
         # Number of passes through the model, or a diagnostic model with only one output time
         self.is_diagnostic = self.output_time_dim == 1 and self.input_time_dim > 1
         if not self.is_diagnostic and (self.output_time_dim % self.input_time_dim != 0):
-            raise ValueError(f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
-                             f"{self.output_time_dim} and {self.input_time_dim})")
+            raise ValueError(
+                f"'output_time_dim' must be a multiple of 'input_time_dim' (got "
+                f"{self.output_time_dim} and {self.input_time_dim})"
+            )
 
         # Build the model layers
         self.encoder = UNetEncoder(input_channels=self._compute_input_channels())
         self.encoder_depth = len(self.encoder.n_channels)
-        self.decoder = UNetDecoder(output_channels=self._compute_output_channels(), use_rec=False)
+        self.decoder = UNetDecoder(
+            output_channels=self._compute_output_channels(), use_rec=False
+        )
 
     @property
     def integration_steps(self):
@@ -547,13 +574,13 @@ class NoRecUNet(torch.nn.Module):
     #         else:
     #             inputs_0 = outputs[-1]
     #             input_tensor = torch.cat([inputs_0, inputs[step][:, self.output_channels:]], dim=1)
-            
+
     #         encodings = self.encoder(input_tensor)
     #         decodings = self.decoder(encodings)
     #         #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
     #         reshaped = input_tensor[:, :self.output_channels] + decodings  # Residual prediction
     #         outputs.append(reshaped)
-            
+
     #     if output_only_last:
     #         res = outputs[-1]
     #     else:
@@ -573,13 +600,13 @@ class NoRecUNet(torch.nn.Module):
     #         else:
     #             inputs_0 = outputs[-1]
     #             input_tensor = torch.cat([inputs_0, resize_fn(inputs[2*step][:, self.output_channels:])], dim=1)
-            
+
     #         encodings = self.encoder(input_tensor)
     #         decodings = self.decoder(encodings)
     #         #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
     #         reshaped = input_tensor[:, :self.output_channels] + decodings  # Residual prediction
     #         reshaped = reshaped[:, :, :final_img_size[0], :final_img_size[1]]
-            
+
     #         if loss_fn is not None:
     #             if loss is None:
     #                 loss = loss_fn(reshaped, inputs[2*step+1][:, :self.output_channels])
@@ -587,7 +614,7 @@ class NoRecUNet(torch.nn.Module):
     #                 loss += loss_fn(reshaped, inputs[2*step+1][:, :self.output_channels])
 
     #         outputs.append(reshaped)
-        
+
     #     if loss_fn is None:
     #         if output_only_last:
     #             res = outputs[-1]
@@ -597,31 +624,44 @@ class NoRecUNet(torch.nn.Module):
     #         return res
     #     else:
     #         return loss
-    
-    def inference(self, inputs: Sequence, resize_fn, final_img_size, num_steps=None, output_only_last=False) -> torch.Tensor:
+
+    def inference(
+        self,
+        inputs: Sequence,
+        resize_fn,
+        final_img_size,
+        num_steps=None,
+        output_only_last=False,
+    ) -> torch.Tensor:
         outputs = []
         for step in range(num_steps):
             if step == 0:
                 input_tensor = resize_fn(inputs[0][0].unsqueeze(0))
             else:
                 inputs_0 = outputs[-1]
-                input_tensor = torch.cat([inputs_0.unsqueeze(0), resize_fn(inputs[step][0][self.output_channels:].unsqueeze(0))], dim=1)
-            
+                input_tensor = torch.cat(
+                    [
+                        inputs_0.unsqueeze(0),
+                        resize_fn(inputs[step][0][self.output_channels :].unsqueeze(0)),
+                    ],
+                    dim=1,
+                )
+
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
-            #reshaped = self._reshape_outputs(decodings)  # Absolute prediction
-            reshaped = input_tensor[0, :self.output_channels] + decodings.squeeze(0)  # Residual prediction
+            # reshaped = self._reshape_outputs(decodings)  # Absolute prediction
+            reshaped = input_tensor[0, : self.output_channels] + decodings.squeeze(
+                0
+            )  # Residual prediction
 
             outputs.append(reshaped)
-        
+
         if output_only_last:
             res = outputs[-1]
         else:
             res = outputs
-        
+
         return res
-
-
 
 
 class RecUNet(torch.nn.Module):
@@ -672,7 +712,7 @@ class RecUNet(torch.nn.Module):
         self.decoder = UNetDecoder(output_channels=self._compute_output_channels())
 
         self.input_size_set = False
-    
+
     def get_resize_fn(self, input_size):
         new_img_size = copy.deepcopy(input_size)
         if new_img_size[0] % 16 != 0:
@@ -681,7 +721,7 @@ class RecUNet(torch.nn.Module):
         if new_img_size[1] % 16 != 0:
             new_img_size[1] = (int(new_img_size[1] / 16) + 1) * 16
         return Resize(new_img_size)
-    
+
     def set_input_size(self, input_size):
         self.input_size = input_size
         self.resize_fn = self.get_resize_fn(input_size)
@@ -699,15 +739,17 @@ class RecUNet(torch.nn.Module):
 
     def _reshape(self, input) -> torch.Tensor:
         B, T, C, H, W = input.shape
-        input = input.reshape(B, T*C, H, W)
+        input = input.reshape(B, T * C, H, W)
         return self.resize_fn(input)
 
     def _reshape_output(self, output) -> torch.Tensor:
         B, _, H, W = output.shape
         output = output.reshape(B, -1, self.output_channels, H, W)
-        return output[:, :, :, :self.input_size[0], :self.input_size[1]]
+        return output[:, :, :, : self.input_size[0], : self.input_size[1]]
 
-    def _initialize_hidden(self, inputs: Sequence, outputs: Sequence, step: int, local_step: int) -> None:
+    def _initialize_hidden(
+        self, inputs: Sequence, outputs: Sequence, step: int, local_step: int
+    ) -> None:
         self.reset()
         for prestep in range(self.presteps):
             if step < self.presteps:
@@ -722,19 +764,43 @@ class RecUNet(torch.nn.Module):
             else:
                 s_ = step - self.presteps + prestep
                 s = local_step - self.presteps + prestep
-                input_tensor = self._reshape(torch.cat([outputs[s_-1], inputs[:, (s+1)*self.input_time_dim:(s+2)*self.input_time_dim, self.output_channels:]], dim=2))
+                input_tensor = self._reshape(
+                    torch.cat(
+                        [
+                            outputs[s_ - 1],
+                            inputs[
+                                :,
+                                (s + 1)
+                                * self.input_time_dim : (s + 2)
+                                * self.input_time_dim,
+                                self.output_channels :,
+                            ],
+                        ],
+                        dim=2,
+                    )
+                )
                 if self.verbose:
-                    print(f"Initialize Hidden: Using output indices: {(s_+self.presteps)*self.input_time_dim}:{(s_+1+self.presteps)*self.input_time_dim} to produce (not saved) output at indices: {(s_+1+self.presteps)*self.input_time_dim}:{(s_+2+self.presteps)*self.input_time_dim}")
-                    print(f"Also, Concatenating extra input in range of local indices {(s+1)*self.input_time_dim}:{(s+2)*self.input_time_dim} and global indices {(s_+1)*self.input_time_dim}:{(s_+2)*self.input_time_dim}")
+                    print(
+                        f"Initialize Hidden: Using output indices: {(s_+self.presteps)*self.input_time_dim}:{(s_+1+self.presteps)*self.input_time_dim} to produce (not saved) output at indices: {(s_+1+self.presteps)*self.input_time_dim}:{(s_+2+self.presteps)*self.input_time_dim}"
+                    )
+                    print(
+                        f"Also, Concatenating extra input in range of local indices {(s+1)*self.input_time_dim}:{(s+2)*self.input_time_dim} and global indices {(s_+1)*self.input_time_dim}:{(s_+2)*self.input_time_dim}"
+                    )
 
             # Forward the data through the model to initialize hidden states
             self.decoder(self.encoder(input_tensor))
 
     # [B, T, C, H, W]
-    def forward(self, inputs: Sequence, last_outputs: Sequence=None, inference=False, output_only_last=False) -> torch.Tensor:
+    def forward(
+        self,
+        inputs: Sequence,
+        last_outputs: Sequence = None,
+        inference=False,
+        output_only_last=False,
+    ) -> torch.Tensor:
         assert self.input_size_set
         if last_outputs is not None:
-            assert inference 
+            assert inference
             outputs = last_outputs
             step_range = range(len(outputs), len(outputs) + self.integration_steps)
         else:
@@ -742,14 +808,16 @@ class RecUNet(torch.nn.Module):
             outputs = []
             step_range = range(self.integration_steps)
 
-        for local_step, step in enumerate(step_range):# use local_step for all inputs
+        for local_step, step in enumerate(step_range):  # use local_step for all inputs
             if self.verbose:
                 print(f"Step: {step}")
             # (Re-)initialize recurrent hidden states
             if step % self.reset_cycle == 0:
                 if self.verbose:
                     print(f"Reinitializing at Step: {step}")
-                self._initialize_hidden(inputs=inputs, outputs=outputs, step=step, local_step=local_step)
+                self._initialize_hidden(
+                    inputs=inputs, outputs=outputs, step=step, local_step=local_step
+                )
 
             if step == 0:
                 s = self.presteps
@@ -763,11 +831,27 @@ class RecUNet(torch.nn.Module):
             else:
                 s = local_step + self.presteps
                 s_ = step + self.presteps
-                input_tensor = self._reshape(torch.cat([outputs[-1], inputs[:, s*self.input_time_dim:(s+1)*self.input_time_dim, self.output_channels:]], dim=2))
+                input_tensor = self._reshape(
+                    torch.cat(
+                        [
+                            outputs[-1],
+                            inputs[
+                                :,
+                                s * self.input_time_dim : (s + 1) * self.input_time_dim,
+                                self.output_channels :,
+                            ],
+                        ],
+                        dim=2,
+                    )
+                )
                 if self.verbose:
                     # When you refer to indices in output, they will always be shift by 1 as they never output indices from 0:n. Then, additional offset by self.presteps.
-                    print(f"Using output at indices {(len(outputs)+self.presteps)*self.input_time_dim}:{(len(outputs)+self.presteps+1)*self.input_time_dim} to produce output at indices: {(len(outputs)+self.presteps+1)*self.input_time_dim}:{(len(outputs)+self.presteps+2)*self.input_time_dim}")
-                    print(f"Also, Concatenating extra input in range of local indices {s*self.input_time_dim}:{(s+1)*self.input_time_dim} and global indices {s_*self.input_time_dim}:{(s_+1)*self.input_time_dim}")
+                    print(
+                        f"Using output at indices {(len(outputs)+self.presteps)*self.input_time_dim}:{(len(outputs)+self.presteps+1)*self.input_time_dim} to produce output at indices: {(len(outputs)+self.presteps+1)*self.input_time_dim}:{(len(outputs)+self.presteps+2)*self.input_time_dim}"
+                    )
+                    print(
+                        f"Also, Concatenating extra input in range of local indices {s*self.input_time_dim}:{(s+1)*self.input_time_dim} and global indices {s_*self.input_time_dim}:{(s_+1)*self.input_time_dim}"
+                    )
 
             if self.verbose:
                 print("Passing through UNET")
@@ -787,7 +871,7 @@ class RecUNet(torch.nn.Module):
 
         if inference:
             return outputs
-        
+
         return torch.cat(outputs, dim=self.time_dim)
 
     def reset(self):
@@ -806,7 +890,7 @@ def train_one_epoch(
     scheduler,
     device,
     wandb_flag,
-    gscaler
+    gscaler,
 ):
 
     model.train(True)
@@ -819,7 +903,6 @@ def train_one_epoch(
         metric_logger.log_every(train_loader, 1, header)
     ):
 
-
         # optimizer.zero_grad()
         model.zero_grad(set_to_none=True)
         with amp.autocast(enabled=gscaler is not None, dtype=torch.float16):
@@ -829,7 +912,11 @@ def train_one_epoch(
         # loss.backward()
         gscaler.scale(loss).backward()
         gscaler.unscale_(optimizer)
-        curr_lr = optimizer.param_groups[-1]["lr"] if scheduler is None else scheduler.get_last_lr()[0]
+        curr_lr = (
+            optimizer.param_groups[-1]["lr"]
+            if scheduler is None
+            else scheduler.get_last_lr()[0]
+        )
         torch.nn.utils.clip_grad_norm_(model.parameters(), curr_lr)
 
         gscaler.step(optimizer)

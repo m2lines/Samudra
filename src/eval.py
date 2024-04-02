@@ -38,7 +38,7 @@ from utils.plot_utils import (
     plot_short_time_stats,
     plot_long_time_stats,
     plot_all_metrics,
-    get_initial_snapshot_fig
+    get_initial_snapshot_fig,
 )
 
 import numpy as np
@@ -186,7 +186,7 @@ class Eval:
             self.test_data = torch.load(
                 Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save)
             )
-        
+
         # from utils.data_utils import RecUnetEvalDataset
         # recdata = RecUnetEvalDataset('/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data/test_data_steps_8_Gulf_Stream_Ext2_in_um_vm_Tm_ext_tau_u_tau_v_t_ref_N_samples_4000.pt', 8, 2, 1, 3, 4)
         # import pdb; pdb.set_trace()
@@ -202,7 +202,9 @@ class Eval:
             print("Saving clim")
             clim = np.zeros((366, *self.wet.shape, 3))
             for i in range(self.N_out):
-                clim[:, :, :, i] = outputs[i].groupby("time.dayofyear").mean("time").data
+                clim[:, :, :, i] = (
+                    outputs[i].groupby("time.dayofyear").mean("time").data
+                )
             self.clim = clim
 
         # Getting area tensor
@@ -232,9 +234,7 @@ class Eval:
                 img_size=[*self.test_data[0][0].shape[1:]],
             )
         elif args.network == "norecunet":
-            model = instantiate(
-                args.norecunet
-            )
+            model = instantiate(args.norecunet)
 
         model = model.to(args.device)
         self.full_model_name = args.short_model_name + self.post_model_name
@@ -336,7 +336,7 @@ class Eval:
                             self.N_in,
                             self.N_extra,
                             self.Nb,
-                            )
+                        )
                     elif self.network == "norecunet":
                         model_pred_temp = recur_pred_lateral_norecunet(
                             len_run,
@@ -346,7 +346,7 @@ class Eval:
                             self.N_in,
                             self.N_extra,
                             self.Nb,
-                            )
+                        )
                     print("data_gen")
                     model_pred[int(i * len_run) : int((i + 1) * len_run)] = (
                         model_pred_temp
@@ -412,7 +412,7 @@ class Eval:
                 # raise Exception(
                 #     f"Path in {zarr_path} does not exist. Make sure to set run_gen_pred to True in config."
                 # )
-                
+
             mean_atm, auto_mean = compute_mean(
                 N_mean, test_data, model_pred_atm, area.cpu(), wet_bool
             )
@@ -501,9 +501,16 @@ class Eval:
             return mean, rmse, corrs, KE, FFTs, freqs, var
 
         print("Long time stats compute begin...")
-        FFTs_net, mean_net, var_net, ACC_net,\
-        corrs_net, KE_net, rmse_net = None, None, None, None, None, None, None
-        if not self.only_unet: # debugging
+        FFTs_net, mean_net, var_net, ACC_net, corrs_net, KE_net, rmse_net = (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        if not self.only_unet:  # debugging
             mean_net, rmse_net, corrs_net, KE_net, FFTs_net, freqs, var_net = get_spred(
                 self.pred_model_path,
                 self.region,
@@ -544,21 +551,30 @@ class Eval:
                 self.lag,
             )  # zarr_path, region, rand_int, str_in, str_ext, test_data, area, wet_bool, N_mean, lag
 
-        FFTs_unet, mean_unet, var_unet, ACC_unet,\
-        corrs_unet, KE_unet, rmse_unet = None, None, None, None, None, None, None
+        FFTs_unet, mean_unet, var_unet, ACC_unet, corrs_unet, KE_unet, rmse_unet = (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
 
         if self.use_unet:
-            mean_unet, rmse_unet, corrs_unet, KE_unet, FFTs_unet, freqs, var_unet = get_spred(
-                self.unet_path,
-                self.unet_region,
-                3,
-                self.str_in,
-                self.str_ext,
-                self.test_data,
-                self.area,
-                self.wet_bool,
-                self.N_test,
-                self.lag,
+            mean_unet, rmse_unet, corrs_unet, KE_unet, FFTs_unet, freqs, var_unet = (
+                get_spred(
+                    self.unet_path,
+                    self.unet_region,
+                    3,
+                    self.str_in,
+                    self.str_ext,
+                    self.test_data,
+                    self.area,
+                    self.wet_bool,
+                    self.N_test,
+                    self.lag,
+                )
             )
             (
                 model_pred_unet,
@@ -589,7 +605,7 @@ class Eval:
             )
 
         print("Long time stats plot begin...")
-        
+
         plot_long_time_stats(
             self.network,
             self.region,
@@ -603,7 +619,7 @@ class Eval:
             FFTs_net,
             auto_mean,
             mean_unet,
-            mean_net
+            mean_net,
         )
 
     def compare_short_pred_lateral(self):
@@ -758,9 +774,9 @@ class Eval:
             return rmse, corrs, ACC, KE, auto_rmse, auto_corrs, auto_ACC, auto_KE
 
         print("Short time stats compute begin...")
-        
+
         rmse_net, corrs_net, ACC_net, KE_net = None, None, None, None
-        if not self.only_unet: # debugging
+        if not self.only_unet:  # debugging
             (
                 rmse_net,
                 corrs_net,
@@ -784,10 +800,19 @@ class Eval:
                 self.wet_bool,
                 200,
             )
-        
+
         rmse_unet, corrs_unet, ACC_unet, KE_unet = None, None, None, None
         if self.use_unet:
-            rmse_unet, corrs_unet, ACC_unet, KE_unet, auto_rmse, auto_corrs, auto_ACC, auto_KE = get_spred(
+            (
+                rmse_unet,
+                corrs_unet,
+                ACC_unet,
+                KE_unet,
+                auto_rmse,
+                auto_corrs,
+                auto_ACC,
+                auto_KE,
+            ) = get_spred(
                 self.unet_path,
                 self.unet_region,
                 5,
@@ -827,7 +852,7 @@ class Eval:
     def plot_metrics(self):
         print("Plot metrics begin...")
         model_pred_net = None
-        if not self.only_unet: # debugging
+        if not self.only_unet:  # debugging
             model_pred_net = (
                 xr.open_zarr(
                     self.pred_model_path
@@ -896,13 +921,23 @@ class Eval:
         enst_spec_net = None
         if not self.only_unet:
             enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
-                N_plot, self.test_data, model_pred_net, self.grids, self.wet, self.wet_lap
+                N_plot,
+                self.test_data,
+                model_pred_net,
+                self.grids,
+                self.wet,
+                self.wet_lap,
             )
 
         enst_spec_unet = None
         if self.use_unet:
             enst_spec_unet, enst_spec_true = gen_enstrophy_spectrum(
-                N_plot, self.test_data, model_pred_unet, self.grids, self.wet, self.wet_lap
+                N_plot,
+                self.test_data,
+                model_pred_unet,
+                self.grids,
+                self.wet,
+                self.wet_lap,
             )
 
         enst_net = None
@@ -1043,7 +1078,6 @@ class Eval:
             ACC_T_net,
         )
 
-
     # Cant plot this without the right overlay
     def plot_animation(self):
         def compute_rmse_snapshot(test_data, model_pred, area, wet, mean, std, index):
@@ -1054,12 +1088,15 @@ class Eval:
             truth = np.array(truth.cpu())
 
             rmse_u = np.sqrt(
-                (area_flat * (model_pred[wet, index].flatten() - truth.flatten()) ** 2).sum()
+                (
+                    area_flat
+                    * (model_pred[wet, index].flatten() - truth.flatten()) ** 2
+                ).sum()
                 / area_flat.sum()
             )
 
             return rmse_u
-        
+
         def get_stats(
             zarr_path,
             region,
@@ -1079,17 +1116,19 @@ class Eval:
                 model_pred_temp = (
                     xr.open_zarr(
                         zarr_path
-                        / ("Pred_lateral_Fast_Data_025_"
-                        + region
-                        + "_in_"
-                        + str_in
-                        + "ext_"
-                        + str_ext
-                        + "N_samples_"
-                        + str(4000)
-                        + "_rand_seed_"
-                        + str(rand_int)
-                        + ".zarr")
+                        / (
+                            "Pred_lateral_Fast_Data_025_"
+                            + region
+                            + "_in_"
+                            + str_in
+                            + "ext_"
+                            + str_ext
+                            + "N_samples_"
+                            + str(4000)
+                            + "_rand_seed_"
+                            + str(rand_int)
+                            + ".zarr"
+                        )
                     )
                     .sel(time=slice(test_time - 1, test_time))
                     .to_array()
@@ -1108,11 +1147,12 @@ class Eval:
                 if rmse_temp < rmse:
                     rmse = rmse_temp
                     rand_best = rand_int
-                    print("RMSE: ",rmse)
+                    print("RMSE: ", rmse)
             model_pred_atm = (
                 xr.open_zarr(
                     zarr_path
-                        / ("Pred_lateral_Fast_Data_025_"
+                    / (
+                        "Pred_lateral_Fast_Data_025_"
                         + region
                         + "_in_"
                         + str_in
@@ -1122,7 +1162,8 @@ class Eval:
                         + str(4000)
                         + "_rand_seed_"
                         + str(rand_best)
-                        + ".zarr")
+                        + ".zarr"
+                    )
                 )
                 .sel(time=slice(0, N_mean))
                 .to_array()
@@ -1132,11 +1173,11 @@ class Eval:
             return model_pred_atm
 
         print("Plot animation begin...")
-        
+
         N_plot = 1000
 
         for ind_plot in range(3):
-            
+
             model_pred_net = None
             if not self.only_unet:
                 model_pred_net = get_stats(
@@ -1166,15 +1207,33 @@ class Eval:
                 )
 
                 # torch.save(model_pred_unet, f'model_pred_{ind_plot}.pt')
-            
+
             var_list = {"1": r"v", "0": r"u", "2": r"T"}
-            fig, plt0, plt1, plt2, a = get_initial_snapshot_fig(self.network, N_plot, self.region, self.grids, self.test_data, self.wet_nan, model_pred_net, model_pred_unet, self.mean_out, self.std_out, ind_plot, self.Nb, self.use_unet, self.only_unet)
-            plt.savefig(Path(self.output_dir) / 'initial_snapshot.png')
+            fig, plt0, plt1, plt2, a = get_initial_snapshot_fig(
+                self.network,
+                N_plot,
+                self.region,
+                self.grids,
+                self.test_data,
+                self.wet_nan,
+                model_pred_net,
+                model_pred_unet,
+                self.mean_out,
+                self.std_out,
+                ind_plot,
+                self.Nb,
+                self.use_unet,
+                self.only_unet,
+            )
+            plt.savefig(Path(self.output_dir) / "initial_snapshot.png")
+
             def update_snapshot(i):
                 plt0.set_array(
                     (
-                        self.test_data[i][1][ind_plot, self.Nb:-self.Nb, self.Nb:-self.Nb].cpu()
-                        * self.wet_nan[self.Nb:-self.Nb, self.Nb:-self.Nb]
+                        self.test_data[i][1][
+                            ind_plot, self.Nb : -self.Nb, self.Nb : -self.Nb
+                        ].cpu()
+                        * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
                         * self.std_out[ind_plot]
                         + self.mean_out[ind_plot]
                     ).flatten()
@@ -1182,13 +1241,19 @@ class Eval:
                 if plt1 is not None:
                     plt1.set_array(
                         (
-                            model_pred_net[i, self.Nb:-self.Nb, self.Nb:-self.Nb, ind_plot] * self.wet_nan[self.Nb:-self.Nb, self.Nb:-self.Nb]
+                            model_pred_net[
+                                i, self.Nb : -self.Nb, self.Nb : -self.Nb, ind_plot
+                            ]
+                            * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
                         ).flatten()
                     )
                 if plt2 is not None:
                     plt2.set_array(
                         (
-                            model_pred_unet[i, self.Nb:-self.Nb, self.Nb:-self.Nb, ind_plot] * self.wet_nan[self.Nb:-self.Nb, self.Nb:-self.Nb]
+                            model_pred_unet[
+                                i, self.Nb : -self.Nb, self.Nb : -self.Nb, ind_plot
+                            ]
+                            * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
                         ).flatten()
                     )
                 a.set_text(
@@ -1199,17 +1264,20 @@ class Eval:
                     + "$ days "
                 )
 
-            anim = FuncAnimation(fig, update_snapshot, interval=100, frames=range(0, 1000, 2))
-            anim.save(
-                Path(self.output_dir) /
-                (self.post_model_name
-                + "_"
-                + self.region
-                + "_"
-                + var_list[str(ind_plot)]
-                + ".gif")
+            anim = FuncAnimation(
+                fig, update_snapshot, interval=100, frames=range(0, 1000, 2)
             )
-
+            anim.save(
+                Path(self.output_dir)
+                / (
+                    self.post_model_name
+                    + "_"
+                    + self.region
+                    + "_"
+                    + var_list[str(ind_plot)]
+                    + ".gif"
+                )
+            )
 
     def send_data_to_cpu(self):
         self.test_data.set_device(device="cpu")

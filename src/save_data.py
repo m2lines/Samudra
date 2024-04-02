@@ -132,7 +132,9 @@ def main(args):
     print("Val Norms: ", val_data.norm_vals)
 
     # Saving datasets
-    torch.save(train_data, Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str_video))
+    torch.save(
+        train_data, Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str_video)
+    )
     torch.save(val_data, Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str_video))
 
 

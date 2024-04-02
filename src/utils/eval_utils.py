@@ -8,6 +8,7 @@ from .climate_utils import *
 from .subgrid_utils import *
 from .data_utils import *
 
+
 def generate_recunet_rollout(N_eval, test_data, model, Nb, Nin):
     model.eval()
     _, _, H, W = test_data.input.shape
@@ -16,14 +17,18 @@ def generate_recunet_rollout(N_eval, test_data, model, Nb, Nin):
     for i in range(N_eval // model.output_time_dim):
         with torch.no_grad():
             if i == 0:
-                pred_temp = model(torch.unsqueeze(test_data[i][0], 0), inference = True)
+                pred_temp = model(torch.unsqueeze(test_data[i][0], 0), inference=True)
             else:
-                pred_temp = model(torch.unsqueeze(test_data[i][0], 0), last_outputs=pred_temp, inference = True)
-    
+                pred_temp = model(
+                    torch.unsqueeze(test_data[i][0], 0),
+                    last_outputs=pred_temp,
+                    inference=True,
+                )
+
     final_pred_temp = torch.cat(pred_temp, dim=model.time_dim).squeeze(0)
     print("Final pred temp shape: ", final_pred_temp.shape)
     # Re-add boundaries
-    test_target_flat = test_data.input[test_data.output_offset:].reshape(-1, Nin, H, W)
+    test_target_flat = test_data.input[test_data.output_offset :].reshape(-1, Nin, H, W)
     num_set = final_pred_temp.shape[0]
     final_pred_temp[:, :, :Nb, :] = test_target_flat[:num_set, :Nin, :Nb, :]
     final_pred_temp[:, :, -Nb:, :] = test_target_flat[:num_set, :Nin, -Nb:, :]
@@ -35,8 +40,11 @@ def generate_recunet_rollout(N_eval, test_data, model, Nb, Nin):
     model_pred = torch.clip(model_pred, min=-1e5, max=1e5)
 
     print(model_pred[-1, :5, :5, :])
-    
-    return model_pred * test_data.norm_vals["s_out"] + test_data.norm_vals["m_out"] # Ideally
+
+    return (
+        model_pred * test_data.norm_vals["s_out"] + test_data.norm_vals["m_out"]
+    )  # Ideally
+
 
 def recur_pred(N_eval, test_data, model, hist, N_in, N_extra):
 
@@ -458,6 +466,7 @@ def recur_pred_lateral_norecunet(N_eval, test_data, model, hist, N_in, N_extra, 
 
     img_size = [*test_data[0][0].shape[1:]]
     from .train_utils import get_resize_func
+
     resize = get_resize_func(img_size)
 
     model.eval()
@@ -472,9 +481,9 @@ def recur_pred_lateral_norecunet(N_eval, test_data, model, hist, N_in, N_extra, 
 
     with torch.no_grad():
         outs = model.inference(test_data, resize, img_size, num_steps=N_eval)
-    
+
     for i in range(N_eval):
-        pred_temp = outs[i][:, :img_size[0], :img_size[1]]
+        pred_temp = outs[i][:, : img_size[0], : img_size[1]]
         pred_temp[:, :Nb, :] = test_data[i][1][:, :Nb, :]
         pred_temp[:, -Nb:, :] = test_data[i][1][:, -Nb:, :]
         pred_temp[:, :, :Nb] = test_data[i][1][:, :, :Nb]
@@ -482,13 +491,10 @@ def recur_pred_lateral_norecunet(N_eval, test_data, model, hist, N_in, N_extra, 
 
         pred_temp = torch.nan_to_num(pred_temp)
         pred_temp = torch.clip(pred_temp, min=-1e5, max=1e5)
-        
 
-        model_pred[i] = torch.swapaxes(
-            torch.swapaxes(pred_temp, 2, 0), 1, 0
-        ).cpu()
+        model_pred[i] = torch.swapaxes(torch.swapaxes(pred_temp, 2, 0), 1, 0).cpu()
 
-    print(model_pred[-1,:5,:5,0])
+    print(model_pred[-1, :5, :5, 0])
     return model_pred * test_data.norm_vals["s_out"] + test_data.norm_vals["m_out"]
 
 

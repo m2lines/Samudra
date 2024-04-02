@@ -16,7 +16,13 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS
-from utils.train_utils import train_one_epoch, train_one_epoch_recunet, validate, validate_recunet, loss_KE_pointwise
+from utils.train_utils import (
+    train_one_epoch,
+    train_one_epoch_recunet,
+    validate,
+    validate_recunet,
+    loss_KE_pointwise,
+)
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -137,13 +143,9 @@ class Trainer:
                 img_size=[*self.train_loader.dataset[0][0].shape[1:]],
             )
         elif args.network == "recunet":
-            model = instantiate(
-                args.recunet
-            )
+            model = instantiate(args.recunet)
         elif args.network == "norecunet":
-            model = instantiate(
-                args.norecunet
-            )
+            model = instantiate(args.norecunet)
 
         model = model.to(args.device)
         # model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -231,9 +233,13 @@ class Trainer:
                     self.wandb,
                 )
             if self.network == "ViT":
-                val_stats = validate(self.model, self.test_loader, self.device, self.wandb)
+                val_stats = validate(
+                    self.model, self.test_loader, self.device, self.wandb
+                )
             else:
-                val_stats = validate_recunet(self.model, self.test_loader, self.device, self.wandb)
+                val_stats = validate_recunet(
+                    self.model, self.test_loader, self.device, self.wandb
+                )
 
             v_loss = val_stats["loss"]
 

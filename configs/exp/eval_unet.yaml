@@ -35,7 +35,7 @@ run_gen_short_pred: true
 run_full_pred: true
 run_short_pred: true
 run_plot_metrics: true
-run_plot_animation: true 
+run_plot_animation: true
 ####
 
 device: "cuda" # keep this cuda to get preds in gpu

@@ -9,14 +9,12 @@ import matplotlib.pyplot as plt
 from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
-    gen_data_in_test,
-    gen_data_out_test,
-    data_CNN_Lateral,
+    get_recunet_data,
+    RecUnetEvalDataset,
     gen_data_025_lateral,
 )
 from utils.eval_utils import (
-    recur_pred_lateral,
-    generate_unet_rollout,
+    generate_recunet_rollout,
     compute_mean,
     compute_var,
     compute_corrs_area,
@@ -178,38 +176,29 @@ class Eval:
 
         if args.save_test_data:
             print("Saving data")
-            data_in_test = gen_data_in_test(
-                0, e_test, args.N_test, args.lag, args.hist, inputs, extra_in
-            )
-            data_out_test = gen_data_out_test(
-                0, e_test, args.N_test, args.lag, args.hist, outputs
-            )
-            self.test_data = data_CNN_Lateral(
-                data_in_test,
-                data_out_test,
-                self.wet.to(device="cpu"),
-                self.N_atm,
-                args.Nb,
-                device=args.device,
-            )
+            test_data = get_recunet_data(e_test, -1, inputs, extra_in)
+            self.test_data = test_data.type(torch.FloatTensor)
             torch.save(
                 self.test_data,
-                Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save),
+                Path(args.data_dir) / "test_data_{0}.pt".format(self.str_save),
             )
 
         else:
             print("Loading test data")
             self.test_data = torch.load(
-                Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save)
+                Path(args.data_dir) / "test_data_{0}.pt".format(self.str_save)
             )
 
-        self.model.set_input_size([*self.test_data[0][0].shape[1:]])
-
-        # Stats
-        self.mean_out = self.test_data.norm_vals["m_out"]
-        self.std_out = self.test_data.norm_vals["s_out"]
-        self.mean_in = self.test_data.norm_vals["m_in"]
-        self.std_in = self.test_data.norm_vals["s_in"]
+        self.test_data = RecUnetEvalDataset(
+            Path(args.data_dir) / "test_data_{0}.pt".format(self.str_save),
+            args.steps,
+            self.input_time_dim,
+            self.presteps,
+            self.output_channels,
+            args.Nb,
+            args.wet_path,
+        )
+        self.model.set_input_size([*self.test_data[0][0].shape[2:]])
 
         # clim
         self.clim = None
@@ -263,14 +252,8 @@ class Eval:
         for ns in [4000]:
             for rand_ind in range(1, 4):
                 print(ns, rand_ind)
-                model_pred = generate_unet_rollout(
-                        self.N_test,
-                        self.test_data,
-                        self.model,
-                        self.hist,
-                        self.N_in,
-                        self.N_extra,
-                        self.Nb,
+                model_pred = generate_recunet_rollout(
+                    self.N_test, self.test_data, self.model, self.Nb, self.N_in
                 )
 
                 print("data_gen")
@@ -300,26 +283,16 @@ class Eval:
 
         for ns in [4000]:
             for rand_ind in range(1, 4):
-                data_shape = self.test_data[0][1].shape
-                model_pred = np.zeros(
-                    (int(N_run * len_run), data_shape[1], data_shape[2], data_shape[0])
-                )
+                N, C, H, W = self.test_data.input.shape
+                model_pred = np.zeros((int(N_run * len_run), H, W, self.N_in))
 
                 for i in range(N_run):
                     print(ns, rand_ind)
                     temp = copy.deepcopy(self.test_data)
-                    temp.input = temp.input[int(i * len_run) : int((i + 1) * len_run)]
-                    temp.output = temp.output[int(i * len_run) : int((i + 1) * len_run)]
-                    temp.size = len_run
+                    temp.set_input(i * len_run, len_run)
 
-                    model_pred_temp = generate_unet_rollout(
-                        len_run,
-                        temp,
-                        self.model,
-                        self.hist,
-                        self.N_in,
-                        self.N_extra,
-                        self.Nb,
+                    model_pred_temp = generate_recunet_rollout(
+                        len_run, temp, self.model, self.Nb, self.N_in
                     )
                     print("data_gen")
                     model_pred[int(i * len_run) : int((i + 1) * len_run)] = (
@@ -945,15 +918,9 @@ class Eval:
 
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")
-        u_test = np.array(
-            self.test_data[:][1][:, 0] * self.std_out[0] + self.mean_out[0]
-        )
-        v_test = np.array(
-            self.test_data[:][1][:, 1] * self.std_out[1] + self.mean_out[1]
-        )
-        T_test = np.array(
-            self.test_data[:][1][:, 2] * self.std_out[2] + self.mean_out[2]
-        )
+        u_test = np.array(self.test_data[:][1][:, 0] * self.std[0] + self.mean[0])
+        v_test = np.array(self.test_data[:][1][:, 1] * self.std[1] + self.mean[1])
+        T_test = np.array(self.test_data[:][1][:, 2] * self.std[2] + self.mean[2])
 
         # Corr
         print("Getting Corr stats...")
@@ -966,8 +933,8 @@ class Eval:
                 model_pred_net[:, :, :, 2],
                 self.area,
                 self.wet_bool,
-                self.std_out[2],
-                self.mean_out[2],
+                self.std[2],
+                self.mean[2],
             )
         corr_T_unet = None
         if self.use_unet:
@@ -977,8 +944,8 @@ class Eval:
                 model_pred_unet[:, :, :, 2],
                 self.area,
                 self.wet_bool,
-                self.std_out[2],
-                self.mean_out[2],
+                self.std[2],
+                self.mean[2],
             )
 
         # RMSE
@@ -1192,8 +1159,8 @@ class Eval:
                 self.wet_nan,
                 model_pred_net,
                 model_pred_unet,
-                self.mean_out,
-                self.std_out,
+                self.mean,
+                self.std,
                 ind_plot,
                 self.Nb,
                 self.use_unet,
@@ -1208,8 +1175,8 @@ class Eval:
                             ind_plot, self.Nb : -self.Nb, self.Nb : -self.Nb
                         ].cpu()
                         * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
-                        * self.std_out[ind_plot]
-                        + self.mean_out[ind_plot]
+                        * self.std[ind_plot]
+                        + self.mean[ind_plot]
                     ).flatten()
                 )
                 if plt1 is not None:
@@ -1253,8 +1220,11 @@ class Eval:
                 )
             )
 
-    def send_data_to_cpu(self):
-        self.test_data.set_device(device="cpu")
+    def prepare_data_eval(self):
+        self.test_data.set_device_and_convert_returns(self.N_test, device="cpu")
+        # Stats
+        self.mean = self.test_data.norm_vals["m_out"]
+        self.std = self.test_data.norm_vals["s_out"]
 
 
 def main(args):
@@ -1270,8 +1240,8 @@ def main(args):
     else:
         print("Skipping short pred generation")
 
-    # Sending the data back to cpu
-    e.send_data_to_cpu()
+    # Sending the data back to cpu and converting dims
+    e.prepare_data_eval()
 
     if args.run_full_pred:
         e.compare_pred_lateral()

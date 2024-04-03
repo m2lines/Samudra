@@ -498,6 +498,33 @@ def recur_pred_lateral_norecunet(N_eval, test_data, model, hist, N_in, N_extra, 
     return model_pred * test_data.norm_vals["s_out"] + test_data.norm_vals["m_out"]
 
 
+def generate_unet_rollout(N_eval, test_data, model, hist, N_in, N_extra, Nb):
+
+    N_test = test_data.size
+    assert hist == 0
+
+    model.eval()
+    model_pred = np.zeros((N_eval, *test_data[0][0].shape[1:], N_in))
+
+    with torch.no_grad():
+        outs = model.inference(test_data, num_steps=N_eval)
+
+    for i in range(N_eval):
+        pred_temp = outs[i]
+        pred_temp[:, :Nb, :] = test_data[i][1][:, :Nb, :]
+        pred_temp[:, -Nb:, :] = test_data[i][1][:, -Nb:, :]
+        pred_temp[:, :, :Nb] = test_data[i][1][:, :, :Nb]
+        pred_temp[:, :, -Nb:] = test_data[i][1][:, :, -Nb:]
+
+        pred_temp = torch.nan_to_num(pred_temp)
+        pred_temp = torch.clip(pred_temp, min=-1e5, max=1e5)
+
+        model_pred[i] = torch.swapaxes(torch.swapaxes(pred_temp, 2, 0), 1, 0).cpu()
+
+    print(model_pred[-1, :5, :5, 0])
+    return model_pred * test_data.norm_vals["s_out"] + test_data.norm_vals["m_out"]
+
+
 def compute_corrs(N_eval, test_data, model_pred, wet):
     N_in = model_pred.shape[-1]
     corrs = np.zeros((N_eval, N_in))

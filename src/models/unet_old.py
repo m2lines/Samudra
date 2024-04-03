@@ -105,98 +105,64 @@ class UNet(BaseUNet):
         assert input_time_dim == 1
         self.time_dim = 1
 
+    # [B, T, C, H, W]
     def forward(
         self,
         inputs: Sequence,
+        last_outputs: Sequence = None,
+        inference=False,
         output_only_last=False,
-        loss_fn=None,
     ) -> torch.Tensor:
 
-        outputs = []
-        loss = None
-        N, C, H, W = inputs[0].shape
-
-        for step in range(len(inputs) // 2):
-            if step == 0:
-                input_tensor = self.resize_fn(inputs[0])
-            else:
-                inputs_0 = outputs[-1]
-                input_tensor = self.resize_fn(torch.cat(
-                    [inputs_0, inputs[2 * step][:, self.output_channels :]],
-                    dim=1,
-                ))
-
-            encodings = self.encoder(input_tensor)
-            decodings = self.decoder(encodings)
-            # reshaped = self._reshape_outputs(decodings)  # Absolute prediction
-            reshaped = (
-                input_tensor[:, : self.output_channels] + decodings
-            )  # Residual prediction
-            reshaped = reshaped[:, :, :self.input_size[0], :self.input_size[1]]
-
-            if loss_fn is not None:
-                if loss is None:
-                    loss = loss_fn(
-                        reshaped,
-                        inputs[2 * step + 1][:, : self.output_channels],
-                    )
-                else:
-                    loss += loss_fn(
-                        reshaped,
-                        inputs[2 * step + 1][:, : self.output_channels],
-                    )
-
-            outputs.append(reshaped)
-
-        if loss_fn is None:
-            if output_only_last:
-                res = outputs[-1]
-            else:
-                res = outputs
-            return res
-
+        assert self.input_size_set
+        if last_outputs is not None:
+            assert inference
+            outputs = last_outputs
+            step_range = range(len(outputs), len(outputs) + self.integration_steps)
         else:
-            return loss
+            outputs = []
+            step_range = range(self.integration_steps)
 
-    def inference(
-        self,
-        inputs: Sequence,
-        num_steps=None,
-        output_only_last=False,
-    ) -> torch.Tensor:
-        outputs = []
-        for step in range(num_steps):
+        for local_step, step in enumerate(step_range):  # use local_step for all inputs
             if step == 0:
-                input_tensor = self.resize_fn(inputs[0][0].unsqueeze(0))
+                input_tensor = self._reshape(
+                    inputs[:, 0:1]
+                )  # 0:1 is just 0, but retains shape
             else:
-                inputs_0 = outputs[-1]
-                input_tensor = self.resize_fn(torch.cat(
-                    [
-                        inputs_0.unsqueeze(0),
-                        inputs[step][0][self.output_channels:].unsqueeze(0),
-                    ],
-                    dim=1,
-                ))
+                s = local_step
+                input_tensor = self._reshape(
+                    torch.cat(
+                        [
+                            outputs[-1],
+                            inputs[
+                                :,
+                                s : s + 1,
+                                self.output_channels :,
+                            ],
+                        ],
+                        dim=2,
+                    )
+                )
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
-            # reshaped = self._reshape_outputs(decodings)  # Absolute prediction
-            reshaped = input_tensor[0, : self.output_channels] + decodings.squeeze(
-                0
-            )  # Residual prediction
-
-            reshaped = reshaped[:, :self.input_size[0], :self.input_size[1]]
+            # Absolute prediction
+            # reshaped = self._reshape_outputs(decodings)
+            # Residual prediction
+            reshaped = self._reshape_output(
+                input_tensor[:, : self.output_channels] + decodings
+            )
             outputs.append(reshaped)
 
         if output_only_last:
-            res = outputs[-1]
-        else:
-            res = outputs
+            return outputs[-1]
 
-        return res
+        if inference:
+            return outputs
+
+        return torch.cat(outputs, dim=self.time_dim)
 
 
-# Need to update forward function and add inference
 class RecUNet(BaseUNet):
     def __init__(
         self,

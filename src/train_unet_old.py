@@ -25,7 +25,7 @@ from utils.dist_utils import (
     is_main_process,
     all_reduce_mean,
 )
-from utils.data_utils import data_CNN_Lateral, data_CNN_steps_Lateral
+from utils.data_utils import RecUnetDataset
 
 
 class Trainer:
@@ -102,15 +102,25 @@ class Trainer:
         # Model
         model = instantiate(args.unet)
 
-        # Dataloaders
-        train_data = torch.load(
-            Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_video),
-            map_location=torch.device("cpu"),
+        train_data = RecUnetDataset(
+            args.train_data_path,
+            args.steps,
+            model.input_time_dim,
+            model.presteps,
+            model.output_channels,
+            args.Nb,
+            args.wet_path,
         )
-        val_data = torch.load(
-            Path(args.data_dir) / "val_data_cnn_{0}.pt".format(self.str_video)
+        val_data = RecUnetDataset(
+            args.val_data_path,
+            args.steps,
+            model.input_time_dim,
+            model.presteps,
+            model.output_channels,
+            args.Nb,
+            args.wet_path,
         )
-        model.set_input_size([*train_data[0][0].shape[1:]])
+        model.set_input_size([*train_data[0][0].shape[2:]])
 
         model = model.to(args.device)
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -172,7 +182,7 @@ class Trainer:
             )
 
         # Gscaler
-        # self.gscaler = amp.GradScaler(enabled=args.grad_clip)
+        self.gscaler = amp.GradScaler(enabled=args.grad_clip)
 
         # Training
         self.epochs = args.epochs
@@ -180,7 +190,6 @@ class Trainer:
         self.steps = args.steps
         self.save_freq = args.save_freq
         self.output_dir = args.output_dir
-        self.network = args.network
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
@@ -244,15 +253,32 @@ class Trainer:
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
-            # if (data_iter_step+1) % 5 == 0:
-            #     break
-            self.optimizer.zero_grad()
 
-            loss = self.model(data, loss_fn=self.loss)
-            loss.backward()
+            # if (data_iter_step + 1) % 5 == 0:
+            #     break
+
+            # self.optimizer.zero_grad()
+            self.model.zero_grad(set_to_none=True)
+            with amp.autocast(enabled=self.gscaler is not None, dtype=torch.float16):
+                outs = self.model(data[0].to(device=self.device))
+                loss = self.loss(data[1].to(device=self.device), outs)
+
+            # loss.backward()
+            self.gscaler.scale(loss).backward()
+            self.gscaler.unscale_(self.optimizer)
+            curr_lr = (
+                self.optimizer.param_groups[-1]["lr"]
+                if self.scheduler is None
+                else self.scheduler.get_last_lr()[0]
+            )
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), curr_lr)
+
+            self.gscaler.step(self.optimizer)
+            self.gscaler.update()
+
             loss_value = loss.item()
 
-            self.optimizer.step()
+            # self.optimizer.step()
             if self.scheduler is not None:
                 # self.scheduler.step()
                 self.scheduler.step(epoch + data_iter_step / iters)
@@ -261,11 +287,7 @@ class Trainer:
 
             metric_logger.update(loss=loss_value)
 
-            lr = (
-                self.optimizer.param_groups[-1]["lr"]
-                if self.scheduler is None
-                else self.scheduler.get_last_lr()[0]
-            )
+            lr = curr_lr
             metric_logger.update(lr=lr)
 
             loss_value_reduce = all_reduce_mean(loss_value)
@@ -285,9 +307,13 @@ class Trainer:
 
         metric_logger = MetricLogger(delimiter="  ")
         header = "Test:"
-        for data in self.test_loader:
+        for data, label in self.test_loader:
             with torch.no_grad():
-                loss = self.model(data, loss_fn=self.loss)
+                with amp.autocast(
+                    enabled=self.gscaler is not None, dtype=torch.float16
+                ):
+                    outs = self.model(data.to(device=self.device))
+                    loss = self.loss(label.to(device=self.device), outs)
                 loss_value = loss.item()
                 metric_logger.update(loss=loss_value)
 

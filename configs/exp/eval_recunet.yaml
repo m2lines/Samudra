@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - _self_
-  - unet: unet
+  - unet: rec_unet
 
 wandb:
   mode: disabled # online, disabled
@@ -27,7 +27,7 @@ unet_path: /scratch/as15415/Emulation/Preds
 unet_region: Gulf_Stream_Ext
 
 ckpt_path: null # changed in command args
-network: unet # changed in command args
+network: recunet # changed in command args
 
 save_test_data: false # change if already saved in prior experiments
 run_gen_pred: true

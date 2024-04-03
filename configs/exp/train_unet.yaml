@@ -4,7 +4,7 @@ defaults:
   - unet: unet
 
 wandb:
-  mode: online # online, disabled
+  mode: disabled # online, disabled
   project: ocean_emu
   entity: suryadheeshjith
   group: null
@@ -25,6 +25,7 @@ rand_seed: 1
 region: "Gulf_Stream_Ext"
 network: "unet"
 scheduler: False
+loss: mse
 #####
 
 

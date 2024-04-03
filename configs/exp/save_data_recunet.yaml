@@ -17,7 +17,7 @@ exp_num_extra: "12"
 exp_num_out: "2"
 region: "Gulf_Stream_Ext"
 N_samples: 2000 #4000
-N_val: 300 #300
+N_val: 150 #300
 N_test: 500 #500
 steps: 8
 interval: 2

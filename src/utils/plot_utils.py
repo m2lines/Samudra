@@ -41,7 +41,7 @@ def plot_time_spec(
             freqs[:N_int],
             FFTs_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)",
+            label=r"Adam UNet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)",
         )
         axs[plt_index].fill_between(
             freqs[:N_int],
@@ -109,7 +109,7 @@ def plot_var(
             (np.arange(N_int) * lag) / 366,
             var_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
+            label=r"Adam UNet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_index].fill_between(
             (np.arange(N_int) * lag) / 366,
@@ -180,7 +180,7 @@ def plot_mean(
             (np.arange(N_int) * lag) / 366,
             mean_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Unet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
+            label=r"Adam UNet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_index].fill_between(
             (np.arange(N_int) * lag) / 366,
@@ -274,7 +274,7 @@ def plot_acc(
             (np.arange(N_int) * lag),
             ACC_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+            label=r"Adam UNet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
@@ -357,7 +357,7 @@ def plot_corr(
             (np.arange(N_int) * lag),
             corrs_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+            label=r"Adam UNet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
@@ -433,7 +433,7 @@ def plot_KE(network, axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_net, cl
             (np.arange(N_int) * lag) / 366,
             KE_unet.mean(axis=0)[:N_int],
             color=clist[2],
-            label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+            label=r"Adam UNet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag) / 366,
@@ -512,7 +512,7 @@ def plot_rmse(
             (np.arange(N_int) * lag),
             rmse_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Unet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+            label=r"Adam UNet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
@@ -795,7 +795,7 @@ def plot_all_metrics(
             KE_spec_unet.freq_r,
             KE_spec_unet,
             c=clist[3],
-            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.loglog(KE_spec_true.freq_r, KE_spec_true, "--k")
@@ -825,7 +825,7 @@ def plot_all_metrics(
             np.arange(1, N_plot + 1),
             KE_unet * rho,
             c=clist[3],
-            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k")
@@ -851,7 +851,7 @@ def plot_all_metrics(
             enst_spec_unet.freq_r,
             enst_spec_unet,
             c=clist[3],
-            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k")
@@ -878,7 +878,7 @@ def plot_all_metrics(
             np.arange(1, N_plot + 1),
             enst_unet,
             c=clist[3],
-            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_plot + 1), enst_true, "--k")
@@ -906,7 +906,7 @@ def plot_all_metrics(
             np.arange(1, N_eval + 1),
             corr_T_unet,
             c=clist[3],
-            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_eval + 1), corr_T_true, "--k")
@@ -936,7 +936,7 @@ def plot_all_metrics(
             np.arange(1, N_eval + 1),
             RMSE_T_unet,
             c=clist[3],
-            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_eval + 1), RMSE_T_true, "--k")
@@ -966,7 +966,7 @@ def plot_all_metrics(
             np.arange(1, N_eval + 1),
             ACC_T_unet,
             c=clist[3],
-            label=f"UNET ~ $\Delta t = {lag},~ N = {steps}$",
+            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_eval + 1), ACC_T_true, "--k")
@@ -1176,7 +1176,7 @@ def get_initial_snapshot_fig(
         gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
         axs[0, 2].set_title(
-            r"Unet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15
+            r"Adam UNet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15
         )
         axs[1, 2].set_axis_off()
 

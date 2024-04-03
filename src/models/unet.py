@@ -91,7 +91,7 @@ class UNet(BaseUNet):
         input_channels: int = 9,
         output_channels: int = 3,
         presteps: int = 0,
-        pred_residuals: bool = True
+        pred_residuals: bool = True,
     ):
 
         super().__init__(
@@ -141,7 +141,7 @@ class UNet(BaseUNet):
             else:
                 reshaped = decodings  # Absolute prediction
 
-            reshaped = reshaped[:, :, :self.input_size[0], :self.input_size[1]]
+            reshaped = reshaped[:, :, : self.input_size[0], : self.input_size[1]]
 
             if loss_fn is not None:
                 if loss is None:

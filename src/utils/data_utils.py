@@ -825,7 +825,9 @@ def gen_data_in(step, s, e, interval, lag, hist, inputs, extra_in):
     for i in range(hist):
         temp_inputs = []
         for j in range(num_outs):
-            print(f"Hist: Getting {s - (hist - i) * lag}:{e - (hist - i) * lag}:{interval} vals for channel {j}")
+            print(
+                f"Hist: Getting {s - (hist - i) * lag}:{e - (hist - i) * lag}:{interval} vals for channel {j}"
+            )
             temp_inputs.append(
                 np.expand_dims(
                     inputs[j][

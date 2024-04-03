@@ -33,7 +33,7 @@ comp="compute=local"
 
 
 # Doesnt work yet
-# 
+#
 # ./.python-greene submitit_hydra.py $comp exp=eval_recunet name="$(date +%F)-eval_convnextinvrecunet_nodil_large" unet.encoder.n_channels=[360,180,90] unet.decoder.n_channels=[90,180,360] +exp/unet/modules/blocks@model.encoder.conv_block=conv_next_block +exp/unet/modules/blocks@model.decoder.conv_block=conv_next_block
 
 

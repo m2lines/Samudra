@@ -264,13 +264,13 @@ class Eval:
             for rand_ind in range(1, 4):
                 print(ns, rand_ind)
                 model_pred = generate_unet_rollout(
-                        self.N_test,
-                        self.test_data,
-                        self.model,
-                        self.hist,
-                        self.N_in,
-                        self.N_extra,
-                        self.Nb,
+                    self.N_test,
+                    self.test_data,
+                    self.model,
+                    self.hist,
+                    self.N_in,
+                    self.N_extra,
+                    self.Nb,
                 )
 
                 print("data_gen")

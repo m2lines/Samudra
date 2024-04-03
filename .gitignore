@@ -15,3 +15,5 @@ outputs
 job_*
 save_data_tensor
 train_recunet
+train_unet
+train_unet_old

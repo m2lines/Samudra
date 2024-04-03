@@ -1,0 +1,59 @@
+# @package _global_
+defaults:
+  - _self_
+  - unet: unet
+
+wandb:
+  mode: disabled # online, disabled
+  project: ocean_emu
+  entity: suryadheeshjith
+  group: null
+  tags: null
+  notes: null
+
+### experiment args
+experiment: eval_unet
+output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
+data_overlay: ''
+grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
+path_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds
+data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
+wet_path: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data_tensor/2024-04-01-save_data_tensor_recunet_Gulfext_with_wet/data/wet_steps_0_Gulf_Stream_Ext_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data_tensor/2024-03-31-save_data_tensor_recunet_with_wet/data/wet_steps_0_Gulf_Stream_Ext2_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt
+network: "unet"
+steps: 8 # 8
+
+####
+# UNET
+use_unet: true
+only_unet: false
+unet_path: /scratch/as15415/Emulation/Preds # /scratch/sd5313/M2Lines/emulator/OceanGPT/Preds/UNET_Gulf_Stream_Ext2
+unet_region: "Gulf_Stream_Ext"
+
+ckpt_path: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train_unet/2024-04-02-train_unet_nosched/+exp.unet.modules.activations@model.decoder.conv_block.activation=capped_leaky_relu,+exp.unet.modules.activations@model.encoder.conv_block.activation=capped_leaky_relu,batch_size=32,unet.decoder.n_channels=[360,180,90],unet.encoder.n_channels=[90,180,360]/saved_nets/unet_epoch_80_steps_8_Gulf_Stream_Ext_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt
+
+save_test_data: false # change if already saved in prior experiments
+run_gen_pred: true
+run_gen_short_pred: true
+run_full_pred: true
+run_short_pred: true
+run_plot_metrics: true
+run_plot_animation: true # Cant run this without the right overlay
+####
+
+device: "cuda" # keep this cuda to get preds in gpu
+
+# Parameters
+exp_num_in: "3"
+exp_num_extra: "12"
+exp_num_out: "2"
+region: "Gulf_Stream_Ext"
+N_samples: 4000
+N_val: 197 # 200 - 2 (presteps*time_dim) - 1 (offset due to input time dim=2)
+N_test: 3000
+interval: 1
+hist: 0
+lag: 1
+lam: 0.05
+Nb: 4
+factor: 10
+lateral: true

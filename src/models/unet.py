@@ -121,10 +121,12 @@ class UNet(BaseUNet):
                 input_tensor = self.resize_fn(inputs[0])
             else:
                 inputs_0 = outputs[-1]
-                input_tensor = self.resize_fn(torch.cat(
-                    [inputs_0, inputs[2 * step][:, self.output_channels :]],
-                    dim=1,
-                ))
+                input_tensor = self.resize_fn(
+                    torch.cat(
+                        [inputs_0, inputs[2 * step][:, self.output_channels :]],
+                        dim=1,
+                    )
+                )
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
@@ -132,7 +134,7 @@ class UNet(BaseUNet):
             reshaped = (
                 input_tensor[:, : self.output_channels] + decodings
             )  # Residual prediction
-            reshaped = reshaped[:, :, :self.input_size[0], :self.input_size[1]]
+            reshaped = reshaped[:, :, : self.input_size[0], : self.input_size[1]]
 
             if loss_fn is not None:
                 if loss is None:
@@ -170,13 +172,15 @@ class UNet(BaseUNet):
                 input_tensor = self.resize_fn(inputs[0][0].unsqueeze(0))
             else:
                 inputs_0 = outputs[-1]
-                input_tensor = self.resize_fn(torch.cat(
-                    [
-                        inputs_0.unsqueeze(0),
-                        inputs[step][0][self.output_channels:].unsqueeze(0),
-                    ],
-                    dim=1,
-                ))
+                input_tensor = self.resize_fn(
+                    torch.cat(
+                        [
+                            inputs_0.unsqueeze(0),
+                            inputs[step][0][self.output_channels :].unsqueeze(0),
+                        ],
+                        dim=1,
+                    )
+                )
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
@@ -185,7 +189,7 @@ class UNet(BaseUNet):
                 0
             )  # Residual prediction
 
-            reshaped = reshaped[:, :self.input_size[0], :self.input_size[1]]
+            reshaped = reshaped[:, : self.input_size[0], : self.input_size[1]]
             outputs.append(reshaped)
 
         if output_only_last:

@@ -91,6 +91,7 @@ class UNet(BaseUNet):
         input_channels: int = 9,
         output_channels: int = 3,
         presteps: int = 0,
+        pred_residuals: bool = True
     ):
 
         super().__init__(
@@ -104,6 +105,9 @@ class UNet(BaseUNet):
         )
         assert input_time_dim == 1
         self.time_dim = 1
+        self.pred_residuals = pred_residuals
+        if not self.pred_residuals:
+            print("Using absolute predictions")
 
     def forward(
         self,
@@ -128,10 +132,13 @@ class UNet(BaseUNet):
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
-            # reshaped = self._reshape_outputs(decodings)  # Absolute prediction
-            reshaped = (
-                input_tensor[:, : self.output_channels] + decodings
-            )  # Residual prediction
+            if self.pred_residuals:
+                reshaped = (
+                    input_tensor[:, : self.output_channels] + decodings
+                )  # Residual prediction
+            else:
+                reshaped = decodings  # Absolute prediction
+
             reshaped = reshaped[:, :, :self.input_size[0], :self.input_size[1]]
 
             if loss_fn is not None:
@@ -180,10 +187,12 @@ class UNet(BaseUNet):
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
-            # reshaped = self._reshape_outputs(decodings)  # Absolute prediction
-            reshaped = input_tensor[0, : self.output_channels] + decodings.squeeze(
-                0
-            )  # Residual prediction
+            if self.pred_residuals:
+                reshaped = input_tensor[0, : self.output_channels] + decodings.squeeze(
+                    0
+                )  # Residual prediction
+            else:
+                reshaped = decodings.squeeze(0)  # Absolute prediction
 
             reshaped = reshaped[:, :self.input_size[0], :self.input_size[1]]
             outputs.append(reshaped)
@@ -210,18 +219,6 @@ class RecUNet(BaseUNet):
         reset_cycle: int = 2,
         verbose=False,
     ):
-        """
-        Deep Learning Weather Prediction (DLWP) recurrent UNet model on the HEALPix mesh.
-
-        :param input_time_dim: number of time steps in the input array
-        :param output_time_dim: number of time steps in the output array
-        :param input_channels: number of input channels expected in the input array schema. Note this should be the
-            number of input variables in the data, NOT including data reshaping for the encoder part.
-        :param output_channels: number of output channels expected in the output array schema, or output variables
-        :param reset_cycle: hours after which the recurrent states are reset to zero and re-initialized. Set np.infty
-            to never reset the hidden states.
-        :param presteps: number of model steps to initialize recurrent states.
-        """
         super().__init__(
             encoder,
             decoder,

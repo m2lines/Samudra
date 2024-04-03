@@ -813,9 +813,11 @@ def gen_data_in(step, s, e, interval, lag, hist, inputs, extra_in):
     num_extra = len(extra_in)
     temp_inputs = []
     for j in range(num_outs):
+        print(f"Inputs: Getting {s}:{e}:{interval} vals for channel {j}")
         temp_inputs.append(inputs[j][s:e:interval].to_numpy())
     temp_extra = []
     for j in range(num_extra):
+        print(f"Extra: Getting {s}:{e}:{interval} vals for channel {j}")
         temp_extra.append(extra_in[j][s:e:interval].to_numpy())
 
     data_in = np.stack((*temp_inputs, *temp_extra), -1)
@@ -823,6 +825,7 @@ def gen_data_in(step, s, e, interval, lag, hist, inputs, extra_in):
     for i in range(hist):
         temp_inputs = []
         for j in range(num_outs):
+            print(f"Hist: Getting {s - (hist - i) * lag}:{e - (hist - i) * lag}:{interval} vals for channel {j}")
             temp_inputs.append(
                 np.expand_dims(
                     inputs[j][
@@ -842,6 +845,7 @@ def gen_data_out(step, s, e, lag, interval, outputs):
     num_outs = len(outputs)
     temp_outputs = []
     for j in range(num_outs):
+        print(f"Outputs: Getting {s}:{e}:{interval} vals for channel {j}")
         temp_outputs.append(outputs[j][s:e:interval].to_numpy())
 
     data_out = np.stack(temp_outputs, -1)

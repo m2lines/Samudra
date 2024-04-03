@@ -14,6 +14,7 @@ import torch_geometric
 import torch.backends.cudnn as cudnn
 import numpy as np
 from torch.cuda import amp
+from torchinfo import summary
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS
 from utils.train_utils import loss_KE_pointwise, SmoothedValue, MetricLogger
@@ -102,6 +103,11 @@ class Trainer:
         # Model
         model = instantiate(args.unet)
 
+        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+        params = sum([np.prod(p.size()) for p in model_parameters])
+        print("Number of parameters: ", params)
+        summary(model)
+
         # Dataloaders
         train_data = torch.load(
             Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_video),
@@ -144,18 +150,18 @@ class Trainer:
             pin_memory=args.pin_mem,
         )
 
-        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-        params = sum([np.prod(p.size()) for p in model_parameters])
-        print("Number of parameters: ", params)
-
         # Loss function
         lam = args.lam
         mse = nn.MSELoss()
-        # self.loss = (
-        #     lambda out, pred: mse(out, pred) * (1 - lam)
-        #     + loss_KE_pointwise(out, pred) * lam
-        # )
-        self.loss = lambda out, pred: mse(out, pred)
+        if args.loss == "mse":
+            print("Using mse loss")
+            self.loss = lambda out, pred: mse(out, pred)
+        elif args.loss == "mse_ke":
+            print("lam KE: ", lam)
+            self.loss = (
+                lambda out, pred: mse(out, pred) * (1 - lam)
+                + loss_KE_pointwise(out, pred) * lam
+            )
 
         # Optimizer
         self.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -244,8 +250,8 @@ class Trainer:
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
-            # if (data_iter_step+1) % 5 == 0:
-            #     break
+            if (data_iter_step+1) % 5 == 0:
+                break
             self.optimizer.zero_grad()
 
             loss = self.model(data, loss_fn=self.loss)

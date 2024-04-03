@@ -73,6 +73,8 @@ def main(args):
         args.N_samples, args.N_val, args.lag, args.hist, args.interval
     )
 
+    print(f"Train Start: {s_train}, Train End: {e_train}, Test End: {e_test}")
+
     # Generate inputs, extra inputs and outputs
     inputs, extra_in, outputs = gen_data_025_lateral(
         inputs,
@@ -130,6 +132,13 @@ def main(args):
     # Norm vals
     print("Train Norms: ", train_data.norm_vals)
     print("Val Norms: ", val_data.norm_vals)
+
+    # Shapes
+    print("Train data input shape (sample 0): ", train_data[0][0].shape)
+    print("Train data output shape (sample 0): ", train_data[0][1].shape)
+
+    print("Val data input shape (sample 0): ", val_data[0][0].shape)
+    print("Val data output shape (sample 0): ", val_data[0][1].shape)
 
     # Saving datasets
     torch.save(

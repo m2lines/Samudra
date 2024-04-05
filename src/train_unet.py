@@ -250,8 +250,8 @@ class Trainer:
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
-            if (data_iter_step + 1) % 5 == 0:
-                break
+            # if (data_iter_step + 1) % 5 == 0:
+            #     break
             self.optimizer.zero_grad()
 
             loss = self.model(data, loss_fn=self.loss)

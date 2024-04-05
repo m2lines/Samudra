@@ -28,6 +28,7 @@ unet_region: Gulf_Stream_Ext
 
 ckpt_path: null # changed in command args
 network: unet # changed in command args
+loss: mse
 
 save_test_data: false # change if already saved in prior experiments
 run_gen_pred: true

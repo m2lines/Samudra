@@ -235,10 +235,9 @@ def train_one_epoch(
             outs = outs
 
             loss += (
-                loss_fn(data[int(step * 2 + 1)].to(device=device), outs)
-                * weight[step]
+                loss_fn(data[int(step * 2 + 1)].to(device=device), outs) * weight[step]
             ).item()
-        
+
         loss.backward()
 
         loss_value = loss.item()
@@ -246,7 +245,7 @@ def train_one_epoch(
         optimizer.step()
         if scheduler is not None:
             # scheduler.step()
-            scheduler.step(epoch + data_iter_step/iters)
+            scheduler.step(epoch + data_iter_step / iters)
         torch.cuda.synchronize()
         torch.cuda.empty_cache()
 

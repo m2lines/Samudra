@@ -7,7 +7,7 @@ comp="compute=local"
 # GO BOTTOM TO TOP
 
 # local eval no sched
-./.python-greene submitit_hydra.py $comp exp=eval_swin swin.embed_dim=24 ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/train_swin/2024-04-08-test_train_swin/saved_nets/swin_best_steps_8_Gulf_Stream_Ext_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt' network="Swin No sched" name="$(date +%F)-eval_swin_nosched"
+./.python-greene submitit_hydra.py $comp exp=eval_swin swin.embed_dim=24 ckpt_path='' network="Swin No sched" name="$(date +%F)-eval_swin_nosched"
 
 # local eval sched
 # ./.python-greene submitit_hydra.py $comp exp=eval_swin swin.embed_dim=24 ckpt_path='' network="Swin sched" name="$(date +%F)-eval_swin"

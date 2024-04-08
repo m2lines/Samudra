@@ -148,7 +148,9 @@ class Trainer:
 
         model = model.to(args.device)
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+        model = nn.parallel.DistributedDataParallel(
+            model, device_ids=[args.gpu], find_unused_parameters=True
+        )
         self.model = model
         self.nets_dir = args.nets_dir
         self.network = args.network

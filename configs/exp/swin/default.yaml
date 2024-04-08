@@ -1,0 +1,25 @@
+defaults:
+  - /exp/unet/modules/blocks@conv_block: conv_next_block
+  - /exp/unet/modules/blocks@up_sampling_block: transposed_conv_upsample
+  - /exp/unet/modules/blocks@output_layer: output_layer
+
+_target_: models.swin.SwinTransformer
+_recursive_: false
+n_layers: [1, 2, 2, 1]
+dilations: [1,1,1,1]
+patch_size: 4
+embed_dim: 24
+depths: [2, 2, 6, 2]
+num_heads: [3, 6, 12, 24]
+window_size: 7
+mlp_ratio: 4.
+qkv_bias: True
+qk_scale: null
+drop_rate: 0.
+attn_drop_rate: 0.
+drop_path_rate: 0.2
+ape: False
+patch_norm: True
+out_indices: [0, 1, 2, 3]
+frozen_stages: -1
+pred_residuals: True

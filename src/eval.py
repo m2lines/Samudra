@@ -71,7 +71,7 @@ class Eval:
                 self.N_atm + self.N_in
             )  # Number of atmosphere variables + Lateral boundary variables
         else:
-           self.N_extra = self.N_atm # Number of atmosphere variables
+            self.N_extra = self.N_atm  # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
@@ -174,7 +174,12 @@ class Eval:
                 0, e_test, args.N_test, args.lag, args.hist, outputs
             )
             if "global" in args.region:
-                self.test_data = data_CNN_Dynamic(data_in_test,data_out_test,self.wet.to(device="cpu"),device=args.device)   
+                self.test_data = data_CNN_Dynamic(
+                    data_in_test,
+                    data_out_test,
+                    self.wet.to(device="cpu"),
+                    device=args.device,
+                )
             else:
                 self.test_data = data_CNN_Lateral(
                     data_in_test,
@@ -206,7 +211,9 @@ class Eval:
             )
         elif "unet" in args.network.lower():
             print("Loading model unet")
-            model = instantiate(args.unet, input_channels=self.num_in, output_channels=self.N_in)
+            model = instantiate(
+                args.unet, input_channels=self.num_in, output_channels=self.N_in
+            )
             model.set_input_size([*self.test_data[0][0].shape[1:]])
 
         full_model_path = args.ckpt_path
@@ -246,9 +253,8 @@ class Eval:
                 clim = torch.load(
                     Path(args.data_dir) / "clim_cnn_{0}.pt".format(self.str_save)
                 )
-            
+
             self.clim = clim
-            
 
         # Getting area tensor
         print("Computing area tensor")

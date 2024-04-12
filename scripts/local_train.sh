@@ -22,7 +22,7 @@ comp="compute=local"
 ###########################################################################################
 # UNET
 
-# ConvNext Inverted UNet Global 
+# ConvNext Inverted UNet Global
 # ./.python-greene submitit_hydra.py $comp exp=train_unet_global name="$(date +%F)-test_train_convnextinvunet_global" batch_size=8 scheduler=True unet.encoder.n_channels=[180,90,45] unet.decoder.n_channels=[45,90,180] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] +exp/unet/modules/blocks@model.encoder.conv_block=conv_next_block +exp/unet/modules/blocks@model.decoder.conv_block=conv_next_block testing=True
 
 # Simple UNet - No scheduler

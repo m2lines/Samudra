@@ -26,7 +26,12 @@ from utils.dist_utils import (
     is_main_process,
     all_reduce_mean,
 )
-from utils.data_utils import data_CNN_Lateral, data_CNN_steps_Lateral, data_CNN_Dynamic, data_CNN_steps_Dynamic
+from utils.data_utils import (
+    data_CNN_Lateral,
+    data_CNN_steps_Lateral,
+    data_CNN_Dynamic,
+    data_CNN_steps_Dynamic,
+)
 
 
 class Trainer:
@@ -76,7 +81,7 @@ class Trainer:
                 self.N_atm + self.N_in
             )  # Number of atmosphere variables + Lateral boundary variables
         else:
-           self.N_extra = self.N_atm # Number of atmosphere variables
+            self.N_extra = self.N_atm  # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
@@ -146,7 +151,9 @@ class Trainer:
             )
         elif "unet" in args.network:
             print("Getting model unet")
-            model = instantiate(args.unet, input_channels=self.num_in, output_channels=self.N_in)
+            model = instantiate(
+                args.unet, input_channels=self.num_in, output_channels=self.N_in
+            )
             model.set_input_size([*self.train_loader.dataset[0][0].shape[1:]])
 
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())

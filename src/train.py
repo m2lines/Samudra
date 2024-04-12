@@ -7,30 +7,26 @@ from pathlib import Path
 from omegaconf import OmegaConf
 import hydra
 from hydra.utils import instantiate
-from torchsummary import summary
 
 import torch
 import torch.nn as nn
 import torch_geometric
 import torch.backends.cudnn as cudnn
 import numpy as np
+from torch.cuda import amp
+from torchinfo import summary
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS
-from utils.train_utils import (
-    train_one_epoch,
-    train_one_epoch_recunet,
-    validate,
-    validate_recunet,
-    loss_KE_pointwise,
-)
+from utils.train_utils import loss_KE_pointwise, SmoothedValue, MetricLogger
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
     get_world_size,
     get_rank,
     is_main_process,
+    all_reduce_mean,
 )
-from utils.data_utils import data_CNN_Lateral, data_CNN_steps_Lateral
+from utils.data_utils import data_CNN_Lateral, data_CNN_steps_Lateral, data_CNN_Dynamic, data_CNN_steps_Dynamic
 
 
 class Trainer:
@@ -75,9 +71,12 @@ class Trainer:
 
         self.N_atm = len(self.extra_in)  # Number of atmosphere variables
         self.N_in = len(self.inputs)
-        self.N_extra = (
-            self.N_atm + self.N_in
-        )  # Number of atmosphere variables + Lateral boundary variables
+        if args.lateral:
+            self.N_extra = (
+                self.N_atm + self.N_in
+            )  # Number of atmosphere variables + Lateral boundary variables
+        else:
+           self.N_extra = self.N_atm # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
@@ -112,6 +111,8 @@ class Trainer:
             Path(args.data_dir) / "val_data_cnn_{0}.pt".format(self.str_video)
         )
 
+        print("Loading data")
+
         self.train_sampler = torch.utils.data.distributed.DistributedSampler(
             train_data, shuffle=True, seed=args.rand_seed
         )
@@ -135,39 +136,50 @@ class Trainer:
         )
 
         # Model
-        if args.network == "ViT":
+        if "swin" in args.network:
+            print("Getting model swin")
             model = instantiate(
-                args.vit,
+                args.swin,
                 in_channels=self.num_in,
                 output_channels=self.N_in,
-                img_size=[*self.train_loader.dataset[0][0].shape[1:]],
+                pretrain_img_size=[*self.train_loader.dataset[0][0].shape[1:]],
             )
-        elif args.network == "recunet":
-            model = instantiate(args.recunet)
-        elif args.network == "norecunet":
-            model = instantiate(args.norecunet)
+        elif "unet" in args.network:
+            print("Getting model unet")
+            model = instantiate(args.unet, input_channels=self.num_in, output_channels=self.N_in)
+            model.set_input_size([*self.train_loader.dataset[0][0].shape[1:]])
+
+        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+        params = sum([np.prod(p.size()) for p in model_parameters])
+        print("Number of parameters: ", params)
+        summary(model)
 
         model = model.to(args.device)
-        # model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        # print(summary(model, self.train_loader.dataset[0][0].shape))
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        if "swin" in args.network:
+            model = nn.parallel.DistributedDataParallel(
+                model, device_ids=[args.gpu], find_unused_parameters=True
+            )
+        elif "unet" in args.network:
+            model = nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+
         self.model = model
         self.nets_dir = args.nets_dir
         self.network = args.network
         self.device = args.device
 
-        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-        params = sum([np.prod(p.size()) for p in model_parameters])
-        print("Number of parameters: ", params)
-
         # Loss function
         lam = args.lam
         mse = nn.MSELoss()
-        self.loss = lambda out, pred: mse(out, pred)
-        # self.loss = (
-        #     lambda out, pred: mse(out, pred) * (1 - lam)
-        #     + loss_KE_pointwise(out, pred) * lam
-        # )
+        if args.loss == "mse":
+            print("Using mse loss")
+            self.loss = lambda out, pred: mse(out, pred)
+        elif args.loss == "mse_ke":
+            print("lam KE: ", lam)
+            self.loss = (
+                lambda out, pred: mse(out, pred) * (1 - lam)
+                + loss_KE_pointwise(out, pred) * lam
+            )
 
         # Optimizer
         self.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -176,11 +188,15 @@ class Trainer:
         ] * args.steps  # Constant weighting of losses across steps
 
         # Scheduler
-        # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, args.T)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-            self.optimizer, args.T
-        )
-        # self.scheduler = None
+        self.scheduler = None
+        if args.scheduler:
+            # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, args.T)
+            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                self.optimizer, args.T
+            )
+
+        # Gscaler
+        # self.gscaler = amp.GradScaler(enabled=args.grad_clip)
 
         # Training
         self.epochs = args.epochs
@@ -189,6 +205,7 @@ class Trainer:
         self.save_freq = args.save_freq
         self.output_dir = args.output_dir
         self.network = args.network
+        self.testing = args.testing
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
@@ -200,46 +217,9 @@ class Trainer:
         for epoch in range(self.epochs):
             self.train_sampler.set_epoch(epoch)
             self.test_sampler.set_epoch(epoch)
-            if self.network == "ViT":
-                train_stats = train_one_epoch(
-                    epoch,
-                    self.model,
-                    self.train_loader,
-                    self.N_in,
-                    self.N_extra,
-                    self.hist,
-                    self.loss,
-                    self.optimizer,
-                    self.scheduler,
-                    self.steps,
-                    self.step_weights,
-                    self.device,
-                    self.wandb,
-                )
-            else:
-                train_stats = train_one_epoch_recunet(
-                    epoch,
-                    self.model,
-                    self.train_loader,
-                    self.N_in,
-                    self.N_extra,
-                    self.hist,
-                    self.loss,
-                    self.optimizer,
-                    self.scheduler,
-                    self.steps,
-                    self.step_weights,
-                    self.device,
-                    self.wandb,
-                )
-            if self.network == "ViT":
-                val_stats = validate(
-                    self.model, self.test_loader, self.device, self.wandb
-                )
-            else:
-                val_stats = validate_recunet(
-                    self.model, self.test_loader, self.device, self.wandb
-                )
+
+            train_stats = self.train_one_epoch(epoch)
+            val_stats = self.validate()
 
             v_loss = val_stats["loss"]
 
@@ -278,6 +258,72 @@ class Trainer:
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print("Training time {}".format(total_time_str))
+
+    def train_one_epoch(self, epoch):
+        self.model.train(True)
+        metric_logger = MetricLogger(delimiter="  ")
+        metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
+        header = "Epoch: [{}]".format(epoch)
+        iters = len(self.train_loader)
+
+        for data_iter_step, data in enumerate(
+            metric_logger.log_every(self.train_loader, 1, header)
+        ):
+            if self.testing and (data_iter_step + 1) % 5 == 0:
+                break
+            self.optimizer.zero_grad()
+
+            loss = self.model(data, loss_fn=self.loss)
+            loss.backward()
+            loss_value = loss.item()
+
+            self.optimizer.step()
+            if self.scheduler is not None:
+                # self.scheduler.step()
+                self.scheduler.step(epoch + data_iter_step / iters)
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
+
+            metric_logger.update(loss=loss_value)
+
+            lr = (
+                self.optimizer.param_groups[-1]["lr"]
+                if self.scheduler is None
+                else self.scheduler.get_last_lr()[0]
+            )
+            metric_logger.update(lr=lr)
+
+            loss_value_reduce = all_reduce_mean(loss_value)
+
+            if self.wandb:
+                wandb.log(
+                    {"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr}
+                )
+
+        metric_logger.synchronize_between_processes()
+        print("Averaged train stats:", metric_logger)
+        return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+    @torch.no_grad()
+    def validate(self):
+        self.model.eval()
+
+        metric_logger = MetricLogger(delimiter="  ")
+        header = "Test:"
+        for data in self.test_loader:
+            with torch.no_grad():
+                loss = self.model(data, loss_fn=self.loss)
+                loss_value = loss.item()
+                metric_logger.update(loss=loss_value)
+
+                loss_value_reduce = all_reduce_mean(loss_value)
+                if self.wandb:
+                    wandb.log({"eval_loss_per_batch": loss_value_reduce})
+
+        metric_logger.synchronize_between_processes()
+        print("Averaged eval stats:", metric_logger)
+
+        return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
 def main(args):

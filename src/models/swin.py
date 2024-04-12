@@ -869,7 +869,7 @@ class SwinTransformer(torch.nn.Module):
         self,
         in_channels,
         output_channels,
-        pretrain_img_size,  # =[128, 192],
+        pretrain_img_size,
         conv_block: DictConfig,
         up_sampling_block: DictConfig,
         output_layer: DictConfig,
@@ -897,10 +897,10 @@ class SwinTransformer(torch.nn.Module):
         super().__init__()
         img_size = copy.deepcopy(pretrain_img_size)
         if img_size[0] % (patch_size**2) != 0:
-            img_size[0] = (int(img_size[0] / (patch_size**2)) + 1) * (patch_size**2)
+            img_size[0] = (int(img_size[0] / (patch_size**2)) + 2) * (patch_size**2)
 
         if img_size[1] % (patch_size**2) != 0:
-            img_size[1] = (int(img_size[1] / (patch_size**2)) + 1) * (patch_size**2)
+            img_size[1] = (int(img_size[1] / (patch_size**2)) + 2) * (patch_size**2)
 
         self.resize_fn = Resize(img_size)
         self.input_size = pretrain_img_size

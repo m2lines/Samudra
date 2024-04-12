@@ -15,7 +15,7 @@ from utils.data_utils import (
     data_CNN_Lateral,
     data_CNN_steps_Lateral,
     data_CNN_Dynamic,
-    data_CNN_steps_Dynamic
+    data_CNN_steps_Dynamic,
 )
 from utils.dist_utils import set_seed
 
@@ -48,7 +48,7 @@ def main(args):
             N_atm + N_in
         )  # Number of atmosphere variables + Lateral boundary variables
     else:
-        N_extra = N_atm # Number of atmosphere variables
+        N_extra = N_atm  # Number of atmosphere variables
 
     N_out = len(outputs)
 
@@ -84,7 +84,7 @@ def main(args):
 
     # Generate inputs, extra inputs and outputs
     if "global_21" == args.region:
-        inputs, extra_in, outputs = gen_data_global(inputs,extra_in,outputs,args.lag)
+        inputs, extra_in, outputs = gen_data_global(inputs, extra_in, outputs, args.lag)
 
     else:
         inputs, extra_in, outputs = gen_data_025_lateral(
@@ -113,7 +113,7 @@ def main(args):
             data_in_val, data_out_val, wet, N_atm, args.Nb, args.device
         )
     else:
-        val_data = data_CNN_Dynamic(data_in_val,data_out_val,wet,device=args.device)   
+        val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, device=args.device)
 
     # Generating Training dataset
     data_in_train = []
@@ -147,9 +147,13 @@ def main(args):
             device=args.device,
         )
     else:
-        train_data = data_CNN_steps_Dynamic(data_in_train,data_out_train,
-                                            args.steps,
-                                            wet,device=args.device,)      
+        train_data = data_CNN_steps_Dynamic(
+            data_in_train,
+            data_out_train,
+            args.steps,
+            wet,
+            device=args.device,
+        )
 
     # Norm vals
     print("Train Norms: ", train_data.norm_vals)

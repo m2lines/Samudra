@@ -12,7 +12,7 @@ wandb:
   notes: null
 
 ### experiment args
-experiment: eval_swin
+experiment: eval
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
 grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
@@ -31,6 +31,7 @@ network: swin # changed in command args
 loss: mse
 
 save_test_data: false # change if already saved in prior experiments
+save_clim_data: false # change if already saved in prior experiments
 run_gen_pred: true
 run_gen_short_pred: true
 run_full_pred: true

@@ -1,8 +1,7 @@
 # @package _global_
 defaults:
   - _self_
-  - vit: default
-  - norecunet: default
+  - unet: unet
 
 wandb:
   mode: disabled # online, disabled
@@ -16,35 +15,38 @@ wandb:
 experiment: eval
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
+grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm26_Vertices.nc
 path_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds
 data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-06-save_data_test/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
-network: "norecunet"
-steps: 8 # 8
+steps: 4
 
-region: "Gulf_Stream_Ext"
-nets_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext/saved_nets # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext/saved_nets # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-02-2GPU_train_norecunet_gulfext/saved_nets
-short_model_name: "norecunet_best_steps_8_"
-
-use_unet: false
+######
+use_unet: true
 only_unet: false
-unet_region: Gulf_Stream_Ext
-unet_path: # /scratch/as15415/Emulation/Preds
+unet_path: /scratch/as15415/Emulation/Preds
+unet_region: "global_21"
 
-save_test_data: false # change if already saved in prior experiments
+ckpt_path: null # changed in command args
+network: unet # changed in command args
+loss: mse
+
+save_test_data: true # change if already saved in prior experiments
+save_clim_data: false # change if already saved in prior experiments
 run_gen_pred: true
 run_gen_short_pred: true
 run_full_pred: true
 run_short_pred: true
 run_plot_metrics: true
 run_plot_animation: true
+####
 
 device: "cuda" # keep this cuda to get preds in gpu
 
 # Parameters
-exp_num_in: "3"
+exp_num_in: "10"
 exp_num_extra: "12"
-exp_num_out: "2"
+exp_num_out: "6"
+region: "global_21"
 N_samples: 4000
 N_val: 200
 N_test: 3000
@@ -52,6 +54,6 @@ interval: 1
 hist: 0
 lag: 1
 lam: 0.05
-Nb: 4
+Nb: 0
 factor: 10
-lateral: true
+lateral: false

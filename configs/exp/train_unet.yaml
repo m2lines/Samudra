@@ -12,7 +12,7 @@ wandb:
   notes: null
 
 ### experiment args
-experiment: train_unet
+experiment: train
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
 grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
@@ -26,6 +26,7 @@ region: "Gulf_Stream_Ext"
 network: "unet"
 scheduler: False
 loss: mse
+testing: False
 #####
 
 

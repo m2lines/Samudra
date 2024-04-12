@@ -9,14 +9,16 @@ import matplotlib.pyplot as plt
 from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
-    gen_data_025_lateral,
     gen_data_in_test,
     gen_data_out_test,
     data_CNN_Lateral,
+    data_CNN_Dynamic,
+    gen_data_025_lateral,
+    gen_data_global,
 )
 from utils.eval_utils import (
     recur_pred_lateral,
-    recur_pred_lateral_norecunet,
+    generate_model_rollout,
     compute_mean,
     compute_var,
     compute_corrs_area,
@@ -64,9 +66,12 @@ class Eval:
 
         self.N_atm = len(self.extra_in)  # Number of atmosphere variables
         self.N_in = len(self.inputs)
-        self.N_extra = (
-            self.N_atm + self.N_in
-        )  # Number of atmosphere variables + Lateral boundary variables
+        if args.lateral:
+            self.N_extra = (
+                self.N_atm + self.N_in
+            )  # Number of atmosphere variables + Lateral boundary variables
+        else:
+           self.N_extra = self.N_atm # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
@@ -168,14 +173,17 @@ class Eval:
             data_out_test = gen_data_out_test(
                 0, e_test, args.N_test, args.lag, args.hist, outputs
             )
-            self.test_data = data_CNN_Lateral(
-                data_in_test,
-                data_out_test,
-                self.wet.to(device="cpu"),
-                self.N_atm,
-                args.Nb,
-                device=args.device,
-            )
+            if "global" in args.region:
+                self.test_data = data_CNN_Dynamic(data_in_test,data_out_test,self.wet.to(device="cpu"),device=args.device)   
+            else:
+                self.test_data = data_CNN_Lateral(
+                    data_in_test,
+                    data_out_test,
+                    self.wet.to(device="cpu"),
+                    self.N_atm,
+                    args.Nb,
+                    device=args.device,
+                )
             torch.save(
                 self.test_data,
                 Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save),
@@ -187,9 +195,30 @@ class Eval:
                 Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save)
             )
 
-        # from utils.data_utils import RecUnetEvalDataset
-        # recdata = RecUnetEvalDataset('/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data/test_data_steps_8_Gulf_Stream_Ext2_in_um_vm_Tm_ext_tau_u_tau_v_t_ref_N_samples_4000.pt', 8, 2, 1, 3, 4)
-        # import pdb; pdb.set_trace()
+        # Model
+        if "swin" in args.network.lower():
+            print("Loading model swin")
+            model = instantiate(
+                args.swin,
+                in_channels=self.num_in,
+                output_channels=self.N_in,
+                pretrain_img_size=[*self.test_data[0][0].shape[1:]],
+            )
+        elif "unet" in args.network.lower():
+            print("Loading model unet")
+            model = instantiate(args.unet, input_channels=self.num_in, output_channels=self.N_in)
+            model.set_input_size([*self.test_data[0][0].shape[1:]])
+
+        full_model_path = args.ckpt_path
+        self.full_model_name = args.network + "_" + self.post_model_name
+        self.output_channels = model.output_channels
+
+        model = model.to(args.device)
+        model.load_state_dict(
+            torch.load(full_model_path, map_location=torch.device(args.device))
+        )
+
+        self.model = model
 
         # Stats
         self.mean_out = self.test_data.norm_vals["m_out"]
@@ -197,15 +226,29 @@ class Eval:
         self.mean_in = self.test_data.norm_vals["m_in"]
         self.std_in = self.test_data.norm_vals["s_in"]
 
+        # clim
         self.clim = None
         if args.run_short_pred or args.run_plot_metrics:
-            print("Saving clim")
-            clim = np.zeros((366, *self.wet.shape, 3))
-            for i in range(self.N_out):
-                clim[:, :, :, i] = (
-                    outputs[i].groupby("time.dayofyear").mean("time").data
+            if args.save_clim_data:
+                print("Saving clim")
+                clim = np.zeros((366, *self.wet.shape, 3))
+                for i in range(self.N_out):
+                    clim[:, :, :, i] = (
+                        outputs[i].groupby("time.dayofyear").mean("time").data
+                    )
+                torch.save(
+                    clim,
+                    Path(args.data_dir) / "clim_cnn_{0}.pt".format(self.str_save),
                 )
+
+            else:
+                print("Loading clim")
+                clim = torch.load(
+                    Path(args.data_dir) / "clim_cnn_{0}.pt".format(self.str_save)
+                )
+            
             self.clim = clim
+            
 
         # Getting area tensor
         print("Computing area tensor")
@@ -225,28 +268,6 @@ class Eval:
         self.dx = self.grids["dxu"].to_numpy()
         self.dy = self.grids["dyu"].to_numpy()
 
-        # Model
-        if args.network == "ViT":
-            model = instantiate(
-                args.vit,
-                in_channels=self.num_in,
-                output_channels=self.N_in,
-                img_size=[*self.test_data[0][0].shape[1:]],
-            )
-        elif args.network == "norecunet":
-            model = instantiate(args.norecunet)
-
-        model = model.to(args.device)
-        self.full_model_name = args.short_model_name + self.post_model_name
-        full_model_path = Path(args.nets_dir) / (
-            args.short_model_name + self.post_model_name + ".pt"
-        )
-        model.load_state_dict(
-            torch.load(full_model_path, map_location=torch.device(args.device))
-        )
-
-        self.model = model
-
         # Pred model path dir
         self.pred_model_path = Path(args.path_dir) / self.full_model_name
         if not os.path.isdir(self.pred_model_path):
@@ -258,38 +279,28 @@ class Eval:
         self.N_test = args.N_test
         self.output_dir = args.output_dir
         self.region = args.region
-        self.unet_path = args.unet_path
+        self.use_unet = args.use_unet
+        self.unet_region = args.unet_region
+        self.unet_path = Path(args.unet_path)
         self.steps = args.steps
         self.network = args.network
         self.only_unet = args.only_unet
-        self.use_unet = args.use_unet
-        self.unet_region = args.unet_region
 
     def generate_pred_lateral(self):
         print("Generation Pred begin...")
         for ns in [4000]:
             for rand_ind in range(1, 4):
                 print(ns, rand_ind)
-                if self.network == "ViT":
-                    model_pred = recur_pred_lateral(
-                        self.N_test,
-                        self.test_data,
-                        self.model,
-                        self.hist,
-                        self.N_in,
-                        self.N_extra,
-                        self.Nb,
-                    )
-                elif self.network == "norecunet":
-                    model_pred = recur_pred_lateral_norecunet(
-                        self.N_test,
-                        self.test_data,
-                        self.model,
-                        self.hist,
-                        self.N_in,
-                        self.N_extra,
-                        self.Nb,
-                    )
+                model_pred = generate_model_rollout(
+                    self.N_test,
+                    self.test_data,
+                    self.model,
+                    self.hist,
+                    self.N_in,
+                    self.N_extra,
+                    self.Nb,
+                )
+
                 print("data_gen")
                 da = xr.DataArray(
                     data=model_pred,
@@ -307,6 +318,8 @@ class Eval:
                     ),
                     mode="w",
                 )
+                print(f"Model pred shape {model_pred.shape}")
+                del model_pred
 
     def generate_short_pred_lateral(self):
         print("Generation Short Pred begin...")
@@ -327,26 +340,15 @@ class Eval:
                     temp.output = temp.output[int(i * len_run) : int((i + 1) * len_run)]
                     temp.size = len_run
 
-                    if self.network == "ViT":
-                        model_pred_temp = recur_pred_lateral(
-                            len_run,
-                            temp,
-                            self.model,
-                            self.hist,
-                            self.N_in,
-                            self.N_extra,
-                            self.Nb,
-                        )
-                    elif self.network == "norecunet":
-                        model_pred_temp = recur_pred_lateral_norecunet(
-                            len_run,
-                            temp,
-                            self.model,
-                            self.hist,
-                            self.N_in,
-                            self.N_extra,
-                            self.Nb,
-                        )
+                    model_pred_temp = generate_model_rollout(
+                        len_run,
+                        temp,
+                        self.model,
+                        self.hist,
+                        self.N_in,
+                        self.N_extra,
+                        self.Nb,
+                    )
                     print("data_gen")
                     model_pred[int(i * len_run) : int((i + 1) * len_run)] = (
                         model_pred_temp
@@ -368,6 +370,7 @@ class Eval:
                     ),
                     mode="w",
                 )
+                print(f"Model pred shape {model_pred.shape}")
 
     ### Need to Refactor the following functions
     def compare_pred_lateral(self):
@@ -1078,7 +1081,6 @@ class Eval:
             ACC_T_net,
         )
 
-    # Cant plot this without the right overlay
     def plot_animation(self):
         def compute_rmse_snapshot(test_data, model_pred, area, wet, mean, std, index):
             area_flat = np.array(area[wet].flatten())
@@ -1195,8 +1197,8 @@ class Eval:
             model_pred_unet = None
             if self.use_unet:
                 model_pred_unet = get_stats(
-                    Path(self.unet_path),
-                    self.region,
+                    self.unet_path,
+                    self.unet_region,
                     self.str_in,
                     self.str_ext,
                     self.test_data,

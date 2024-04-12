@@ -9,10 +9,13 @@ from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
     gen_data_025_lateral,
+    gen_data_global,
     gen_data_in,
     gen_data_out,
     data_CNN_Lateral,
     data_CNN_steps_Lateral,
+    data_CNN_Dynamic,
+    data_CNN_steps_Dynamic
 )
 from utils.dist_utils import set_seed
 
@@ -40,9 +43,13 @@ def main(args):
 
     N_atm = len(extra_in)  # Number of atmosphere variables
     N_in = len(inputs)
-    N_extra = (
-        N_atm + N_in
-    )  # Number of atmosphere variables + Lateral boundary variables
+    if args.lateral:
+        N_extra = (
+            N_atm + N_in
+        )  # Number of atmosphere variables + Lateral boundary variables
+    else:
+        N_extra = N_atm # Number of atmosphere variables
+
     N_out = len(outputs)
 
     num_in = int((args.hist + 1) * N_in + N_extra)
@@ -76,27 +83,37 @@ def main(args):
     print(f"Train Start: {s_train}, Train End: {e_train}, Test End: {e_test}")
 
     # Generate inputs, extra inputs and outputs
-    inputs, extra_in, outputs = gen_data_025_lateral(
-        inputs,
-        extra_in,
-        outputs,
-        args.lag,
-        REGIONS[args.region]["lat"],
-        REGIONS[args.region]["lon"],
-        args.Nb,
-    )
+    if "global_21" == args.region:
+        inputs, extra_in, outputs = gen_data_global(inputs,extra_in,outputs,args.lag)
+
+    else:
+        inputs, extra_in, outputs = gen_data_025_lateral(
+            inputs,
+            extra_in,
+            outputs,
+            args.lag,
+            REGIONS[args.region]["lat"],
+            REGIONS[args.region]["lon"],
+            args.Nb,
+        )
 
     # Generate Wet mask
     wet, _ = get_wet_mask(inputs, "cpu")
+
+    print("Wet shape: ", wet.shape)
 
     # Generating Validation dataset
     data_in_val = gen_data_in(
         0, e_train, e_test, args.interval, args.lag, args.hist, inputs, extra_in
     )
     data_out_val = gen_data_out(0, e_train, e_test, args.lag, args.interval, outputs)
-    val_data = data_CNN_Lateral(
-        data_in_val, data_out_val, wet, N_atm, args.Nb, args.device
-    )
+
+    if args.lateral:
+        val_data = data_CNN_Lateral(
+            data_in_val, data_out_val, wet, N_atm, args.Nb, args.device
+        )
+    else:
+        val_data = data_CNN_Dynamic(data_in_val,data_out_val,wet,device=args.device)   
 
     # Generating Training dataset
     data_in_train = []
@@ -119,15 +136,20 @@ def main(args):
             gen_data_out(i, s_train + offset, e_train, args.lag, args.interval, outputs)
         )
 
-    train_data = data_CNN_steps_Lateral(
-        data_in_train,
-        data_out_train,
-        args.steps,
-        wet,
-        N_atm,
-        args.Nb,
-        device=args.device,
-    )
+    if args.lateral:
+        train_data = data_CNN_steps_Lateral(
+            data_in_train,
+            data_out_train,
+            args.steps,
+            wet,
+            N_atm,
+            args.Nb,
+            device=args.device,
+        )
+    else:
+        train_data = data_CNN_steps_Dynamic(data_in_train,data_out_train,
+                                            args.steps,
+                                            wet,device=args.device,)      
 
     # Norm vals
     print("Train Norms: ", train_data.norm_vals)

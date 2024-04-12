@@ -13,56 +13,48 @@ from einops import rearrange
 
 class data_CNN_Dynamic(torch.utils.data.Dataset):
 
-    def __init__(self, data_in, data_out, wet, device="cuda"):
+    def __init__(self,data_in,data_out,wet,device = "cuda"):
         super().__init__()
-        self.device = device
+        self.device = device        
         num_inputs = data_in.shape[3]
         num_outputs = data_out.shape[3]
         self.size = data_in.shape[0]
-
+        
         data_in = np.nan_to_num(data_in)
         data_out = np.nan_to_num(data_out)
-
-        std_data = np.nanstd(data_in, axis=(0, 1, 2))
-        mean_data = np.nanmean(data_in, axis=(0, 1, 2))
-        std_label = np.nanstd(data_out, axis=(0, 1, 2))
-        mean_label = np.nanmean(data_out, axis=(0, 1, 2))
-
+        
+        std_data = np.nanstd(data_in,axis=(0,1,2))
+        mean_data = np.nanmean(data_in,axis=(0,1,2)) 
+        std_label = np.nanstd(data_out,axis=(0,1,2))
+        mean_label = np.nanmean(data_out,axis=(0,1,2))
+        
         self.wet = wet
-
+        
         for i in range(num_inputs):
-            data_in[:, :, :, i] = (data_in[:, :, :, i] - mean_data[i]) / std_data[i]
-
+            data_in[:,:,:,i] = (data_in[:,:,:,i] - mean_data[i])/std_data[i]
+        
         for i in range(num_outputs):
-            data_out[:, :, :, i] = (data_out[:, :, :, i] - mean_label[i]) / std_label[i]
-
+            data_out[:,:,:,i] = (data_out[:,:,:,i] - mean_label[i])/std_label[i]
+            
         data_in = torch.from_numpy(data_in).type(torch.float32).to(device="cpu")
-        data_out = torch.from_numpy(data_out).type(torch.float32).to(device="cpu")
+        data_out = torch.from_numpy(data_out).type(torch.float32).to(device="cpu")        
+        
 
-        std_dict = {
-            "s_in": std_data,
-            "s_out": std_label,
-            "m_in": mean_data,
-            "m_out": mean_label,
-        }
-
+        std_dict = {'s_in':std_data,'s_out':std_label,'m_in':mean_data, 'm_out':mean_label}
+        
         if wet == None:
-            self.input = torch.swapaxes(torch.swapaxes(data_in, 1, 3), 2, 3)
-            self.output = torch.swapaxes(torch.swapaxes(data_out, 1, 3), 2, 3)
-
+            self.input = torch.swapaxes(torch.swapaxes(data_in,1,3),2,3)
+            self.output = torch.swapaxes(torch.swapaxes(data_out,1,3),2,3)           
+            
         else:
-            self.input = torch.mul(
-                torch.swapaxes(torch.swapaxes(data_in, 1, 3), 2, 3), wet
-            )
-            self.output = torch.mul(
-                torch.swapaxes(torch.swapaxes(data_out, 1, 3), 2, 3), wet
-            )
-
+            self.input = torch.mul(torch.swapaxes(torch.swapaxes(data_in,1,3),2,3),wet)
+            self.output = torch.mul(torch.swapaxes(torch.swapaxes(data_out,1,3),2,3),wet)
+        
         self.norm_vals = std_dict
-
-    def set_device(self, device):
+    
+    def set_device(self,device):
         self.device = device
-
+    
     def __len__(self):
         # Number of data point we have. Alternatively self.data.shape[0], or self.label.shape[0]
         return self.size
@@ -72,12 +64,12 @@ class data_CNN_Dynamic(torch.utils.data.Dataset):
         # If we have multiple things to return (data point and label), we can return them as tuple
         data_in = self.input[idx]
         label = self.output[idx]
-        return data_in.to(device=self.device), label.to(device=self.device)
+        return data_in.to(device = self.device), label.to(device = self.device)
 
-
+    
 class data_CNN_steps_Dynamic(torch.utils.data.Dataset):
 
-    def __init__(self, data_in, data_out, steps, wet=None, device="cuda"):
+    def __init__(self,data_in,data_out,steps,wet = None,device = "cuda"):
         super().__init__()
         self.device = device
         steps = len(data_out)
@@ -86,59 +78,44 @@ class data_CNN_steps_Dynamic(torch.utils.data.Dataset):
         num_outputs = data_out[0].shape[3]
         self.size = data_in[0].shape[0]
         self.wet = wet
-
+        
         for i in range(steps):
             data_out[i] = np.nan_to_num(data_out[i])
             data_in[i] = np.nan_to_num(data_in[i])
-
-        std_data = np.nanstd(data_in[0], axis=(0, 1, 2))
-        mean_data = np.nanmean(data_in[0], axis=(0, 1, 2))
-        std_label = np.nanstd(data_out[0], axis=(0, 1, 2))
-        mean_label = np.nanmean(data_out[0], axis=(0, 1, 2))
+       
+        std_data = np.nanstd(data_in[0],axis=(0,1,2))
+        mean_data = np.nanmean(data_in[0],axis=(0,1,2)) 
+        std_label = np.nanstd(data_out[0],axis=(0,1,2))
+        mean_label = np.nanmean(data_out[0],axis=(0,1,2))
+        
 
         for j in range(steps):
             for i in range(num_outputs):
-                data_out[j][:, :, :, i] = (
-                    data_out[j][:, :, :, i] - mean_label[i]
-                ) / std_label[i]
+                data_out[j][:,:,:,i] = (data_out[j][:,:,:,i] - mean_label[i])/std_label[i]
             for i in range(num_inputs):
-                data_in[j][:, :, :, i] = (
-                    data_in[j][:, :, :, i] - mean_data[i]
-                ) / std_data[i]
-
+                data_in[j][:,:,:,i] = (data_in[j][:,:,:,i] - mean_data[i])/std_data[i] 
+                
         for j in range(steps):
-            data_out[j] = (
-                torch.from_numpy(data_out[j]).type(torch.float32).to(device="cpu")
-            )
-            data_in[j] = (
-                torch.from_numpy(data_in[j]).type(torch.float32).to(device="cpu")
-            )
+            data_out[j] = torch.from_numpy(data_out[j]).type(torch.float32).to(device="cpu")    
+            data_in[j] = torch.from_numpy(data_in[j]).type(torch.float32).to(device="cpu") 
+       
 
-        std_dict = {
-            "s_in": std_data,
-            "s_out": std_label,
-            "m_in": mean_data,
-            "m_out": mean_label,
-        }
-
+        std_dict = {'s_in':std_data,'s_out':std_label,'m_in':mean_data, 'm_out':mean_label}
+        
         if wet == None:
             for j in range(steps):
-                data_out[j] = torch.swapaxes(torch.swapaxes(data_out[j], 1, 3), 2, 3)
-                data_in[j] = torch.swapaxes(torch.swapaxes(data_in[j], 1, 3), 2, 3)
+                data_out[j] = torch.swapaxes(torch.swapaxes(data_out[j],1,3),2,3)
+                data_in[j] = torch.swapaxes(torch.swapaxes(data_in[j],1,3),2,3)
         else:
             for j in range(steps):
-                data_out[j] = torch.mul(
-                    torch.swapaxes(torch.swapaxes(data_out[j], 1, 3), 2, 3), wet
-                )
-                data_in[j] = torch.mul(
-                    torch.swapaxes(torch.swapaxes(data_in[j], 1, 3), 2, 3), wet
-                )
-
+                data_out[j] = torch.mul(torch.swapaxes(torch.swapaxes(data_out[j],1,3),2,3),wet)
+                data_in[j] = torch.mul(torch.swapaxes(torch.swapaxes(data_in[j],1,3),2,3),wet)
+        
         self.input = data_in
 
         self.output = data_out
         self.norm_vals = std_dict
-
+        
     def __len__(self):
         # Number of data point we have. Alternatively self.data.shape[0], or self.label.shape[0]
         return self.size
@@ -146,14 +123,11 @@ class data_CNN_steps_Dynamic(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         # Return the idx-th data point of the dataset
         # If we have multiple things to return (data point and label), we can return them as tuple
-        data = [
-            self.input[0][idx].to(device=self.device),
-            self.output[0][idx].to(device=self.device),
-        ]
-        for k in range(1, self.steps):
-            data.append(self.input[k][idx].to(device=self.device))
-            data.append(self.output[k][idx].to(device=self.device))
-
+        data = [self.input[0][idx].to(device = self.device),self.output[0][idx].to(device = self.device)]
+        for k in range(1,self.steps):
+            data.append(self.input[k][idx].to(device = self.device))
+            data.append(self.output[k][idx].to(device = self.device))
+        
         return tuple(data)
 
 
@@ -963,54 +937,39 @@ def gen_data(input_vars, extra_vars, output_vars, lag, factor, region="Kuroshio"
     return inputs, extra_in, outputs
 
 
-def gen_data_global(input_vars, extra_vars, output_vars, lag, res="1"):
-    var_dict = {
-        "um": "u_mean",
-        "vm": "v_mean",
-        "Tm": "T_mean",
-        "ur": "u_res",
-        "vr": "v_res",
-        "Tr": "T_res",
-        "u": "u",
-        "v": "v",
-        "T": "T",
-        "tau_u": "tau_u",
-        "tau_v": "tau_v",
-        "tau": "tau",
-        "t_ref": "t_ref",
-    }
+def gen_data_global(input_vars,extra_vars,output_vars,lag,res ="1"):
+    var_dict = {"um":"u_mean","vm":"v_mean","Tm":"T_mean",
+                "ur":"u_res","vr":"v_res","Tr":"T_res",
+               "u":"u","v":"v","T":"T",
+               "tau_u":"tau_u","tau_v":"tau_v","tau":"tau",
+               "t_ref":"t_ref"}
 
-    data = xr.open_zarr(
-        "/scratch/as15415/Data/Emulation_Data/Global_Ocean_" + res + "deg.zarr"
-    )
-    data_atmos = (
-        xr.open_zarr(
-            "/scratch/as15415/Data/Emulation_Data/Data_Atmos_" + res + "_deg.zarr"
-        )
-        .drop(["xu_ocean", "T_mean"])
-        .assign_coords({"lon": data.xu_ocean.data})
-    )
-    data_atmos = data_atmos.rename_dims({"lat": "yu_ocean", "lon": "xu_ocean"})
-    data_atmos = data_atmos.rename({"lat": "yu_ocean", "lon": "xu_ocean"})
-
+    data = xr.open_zarr("/scratch/as15415/Data/Emulation_Data/Global_Ocean_"+res+"deg.zarr")
+    if res != "1":
+        data_atmos = xr.open_zarr("/scratch/as15415/Data/Emulation_Data/Data_Atmos_"+res+"_deg.zarr").drop(["xu_ocean","T_mean"]).assign_coords({"lon":data.xu_ocean.data})
+    else:
+        data_atmos = xr.open_zarr("/scratch/as15415/Data/Emulation_Data/Data_Atmos_"+res+"_deg.zarr")
+    data_atmos = data_atmos.rename_dims({"lat":"yu_ocean","lon":"xu_ocean"})
+    data_atmos = data_atmos.rename({"lat":"yu_ocean","lon":"xu_ocean"})
+    
     data_atmos["xu_ocean"] = data.xu_ocean.data
-    data_atmos["yu_ocean"] = data.yu_ocean.data
-
-    data = xr.merge([data, data_atmos])
-
+    data_atmos["yu_ocean"] = data.yu_ocean.data    
+    
+    data = xr.merge([data,data_atmos])
+    
     inputs = []
     extra_in = []
     outputs = []
-
+    
     for var in input_vars:
         inputs.append(data[var_dict[var]])
 
     for var in extra_vars:
         extra_in.append(data[var_dict[var]])
-
+        
     for var in output_vars:
         outputs.append(data[var_dict[var]][lag:])
-
+        
     inputs = tuple(inputs)
     extra_in = tuple(extra_in)
     outputs = tuple(outputs)

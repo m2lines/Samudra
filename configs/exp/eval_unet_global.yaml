@@ -21,7 +21,7 @@ data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313
 steps: 4
 
 ######
-use_unet: true
+use_unet: false
 only_unet: false
 unet_path: /scratch/as15415/Emulation/Preds
 unet_region: "global_21"

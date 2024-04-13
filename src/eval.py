@@ -615,7 +615,8 @@ class Eval:
         print("Long time stats plot begin...")
 
         plot_long_time_stats(
-            self.network, self.unet_name,
+            self.network,
+            self.unet_name,
             self.region,
             self.str_save,
             self.output_dir,
@@ -837,7 +838,8 @@ class Eval:
 
         print("Short time stats plot begin...")
         plot_short_time_stats(
-            self.network, self.unet_name,
+            self.network,
+            self.unet_name,
             self.region,
             self.str_save,
             self.output_dir,
@@ -1057,7 +1059,8 @@ class Eval:
 
         print("Plotting everything...")
         plot_all_metrics(
-            self.network, self.unet_name,
+            self.network,
+            self.unet_name,
             self.region,
             self.str_save,
             self.output_dir,
@@ -1217,7 +1220,8 @@ class Eval:
 
             var_list = {"1": r"v", "0": r"u", "2": r"T"}
             fig, plt0, plt1, plt2, a = get_initial_snapshot_fig(
-                self.network, self.unet_name,
+                self.network,
+                self.unet_name,
                 N_plot,
                 self.region,
                 self.grids,

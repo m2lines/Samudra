@@ -25,6 +25,7 @@ use_unet: true
 only_unet: false
 unet_path: /scratch/as15415/Emulation/Preds
 unet_region: Gulf_Stream_Ext
+unet_name: "Adam Unet"
 
 ckpt_path: null # changed in command args
 network: swin # changed in command args

@@ -3,7 +3,10 @@
 ###########################################################################################
 # SWIN
 
-# Swin transformer Global
+# Swin transformer Global sched-less agg
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global name="$(date +%F)-train_swin_global_lessagg" batch_size=8 swin.embed_dim=48 scheduler=True wandb.mode=online
+
+# Swin transformer Global sched
 # ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global name="$(date +%F)-train_swin_global" batch_size=8 swin.embed_dim=48 scheduler=True wandb.mode=online
 
 # Swin Transformer No bs 32 emb 24 (10M)
@@ -21,8 +24,11 @@
 ###########################################################################################
 # UNET
 
-# UNet Global
-./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global name="$(date +%F)-train_convnextinvunet_global" batch_size=8 scheduler=True unet.encoder.n_channels=[180,90,45] unet.decoder.n_channels=[45,90,180] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] +exp/unet/modules/blocks@model.encoder.conv_block=conv_next_block +exp/unet/modules/blocks@model.decoder.conv_block=conv_next_block wandb.mode=online
+# ConvNext UNet Global
+./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global name="$(date +%F)-train_convnextunet_global" batch_size=8 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] +exp/unet/modules/blocks@model.encoder.conv_block=conv_next_block +exp/unet/modules/blocks@model.decoder.conv_block=conv_next_block wandb.mode=online
+
+# ConvNext UNet Global - inverted unet
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global name="$(date +%F)-train_convnextinvunet_global" batch_size=8 scheduler=True unet.encoder.n_channels=[180,90,45] unet.decoder.n_channels=[45,90,180] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] +exp/unet/modules/blocks@model.encoder.conv_block=conv_next_block +exp/unet/modules/blocks@model.decoder.conv_block=conv_next_block wandb.mode=online
 
 # Simple UNet - No scheduler
 # ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet name="$(date +%F)-train_unet_nosched" batch_size=24 unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] +exp/unet/modules/activations@model.encoder.conv_block.activation=capped_leaky_relu +exp/unet/modules/activations@model.decoder.conv_block.activation=capped_leaky_relu wandb.mode=online

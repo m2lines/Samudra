@@ -17,7 +17,6 @@ from utils.data_utils import (
     gen_data_global,
 )
 from utils.eval_utils import (
-    recur_pred_lateral,
     generate_model_rollout,
     compute_mean,
     compute_var,
@@ -143,7 +142,6 @@ class Eval:
                 self.inputs, self.extra_in, self.outputs, args.lag
             )
         else:
-            # inputs, extra_in, outputs = gen_data_025_lateral(self.inputs,self.extra_in,self.outputs,args.lag,REGIONS[args.region]["lat"], REGIONS[args.region]["lon"],args.Nb,filter_T = True) # compare vary
             inputs, extra_in, outputs = gen_data_025_lateral(
                 self.inputs,
                 self.extra_in,
@@ -291,6 +289,7 @@ class Eval:
         self.steps = args.steps
         self.network = args.network
         self.only_unet = args.only_unet
+        self.unet_name = args.unet_name
 
     def generate_pred_lateral(self):
         print("Generation Pred begin...")
@@ -616,7 +615,7 @@ class Eval:
         print("Long time stats plot begin...")
 
         plot_long_time_stats(
-            self.network,
+            self.network, self.unet_name,
             self.region,
             self.str_save,
             self.output_dir,
@@ -838,7 +837,7 @@ class Eval:
 
         print("Short time stats plot begin...")
         plot_short_time_stats(
-            self.network,
+            self.network, self.unet_name,
             self.region,
             self.str_save,
             self.output_dir,
@@ -1058,7 +1057,7 @@ class Eval:
 
         print("Plotting everything...")
         plot_all_metrics(
-            self.network,
+            self.network, self.unet_name,
             self.region,
             self.str_save,
             self.output_dir,
@@ -1218,7 +1217,7 @@ class Eval:
 
             var_list = {"1": r"v", "0": r"u", "2": r"T"}
             fig, plt0, plt1, plt2, a = get_initial_snapshot_fig(
-                self.network,
+                self.network, self.unet_name,
                 N_plot,
                 self.region,
                 self.grids,

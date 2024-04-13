@@ -25,12 +25,13 @@ use_unet: false
 only_unet: false
 unet_path: /scratch/as15415/Emulation/Preds
 unet_region: "global_21"
+unet_name: "Adam Unet"
 
 ckpt_path: null # changed in command args
 network: unet # changed in command args
 loss: mse
 
-save_test_data: true # change if already saved in prior experiments
+save_test_data: false # change if already saved in prior experiments
 save_clim_data: false # change if already saved in prior experiments
 run_gen_pred: true
 run_gen_short_pred: true
@@ -54,6 +55,6 @@ interval: 1
 hist: 0
 lag: 1
 lam: 0.05
-Nb: 0
+Nb: 4 # Should technically be 0 when lateral is False but most of the code uses Nb
 factor: 10
 lateral: false

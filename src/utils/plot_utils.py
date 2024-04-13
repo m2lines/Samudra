@@ -9,7 +9,7 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 
 def plot_time_spec(
-    network,
+    network, unet_network,
     axs,
     plt_index,
     index,
@@ -41,7 +41,7 @@ def plot_time_spec(
             freqs[:N_int],
             FFTs_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Adam UNet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)",
+            label=unet_network + r"($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)",
         )
         axs[plt_index].fill_between(
             freqs[:N_int],
@@ -83,7 +83,7 @@ def plot_time_spec(
 
 
 def plot_var(
-    network, axs, plt_index, index, N_test, lag, auto_var, var_unet, var_net, clist
+    network, unet_network, axs, plt_index, index, N_test, lag, auto_var, var_unet, var_net, clist
 ):
     T_plot = 1098
 
@@ -109,7 +109,7 @@ def plot_var(
             (np.arange(N_int) * lag) / 366,
             var_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Adam UNet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
+            label=unet_network + r"($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_index].fill_between(
             (np.arange(N_int) * lag) / 366,
@@ -153,7 +153,7 @@ def plot_var(
 
 
 def plot_mean(
-    network, axs, plt_index, index, N_test, lag, auto_mean, mean_unet, mean_net, clist
+    network, unet_network, axs, plt_index, index, N_test, lag, auto_mean, mean_unet, mean_net, clist
 ):
 
     T_plot = N_test
@@ -180,7 +180,7 @@ def plot_mean(
             (np.arange(N_int) * lag) / 366,
             mean_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Adam UNet($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
+            label=unet_network + r"($\mathbf{u},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_index].fill_between(
             (np.arange(N_int) * lag) / 366,
@@ -241,7 +241,7 @@ def plot_mean(
 
 
 def plot_acc(
-    network, axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist
+    network, unet_network, axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist
 ):
     T_plot = 100
 
@@ -274,7 +274,7 @@ def plot_acc(
             (np.arange(N_int) * lag),
             ACC_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Adam UNet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+            label=unet_network + r"($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
@@ -314,7 +314,7 @@ def plot_acc(
 
 
 def plot_corr(
-    network,
+    network, unet_network,
     axs,
     plt_ind_acc,
     index,
@@ -357,7 +357,7 @@ def plot_corr(
             (np.arange(N_int) * lag),
             corrs_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Adam UNet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+            label=unet_network + r"($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
@@ -400,7 +400,7 @@ def plot_corr(
 #     axs[plt_ind_acc].set_title("Short Rollout "+ region)
 
 
-def plot_KE(network, axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_net, clist):
+def plot_KE(network, unet_network, axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_net, clist):
 
     T_plot = 200
 
@@ -433,7 +433,7 @@ def plot_KE(network, axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_net, cl
             (np.arange(N_int) * lag) / 366,
             KE_unet.mean(axis=0)[:N_int],
             color=clist[2],
-            label=r"Adam UNet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+            label=unet_network + r"($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag) / 366,
@@ -479,7 +479,7 @@ def plot_KE(network, axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_net, cl
 
 
 def plot_rmse(
-    network, axs, plt_ind_acc, index, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+    network, unet_network, axs, plt_ind_acc, index, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
 ):
     T_plot = 200
 
@@ -512,7 +512,7 @@ def plot_rmse(
             (np.arange(N_int) * lag),
             rmse_unet.mean(axis=0)[:N_int, index],
             color=clist[2],
-            label=r"Adam UNet($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
+            label=unet_network + r"($\mathbf{\Phi},\tau_u,\tau_v,T_{ref}$)",
         )
         axs[plt_ind_acc].fill_between(
             (np.arange(N_int) * lag),
@@ -559,7 +559,7 @@ def plot_rmse(
 
 
 def plot_long_time_stats(
-    network,
+    network, unet_network,
     region,
     save_str,
     output_dir,
@@ -603,7 +603,7 @@ def plot_long_time_stats(
         },
     )
     plot_time_spec(
-        network,
+        network, unet_network,
         axs,
         (0, 0),
         0,
@@ -616,13 +616,13 @@ def plot_long_time_stats(
         False,
     )
     plot_mean(
-        network, axs, (0, 1), 0, N_test, lag, auto_mean, mean_unet, mean_net, clist
+        network, unet_network, axs, (0, 1), 0, N_test, lag, auto_mean, mean_unet, mean_net, clist
     )
     plot_time_spec(
-        network, axs, (1, 0), 1, N_test, freqs, auto_FFT, FFTs_unet, FFTs_net, clist
+        network, unet_network, axs, (1, 0), 1, N_test, freqs, auto_FFT, FFTs_unet, FFTs_net, clist
     )
     plot_mean(
-        network, axs, (1, 1), 2, N_test, lag, auto_mean, mean_unet, mean_net, clist
+        network, unet_network, axs, (1, 1), 2, N_test, lag, auto_mean, mean_unet, mean_net, clist
     )
 
     region_title = ""
@@ -651,7 +651,7 @@ def plot_long_time_stats(
 
 
 def plot_short_time_stats(
-    network,
+    network, unet_network,
     region,
     save_str,
     output_dir,
@@ -703,14 +703,14 @@ def plot_short_time_stats(
         return fig, axs
 
     fig, axs = init_plt()
-    plot_acc(network, axs, (0, 0), 2, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
+    plot_acc(network, unet_network, axs, (0, 0), 2, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
     plot_corr(
-        network, axs, (0, 1), 1, N_test, lag, auto_corrs, corrs_unet, corrs_net, clist
+        network, unet_network, axs, (0, 1), 1, N_test, lag, auto_corrs, corrs_unet, corrs_net, clist
     )
     plot_rmse(
-        network, axs, (1, 0), 2, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+        network, unet_network, axs, (1, 0), 2, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
     )
-    plot_KE(network, axs, (1, 1), N_test, lag, auto_KE, KE_unet, KE_net, clist)
+    plot_KE(network, unet_network, axs, (1, 1), N_test, lag, auto_KE, KE_unet, KE_net, clist)
 
     fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
 
@@ -721,13 +721,13 @@ def plot_short_time_stats(
     )
 
     fig, axs = init_plt()
-    plot_acc(network, axs, (0, 0), 0, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
-    plot_acc(network, axs, (0, 1), 1, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
+    plot_acc(network, unet_network, axs, (0, 0), 0, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
+    plot_acc(network, unet_network, axs, (0, 1), 1, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
     plot_rmse(
-        network, axs, (1, 0), 0, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+        network, unet_network, axs, (1, 0), 0, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
     )
     plot_rmse(
-        network, axs, (1, 1), 1, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+        network, unet_network, axs, (1, 1), 1, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
     )
 
     fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
@@ -742,7 +742,7 @@ def plot_short_time_stats(
 
 
 def plot_all_metrics(
-    network,
+    network, unet_network,
     region,
     save_str,
     output_dir,
@@ -795,7 +795,7 @@ def plot_all_metrics(
             KE_spec_unet.freq_r,
             KE_spec_unet,
             c=clist[3],
-            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
+            label=unet_network + f" ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.loglog(KE_spec_true.freq_r, KE_spec_true, "--k")
@@ -825,7 +825,7 @@ def plot_all_metrics(
             np.arange(1, N_plot + 1),
             KE_unet * rho,
             c=clist[3],
-            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
+            label=unet_network + f" ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k")
@@ -851,7 +851,7 @@ def plot_all_metrics(
             enst_spec_unet.freq_r,
             enst_spec_unet,
             c=clist[3],
-            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
+            label=unet_network + f" ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k")
@@ -878,7 +878,7 @@ def plot_all_metrics(
             np.arange(1, N_plot + 1),
             enst_unet,
             c=clist[3],
-            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
+            label=unet_network + f" ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_plot + 1), enst_true, "--k")
@@ -906,7 +906,7 @@ def plot_all_metrics(
             np.arange(1, N_eval + 1),
             corr_T_unet,
             c=clist[3],
-            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
+            label=unet_network + f" ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_eval + 1), corr_T_true, "--k")
@@ -936,7 +936,7 @@ def plot_all_metrics(
             np.arange(1, N_eval + 1),
             RMSE_T_unet,
             c=clist[3],
-            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
+            label=unet_network + f" ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_eval + 1), RMSE_T_true, "--k")
@@ -966,7 +966,7 @@ def plot_all_metrics(
             np.arange(1, N_eval + 1),
             ACC_T_unet,
             c=clist[3],
-            label=f"Adam UNet ~ $\Delta t = {lag},~ N = {steps}$",
+            label=unet_network + f" ~ $\Delta t = {lag},~ N = {steps}$",
         )
 
     plt.plot(np.arange(1, N_eval + 1), ACC_T_true, "--k")
@@ -984,7 +984,7 @@ def plot_all_metrics(
 
 
 def get_initial_snapshot_fig(
-    network,
+    network, unet_network,
     N_plot,
     region,
     grids,
@@ -1176,7 +1176,7 @@ def get_initial_snapshot_fig(
         gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
         axs[0, 2].set_title(
-            r"Adam UNet($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15
+            unet_network + r"($\mathbf{u},\tau_u,\tau_v,T_{\mathrm{atm}}$)", size=15
         )
         axs[1, 2].set_axis_off()
 

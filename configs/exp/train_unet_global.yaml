@@ -41,7 +41,7 @@ batch_size: 32
 
 # Optimizer
 lr: 2e-4
-T: 10 # CosineA / CosineAWarm param
+T: ${epochs} # 10 # CosineA / CosineAWarm param
 
 # Parameters
 exp_num_in: "10"

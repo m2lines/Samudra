@@ -35,10 +35,10 @@ save_test_data: false # change if already saved in prior experiments
 save_clim_data: false # change if already saved in prior experiments
 run_gen_pred: false
 run_gen_short_pred: false
-run_full_pred: true
-run_short_pred: true
+run_full_pred: false
+run_short_pred: false
 run_plot_metrics: true
-run_plot_animation: true
+run_plot_animation: false
 ####
 
 device: "cuda" # keep this cuda to get preds in gpu

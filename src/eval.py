@@ -27,6 +27,7 @@ from utils.eval_utils import (
     compute_time_spec,
     compute_ACC,
     gen_KE_spectrum,
+    gen_KE,
     gen_enstrophy_spectrum,
     gen_enstrophy,
     compute_corrs_single,
@@ -158,6 +159,7 @@ class Eval:
         wet_lap = compute_laplacian_wet(self.wet_nan, args.Nb)
         wet_lap = xr.where(wet_lap == 0, 1, np.nan)
         self.wet_lap = np.nan_to_num(wet_lap)
+        print("Wet resolution:", self.wet.shape)
 
         self.time_vec = inputs[0].time.data
 
@@ -895,11 +897,27 @@ class Eval:
 
             model_pred_unet = xr.open_zarr(unet_path).to_array().to_numpy().squeeze()
 
+        ### Long time scale metrics
+        print("Getting Long KE stats...")
+        N_plot = 1000
+
+        long_KE_net = None
+        if not self.only_unet:
+            long_KE_net, long_KE_true = gen_KE(N_plot, self.test_data, model_pred_net)
+            long_KE_net = long_KE_net.mean(0)
+            long_KE_true = long_KE_true.mean(0)
+
+        long_KE_unet = None
+        if self.use_unet:
+            long_KE_unet, long_KE_true = gen_KE(N_plot, self.test_data, model_pred_unet)
+            long_KE_unet = long_KE_unet.mean(0)
+            long_KE_true = long_KE_true.mean(0)
+
         ### Short time scale metrics
         N_plot = 200
 
         # KE
-        print("Getting KE stats...")
+        print("Getting Short KE stats...")
         KE_spec_net = None
         if not self.only_unet:
             KE_spec_net, KE_spec_true = gen_KE_spectrum(
@@ -1055,6 +1073,31 @@ class Eval:
                 self.wet_bool,
             )
 
+        # PDF
+        print("Getting PDF stats...")
+        N_days = 100
+        day_start = 100 # Last 100 days
+        pdf = {}
+        for ind_plot in range(3):
+            true_field = (self.test_data[day_start:day_start+N_days][1][:,ind_plot,self.wet_bool].flatten()*self.std_out[ind_plot])+self.mean_out[ind_plot]
+            true_pdf, bins_true = np.histogram(true_field,bins = 150,density = True);
+            bins_true = (bins_true[1:]+bins_true[:-1])/2
+
+            pdf_net, bins_net = None, None
+            if not self.only_unet:
+                field_net = (model_pred_net[day_start:day_start+N_days,self.wet_bool,ind_plot].flatten())
+                pdf_net, bins_net = np.histogram(field_net,bins = 150,density = True);
+                bins_net = (bins_net[1:]+bins_net[:-1])/2
+            
+            pdf_unet, bins_unet = None, None
+            if self.use_unet:
+                field_unet =  (model_pred_unet[day_start:day_start+N_days,self.wet_bool,ind_plot].flatten())
+                pdf_unet, bins_unet = np.histogram(field_unet,bins = 150,density = True);
+                bins_unet = (bins_unet[1:]+bins_unet[:-1])/2
+
+            pdf[ind_plot] = {"true": [bins_true, true_pdf], "net": [bins_net, pdf_net], "unet": [bins_unet, pdf_unet]}
+
+
         print("Plotting everything...")
         plot_all_metrics(
             self.network, self.unet_name,
@@ -1063,12 +1106,18 @@ class Eval:
             self.output_dir,
             self.lag,
             self.steps,
+            self.grids,
+            self.Nb,
+            self.wet_nan,
             KE_spec_true,
             KE_spec_unet,
             KE_spec_net,
             KE_true,
             KE_unet,
             KE_net,
+            long_KE_true,
+            long_KE_unet,
+            long_KE_net,
             enst_spec_true,
             enst_spec_unet,
             enst_spec_net,
@@ -1084,6 +1133,7 @@ class Eval:
             ACC_T_true,
             ACC_T_unet,
             ACC_T_net,
+            pdf,
         )
 
     def plot_animation(self):
@@ -1264,7 +1314,7 @@ class Eval:
                         ).flatten()
                     )
                 a.set_text(
-                    r"Benefit of Atmospheric Boundary Terms "
+                    r"Movie "
                     + self.region
                     + ": $t = "
                     + str(i + 1)

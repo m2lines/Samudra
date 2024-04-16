@@ -1078,27 +1078,39 @@ class Eval:
         # PDF
         print("Getting PDF stats...")
         N_days = 100
-        day_start = 100 # Last 100 days
+        day_start = 100  # Last 100 days
         pdf = {}
         for ind_plot in range(3):
-            true_field = (self.test_data[day_start:day_start+N_days][1][:,ind_plot,self.wet_bool].flatten()*self.std_out[ind_plot])+self.mean_out[ind_plot]
-            true_pdf, bins_true = np.histogram(true_field,bins = 150,density = True);
-            bins_true = (bins_true[1:]+bins_true[:-1])/2
+            true_field = (
+                self.test_data[day_start : day_start + N_days][1][
+                    :, ind_plot, self.wet_bool
+                ].flatten()
+                * self.std_out[ind_plot]
+            ) + self.mean_out[ind_plot]
+            true_pdf, bins_true = np.histogram(true_field, bins=150, density=True)
+            bins_true = (bins_true[1:] + bins_true[:-1]) / 2
 
             pdf_net, bins_net = None, None
             if not self.only_unet:
-                field_net = (model_pred_net[day_start:day_start+N_days,self.wet_bool,ind_plot].flatten())
-                pdf_net, bins_net = np.histogram(field_net,bins = 150,density = True);
-                bins_net = (bins_net[1:]+bins_net[:-1])/2
-            
+                field_net = model_pred_net[
+                    day_start : day_start + N_days, self.wet_bool, ind_plot
+                ].flatten()
+                pdf_net, bins_net = np.histogram(field_net, bins=150, density=True)
+                bins_net = (bins_net[1:] + bins_net[:-1]) / 2
+
             pdf_unet, bins_unet = None, None
             if self.use_unet:
-                field_unet =  (model_pred_unet[day_start:day_start+N_days,self.wet_bool,ind_plot].flatten())
-                pdf_unet, bins_unet = np.histogram(field_unet,bins = 150,density = True);
-                bins_unet = (bins_unet[1:]+bins_unet[:-1])/2
+                field_unet = model_pred_unet[
+                    day_start : day_start + N_days, self.wet_bool, ind_plot
+                ].flatten()
+                pdf_unet, bins_unet = np.histogram(field_unet, bins=150, density=True)
+                bins_unet = (bins_unet[1:] + bins_unet[:-1]) / 2
 
-            pdf[ind_plot] = {"true": [bins_true, true_pdf], "net": [bins_net, pdf_net], "unet": [bins_unet, pdf_unet]}
-
+            pdf[ind_plot] = {
+                "true": [bins_true, true_pdf],
+                "net": [bins_net, pdf_net],
+                "unet": [bins_unet, pdf_unet],
+            }
 
         print("Plotting everything...")
         plot_all_metrics(
@@ -1317,13 +1329,7 @@ class Eval:
                             * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
                         ).flatten()
                     )
-                a.set_text(
-                    r"Movie "
-                    + self.region
-                    + ": $t = "
-                    + str(i + 1)
-                    + "$ days "
-                )
+                a.set_text(r"Movie " + self.region + ": $t = " + str(i + 1) + "$ days ")
 
             anim = FuncAnimation(
                 fig, update_snapshot, interval=100, frames=range(0, 1000, 2)

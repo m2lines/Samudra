@@ -9,7 +9,8 @@ from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 
 def plot_time_spec(
-    network, unet_network,
+    network,
+    unet_network,
     axs,
     plt_index,
     index,
@@ -83,7 +84,17 @@ def plot_time_spec(
 
 
 def plot_var(
-    network, unet_network, axs, plt_index, index, N_test, lag, auto_var, var_unet, var_net, clist
+    network,
+    unet_network,
+    axs,
+    plt_index,
+    index,
+    N_test,
+    lag,
+    auto_var,
+    var_unet,
+    var_net,
+    clist,
 ):
     T_plot = 1098
 
@@ -153,7 +164,17 @@ def plot_var(
 
 
 def plot_mean(
-    network, unet_network, axs, plt_index, index, N_test, lag, auto_mean, mean_unet, mean_net, clist
+    network,
+    unet_network,
+    axs,
+    plt_index,
+    index,
+    N_test,
+    lag,
+    auto_mean,
+    mean_unet,
+    mean_net,
+    clist,
 ):
 
     T_plot = N_test
@@ -241,7 +262,17 @@ def plot_mean(
 
 
 def plot_acc(
-    network, unet_network, axs, plt_ind_acc, index, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist
+    network,
+    unet_network,
+    axs,
+    plt_ind_acc,
+    index,
+    N_test,
+    lag,
+    auto_ACC,
+    ACC_unet,
+    ACC_net,
+    clist,
 ):
     T_plot = 100
 
@@ -314,7 +345,8 @@ def plot_acc(
 
 
 def plot_corr(
-    network, unet_network,
+    network,
+    unet_network,
     axs,
     plt_ind_acc,
     index,
@@ -400,7 +432,18 @@ def plot_corr(
 #     axs[plt_ind_acc].set_title("Short Rollout "+ region)
 
 
-def plot_KE(network, unet_network, axs, plt_ind_acc, N_test, lag, auto_KE, KE_unet, KE_net, clist):
+def plot_KE(
+    network,
+    unet_network,
+    axs,
+    plt_ind_acc,
+    N_test,
+    lag,
+    auto_KE,
+    KE_unet,
+    KE_net,
+    clist,
+):
 
     T_plot = 200
 
@@ -479,7 +522,17 @@ def plot_KE(network, unet_network, axs, plt_ind_acc, N_test, lag, auto_KE, KE_un
 
 
 def plot_rmse(
-    network, unet_network, axs, plt_ind_acc, index, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+    network,
+    unet_network,
+    axs,
+    plt_ind_acc,
+    index,
+    N_test,
+    lag,
+    auto_rmse,
+    rmse_unet,
+    rmse_net,
+    clist,
 ):
     T_plot = 200
 
@@ -559,7 +612,8 @@ def plot_rmse(
 
 
 def plot_long_time_stats(
-    network, unet_network,
+    network,
+    unet_network,
     region,
     save_str,
     output_dir,
@@ -603,7 +657,8 @@ def plot_long_time_stats(
         },
     )
     plot_time_spec(
-        network, unet_network,
+        network,
+        unet_network,
         axs,
         (0, 0),
         0,
@@ -616,13 +671,43 @@ def plot_long_time_stats(
         False,
     )
     plot_mean(
-        network, unet_network, axs, (0, 1), 0, N_test, lag, auto_mean, mean_unet, mean_net, clist
+        network,
+        unet_network,
+        axs,
+        (0, 1),
+        0,
+        N_test,
+        lag,
+        auto_mean,
+        mean_unet,
+        mean_net,
+        clist,
     )
     plot_time_spec(
-        network, unet_network, axs, (1, 0), 1, N_test, freqs, auto_FFT, FFTs_unet, FFTs_net, clist
+        network,
+        unet_network,
+        axs,
+        (1, 0),
+        1,
+        N_test,
+        freqs,
+        auto_FFT,
+        FFTs_unet,
+        FFTs_net,
+        clist,
     )
     plot_mean(
-        network, unet_network, axs, (1, 1), 2, N_test, lag, auto_mean, mean_unet, mean_net, clist
+        network,
+        unet_network,
+        axs,
+        (1, 1),
+        2,
+        N_test,
+        lag,
+        auto_mean,
+        mean_unet,
+        mean_net,
+        clist,
     )
 
     region_title = ""
@@ -651,7 +736,8 @@ def plot_long_time_stats(
 
 
 def plot_short_time_stats(
-    network, unet_network,
+    network,
+    unet_network,
     region,
     save_str,
     output_dir,
@@ -703,14 +789,48 @@ def plot_short_time_stats(
         return fig, axs
 
     fig, axs = init_plt()
-    plot_acc(network, unet_network, axs, (0, 0), 2, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
+    plot_acc(
+        network,
+        unet_network,
+        axs,
+        (0, 0),
+        2,
+        N_test,
+        lag,
+        auto_ACC,
+        ACC_unet,
+        ACC_net,
+        clist,
+    )
     plot_corr(
-        network, unet_network, axs, (0, 1), 1, N_test, lag, auto_corrs, corrs_unet, corrs_net, clist
+        network,
+        unet_network,
+        axs,
+        (0, 1),
+        1,
+        N_test,
+        lag,
+        auto_corrs,
+        corrs_unet,
+        corrs_net,
+        clist,
     )
     plot_rmse(
-        network, unet_network, axs, (1, 0), 2, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+        network,
+        unet_network,
+        axs,
+        (1, 0),
+        2,
+        N_test,
+        lag,
+        auto_rmse,
+        rmse_unet,
+        rmse_net,
+        clist,
     )
-    plot_KE(network, unet_network, axs, (1, 1), N_test, lag, auto_KE, KE_unet, KE_net, clist)
+    plot_KE(
+        network, unet_network, axs, (1, 1), N_test, lag, auto_KE, KE_unet, KE_net, clist
+    )
 
     fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
 
@@ -721,13 +841,57 @@ def plot_short_time_stats(
     )
 
     fig, axs = init_plt()
-    plot_acc(network, unet_network, axs, (0, 0), 0, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
-    plot_acc(network, unet_network, axs, (0, 1), 1, N_test, lag, auto_ACC, ACC_unet, ACC_net, clist)
-    plot_rmse(
-        network, unet_network, axs, (1, 0), 0, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+    plot_acc(
+        network,
+        unet_network,
+        axs,
+        (0, 0),
+        0,
+        N_test,
+        lag,
+        auto_ACC,
+        ACC_unet,
+        ACC_net,
+        clist,
+    )
+    plot_acc(
+        network,
+        unet_network,
+        axs,
+        (0, 1),
+        1,
+        N_test,
+        lag,
+        auto_ACC,
+        ACC_unet,
+        ACC_net,
+        clist,
     )
     plot_rmse(
-        network, unet_network, axs, (1, 1), 1, N_test, lag, auto_rmse, rmse_unet, rmse_net, clist
+        network,
+        unet_network,
+        axs,
+        (1, 0),
+        0,
+        N_test,
+        lag,
+        auto_rmse,
+        rmse_unet,
+        rmse_net,
+        clist,
+    )
+    plot_rmse(
+        network,
+        unet_network,
+        axs,
+        (1, 1),
+        1,
+        N_test,
+        lag,
+        auto_rmse,
+        rmse_unet,
+        rmse_net,
+        clist,
     )
 
     fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
@@ -742,7 +906,8 @@ def plot_short_time_stats(
 
 
 def plot_all_metrics(
-    network, unet_network,
+    network,
+    unet_network,
     region,
     save_str,
     output_dir,
@@ -1165,7 +1330,8 @@ def plot_all_metrics(
 
 
 def get_initial_snapshot_fig(
-    network, unet_network,
+    network,
+    unet_network,
     N_plot,
     region,
     grids,

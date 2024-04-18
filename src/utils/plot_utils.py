@@ -952,7 +952,7 @@ def plot_all_metrics(
     clist_5 = ["#A00B41", "#00DCDE", "#A6BD00", "#3300EA"]
     clist_6 = ["#A00B41", "#DE7400", "#00BD8E", "#3300EA"]
     clist = clist_5
-    
+
     N_plot = 1000
 
     # Long KE
@@ -987,76 +987,113 @@ def plot_all_metrics(
     vmin = 0
     vmax = 45
 
-        
-    x_plot = grids["x_C"][Nb:-Nb,Nb:-Nb]
-    y_plot = grids["y_C"][Nb:-Nb,Nb:-Nb]
+    x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+    y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
 
-    cmap = cmocean.cm.thermal #cmocean.cm.diff
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
 
+    plt0 = axs[0, 0].pcolormesh(
+        x_plot,
+        y_plot,
+        long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        shading="auto",
+    )
 
-    plt0 = axs[0,0].pcolormesh(x_plot, y_plot,
-                        long_KE_true[Nb:-Nb,Nb:-Nb]*wet_nan[Nb:-Nb,Nb:-Nb],
-                    cmap=cmap,vmin=vmin,vmax=vmax,shading='auto')
-
-
-
-    axs[0,0].add_feature(cart.feature.LAND, zorder=100, edgecolor='k')
-    gl = axs[0,0].gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                    linewidth=2, color='gray', alpha=0.5, linestyle='--')
+    axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0, 0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
     gl.top_labels = False
     gl.right_labels = False
     gl.yrotation = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-    axs[0,0].set_title(r"CM2.6",size = 15)
+    axs[0, 0].set_title(r"CM2.6", size=15)
 
     pos = axs[1, 1].get_position()
 
     # Set the new anchor point to be in the middle
-    new_pos = [pos.x0-.1, pos.y0+.15, pos.width*1.75, pos.height*1.5]  # Adjust 0.2 as needed
+    new_pos = [
+        pos.x0 - 0.1,
+        pos.y0 + 0.15,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
 
     # Create a new axes with the adjusted position
     cax = fig.add_axes(new_pos)
 
-
     cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
     cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
-    
-    cbar.set_ticks([np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]) # cbar.set_ticks([vmin, 0, vmax])  
-        
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
     cbar.set_label(r"KE $\left( \frac{J}{m^2} \right)$", fontsize=20)
 
-    fig.delaxes(axs[1,0])
+    fig.delaxes(axs[1, 0])
     fig.delaxes(cax)
 
-    plt1 = axs[0,1].pcolormesh(x_plot, y_plot,
-                        long_KE_net[Nb:-Nb,Nb:-Nb]*wet_nan[Nb:-Nb,Nb:-Nb],
-                    cmap=cmap,vmin=vmin,vmax=vmax,shading='auto')
+    plt1 = axs[0, 1].pcolormesh(
+        x_plot,
+        y_plot,
+        long_KE_net[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        shading="auto",
+    )
 
-    axs[0,1].add_feature(cart.feature.LAND, zorder=100, edgecolor='k')
-    gl = axs[0,1].gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                    linewidth=2, color='gray', alpha=0.5, linestyle='--')
+    axs[0, 1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0, 1].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
     gl.top_labels = False
     gl.right_labels = False
     gl.yrotation = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-    axs[0,1].set_title(network,size = 15)
+    axs[0, 1].set_title(network, size=15)
 
+    plt2 = axs[0, 2].pcolormesh(
+        x_plot,
+        y_plot,
+        long_KE_unet[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        shading="auto",
+    )
 
-    plt2 = axs[0,2].pcolormesh(x_plot, y_plot,
-                        long_KE_unet[Nb:-Nb,Nb:-Nb]*wet_nan[Nb:-Nb,Nb:-Nb],
-                    cmap=cmap,vmin=vmin,vmax=vmax,shading='auto')
-
-    axs[0,2].add_feature(cart.feature.LAND, zorder=100, edgecolor='k')
-    gl = axs[0,2].gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                    linewidth=2, color='gray', alpha=0.5, linestyle='--')
+    axs[0, 2].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0, 2].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
     gl.top_labels = False
     gl.right_labels = False
     gl.yrotation = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-    axs[0,2].set_title(unet_network,size = 15)
+    axs[0, 2].set_title(unet_network, size=15)
 
     try:
         axs[1, 0].set_axis_off()
@@ -1071,22 +1108,17 @@ def plot_all_metrics(
         if region == "Quiescent_Ext":
             region_title = "South Pacific"
         elif region == "Africa_Ext":
-            region_title = "African Cape"         
+            region_title = "African Cape"
         elif i == "_":
             region_title += " "
         elif i == "E":
             break
         else:
-            region_title+= i
+            region_title += i
     region_title = str(region_title)
 
-
     a = fig.suptitle(
-        r"Mean KE "
-        + region_title
-        + ": $t = "
-        + str(1000)
-        + "$ days ",
+        r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
         fontsize=16,
     )
 
@@ -1095,7 +1127,6 @@ def plot_all_metrics(
         bbox_inches="tight",
     )
     plt.clf()
-
 
     N_plot = 200
 
@@ -1307,18 +1338,25 @@ def plot_all_metrics(
     }
 
     for ind_plot in range(3):
-        plt.semilogy(*pdf[ind_plot]["true"],lw=2,c="k",label="CM2.6")
-        plt.semilogy(*pdf[ind_plot]["net"],lw=2,color=clist[0],label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$")
-        plt.semilogy(*pdf[ind_plot]["unet"],lw=2,color=clist[3],label=f"{unet_network} ~ $\Delta t = {lag},~ N = {steps}$")
+        plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", label="CM2.6")
+        plt.semilogy(
+            *pdf[ind_plot]["net"],
+            lw=2,
+            color=clist[0],
+            label=f"{network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
+        plt.semilogy(
+            *pdf[ind_plot]["unet"],
+            lw=2,
+            color=clist[3],
+            label=f"{unet_network} ~ $\Delta t = {lag},~ N = {steps}$",
+        )
 
-        plt.ylim([1e-3,10])
+        plt.ylim([1e-3, 10])
         plt.legend()
 
         a = plt.suptitle(
-            r"PDF "
-            + region
-            + " : "
-            + var_list[str(ind_plot)],
+            r"PDF " + region + " : " + var_list[str(ind_plot)],
             fontsize=16,
         )
 
@@ -1545,11 +1583,7 @@ def get_initial_snapshot_fig(
     region_title = str(region_title)
 
     a = fig.suptitle(
-        r"Movie "
-        + region_title
-        + ": $t = "
-        + str(N_plot)
-        + "$ days ",
+        r"Movie " + region_title + ": $t = " + str(N_plot) + "$ days ",
         fontsize=16,
     )
     return fig, plt0, plt1, plt2, a

@@ -1,4 +1,4 @@
-name: trigger-books-build
+name: trigger-book-build
 on:
   pull_request:
 

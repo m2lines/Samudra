@@ -13,12 +13,13 @@ jobs:
   deploy-preview:
     needs: find-pull-request
     if: github.event.workflow_run.conclusion == 'success'
-    uses: ProjectPythia/cookbook-actions/.github/workflows/deploy-book.yaml@main
+    # uses: ProjectPythia/cookbook-actions/.github/workflows/deploy-book.yaml@main
+    uses: jbusecke/cookbook-actions/.github/workflows/deploy-book.yaml@patch-5 # for better testing
     with:
       artifact_name: book-zip-${{ needs.find-pull-request.outputs.number }}
       destination_dir: _preview/${{ needs.find-pull-request.outputs.number }} # deploy to subdirectory labeled with PR number
       is_preview: 'true'
-      publish_dir: "docs/_build/html"
+      publish_dir: "book/_build/html"
       # cname: foundations.projectpythia.org
 
   preview-comment:

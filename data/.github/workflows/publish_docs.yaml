@@ -12,7 +12,9 @@ jobs:
   build:
     uses: ProjectPythia/cookbook-actions/.github/workflows/build-book.yaml@main
     with:
-      path_to_notebooks: 'docs'
+      environment_name: 'ocean_emulators_docs'
+      environment_file: 'book/environment.yaml'
+      path_to_notebooks: 'book'
 
   deploy:
     needs: build

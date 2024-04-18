@@ -51,15 +51,10 @@ pre-commit run --all-files
 
 Clone this repository and navigate into the `docs/` folder
 
-Set up a new environment for the docs (optional but recommended)
+Set up a new environment for the docs
 ```
-mamba create -n ocean_emulators_docs python=3.10
+mamba env create -f environment.yaml
 mamba activate ocean_emulators_docs
-```
-
-Then install the necessary requirements
-```
-pip install -r requirements.txt
 ```
 
 Build the html docs with

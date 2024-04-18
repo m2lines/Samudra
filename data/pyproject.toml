@@ -1,0 +1,82 @@
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ocean_emulators"
+dynamic = ["version"]
+requires-python = ">=3.9"
+description = "TBD"
+readme = "README.md"
+authors = [
+  { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" }
+]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering",
+]
+license = { text = "Apache-2.0" }
+keywords = ["climate", "data", "ml", "emulators"]
+dependencies = [
+    "xarray"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest"
+]
+
+dev = [
+    "pre-commit",
+    "ocean_emulators[test]"
+]
+
+[project.urls]
+Homepage = "https://github.com/jbusecke/ocean_emulators"
+Tracker = "https://github.com/jbusecke/ocean_emulators/issues"
+
+[tool.setuptools_scm]
+write_to = "ocean_emulators/_version.py"
+write_to_template = "__version__ = '{version}'"
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    "ocean_emulators/__init__.py",
+]
+
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["E4", "E7", "E9", "F"]
+ignore = []
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"

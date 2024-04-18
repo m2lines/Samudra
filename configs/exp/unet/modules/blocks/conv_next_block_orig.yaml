@@ -1,6 +1,3 @@
-defaults:
-  - /exp/unet/modules/activations@activation: capped_gelu
-
 _target_: models.modules.blocks.ConvNeXtBlockOrig
 _recursive_: true
 in_channels: 3

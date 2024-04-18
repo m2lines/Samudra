@@ -1,0 +1,12 @@
+name: trigger-books-build
+on:
+  pull_request:
+
+jobs:
+  build:
+    uses: ProjectPythia/cookbook-actions/.github/workflows/build-book.yaml@main
+    with:
+      environment_name: leap-docs-env
+      artifact_name: book-zip-${{ github.event.number }}
+      path_to_notebooks: "docs"
+      # Other input options are possible, see ProjectPythia/cookbook-actions/.github/workflows/build-book.yaml

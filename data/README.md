@@ -4,7 +4,7 @@
 
 ## Developing this package
 
-Set up a fresh mamba environment (Optional but recommended)
+Set up a fresh mamba environment (optional but recommended)
 
 ```bash
 mamba create -n -n=ocean_emulators_dev python=3.10
@@ -46,3 +46,28 @@ pre-commit run --all-files
 > ```
 > git commit -m "some message" --no-verify
 > ```
+
+## Developing the documentation page
+
+Clone this repository and navigate into the `docs/` folder
+
+Set up a new environment for the docs (optional but recommended)
+```
+mamba create -n ocean_emulators_docs python=3.10
+mamba activate ocean_emulators_docs
+```
+
+Then install the necessary requirements
+```
+pip install -r requirements.txt
+```
+
+Build the html docs with
+```
+jupyter-book build .
+```
+
+You can then look at them
+```
+open _build/html/index.html
+```

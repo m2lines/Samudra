@@ -159,9 +159,23 @@ class Trainer:
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
         print("Number of parameters: ", params)
-        summary(model)
+        # summary(model)
 
         model = model.to(args.device)
+        if self.num_in==9:
+            i = [torch.zeros(1, 9, 119, 189).cuda()] * 2
+        elif self.num_in==6:
+            i = [torch.zeros(1, 6, 270, 360).cuda()] * 2
+        summary(model, input_data=[i], col_names=["kernel_size", "output_size", "num_params"], depth=10)
+
+        # import pdb; pdb.set_trace();
+
+        if self.num_in==9:
+            i = [torch.zeros(1, 9, 119, 189).cuda()] * 16
+        elif self.num_in==6:
+            i = [torch.zeros(1, 6, 270, 360).cuda()] * 8
+        summary(model, input_data=[i], col_names=[], depth=10)
+
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         if "swin" in args.network:
             model = nn.parallel.DistributedDataParallel(

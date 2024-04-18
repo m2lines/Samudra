@@ -219,6 +219,12 @@ class Eval:
         full_model_path = args.ckpt_path
         self.full_model_name = args.network + "_" + self.post_model_name
         self.output_channels = model.output_channels
+    
+        # from torchinfo import summary
+        # # summary(model)
+        # i = [torch.zeros(1, 6, 270, 360)] * 2
+        # summary(model, input_data=[i], col_names=["kernel_size", "output_size", "num_params"], depth=10)
+        # import pdb; pdb.set_trace()
 
         model = model.to(args.device)
         model.load_state_dict(

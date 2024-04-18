@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from .activations import CappedGELU
 from typing import Sequence
 from timm.models.layers import DropPath
@@ -212,7 +213,6 @@ class ConvNeXtBlockOrig(torch.nn.Module):
 
     DwConv -> Permute to (N, H, W, C); LayerNorm (channels_last) -> Linear -> GELU -> Linear; Permute back
     """
-
     def __init__(
         self,
         in_channels: int = 3,
@@ -220,6 +220,9 @@ class ConvNeXtBlockOrig(torch.nn.Module):
         upscale_factor: int = 4,
         drop_path=0.0,
         layer_scale_init_value=1e-6,
+        latent_channels=0, # ignored
+        dilation=0, # ignored
+        n_layers=0 # ignored
     ):
         super().__init__()
         self.dwconv = nn.Conv2d(
@@ -252,7 +255,7 @@ class ConvNeXtBlockOrig(torch.nn.Module):
             x = self.gamma * x
         x = x.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
 
-        x = input + self.drop_path(x)
+        x = self.drop_path(x)
         return x
 
 

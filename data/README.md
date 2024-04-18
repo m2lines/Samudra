@@ -1,4 +1,6 @@
 # ocean_emulators
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/m2lines/ocean_emulators/main.svg)](https://results.pre-commit.ci/latest/github/m2lines/ocean_emulators/main)
+
 
 ## Developing this package
 
@@ -22,3 +24,25 @@ Before you edit the code make sure all tests pass by running pytest from the roo
 ```
 pytest
 ```
+
+### Code Linting
+
+We use [pre-commit.ci](https://results.pre-commit.ci/) to run the CI linting checks.
+
+You can configure pre-commit to run locally on every commit like this:
+
+```
+pre-commit install
+```
+
+and if you want to run the linting manually do:
+
+```
+pre-commit run --all-files
+```
+
+>[!TIP]
+> You can also commit and bypass these checks (not generally recommended)
+> ```
+> git commit -m "some message" --no-verify
+> ```

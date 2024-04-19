@@ -10,8 +10,8 @@ requires-python = ">=3.9"
 description = "TBD"
 readme = "README.md"
 authors = [
-  { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" },
-  { name = "Adam Subel", email = "adam.subel@nyu.edu"}
+  { name = "Adam Subel", email = "adam.subel@nyu.edu"},
+  { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" }
 ]
 classifiers = [
     "Development Status :: 1 - Planning",

@@ -564,24 +564,21 @@ class Eval:
             self.lag,
         )  # zarr_path, region, rand_int, str_in, str_ext, test_data, area, wet_bool, N_mean, lag
 
-        
         # model_pred_saved_nets = []
         FFTs_saved = []
         means_saved = []
         for model_pred_path in self.pred_paths:
-            mean_i, _, _, _, FFTs_i, freqs, _ = (
-                get_spred(
-                    model_pred_path,
-                    self.pred_region,
-                    3,
-                    self.str_in,
-                    self.str_ext,
-                    self.test_data,
-                    self.area,
-                    self.wet_bool,
-                    self.N_test,
-                    self.lag,
-                )
+            mean_i, _, _, _, FFTs_i, freqs, _ = get_spred(
+                model_pred_path,
+                self.pred_region,
+                3,
+                self.str_in,
+                self.str_ext,
+                self.test_data,
+                self.area,
+                self.wet_bool,
+                self.N_test,
+                self.lag,
             )
             FFTs_saved.append(FFTs_i)
             means_saved.append(mean_i)
@@ -865,8 +862,9 @@ class Eval:
                 + ".zarr"
             )
 
-            model_pred_saved_nets.append(xr.open_zarr(net_path).to_array().to_numpy().squeeze())
-
+            model_pred_saved_nets.append(
+                xr.open_zarr(net_path).to_array().to_numpy().squeeze()
+            )
 
         ### Long time KE
         print("Getting mean KE stats...")
@@ -878,14 +876,16 @@ class Eval:
 
         long_KE_saved = []
         for model_pred_saved in model_pred_saved_nets:
-            long_KE_savedi, long_KE_true = gen_KE(N_plot, self.test_data, model_pred_saved)
+            long_KE_savedi, long_KE_true = gen_KE(
+                N_plot, self.test_data, model_pred_saved
+            )
             long_KE_savedi = long_KE_savedi.mean(0)
             long_KE_true = long_KE_true.mean(0)
             long_KE_saved.append(long_KE_savedi)
-        
+
         print("Plotting mean KE...")
         plot_long_KE(
-            self.pred_names + [self.network], 
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
@@ -893,7 +893,7 @@ class Eval:
             self.Nb,
             self.wet_nan,
             long_KE_true,
-            long_KE_saved + [long_KE_net]
+            long_KE_saved + [long_KE_net],
         )
 
         ### Short time scale metrics
@@ -911,7 +911,7 @@ class Eval:
                 N_plot, self.test_data, model_pred_saved, self.grids, self.wet
             )
             KE_spec_saved.append(KE_speci)
-        
+
         print("Plotting KE Spectrum...")
         plot_metrics_KE_spectrum(
             self.pred_names + [self.network],
@@ -932,7 +932,7 @@ class Eval:
                 N_plot, self.test_data, model_pred_saved, self.area, self.wet_bool
             )
             KE_saved.append(KE_neti)
-        
+
         print("Plotting KE...")
         plot_metrics_KE(
             self.pred_names + [self.network],
@@ -965,7 +965,7 @@ class Eval:
                 self.wet_lap,
             )
             enst_spec_saved.append(enst_speci)
-        
+
         print("Plotting Enstrophy spectrum...")
         plot_metrics_enstrophy_spectrum(
             self.pred_names + [self.network],
@@ -1013,7 +1013,6 @@ class Eval:
             enst_saved + [enst_net],
         )
 
-
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")
         u_test = np.array(
@@ -1050,7 +1049,7 @@ class Eval:
                 self.mean_out[2],
             )
             corr_T_saved.append(corr_T_i)
-        
+
         print("Plotting Corr...")
         plot_metrics_corr(
             self.pred_names + [self.network],
@@ -1083,7 +1082,7 @@ class Eval:
             RMSE_T_true,
             RMSE_T_saved + [RMSE_T_net],
         )
-        
+
         # ACC
         print("Getting ACC stats...")
         N_eval = 100
@@ -1109,7 +1108,7 @@ class Eval:
                 self.wet_bool,
             )
             ACC_T_saved.append(ACC_T_i)
-        
+
         print("Plotting ACC...")
         plot_metrics_acc(
             self.pred_names + [self.network],
@@ -1305,7 +1304,7 @@ class Eval:
                 self.mean_out,
                 self.std_out,
                 ind_plot,
-                self.Nb
+                self.Nb,
             )
             plt.savefig(Path(self.output_dir) / "initial_snapshot.png")
 
@@ -1320,8 +1319,8 @@ class Eval:
                         + self.mean_out[ind_plot]
                     ).flatten()
                 )
-                for j,model_pred in enumerate(model_pred_saved_nets):
-                    plts[j+1].set_array(
+                for j, model_pred in enumerate(model_pred_saved_nets):
+                    plts[j + 1].set_array(
                         (
                             model_pred[
                                 i, self.Nb : -self.Nb, self.Nb : -self.Nb, ind_plot

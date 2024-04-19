@@ -45,10 +45,8 @@ def plot_time_spec(
             )
             axs[plt_index].fill_between(
                 freqs[:N_int],
-                FFT_i.mean(axis=0)[:N_int, index]
-                - FFT_i.std(axis=0)[:N_int, index],
-                FFT_i.mean(axis=0)[:N_int, index]
-                + FFT_i.std(axis=0)[:N_int, index],
+                FFT_i.mean(axis=0)[:N_int, index] - FFT_i.std(axis=0)[:N_int, index],
+                FFT_i.mean(axis=0)[:N_int, index] + FFT_i.std(axis=0)[:N_int, index],
                 ls="--",
                 color=clist[i],
                 alpha=0.25,
@@ -400,7 +398,7 @@ def plot_rmse(
     auto_rmse,
     rmses,
     clist,
-    legend=False
+    legend=False,
 ):
     T_plot = 200
 
@@ -438,10 +436,8 @@ def plot_rmse(
             )
             axs[plt_ind_acc].fill_between(
                 (np.arange(N_int) * lag),
-                rmse_i.mean(axis=0)[:N_int, index]
-                - rmse_i.std(axis=0)[:N_int, index],
-                rmse_i.mean(axis=0)[:N_int, index]
-                + rmse_i.std(axis=0)[:N_int, index],
+                rmse_i.mean(axis=0)[:N_int, index] - rmse_i.std(axis=0)[:N_int, index],
+                rmse_i.mean(axis=0)[:N_int, index] + rmse_i.std(axis=0)[:N_int, index],
                 ls="-",
                 color=clist[i],
                 alpha=0.2,
@@ -639,21 +635,8 @@ def plot_short_time_stats(
         corrs,
         clist,
     )
-    plot_rmse(
-        network_names,
-        axs,
-        (1, 0),
-        2,
-        N_test,
-        lag,
-        auto_rmse,
-        rmses,
-        clist,
-        True
-    )
-    plot_KE(
-        network_names, axs, (1, 1), N_test, lag, auto_KE, KEs, clist
-    )
+    plot_rmse(network_names, axs, (1, 0), 2, N_test, lag, auto_rmse, rmses, clist, True)
+    plot_KE(network_names, axs, (1, 1), N_test, lag, auto_KE, KEs, clist)
 
     fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
 
@@ -686,18 +669,7 @@ def plot_short_time_stats(
         ACCs,
         clist,
     )
-    plot_rmse(
-        network_names,
-        axs,
-        (1, 0),
-        0,
-        N_test,
-        lag,
-        auto_rmse,
-        rmses,
-        clist,
-        True
-    )
+    plot_rmse(network_names, axs, (1, 0), 0, N_test, lag, auto_rmse, rmses, clist, True)
     plot_rmse(
         network_names,
         axs,
@@ -722,14 +694,9 @@ def plot_short_time_stats(
 
 
 def plot_metrics_KE_spectrum(
-    network_names,
-    region,
-    save_str,
-    output_dir,
-    KE_spec_true,
-    KE_specs
+    network_names, region, save_str, output_dir, KE_spec_true, KE_specs
 ):
-    
+
     plt.style.use("bmh")
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
@@ -768,10 +735,9 @@ def plot_metrics_KE(
     plt.style.use("bmh")
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
-    
 
     N_plot = 200
-    
+
     # KE
     rho = 1020
     for i, KE_i in enumerate(KEs):
@@ -783,7 +749,7 @@ def plot_metrics_KE(
                 label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k",label="CM2.6")
+    plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k", label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel("Kinetic Energy")
     plt.legend(loc="lower left")
@@ -793,13 +759,9 @@ def plot_metrics_KE(
     )
     plt.clf()
 
+
 def plot_metrics_enstrophy_spectrum(
-    network_names,
-    region,
-    save_str,
-    output_dir,
-    enst_spec_true,
-    enst_specs
+    network_names, region, save_str, output_dir, enst_spec_true, enst_specs
 ):
     plt.style.use("bmh")
 
@@ -815,7 +777,7 @@ def plot_metrics_enstrophy_spectrum(
                 label=f"{network_names[i]}",
             )
 
-    plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k",label="CM2.6")
+    plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k", label="CM2.6")
     plt.xlabel("Wave number (1/km)")
     plt.ylabel("Enstrophy")
     plt.legend(loc="lower left")
@@ -837,7 +799,6 @@ def plot_metrics_entrophy(
     plt.style.use("bmh")
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
-    
 
     N_plot = 200
 
@@ -851,7 +812,7 @@ def plot_metrics_entrophy(
                 label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_plot + 1), enst_true, "--k",label="CM2.6")
+    plt.plot(np.arange(1, N_plot + 1), enst_true, "--k", label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel("Enstrophy")
     plt.legend(loc="lower left")
@@ -885,7 +846,7 @@ def plot_metrics_corr(
                 label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_eval + 1), corr_T_true, "--k",label="CM2.6")
+    plt.plot(np.arange(1, N_eval + 1), corr_T_true, "--k", label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel(r"Correlation $T$")
     plt.ylim([0, 1])
@@ -900,12 +861,7 @@ def plot_metrics_corr(
 
 
 def plot_metrics_rmse(
-    network_names,
-    region,
-    save_str,
-    output_dir,
-    RMSE_T_true,
-    RMSE_Ts
+    network_names, region, save_str, output_dir, RMSE_T_true, RMSE_Ts
 ):
     plt.style.use("bmh")
 
@@ -922,7 +878,7 @@ def plot_metrics_rmse(
                 label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_eval + 1), RMSE_T_true, "--k",label="CM2.6")
+    plt.plot(np.arange(1, N_eval + 1), RMSE_T_true, "--k", label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel(r"RMSE $T$")
     plt.xlim([0, N_eval])
@@ -935,18 +891,10 @@ def plot_metrics_rmse(
     plt.clf()
 
 
-def plot_metrics_acc(
-    network_names,
-    region,
-    save_str,
-    output_dir,
-    ACC_T_true,
-    ACC_Ts
-):
+def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, ACC_Ts):
     plt.style.use("bmh")
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
-
 
     # ACC
     N_eval = 100
@@ -959,7 +907,7 @@ def plot_metrics_acc(
                 label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_eval + 1), ACC_T_true, "--k",label="CM2.6")
+    plt.plot(np.arange(1, N_eval + 1), ACC_T_true, "--k", label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel(r"ACC $T$")
     plt.ylim([0, 1])
@@ -972,6 +920,7 @@ def plot_metrics_acc(
     )
     plt.clf()
 
+
 def plot_metrics_pdf(
     network_names,
     region,
@@ -983,29 +932,42 @@ def plot_metrics_pdf(
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
 
     # PDF
-    var_list = {"1":r"$\bar{v}$ (m/s)","0":r"$\bar{u}$ (m/s)","2":r"$\bar{T}$ ~ $(^\circ C)$"}
+    var_list = {
+        "1": r"$\bar{v}$ (m/s)",
+        "0": r"$\bar{u}$ (m/s)",
+        "2": r"$\bar{T}$ ~ $(^\circ C)$",
+    }
 
     for ind_plot in range(3):
-        plt.semilogy(*pdf[ind_plot]["true"],lw=2,c="k",label="CM2.6")
-        for i,network_name in enumerate(network_names):
-            plt.semilogy(*pdf[ind_plot][network_name],lw=2,color=clist[i],label=f"{network_name}")
+        plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", label="CM2.6")
+        for i, network_name in enumerate(network_names):
+            plt.semilogy(
+                *pdf[ind_plot][network_name],
+                lw=2,
+                color=clist[i],
+                label=f"{network_name}",
+            )
 
-        if ind_plot==2:
-            plt.ylim([pdf[ind_plot]["true_pdf"].min()*2,pdf[ind_plot]["true_pdf"].max()*2.5])
+        if ind_plot == 2:
+            plt.ylim(
+                [
+                    pdf[ind_plot]["true_pdf"].min() * 2,
+                    pdf[ind_plot]["true_pdf"].max() * 2.5,
+                ]
+            )
         else:
-            plt.ylim([1e-3,10])
+            plt.ylim([1e-3, 10])
 
         plt.legend()
 
         plt.xlabel(var_list[str(ind_plot)])
-        plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:9]+"${)}$")
+        plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:9] + "${)}$")
 
         plt.savefig(
             Path(output_dir) / ("PDF" + region + "_" + str(ind_plot) + ".png"),
             bbox_inches="tight",
         )
         plt.clf()
-
 
 
 def plot_long_KE(
@@ -1017,8 +979,9 @@ def plot_long_KE(
     Nb,
     wet_nan,
     long_KE_true,
-    long_KEs):
-    
+    long_KEs,
+):
+
     plt.style.use("bmh")
 
     # Long KE
@@ -1052,71 +1015,100 @@ def plot_long_KE(
     else:
         print("0 entries in long_KE")
         return
-    
+
     vmin = 0
     vmax = 45
-        
-    x_plot = grids["x_C"][Nb:-Nb,Nb:-Nb]
-    y_plot = grids["y_C"][Nb:-Nb,Nb:-Nb]
 
-    cmap = cmocean.cm.thermal #cmocean.cm.diff
+    x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+    y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
 
     # Ground Truth
-    plt0 = axs[0,0].pcolormesh(x_plot, y_plot,
-                        long_KE_true[Nb:-Nb,Nb:-Nb]*wet_nan[Nb:-Nb,Nb:-Nb],
-                    cmap=cmap,vmin=vmin,vmax=vmax,shading='auto')
+    plt0 = axs[0, 0].pcolormesh(
+        x_plot,
+        y_plot,
+        long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+        cmap=cmap,
+        vmin=vmin,
+        vmax=vmax,
+        shading="auto",
+    )
 
-
-    axs[0,0].add_feature(cart.feature.LAND, zorder=100, edgecolor='k')
-    gl = axs[0,0].gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                    linewidth=2, color='gray', alpha=0.5, linestyle='--')
+    axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0, 0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
     gl.top_labels = False
     gl.right_labels = False
     gl.yrotation = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-    axs[0,0].set_title(r"CM2.6",size = 15)
+    axs[0, 0].set_title(r"CM2.6", size=15)
 
     pos = axs[1, 0].get_position()
 
     # Set the new anchor point to be in the middle
-    new_pos = [pos.x0-0.075, pos.y0+.15, pos.width*1.75, pos.height*1.5]  # Adjust 0.2 as needed
+    new_pos = [
+        pos.x0 - 0.075,
+        pos.y0 + 0.15,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
 
     # Create a new axes with the adjusted position
     cax = fig.add_axes(new_pos)
 
     cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
     cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
-    
-    cbar.set_ticks([np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]) # cbar.set_ticks([vmin, 0, vmax])  
-        
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
     cbar.set_label(r"KE $\left( \frac{J}{m^2} \right)$", fontsize=20)
 
-    fig.delaxes(axs[1,1])
+    fig.delaxes(axs[1, 1])
     fig.delaxes(cax)
-    
+
     for i, long_KE_i in enumerate(long_KEs):
         if long_KE_i is not None:
             if i == 0:
-                idy,idx = 0,1
-            elif i==1:
-                idy,idx = 0,2
-            elif i==2:
-                idy,idx = 1,2
-            axs[idy,idx].pcolormesh(x_plot, y_plot,
-                                long_KE_i[Nb:-Nb,Nb:-Nb]*wet_nan[Nb:-Nb,Nb:-Nb],
-                            cmap=cmap,vmin=vmin,vmax=vmax,shading='auto')
+                idy, idx = 0, 1
+            elif i == 1:
+                idy, idx = 0, 2
+            elif i == 2:
+                idy, idx = 1, 2
+            axs[idy, idx].pcolormesh(
+                x_plot,
+                y_plot,
+                long_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                shading="auto",
+            )
 
-            axs[idy,idx].add_feature(cart.feature.LAND, zorder=100, edgecolor='k')
-            gl = axs[idy,idx].gridlines(crs=ccrs.PlateCarree(), draw_labels=True,
-                            linewidth=2, color='gray', alpha=0.5, linestyle='--')
+            axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[idy, idx].gridlines(
+                crs=ccrs.PlateCarree(),
+                draw_labels=True,
+                linewidth=2,
+                color="gray",
+                alpha=0.5,
+                linestyle="--",
+            )
             gl.top_labels = False
             gl.right_labels = False
             gl.yrotation = False
             gl.xformatter = LONGITUDE_FORMATTER
             gl.yformatter = LATITUDE_FORMATTER
-            axs[idy,idx].set_title(network_names[i],size = 15)
-
+            axs[idy, idx].set_title(network_names[i], size=15)
 
     axs[1, 0].set_axis_off()
     axs[1, 2].set_axis_off()
@@ -1129,22 +1121,17 @@ def plot_long_KE(
         if region == "Quiescent_Ext":
             region_title = "South Pacific"
         elif region == "Africa_Ext":
-            region_title = "African Cape"         
+            region_title = "African Cape"
         elif i == "_":
             region_title += " "
         elif i == "E":
             break
         else:
-            region_title+= i
+            region_title += i
     region_title = str(region_title)
 
-
     a = fig.suptitle(
-        r"Mean KE "
-        + region_title
-        + ": $t = "
-        + str(1000)
-        + "$ days ",
+        r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
         fontsize=16,
     )
 
@@ -1166,7 +1153,7 @@ def get_initial_snapshot_fig(
     mean_out,
     std_out,
     ind_plot,
-    Nb
+    Nb,
 ):
 
     plt.rcParams.update({"font.size": 12})
@@ -1204,7 +1191,7 @@ def get_initial_snapshot_fig(
     else:
         print("0 entries in model_preds")
         return
-    
+
     T_plot = 1000
 
     vmin = mean_out[ind_plot] - std_out[ind_plot]
@@ -1294,12 +1281,12 @@ def get_initial_snapshot_fig(
     for i, model_pred in enumerate(model_preds):
         if model_pred is not None:
             if i == 0:
-                idy,idx = 0,1
-            elif i==1:
-                idy,idx = 0,2
-            elif i==2:
-                idy,idx = 1,2
-            plt_temp = axs[idy,idx].pcolormesh(
+                idy, idx = 0, 1
+            elif i == 1:
+                idy, idx = 0, 2
+            elif i == 2:
+                idy, idx = 1, 2
+            plt_temp = axs[idy, idx].pcolormesh(
                 x_plot,
                 y_plot,
                 model_pred[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot]
@@ -1310,8 +1297,8 @@ def get_initial_snapshot_fig(
                 shading="auto",
             )
 
-            axs[idy,idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
-            gl = axs[idy,idx].gridlines(
+            axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[idy, idx].gridlines(
                 crs=ccrs.PlateCarree(),
                 draw_labels=True,
                 linewidth=2,
@@ -1324,9 +1311,7 @@ def get_initial_snapshot_fig(
             gl.yrotation = False
             gl.xformatter = LONGITUDE_FORMATTER
             gl.yformatter = LATITUDE_FORMATTER
-            axs[idy,idx].set_title(
-                network_names[i], size=15
-            )
+            axs[idy, idx].set_title(network_names[i], size=15)
             plts.append(plt_temp)
 
     axs[1, 0].set_axis_off()
@@ -1350,11 +1335,7 @@ def get_initial_snapshot_fig(
     region_title = str(region_title)
 
     a = fig.suptitle(
-        r"Movie "
-        + region_title
-        + ": $t = "
-        + str(N_plot)
-        + "$ days ",
+        r"Movie " + region_title + ": $t = " + str(N_plot) + "$ days ",
         fontsize=16,
     )
     return fig, plts, a

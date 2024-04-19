@@ -22,7 +22,7 @@ steps: 8 # 8
 
 ######
 pred_region: "Gulf_Stream_Ext"
-pred_names: 
+pred_names:
   - ConvNext + dil
   - Basic UNet
 pred_paths:

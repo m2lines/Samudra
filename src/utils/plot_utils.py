@@ -726,8 +726,6 @@ def plot_metrics_KE_spectrum(
     region,
     save_str,
     output_dir,
-    lag,
-    steps,
     KE_spec_true,
     KE_specs
 ):
@@ -743,10 +741,10 @@ def plot_metrics_KE_spectrum(
                 KE_spec_i.freq_r,
                 KE_spec_i,
                 c=clist[i],
-                label=f"{network_names[i]} ~ $\Delta t = {lag},~ N = {steps}$",
+                label=f"{network_names[i]}",
             )
 
-    plt.loglog(KE_spec_true.freq_r, KE_spec_true, "--k")
+    plt.loglog(KE_spec_true.freq_r, KE_spec_true, "--k", label="CM2.6")
 
     plt.xlabel("Wave number (1/km)")
     plt.ylabel("Kinetic Energy")
@@ -764,8 +762,6 @@ def plot_metrics_KE(
     region,
     save_str,
     output_dir,
-    lag,
-    steps,
     KE_true,
     KEs,
 ):
@@ -784,10 +780,10 @@ def plot_metrics_KE(
                 np.arange(1, N_plot + 1),
                 KE_i * rho,
                 c=clist[i],
-                label=f"{network_names[i]} ~ $\Delta t = {lag},~ N = {steps}$",
+                label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k")
+    plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k",label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel("Kinetic Energy")
     plt.legend(loc="lower left")
@@ -802,8 +798,6 @@ def plot_metrics_enstrophy_spectrum(
     region,
     save_str,
     output_dir,
-    lag,
-    steps,
     enst_spec_true,
     enst_specs
 ):
@@ -818,10 +812,10 @@ def plot_metrics_enstrophy_spectrum(
                 enst_spec_i.freq_r,
                 enst_spec_i,
                 c=clist[i],
-                label=f"{network_names[i]} ~ $\Delta t = {lag},~ N = {steps}$",
+                label=f"{network_names[i]}",
             )
 
-    plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k")
+    plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k",label="CM2.6")
     plt.xlabel("Wave number (1/km)")
     plt.ylabel("Enstrophy")
     plt.legend(loc="lower left")
@@ -837,8 +831,6 @@ def plot_metrics_entrophy(
     region,
     save_str,
     output_dir,
-    lag,
-    steps,
     enst_true,
     ensts,
 ):
@@ -856,10 +848,10 @@ def plot_metrics_entrophy(
                 np.arange(1, N_plot + 1),
                 enst_i,
                 c=clist[i],
-                label=f"{network_names[i]} ~ $\Delta t = {lag},~ N = {steps}$",
+                label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_plot + 1), enst_true, "--k")
+    plt.plot(np.arange(1, N_plot + 1), enst_true, "--k",label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel("Enstrophy")
     plt.legend(loc="lower left")
@@ -875,8 +867,6 @@ def plot_metrics_corr(
     region,
     save_str,
     output_dir,
-    lag,
-    steps,
     corr_T_true,
     corr_Ts,
 ):
@@ -892,10 +882,10 @@ def plot_metrics_corr(
                 np.arange(1, N_eval + 1),
                 corr_Ti,
                 c=clist[i],
-                label=f"{network_names[i]} ~ $\Delta t = {lag},~ N = {steps}$",
+                label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_eval + 1), corr_T_true, "--k")
+    plt.plot(np.arange(1, N_eval + 1), corr_T_true, "--k",label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel(r"Correlation $T$")
     plt.ylim([0, 1])
@@ -914,8 +904,6 @@ def plot_metrics_rmse(
     region,
     save_str,
     output_dir,
-    lag,
-    steps,
     RMSE_T_true,
     RMSE_Ts
 ):
@@ -931,10 +919,10 @@ def plot_metrics_rmse(
                 np.arange(1, N_eval + 1),
                 RMSE_Ti,
                 c=clist[i],
-                label=f"{network_names[i]} ~ $\Delta t = {lag},~ N = {steps}$",
+                label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_eval + 1), RMSE_T_true, "--k")
+    plt.plot(np.arange(1, N_eval + 1), RMSE_T_true, "--k",label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel(r"RMSE $T$")
     plt.xlim([0, N_eval])
@@ -952,8 +940,6 @@ def plot_metrics_acc(
     region,
     save_str,
     output_dir,
-    lag,
-    steps,
     ACC_T_true,
     ACC_Ts
 ):
@@ -970,10 +956,10 @@ def plot_metrics_acc(
                 np.arange(1, N_eval + 1),
                 ACC_Ti,
                 c=clist[i],
-                label=f"{network_names[i]} ~ $\Delta t = {lag},~ N = {steps}$",
+                label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_eval + 1), ACC_T_true, "--k")
+    plt.plot(np.arange(1, N_eval + 1), ACC_T_true, "--k",label="CM2.6")
     plt.xlabel("time (days)")
     plt.ylabel(r"ACC $T$")
     plt.ylim([0, 1])
@@ -990,8 +976,6 @@ def plot_metrics_pdf(
     network_names,
     region,
     output_dir,
-    lag,
-    steps,
     pdf,
 ):
     plt.style.use("bmh")
@@ -999,27 +983,22 @@ def plot_metrics_pdf(
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
 
     # PDF
-    var_list = {
-        "1": r"$\bar{v}~~\mathrm{(m/s)}$",
-        "0": r"$\bar{u}~~\mathrm{(m/s)}$",
-        "2": r"$\bar{T} ~ (^\circ C)$",
-    }
+    var_list = {"1":r"$\bar{v}$ (m/s)","0":r"$\bar{u}$ (m/s)","2":r"$\bar{T}$ ~ $(^\circ C)$"}
 
     for ind_plot in range(3):
         plt.semilogy(*pdf[ind_plot]["true"],lw=2,c="k",label="CM2.6")
         for i,network_name in enumerate(network_names):
-            plt.semilogy(*pdf[ind_plot][network_name],lw=2,color=clist[i],label=f"{network_name} ~ $\Delta t = {lag},~ N = {steps}$")
+            plt.semilogy(*pdf[ind_plot][network_name],lw=2,color=clist[i],label=f"{network_name}")
 
-        plt.ylim([1e-3,10])
+        if ind_plot==2:
+            plt.ylim([pdf[ind_plot]["true_pdf"].min()*2,pdf[ind_plot]["true_pdf"].max()*2.5])
+        else:
+            plt.ylim([1e-3,10])
+
         plt.legend()
 
-        a = plt.suptitle(
-            r"PDF "
-            + region
-            + " : "
-            + var_list[str(ind_plot)],
-            fontsize=16,
-        )
+        plt.xlabel(var_list[str(ind_plot)])
+        plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:9]+"${)}$")
 
         plt.savefig(
             Path(output_dir) / ("PDF" + region + "_" + str(ind_plot) + ".png"),

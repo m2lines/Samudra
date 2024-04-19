@@ -299,13 +299,12 @@ class Eval:
         self.N_test = args.N_test
         self.output_dir = args.output_dir
         self.region = args.region
-        self.use_unet = args.use_unet
-        self.unet_region = args.unet_region
-        self.unet_path = Path(args.unet_path)
         self.steps = args.steps
         self.network = args.network
-        self.only_unet = args.only_unet
-        self.unet_name = args.unet_name
+
+        self.pred_region = args.pred_region
+        self.pred_names = args.pred_names
+        self.pred_paths = args.pred_paths
 
     def generate_pred_lateral(self):
         print("Generation Pred begin...")
@@ -525,71 +524,55 @@ class Eval:
             return mean, rmse, corrs, KE, FFTs, freqs, var
 
         print("Long time stats compute begin...")
-        FFTs_net, mean_net, var_net, ACC_net, corrs_net, KE_net, rmse_net = (
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
+        mean_net, rmse_net, corrs_net, KE_net, FFTs_net, freqs, var_net = get_spred(
+            self.pred_model_path,
+            self.region,
+            3,
+            self.str_in,
+            self.str_ext,
+            self.test_data,
+            self.area,
+            self.wet_bool,
+            self.N_test,
+            self.lag,
         )
-        if not self.only_unet:  # debugging
-            mean_net, rmse_net, corrs_net, KE_net, FFTs_net, freqs, var_net = get_spred(
-                self.pred_model_path,
-                self.region,
-                3,
-                self.str_in,
-                self.str_ext,
-                self.test_data,
-                self.area,
-                self.wet_bool,
-                self.N_test,
-                self.lag,
-            )
-            (
-                model_pred_net,
-                m_net,
-                auto_mean,
-                r_net,
-                auto_rmse,
-                c_net,
-                auto_corrs,
-                K_net,
-                auto_KE,
-                freqs,
-                F_net,
-                auto_FFT,
-                v_net,
-                auto_var,
-            ) = get_stats(
-                self.pred_model_path,
-                self.region,
-                1,
-                self.str_in,
-                self.str_ext,
-                self.test_data,
-                self.area,
-                self.wet_bool,
-                self.N_test,
-                self.lag,
-            )  # zarr_path, region, rand_int, str_in, str_ext, test_data, area, wet_bool, N_mean, lag
+        (
+            model_pred_net,
+            m_net,
+            auto_mean,
+            r_net,
+            auto_rmse,
+            c_net,
+            auto_corrs,
+            K_net,
+            auto_KE,
+            freqs,
+            F_net,
+            auto_FFT,
+            v_net,
+            auto_var,
+        ) = get_stats(
+            self.pred_model_path,
+            self.region,
+            1,
+            self.str_in,
+            self.str_ext,
+            self.test_data,
+            self.area,
+            self.wet_bool,
+            self.N_test,
+            self.lag,
+        )  # zarr_path, region, rand_int, str_in, str_ext, test_data, area, wet_bool, N_mean, lag
 
-        FFTs_unet, mean_unet, var_unet, ACC_unet, corrs_unet, KE_unet, rmse_unet = (
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
-
-        if self.use_unet:
-            mean_unet, rmse_unet, corrs_unet, KE_unet, FFTs_unet, freqs, var_unet = (
+        
+        # model_pred_saved_nets = []
+        FFTs_saved = []
+        means_saved = []
+        for model_pred_path in self.pred_paths:
+            mean_i, _, _, _, FFTs_i, freqs, _ = (
                 get_spred(
-                    self.unet_path,
-                    self.unet_region,
+                    model_pred_path,
+                    self.pred_region,
                     3,
                     self.str_in,
                     self.str_ext,
@@ -600,38 +583,13 @@ class Eval:
                     self.lag,
                 )
             )
-            (
-                model_pred_unet,
-                m_unet,
-                auto_mean,
-                r_unet,
-                auto_rmse,
-                c_unet,
-                auto_corrs,
-                K_unet,
-                auto_KE,
-                freqs,
-                F_unet,
-                auto_FFT,
-                v_unet,
-                auto_var,
-            ) = get_stats(
-                self.unet_path,
-                self.unet_region,
-                1,
-                self.str_in,
-                self.str_ext,
-                self.test_data,
-                self.area,
-                self.wet_bool,
-                self.N_test,
-                self.lag,
-            )
+            FFTs_saved.append(FFTs_i)
+            means_saved.append(mean_i)
 
         print("Long time stats plot begin...")
 
         plot_long_time_stats(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
@@ -639,9 +597,9 @@ class Eval:
             self.lag,
             freqs,
             auto_FFT,
-            [FFTs_unet,FFTs_net],
+            FFTs_saved + [FFTs_net],
             auto_mean,
-            [mean_unet,mean_net],
+            means_saved + [mean_net],
         )
 
     def compare_short_pred_lateral(self):
@@ -797,46 +755,47 @@ class Eval:
 
         print("Short time stats compute begin...")
 
-        rmse_net, corrs_net, ACC_net, KE_net = None, None, None, None
-        if not self.only_unet:  # debugging
-            (
-                rmse_net,
-                corrs_net,
-                ACC_net,
-                KE_net,
-                auto_rmse,
-                auto_corrs,
-                auto_ACC,
-                auto_KE,
-            ) = get_spred(
-                self.pred_model_path,
-                self.region,
-                5,
-                3,
-                self.str_in,
-                self.str_ext,
-                self.test_data,
-                self.clim,
-                self.time_test,
-                self.area,
-                self.wet_bool,
-                200,
-            )
+        (
+            rmse_net,
+            corrs_net,
+            ACC_net,
+            KE_net,
+            auto_rmse,
+            auto_corrs,
+            auto_ACC,
+            auto_KE,
+        ) = get_spred(
+            self.pred_model_path,
+            self.region,
+            5,
+            3,
+            self.str_in,
+            self.str_ext,
+            self.test_data,
+            self.clim,
+            self.time_test,
+            self.area,
+            self.wet_bool,
+            200,
+        )
 
-        rmse_unet, corrs_unet, ACC_unet, KE_unet = None, None, None, None
-        if self.use_unet:
+        ACC_saved = []
+        RMSE_saved = []
+        Corrs_saved = []
+        KE_saved = []
+        for model_pred_path in self.pred_paths:
             (
-                rmse_unet,
-                corrs_unet,
-                ACC_unet,
-                KE_unet,
+                rmse_i,
+                corrs_i,
+                ACC_i,
+                KE_i,
                 auto_rmse,
                 auto_corrs,
                 auto_ACC,
                 auto_KE,
             ) = get_spred(
-                self.unet_path,
-                self.unet_region,
+                model_pred_path,
+                self.pred_region,
                 5,
                 3,
                 self.str_in,
@@ -848,50 +807,53 @@ class Eval:
                 self.wet_bool,
                 200,
             )
+            ACC_saved.append(ACC_i)
+            RMSE_saved.append(rmse_i)
+            Corrs_saved.append(corrs_i)
+            KE_saved.append(KE_i)
 
         print("Short time stats plot begin...")
         plot_short_time_stats(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
             self.N_test,
             self.lag,
             auto_ACC,
-            [ACC_unet, ACC_net],
+            ACC_saved + [ACC_net],
             auto_rmse,
-            [rmse_unet, rmse_net],
+            RMSE_saved + [rmse_net],
             auto_KE,
-            [KE_unet, KE_net],
+            KE_saved + [KE_net],
             auto_corrs,
-            [corrs_unet, corrs_net],
+            Corrs_saved + [corrs_net],
         )
 
     def plot_metrics(self):
         print("Plot metrics begin...")
         model_pred_net = None
-        if not self.only_unet:  # debugging
-            model_pred_net = (
-                xr.open_zarr(
-                    self.pred_model_path
-                    / (
-                        "Pred_Short_Data_025_"
-                        + self.post_pred_name
-                        + "_rand_seed_"
-                        + str(1)
-                        + ".zarr"
-                    )
+        model_pred_net = (
+            xr.open_zarr(
+                self.pred_model_path
+                / (
+                    "Pred_Short_Data_025_"
+                    + self.post_pred_name
+                    + "_rand_seed_"
+                    + str(1)
+                    + ".zarr"
                 )
-                .to_array()
-                .to_numpy()
-                .squeeze()
             )
+            .to_array()
+            .to_numpy()
+            .squeeze()
+        )
 
-        model_pred_unet = None
-        if self.use_unet:
-            unet_path = Path(self.unet_path) / (
+        model_pred_saved_nets = []
+        for model_pred_path in self.pred_paths:
+            net_path = Path(model_pred_path) / (
                 "Pred_Short_Data_025_"
-                + self.unet_region
+                + self.pred_region
                 + "_in_"
                 + self.str_in
                 + "ext_"
@@ -903,27 +865,27 @@ class Eval:
                 + ".zarr"
             )
 
-            model_pred_unet = xr.open_zarr(unet_path).to_array().to_numpy().squeeze()
+            model_pred_saved_nets.append(xr.open_zarr(net_path).to_array().to_numpy().squeeze())
+
 
         ### Long time KE
         print("Getting mean KE stats...")
         N_plot = 1000
 
-        long_KE_net = None
-        if not self.only_unet:
-            long_KE_net, long_KE_true = gen_KE(N_plot, self.test_data, model_pred_net)
-            long_KE_net = long_KE_net.mean(0)
-            long_KE_true = long_KE_true.mean(0)
+        long_KE_net, long_KE_true = gen_KE(N_plot, self.test_data, model_pred_net)
+        long_KE_net = long_KE_net.mean(0)
+        long_KE_true = long_KE_true.mean(0)
 
-        long_KE_unet = None
-        if self.use_unet:
-            long_KE_unet, long_KE_true = gen_KE(N_plot, self.test_data, model_pred_unet)
-            long_KE_unet = long_KE_unet.mean(0)
+        long_KE_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            long_KE_savedi, long_KE_true = gen_KE(N_plot, self.test_data, model_pred_saved)
+            long_KE_savedi = long_KE_savedi.mean(0)
             long_KE_true = long_KE_true.mean(0)
+            long_KE_saved.append(long_KE_savedi)
         
         print("Plotting mean KE...")
         plot_long_KE(
-            [self.unet_name, self.network], 
+            self.pred_names + [self.network], 
             self.region,
             self.str_save,
             self.output_dir,
@@ -931,7 +893,7 @@ class Eval:
             self.Nb,
             self.wet_nan,
             long_KE_true,
-            [long_KE_unet,long_KE_net]
+            long_KE_saved + [long_KE_net]
         )
 
         ### Short time scale metrics
@@ -939,128 +901,116 @@ class Eval:
 
         # KE
         print("Getting Short KE stats...")
-        KE_spec_net = None
-        if not self.only_unet:
-            KE_spec_net, KE_spec_true = gen_KE_spectrum(
-                N_plot, self.test_data, model_pred_net, self.grids, self.wet
-            )
+        KE_spec_net, KE_spec_true = gen_KE_spectrum(
+            N_plot, self.test_data, model_pred_net, self.grids, self.wet
+        )
 
-        KE_spec_unet = None
-        if self.use_unet:
-            KE_spec_unet, KE_spec_true = gen_KE_spectrum(
-                N_plot, self.test_data, model_pred_unet, self.grids, self.wet
+        KE_spec_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            KE_speci, KE_spec_true = gen_KE_spectrum(
+                N_plot, self.test_data, model_pred_saved, self.grids, self.wet
             )
+            KE_spec_saved.append(KE_speci)
         
         print("Plotting KE Spectrum...")
         plot_metrics_KE_spectrum(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
-            self.lag,
-            self.steps,
             KE_spec_true,
-            [KE_spec_unet, KE_spec_net],
+            KE_spec_saved + [KE_spec_net],
         )
 
-        KE_net = None
-        if not self.only_unet:
-            KE_net, KE_true = compute_KE(
-                N_plot, self.test_data, model_pred_net, self.area, self.wet_bool
-            )
+        KE_net, KE_true = compute_KE(
+            N_plot, self.test_data, model_pred_net, self.area, self.wet_bool
+        )
 
-        KE_unet = None
-        if self.use_unet:
-            KE_unet, KE_true = compute_KE(
-                N_plot, self.test_data, model_pred_unet, self.area, self.wet_bool
+        KE_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            KE_neti, KE_true = compute_KE(
+                N_plot, self.test_data, model_pred_saved, self.area, self.wet_bool
             )
+            KE_saved.append(KE_neti)
         
         print("Plotting KE...")
         plot_metrics_KE(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
-            self.lag,
-            self.steps,
             KE_true,
-            [KE_unet,KE_net],
+            KE_saved + [KE_net],
         )
 
         # Enstrophy
         print("Getting Enstrophy stats...")
-        enst_spec_net = None
-        if not self.only_unet:
-            enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
-                N_plot,
-                self.test_data,
-                model_pred_net,
-                self.grids,
-                self.wet,
-                self.wet_lap,
-            )
+        enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
+            N_plot,
+            self.test_data,
+            model_pred_net,
+            self.grids,
+            self.wet,
+            self.wet_lap,
+        )
 
-        enst_spec_unet = None
-        if self.use_unet:
-            enst_spec_unet, enst_spec_true = gen_enstrophy_spectrum(
+        enst_spec_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            enst_speci, enst_spec_true = gen_enstrophy_spectrum(
                 N_plot,
                 self.test_data,
-                model_pred_unet,
+                model_pred_saved,
                 self.grids,
                 self.wet,
                 self.wet_lap,
             )
+            enst_spec_saved.append(enst_speci)
         
         print("Plotting Enstrophy spectrum...")
         plot_metrics_enstrophy_spectrum(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
-            self.lag,
-            self.steps,
             enst_spec_true,
-            [enst_spec_unet,enst_spec_net],
+            enst_spec_saved + [enst_spec_net],
         )
 
-        enst_net = None
-        if not self.only_unet:
-            enst_net, enst_true = gen_enstrophy(
-                N_plot,
-                self.test_data,
-                model_pred_net,
-                self.dx,
-                self.dy,
-                self.Nb,
-                self.wet_lap,
-            )
-            enst_net = enst_net.mean(axis=(1, 2))
+        enst_net, enst_true = gen_enstrophy(
+            N_plot,
+            self.test_data,
+            model_pred_net,
+            self.dx,
+            self.dy,
+            self.Nb,
+            self.wet_lap,
+        )
+        enst_net = enst_net.mean(axis=(1, 2))
 
-        enst_unet = None
-        if self.use_unet:
-            enst_unet, enst_true = gen_enstrophy(
+        enst_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            enst_i, enst_true = gen_enstrophy(
                 N_plot,
                 self.test_data,
-                model_pred_unet,
+                model_pred_saved,
                 self.dx,
                 self.dy,
                 self.Nb,
                 self.wet_lap,
             )
-            enst_unet = enst_unet.mean(axis=(1, 2))
+            enst_i = enst_i.mean(axis=(1, 2))
+            enst_saved.append(enst_i)
 
         enst_true = enst_true.mean(axis=(1, 2))
 
         print("Plotting Enstrophy...")
         plot_metrics_entrophy(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
-            self.lag,
-            self.steps,
             enst_true,
-            [enst_unet,enst_net],
+            enst_saved + [enst_net],
         )
 
 
@@ -1079,104 +1029,95 @@ class Eval:
         # Corr
         print("Getting Corr stats...")
         N_eval = 200
-        corr_T_net = None
-        if not self.only_unet:
-            corr_T_net, corr_T_true = compute_corrs_single(
+        corr_T_net, corr_T_true = compute_corrs_single(
+            N_eval,
+            T_test,
+            model_pred_net[:, :, :, 2],
+            self.area,
+            self.wet_bool,
+            self.std_out[2],
+            self.mean_out[2],
+        )
+        corr_T_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            corr_T_i, corr_T_true = compute_corrs_single(
                 N_eval,
                 T_test,
-                model_pred_net[:, :, :, 2],
+                model_pred_saved[:, :, :, 2],
                 self.area,
                 self.wet_bool,
                 self.std_out[2],
                 self.mean_out[2],
             )
-        corr_T_unet = None
-        if self.use_unet:
-            corr_T_unet, corr_T_true = compute_corrs_single(
-                N_eval,
-                T_test,
-                model_pred_unet[:, :, :, 2],
-                self.area,
-                self.wet_bool,
-                self.std_out[2],
-                self.mean_out[2],
-            )
+            corr_T_saved.append(corr_T_i)
         
         print("Plotting Corr...")
         plot_metrics_corr(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
-            self.lag,
-            self.steps,
             corr_T_true,
-            [corr_T_unet,corr_T_net],
+            corr_T_saved + [corr_T_net],
         )
 
         # RMSE
         print("Getting RMSE stats...")
-        RMSE_T_net = None
-        if not self.only_unet:
-            RMSE_T_net, RMSE_T_true = compute_RMSE_single(
-                N_eval, T_test, model_pred_net[:, :, :, 2], self.area, self.wet_bool
-            )
+        RMSE_T_net, RMSE_T_true = compute_RMSE_single(
+            N_eval, T_test, model_pred_net[:, :, :, 2], self.area, self.wet_bool
+        )
 
-        RMSE_T_unet = None
-        if self.use_unet:
-            RMSE_T_unet, RMSE_T_true = compute_RMSE_single(
-                N_eval, T_test, model_pred_unet[:, :, :, 2], self.area, self.wet_bool
+        RMSE_T_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            RMSE_T_i, RMSE_T_true = compute_RMSE_single(
+                N_eval, T_test, model_pred_saved[:, :, :, 2], self.area, self.wet_bool
             )
+            RMSE_T_saved.append(RMSE_T_i)
 
         print("Plotting RMSE...")
         plot_metrics_rmse(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
-            self.lag,
-            self.steps,
             RMSE_T_true,
-            [RMSE_T_unet,RMSE_T_net],
+            RMSE_T_saved + [RMSE_T_net],
         )
         
         # ACC
         print("Getting ACC stats...")
         N_eval = 100
-        ACC_T_net = None
-        if not self.only_unet:
-            ACC_T_net, ACC_T_true = compute_ACC_single(
-                N_eval,
-                T_test,
-                model_pred_net[:, :, :, 2],
-                self.clim[:, :, :, 2],
-                self.time_test,
-                self.area,
-                self.wet_bool,
-            )
+        ACC_T_net, ACC_T_true = compute_ACC_single(
+            N_eval,
+            T_test,
+            model_pred_net[:, :, :, 2],
+            self.clim[:, :, :, 2],
+            self.time_test,
+            self.area,
+            self.wet_bool,
+        )
 
-        ACC_T_unet = None
-        if self.use_unet:
-            ACC_T_unet, ACC_T_true = compute_ACC_single(
+        ACC_T_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            ACC_T_i, ACC_T_true = compute_ACC_single(
                 N_eval,
                 T_test,
-                model_pred_unet[:, :, :, 2],
+                model_pred_saved[:, :, :, 2],
                 self.clim[:, :, :, 2],
                 self.time_test,
                 self.area,
                 self.wet_bool,
             )
+            ACC_T_saved.append(ACC_T_i)
         
         print("Plotting ACC...")
         plot_metrics_acc(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.str_save,
             self.output_dir,
-            self.lag,
-            self.steps,
             ACC_T_true,
-            [ACC_T_unet,ACC_T_net],
+            ACC_T_saved + [ACC_T_net],
         )
 
         # PDF
@@ -1194,35 +1135,32 @@ class Eval:
             true_pdf, bins_true = np.histogram(true_field, bins=150, density=True)
             bins_true = (bins_true[1:] + bins_true[:-1]) / 2
 
-            pdf_net, bins_net = None, None
-            if not self.only_unet:
-                field_net = model_pred_net[
-                    day_start : day_start + N_days, self.wet_bool, ind_plot
-                ].flatten()
-                pdf_net, bins_net = np.histogram(field_net, bins=150, density=True)
-                bins_net = (bins_net[1:] + bins_net[:-1]) / 2
-
-            pdf_unet, bins_unet = None, None
-            if self.use_unet:
-                field_unet = model_pred_unet[
-                    day_start : day_start + N_days, self.wet_bool, ind_plot
-                ].flatten()
-                pdf_unet, bins_unet = np.histogram(field_unet, bins=150, density=True)
-                bins_unet = (bins_unet[1:] + bins_unet[:-1]) / 2
+            field_net = model_pred_net[
+                day_start : day_start + N_days, self.wet_bool, ind_plot
+            ].flatten()
+            pdf_net, bins_net = np.histogram(field_net, bins=150, density=True)
+            bins_net = (bins_net[1:] + bins_net[:-1]) / 2
 
             pdf[ind_plot] = {
+                "true_pdf": true_pdf,
                 "true": [bins_true, true_pdf],
                 self.network: [bins_net, pdf_net],
-                self.unet_name: [bins_unet, pdf_unet],
             }
+
+            for i, model_pred_saved in enumerate(model_pred_saved_nets):
+                field_i = model_pred_saved[
+                    day_start : day_start + N_days, self.wet_bool, ind_plot
+                ].flatten()
+                pdf_i, bins_i = np.histogram(field_i, bins=150, density=True)
+                bins_i = (bins_i[1:] + bins_i[:-1]) / 2
+
+                pdf[ind_plot][self.pred_names[i]] = [bins_i, pdf_i]
 
         print("Plotting pdf...")
         plot_metrics_pdf(
-            [self.unet_name, self.network],
+            self.pred_names + [self.network],
             self.region,
             self.output_dir,
-            self.lag,
-            self.steps,
             pdf,
         )
 
@@ -1325,25 +1263,23 @@ class Eval:
 
         for ind_plot in range(3):
 
-            model_pred_net = None
-            if not self.only_unet:
-                model_pred_net = get_stats(
-                    self.pred_model_path,
-                    self.region,
-                    self.str_in,
-                    self.str_ext,
-                    self.test_data,
-                    self.area,
-                    self.wet_bool,
-                    N_plot,
-                    ind_plot,
-                )
+            model_pred_net = get_stats(
+                self.pred_model_path,
+                self.region,
+                self.str_in,
+                self.str_ext,
+                self.test_data,
+                self.area,
+                self.wet_bool,
+                N_plot,
+                ind_plot,
+            )
 
-            model_pred_unet = None
-            if self.use_unet:
-                model_pred_unet = get_stats(
-                    self.unet_path,
-                    self.unet_region,
+            model_pred_saved_nets = []
+            for model_pred_path in self.pred_paths:
+                model_pred_i = get_stats(
+                    Path(model_pred_path),
+                    self.pred_region,
                     self.str_in,
                     self.str_ext,
                     self.test_data,
@@ -1352,19 +1288,20 @@ class Eval:
                     N_plot,
                     ind_plot,
                 )
+                model_pred_saved_nets.append(model_pred_i)
 
                 # torch.save(model_pred_unet, f'model_pred_{ind_plot}.pt')
 
-            model_pred_list = [model_pred_unet, model_pred_net]
+            model_pred_saved_nets.append(model_pred_net)
             var_list = {"1": r"v", "0": r"u", "2": r"T"}
             fig, plts, a = get_initial_snapshot_fig(
-                [self.unet_name, self.network],
+                self.pred_names + [self.network],
                 N_plot,
                 self.region,
                 self.grids,
                 self.test_data,
                 self.wet_nan,
-                model_pred_list,
+                model_pred_saved_nets,
                 self.mean_out,
                 self.std_out,
                 ind_plot,
@@ -1383,7 +1320,7 @@ class Eval:
                         + self.mean_out[ind_plot]
                     ).flatten()
                 )
-                for j,model_pred in enumerate(model_pred_list):
+                for j,model_pred in enumerate(model_pred_saved_nets):
                     plts[j+1].set_array(
                         (
                             model_pred[

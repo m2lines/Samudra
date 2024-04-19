@@ -166,7 +166,6 @@ class ConvNeXtBlock(torch.nn.Module):
             )
         # Convolution block
         convblock = []
-        # 7x7 convolution increasing channels
         convblock.append(
             torch.nn.Conv2d(
                 in_channels=in_channels,
@@ -180,7 +179,6 @@ class ConvNeXtBlock(torch.nn.Module):
         # convblock.append(th.nn.LayerNorm([out_channels*upscale_factor, HW, HW]))
         if activation is not None:
             convblock.append(activation)
-        # 1x1 convolution decreasing channels
         convblock.append(
             torch.nn.Conv2d(
                 in_channels=int(latent_channels * upscale_factor),

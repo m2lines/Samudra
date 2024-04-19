@@ -21,11 +21,12 @@ data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313
 steps: 4
 
 ######
-use_unet: false
-only_unet: false
-unet_path: /scratch/as15415/Emulation/Preds
-unet_region: "global_21"
-unet_name: "Adam Unet"
+pred_region: "global_21"
+pred_names: 
+  - ConvNeXt Unet
+pred_paths:
+  - /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/unet_cnext_global_global_21_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth
+
 
 ckpt_path: null # changed in command args
 network: unet # changed in command args

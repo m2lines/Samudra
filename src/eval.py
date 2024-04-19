@@ -39,7 +39,15 @@ from utils.climate_utils import compute_laplacian_wet
 from utils.plot_utils import (
     plot_short_time_stats,
     plot_long_time_stats,
-    plot_all_metrics,
+    plot_long_KE,
+    plot_metrics_KE_spectrum,
+    plot_metrics_KE,
+    plot_metrics_enstrophy_spectrum,
+    plot_metrics_entrophy,
+    plot_metrics_corr,
+    plot_metrics_rmse,
+    plot_metrics_acc,
+    plot_metrics_pdf,
     get_initial_snapshot_fig,
 )
 
@@ -623,8 +631,7 @@ class Eval:
         print("Long time stats plot begin...")
 
         plot_long_time_stats(
-            self.network,
-            self.unet_name,
+            [self.unet_name, self.network],
             self.region,
             self.str_save,
             self.output_dir,
@@ -632,11 +639,9 @@ class Eval:
             self.lag,
             freqs,
             auto_FFT,
-            FFTs_unet,
-            FFTs_net,
+            [FFTs_unet,FFTs_net],
             auto_mean,
-            mean_unet,
-            mean_net,
+            [mean_unet,mean_net],
         )
 
     def compare_short_pred_lateral(self):
@@ -846,25 +851,20 @@ class Eval:
 
         print("Short time stats plot begin...")
         plot_short_time_stats(
-            self.network,
-            self.unet_name,
+            [self.unet_name, self.network],
             self.region,
             self.str_save,
             self.output_dir,
             self.N_test,
             self.lag,
             auto_ACC,
-            ACC_unet,
-            ACC_net,
+            [ACC_unet, ACC_net],
             auto_rmse,
-            rmse_unet,
-            rmse_net,
+            [rmse_unet, rmse_net],
             auto_KE,
-            KE_unet,
-            KE_net,
+            [KE_unet, KE_net],
             auto_corrs,
-            corrs_unet,
-            corrs_net,
+            [corrs_unet, corrs_net],
         )
 
     def plot_metrics(self):
@@ -905,8 +905,8 @@ class Eval:
 
             model_pred_unet = xr.open_zarr(unet_path).to_array().to_numpy().squeeze()
 
-        ### Long time scale metrics
-        print("Getting Long KE stats...")
+        ### Long time KE
+        print("Getting mean KE stats...")
         N_plot = 1000
 
         long_KE_net = None
@@ -920,6 +920,19 @@ class Eval:
             long_KE_unet, long_KE_true = gen_KE(N_plot, self.test_data, model_pred_unet)
             long_KE_unet = long_KE_unet.mean(0)
             long_KE_true = long_KE_true.mean(0)
+        
+        print("Plotting mean KE...")
+        plot_long_KE(
+            [self.unet_name, self.network], 
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.grids,
+            self.Nb,
+            self.wet_nan,
+            long_KE_true,
+            [long_KE_unet,long_KE_net]
+        )
 
         ### Short time scale metrics
         N_plot = 200
@@ -937,6 +950,18 @@ class Eval:
             KE_spec_unet, KE_spec_true = gen_KE_spectrum(
                 N_plot, self.test_data, model_pred_unet, self.grids, self.wet
             )
+        
+        print("Plotting KE Spectrum...")
+        plot_metrics_KE_spectrum(
+            [self.unet_name, self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.lag,
+            self.steps,
+            KE_spec_true,
+            [KE_spec_unet, KE_spec_net],
+        )
 
         KE_net = None
         if not self.only_unet:
@@ -949,6 +974,18 @@ class Eval:
             KE_unet, KE_true = compute_KE(
                 N_plot, self.test_data, model_pred_unet, self.area, self.wet_bool
             )
+        
+        print("Plotting KE...")
+        plot_metrics_KE(
+            [self.unet_name, self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.lag,
+            self.steps,
+            KE_true,
+            [KE_unet,KE_net],
+        )
 
         # Enstrophy
         print("Getting Enstrophy stats...")
@@ -973,6 +1010,18 @@ class Eval:
                 self.wet,
                 self.wet_lap,
             )
+        
+        print("Plotting Enstrophy spectrum...")
+        plot_metrics_enstrophy_spectrum(
+            [self.unet_name, self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.lag,
+            self.steps,
+            enst_spec_true,
+            [enst_spec_unet,enst_spec_net],
+        )
 
         enst_net = None
         if not self.only_unet:
@@ -1001,6 +1050,19 @@ class Eval:
             enst_unet = enst_unet.mean(axis=(1, 2))
 
         enst_true = enst_true.mean(axis=(1, 2))
+
+        print("Plotting Enstrophy...")
+        plot_metrics_entrophy(
+            [self.unet_name, self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.lag,
+            self.steps,
+            enst_true,
+            [enst_unet,enst_net],
+        )
+
 
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")
@@ -1039,6 +1101,18 @@ class Eval:
                 self.std_out[2],
                 self.mean_out[2],
             )
+        
+        print("Plotting Corr...")
+        plot_metrics_corr(
+            [self.unet_name, self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.lag,
+            self.steps,
+            corr_T_true,
+            [corr_T_unet,corr_T_net],
+        )
 
         # RMSE
         print("Getting RMSE stats...")
@@ -1054,6 +1128,18 @@ class Eval:
                 N_eval, T_test, model_pred_unet[:, :, :, 2], self.area, self.wet_bool
             )
 
+        print("Plotting RMSE...")
+        plot_metrics_rmse(
+            [self.unet_name, self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.lag,
+            self.steps,
+            RMSE_T_true,
+            [RMSE_T_unet,RMSE_T_net],
+        )
+        
         # ACC
         print("Getting ACC stats...")
         N_eval = 100
@@ -1080,6 +1166,18 @@ class Eval:
                 self.area,
                 self.wet_bool,
             )
+        
+        print("Plotting ACC...")
+        plot_metrics_acc(
+            [self.unet_name, self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.lag,
+            self.steps,
+            ACC_T_true,
+            [ACC_T_unet,ACC_T_net],
+        )
 
         # PDF
         print("Getting PDF stats...")
@@ -1114,46 +1212,17 @@ class Eval:
 
             pdf[ind_plot] = {
                 "true": [bins_true, true_pdf],
-                "net": [bins_net, pdf_net],
-                "unet": [bins_unet, pdf_unet],
+                self.network: [bins_net, pdf_net],
+                self.unet_name: [bins_unet, pdf_unet],
             }
 
-        print("Plotting everything...")
-        plot_all_metrics(
-            self.network,
-            self.unet_name,
+        print("Plotting pdf...")
+        plot_metrics_pdf(
+            [self.unet_name, self.network],
             self.region,
-            self.str_save,
             self.output_dir,
             self.lag,
             self.steps,
-            self.grids,
-            self.Nb,
-            self.wet_nan,
-            KE_spec_true,
-            KE_spec_unet,
-            KE_spec_net,
-            KE_true,
-            KE_unet,
-            KE_net,
-            long_KE_true,
-            long_KE_unet,
-            long_KE_net,
-            enst_spec_true,
-            enst_spec_unet,
-            enst_spec_net,
-            corr_T_true,
-            corr_T_unet,
-            corr_T_net,
-            enst_true,
-            enst_unet,
-            enst_net,
-            RMSE_T_true,
-            RMSE_T_unet,
-            RMSE_T_net,
-            ACC_T_true,
-            ACC_T_unet,
-            ACC_T_net,
             pdf,
         )
 
@@ -1286,28 +1355,25 @@ class Eval:
 
                 # torch.save(model_pred_unet, f'model_pred_{ind_plot}.pt')
 
+            model_pred_list = [model_pred_unet, model_pred_net]
             var_list = {"1": r"v", "0": r"u", "2": r"T"}
-            fig, plt0, plt1, plt2, a = get_initial_snapshot_fig(
-                self.network,
-                self.unet_name,
+            fig, plts, a = get_initial_snapshot_fig(
+                [self.unet_name, self.network],
                 N_plot,
                 self.region,
                 self.grids,
                 self.test_data,
                 self.wet_nan,
-                model_pred_net,
-                model_pred_unet,
+                model_pred_list,
                 self.mean_out,
                 self.std_out,
                 ind_plot,
-                self.Nb,
-                self.use_unet,
-                self.only_unet,
+                self.Nb
             )
             plt.savefig(Path(self.output_dir) / "initial_snapshot.png")
 
             def update_snapshot(i):
-                plt0.set_array(
+                plts[0].set_array(
                     (
                         self.test_data[i][1][
                             ind_plot, self.Nb : -self.Nb, self.Nb : -self.Nb
@@ -1317,19 +1383,10 @@ class Eval:
                         + self.mean_out[ind_plot]
                     ).flatten()
                 )
-                if plt1 is not None:
-                    plt1.set_array(
+                for j,model_pred in enumerate(model_pred_list):
+                    plts[j+1].set_array(
                         (
-                            model_pred_net[
-                                i, self.Nb : -self.Nb, self.Nb : -self.Nb, ind_plot
-                            ]
-                            * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
-                        ).flatten()
-                    )
-                if plt2 is not None:
-                    plt2.set_array(
-                        (
-                            model_pred_unet[
+                            model_pred[
                                 i, self.Nb : -self.Nb, self.Nb : -self.Nb, ind_plot
                             ]
                             * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]

@@ -885,7 +885,9 @@ class Eval:
         start = 0
         N_plot = 1000
 
-        long_KE_net, long_KE_true = gen_KE_range(start, N_plot, self.test_data, model_pred_net)
+        long_KE_net, long_KE_true = gen_KE_range(
+            start, N_plot, self.test_data, model_pred_net
+        )
         long_KE_net = long_KE_net.mean(0)
         long_KE_true = long_KE_true.mean(0)
 
@@ -1359,7 +1361,7 @@ class Eval:
                     + ".gif"
                 )
             )
-    
+
     def plot_long_metrics(self):
         print("Plot Long metrics begin...")
         model_pred_net = (
@@ -1398,13 +1400,14 @@ class Eval:
                 xr.open_zarr(net_path).to_array().to_numpy().squeeze()
             )
 
-
         ### Long time KE
         print("Getting Long mean KE stats...")
         start = 1999
         N_plot = 2999
 
-        long_KE_net, long_KE_true = gen_KE_range(start, N_plot, self.test_data, model_pred_net)
+        long_KE_net, long_KE_true = gen_KE_range(
+            start, N_plot, self.test_data, model_pred_net
+        )
         long_KE_net = long_KE_net.mean(0)
         long_KE_true = long_KE_true.mean(0)
 
@@ -1725,7 +1728,7 @@ def main(args):
 
     if args.run_plot_metrics:
         e.plot_metrics()
-    
+
     if args.run_long_metrics:
         e.plot_long_metrics()
 

@@ -38,5 +38,3 @@ comp="compute=local"
 
 # ConvNext UNet Global
 # ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="ConvNext UNet + dil" name="$(date +%F)-eval_convnextunet_global" ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-19-train_convnextunet_global_bs4_6hrs/convnext/saved_nets/unet_best_steps_4_global_21_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt' unet.encoder.n_channels=[45,90,180] unet.decoder.n_channels=[180,90,45] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block
-
-

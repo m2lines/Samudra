@@ -28,4 +28,3 @@ We explore UNet and Transformer architectures to predict Ocean states in the Gul
 
 ### Temperature
 ![Gulf Stream Predictions](assets/eval_global/global_21_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth_global_21_T.gif)
-

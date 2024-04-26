@@ -26,9 +26,9 @@ def plot_time_spec(
     N_true = min(N_test, N_int)
 
     var_list = {
-        "1": r"$\widehat{\bar{v}} ~~\mathrm{(m/s)}$",
-        "0": r"$\widehat{\bar{u}} ~~\mathrm{(m/s)}$",
-        "2": r"$\widehat{\bar{T}} ~ (^\circ C)$",
+        "1": r"$\widehat{\overline{v}}$ $( m/s )$",
+        "0": r"$\widehat{\overline{u}}$ $( m/s )$",
+        "2": r"$\widehat{\overline{T}}$ $( ^\circ C )$",
     }
 
     axs[plt_index].semilogx(
@@ -53,7 +53,7 @@ def plot_time_spec(
             )
 
     axs[plt_index].set_ylabel(r"" + var_list[str(index)])
-    axs[plt_index].set_xlabel("Frequency (1/day)")
+    axs[plt_index].set_xlabel(r"Frequency $( 1/day )$")
 
     axs[plt_index].set_xlim([0, freqs[T_plot]])
     axs[plt_index].set_ylim([0, auto_FFT[1:N_int, index].max() * 2])
@@ -79,9 +79,9 @@ def plot_var(
     N_true = min(N_test, N_int)
 
     var_list = {
-        "1": r"$\mathrm{Var}(\bar{v})$",
-        "0": r"$\mathrm{Var}(\bar{u})$",
-        "2": r"$\mathrm{Var}(\bar{T})$",
+        "1": r"$\mathrm{Var}(\overline{v})$",
+        "0": r"$\mathrm{Var}(\overline{u})$",
+        "2": r"$\mathrm{Var}(\overline{T})$",
     }
 
     axs[plt_index].plot(
@@ -110,7 +110,7 @@ def plot_var(
             )
 
     axs[plt_index].set_ylabel(r"" + var_list[str(index)])
-    axs[plt_index].set_xlabel("Time (years)")
+    axs[plt_index].set_xlabel(r"Time $( years )$")
 
     axs[plt_index].set_xlim([0, T_plot / 366])
     axs[plt_index].yaxis.set_major_formatter(
@@ -140,9 +140,9 @@ def plot_mean(
     N_true = min(N_test, N_int)
 
     var_list = {
-        "1": r"$\bar{v}~~\mathrm{(m/s)}$",
-        "0": r"$\bar{u}~~\mathrm{(m/s)}$",
-        "2": r"$\bar{T} ~ (^\circ C)$",
+        "1": r"$\overline{v}$ $( m/s )$",
+        "0": r"$\overline{u}$ $( m/s )$",
+        "2": r"$\overline{T}$ $( ^\circ C )$",
     }
 
     axs[plt_index].plot(
@@ -173,7 +173,7 @@ def plot_mean(
             )
 
     axs[plt_index].set_ylabel(r"" + var_list[str(index)])
-    axs[plt_index].set_xlabel("Time (years)")
+    axs[plt_index].set_xlabel(r"Time $( years )$")
 
     min_val = auto_mean[:N_int, index].min()
     max_val = auto_mean[:N_int, index].max()
@@ -220,9 +220,9 @@ def plot_acc(
     N_true = min(N_test, N_int)
 
     var_list = {
-        "1": r"$\bar{v}$ (m/s)",
-        "0": r"$\bar{u}$ (m/s)",
-        "2": r"$\bar{T} ~ (^\circ C)$",
+        "1": r"$\overline{v}$ $( m/s )$",
+        "0": r"$\overline{u}$ $( m/s )$",
+        "2": r"$\overline{T}$ $( ^\circ C )$",
     }
 
     axs[plt_ind_acc].plot(
@@ -231,14 +231,14 @@ def plot_acc(
         color="dimgrey",
         label="$\mathbf{\Phi}(t=0)$",
     )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag),
-        auto_ACC.mean(axis=0)[:N_int, index] - auto_ACC.std(axis=0)[:N_int, index],
-        auto_ACC.mean(axis=0)[:N_int, index] + auto_ACC.std(axis=0)[:N_int, index],
-        ls="-",
-        color="dimgrey",
-        alpha=0.2,
-    )
+    # axs[plt_ind_acc].fill_between(
+    #     (np.arange(N_int) * lag),
+    #     auto_ACC.mean(axis=0)[:N_int, index] - auto_ACC.std(axis=0)[:N_int, index],
+    #     auto_ACC.mean(axis=0)[:N_int, index] + auto_ACC.std(axis=0)[:N_int, index],
+    #     ls="-",
+    #     color="dimgrey",
+    #     alpha=0.2,
+    # )
 
     for i, ACC_i in enumerate(ACCs):
         if ACC_i is not None:
@@ -248,16 +248,17 @@ def plot_acc(
                 color=clist[i],
                 label=network_names[i],
             )
-            axs[plt_ind_acc].fill_between(
-                (np.arange(N_int) * lag),
-                ACC_i.mean(axis=0)[:N_int, index] - ACC_i.std(axis=0)[:N_int, index],
-                ACC_i.mean(axis=0)[:N_int, index] + ACC_i.std(axis=0)[:N_int, index],
-                ls="-",
-                color=clist[i],
-                alpha=0.2,
-            )
+            # axs[plt_ind_acc].fill_between(
+            #     (np.arange(N_int) * lag),
+            #     ACC_i.mean(axis=0)[:N_int, index] - ACC_i.std(axis=0)[:N_int, index],
+            #     ACC_i.mean(axis=0)[:N_int, index] + ACC_i.std(axis=0)[:N_int, index],
+            #     ls="-",
+            #     color=clist[i],
+            #     alpha=0.2,
+            # )
 
-    axs[plt_ind_acc].set_ylabel(r"ACC $" + var_list[str(index)][6] + "$")
+    axs[plt_ind_acc].set_ylabel(r"ACC " + var_list[str(index)])
+    
     axs[plt_ind_acc].set_xlabel("Time (days)")
 
     axs[plt_ind_acc].set_ylim([0, 1])
@@ -282,9 +283,9 @@ def plot_corr(
     N_true = min(N_test, N_int)
 
     var_list = {
-        "1": r"$\bar{v}$ (m/s)",
-        "0": r"$\bar{u}$ (m/s)",
-        "2": r"$\bar{T} ~ (^\circ C)$",
+        "1": r"$\overline{v}$ $( m/s )$",
+        "0": r"$\overline{u}$ $( m/s )$",
+        "2": r"$\overline{T}$ $( ^\circ C )$",
     }
 
     axs[plt_ind_acc].plot(
@@ -321,8 +322,8 @@ def plot_corr(
                 alpha=0.2,
             )
 
-    axs[plt_ind_acc].set_ylabel(r"Correlation $" + var_list[str(index)][6] + "$")
-    axs[plt_ind_acc].set_xlabel("Time (days)")
+    axs[plt_ind_acc].set_ylabel(r"Correlation " + var_list[str(index)])
+    axs[plt_ind_acc].set_xlabel(r"Time $( days )$")
 
     axs[plt_ind_acc].set_ylim([0, 1])
     axs[plt_ind_acc].set_xlim([0, T_plot])
@@ -345,9 +346,9 @@ def plot_KE(
     N_true = min(N_test, N_int)
 
     var_list = {
-        "1": r"$\bar{v}$ (m/s)",
-        "0": r"$\bar{u}$ (m/s)",
-        "2": r"$\bar{T} ~ (^\circ C)$",
+        "1": r"$\overline{v}$ $( m/s )$",
+        "0": r"$\overline{u}$ $( m/s )$",
+        "2": r"$\overline{T}$ $( ^\circ C )$",
     }
 
     axs[plt_ind_acc].plot(
@@ -383,7 +384,7 @@ def plot_KE(
             )
 
     axs[plt_ind_acc].set_ylabel(r"KE")
-    axs[plt_ind_acc].set_xlabel("Time (days)")
+    axs[plt_ind_acc].set_xlabel(r"Time $( days )$")
 
     axs[plt_ind_acc].set_ylim([0, 0.05])
 
@@ -406,9 +407,9 @@ def plot_rmse(
     N_true = min(N_test, N_int)
 
     var_list = {
-        "1": r"$\bar{v}$ (m/s)",
-        "0": r"$\bar{u}$ (m/s)",
-        "2": r"$\bar{T} ~ (^\circ C)$",
+        "1": r"$\overline{v}$ $( m/s )$",
+        "0": r"$\overline{u}$ $( m/s )$",
+        "2": r"$\overline{T}$ $( ^\circ C )$",
     }
 
     axs[plt_ind_acc].plot(
@@ -417,14 +418,14 @@ def plot_rmse(
         color="dimgrey",
         label="$\mathbf{\Phi}(t=0)$",
     )
-    axs[plt_ind_acc].fill_between(
-        (np.arange(N_int) * lag),
-        auto_rmse.mean(axis=0)[:N_int, index] - auto_rmse.std(axis=0)[:N_int, index],
-        auto_rmse.mean(axis=0)[:N_int, index] + auto_rmse.std(axis=0)[:N_int, index],
-        ls="-",
-        color="dimgrey",
-        alpha=0.2,
-    )
+    # axs[plt_ind_acc].fill_between(
+    #     (np.arange(N_int) * lag),
+    #     auto_rmse.mean(axis=0)[:N_int, index] - auto_rmse.std(axis=0)[:N_int, index],
+    #     auto_rmse.mean(axis=0)[:N_int, index] + auto_rmse.std(axis=0)[:N_int, index],
+    #     ls="-",
+    #     color="dimgrey",
+    #     alpha=0.2,
+    # )
 
     for i, rmse_i in enumerate(rmses):
         if rmse_i is not None:
@@ -434,17 +435,17 @@ def plot_rmse(
                 color=clist[i],
                 label=network_names[i],
             )
-            axs[plt_ind_acc].fill_between(
-                (np.arange(N_int) * lag),
-                rmse_i.mean(axis=0)[:N_int, index] - rmse_i.std(axis=0)[:N_int, index],
-                rmse_i.mean(axis=0)[:N_int, index] + rmse_i.std(axis=0)[:N_int, index],
-                ls="-",
-                color=clist[i],
-                alpha=0.2,
-            )
+            # axs[plt_ind_acc].fill_between(
+            #     (np.arange(N_int) * lag),
+            #     rmse_i.mean(axis=0)[:N_int, index] - rmse_i.std(axis=0)[:N_int, index],
+            #     rmse_i.mean(axis=0)[:N_int, index] + rmse_i.std(axis=0)[:N_int, index],
+            #     ls="-",
+            #     color=clist[i],
+            #     alpha=0.2,
+            # )
 
-    axs[plt_ind_acc].set_ylabel(r"RMSE" + var_list[str(index)])
-    axs[plt_ind_acc].set_xlabel("Time (days)")
+    axs[plt_ind_acc].set_ylabel(r"RMSE " + var_list[str(index)])
+    axs[plt_ind_acc].set_xlabel(r"Time $( days )$")
 
     axs[plt_ind_acc].set_xlim([0, T_plot])
     if legend:
@@ -558,7 +559,7 @@ def plot_long_time_stats(
             region_title += i
     region_title = str(region_title)
 
-    fig.suptitle("Long-Time Statistics " + region_title, fontsize=16)
+    # fig.suptitle("Long-Time Statistics " + region_title, fontsize=16)
 
     plt.savefig(
         Path(output_dir)
@@ -612,39 +613,83 @@ def plot_short_time_stats(
         )
         return fig, axs
 
-    fig, axs = init_plt()
-    plot_acc(
-        network_names,
-        axs,
-        (0, 0),
-        2,
-        N_test,
-        lag,
-        auto_ACC,
-        ACCs,
-        clist,
-    )
-    plot_corr(
-        network_names,
-        axs,
-        (0, 1),
-        1,
-        N_test,
-        lag,
-        auto_corrs,
-        corrs,
-        clist,
-    )
-    plot_rmse(network_names, axs, (1, 0), 2, N_test, lag, auto_rmse, rmses, clist, True)
-    plot_KE(network_names, axs, (1, 1), N_test, lag, auto_KE, KEs, clist)
+    # fig, axs = init_plt()
+    # plot_acc(
+    #     network_names,
+    #     axs,
+    #     (0, 0),
+    #     2,
+    #     N_test,
+    #     lag,
+    #     auto_ACC,
+    #     ACCs,
+    #     clist,
+    # )
+    # plot_corr(
+    #     network_names,
+    #     axs,
+    #     (0, 1),
+    #     1,
+    #     N_test,
+    #     lag,
+    #     auto_corrs,
+    #     corrs,
+    #     clist,
+    # )
+    # plot_rmse(network_names, axs, (1, 0), 2, N_test, lag, auto_rmse, rmses, clist, True)
+    # plot_KE(network_names, axs, (1, 1), N_test, lag, auto_KE, KEs, clist)
 
-    fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
+    # fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
 
-    plt.savefig(
-        Path(output_dir)
-        / ("Short_Time_Comp_Boundary1_" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
+    # plt.savefig(
+    #     Path(output_dir)
+    #     / ("Short_Time_Comp_Boundary1_" + region + "_" + save_str + ".png"),
+    #     bbox_inches="tight",
+    # )
+
+    # fig, axs = init_plt()
+    # plot_acc(
+    #     network_names,
+    #     axs,
+    #     (0, 0),
+    #     0,
+    #     N_test,
+    #     lag,
+    #     auto_ACC,
+    #     ACCs,
+    #     clist,
+    # )
+    # plot_acc(
+    #     network_names,
+    #     axs,
+    #     (0, 1),
+    #     1,
+    #     N_test,
+    #     lag,
+    #     auto_ACC,
+    #     ACCs,
+    #     clist,
+    # )
+    # plot_rmse(network_names, axs, (1, 0), 0, N_test, lag, auto_rmse, rmses, clist, True)
+    # plot_rmse(
+    #     network_names,
+    #     axs,
+    #     (1, 1),
+    #     1,
+    #     N_test,
+    #     lag,
+    #     auto_rmse,
+    #     rmses,
+    #     clist,
+    # )
+
+    # # fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
+
+    # plt.savefig(
+    #     Path(output_dir)
+    #     / ("Short_Time_Comp_Boundary2_" + region + "_" + save_str + ".png"),
+    #     bbox_inches="tight",
+    # )
 
     fig, axs = init_plt()
     plot_acc(
@@ -662,7 +707,7 @@ def plot_short_time_stats(
         network_names,
         axs,
         (0, 1),
-        1,
+        2,
         N_test,
         lag,
         auto_ACC,
@@ -674,7 +719,7 @@ def plot_short_time_stats(
         network_names,
         axs,
         (1, 1),
-        1,
+        2,
         N_test,
         lag,
         auto_rmse,
@@ -682,11 +727,11 @@ def plot_short_time_stats(
         clist,
     )
 
-    fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
+    # fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
 
     plt.savefig(
         Path(output_dir)
-        / ("Short_Time_Comp_Boundary2_" + region + "_" + save_str + ".png"),
+        / ("Short_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
         bbox_inches="tight",
     )
 
@@ -713,8 +758,8 @@ def plot_metrics_KE_spectrum(
 
     plt.loglog(KE_spec_true.freq_r, KE_spec_true, "--k", label="CM2.6")
 
-    plt.xlabel("Wave number (1/km)")
-    plt.ylabel("Kinetic Energy")
+    plt.xlabel(r"Wave number $( 1/km )$")
+    plt.ylabel(r"KE $( J/m^2 )$")
 
     plt.legend(loc="lower left")
     plt.savefig(
@@ -736,7 +781,7 @@ def plot_metrics_KE(
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
 
-    N_plot = 200
+    N_plot = len(KE_true)
 
     # KE
     rho = 1020
@@ -750,8 +795,8 @@ def plot_metrics_KE(
             )
 
     plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k", label="CM2.6")
-    plt.xlabel("time (days)")
-    plt.ylabel("Kinetic Energy")
+    plt.xlabel(r"time $( days )$")
+    plt.ylabel(r"KE $( J/m^2 )$")
     plt.legend(loc="lower left")
     plt.savefig(
         Path(output_dir) / ("KE" + region + "_" + save_str + ".png"),
@@ -778,8 +823,8 @@ def plot_metrics_enstrophy_spectrum(
             )
 
     plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k", label="CM2.6")
-    plt.xlabel("Wave number (1/km)")
-    plt.ylabel("Enstrophy")
+    plt.xlabel(r"Wave number $( 1/km )$")
+    plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
     plt.legend(loc="lower left")
     plt.savefig(
         Path(output_dir) / ("Enstrophy_Spectrum" + region + "_" + save_str + ".png"),
@@ -800,7 +845,7 @@ def plot_metrics_entrophy(
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
 
-    N_plot = 200
+    N_plot = len(enst_true)
 
     # Enstrophy
     for i, enst_i in enumerate(ensts):
@@ -813,8 +858,8 @@ def plot_metrics_entrophy(
             )
 
     plt.plot(np.arange(1, N_plot + 1), enst_true, "--k", label="CM2.6")
-    plt.xlabel("time (days)")
-    plt.ylabel("Enstrophy")
+    plt.xlabel(r"time $( days )$")
+    plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
     plt.legend(loc="lower left")
     plt.savefig(
         Path(output_dir) / ("Enstrophy" + region + "_" + save_str + ".png"),
@@ -836,7 +881,7 @@ def plot_metrics_corr(
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
 
     # Corr
-    N_eval = 200
+    N_eval = len(corr_T_true)
     for i, corr_Ti in enumerate(corr_Ts):
         if corr_Ti is not None:
             plt.plot(
@@ -847,8 +892,8 @@ def plot_metrics_corr(
             )
 
     plt.plot(np.arange(1, N_eval + 1), corr_T_true, "--k", label="CM2.6")
-    plt.xlabel("time (days)")
-    plt.ylabel(r"Correlation $T$")
+    plt.xlabel(r"time $( days )$")
+    plt.ylabel(r"Correlation $\overline{T}$")
     plt.ylim([0, 1])
     plt.xlim([0, N_eval])
 
@@ -868,7 +913,7 @@ def plot_metrics_rmse(
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
 
     # RMSE
-    N_eval = 200
+    N_eval = len(RMSE_T_true)
     for i, RMSE_Ti in enumerate(RMSE_Ts):
         if RMSE_Ti is not None:
             plt.plot(
@@ -879,8 +924,8 @@ def plot_metrics_rmse(
             )
 
     plt.plot(np.arange(1, N_eval + 1), RMSE_T_true, "--k", label="CM2.6")
-    plt.xlabel("time (days)")
-    plt.ylabel(r"RMSE $T$")
+    plt.xlabel(r"time $( days )$")
+    plt.ylabel(r"RMSE $\overline{T}$")
     plt.xlim([0, N_eval])
 
     plt.legend()
@@ -897,7 +942,7 @@ def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, AC
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
 
     # ACC
-    N_eval = 100
+    N_eval = len(ACC_T_true)
     for i, ACC_Ti in enumerate(ACC_Ts):
         if ACC_Ti is not None:
             plt.plot(
@@ -908,8 +953,8 @@ def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, AC
             )
 
     plt.plot(np.arange(1, N_eval + 1), ACC_T_true, "--k", label="CM2.6")
-    plt.xlabel("time (days)")
-    plt.ylabel(r"ACC $T$")
+    plt.xlabel(r"time $( days )$")
+    plt.ylabel(r"ACC $\overline{T}$")
     plt.ylim([0, 1])
     plt.xlim([0, N_eval])
 
@@ -933,9 +978,9 @@ def plot_metrics_pdf(
 
     # PDF
     var_list = {
-        "1": r"$\bar{v}$ (m/s)",
-        "0": r"$\bar{u}$ (m/s)",
-        "2": r"$\bar{T}$ ~ $(^\circ C)$",
+        "1": r"$\overline{v}$ $( m/s )$",
+        "0": r"$\overline{u}$ $( m/s )$",
+        "2": r"$\overline{T}$ $( ^\circ C )$",
     }
 
     for ind_plot in range(3):
@@ -948,20 +993,19 @@ def plot_metrics_pdf(
                 label=f"{network_name}",
             )
 
-        if ind_plot == 2:
-            plt.ylim(
-                [
-                    pdf[ind_plot]["true_pdf"].min() * 2,
-                    pdf[ind_plot]["true_pdf"].max() * 2.5,
-                ]
-            )
-        else:
-            plt.ylim([1e-3, 10])
+        plt.ylim(
+            [
+                pdf[ind_plot]["true_pdf"].min() * 2,
+                pdf[ind_plot]["true_pdf"].max() * 2.5,
+            ]
+        )
+        
+        
 
         plt.legend()
 
         plt.xlabel(var_list[str(ind_plot)])
-        plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:9] + "${)}$")
+        plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
 
         plt.savefig(
             Path(output_dir) / ("PDF" + region + "_" + str(ind_plot) + ".png"),
@@ -1071,7 +1115,7 @@ def plot_long_KE(
         [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
     )  # cbar.set_ticks([vmin, 0, vmax])
 
-    cbar.set_label(r"KE $\left( \frac{J}{m^2} \right)$", fontsize=20)
+    cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
 
     fig.delaxes(axs[1, 1])
     fig.delaxes(cax)
@@ -1130,10 +1174,10 @@ def plot_long_KE(
             region_title += i
     region_title = str(region_title)
 
-    a = fig.suptitle(
-        r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
-        fontsize=16,
-    )
+    # a = fig.suptitle(
+    #     r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
+    #     fontsize=16,
+    # )
 
     plt.savefig(
         Path(output_dir) / ("Mean_KE" + region + "_" + save_str + ".png"),
@@ -1158,9 +1202,9 @@ def get_initial_snapshot_fig(
 
     plt.rcParams.update({"font.size": 12})
     var_list = {
-        "1": r"$\bar{v}~~\mathrm{(m/s)}$",
-        "0": r"$\bar{u}~~\mathrm{(m/s)}$",
-        "2": r"$\bar{T} ~ (^\circ C)$",
+        "1": r"$\overline{v}$ $( m/s )$",
+        "0": r"$\overline{u}$ $(m/s)$",
+        "2": r"$\overline{T}$ $( ^\circ C )$",
     }
     if len(model_preds) > 1:
         fig, axs = plt.subplots(
@@ -1206,6 +1250,8 @@ def get_initial_snapshot_fig(
     elif region == "Gulf_Stream_Ext" and ind_plot == 2:
         vmin = mean_out[ind_plot] - (1.75 * std_out[ind_plot])
         vmax = mean_out[ind_plot] + (1.75 * std_out[ind_plot])
+    elif ind_plot == 2:
+        vmax = 40
 
     if ind_plot in [0, 1]:
         vmin -= std_out[ind_plot]
@@ -1335,7 +1381,7 @@ def get_initial_snapshot_fig(
     region_title = str(region_title)
 
     a = fig.suptitle(
-        r"Movie " + region_title + ": $t = " + str(N_plot) + "$ days ",
+        r"$t = " + str(N_plot) + "$ days ",
         fontsize=16,
     )
     return fig, plts, a

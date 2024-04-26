@@ -2,6 +2,7 @@
 defaults:
   - _self_
   - swin: default
+  # - swin: default2
 
 wandb:
   mode: disabled # online, disabled

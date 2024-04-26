@@ -40,7 +40,10 @@ comp="compute=local"
 
 
 # Basic UNet Global
-./.python-greene submitit_hydra.py $comp exp=train_unet_global testing=true name="$(date +%F)-test_train_basicunet_global" batch_size=8 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90]
+# ./.python-greene submitit_hydra.py $comp exp=train_unet_global testing=true name="$(date +%F)-test_train_basicunet_global" batch_size=8 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90]
 
 # ConvNext UNet Global
 # ./.python-greene submitit_hydra.py $comp exp=train_unet_global testing=true name="$(date +%F)-local_train_convnextinvunet_global" batch_size=4 scheduler=True unet.encoder.n_channels=[45,90,180] unet.decoder.n_channels=[180,90,45] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block
+
+# ConvNext original Global
+./.python-greene submitit_hydra.py $comp exp=train_unet_global testing=true name="$(date +%F)-test_train_orgconvnextunet_global" batch_size=4 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig

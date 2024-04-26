@@ -809,6 +809,22 @@ def gen_KE(N_eval, test_data, model_pred):
     return pred_KE, true_KE
 
 
+def gen_KE_range(start, N_eval, test_data, model_pred):
+    rho = 1.2e3
+    data_out_cpu = np.array(test_data[:][1].cpu()) * np.expand_dims(
+        test_data.norm_vals["s_out"], [0, 2, 3]
+    ) + np.expand_dims(test_data.norm_vals["m_out"], [0, 2, 3])
+    pred_KE = (
+        (model_pred[start:start+N_eval, :, :, 0] ** 2 + model_pred[start:start+N_eval, :, :, 1] ** 2)
+        * 0.5
+        * rho
+    )
+    true_KE = (
+        (data_out_cpu[start:start+N_eval, 0] ** 2 + data_out_cpu[start:start+N_eval, 1] ** 2) * 0.5 * rho
+    )
+    return pred_KE, true_KE
+
+
 def compute_corrs_single(N_eval, test_data, model_pred, area, wet, std, mean):
     N_in = model_pred.shape[-1]
     corrs = np.zeros((N_eval))

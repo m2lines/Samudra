@@ -258,7 +258,7 @@ def plot_acc(
             # )
 
     axs[plt_ind_acc].set_ylabel(r"ACC " + var_list[str(index)])
-    
+
     axs[plt_ind_acc].set_xlabel("Time (days)")
 
     axs[plt_ind_acc].set_ylim([0, 1])
@@ -999,8 +999,6 @@ def plot_metrics_pdf(
                 pdf[ind_plot]["true_pdf"].max() * 2.5,
             ]
         )
-        
-        
 
         plt.legend()
 

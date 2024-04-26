@@ -224,6 +224,12 @@ class ConvNeXtBlockOrig(torch.nn.Module):
         n_layers=0,  # ignored
     ):
         super().__init__()
+        if in_channels == out_channels:
+            self.skip_module = lambda x: x  # Identity-function required in forward pass
+        else:
+            self.skip_module = torch.nn.Conv2d(
+                in_channels=in_channels, out_channels=out_channels, kernel_size=1
+            )
         self.dwconv = nn.Conv2d(
             in_channels, in_channels, kernel_size=7, padding=3, groups=in_channels
         )  # depthwise conv
@@ -254,7 +260,7 @@ class ConvNeXtBlockOrig(torch.nn.Module):
             x = self.gamma * x
         x = x.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
 
-        x = self.drop_path(x)
+        x = self.skip_module(input) + self.drop_path(x)
         return x
 
 

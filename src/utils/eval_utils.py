@@ -815,12 +815,20 @@ def gen_KE_range(start, N_eval, test_data, model_pred):
         test_data.norm_vals["s_out"], [0, 2, 3]
     ) + np.expand_dims(test_data.norm_vals["m_out"], [0, 2, 3])
     pred_KE = (
-        (model_pred[start:start+N_eval, :, :, 0] ** 2 + model_pred[start:start+N_eval, :, :, 1] ** 2)
+        (
+            model_pred[start : start + N_eval, :, :, 0] ** 2
+            + model_pred[start : start + N_eval, :, :, 1] ** 2
+        )
         * 0.5
         * rho
     )
     true_KE = (
-        (data_out_cpu[start:start+N_eval, 0] ** 2 + data_out_cpu[start:start+N_eval, 1] ** 2) * 0.5 * rho
+        (
+            data_out_cpu[start : start + N_eval, 0] ** 2
+            + data_out_cpu[start : start + N_eval, 1] ** 2
+        )
+        * 0.5
+        * rho
     )
     return pred_KE, true_KE
 

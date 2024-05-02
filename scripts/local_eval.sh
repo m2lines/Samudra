@@ -33,7 +33,7 @@ comp="compute=local"
 # ConvNext original + dil
 # ./.python-greene submitit_hydra.py $comp exp=eval_unet network="OrgConvNext UNet + dil" name="$(date +%F)-eval_unet_orgconvnextunet_dil_moreconvs2" ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-26-train_orgconvnextunet_rescon_dil/org/saved_nets/unet_best_steps_8_Gulf_Stream_Ext_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt' unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig
 
-# ConvNext original 2 + dil 
+# ConvNext original 2 + dil
 # ./.python-greene submitit_hydra.py $comp exp=eval_unet network="OrgConvNext2 UNet + dil" name="$(date +%F)-eval_unet_orgconvnextunet2_dil" ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-04-26-train_orgconvnextunet2_rescon_dil/org/saved_nets/unet_best_steps_8_Gulf_Stream_Ext_Test_in_um_vm_Tm_ext_tau_u_tau_v_t_ref__outum_vm_Tm_N_train_4000_Lateral_Data_025_no_smooth.pt' unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig2 exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig2
 
 # ConvNext original 2 + dil + 15M

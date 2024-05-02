@@ -35,7 +35,7 @@ comp="compute=local"
 # ConvNext original + dil
 # ./.python-greene submitit_hydra.py $comp exp=train_unet testing=true name="$(date +%F)-test_train_orgconvnextunet_dil_moreconvs2" batch_size=8 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig
 
-# ConvNext original 2 + dil 
+# ConvNext original 2 + dil
 # ./.python-greene submitit_hydra.py $comp exp=train_unet testing=true name="$(date +%F)-test_train_orgconvnextunet2_dil_100" batch_size=8 scheduler=True unet.encoder.n_channels=[111,222,444] unet.decoder.n_channels=[444,222,111] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig2 exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig2
 
 # ConvNext Inverted UNet

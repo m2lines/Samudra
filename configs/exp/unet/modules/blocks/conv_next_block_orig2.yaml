@@ -1,0 +1,5 @@
+_target_: models.modules.blocks.ConvNeXtBlockOrig2
+_recursive_: true
+in_channels: 3
+out_channels: 1
+upscale_factor: 4

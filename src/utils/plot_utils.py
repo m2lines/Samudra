@@ -1061,21 +1061,36 @@ def plot_long_KE(
     vmin = 0
     vmax = 45
 
-    x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
-    y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+    if 'global' in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
+    else:
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
 
     cmap = cmocean.cm.thermal  # cmocean.cm.diff
 
     # Ground Truth
-    plt0 = axs[0, 0].pcolormesh(
-        x_plot,
-        y_plot,
-        long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
-        cmap=cmap,
-        vmin=vmin,
-        vmax=vmax,
-        shading="auto",
-    )
+    if 'global' in region:
+        plt0 = axs[0, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt0 = axs[0, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
 
     axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
     gl = axs[0, 0].gridlines(
@@ -1126,15 +1141,27 @@ def plot_long_KE(
                 idy, idx = 0, 2
             elif i == 2:
                 idy, idx = 1, 2
-            axs[idy, idx].pcolormesh(
-                x_plot,
-                y_plot,
-                long_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
-                cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
-                shading="auto",
-            )
+            
+            if 'global' in region:
+                axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_KE_i * wet_nan,
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+            else:
+                axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
 
             axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
             gl = axs[idy, idx].gridlines(
@@ -1258,8 +1285,12 @@ def get_initial_snapshot_fig(
         vmin = -limit
         vmax = limit
 
-    x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
-    y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+    if 'global' in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
+    else:
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
 
     if ind_plot == 2:
         cmap = cmocean.cm.thermal
@@ -1267,18 +1298,32 @@ def get_initial_snapshot_fig(
         cmap = cmocean.cm.diff
 
     # Ground Truth
-    plt0 = axs[0, 0].pcolormesh(
-        x_plot,
-        y_plot,
-        test_data[N_plot - 1][1][ind_plot, Nb:-Nb, Nb:-Nb].cpu()
-        * wet_nan[Nb:-Nb, Nb:-Nb]
-        * std_out[ind_plot]
-        + mean_out[ind_plot],
-        cmap=cmap,
-        vmin=vmin,
-        vmax=vmax,
-        shading="auto",
-    )
+    if 'global' in region:
+        plt0 = axs[0, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            test_data[N_plot - 1][1][ind_plot].cpu()
+            * wet_nan
+            * std_out[ind_plot]
+            + mean_out[ind_plot],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt0 = axs[0, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            test_data[N_plot - 1][1][ind_plot, Nb:-Nb, Nb:-Nb].cpu()
+            * wet_nan[Nb:-Nb, Nb:-Nb]
+            * std_out[ind_plot]
+            + mean_out[ind_plot],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
 
     axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
     gl = axs[0, 0].gridlines(
@@ -1330,16 +1375,29 @@ def get_initial_snapshot_fig(
                 idy, idx = 0, 2
             elif i == 2:
                 idy, idx = 1, 2
-            plt_temp = axs[idy, idx].pcolormesh(
+            
+            if 'global' in region:
+                plt_temp = axs[idy, idx].pcolormesh(
                 x_plot,
                 y_plot,
-                model_pred[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot]
-                * wet_nan[Nb:-Nb, Nb:-Nb],
+                model_pred[T_plot - 1, :, :, ind_plot]
+                * wet_nan,
                 cmap=cmap,
                 vmin=vmin,
                 vmax=vmax,
                 shading="auto",
             )
+            else:
+                plt_temp = axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    model_pred[T_plot - 1, Nb:-Nb, Nb:-Nb, ind_plot]
+                    * wet_nan[Nb:-Nb, Nb:-Nb],
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
 
             axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
             gl = axs[idy, idx].gridlines(

@@ -220,7 +220,7 @@ class ConvNeXtBlockOrig(torch.nn.Module):
         drop_path=0.0,
         layer_scale_init_value=1e-6,
         latent_channels=0,  # ignored
-        dilation=0,  # ignored
+        dilation=1,
         n_layers=0,  # ignored
     ):
         super().__init__()
@@ -231,7 +231,7 @@ class ConvNeXtBlockOrig(torch.nn.Module):
                 in_channels=in_channels, out_channels=out_channels, kernel_size=1
             )
         self.dwconv = nn.Conv2d(
-            in_channels, in_channels, kernel_size=7, padding=3, groups=in_channels
+            in_channels, in_channels, kernel_size=7, padding='same', groups=in_channels, dilation=dilation
         )  # depthwise conv
         self.norm = LayerNorm(in_channels, eps=1e-6)
         self.pwconv1 = nn.Linear(
@@ -250,6 +250,69 @@ class ConvNeXtBlockOrig(torch.nn.Module):
 
     def forward(self, x):
         input = x
+        x = self.dwconv(x)
+        x = x.permute(0, 2, 3, 1)  # (N, C, H, W) -> (N, H, W, C)
+        x = self.norm(x)
+        x = self.pwconv1(x)
+        x = self.act(x)
+        x = self.pwconv2(x)
+        if self.gamma is not None:
+            x = self.gamma * x
+        x = x.permute(0, 3, 1, 2)  # (N, H, W, C) -> (N, C, H, W)
+
+        x = self.skip_module(input) + self.drop_path(x)
+        return x
+
+
+class ConvNeXtBlockOrig2(torch.nn.Module):
+    """
+    Actual implementation of ConvNeXt. No dilations here.
+
+    DwConv -> Permute to (N, H, W, C); LayerNorm (channels_last) -> Linear -> GELU -> Linear; Permute back
+    """
+
+    def __init__(
+        self,
+        in_channels: int = 3,
+        out_channels: int = 1,
+        upscale_factor: int = 4,
+        drop_path=0.0,
+        layer_scale_init_value=1e-6,
+        latent_channels=0,  # ignored
+        dilation=1,
+        n_layers=0,  # ignored
+    ):
+        super().__init__()
+        if in_channels == out_channels:
+            self.skip_module = lambda x: x  # Identity-function required in forward pass
+        else:
+            self.skip_module = torch.nn.Conv2d(
+                in_channels=in_channels, out_channels=out_channels, kernel_size=1
+            )
+        self.first_conv = torch.nn.Conv2d(
+                in_channels=in_channels, out_channels=in_channels*2, kernel_size=3, padding='same'
+            )
+        self.dwconv = nn.Conv2d(
+            in_channels*2, in_channels*2, kernel_size=7, padding='same', groups=in_channels*2, dilation=dilation
+        )  # depthwise conv
+        self.norm = LayerNorm(in_channels*2, eps=1e-6)
+        self.pwconv1 = nn.Linear(
+            in_channels*2, upscale_factor * in_channels
+        )  # pointwise/1x1 convs, implemented with linear layers
+        self.act = nn.GELU()
+        self.pwconv2 = nn.Linear(upscale_factor * in_channels, out_channels)
+        self.gamma = (
+            nn.Parameter(
+                layer_scale_init_value * torch.ones((out_channels)), requires_grad=True
+            )
+            if layer_scale_init_value > 0
+            else None
+        )
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+
+    def forward(self, x):
+        input = x
+        x = self.first_conv(x)
         x = self.dwconv(x)
         x = x.permute(0, 2, 3, 1)  # (N, C, H, W) -> (N, H, W, C)
         x = self.norm(x)

@@ -328,6 +328,7 @@ class Eval:
                     self.N_in,
                     self.N_extra,
                     self.Nb,
+                    self.region
                 )
 
                 print("data_gen")
@@ -381,6 +382,7 @@ class Eval:
                         self.N_in,
                         self.N_extra,
                         self.Nb,
+                        self.region
                     )
                     print("data_gen")
                     model_pred[int(i * len_run) : int((i + 1) * len_run)] = (
@@ -1326,25 +1328,46 @@ class Eval:
             plt.savefig(Path(self.output_dir) / "initial_snapshot.png")
 
             def update_snapshot(i):
-                plts[0].set_array(
-                    (
-                        self.test_data[i][1][
-                            ind_plot, self.Nb : -self.Nb, self.Nb : -self.Nb
-                        ].cpu()
-                        * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
-                        * self.std_out[ind_plot]
-                        + self.mean_out[ind_plot]
-                    ).flatten()
-                )
-                for j, model_pred in enumerate(model_pred_saved_nets):
-                    plts[j + 1].set_array(
+                if 'global' in self.region:
+                    plts[0].set_array(
                         (
-                            model_pred[
-                                i, self.Nb : -self.Nb, self.Nb : -self.Nb, ind_plot
-                            ]
-                            * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
+                            self.test_data[i][1][ind_plot].cpu()
+                            * self.wet_nan
+                            * self.std_out[ind_plot]
+                            + self.mean_out[ind_plot]
                         ).flatten()
                     )
+                    for j, model_pred in enumerate(model_pred_saved_nets):
+                        plts[j + 1].set_array(
+                            (
+                                model_pred[
+                                    i, :, :, ind_plot
+                                ]
+                                * self.wet_nan
+                            ).flatten()
+                        )
+                else:
+                    plts[0].set_array(
+                        (
+                            self.test_data[i][1][
+                                ind_plot, self.Nb : -self.Nb, self.Nb : -self.Nb
+                            ].cpu()
+                            * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
+                            * self.std_out[ind_plot]
+                            + self.mean_out[ind_plot]
+                        ).flatten()
+                    )
+                    for j, model_pred in enumerate(model_pred_saved_nets):
+                        plts[j + 1].set_array(
+                            (
+                                model_pred[
+                                    i, self.Nb : -self.Nb, self.Nb : -self.Nb, ind_plot
+                                ]
+                                * self.wet_nan[self.Nb : -self.Nb, self.Nb : -self.Nb]
+                            ).flatten()
+                        )
+                        
+
                 a.set_text(r"$t = " + str(i + 1) + "$ days ")
 
             anim = FuncAnimation(

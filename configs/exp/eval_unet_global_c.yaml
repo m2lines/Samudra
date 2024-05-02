@@ -23,11 +23,9 @@ steps: 4
 ######
 pred_region: "global_21"
 pred_names:
-  - ConvNext UNet
   - Swin
 
 pred_paths:
-  - /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/ConvNext UNet_global_21_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth
   - /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Swin_global_21_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth
 
 
@@ -42,7 +40,7 @@ run_gen_short_pred: false
 run_full_pred: false
 run_short_pred: false
 run_plot_metrics: false
-run_long_metrics: true
+run_long_metrics: false
 run_plot_animation: true
 ####
 
@@ -60,6 +58,6 @@ interval: 1
 hist: 0
 lag: 1
 lam: 0.05
-Nb: 4 # Should technically be 0 when lateral is False but most of the code uses Nb
+Nb: 0 # Should technically be 0 when lateral is False but most of the code uses Nb
 factor: 10
 lateral: false

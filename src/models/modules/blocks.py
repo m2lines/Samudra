@@ -231,7 +231,12 @@ class ConvNeXtBlockOrig(torch.nn.Module):
                 in_channels=in_channels, out_channels=out_channels, kernel_size=1
             )
         self.dwconv = nn.Conv2d(
-            in_channels, in_channels, kernel_size=7, padding='same', groups=in_channels, dilation=dilation
+            in_channels,
+            in_channels,
+            kernel_size=7,
+            padding="same",
+            groups=in_channels,
+            dilation=dilation,
         )  # depthwise conv
         self.norm = LayerNorm(in_channels, eps=1e-6)
         self.pwconv1 = nn.Linear(
@@ -290,14 +295,22 @@ class ConvNeXtBlockOrig2(torch.nn.Module):
                 in_channels=in_channels, out_channels=out_channels, kernel_size=1
             )
         self.first_conv = torch.nn.Conv2d(
-                in_channels=in_channels, out_channels=in_channels*2, kernel_size=3, padding='same'
-            )
+            in_channels=in_channels,
+            out_channels=in_channels * 2,
+            kernel_size=3,
+            padding="same",
+        )
         self.dwconv = nn.Conv2d(
-            in_channels*2, in_channels*2, kernel_size=7, padding='same', groups=in_channels*2, dilation=dilation
+            in_channels * 2,
+            in_channels * 2,
+            kernel_size=7,
+            padding="same",
+            groups=in_channels * 2,
+            dilation=dilation,
         )  # depthwise conv
-        self.norm = LayerNorm(in_channels*2, eps=1e-6)
+        self.norm = LayerNorm(in_channels * 2, eps=1e-6)
         self.pwconv1 = nn.Linear(
-            in_channels*2, upscale_factor * in_channels
+            in_channels * 2, upscale_factor * in_channels
         )  # pointwise/1x1 convs, implemented with linear layers
         self.act = nn.GELU()
         self.pwconv2 = nn.Linear(upscale_factor * in_channels, out_channels)

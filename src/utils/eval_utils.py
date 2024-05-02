@@ -22,7 +22,7 @@ def generate_model_rollout(N_eval, test_data, model, hist, N_in, N_extra, Nb, re
 
     for i in range(N_eval):
         pred_temp = outs[i]
-        if Nb > 0 and 'global' not in region:
+        if Nb > 0 and "global" not in region:
             pred_temp[:, :Nb, :] = test_data[i][1][:, :Nb, :]
             pred_temp[:, -Nb:, :] = test_data[i][1][:, -Nb:, :]
             pred_temp[:, :, :Nb] = test_data[i][1][:, :, :Nb]

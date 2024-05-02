@@ -1061,7 +1061,7 @@ def plot_long_KE(
     vmin = 0
     vmax = 45
 
-    if 'global' in region:
+    if "global" in region:
         x_plot = grids["x_C"]
         y_plot = grids["y_C"]
     else:
@@ -1071,7 +1071,7 @@ def plot_long_KE(
     cmap = cmocean.cm.thermal  # cmocean.cm.diff
 
     # Ground Truth
-    if 'global' in region:
+    if "global" in region:
         plt0 = axs[0, 0].pcolormesh(
             x_plot,
             y_plot,
@@ -1141,8 +1141,8 @@ def plot_long_KE(
                 idy, idx = 0, 2
             elif i == 2:
                 idy, idx = 1, 2
-            
-            if 'global' in region:
+
+            if "global" in region:
                 axs[idy, idx].pcolormesh(
                     x_plot,
                     y_plot,
@@ -1285,7 +1285,7 @@ def get_initial_snapshot_fig(
         vmin = -limit
         vmax = limit
 
-    if 'global' in region:
+    if "global" in region:
         x_plot = grids["x_C"]
         y_plot = grids["y_C"]
     else:
@@ -1298,13 +1298,11 @@ def get_initial_snapshot_fig(
         cmap = cmocean.cm.diff
 
     # Ground Truth
-    if 'global' in region:
+    if "global" in region:
         plt0 = axs[0, 0].pcolormesh(
             x_plot,
             y_plot,
-            test_data[N_plot - 1][1][ind_plot].cpu()
-            * wet_nan
-            * std_out[ind_plot]
+            test_data[N_plot - 1][1][ind_plot].cpu() * wet_nan * std_out[ind_plot]
             + mean_out[ind_plot],
             cmap=cmap,
             vmin=vmin,
@@ -1375,18 +1373,17 @@ def get_initial_snapshot_fig(
                 idy, idx = 0, 2
             elif i == 2:
                 idy, idx = 1, 2
-            
-            if 'global' in region:
+
+            if "global" in region:
                 plt_temp = axs[idy, idx].pcolormesh(
-                x_plot,
-                y_plot,
-                model_pred[T_plot - 1, :, :, ind_plot]
-                * wet_nan,
-                cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
-                shading="auto",
-            )
+                    x_plot,
+                    y_plot,
+                    model_pred[T_plot - 1, :, :, ind_plot] * wet_nan,
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
             else:
                 plt_temp = axs[idy, idx].pcolormesh(
                     x_plot,

@@ -82,14 +82,14 @@ class BaseUNet(torch.nn.Module):
 
 
 class AdamUNet(torch.nn.Module):
-    def __init__(self,ch_width,n_out,wet,kernel_size = 3,pad = "circular",pred_residuals=False):
+    def __init__(self,ch_width,n_out,wet,kernel_size = 3):
         super().__init__()
         assert kernel_size % 2 !=0, "Cannot use even kernel sizes!"
         self.N_in = ch_width[0]
         self.N_out = ch_width[-1]
         self.wet = wet
         self.N_pad = int((kernel_size-1)/2)
-        self.pad = pad
+        self.pad = "circular"
         self.pred_residuals=False
         self.output_channels = n_out
 

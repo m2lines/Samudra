@@ -61,7 +61,6 @@ class BasicConvBlock(torch.nn.Module):
         n_layers: int = 1,
         latent_channels: int = None,
         activation: torch.nn.Module = CappedGELU(),
-        pad = 'circular'
     ):
         super().__init__()
         assert kernel_size % 2 !=0, "Cannot use even kernel sizes!"
@@ -70,7 +69,7 @@ class BasicConvBlock(torch.nn.Module):
             latent_channels = max(in_channels, out_channels)
         convblock = []
         self.N_pad = int((kernel_size + (kernel_size-1)*(dilation-1) -1) / 2)
-        self.pad = pad
+        self.pad = "circular"
         for n in range(n_layers):
             convblock.append(
                 torch.nn.Conv2d(
@@ -113,12 +112,11 @@ class ConvNeXtBlock(torch.nn.Module):
         upscale_factor: int = 4,
         n_layers: int = 1,
         activation: torch.nn.Module = CappedGELU(),
-        pad='circular'
     ):
         super().__init__()
         assert kernel_size % 2 !=0, "Cannot use even kernel sizes!"
         self.N_pad = int((kernel_size + (kernel_size-1)*(dilation-1) -1) / 2)
-        self.pad = pad
+        self.pad = "circular"
         # Instantiate 1x1 conv to increase/decrease channel depth if necessary
         if in_channels == out_channels:
             self.skip_module = lambda x: x  # Identity-function required in forward pass
@@ -189,7 +187,6 @@ class ConvNeXtBlockOrig(torch.nn.Module):
         latent_channels=0,  # ignored
         dilation=1,
         n_layers=0,  # ignored
-        pad='circular'
     ):
         super().__init__()
         if in_channels == out_channels:
@@ -200,7 +197,7 @@ class ConvNeXtBlockOrig(torch.nn.Module):
             )
         
         self.N_pad = int((7 + (7-1)*(dilation-1) -1) / 2)
-        self.pad = pad
+        self.pad = "circular"
         self.dwconv = nn.Conv2d(
             in_channels,
             in_channels,
@@ -259,7 +256,6 @@ class ConvNeXtBlockOrig2(torch.nn.Module):
         latent_channels=0,  # ignored
         dilation=1,
         n_layers=0,  # ignored
-        pad='circular'
     ):
         super().__init__()
         if in_channels == out_channels:
@@ -268,7 +264,7 @@ class ConvNeXtBlockOrig2(torch.nn.Module):
             self.skip_module = torch.nn.Conv2d(
                 in_channels=in_channels, out_channels=out_channels, kernel_size=1, padding="same"
             )
-        self.pad = pad
+        self.pad = "circular"
         self.first_conv = torch.nn.Conv2d(
             in_channels=in_channels,
             out_channels=in_channels * 2,

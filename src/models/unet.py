@@ -81,6 +81,158 @@ class BaseUNet(torch.nn.Module):
         return output[:, :, :, : self.input_size[0], : self.input_size[1]]
 
 
+class AdamUNet(torch.nn.Module):
+    def __init__(self,ch_width,n_out,wet,kernel_size = 3,pad = "constant",pred_residuals=False):
+        super().__init__()
+        assert kernel_size % 2 !=0, "Cannot use even kernel sizes!"
+        self.N_in = ch_width[0]
+        self.N_out = ch_width[-1]
+        self.wet = wet
+        self.N_pad = int((kernel_size-1)/2)
+        self.pad = pad
+        self.pred_residuals=False
+        self.output_channels = n_out
+
+
+        # going down
+        layers = []
+        for a,b in pairwise(ch_width):
+            layers.append(Conv_block(a,b,pad=pad))
+            layers.append(nn.MaxPool2d(2))
+        layers.append(Conv_block(b,b,pad=pad))
+        layers.append(nn.Upsample(scale_factor=2, mode='bilinear'))
+        ch_width.reverse()
+        for a,b in pairwise(ch_width[:-1]):
+            layers.append(Conv_block(a,b,pad=pad))
+            layers.append(nn.Upsample(scale_factor=2, mode='bilinear'))
+        layers.append(Conv_block(b,b,pad=pad))
+        layers.append(torch.nn.Conv2d(b,n_out,kernel_size))
+
+
+        self.layers = nn.ModuleList(layers)
+        self.num_steps = int(len(ch_width)-1)
+
+        #self.layers = nn.ModuleList(layer)
+
+    def forward_once(self,fts):
+        temp = []
+        for i in range(self.num_steps):
+            temp.append(None)
+        count = 0
+        for l in self.layers:
+            crop = fts.shape[2:]
+            if isinstance(l,nn.Conv2d):
+                fts = torch.nn.functional.pad(fts,(self.N_pad,self.N_pad,0,0),mode=self.pad)
+                fts = torch.nn.functional.pad(fts,(0,0,self.N_pad,self.N_pad),mode="constant")
+            fts= l(fts)
+            if count < self.num_steps:
+                if isinstance(l,Conv_block):
+                    temp[count] = fts
+                    count += 1
+            elif count >= self.num_steps:
+                if isinstance(l,nn.Upsample):
+                    crop = np.array(fts.shape[2:])
+                    shape = np.array(temp[int(2*self.num_steps-count-1)].shape[2:])
+                    pads = (shape - crop)
+                    pads = [pads[1]//2, pads[1]-pads[1]//2,
+                            pads[0]//2, pads[0]-pads[0]//2]
+                    fts = nn.functional.pad(fts,pads)
+                    fts += temp[int(2*self.num_steps-count-1)]
+                    count += 1
+        return torch.mul(fts,self.wet)
+
+    def forward(
+        self,
+        inputs,
+        output_only_last=False,
+        loss_fn=None,
+    ) -> torch.Tensor:
+
+        outputs = []
+        loss = None
+        N, C, H, W = inputs[0].shape
+
+        for step in range(len(inputs) // 2):
+            if step == 0:
+                input_tensor = inputs[0]
+            else:
+                inputs_0 = outputs[-1]
+                input_tensor = torch.cat(
+                        [inputs_0, inputs[2 * step][:, self.output_channels :]],
+                        dim=1,
+                    )
+
+
+            decodings = self.forward_once(input_tensor)
+            if self.pred_residuals:
+                reshaped = (
+                    input_tensor[:, : self.output_channels] + decodings
+                )  # Residual prediction
+            else:
+                reshaped = decodings  # Absolute prediction
+
+            if loss_fn is not None:
+                if loss is None:
+                    loss = loss_fn(
+                        reshaped,
+                        inputs[2 * step + 1][:, : self.output_channels],
+                    )
+                else:
+                    loss += loss_fn(
+                        reshaped,
+                        inputs[2 * step + 1][:, : self.output_channels],
+                    )
+
+            outputs.append(reshaped)
+
+        if loss_fn is None:
+            if output_only_last:
+                res = outputs[-1]
+            else:
+                res = outputs
+            return res
+
+        else:
+            return loss
+
+    def inference(
+        self,
+        inputs,
+        num_steps=None,
+        output_only_last=False,
+    ) -> torch.Tensor:
+        outputs = []
+        for step in range(num_steps):
+            if step == 0:
+                input_tensor = inputs[0][0].unsqueeze(0)
+            else:
+                inputs_0 = outputs[-1]
+                input_tensor = torch.cat(
+                        [
+                            inputs_0.unsqueeze(0),
+                            inputs[step][0][self.output_channels :].unsqueeze(0),
+                        ],
+                        dim=1,
+                    )
+
+
+            decodings = self.forward_once(input_tensor)
+            if self.pred_residuals:
+                reshaped = input_tensor[0, : self.output_channels] + decodings.squeeze(
+                    0
+                )  # Residual prediction
+            else:
+                reshaped = decodings.squeeze(0)  # Absolute prediction
+
+            outputs.append(reshaped)
+
+        if output_only_last:
+            res = outputs[-1]
+        else:
+            res = outputs
+
+        return res
+
 class UNet(BaseUNet):
     def __init__(
         self,

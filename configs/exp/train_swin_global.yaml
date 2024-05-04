@@ -15,14 +15,13 @@ wandb:
 experiment: train
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm25_Vertices.nc
-data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-04-11-save_data_global21/data
+data_dir: null
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
 
 
 #####
-region: "global_21"
+region: global_1 # "global_21"
 network: "swin"
 scheduler: False
 loss: mse

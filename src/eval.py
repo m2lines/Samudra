@@ -14,7 +14,7 @@ from utils.data_utils import (
     data_CNN_Lateral,
     data_CNN_Dynamic,
     gen_data_025_lateral,
-    gen_data_global,
+    gen_data_global_new,
 )
 from utils.eval_utils import (
     generate_model_rollout,
@@ -147,20 +147,12 @@ class Eval:
 
         # Saving data
         print("Getting inputs")
-        if "global" in args.region:
-            inputs, extra_in, outputs = gen_data_global(
-                self.inputs, self.extra_in, self.outputs, args.lag
-            )
+        if "global_1" == args.region:
+            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag)
+        elif "global_2x" == args.region:
+            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="2x")
         else:
-            inputs, extra_in, outputs = gen_data_025_lateral(
-                self.inputs,
-                self.extra_in,
-                self.outputs,
-                args.lag,
-                REGIONS[args.region]["lat"],
-                REGIONS[args.region]["lon"],
-                args.Nb,
-            )
+            raise NotImplementedError
 
         print("Calculating mask tensors")
         self.wet, self.wet_nan = get_wet_mask(inputs, "cpu")

@@ -21,11 +21,11 @@ data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313
 steps: 4
 
 ######
-pred_region: "global_21"
+pred_region: # "global_21"
 pred_names:
-  - Swin Global
+  #- Swin Global
 pred_paths:
-  - /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Swin Global_global_21_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth
+  # - /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Swin Global_global_21_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth
 
 
 ckpt_path: null # changed in command args
@@ -48,7 +48,7 @@ device: "cuda" # keep this cuda to get preds in gpu
 exp_num_in: "10"
 exp_num_extra: "12"
 exp_num_out: "6"
-region: "global_21"
+region: null # "global_21"
 N_samples: 4000
 N_val: 200
 N_test: 3000

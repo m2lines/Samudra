@@ -1023,6 +1023,71 @@ def gen_data_global(input_vars, extra_vars, output_vars, lag, res="1"):
     return inputs, extra_in, outputs
 
 
+def gen_grid_new():
+    data = xr.open_zarr('gs://cmip6/CMIP6/CMIP/NCAR/CESM2/piControl/r1i1p1f1/Ofx/areacello/gr/v20190320/', consolidated=True)
+    area = data["areacello"]
+    lon,lat = np.meshgrid(data["lon"],data["lat"])
+    
+    
+    R = 6.371e6 * (np.pi/180)
+    dy = (data["lat_bnds"][:,1].data - data["lat_bnds"][:,0].data) * R
+    dx = (data["lon_bnds"][:,1].data - data["lon_bnds"][:,0].data) * R
+    
+    dx, dy = np.meshgrid(dx,dy)
+    
+    dx = dx * np.cos((lat*np.pi)/180)
+    
+    
+    grid_coarse = xr.Dataset(
+        data_vars=dict(area = (["yu_ocean","xu_ocean"],area.data),
+                      x_C = (["yu_ocean","xu_ocean"],lon),
+                      y_C = (["yu_ocean","xu_ocean"],lat),
+                      dx = (["yu_ocean","xu_ocean"],dx),
+                      dy = (["yu_ocean","xu_ocean"],dx)),
+        coords = dict(
+        yu_ocean = (["yu_ocean"],data.lat.data),
+        xu_ocean = (["xu_ocean"],data.lon.data)    
+    ))  
+    return grid_coarse
+
+
+def gen_data_global_new(input_vars, extra_vars, output_vars, lag, run_type =""):
+    var_dict = {"u":"u","v":"v","T":"T",
+               "tau_u":"tau_u","tau_v":"tau_v",
+               "t_ref":"t_ref"}
+    if run_type != "":
+        run_type = "_" + run_type
+    data = xr.open_zarr("/scratch/as15415/Data/Emulation_Data/Global_Ocean_1deg"+run_type+"_New.zarr")
+
+    data_atmos = xr.open_zarr("/scratch/as15415/Data/Emulation_Data/Data_Atmos_1deg"+run_type+"_New.zarr")
+    data_atmos = data_atmos.rename_dims({"lat":"yt_ocean","lon":"xt_ocean"})
+    data_atmos = data_atmos.rename({"lat":"yt_ocean","lon":"xt_ocean"})
+    
+    data_atmos["xu_ocean"] = data.xt_ocean.data
+    data_atmos["yu_ocean"] = data.yt_ocean.data    
+    
+    data = xr.merge([data,data_atmos])
+    
+    inputs = []
+    extra_in = []
+    outputs = []
+    
+    for var in input_vars:
+        inputs.append(data[var_dict[var]])
+
+    for var in extra_vars:
+        extra_in.append(data[var_dict[var]])
+        
+    for var in output_vars:
+        outputs.append(data[var_dict[var]][lag:])
+        
+    inputs = tuple(inputs)
+    extra_in = tuple(extra_in)
+    outputs = tuple(outputs)
+
+    return inputs, extra_in, outputs
+
+
 def gen_data_lateral(input_vars, extra_vars, output_vars, lag, factor, region, Nb=2):
     var_dict = {
         "um": "u_mean",

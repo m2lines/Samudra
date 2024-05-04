@@ -6,6 +6,10 @@ from omegaconf import DictConfig
 from typing import Sequence
 import copy
 from torchvision.transforms import Resize
+from utils.climate_utils import pairwise
+from .modules.blocks import AdamConvBlock
+import torch.nn as nn
+import numpy as np
 
 
 class BaseUNet(torch.nn.Module):
@@ -82,14 +86,14 @@ class BaseUNet(torch.nn.Module):
 
 
 class AdamUNet(torch.nn.Module):
-    def __init__(self, ch_width, n_out, wet, kernel_size = 3):
+    def __init__(self, ch_width, n_out, wet, kernel_size = 3, pad="circular"):
         super().__init__()
         assert kernel_size % 2 !=0, "Cannot use even kernel sizes!"
         self.N_in = ch_width[0]
         self.N_out = ch_width[-1]
         self.wet = wet
         self.N_pad = int((kernel_size-1)/2)
-        self.pad = "circular"
+        self.pad = pad
         self.pred_residuals=False
         self.output_channels = n_out
 
@@ -97,15 +101,15 @@ class AdamUNet(torch.nn.Module):
         # going down
         layers = []
         for a,b in pairwise(ch_width):
-            layers.append(Conv_block(a,b,pad=pad))
+            layers.append(AdamConvBlock(a,b,pad=pad))
             layers.append(nn.MaxPool2d(2))
-        layers.append(Conv_block(b,b,pad=pad))
+        layers.append(AdamConvBlock(b,b,pad=pad))
         layers.append(nn.Upsample(scale_factor=2, mode='bilinear'))
         ch_width.reverse()
         for a,b in pairwise(ch_width[:-1]):
-            layers.append(Conv_block(a,b,pad=pad))
+            layers.append(AdamConvBlock(a,b,pad=pad))
             layers.append(nn.Upsample(scale_factor=2, mode='bilinear'))
-        layers.append(Conv_block(b,b,pad=pad))
+        layers.append(AdamConvBlock(b,b,pad=pad))
         layers.append(torch.nn.Conv2d(b,n_out,kernel_size))
 
 
@@ -126,7 +130,7 @@ class AdamUNet(torch.nn.Module):
                 fts = torch.nn.functional.pad(fts,(0,0,self.N_pad,self.N_pad),mode="constant")
             fts= l(fts)
             if count < self.num_steps:
-                if isinstance(l,Conv_block):
+                if isinstance(l,AdamConvBlock):
                     temp[count] = fts
                     count += 1
             elif count >= self.num_steps:

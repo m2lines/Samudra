@@ -291,6 +291,7 @@ class SwinTransformerBlock(nn.Module):
 
         self.H = None
         self.W = None
+        self.pad = "circular"
 
     def forward(self, x, mask_matrix):
         """Forward function.
@@ -312,7 +313,8 @@ class SwinTransformerBlock(nn.Module):
         pad_l = pad_t = 0
         pad_r = (self.window_size - W % self.window_size) % self.window_size
         pad_b = (self.window_size - H % self.window_size) % self.window_size
-        x = F.pad(x, (0, 0, pad_l, pad_r, pad_t, pad_b))
+        x = F.pad(x,(0, 0, pad_l, pad_r, 0, 0), mode=self.pad)
+        x = F.pad(x, (0, 0, 0, 0, pad_t, pad_b), mode="constant")
         _, Hp, Wp, _ = x.shape
 
         # cyclic shift
@@ -375,6 +377,7 @@ class PatchMerging(nn.Module):
         self.dim = dim
         self.reduction = nn.Linear(4 * dim, 2 * dim, bias=False)
         self.norm = norm_layer(4 * dim)
+        self.pad = "circular"
 
     def forward(self, x, H, W):
         """Forward function.
@@ -391,7 +394,8 @@ class PatchMerging(nn.Module):
         # padding
         pad_input = (H % 2 == 1) or (W % 2 == 1)
         if pad_input:
-            x = F.pad(x, (0, 0, 0, W % 2, 0, H % 2))
+            x = F.pad(x,(0, 0, 0, W % 2,0,0), mode=self.pad)
+            x = F.pad(x, (0, 0, 0, 0, 0, H % 2), mode="constant")
 
         x0 = x[:, 0::2, 0::2, :]  # B H/2 W/2 C
         x1 = x[:, 1::2, 0::2, :]  # B H/2 W/2 C
@@ -540,6 +544,7 @@ class PatchEmbed(nn.Module):
         super().__init__()
         patch_size = to_2tuple(patch_size)
         self.patch_size = patch_size
+        self.pad = "circular"
 
         self.in_chans = in_chans
         self.embed_dim = embed_dim
@@ -557,9 +562,9 @@ class PatchEmbed(nn.Module):
         # padding
         _, _, H, W = x.size()
         if W % self.patch_size[1] != 0:
-            x = F.pad(x, (0, self.patch_size[1] - W % self.patch_size[1]))
+            x = F.pad(x,(0,self.patch_size[1] - W % self.patch_size[1],0,0), mode=self.pad)
         if H % self.patch_size[0] != 0:
-            x = F.pad(x, (0, 0, 0, self.patch_size[0] - H % self.patch_size[0]))
+            x = F.pad(x, (0, 0, 0, self.patch_size[0] - H % self.patch_size[0]), mode="constant")
 
         x = self.proj(x)  # B C Wh Ww
         if self.norm is not None:

@@ -82,7 +82,7 @@ class BaseUNet(torch.nn.Module):
 
 
 class AdamUNet(torch.nn.Module):
-    def __init__(self,ch_width,n_out,wet,kernel_size = 3):
+    def __init__(self, ch_width, n_out, wet, kernel_size = 3):
         super().__init__()
         assert kernel_size % 2 !=0, "Cannot use even kernel sizes!"
         self.N_in = ch_width[0]

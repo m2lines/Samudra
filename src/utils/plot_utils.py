@@ -1180,9 +1180,14 @@ def plot_long_KE(
             axs[idy, idx].set_title(network_names[i], size=15)
 
     axs[1, 0].set_axis_off()
-    axs[1, 2].set_axis_off()
-    if len(long_KEs) < 3:
+    if len(model_preds) == 1:
         axs[1, 1].set_axis_off()
+    if len(model_preds) == 2:
+        axs[1, 1].set_axis_off()
+        axs[1, 2].set_axis_off()
+    if len(model_preds) == 3:
+        axs[1, 1].set_axis_off()
+    
 
     region_title = ""
 
@@ -1373,6 +1378,8 @@ def get_initial_snapshot_fig(
                 idy, idx = 0, 2
             elif i == 2:
                 idy, idx = 1, 2
+            elif i == 3:
+                idy, idx = 1, 1
 
             if "global" in region:
                 plt_temp = axs[idy, idx].pcolormesh(
@@ -1414,8 +1421,12 @@ def get_initial_snapshot_fig(
             plts.append(plt_temp)
 
     axs[1, 0].set_axis_off()
-    axs[1, 2].set_axis_off()
-    if len(model_preds) < 3:
+    if len(model_preds) == 1:
+        axs[1, 1].set_axis_off()
+    if len(model_preds) == 2:
+        axs[1, 1].set_axis_off()
+        axs[1, 2].set_axis_off()
+    if len(model_preds) == 3:
         axs[1, 1].set_axis_off()
 
     region_title = ""

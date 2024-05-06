@@ -91,12 +91,7 @@ class Trainer:
         # 3 (boundary ocean speeds + boundary ocean temp)(t) -> 3 (ocean speeds + ocean temp)(t+1)
         print("Number of outputs: ", self.N_out)  # 3
 
-        if args.region == 'global_1':
-            args.data_dir = '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-05-03-save_data_global1/data'
-        elif args.region == 'global_2x':
-            args.data_dir = '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-05-03-save_data_global2x/data'
-        else:
-            raise NotImplementedError
+        assert args.region == 'global_1' or args.region == 'global_2x'
 
         self.str_video = (
             "steps_"
@@ -159,13 +154,13 @@ class Trainer:
                 in_channels=self.num_in,
                 output_channels=self.N_in,
                 pretrain_img_size=[*self.train_loader.dataset[0][0].shape[1:]],
+                wet=self.wet.cuda()
             )
         elif "unet" == args.network:
             print("Getting model unet")
             model = instantiate(
-                args.unet, input_channels=self.num_in, output_channels=self.N_in
+                args.unet, input_channels=self.num_in, output_channels=self.N_in, wet=self.wet.cuda()
             )
-            model.set_input_size([*self.train_loader.dataset[0][0].shape[1:]])
         elif "adamunet" == args.network:
             print("Getting model adamunet")
             model = instantiate(
@@ -333,7 +328,7 @@ class Trainer:
 
             if self.wandb:
                 wandb.log(
-                    {"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr}
+                    {"epoch": epoch, "train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr}
                 )
 
         metric_logger.synchronize_between_processes()

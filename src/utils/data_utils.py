@@ -1022,35 +1022,6 @@ def gen_data_global(input_vars, extra_vars, output_vars, lag, res="1"):
 
     return inputs, extra_in, outputs
 
-
-def gen_grid_new():
-    data = xr.open_zarr('gs://cmip6/CMIP6/CMIP/NCAR/CESM2/piControl/r1i1p1f1/Ofx/areacello/gr/v20190320/', consolidated=True)
-    area = data["areacello"]
-    lon,lat = np.meshgrid(data["lon"],data["lat"])
-    
-    
-    R = 6.371e6 * (np.pi/180)
-    dy = (data["lat_bnds"][:,1].data - data["lat_bnds"][:,0].data) * R
-    dx = (data["lon_bnds"][:,1].data - data["lon_bnds"][:,0].data) * R
-    
-    dx, dy = np.meshgrid(dx,dy)
-    
-    dx = dx * np.cos((lat*np.pi)/180)
-    
-    
-    grid_coarse = xr.Dataset(
-        data_vars=dict(area = (["yu_ocean","xu_ocean"],area.data),
-                      x_C = (["yu_ocean","xu_ocean"],lon),
-                      y_C = (["yu_ocean","xu_ocean"],lat),
-                      dx = (["yu_ocean","xu_ocean"],dx),
-                      dy = (["yu_ocean","xu_ocean"],dx)),
-        coords = dict(
-        yu_ocean = (["yu_ocean"],data.lat.data),
-        xu_ocean = (["xu_ocean"],data.lon.data)    
-    ))  
-    return grid_coarse
-
-
 def gen_data_global_new(input_vars, extra_vars, output_vars, lag, run_type =""):
     var_dict = {"u":"u","v":"v","T":"T",
                "tau_u":"tau_u","tau_v":"tau_v",

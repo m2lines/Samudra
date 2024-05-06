@@ -15,13 +15,12 @@ wandb:
 experiment: eval
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-grid_path: /scratch/as15415/Data/CM2x_grids/Grid_cm26_Vertices.nc
 path_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds
 data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-06-save_data_test/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
 steps: 4
 
 ######
-pred_region: # "global_21"
+pred_region: null # "global_21"
 pred_names: null
 
 pred_paths: null
@@ -32,13 +31,13 @@ loss: mse
 
 save_test_data: false # change if already saved in prior experiments
 save_clim_data: false # change if already saved in prior experiments
-run_gen_pred: false
-run_gen_short_pred: false
-run_full_pred: false
-run_short_pred: false
-run_plot_metrics: false
+run_gen_pred: true
+run_gen_short_pred: true
+run_full_pred: true
+run_short_pred: true
+run_plot_metrics: true
 run_long_metrics: true
-run_plot_animation: false
+run_plot_animation: true
 ####
 
 device: "cuda" # keep this cuda to get preds in gpu
@@ -47,6 +46,7 @@ device: "cuda" # keep this cuda to get preds in gpu
 exp_num_in: "10"
 exp_num_extra: "12"
 exp_num_out: "6"
+train_region: null
 region: null # "global_21"
 N_samples: 4000
 N_val: 200

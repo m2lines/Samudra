@@ -35,7 +35,7 @@ from utils.eval_utils import (
     compute_ACC_single,
     compute_RMSE_single,
 )
-from utils.subgrid_utils import coarse_grid, get_area_tensor
+from utils.subgrid_utils import get_area_tensor
 from utils.climate_utils import compute_laplacian_wet
 from utils.plot_utils import (
     plot_short_time_stats,
@@ -91,11 +91,11 @@ class Eval:
         print("Number of outputs: ", self.N_out)  # 3
 
         # Post-fix strings
-        self.str_video = (
+        self.str_train = (
             "steps_"
             + str(args.steps)
             + "_"
-            + args.region
+            + args.train_region
             + "_Test_in_"
             + self.str_in
             + "ext_"
@@ -119,7 +119,8 @@ class Eval:
             + str(args.N_samples)
         )
         self.post_model_name = (
-            args.region
+            "Train_" + args.train_region
+            + "_Test_" + args.region
             + "_Test_in_"
             + self.str_in
             + "ext_"
@@ -196,10 +197,19 @@ class Eval:
             )
 
         else:
+            print("Loading train data to save statistics")
+            train_data = torch.load(
+                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
+                map_location=torch.device("cpu"),
+            )
+            norm_vals = train_data.norm_vals
             print("Loading test data")
             self.test_data = torch.load(
                 Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save)
             )
+            # Overwriting statistics in test
+            self.test_data.norm_vals = norm_vals
+            del train_data
 
         # Model
         if "swin" in args.network.lower():
@@ -209,13 +219,18 @@ class Eval:
                 in_channels=self.num_in,
                 output_channels=self.N_in,
                 pretrain_img_size=[*self.test_data[0][0].shape[1:]],
+                wet=self.wet.cuda()
+            )
+        elif "adam unet" in args.network.lower():
+            print("Loading model adam unet")
+            model = instantiate(
+                args.unet, wet=self.wet.cuda()
             )
         elif "unet" in args.network.lower():
             print("Loading model unet")
             model = instantiate(
-                args.unet, input_channels=self.num_in, output_channels=self.N_in
+                args.unet, input_channels=self.num_in, output_channels=self.N_in, wet=self.wet.cuda()
             )
-            model.set_input_size([*self.test_data[0][0].shape[1:]])
 
         full_model_path = args.ckpt_path
         self.full_model_name = args.network + "_" + self.post_model_name
@@ -265,17 +280,7 @@ class Eval:
 
         # Getting area tensor
         print("Computing area tensor")
-        self.grids = xr.open_dataset(args.grid_path)
-        if "global" in args.region:
-            self.grids = coarse_grid(self.grids, args.factor)
-
-        else:
-            self.grids = self.grids.sel(
-                {
-                    "yu_ocean": slice(*REGIONS[args.region]["lat"]),
-                    "xu_ocean": slice(*REGIONS[args.region]["lon"]),
-                }
-            )
+        self.grids = xr.open_dataset('/scratch/as15415/Data/CM2x_grids/Grid_New.nc').rename({"dx": "dxu", "dy": "dyu"})
 
         self.area = torch.from_numpy(self.grids["area_C"].to_numpy()).to(device="cpu")
         self.dx = self.grids["dxu"].to_numpy()
@@ -295,9 +300,9 @@ class Eval:
         self.steps = args.steps
         self.network = args.network
 
-        self.pred_region = args.pred_region
-        self.pred_names = args.pred_names
-        self.pred_paths = args.pred_paths
+        self.pred_region = args.region
+        self.pred_names = args.pred_names if args.pred_names else []
+        self.pred_paths = args.pred_paths if args.pred_paths else []
 
     def generate_pred_lateral(self):
         print("Generation Pred begin...")
@@ -440,6 +445,7 @@ class Eval:
             except Exception as error:
                 print(error)
                 print(zarr_path)
+                print(region, str_in, str_ext, rand_int)
                 # raise Exception(
                 #     f"Path in {zarr_path} does not exist. Make sure to set run_gen_pred to True in config."
                 # )

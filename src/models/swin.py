@@ -867,6 +867,82 @@ class SwinTransformerDecoder(torch.nn.Module):
                     x = up
             x = layer["conv"](x)
         return self.output_layer(x)
+        
+    #     self.channel_dim = 1  # 1 in previous layout
+
+    #     if dilations is None:
+    #         # Defaults to [1, 1, 1...] in accordance with the number of unet levels
+    #         dilations = [1 for _ in range(len(n_channels))]
+
+    #     self.decoder = []
+    #     for n, curr_channel in enumerate(n_channels):
+
+    #         # Second half of the synoptic layer does not need an upsampling module
+    #         if n == 0:
+    #             up_sample_module = None
+    #         else:
+    #             up_sample_module = instantiate(
+    #                 up_sampling_block,
+    #                 in_channels=curr_channel,
+    #                 out_channels=curr_channel,
+    #             )
+    #             # up_sample_module = torch.nn.Upsample(scale_factor=2, mode='bilinear')
+
+    #         next_channel = (
+    #             n_channels[n + 1] if n < len(n_channels) - 1 else n_channels[-1]
+    #         )
+
+    #         conv_module = instantiate(
+    #             conv_block,
+    #             in_channels=(
+    #                 curr_channel * 2 if n > 0 else curr_channel
+    #             ),  # Considering skip connection
+    #             latent_channels=curr_channel,
+    #             out_channels=next_channel,
+    #             dilation=dilations[n],
+    #             n_layers=n_layers[n],
+    #         )
+
+    #         self.decoder.append(
+    #             torch.nn.ModuleDict(
+    #                 {
+    #                     "upsamp": up_sample_module,
+    #                     "conv": conv_module,
+    #                 }
+    #             )
+    #         )
+
+    #     self.decoder = torch.nn.ModuleList(self.decoder)
+
+    #     self.inv_emb = instantiate(
+    #                 up_sampling_block,
+    #                 in_channels=curr_channel,
+    #                 out_channels=curr_channel,
+    #                 upsampling=4
+    #             )
+
+    #     # (Linear) Output layer
+    #     self.output_layer = instantiate(
+    #         output_layer,
+    #         in_channels=curr_channel,
+    #         out_channels=output_channels,
+    #         dilation=dilations[-1],
+    #         activation=None,
+    #     )
+    
+    # def forward(self, inputs: Sequence) -> torch.Tensor:
+    #     x = inputs[-1]
+    #     for n, layer in enumerate(self.decoder):
+    #         if layer["upsamp"] is not None:
+    #             up = layer["upsamp"](x)
+    #             crop = np.array(up.shape[2:])
+    #             shape = np.array(inputs[-1 - n].shape[2:])
+    #             off_pads = (crop - shape)
+    #             up = up[:,:,off_pads[0]//2:off_pads[0]//2+shape[0],off_pads[1]//2:off_pads[1]//2+shape[1]]
+    #             x = torch.cat([up, inputs[-1 - n]], dim=self.channel_dim)
+    #         x = layer["conv"](x)
+    #     x = self.inv_emb(x)
+    #     return self.output_layer(x)
 
 
 class SwinTransformer(torch.nn.Module):
@@ -878,7 +954,8 @@ class SwinTransformer(torch.nn.Module):
         conv_block: DictConfig,
         up_sampling_block: DictConfig,
         output_layer: DictConfig,
-        n_layers: Sequence = (1, 2, 2, 1),
+        wet,
+        n_layers: Sequence = (1, 1, 1, 1),
         dilations: list = (1, 1, 1, 1),
         patch_size=4,
         embed_dim=96,
@@ -900,25 +977,8 @@ class SwinTransformer(torch.nn.Module):
     ):
 
         super().__init__()
-        img_size = copy.deepcopy(pretrain_img_size)
-        if img_size[0] % (patch_size**2) != 0:
-            dim = int(img_size[0] / (patch_size**2))
-            if dim % 2 == 0:
-                img_size[0] = (dim + 2) * (patch_size**2)
-            else:
-                img_size[0] = (dim + 1) * (patch_size**2)
-
-        if img_size[1] % (patch_size**2) != 0:
-            dim = int(img_size[1] / (patch_size**2))
-            if dim % 2 == 0:
-                img_size[1] = (dim + 2) * (patch_size**2)
-            else:
-                img_size[1] = (dim + 1) * (patch_size**2)
-
-        self.resize_fn = Resize(img_size)
-        self.input_size = pretrain_img_size
         self.encoder = SwinTransformerBackbone(
-            img_size,
+            pretrain_img_size,
             patch_size,
             in_channels,
             embed_dim,
@@ -951,6 +1011,7 @@ class SwinTransformer(torch.nn.Module):
         )
         self.pred_residuals = pred_residuals
         self.output_channels = output_channels
+        self.wet = wet
 
     def forward(
         self,
@@ -965,15 +1026,13 @@ class SwinTransformer(torch.nn.Module):
 
         for step in range(len(inputs) // 2):
             if step == 0:
-                input_tensor = self.resize_fn(inputs[0])
+                input_tensor = inputs[0]
             else:
                 inputs_0 = outputs[-1]
-                input_tensor = self.resize_fn(
-                    torch.cat(
+                input_tensor = torch.cat(
                         [inputs_0, inputs[2 * step][:, self.output_channels :]],
                         dim=1,
                     )
-                )
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
@@ -984,8 +1043,8 @@ class SwinTransformer(torch.nn.Module):
             else:
                 reshaped = decodings  # Absolute prediction
 
-            reshaped = reshaped[:, :, : self.input_size[0], : self.input_size[1]]
-
+            reshaped = torch.mul(reshaped, self.wet)
+            
             if loss_fn is not None:
                 if loss is None:
                     loss = loss_fn(
@@ -1019,18 +1078,16 @@ class SwinTransformer(torch.nn.Module):
         outputs = []
         for step in range(num_steps):
             if step == 0:
-                input_tensor = self.resize_fn(inputs[0][0].unsqueeze(0))
+                input_tensor = inputs[0][0].unsqueeze(0)
             else:
                 inputs_0 = outputs[-1]
-                input_tensor = self.resize_fn(
-                    torch.cat(
+                input_tensor = torch.cat(
                         [
                             inputs_0.unsqueeze(0),
                             inputs[step][0][self.output_channels :].unsqueeze(0),
                         ],
                         dim=1,
                     )
-                )
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
@@ -1040,8 +1097,9 @@ class SwinTransformer(torch.nn.Module):
                 )  # Residual prediction
             else:
                 reshaped = decodings.squeeze(0)  # Absolute prediction
+            
+            reshaped = torch.mul(reshaped, self.wet)
 
-            reshaped = reshaped[:, : self.input_size[0], : self.input_size[1]]
             outputs.append(reshaped)
 
         if output_only_last:

@@ -35,6 +35,21 @@ class TransposedConvUpsample(torch.nn.Module):
         return self.upsampler(x)
 
 
+class BilinearUpsample(torch.nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 3, # ignored
+        out_channels: int = 1, # ignored
+        upsampling: int = 2,
+        activation: torch.nn.Module = None, # ignored
+    ):
+        super().__init__()
+        self.upsampler = torch.nn.Upsample(scale_factor=upsampling, mode='bilinear')
+
+    def forward(self, x):
+        return self.upsampler(x)
+
+
 class AvgPool(torch.nn.Module):
     def __init__(
         self,

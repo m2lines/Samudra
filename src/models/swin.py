@@ -807,7 +807,6 @@ class SwinTransformerDecoder(torch.nn.Module):
                     in_channels=curr_channel,
                     out_channels=curr_channel,
                 )
-                # up_sample_module = torch.nn.Upsample(scale_factor=2, mode='bilinear')
 
             next_channel = (
                 n_channels[n + 1] if n < len(n_channels) - 1 else n_channels[-1]

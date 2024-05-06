@@ -21,7 +21,7 @@ comp="compute=local"
 # ./.python-greene submitit_hydra.py $comp exp=train_adamunet_global name="$(date +%F)-local_train_adamunet_global_1" region=global_1 batch_size=16 scheduler=True
 
 # 4. Swin Transformer Global
-./.python-greene submitit_hydra.py $comp exp=train_swin_global name="$(date +%F)-local_train_swin_global_1" region=global_1 batch_size=16 swin.embed_dim=48 scheduler=True
+# ./.python-greene submitit_hydra.py $comp exp=train_swin_global name="$(date +%F)-local_train_swin_global_1" region=global_1 batch_size=16 swin.embed_dim=24 scheduler=True
 
 # Misc. ConvNext original Global
 # ./.python-greene submitit_hydra.py $comp exp=train_unet_global testing=true name="$(date +%F)-test_train_orgconvnextunet_global_1" region=global_1 batch_size=3 scheduler=True unet.encoder.n_channels=[111,222,444] unet.decoder.n_channels=[444,222,111] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig2 exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig2

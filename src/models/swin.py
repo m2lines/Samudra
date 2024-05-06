@@ -799,11 +799,15 @@ class SwinTransformerDecoder(torch.nn.Module):
 
         self.decoder = []
         for n, curr_channel in enumerate(n_channels):
-            up_sample_module = instantiate(
-                up_sampling_block,
-                in_channels=curr_channel,
-                out_channels=curr_channel,
-            )
+            if n == 0:
+                up_sample_module = None
+            else:
+                up_sample_module = instantiate(
+                    up_sampling_block,
+                    in_channels=curr_channel,
+                    out_channels=curr_channel,
+                )
+                # up_sample_module = torch.nn.Upsample(scale_factor=2, mode='bilinear')
 
             next_channel = (
                 n_channels[n + 1] if n < len(n_channels) - 1 else n_channels[-1]
@@ -830,6 +834,7 @@ class SwinTransformerDecoder(torch.nn.Module):
             up_sampling_block,
             in_channels=curr_channel,
             out_channels=curr_channel,
+            upsampling=4
         )
 
         conv_module = instantiate(
@@ -862,7 +867,7 @@ class SwinTransformerDecoder(torch.nn.Module):
             if layer["upsamp"] is not None:
                 up = layer["upsamp"](x)
                 if n < len(inputs) - 1:
-                    x = up + resize(inputs[-1 - n], size=[*up.shape[2:]])
+                    x = up + resize(inputs[-1-n], size=[*up.shape[2:]])
                 else:
                     x = up
             x = layer["conv"](x)
@@ -960,6 +965,7 @@ class SwinTransformer(torch.nn.Module):
 
             encodings = self.encoder(input_tensor)
             decodings = self.decoder(encodings)
+            decodings = resize(decodings, size=[*input_tensor.shape[2:]])
             if self.pred_residuals:
                 reshaped = (
                     input_tensor[:, : self.output_channels] + decodings

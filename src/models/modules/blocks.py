@@ -108,6 +108,7 @@ class BasicConvBlock(torch.nn.Module):
                     dilation=dilation
                 )
             )
+            convblock.append(torch.nn.BatchNorm2d(out_channels if n == n_layers - 1 else latent_channels))
             if activation is not None:
                 convblock.append(activation)
         self.convblock = torch.nn.Sequential(*convblock)
@@ -143,6 +144,7 @@ class ConvNeXtBlock(torch.nn.Module):
         activation: torch.nn.Module = CappedGELU(),
     ):
         super().__init__()
+        assert n_layers == 1, "Can only use a single layer here!"
         assert kernel_size % 2 !=0, "Cannot use even kernel sizes!"
         self.N_pad = int((kernel_size + (kernel_size-1)*(dilation-1) -1) / 2)
         self.pad = "circular"
@@ -164,7 +166,8 @@ class ConvNeXtBlock(torch.nn.Module):
             )
         )
         # LayerNorm
-        # convblock.append(th.nn.LayerNorm([out_channels*upscale_factor, HW, HW]))
+        # convblock.append(LayerNorm(latent_channels*upscale_factor, eps=1e-6, data_format="channels_first"))
+        convblock.append(torch.nn.BatchNorm2d(latent_channels*upscale_factor))
         if activation is not None:
             convblock.append(activation)
         convblock.append(
@@ -175,6 +178,9 @@ class ConvNeXtBlock(torch.nn.Module):
                 dilation=dilation,
             )
         )
+        # LayerNorm
+        # convblock.append(LayerNorm(latent_channels*upscale_factor, eps=1e-6, data_format="channels_first"))
+        convblock.append(torch.nn.BatchNorm2d(latent_channels*upscale_factor))
         if activation is not None:
             convblock.append(activation)
         # Linear postprocessing

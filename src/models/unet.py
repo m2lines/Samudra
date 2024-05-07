@@ -184,7 +184,7 @@ class UNet(torch.nn.Module):
         self.output_time_dim = output_time_dim
         self.presteps = presteps
         self.time_dim = 1
-        self.pred_residuals = pred_residuals
+        self.pred_residuals = False
         self.wet = wet
 
         # Number of passes through the model, or a diagnostic model with only one output time

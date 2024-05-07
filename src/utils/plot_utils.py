@@ -1180,12 +1180,12 @@ def plot_long_KE(
             axs[idy, idx].set_title(network_names[i], size=15)
 
     axs[1, 0].set_axis_off()
-    if len(model_preds) == 1:
+    if len(long_KEs) == 1:
         axs[1, 1].set_axis_off()
-    if len(model_preds) == 2:
+    if len(long_KEs) == 2:
         axs[1, 1].set_axis_off()
         axs[1, 2].set_axis_off()
-    if len(model_preds) == 3:
+    if len(long_KEs) == 3:
         axs[1, 1].set_axis_off()
     
 

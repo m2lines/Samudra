@@ -937,7 +937,7 @@ class SwinTransformer(torch.nn.Module):
             output_channels,
             dilations,
         )
-        self.pred_residuals = pred_residuals
+        self.pred_residuals = False
         self.output_channels = output_channels
         self.wet = wet
     

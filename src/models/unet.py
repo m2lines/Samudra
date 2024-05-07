@@ -212,6 +212,12 @@ class UNet(torch.nn.Module):
 
     def _compute_output_channels(self) -> int:
         return (1 if self.is_diagnostic else self.input_time_dim) * self.output_channels
+    
+    def forward_once(self, inputs):
+        encodings = self.encoder(inputs)
+        decodings = self.decoder(encodings)
+        decodings = torch.mul(decodings, self.wet)
+        return decodings
 
     def forward(
         self,
@@ -234,16 +240,13 @@ class UNet(torch.nn.Module):
                         dim=1,
                     )
 
-            encodings = self.encoder(input_tensor)
-            decodings = self.decoder(encodings)
+            decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
                 reshaped = (
                     input_tensor[:, : self.output_channels] + decodings
                 )  # Residual prediction
             else:
                 reshaped = decodings  # Absolute prediction
-
-            reshaped = torch.mul(reshaped, self.wet)
 
             if loss_fn is not None:
                 if loss is None:
@@ -289,8 +292,7 @@ class UNet(torch.nn.Module):
                         dim=1,
                     )
 
-            encodings = self.encoder(input_tensor)
-            decodings = self.decoder(encodings)
+            decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
                 reshaped = input_tensor[0, : self.output_channels] + decodings.squeeze(
                     0
@@ -298,7 +300,6 @@ class UNet(torch.nn.Module):
             else:
                 reshaped = decodings.squeeze(0)  # Absolute prediction
 
-            reshaped = torch.mul(reshaped, self.wet)
             outputs.append(reshaped)
 
         if output_only_last:

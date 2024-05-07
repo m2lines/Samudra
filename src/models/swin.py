@@ -940,6 +940,13 @@ class SwinTransformer(torch.nn.Module):
         self.pred_residuals = pred_residuals
         self.output_channels = output_channels
         self.wet = wet
+    
+    def forward_once(self, inputs):
+        encodings = self.encoder(inputs)
+        decodings = self.decoder(encodings)
+        decodings = resize(decodings, size=[*inputs.shape[2:]])
+        decodings = torch.mul(decodings, self.wet)
+        return decodings
 
     def forward(
         self,
@@ -962,17 +969,13 @@ class SwinTransformer(torch.nn.Module):
                         dim=1,
                     )
 
-            encodings = self.encoder(input_tensor)
-            decodings = self.decoder(encodings)
-            decodings = resize(decodings, size=[*input_tensor.shape[2:]])
+            decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
                 reshaped = (
                     input_tensor[:, : self.output_channels] + decodings
                 )  # Residual prediction
             else:
                 reshaped = decodings  # Absolute prediction
-
-            reshaped = torch.mul(reshaped, self.wet)
             
             if loss_fn is not None:
                 if loss is None:
@@ -1018,8 +1021,7 @@ class SwinTransformer(torch.nn.Module):
                         dim=1,
                     )
 
-            encodings = self.encoder(input_tensor)
-            decodings = self.decoder(encodings)
+            decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
                 reshaped = input_tensor[0, : self.output_channels] + decodings.squeeze(
                     0

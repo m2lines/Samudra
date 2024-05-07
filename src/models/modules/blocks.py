@@ -125,8 +125,7 @@ class BasicConvBlock(torch.nn.Module):
             )
             convblock.append(torch.nn.BatchNorm2d(out_channels if n == n_layers - 1 else latent_channels))
             if activation is not None:
-                # convblock.append(activation)
-                convblock.append(torch.nn.ReLU())
+                convblock.append(activation)
         self.convblock = torch.nn.Sequential(*convblock)
 
     def forward(self, x):

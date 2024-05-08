@@ -9,7 +9,7 @@
 # ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-train_basicunet_global_1" region=global_1 batch_size=16 scheduler=True unet.encoder.n_channels=[64,128,256,512] unet.encoder.n_layers=[2,2,2,2] unet.encoder.dilations=[1,1,1,1] unet.decoder.n_channels=[512,256,128,64] unet.decoder.n_layers=[2,2,2,2] unet.decoder.dilations=[1,1,1,1] exp/unet/modules/blocks@unet.decoder.up_sampling_block=bilinear_upsample
 
 # 2. ConvNext UNet Global
-./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_6hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-train_convnextunet_global_1" region=global_1 batch_size=8 scheduler=True unet.encoder.n_channels=[24,45,90,180] unet.decoder.n_channels=[180,90,45,24] unet.encoder.dilations=[1,2,4,8] unet.decoder.dilations=[8,4,2,1] unet.encoder.n_layers=[1,1,1,1] unet.decoder.n_layers=[1,1,1,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-train_convnextunet_global_1" region=global_1 batch_size=8 scheduler=True unet.encoder.n_channels=[24,45,90,180] unet.decoder.n_channels=[180,90,45,24] unet.encoder.dilations=[1,2,4,8] unet.decoder.dilations=[8,4,2,1] unet.encoder.n_layers=[1,1,1,1] unet.decoder.n_layers=[1,1,1,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block
 
 # 3. AdamUNet Global
 # ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_adamunet_global wandb.mode=online name="$(date +%F)-train_adamunet_global_1" region=global_1 batch_size=16 scheduler=True
@@ -23,6 +23,13 @@
 
 ###########################################################################################
 # Global_2x Training
+
+
+# 1. Basic UNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-train_basicunet_global_2x" region=global_2x batch_size=16 scheduler=True unet.encoder.n_channels=[64,128,256,512] unet.encoder.n_layers=[2,2,2,2] unet.encoder.dilations=[1,1,1,1] unet.decoder.n_channels=[512,256,128,64] unet.decoder.n_layers=[2,2,2,2] unet.decoder.dilations=[1,1,1,1] exp/unet/modules/blocks@unet.decoder.up_sampling_block=bilinear_upsample
+
+# 3. AdamUNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_adamunet_global wandb.mode=online name="$(date +%F)-train_adamunet_global_2x" region=global_2x batch_size=16 scheduler=True
 
 
 ###########################################################################################

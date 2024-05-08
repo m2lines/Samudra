@@ -19,7 +19,10 @@ comp="compute=local"
 # ./.python-greene submitit_hydra.py $comp exp=eval_adamunet_global network="Adam UNetcheck2" name="$(date +%F)-eval_adamunet_g1_g1" train_region=global_1 region=global_1 ckpt_path=''
 
 # 4. Swin Transformer Global
-./.python-greene submitit_hydra.py $comp exp=eval_swin_global network="Swin" name="$(date +%F)-eval_swin_g1_g1" train_region=global_1 region=global_1 swin.embed_dim=24 ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-07-train_swin_global_1/swin/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
+./.python-greene submitit_hydra.py $comp exp=eval_swin_global network="Swin48" name="$(date +%F)-eval_swin48_g1_g1" train_region=global_1 region=global_1 swin.embed_dim=48 ckpt_path=''
+
+# Misc. Original ConvNext UNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="Org ConvNext UNet" name="$(date +%F)-eval_orgconvnextunet_g1_g1" train_region=global_1 region=global_1 unet.encoder.n_channels=[111,222,444] unet.decoder.n_channels=[444,222,111] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig2 exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig2 ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-07-train_orgconvnextunet_global_1/org/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 
 ###########################################################################################

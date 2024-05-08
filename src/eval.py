@@ -961,74 +961,76 @@ class Eval:
         )
 
         # Enstrophy
-        # print("Getting Enstrophy stats...")
-        # enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
-        #     N_plot,
-        #     self.test_data,
-        #     model_pred_net,
-        #     self.grids,
-        #     self.wet,
-        #     self.wet_lap,
-        # )
+        print("Getting Enstrophy stats...")
+        enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
+            N_plot,
+            self.test_data,
+            model_pred_net,
+            self.grids,
+            self.wet,
+            self.wet_lap,
+            Nb=1 # hardcoded
+        )
 
-        # enst_spec_saved = []
-        # for model_pred_saved in model_pred_saved_nets:
-        #     enst_speci, enst_spec_true = gen_enstrophy_spectrum(
-        #         N_plot,
-        #         self.test_data,
-        #         model_pred_saved,
-        #         self.grids,
-        #         self.wet,
-        #         self.wet_lap,
-        #     )
-        #     enst_spec_saved.append(enst_speci)
+        enst_spec_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            enst_speci, enst_spec_true = gen_enstrophy_spectrum(
+                N_plot,
+                self.test_data,
+                model_pred_saved,
+                self.grids,
+                self.wet,
+                self.wet_lap,
+                Nb=1 # hardcoded
+            )
+            enst_spec_saved.append(enst_speci)
 
-        # print("Plotting Enstrophy spectrum...")
-        # plot_metrics_enstrophy_spectrum(
-        #     self.pred_names + [self.network],
-        #     self.region,
-        #     self.str_save,
-        #     self.output_dir,
-        #     enst_spec_true,
-        #     enst_spec_saved + [enst_spec_net],
-        # )
+        print("Plotting Enstrophy spectrum...")
+        plot_metrics_enstrophy_spectrum(
+            self.pred_names + [self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            enst_spec_true,
+            enst_spec_saved + [enst_spec_net],
+        )
 
-        # enst_net, enst_true = gen_enstrophy(
-        #     N_plot,
-        #     self.test_data,
-        #     model_pred_net,
-        #     self.dx,
-        #     self.dy,
-        #     self.Nb,
-        #     self.wet_lap,
-        # )
-        # enst_net = enst_net.mean(axis=(1, 2))
+        enst_net, enst_true = gen_enstrophy(
+            N_plot,
+            self.test_data,
+            model_pred_net,
+            self.dx,
+            self.dy,
+            1, # hardcoded
+            self.wet_lap,
+        )
+        enst_net = enst_net.mean(axis=(1, 2))
 
-        # enst_saved = []
-        # for model_pred_saved in model_pred_saved_nets:
-        #     enst_i, enst_true = gen_enstrophy(
-        #         N_plot,
-        #         self.test_data,
-        #         model_pred_saved,
-        #         self.dx,
-        #         self.dy,
-        #         self.Nb,
-        #         self.wet_lap,
-        #     )
-        #     enst_i = enst_i.mean(axis=(1, 2))
-        #     enst_saved.append(enst_i)
+        enst_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            enst_i, enst_true = gen_enstrophy(
+                N_plot,
+                self.test_data,
+                model_pred_saved,
+                self.dx,
+                self.dy,
+                1, # hardcoded
+                self.wet_lap,
+            )
+            enst_i = enst_i.mean(axis=(1, 2))
+            enst_saved.append(enst_i)
 
-        # enst_true = enst_true.mean(axis=(1, 2))
+        enst_true = enst_true.mean(axis=(1, 2))
 
-        # print("Plotting Enstrophy...")
-        # plot_metrics_entrophy(
-        #     self.pred_names + [self.network],
-        #     self.region,
-        #     self.str_save,
-        #     self.output_dir,
-        #     enst_true,
-        #     enst_saved + [enst_net],
-        # )
+        print("Plotting Enstrophy...")
+        plot_metrics_entrophy(
+            self.pred_names + [self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            enst_true,
+            enst_saved + [enst_net],
+        )
 
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")
@@ -1496,74 +1498,76 @@ class Eval:
         )
 
         # Enstrophy
-        # print("Getting Long Enstrophy stats...")
-        # enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
-        #     N_plot,
-        #     self.test_data,
-        #     model_pred_net,
-        #     self.grids,
-        #     self.wet,
-        #     self.wet_lap,
-        # )
+        print("Getting Long Enstrophy stats...")
+        enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
+            N_plot,
+            self.test_data,
+            model_pred_net,
+            self.grids,
+            self.wet,
+            self.wet_lap,
+            Nb=1 # hardcoded
+        )
 
-        # enst_spec_saved = []
-        # for model_pred_saved in model_pred_saved_nets:
-        #     enst_speci, enst_spec_true = gen_enstrophy_spectrum(
-        #         N_plot,
-        #         self.test_data,
-        #         model_pred_saved,
-        #         self.grids,
-        #         self.wet,
-        #         self.wet_lap,
-        #     )
-        #     enst_spec_saved.append(enst_speci)
+        enst_spec_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            enst_speci, enst_spec_true = gen_enstrophy_spectrum(
+                N_plot,
+                self.test_data,
+                model_pred_saved,
+                self.grids,
+                self.wet,
+                self.wet_lap,
+                Nb=1 # hardcoded
+            )
+            enst_spec_saved.append(enst_speci)
 
-        # print("Plotting Long Enstrophy spectrum...")
-        # plot_metrics_enstrophy_spectrum(
-        #     self.pred_names + [self.network],
-        #     self.region + "_Long_",
-        #     self.str_save,
-        #     self.output_dir,
-        #     enst_spec_true,
-        #     enst_spec_saved + [enst_spec_net],
-        # )
+        print("Plotting Long Enstrophy spectrum...")
+        plot_metrics_enstrophy_spectrum(
+            self.pred_names + [self.network],
+            self.region + "_Long_",
+            self.str_save,
+            self.output_dir,
+            enst_spec_true,
+            enst_spec_saved + [enst_spec_net],
+        )
 
-        # enst_net, enst_true = gen_enstrophy(
-        #     N_plot,
-        #     self.test_data,
-        #     model_pred_net,
-        #     self.dx,
-        #     self.dy,
-        #     self.Nb,
-        #     self.wet_lap,
-        # )
-        # enst_net = enst_net.mean(axis=(1, 2))
+        enst_net, enst_true = gen_enstrophy(
+            N_plot,
+            self.test_data,
+            model_pred_net,
+            self.dx,
+            self.dy,
+            1, # hardcoded
+            self.wet_lap,
+        )
+        enst_net = enst_net.mean(axis=(1, 2))
 
-        # enst_saved = []
-        # for model_pred_saved in model_pred_saved_nets:
-        #     enst_i, enst_true = gen_enstrophy(
-        #         N_plot,
-        #         self.test_data,
-        #         model_pred_saved,
-        #         self.dx,
-        #         self.dy,
-        #         self.Nb,
-        #         self.wet_lap,
-        #     )
-        #     enst_i = enst_i.mean(axis=(1, 2))
-        #     enst_saved.append(enst_i)
+        enst_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            enst_i, enst_true = gen_enstrophy(
+                N_plot,
+                self.test_data,
+                model_pred_saved,
+                self.dx,
+                self.dy,
+                1, # hardcoded
+                self.wet_lap,
+            )
+            enst_i = enst_i.mean(axis=(1, 2))
+            enst_saved.append(enst_i)
 
-        # enst_true = enst_true.mean(axis=(1, 2))
+        enst_true = enst_true.mean(axis=(1, 2))
 
-        # print("Plotting Long Enstrophy...")
-        # plot_metrics_entrophy(
-        #     self.pred_names + [self.network],
-        #     self.region + "_Long_",
-        #     self.str_save,
-        #     self.output_dir,
-        #     enst_true,
-        #     enst_saved + [enst_net],
-        # )
+        print("Plotting Long Enstrophy...")
+        plot_metrics_entrophy(
+            self.pred_names + [self.network],
+            self.region + "_Long_",
+            self.str_save,
+            self.output_dir,
+            enst_true,
+            enst_saved + [enst_net],
+        )
 
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")

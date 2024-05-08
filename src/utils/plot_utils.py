@@ -1130,7 +1130,6 @@ def plot_long_KE(
 
     cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
 
-    fig.delaxes(axs[1, 1])
     fig.delaxes(cax)
 
     for i, long_KE_i in enumerate(long_KEs):
@@ -1140,6 +1139,8 @@ def plot_long_KE(
             elif i == 1:
                 idy, idx = 0, 2
             elif i == 2:
+                idy, idx = 1, 1
+            elif i == 3:
                 idy, idx = 1, 2
 
             if "global" in region:
@@ -1366,7 +1367,6 @@ def get_initial_snapshot_fig(
 
     cbar.set_label(var_list[str(ind_plot)], fontsize=20)
 
-    fig.delaxes(axs[1, 1])
     fig.delaxes(cax)
 
     plts = [plt0]
@@ -1377,9 +1377,9 @@ def get_initial_snapshot_fig(
             elif i == 1:
                 idy, idx = 0, 2
             elif i == 2:
-                idy, idx = 1, 2
-            elif i == 3:
                 idy, idx = 1, 1
+            elif i == 3:
+                idy, idx = 1, 2
 
             if "global" in region:
                 plt_temp = axs[idy, idx].pcolormesh(

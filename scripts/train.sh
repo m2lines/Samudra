@@ -32,7 +32,7 @@
 # ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_adamunet_global wandb.mode=online name="$(date +%F)-train_adamunet_global_2x" region=global_2x batch_size=16 scheduler=True
 
 # 4. Swin transformer Global
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global wandb.mode=online name="$(date +%F)-train_swin_global_1" region=global_1 batch_size=16 swin.embed_dim=24 scheduler=True
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global wandb.mode=online name="$(date +%F)-train_swin_global_2x" region=global_2x batch_size=16 swin.embed_dim=24 scheduler=True
 
 
 ###########################################################################################

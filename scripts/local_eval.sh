@@ -10,16 +10,16 @@ comp="compute=local"
 # Global_1 Train - Global_1 Eval
 
 # 1. Basic UNet Global
-# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="Basic UNet" name="$(date +%F)-eval_basicunetadam_g1_g1" train_region=global_1 region=global_1 unet.encoder.n_channels=[64,128,256,512] unet.encoder.n_layers=[2,2,2,2] unet.encoder.dilations=[1,1,1,1] unet.decoder.n_channels=[512,256,128,64] unet.decoder.n_layers=[2,2,2,2] unet.decoder.dilations=[1,1,1,1] exp/unet/modules/blocks@unet.decoder.up_sampling_block=bilinear_upsample ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-07-train_basicunet_global_1/basic/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
+# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="Basic UNet" name="$(date +%F)-eval_basicunet_g1_g1" train_region=global_1 region=global_1 unet.encoder.n_channels=[64,128,256,512] unet.encoder.n_layers=[2,2,2,2] unet.encoder.dilations=[1,1,1,1] unet.decoder.n_channels=[512,256,128,64] unet.decoder.n_layers=[2,2,2,2] unet.decoder.dilations=[1,1,1,1] exp/unet/modules/blocks@unet.decoder.up_sampling_block=bilinear_upsample ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-07-train_basicunet_global_1/basic/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 # 2. ConvNext UNet Global
-# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="ConvNext UNet" name="$(date +%F)-eval_convnextunet_g1_g1" train_region=global_1 region=global_1 unet.encoder.n_channels=[24,45,90,180] unet.decoder.n_channels=[180,90,45,24] unet.encoder.dilations=[1,2,4,8] unet.decoder.dilations=[8,4,2,1] unet.encoder.n_layers=[1,1,1,1] unet.decoder.n_layers=[1,1,1,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-07-train_convnextunetbi_global_1/convnextbi/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
+# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="ConvNext UNet" name="$(date +%F)-eval_convnextunet_g1_g1" train_region=global_1 region=global_1 unet.encoder.n_channels=[24,45,90,180] unet.decoder.n_channels=[180,90,45,24] unet.encoder.dilations=[1,2,4,8] unet.decoder.dilations=[8,4,2,1] unet.encoder.n_layers=[1,1,1,1] unet.decoder.n_layers=[1,1,1,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-07-train_convnextunet_global_1/conv/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 # 3. AdamUNet Global
-# ./.python-greene submitit_hydra.py $comp exp=eval_adamunet_global network="Adam UNetcheck2" name="$(date +%F)-eval_adamunet_g1_g1" train_region=global_1 region=global_1 ckpt_path=''
+# ./.python-greene submitit_hydra.py $comp exp=eval_adamunet_global network="Adam UNet" name="$(date +%F)-eval_adamunet_g1_g1" train_region=global_1 region=global_1 ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-04-train_adamunet_global_1/adam/saved_nets/adamunet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 # 4. Swin Transformer Global
-./.python-greene submitit_hydra.py $comp exp=eval_swin_global network="Swin48" name="$(date +%F)-eval_swin48_g1_g1" train_region=global_1 region=global_1 swin.embed_dim=48 ckpt_path=''
+# ./.python-greene submitit_hydra.py $comp exp=eval_swin_global network="Swin48" name="$(date +%F)-eval_swin48_g1_g1" train_region=global_1 region=global_1 swin.embed_dim=48 ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-08-train_swin48_global_1/swin48/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 # Misc. Original ConvNext UNet Global
 # ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="Org ConvNext UNet" name="$(date +%F)-eval_orgconvnextunet_g1_g1" train_region=global_1 region=global_1 unet.encoder.n_channels=[111,222,444] unet.decoder.n_channels=[444,222,111] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig2 exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig2 ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-07-train_orgconvnextunet_global_1/org/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
@@ -28,16 +28,38 @@ comp="compute=local"
 ###########################################################################################
 # Global_1 Train - Global_2x Eval
 
-# Basic UNet Global
-# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="Basic UNet" name="$(date +%F)-eval_basicunet_g1_g2x" train_region=global_1 region=global_2x ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-04-train_basicunet_global_1/basic/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt' unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90]
+# 1. Basic UNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="Basic UNet Train1Eval2x" name="$(date +%F)-eval_basicunet_g1_g2x" train_region=global_1 region=global_2x unet.encoder.n_channels=[64,128,256,512] unet.encoder.n_layers=[2,2,2,2] unet.encoder.dilations=[1,1,1,1] unet.decoder.n_channels=[512,256,128,64] unet.decoder.n_layers=[2,2,2,2] unet.decoder.dilations=[1,1,1,1] exp/unet/modules/blocks@unet.decoder.up_sampling_block=bilinear_upsample ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-07-train_basicunet_global_1/basic/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
-###########################################################################################
-# Global_2x Train - Global_1 Eval
+# 2. ConvNext UNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="ConvNext UNet Train1Eval2x" name="$(date +%F)-eval_convnextunet_g1_g2x" train_region=global_1 region=global_2x unet.encoder.n_channels=[24,45,90,180] unet.decoder.n_channels=[180,90,45,24] unet.encoder.dilations=[1,2,4,8] unet.decoder.dilations=[8,4,2,1] unet.encoder.n_layers=[1,1,1,1] unet.decoder.n_layers=[1,1,1,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-07-train_convnextunet_global_1/conv/saved_nets/unet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
+
+# 3. AdamUNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_adamunet_global network="Adam UNet Train1Eval2x" name="$(date +%F)-eval_adamunet_g1_g2x" train_region=global_1 region=global_2x ckpt_path='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-04-train_adamunet_global_1/adam/saved_nets/adamunet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 ###########################################################################################
 # Global_2x Train - Global_2x Eval
 
+# 1. Basic UNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="Basic UNet Train2xEval2x" name="$(date +%F)-eval_basicunet_g2x_g2x" train_region=global_2x region=global_2x unet.encoder.n_channels=[64,128,256,512] unet.encoder.n_layers=[2,2,2,2] unet.encoder.dilations=[1,1,1,1] unet.decoder.n_channels=[512,256,128,64] unet.decoder.n_layers=[2,2,2,2] unet.decoder.dilations=[1,1,1,1] exp/unet/modules/blocks@unet.decoder.up_sampling_block=bilinear_upsample ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-08-train_basicunet_global_2x/basicunet/saved_nets/unet_best_steps_4_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
+# 2. ConvNext UNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="ConvNext UNet Train2xEval2x" name="$(date +%F)-eval_convnextunet_g2x_g2x" train_region=global_2x region=global_2x unet.encoder.n_channels=[24,45,90,180] unet.decoder.n_channels=[180,90,45,24] unet.encoder.dilations=[1,2,4,8] unet.decoder.dilations=[8,4,2,1] unet.encoder.n_layers=[1,1,1,1] unet.decoder.n_layers=[1,1,1,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-08-train_convnextunet_global_2x/convnext/saved_nets/unet_best_steps_4_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
+
+# 3. AdamUNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_adamunet_global network="Adam UNet Train2xEval2x" name="$(date +%F)-eval_adamunet_g2x_g2x" train_region=global_2x region=global_2x ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-08-train_adamunet_global_2x/adam/saved_nets/adamunet_best_steps_4_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
+
+###########################################################################################
+# Global_2x Train - Global_1 Eval
+
+# 1. Basic UNet Global
+./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="Basic UNet Train2xEval1" name="$(date +%F)-eval_basicunet_g2x_g1" train_region=global_2x region=global_1 unet.encoder.n_channels=[64,128,256,512] unet.encoder.n_layers=[2,2,2,2] unet.encoder.dilations=[1,1,1,1] unet.decoder.n_channels=[512,256,128,64] unet.decoder.n_layers=[2,2,2,2] unet.decoder.dilations=[1,1,1,1] exp/unet/modules/blocks@unet.decoder.up_sampling_block=bilinear_upsample ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-08-train_basicunet_global_2x/basicunet/saved_nets/unet_best_steps_4_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
+
+# 2. ConvNext UNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_unet_global network="ConvNext UNet Train2xEval1" name="$(date +%F)-eval_convnextunet_g2x_g1" train_region=global_2x region=global_1 unet.encoder.n_channels=[24,45,90,180] unet.decoder.n_channels=[180,90,45,24] unet.encoder.dilations=[1,2,4,8] unet.decoder.dilations=[8,4,2,1] unet.encoder.n_layers=[1,1,1,1] unet.decoder.n_layers=[1,1,1,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-08-train_convnextunet_global_2x/convnext/saved_nets/unet_best_steps_4_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
+
+# 3. AdamUNet Global
+# ./.python-greene submitit_hydra.py $comp exp=eval_adamunet_global network="Adam UNet Train2xEval1" name="$(date +%F)-eval_adamunet_g2x_g1" train_region=global_2x region=global_1 ckpt_path='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-08-train_adamunet_global_2x/adam/saved_nets/adamunet_best_steps_4_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 
 

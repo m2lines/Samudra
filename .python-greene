@@ -3,7 +3,7 @@
 #################################
 ##### SETUP THESE VARIABLES #####
 #################################
-export PYTHON_GREENE_SIF="/scratch/work/public/singularity/cuda11.7.99-cudnn8.5-devel-ubuntu22.04.2.sif" # <BASE SINGULARITY IMAGE>
+export PYTHON_GREENE_SIF= "/scratch/work/public/singularity/cuda12.1.1-cudnn8.9.0-devel-ubuntu22.04.2.sif" # "/scratch/work/public/singularity/cuda11.7.99-cudnn8.5-devel-ubuntu22.04.2.sif" # <BASE SINGULARITY IMAGE>
 export PYTHON_GREENE_OVERLAYS="/scratch/sd5313/M2Lines/overlays/emulator.ext3:ro" # <PATH TO SINGULARITY IMAGE>
 export PYTHON_GREENE_ENV_START="/ext3/env.sh" # <CONDA SCRIPT>
 export PYTHON_GREENE_CONDA_ENV="emulator" # <YOUR CONDA ENV NAME OR BLANK IF BASE> # NEEDS TO BE FILLED

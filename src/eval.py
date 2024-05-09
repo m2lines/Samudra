@@ -41,6 +41,7 @@ from utils.plot_utils import (
     plot_short_time_stats,
     plot_long_time_stats,
     plot_long_KE,
+    plot_long_MSE_KE,
     plot_metrics_KE_spectrum,
     plot_metrics_KE,
     plot_metrics_enstrophy_spectrum,
@@ -158,7 +159,7 @@ class Eval:
         print("Calculating mask tensors")
         self.wet, self.wet_nan = get_wet_mask(inputs, "cpu")
         self.wet_bool = np.array(self.wet.cpu()).astype(bool)
-        wet_lap = compute_laplacian_wet(self.wet_nan, args.Nb)
+        wet_lap = compute_laplacian_wet(self.wet_nan, 4) # hardcoded
         wet_lap = xr.where(wet_lap == 0, 1, np.nan)
         self.wet_lap = np.nan_to_num(wet_lap)
         print("Wet resolution:", self.wet.shape)
@@ -888,17 +889,25 @@ class Eval:
         long_KE_net, long_KE_true = gen_KE_range(
             start, N_plot, self.test_data, model_pred_net
         )
+        mse_KE_net = np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
         long_KE_net = long_KE_net.mean(0)
-        long_KE_true = long_KE_true.mean(0)
+
 
         long_KE_saved = []
+        long_mse_KE_saved = []
         for model_pred_saved in model_pred_saved_nets:
-            long_KE_savedi, long_KE_true = gen_KE_range(
+            long_KE_savedi, _ = gen_KE_range(
                 start, N_plot, self.test_data, model_pred_saved
             )
+            mse_KE_savedi = np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
+
+            long_mse_KE_saved.append(mse_KE_savedi)
             long_KE_savedi = long_KE_savedi.mean(0)
-            long_KE_true = long_KE_true.mean(0)
             long_KE_saved.append(long_KE_savedi)
+        
+        long_KE_true = long_KE_true.mean(0)
+
+            
 
         print("Plotting mean KE...")
         plot_long_KE(
@@ -911,6 +920,19 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_KE_saved + [long_KE_net],
+        )
+
+        print("Plotting MSE KE")
+        plot_long_MSE_KE(
+            self.pred_names + [self.network],
+            self.region,
+            self.str_save,
+            self.output_dir,
+            self.grids,
+            self.Nb,
+            self.wet_nan,
+            long_KE_true,
+            long_mse_KE_saved + [mse_KE_net],
         )
 
         ### Short time scale metrics
@@ -969,7 +991,7 @@ class Eval:
             self.grids,
             self.wet,
             self.wet_lap,
-            Nb=1 # hardcoded
+            Nb=4 # hardcoded
         )
 
         enst_spec_saved = []
@@ -981,7 +1003,7 @@ class Eval:
                 self.grids,
                 self.wet,
                 self.wet_lap,
-                Nb=1 # hardcoded
+                Nb=4 # hardcoded
             )
             enst_spec_saved.append(enst_speci)
 
@@ -1001,7 +1023,7 @@ class Eval:
             model_pred_net,
             self.dx,
             self.dy,
-            1, # hardcoded
+            4, # hardcoded
             self.wet_lap,
         )
         enst_net = enst_net.mean(axis=(1, 2))
@@ -1014,7 +1036,7 @@ class Eval:
                 model_pred_saved,
                 self.dx,
                 self.dy,
-                1, # hardcoded
+                4, # hardcoded
                 self.wet_lap,
             )
             enst_i = enst_i.mean(axis=(1, 2))
@@ -1425,17 +1447,23 @@ class Eval:
         long_KE_net, long_KE_true = gen_KE_range(
             start, N_plot, self.test_data, model_pred_net
         )
+        mse_KE_net = np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
         long_KE_net = long_KE_net.mean(0)
-        long_KE_true = long_KE_true.mean(0)
 
         long_KE_saved = []
+        long_mse_KE_saved = []
         for model_pred_saved in model_pred_saved_nets:
-            long_KE_savedi, long_KE_true = gen_KE_range(
+            long_KE_savedi, _ = gen_KE_range(
                 start, N_plot, self.test_data, model_pred_saved
             )
+
+            mse_KE_savedi = np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
+            long_mse_KE_saved.append(mse_KE_savedi)
+
             long_KE_savedi = long_KE_savedi.mean(0)
-            long_KE_true = long_KE_true.mean(0)
             long_KE_saved.append(long_KE_savedi)
+        
+        long_KE_true = long_KE_true.mean(0)
 
         print("Plotting Long mean KE...")
         plot_long_KE(
@@ -1448,6 +1476,19 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_KE_saved + [long_KE_net],
+        )
+
+        print("Plotting Long MSE KE")
+        plot_long_MSE_KE(
+            self.pred_names + [self.network],
+            self.region + "_Long_",
+            self.str_save,
+            self.output_dir,
+            self.grids,
+            self.Nb,
+            self.wet_nan,
+            long_KE_true,
+            long_mse_KE_saved + [mse_KE_net],
         )
 
         ### Short time scale metrics
@@ -1506,7 +1547,7 @@ class Eval:
             self.grids,
             self.wet,
             self.wet_lap,
-            Nb=1 # hardcoded
+            Nb=4 # hardcoded
         )
 
         enst_spec_saved = []
@@ -1518,7 +1559,7 @@ class Eval:
                 self.grids,
                 self.wet,
                 self.wet_lap,
-                Nb=1 # hardcoded
+                Nb=4 # hardcoded
             )
             enst_spec_saved.append(enst_speci)
 
@@ -1538,7 +1579,7 @@ class Eval:
             model_pred_net,
             self.dx,
             self.dy,
-            1, # hardcoded
+            4, # hardcoded
             self.wet_lap,
         )
         enst_net = enst_net.mean(axis=(1, 2))
@@ -1551,7 +1592,7 @@ class Eval:
                 model_pred_saved,
                 self.dx,
                 self.dy,
-                1, # hardcoded
+                4, # hardcoded
                 self.wet_lap,
             )
             enst_i = enst_i.mean(axis=(1, 2))
@@ -1580,100 +1621,6 @@ class Eval:
         T_test = np.array(
             self.test_data[:][1][:, 2] * self.std_out[2] + self.mean_out[2]
         )
-
-        # # Corr
-        # print("Getting Long Corr stats...")
-        # N_eval = 1000
-        # corr_T_net, corr_T_true = compute_corrs_single(
-        #     N_eval,
-        #     T_test,
-        #     model_pred_net[:, :, :, 2],
-        #     self.area,
-        #     self.wet_bool,
-        #     self.std_out[2],
-        #     self.mean_out[2],
-        # )
-        # corr_T_saved = []
-        # for model_pred_saved in model_pred_saved_nets:
-        #     corr_T_i, corr_T_true = compute_corrs_single(
-        #         N_eval,
-        #         T_test,
-        #         model_pred_saved[:, :, :, 2],
-        #         self.area,
-        #         self.wet_bool,
-        #         self.std_out[2],
-        #         self.mean_out[2],
-        #     )
-        #     corr_T_saved.append(corr_T_i)
-
-        # print("Plotting Long Corr...")
-        # plot_metrics_corr(
-        #     self.pred_names + [self.network],
-        #     self.region + "_Long_",
-        #     self.str_save,
-        #     self.output_dir,
-        #     corr_T_true,
-        #     corr_T_saved + [corr_T_net],
-        # )
-
-        # # RMSE
-        # print("Getting Long RMSE stats...")
-        # RMSE_T_net, RMSE_T_true = compute_RMSE_single(
-        #     N_eval, T_test, model_pred_net[:, :, :, 2], self.area, self.wet_bool
-        # )
-
-        # RMSE_T_saved = []
-        # for model_pred_saved in model_pred_saved_nets:
-        #     RMSE_T_i, RMSE_T_true = compute_RMSE_single(
-        #         N_eval, T_test, model_pred_saved[:, :, :, 2], self.area, self.wet_bool
-        #     )
-        #     RMSE_T_saved.append(RMSE_T_i)
-
-        # print("Plotting Long RMSE...")
-        # plot_metrics_rmse(
-        #     self.pred_names + [self.network],
-        #     self.region + "_Long_",
-        #     self.str_save,
-        #     self.output_dir,
-        #     RMSE_T_true,
-        #     RMSE_T_saved + [RMSE_T_net],
-        # )
-
-        # # ACC
-        # print("Getting Long ACC stats...")
-        # N_eval = 1000
-        # ACC_T_net, ACC_T_true = compute_ACC_single(
-        #     N_eval,
-        #     T_test,
-        #     model_pred_net[:, :, :, 2],
-        #     self.clim[:, :, :, 2],
-        #     self.time_test,
-        #     self.area,
-        #     self.wet_bool,
-        # )
-
-        # ACC_T_saved = []
-        # for model_pred_saved in model_pred_saved_nets:
-        #     ACC_T_i, ACC_T_true = compute_ACC_single(
-        #         N_eval,
-        #         T_test,
-        #         model_pred_saved[:, :, :, 2],
-        #         self.clim[:, :, :, 2],
-        #         self.time_test,
-        #         self.area,
-        #         self.wet_bool,
-        #     )
-        #     ACC_T_saved.append(ACC_T_i)
-
-        # print("Plotting Long ACC...")
-        # plot_metrics_acc(
-        #     self.pred_names + [self.network],
-        #     self.region + "_Long_",
-        #     self.str_save,
-        #     self.output_dir,
-        #     ACC_T_true,
-        #     ACC_T_saved + [ACC_T_net],
-        # )
 
         # PDF
         print("Getting Long PDF stats...")

@@ -1217,6 +1217,211 @@ def plot_long_KE(
     plt.clf()
 
 
+def plot_long_MSE_KE(
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    grids,
+    Nb,
+    wet_nan,
+    long_KE_true,
+    long_mse_KEs,
+):
+
+    plt.style.use("bmh")
+
+    # Long KE
+    plt.rcParams.update({"font.size": 12})
+    if len(long_mse_KEs) > 1:
+        fig, axs = plt.subplots(
+            2,
+            3,
+            figsize=(12, 5),
+            gridspec_kw={
+                "width_ratios": [1, 1, 1],
+                "height_ratios": [1, 1],
+                "wspace": 0.25,
+                "hspace": 0.5,
+            },
+            subplot_kw={"projection": ccrs.PlateCarree()},
+        )
+    elif len(long_mse_KEs) == 1:
+        fig, axs = plt.subplots(
+            2,
+            2,
+            figsize=(12, 5),
+            gridspec_kw={
+                "width_ratios": [1, 1],
+                "height_ratios": [1, 1],
+                "wspace": 0.25,
+                "hspace": 0.5,
+            },
+            subplot_kw={"projection": ccrs.PlateCarree()},
+        )
+    else:
+        print("0 entries in long_KE")
+        return
+
+    vmin = 0
+    vmax = 200
+
+    if "global" in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
+    else:
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
+
+    # Ground Truth
+    if "global" in region:
+        plt0 = axs[0, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt0 = axs[0, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+    axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0, 0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    axs[0, 0].set_title(r"CM2.6", size=15)
+
+    pos = axs[1, 0].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.075,
+        pos.y0 + 0.15,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    cbar.set_label(r"RMSE KE $( J/m^2 )$", fontsize=20)
+
+    fig.delaxes(cax)
+
+    for i, long_mse_KE_i in enumerate(long_mse_KEs):
+        if long_mse_KE_i is not None:
+            if i == 0:
+                idy, idx = 0, 1
+            elif i == 1:
+                idy, idx = 0, 2
+            elif i == 2:
+                idy, idx = 1, 1
+            elif i == 3:
+                idy, idx = 1, 2
+
+            if "global" in region:
+                axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_KE_i * wet_nan,
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+            else:
+                axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+
+            axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[idy, idx].gridlines(
+                crs=ccrs.PlateCarree(),
+                draw_labels=True,
+                linewidth=2,
+                color="gray",
+                alpha=0.5,
+                linestyle="--",
+            )
+            gl.top_labels = False
+            gl.right_labels = False
+            gl.yrotation = False
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+            axs[idy, idx].set_title(network_names[i], size=15)
+
+    axs[1, 0].set_axis_off()
+    if len(long_mse_KEs) == 1:
+        axs[1, 1].set_axis_off()
+    if len(long_mse_KEs) == 2:
+        axs[1, 1].set_axis_off()
+        axs[1, 2].set_axis_off()
+    if len(long_mse_KEs) == 3:
+        axs[1, 1].set_axis_off()
+    
+
+    region_title = ""
+
+    for i in region:
+        if region == "Quiescent_Ext":
+            region_title = "South Pacific"
+        elif region == "Africa_Ext":
+            region_title = "African Cape"
+        elif i == "_":
+            region_title += " "
+        elif i == "E":
+            break
+        else:
+            region_title += i
+    region_title = str(region_title)
+
+    # a = fig.suptitle(
+    #     r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
+    #     fontsize=16,
+    # )
+
+    plt.savefig(
+        Path(output_dir) / ("MSE_KE" + region + "_" + save_str + ".png"),
+        bbox_inches="tight",
+    )
+    plt.clf()
+
+
 def get_initial_snapshot_fig(
     network_names,
     N_plot,

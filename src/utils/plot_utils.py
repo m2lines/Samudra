@@ -7,7 +7,6 @@ import cartopy.crs as ccrs
 import cartopy as cart
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
-
 def plot_time_spec(
     network_names,
     axs,
@@ -213,6 +212,7 @@ def plot_acc(
     auto_ACC,
     ACCs,
     clist,
+    legend=False,
 ):
     T_plot = 100
 
@@ -263,6 +263,8 @@ def plot_acc(
 
     axs[plt_ind_acc].set_ylim([0, 1])
     axs[plt_ind_acc].set_xlim([0, T_plot])
+    if legend:
+        axs[plt_ind_acc].legend(ncol=2)
 
 
 def plot_corr(
@@ -472,6 +474,7 @@ def plot_long_time_stats(
     FFTs,
     auto_mean,
     means,
+    JUPYTER_MODE=False,
 ):
 
     plt.clf()
@@ -561,12 +564,16 @@ def plot_long_time_stats(
 
     # fig.suptitle("Long-Time Statistics " + region_title, fontsize=16)
 
-    plt.savefig(
-        Path(output_dir)
-        / ("Long_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    
+    else:
+        plt.savefig(
+            Path(output_dir)
+            / ("Long_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_short_time_stats(
@@ -584,6 +591,7 @@ def plot_short_time_stats(
     KEs,
     auto_corrs,
     corrs,
+    JUPYTER_MODE=False,
 ):
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
@@ -601,101 +609,23 @@ def plot_short_time_stats(
         plt.rc("figure", titlesize=18)
 
         fig, axs = plt.subplots(
+            1,
             2,
-            2,
-            figsize=(11, 6),
+            figsize=(11, 3),
             gridspec_kw={
                 "width_ratios": [1, 1],
-                "height_ratios": [1, 1],
+                "height_ratios": [1],
                 "wspace": 0.4,
                 "hspace": 0.5,
             },
         )
         return fig, axs
 
-    # fig, axs = init_plt()
-    # plot_acc(
-    #     network_names,
-    #     axs,
-    #     (0, 0),
-    #     2,
-    #     N_test,
-    #     lag,
-    #     auto_ACC,
-    #     ACCs,
-    #     clist,
-    # )
-    # plot_corr(
-    #     network_names,
-    #     axs,
-    #     (0, 1),
-    #     1,
-    #     N_test,
-    #     lag,
-    #     auto_corrs,
-    #     corrs,
-    #     clist,
-    # )
-    # plot_rmse(network_names, axs, (1, 0), 2, N_test, lag, auto_rmse, rmses, clist, True)
-    # plot_KE(network_names, axs, (1, 1), N_test, lag, auto_KE, KEs, clist)
-
-    # fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
-
-    # plt.savefig(
-    #     Path(output_dir)
-    #     / ("Short_Time_Comp_Boundary1_" + region + "_" + save_str + ".png"),
-    #     bbox_inches="tight",
-    # )
-
-    # fig, axs = init_plt()
-    # plot_acc(
-    #     network_names,
-    #     axs,
-    #     (0, 0),
-    #     0,
-    #     N_test,
-    #     lag,
-    #     auto_ACC,
-    #     ACCs,
-    #     clist,
-    # )
-    # plot_acc(
-    #     network_names,
-    #     axs,
-    #     (0, 1),
-    #     1,
-    #     N_test,
-    #     lag,
-    #     auto_ACC,
-    #     ACCs,
-    #     clist,
-    # )
-    # plot_rmse(network_names, axs, (1, 0), 0, N_test, lag, auto_rmse, rmses, clist, True)
-    # plot_rmse(
-    #     network_names,
-    #     axs,
-    #     (1, 1),
-    #     1,
-    #     N_test,
-    #     lag,
-    #     auto_rmse,
-    #     rmses,
-    #     clist,
-    # )
-
-    # # fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
-
-    # plt.savefig(
-    #     Path(output_dir)
-    #     / ("Short_Time_Comp_Boundary2_" + region + "_" + save_str + ".png"),
-    #     bbox_inches="tight",
-    # )
-
     fig, axs = init_plt()
     plot_acc(
         network_names,
         axs,
-        (0, 0),
+        (0),
         0,
         N_test,
         lag,
@@ -706,40 +636,32 @@ def plot_short_time_stats(
     plot_acc(
         network_names,
         axs,
-        (0, 1),
+        (1),
         2,
         N_test,
         lag,
         auto_ACC,
         ACCs,
         clist,
-    )
-    plot_rmse(network_names, axs, (1, 0), 0, N_test, lag, auto_rmse, rmses, clist, True)
-    plot_rmse(
-        network_names,
-        axs,
-        (1, 1),
-        2,
-        N_test,
-        lag,
-        auto_rmse,
-        rmses,
-        clist,
+        True
     )
 
     # fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
 
-    plt.savefig(
-        Path(output_dir)
-        / ("Short_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
+    if JUPYTER_MODE:
+        plt.show()
 
-    plt.clf()
+    else:
+        plt.savefig(
+            Path(output_dir)
+            / ("Short_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_KE_spectrum(
-    network_names, region, save_str, output_dir, KE_spec_true, KE_specs
+    network_names, region, save_str, output_dir, KE_spec_true, KE_specs, JUPYTER_MODE=False
 ):
 
     plt.style.use("bmh")
@@ -762,11 +684,14 @@ def plot_metrics_KE_spectrum(
     plt.ylabel(r"KE $( J/m^2 )$")
 
     plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("KE_spectrum" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("KE_spectrum" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_KE(
@@ -776,6 +701,7 @@ def plot_metrics_KE(
     output_dir,
     KE_true,
     KEs,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -798,15 +724,18 @@ def plot_metrics_KE(
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"KE $( J/m^2 )$")
     plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("KE" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("KE" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_enstrophy_spectrum(
-    network_names, region, save_str, output_dir, enst_spec_true, enst_specs
+    network_names, region, save_str, output_dir, enst_spec_true, enst_specs, JUPYTER_MODE=False
 ):
     plt.style.use("bmh")
 
@@ -826,11 +755,14 @@ def plot_metrics_enstrophy_spectrum(
     plt.xlabel(r"Wave number $( 1/km )$")
     plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
     plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("Enstrophy_Spectrum" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Enstrophy_Spectrum" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_entrophy(
@@ -840,6 +772,7 @@ def plot_metrics_entrophy(
     output_dir,
     enst_true,
     ensts,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -861,11 +794,15 @@ def plot_metrics_entrophy(
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
     plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("Enstrophy" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Enstrophy" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_corr(
@@ -875,6 +812,7 @@ def plot_metrics_corr(
     output_dir,
     corr_T_true,
     corr_Ts,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -898,15 +836,18 @@ def plot_metrics_corr(
     plt.xlim([0, N_eval])
 
     plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("Corr" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Corr" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_rmse(
-    network_names, region, save_str, output_dir, RMSE_T_true, RMSE_Ts
+    network_names, region, save_str, output_dir, RMSE_T_true, RMSE_Ts, JUPYTER_MODE=False
 ):
     plt.style.use("bmh")
 
@@ -929,14 +870,17 @@ def plot_metrics_rmse(
     plt.xlim([0, N_eval])
 
     plt.legend()
-    plt.savefig(
-        Path(output_dir) / ("RMSE" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("RMSE" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
-def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, ACC_Ts):
+def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, ACC_Ts, JUPYTER_MODE=False):
     plt.style.use("bmh")
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
@@ -959,11 +903,14 @@ def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, AC
     plt.xlim([0, N_eval])
 
     plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("ACC" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("ACC" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_pdf(
@@ -971,6 +918,7 @@ def plot_metrics_pdf(
     region,
     output_dir,
     pdf,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -981,10 +929,10 @@ def plot_metrics_pdf(
         "1": r"$\overline{v}$ $( m/s )$",
         "0": r"$\overline{u}$ $( m/s )$",
         "2": r"$\overline{T}$ $( ^\circ C )$",
+        "KE": r"$\overline{KE}$",
     }
 
-    for ind_plot in range(3):
-        plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", label="CM2.6")
+    for ind_plot in pdf.keys():
         for i, network_name in enumerate(network_names):
             plt.semilogy(
                 *pdf[ind_plot][network_name],
@@ -1000,19 +948,29 @@ def plot_metrics_pdf(
             ]
         )
 
+        plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", ls='--', label="CM2.6")
         plt.legend()
+        
 
         plt.xlabel(var_list[str(ind_plot)])
-        plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
-
-        plt.savefig(
-            Path(output_dir) / ("PDF" + region + "_" + str(ind_plot) + ".png"),
-            bbox_inches="tight",
-        )
-        plt.clf()
+        if isinstance(ind_plot, int): 
+            plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
+        else:
+            plt.ylabel(r"${p(}$" + var_list[str(ind_plot)] + "${)}$")
 
 
-def plot_long_KE(
+        if JUPYTER_MODE:
+            plt.show()
+
+        else:
+            plt.savefig(
+                Path(output_dir) / ("PDF" + region + "_" + str(ind_plot) + ".png"),
+                bbox_inches="tight",
+            )
+            plt.clf()
+
+
+def plot_map(
     network_names,
     region,
     save_str,
@@ -1022,6 +980,8 @@ def plot_long_KE(
     wet_nan,
     long_KE_true,
     long_KEs,
+    mode="KE",
+    JUPYTER_MODE=False,
 ):
 
     plt.style.use("bmh")
@@ -1058,8 +1018,12 @@ def plot_long_KE(
         print("0 entries in long_KE")
         return
 
-    vmin = 0
-    vmax = 45
+    if mode == "KE":
+        vmin = 0
+        vmax = 45
+    elif mode == "TEMP":
+        vmin = -10
+        vmax = 50
 
     if "global" in region:
         x_plot = grids["x_C"]
@@ -1187,7 +1151,7 @@ def plot_long_KE(
         axs[1, 1].set_axis_off()
         axs[1, 2].set_axis_off()
     if len(long_KEs) == 3:
-        axs[1, 1].set_axis_off()
+        axs[1, 2].set_axis_off()
     
 
     region_title = ""
@@ -1210,14 +1174,17 @@ def plot_long_KE(
     #     fontsize=16,
     # )
 
-    plt.savefig(
-        Path(output_dir) / ("Mean_KE" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Mean_" + mode + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
-def plot_long_MSE_KE(
+def plot_error_map(
     network_names,
     region,
     save_str,
@@ -1227,6 +1194,8 @@ def plot_long_MSE_KE(
     wet_nan,
     long_KE_true,
     long_mse_KEs,
+    mode="KE",
+    JUPYTER_MODE=False,
 ):
 
     plt.style.use("bmh")
@@ -1263,8 +1232,12 @@ def plot_long_MSE_KE(
         print("0 entries in long_KE")
         return
 
-    vmin = 0
-    vmax = 200
+    if mode == "KE":
+        vmin = 0
+        vmax = 200
+    elif mode == "TEMP":
+        vmin = 0
+        vmax = 20
 
     if "global" in region:
         x_plot = grids["x_C"]
@@ -1392,7 +1365,7 @@ def plot_long_MSE_KE(
         axs[1, 1].set_axis_off()
         axs[1, 2].set_axis_off()
     if len(long_mse_KEs) == 3:
-        axs[1, 1].set_axis_off()
+        axs[1, 2].set_axis_off()
     
 
     region_title = ""
@@ -1415,11 +1388,14 @@ def plot_long_MSE_KE(
     #     fontsize=16,
     # )
 
-    plt.savefig(
-        Path(output_dir) / ("MSE_KE" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("MSE_" + mode + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def get_initial_snapshot_fig(
@@ -1632,7 +1608,7 @@ def get_initial_snapshot_fig(
         axs[1, 1].set_axis_off()
         axs[1, 2].set_axis_off()
     if len(model_preds) == 3:
-        axs[1, 1].set_axis_off()
+        axs[1, 2].set_axis_off()
 
     region_title = ""
 

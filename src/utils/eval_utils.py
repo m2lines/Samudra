@@ -930,6 +930,24 @@ def compute_ACC_single(N_eval, test_data, model_pred, clim, time, area, wet):
     return corrs, auto_corrs
 
 
+def compute_mean_single(N_eval, test_data, model_pred, area, wet):
+    N_in = model_pred.shape[-1]
+
+    mean = np.zeros((N_eval))
+    auto_mean = np.zeros((N_eval))
+
+    area_flat = np.array(area[wet].flatten())
+
+    for i in range(N_eval):
+        mean_u = (area_flat * model_pred[i, wet].flatten()).sum() / area_flat.sum()
+        mean[i] = mean_u
+
+        automean_u = (area_flat * test_data[i, wet].flatten()).sum() / area_flat.sum()
+        auto_mean[i] = automean_u
+
+    return mean, auto_mean
+
+
 def gen_KE_spectrum(N_eval, test_data, model_pred, grids, wet):
     std_out = test_data.norm_vals["s_out"]
     mean_out = test_data.norm_vals["m_out"]

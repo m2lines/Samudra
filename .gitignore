@@ -18,3 +18,4 @@ train_recunet
 train_unet
 train_unet_old
 train_swin
+notebooks/temp

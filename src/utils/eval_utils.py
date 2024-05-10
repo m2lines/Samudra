@@ -1012,3 +1012,11 @@ def gen_enstrophy_spectrum(N_eval, test_data, model_pred, grids, wet, wet_lap, N
         ],
     )
     return enst_spec, enst_spec_true
+
+def gen_value_range(start, N_eval, test_data, model_pred, index):
+    data_out_cpu = np.array(test_data[:][1].cpu()) * np.expand_dims(
+        test_data.norm_vals["s_out"], [0, 2, 3]
+    ) + np.expand_dims(test_data.norm_vals["m_out"], [0, 2, 3])
+    pred_temp = model_pred[start : start + N_eval, :, :, index]
+    true_temp = data_out_cpu[start : start + N_eval, index]
+    return pred_temp, true_temp

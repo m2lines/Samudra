@@ -40,8 +40,8 @@ from utils.climate_utils import compute_laplacian_wet
 from utils.plot_utils import (
     plot_short_time_stats,
     plot_long_time_stats,
-    plot_long_KE,
-    plot_long_MSE_KE,
+    plot_map,
+    plot_error_map,
     plot_metrics_KE_spectrum,
     plot_metrics_KE,
     plot_metrics_enstrophy_spectrum,
@@ -299,11 +299,13 @@ class Eval:
         self.output_dir = args.output_dir
         self.region = args.region
         self.steps = args.steps
-        self.network = args.network
+        self.network = args.model_name_replace
 
         self.pred_region = args.region
         self.pred_names = args.pred_names if args.pred_names else []
         self.pred_paths = args.pred_paths if args.pred_paths else []
+
+        self.JUPYTER_MODE = False
 
     def generate_pred_lateral(self):
         print("Generation Pred begin...")
@@ -612,6 +614,7 @@ class Eval:
             FFTs_saved + [FFTs_net],
             auto_mean,
             means_saved + [mean_net],
+            self.JUPYTER_MODE
         )
 
     def compare_short_pred_lateral(self):
@@ -840,6 +843,7 @@ class Eval:
             KE_saved + [KE_net],
             auto_corrs,
             Corrs_saved + [corrs_net],
+            self.JUPYTER_MODE
         )
 
     def plot_metrics(self):
@@ -910,7 +914,7 @@ class Eval:
             
 
         print("Plotting mean KE...")
-        plot_long_KE(
+        plot_map(
             self.pred_names + [self.network],
             self.region,
             self.str_save,
@@ -920,10 +924,11 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_KE_saved + [long_KE_net],
+            self.JUPYTER_MODE
         )
 
         print("Plotting MSE KE")
-        plot_long_MSE_KE(
+        plot_error_map(
             self.pred_names + [self.network],
             self.region,
             self.str_save,
@@ -933,6 +938,7 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_mse_KE_saved + [mse_KE_net],
+            self.JUPYTER_MODE
         )
 
         ### Short time scale metrics
@@ -959,6 +965,7 @@ class Eval:
             self.output_dir,
             KE_spec_true,
             KE_spec_saved + [KE_spec_net],
+            self.JUPYTER_MODE
         )
 
         KE_net, KE_true = compute_KE(
@@ -980,6 +987,7 @@ class Eval:
             self.output_dir,
             KE_true,
             KE_saved + [KE_net],
+            self.JUPYTER_MODE
         )
 
         # Enstrophy
@@ -1015,6 +1023,7 @@ class Eval:
             self.output_dir,
             enst_spec_true,
             enst_spec_saved + [enst_spec_net],
+            self.JUPYTER_MODE
         )
 
         enst_net, enst_true = gen_enstrophy(
@@ -1052,6 +1061,7 @@ class Eval:
             self.output_dir,
             enst_true,
             enst_saved + [enst_net],
+            self.JUPYTER_MODE
         )
 
         ### Spatial matching metrics
@@ -1067,8 +1077,8 @@ class Eval:
         )
 
         # Corr
-        print("Getting Corr stats...")
         N_eval = 200
+        print("Getting Corr stats...")
         corr_T_net, corr_T_true = compute_corrs_single(
             N_eval,
             T_test,
@@ -1099,6 +1109,7 @@ class Eval:
             self.output_dir,
             corr_T_true,
             corr_T_saved + [corr_T_net],
+            self.JUPYTER_MODE
         )
 
         # RMSE
@@ -1122,6 +1133,7 @@ class Eval:
             self.output_dir,
             RMSE_T_true,
             RMSE_T_saved + [RMSE_T_net],
+            self.JUPYTER_MODE
         )
 
         # ACC
@@ -1158,6 +1170,7 @@ class Eval:
             self.output_dir,
             ACC_T_true,
             ACC_T_saved + [ACC_T_net],
+            self.JUPYTER_MODE
         )
 
         # PDF
@@ -1196,12 +1209,41 @@ class Eval:
 
                 pdf[ind_plot][self.pred_names[i]] = [bins_i, pdf_i]
 
+        # KE PDF
+        long_KE_net, long_KE_true = gen_KE_range(
+            day_start, N_days, self.test_data, model_pred_net
+        )
+
+        true_KE_field = long_KE_true[:, self.wet_bool].flatten()
+        true_KE_pdf, bins_KE_true = np.histogram(true_KE_field, bins=150, density=True)
+        bins_KE_true = (bins_KE_true[1:] + bins_KE_true[:-1]) / 2
+
+        field_KE_net = long_KE_net[:, self.wet_bool].flatten()
+        pdf_KE_net, bins_KE_net = np.histogram(field_KE_net, bins=150, density=True)
+        bins_KE_net = (bins_KE_net[1:] + bins_KE_net[:-1]) / 2
+
+        pdf["KE"] = {
+                "true_pdf": true_KE_pdf,
+                "true": [bins_KE_true, true_KE_pdf],
+                self.network: [bins_KE_net, pdf_KE_net],
+            }
+
+        for i, model_pred_saved in enumerate(model_pred_saved_nets):
+            long_KE_savedi, _ = gen_KE_range(
+                day_start, N_days, self.test_data, model_pred_saved
+            )
+            field_i = long_KE_savedi[:, self.wet_bool].flatten()
+            pdf_i, bins_i = np.histogram(field_i, bins=150, density=True)
+            bins_i = (bins_i[1:] + bins_i[:-1]) / 2
+            pdf["KE"][self.pred_names[i]] = [bins_i, pdf_i]
+
         print("Plotting pdf...")
         plot_metrics_pdf(
             self.pred_names + [self.network],
             self.region,
             self.output_dir,
             pdf,
+            self.JUPYTER_MODE
         )
 
     def plot_animation(self):
@@ -1466,7 +1508,7 @@ class Eval:
         long_KE_true = long_KE_true.mean(0)
 
         print("Plotting Long mean KE...")
-        plot_long_KE(
+        plot_map(
             self.pred_names + [self.network],
             self.region + "_Long_",
             self.str_save,
@@ -1476,10 +1518,11 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_KE_saved + [long_KE_net],
+            self.JUPYTER_MODE
         )
 
         print("Plotting Long MSE KE")
-        plot_long_MSE_KE(
+        plot_error_map(
             self.pred_names + [self.network],
             self.region + "_Long_",
             self.str_save,
@@ -1489,9 +1532,9 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_mse_KE_saved + [mse_KE_net],
+            self.JUPYTER_MODE
         )
 
-        ### Short time scale metrics
         N_plot = 1000
 
         # KE
@@ -1515,6 +1558,7 @@ class Eval:
             self.output_dir,
             KE_spec_true,
             KE_spec_saved + [KE_spec_net],
+            self.JUPYTER_MODE
         )
 
         KE_net, KE_true = compute_KE(
@@ -1536,6 +1580,7 @@ class Eval:
             self.output_dir,
             KE_true,
             KE_saved + [KE_net],
+            self.JUPYTER_MODE
         )
 
         # Enstrophy
@@ -1571,6 +1616,7 @@ class Eval:
             self.output_dir,
             enst_spec_true,
             enst_spec_saved + [enst_spec_net],
+            self.JUPYTER_MODE
         )
 
         enst_net, enst_true = gen_enstrophy(
@@ -1608,6 +1654,7 @@ class Eval:
             self.output_dir,
             enst_true,
             enst_saved + [enst_net],
+            self.JUPYTER_MODE
         )
 
         ### Spatial matching metrics
@@ -1657,6 +1704,34 @@ class Eval:
                 bins_i = (bins_i[1:] + bins_i[:-1]) / 2
 
                 pdf[ind_plot][self.pred_names[i]] = [bins_i, pdf_i]
+        
+        # KE PDF
+        long_KE_net, long_KE_true = gen_KE_range(
+            day_start, N_days, self.test_data, model_pred_net
+        )
+
+        true_KE_field = long_KE_true[:, self.wet_bool].flatten()
+        true_KE_pdf, bins_KE_true = np.histogram(true_KE_field, bins=150, density=True)
+        bins_KE_true = (bins_KE_true[1:] + bins_KE_true[:-1]) / 2
+
+        field_KE_net = long_KE_net[:, self.wet_bool].flatten()
+        pdf_KE_net, bins_KE_net = np.histogram(field_KE_net, bins=150, density=True)
+        bins_KE_net = (bins_KE_net[1:] + bins_KE_net[:-1]) / 2
+
+        pdf["KE"] = {
+                "true_pdf": true_KE_pdf,
+                "true": [bins_KE_true, true_KE_pdf],
+                self.network: [bins_KE_net, pdf_KE_net],
+            }
+
+        for i, model_pred_saved in enumerate(model_pred_saved_nets):
+            long_KE_savedi, _ = gen_KE_range(
+                day_start, N_days, self.test_data, model_pred_saved
+            )
+            field_i = long_KE_savedi[:, self.wet_bool].flatten()
+            pdf_i, bins_i = np.histogram(field_i, bins=150, density=True)
+            bins_i = (bins_i[1:] + bins_i[:-1]) / 2
+            pdf["KE"][self.pred_names[i]] = [bins_i, pdf_i]
 
         print("Plotting Long pdf...")
         plot_metrics_pdf(
@@ -1664,6 +1739,7 @@ class Eval:
             self.region + "_Long_",
             self.output_dir,
             pdf,
+            self.JUPYTER_MODE
         )
 
     def send_data_to_cpu(self):

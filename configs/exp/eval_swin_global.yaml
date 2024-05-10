@@ -20,6 +20,7 @@ data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313
 steps: 4
 
 ######
+model_name_replace: Swin
 pred_region: null # "global_21"
 pred_names: 
   - Adam UNet

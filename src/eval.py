@@ -29,11 +29,13 @@ from utils.eval_utils import (
     gen_KE_spectrum,
     gen_KE,
     gen_KE_range,
+    gen_value_range,
     gen_enstrophy_spectrum,
     gen_enstrophy,
     compute_corrs_single,
     compute_ACC_single,
     compute_RMSE_single,
+    compute_mean_single,
 )
 from utils.subgrid_utils import get_area_tensor
 from utils.climate_utils import compute_laplacian_wet
@@ -49,6 +51,7 @@ from utils.plot_utils import (
     plot_metrics_corr,
     plot_metrics_rmse,
     plot_metrics_acc,
+    plot_metrics_mean,
     plot_metrics_pdf,
     get_initial_snapshot_fig,
 )
@@ -846,8 +849,8 @@ class Eval:
             self.JUPYTER_MODE
         )
 
-    def plot_metrics(self):
-        print("Plot metrics begin...")
+    def load_short_data(self):
+        print("Loading data")
         model_pred_net = None
         model_pred_net = (
             xr.open_zarr(
@@ -884,39 +887,72 @@ class Eval:
             model_pred_saved_nets.append(
                 xr.open_zarr(net_path).to_array().to_numpy().squeeze()
             )
-
-        ### Long time KE
-        print("Getting mean KE stats...")
-        start = 0
-        N_plot = 1000
-
-        long_KE_net, long_KE_true = gen_KE_range(
-            start, N_plot, self.test_data, model_pred_net
+        
+        return model_pred_net, model_pred_saved_nets
+    
+    def load_long_data(self):
+        print("Load long data...")
+        model_pred_net = (
+            xr.open_zarr(
+                self.pred_model_path
+                / (
+                    "Pred_lateral_Fast_Data_025_"
+                    + self.post_pred_name
+                    + "_rand_seed_"
+                    + str(1)
+                    + ".zarr"
+                )
+            )
+            .to_array()
+            .to_numpy()
+            .squeeze()
         )
-        mse_KE_net = np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
+
+        model_pred_saved_nets = []
+        for model_pred_path in self.pred_paths:
+            net_path = Path(model_pred_path) / (
+                "Pred_lateral_Fast_Data_025_"
+                + self.pred_region
+                + "_in_"
+                + self.str_in
+                + "ext_"
+                + "tau_u_tau_v_t_ref_"
+                + "N_samples_"
+                + str(4000)
+                + "_rand_seed_"
+                + str(1)
+                + ".zarr"
+            )
+
+            model_pred_saved_nets.append(
+                xr.open_zarr(net_path).to_array().to_numpy().squeeze()
+            )
+        
+        return model_pred_net, model_pred_saved_nets
+
+    def plot_maps(self, model_pred_net, model_pred_saved_nets, start_map=0, N_plot_map=1000, start_error_map=0, N_plot_error_map=1000, long=False):
+        ### Long time KE
+        print("Getting Mean KE stats...")
+        long_KE_net, long_KE_true = gen_KE_range(
+            start_map, N_plot_map, self.test_data, model_pred_net
+        )
         long_KE_net = long_KE_net.mean(0)
 
 
         long_KE_saved = []
-        long_mse_KE_saved = []
         for model_pred_saved in model_pred_saved_nets:
             long_KE_savedi, _ = gen_KE_range(
-                start, N_plot, self.test_data, model_pred_saved
+                start_map, N_plot_map, self.test_data, model_pred_saved
             )
-            mse_KE_savedi = np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
-
-            long_mse_KE_saved.append(mse_KE_savedi)
             long_KE_savedi = long_KE_savedi.mean(0)
             long_KE_saved.append(long_KE_savedi)
         
         long_KE_true = long_KE_true.mean(0)
 
-            
-
         print("Plotting mean KE...")
         plot_map(
             self.pred_names + [self.network],
-            self.region,
+            self.region if not long else self.region + '_Long_',
             self.str_save,
             self.output_dir,
             self.grids,
@@ -924,13 +960,31 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_KE_saved + [long_KE_net],
+            "KE",
             self.JUPYTER_MODE
         )
 
-        print("Plotting MSE KE")
+        print("Getting MAE KE stats...")
+
+        long_KE_net, long_KE_true = gen_KE_range(
+            start_error_map, N_plot_error_map, self.test_data, model_pred_net
+        )
+        mse_KE_net = np.abs(long_KE_net.mean(axis=0) - long_KE_true.mean(axis=0)) # np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
+
+        long_mse_KE_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            long_KE_savedi, _ = gen_KE_range(
+                start_error_map, N_plot_error_map, self.test_data, model_pred_saved
+            )
+            mse_KE_savedi = np.abs(long_KE_savedi.mean(axis=0) - long_KE_true.mean(axis=0)) # np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
+            long_mse_KE_saved.append(mse_KE_savedi)
+        
+        long_KE_true = long_KE_true.mean(0)
+
+        print("Plotting MAE KE")
         plot_error_map(
             self.pred_names + [self.network],
-            self.region,
+            self.region if not long else self.region + '_Long_',
             self.str_save,
             self.output_dir,
             self.grids,
@@ -938,29 +992,93 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_mse_KE_saved + [mse_KE_net],
+            "KE",
             self.JUPYTER_MODE
         )
 
-        ### Short time scale metrics
-        N_plot = 200
+        print("Getting Mean Temp Stats")
+        long_temp_net, long_temp_true = gen_value_range(
+            start_map, N_plot_map, self.test_data, model_pred_net, 2
+        )
+        long_temp_net = long_temp_net.mean(0)
 
-        # KE
-        print("Getting Short KE stats...")
+        long_temp_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            long_temp_savedi, _ = gen_value_range(
+                start_map, N_plot_map, self.test_data, model_pred_saved, 2
+            )
+            long_temp_savedi = long_temp_savedi.mean(0)
+            long_temp_saved.append(long_temp_savedi)
+
+        long_temp_true = long_temp_true.mean(0)
+
+        print("Plotting Temp map...")
+        plot_map(
+            self.pred_names + [self.network],
+            self.region if not long else self.region + '_Long_',
+            self.str_save,
+            self.output_dir,
+            self.grids,
+            self.Nb,
+            self.wet_nan,
+            long_temp_true,
+            long_temp_saved + [long_temp_net],
+            "TEMP",
+            self.JUPYTER_MODE
+        )
+
+        long_temp_net, long_temp_true = gen_value_range(
+            start_error_map, N_plot_error_map, self.test_data, model_pred_net, 2
+        )
+        # mse_temp_net = np.sqrt(((long_temp_net - long_temp_true)**2).mean(axis=0))
+        mse_temp_net = np.abs(long_temp_net.mean(axis=0) - long_temp_true.mean(axis=0))
+
+        long_temp_net = long_temp_net.mean(0)
+
+        long_temp_RMSE_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            long_temp_savedi, _ = gen_value_range(
+                start_error_map, N_plot_error_map, self.test_data, model_pred_saved, 2
+            )
+            # mse_KE_savedi = np.sqrt(((long_temp_savedi - long_temp_true)**2).mean(axis=0))
+            mse_KE_savedi = np.abs(long_temp_savedi.mean(axis=0) - long_temp_true.mean(axis=0))
+            long_temp_RMSE_saved.append(mse_KE_savedi)
+
+        long_temp_true = long_temp_true.mean(0)
+
+
+        print("Plotting MAE temp map")
+        plot_error_map(
+            self.pred_names + [self.network],
+            self.region if not long else self.region + '_Long_',
+            self.str_save,
+            self.output_dir,
+            self.grids,
+            self.Nb,
+            self.wet_nan,
+            long_temp_true,
+            long_temp_RMSE_saved + [mse_temp_net],
+            "TEMP",
+            self.JUPYTER_MODE
+        )
+    
+    def plot_timeseries_KE(self, model_pred_net, model_pred_saved_nets, start=0, N_plot=200, N_plot_spec=200, long=False):
+        print("Getting KE stats...")
         KE_spec_net, KE_spec_true = gen_KE_spectrum(
-            N_plot, self.test_data, model_pred_net, self.grids, self.wet
+            N_plot_spec, self.test_data, model_pred_net, self.grids, self.wet
         )
 
         KE_spec_saved = []
         for model_pred_saved in model_pred_saved_nets:
             KE_speci, KE_spec_true = gen_KE_spectrum(
-                N_plot, self.test_data, model_pred_saved, self.grids, self.wet
+                N_plot_spec, self.test_data, model_pred_saved, self.grids, self.wet
             )
             KE_spec_saved.append(KE_speci)
 
         print("Plotting KE Spectrum...")
         plot_metrics_KE_spectrum(
             self.pred_names + [self.network],
-            self.region,
+            self.region if not long else self.region + '_Long_',
             self.str_save,
             self.output_dir,
             KE_spec_true,
@@ -982,14 +1100,17 @@ class Eval:
         print("Plotting KE...")
         plot_metrics_KE(
             self.pred_names + [self.network],
-            self.region,
+            self.region if not long else self.region + '_Long_',
             self.str_save,
             self.output_dir,
             KE_true,
             KE_saved + [KE_net],
+            start,
+            N_plot,
             self.JUPYTER_MODE
         )
-
+    
+    def plot_timeseries_enstrophy(self, model_pred_net, model_pred_saved_nets, N_plot=200, long=False):
         # Enstrophy
         print("Getting Enstrophy stats...")
         enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
@@ -1018,7 +1139,7 @@ class Eval:
         print("Plotting Enstrophy spectrum...")
         plot_metrics_enstrophy_spectrum(
             self.pred_names + [self.network],
-            self.region,
+            self.region if not long else self.region + '_Long_',
             self.str_save,
             self.output_dir,
             enst_spec_true,
@@ -1056,14 +1177,15 @@ class Eval:
         print("Plotting Enstrophy...")
         plot_metrics_entrophy(
             self.pred_names + [self.network],
-            self.region,
+            self.region if not long else self.region + '_Long_',
             self.str_save,
             self.output_dir,
             enst_true,
             enst_saved + [enst_net],
             self.JUPYTER_MODE
         )
-
+    
+    def plot_timeseries_temperature(self, model_pred_net, model_pred_saved_nets, start=0, N_eval=200, N_eval_ACC=100, long=False):
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")
         u_test = np.array(
@@ -1075,112 +1197,142 @@ class Eval:
         T_test = np.array(
             self.test_data[:][1][:, 2] * self.std_out[2] + self.mean_out[2]
         )
-
-        # Corr
-        N_eval = 200
-        print("Getting Corr stats...")
-        corr_T_net, corr_T_true = compute_corrs_single(
-            N_eval,
-            T_test,
-            model_pred_net[:, :, :, 2],
-            self.area,
-            self.wet_bool,
-            self.std_out[2],
-            self.mean_out[2],
-        )
-        corr_T_saved = []
-        for model_pred_saved in model_pred_saved_nets:
-            corr_T_i, corr_T_true = compute_corrs_single(
+        if not long:
+            # Corr
+            print("Getting Corr stats...")
+            corr_T_net, corr_T_true = compute_corrs_single(
                 N_eval,
                 T_test,
-                model_pred_saved[:, :, :, 2],
+                model_pred_net[:, :, :, 2],
                 self.area,
                 self.wet_bool,
                 self.std_out[2],
                 self.mean_out[2],
             )
-            corr_T_saved.append(corr_T_i)
+            corr_T_saved = []
+            for model_pred_saved in model_pred_saved_nets:
+                corr_T_i, corr_T_true = compute_corrs_single(
+                    N_eval,
+                    T_test,
+                    model_pred_saved[:, :, :, 2],
+                    self.area,
+                    self.wet_bool,
+                    self.std_out[2],
+                    self.mean_out[2],
+                )
+                corr_T_saved.append(corr_T_i)
 
-        print("Plotting Corr...")
-        plot_metrics_corr(
-            self.pred_names + [self.network],
-            self.region,
-            self.str_save,
-            self.output_dir,
-            corr_T_true,
-            corr_T_saved + [corr_T_net],
-            self.JUPYTER_MODE
-        )
-
-        # RMSE
-        print("Getting RMSE stats...")
-        RMSE_T_net, RMSE_T_true = compute_RMSE_single(
-            N_eval, T_test, model_pred_net[:, :, :, 2], self.area, self.wet_bool
-        )
-
-        RMSE_T_saved = []
-        for model_pred_saved in model_pred_saved_nets:
-            RMSE_T_i, RMSE_T_true = compute_RMSE_single(
-                N_eval, T_test, model_pred_saved[:, :, :, 2], self.area, self.wet_bool
+            print("Plotting Corr...")
+            plot_metrics_corr(
+                self.pred_names + [self.network],
+                self.region if not long else self.region + '_Long_',
+                self.str_save,
+                self.output_dir,
+                corr_T_true,
+                corr_T_saved + [corr_T_net],
+                self.JUPYTER_MODE
             )
-            RMSE_T_saved.append(RMSE_T_i)
 
-        print("Plotting RMSE...")
-        plot_metrics_rmse(
-            self.pred_names + [self.network],
-            self.region,
-            self.str_save,
-            self.output_dir,
-            RMSE_T_true,
-            RMSE_T_saved + [RMSE_T_net],
-            self.JUPYTER_MODE
-        )
+            # RMSE
+            print("Getting RMSE stats...")
+            RMSE_T_net, RMSE_T_true = compute_RMSE_single(
+                N_eval, T_test, model_pred_net[:, :, :, 2], self.area, self.wet_bool
+            )
 
-        # ACC
-        print("Getting ACC stats...")
-        N_eval = 100
-        ACC_T_net, ACC_T_true = compute_ACC_single(
-            N_eval,
-            T_test,
-            model_pred_net[:, :, :, 2],
-            self.clim[:, :, :, 2],
-            self.time_test,
-            self.area,
-            self.wet_bool,
-        )
+            RMSE_T_saved = []
+            for model_pred_saved in model_pred_saved_nets:
+                RMSE_T_i, RMSE_T_true = compute_RMSE_single(
+                    N_eval, T_test, model_pred_saved[:, :, :, 2], self.area, self.wet_bool
+                )
+                RMSE_T_saved.append(RMSE_T_i)
 
-        ACC_T_saved = []
-        for model_pred_saved in model_pred_saved_nets:
-            ACC_T_i, ACC_T_true = compute_ACC_single(
-                N_eval,
+            print("Plotting RMSE...")
+            plot_metrics_rmse(
+                self.pred_names + [self.network],
+                self.region if not long else self.region + '_Long_',
+                self.str_save,
+                self.output_dir,
+                RMSE_T_true,
+                RMSE_T_saved + [RMSE_T_net],
+                self.JUPYTER_MODE
+            )
+
+            # ACC
+            print("Getting ACC stats...")
+            ACC_T_net, ACC_T_true = compute_ACC_single(
+                N_eval_ACC,
                 T_test,
-                model_pred_saved[:, :, :, 2],
+                model_pred_net[:, :, :, 2],
                 self.clim[:, :, :, 2],
                 self.time_test,
                 self.area,
                 self.wet_bool,
             )
-            ACC_T_saved.append(ACC_T_i)
 
-        print("Plotting ACC...")
-        plot_metrics_acc(
+            ACC_T_saved = []
+            for model_pred_saved in model_pred_saved_nets:
+                ACC_T_i, ACC_T_true = compute_ACC_single(
+                    N_eval_ACC,
+                    T_test,
+                    model_pred_saved[:, :, :, 2],
+                    self.clim[:, :, :, 2],
+                    self.time_test,
+                    self.area,
+                    self.wet_bool,
+                )
+                ACC_T_saved.append(ACC_T_i)
+
+            print("Plotting ACC...")
+            plot_metrics_acc(
+                self.pred_names + [self.network],
+                self.region if not long else self.region + '_Long_',
+                self.str_save,
+                self.output_dir,
+                ACC_T_true,
+                ACC_T_saved + [ACC_T_net],
+                self.JUPYTER_MODE
+            )
+
+        print("Getting Mean...")
+        mean_T_net, mean_T_true = compute_mean_single(
+            N_eval,
+            T_test,
+            model_pred_net[:, :, :, 2],
+            self.area,
+            self.wet_bool,
+        )
+        mean_T_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            mean_T_i, mean_T_true = compute_mean_single(
+                N_eval,
+                T_test,
+                model_pred_saved[:, :, :, 2],
+                self.area,
+                self.wet_bool,
+            )
+            mean_T_saved.append(mean_T_i)
+
+        print("Plotting Temperature Mean...")
+        plot_metrics_mean(
             self.pred_names + [self.network],
-            self.region,
+            self.region if not long else self.region + '_Long_',
             self.str_save,
             self.output_dir,
-            ACC_T_true,
-            ACC_T_saved + [ACC_T_net],
+            mean_T_true,
+            mean_T_saved + [mean_T_net],
+            start,
+            N_eval,
             self.JUPYTER_MODE
         )
 
+        
+    def plot_pdf(self, model_pred_net, model_pred_saved_nets, start=100, N_days=100, long=False):
         # PDF
         print("Getting PDF stats...")
-        N_days = 100
-        day_start = 100  # Last 100 days
         pdf = {}
         for ind_plot in range(3):
             true_field = (
-                self.test_data[day_start : day_start + N_days][1][
+                self.test_data[start : start + N_days][1][
                     :, ind_plot, self.wet_bool
                 ].flatten()
                 * self.std_out[ind_plot]
@@ -1189,7 +1341,7 @@ class Eval:
             bins_true = (bins_true[1:] + bins_true[:-1]) / 2
 
             field_net = model_pred_net[
-                day_start : day_start + N_days, self.wet_bool, ind_plot
+                start : start + N_days, self.wet_bool, ind_plot
             ].flatten()
             pdf_net, bins_net = np.histogram(field_net, bins=150, density=True)
             bins_net = (bins_net[1:] + bins_net[:-1]) / 2
@@ -1202,7 +1354,7 @@ class Eval:
 
             for i, model_pred_saved in enumerate(model_pred_saved_nets):
                 field_i = model_pred_saved[
-                    day_start : day_start + N_days, self.wet_bool, ind_plot
+                    start : start + N_days, self.wet_bool, ind_plot
                 ].flatten()
                 pdf_i, bins_i = np.histogram(field_i, bins=150, density=True)
                 bins_i = (bins_i[1:] + bins_i[:-1]) / 2
@@ -1211,7 +1363,7 @@ class Eval:
 
         # KE PDF
         long_KE_net, long_KE_true = gen_KE_range(
-            day_start, N_days, self.test_data, model_pred_net
+            start, N_days, self.test_data, model_pred_net
         )
 
         true_KE_field = long_KE_true[:, self.wet_bool].flatten()
@@ -1230,7 +1382,7 @@ class Eval:
 
         for i, model_pred_saved in enumerate(model_pred_saved_nets):
             long_KE_savedi, _ = gen_KE_range(
-                day_start, N_days, self.test_data, model_pred_saved
+                start, N_days, self.test_data, model_pred_saved
             )
             field_i = long_KE_savedi[:, self.wet_bool].flatten()
             pdf_i, bins_i = np.histogram(field_i, bins=150, density=True)
@@ -1240,7 +1392,7 @@ class Eval:
         print("Plotting pdf...")
         plot_metrics_pdf(
             self.pred_names + [self.network],
-            self.region,
+            self.region if not long else self.region + '_Long_',
             self.output_dir,
             pdf,
             self.JUPYTER_MODE
@@ -1443,304 +1595,6 @@ class Eval:
                 )
             )
 
-    def plot_long_metrics(self):
-        print("Plot Long metrics begin...")
-        model_pred_net = (
-            xr.open_zarr(
-                self.pred_model_path
-                / (
-                    "Pred_lateral_Fast_Data_025_"
-                    + self.post_pred_name
-                    + "_rand_seed_"
-                    + str(1)
-                    + ".zarr"
-                )
-            )
-            .to_array()
-            .to_numpy()
-            .squeeze()
-        )
-
-        model_pred_saved_nets = []
-        for model_pred_path in self.pred_paths:
-            net_path = Path(model_pred_path) / (
-                "Pred_lateral_Fast_Data_025_"
-                + self.pred_region
-                + "_in_"
-                + self.str_in
-                + "ext_"
-                + "tau_u_tau_v_t_ref_"
-                + "N_samples_"
-                + str(4000)
-                + "_rand_seed_"
-                + str(1)
-                + ".zarr"
-            )
-
-            model_pred_saved_nets.append(
-                xr.open_zarr(net_path).to_array().to_numpy().squeeze()
-            )
-
-        ### Long time KE
-        print("Getting Long mean KE stats...")
-        start = 1999
-        N_plot = 2999
-
-        long_KE_net, long_KE_true = gen_KE_range(
-            start, N_plot, self.test_data, model_pred_net
-        )
-        mse_KE_net = np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
-        long_KE_net = long_KE_net.mean(0)
-
-        long_KE_saved = []
-        long_mse_KE_saved = []
-        for model_pred_saved in model_pred_saved_nets:
-            long_KE_savedi, _ = gen_KE_range(
-                start, N_plot, self.test_data, model_pred_saved
-            )
-
-            mse_KE_savedi = np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
-            long_mse_KE_saved.append(mse_KE_savedi)
-
-            long_KE_savedi = long_KE_savedi.mean(0)
-            long_KE_saved.append(long_KE_savedi)
-        
-        long_KE_true = long_KE_true.mean(0)
-
-        print("Plotting Long mean KE...")
-        plot_map(
-            self.pred_names + [self.network],
-            self.region + "_Long_",
-            self.str_save,
-            self.output_dir,
-            self.grids,
-            self.Nb,
-            self.wet_nan,
-            long_KE_true,
-            long_KE_saved + [long_KE_net],
-            self.JUPYTER_MODE
-        )
-
-        print("Plotting Long MSE KE")
-        plot_error_map(
-            self.pred_names + [self.network],
-            self.region + "_Long_",
-            self.str_save,
-            self.output_dir,
-            self.grids,
-            self.Nb,
-            self.wet_nan,
-            long_KE_true,
-            long_mse_KE_saved + [mse_KE_net],
-            self.JUPYTER_MODE
-        )
-
-        N_plot = 1000
-
-        # KE
-        print("Getting Long KE stats...")
-        KE_spec_net, KE_spec_true = gen_KE_spectrum(
-            N_plot, self.test_data, model_pred_net, self.grids, self.wet
-        )
-
-        KE_spec_saved = []
-        for model_pred_saved in model_pred_saved_nets:
-            KE_speci, KE_spec_true = gen_KE_spectrum(
-                N_plot, self.test_data, model_pred_saved, self.grids, self.wet
-            )
-            KE_spec_saved.append(KE_speci)
-
-        print("Plotting Long KE Spectrum...")
-        plot_metrics_KE_spectrum(
-            self.pred_names + [self.network],
-            self.region + "_Long_",
-            self.str_save,
-            self.output_dir,
-            KE_spec_true,
-            KE_spec_saved + [KE_spec_net],
-            self.JUPYTER_MODE
-        )
-
-        KE_net, KE_true = compute_KE(
-            N_plot, self.test_data, model_pred_net, self.area, self.wet_bool
-        )
-
-        KE_saved = []
-        for model_pred_saved in model_pred_saved_nets:
-            KE_neti, KE_true = compute_KE(
-                N_plot, self.test_data, model_pred_saved, self.area, self.wet_bool
-            )
-            KE_saved.append(KE_neti)
-
-        print("Plotting Long KE...")
-        plot_metrics_KE(
-            self.pred_names + [self.network],
-            self.region + "_Long_",
-            self.str_save,
-            self.output_dir,
-            KE_true,
-            KE_saved + [KE_net],
-            self.JUPYTER_MODE
-        )
-
-        # Enstrophy
-        print("Getting Long Enstrophy stats...")
-        enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
-            N_plot,
-            self.test_data,
-            model_pred_net,
-            self.grids,
-            self.wet,
-            self.wet_lap,
-            Nb=4 # hardcoded
-        )
-
-        enst_spec_saved = []
-        for model_pred_saved in model_pred_saved_nets:
-            enst_speci, enst_spec_true = gen_enstrophy_spectrum(
-                N_plot,
-                self.test_data,
-                model_pred_saved,
-                self.grids,
-                self.wet,
-                self.wet_lap,
-                Nb=4 # hardcoded
-            )
-            enst_spec_saved.append(enst_speci)
-
-        print("Plotting Long Enstrophy spectrum...")
-        plot_metrics_enstrophy_spectrum(
-            self.pred_names + [self.network],
-            self.region + "_Long_",
-            self.str_save,
-            self.output_dir,
-            enst_spec_true,
-            enst_spec_saved + [enst_spec_net],
-            self.JUPYTER_MODE
-        )
-
-        enst_net, enst_true = gen_enstrophy(
-            N_plot,
-            self.test_data,
-            model_pred_net,
-            self.dx,
-            self.dy,
-            4, # hardcoded
-            self.wet_lap,
-        )
-        enst_net = enst_net.mean(axis=(1, 2))
-
-        enst_saved = []
-        for model_pred_saved in model_pred_saved_nets:
-            enst_i, enst_true = gen_enstrophy(
-                N_plot,
-                self.test_data,
-                model_pred_saved,
-                self.dx,
-                self.dy,
-                4, # hardcoded
-                self.wet_lap,
-            )
-            enst_i = enst_i.mean(axis=(1, 2))
-            enst_saved.append(enst_i)
-
-        enst_true = enst_true.mean(axis=(1, 2))
-
-        print("Plotting Long Enstrophy...")
-        plot_metrics_entrophy(
-            self.pred_names + [self.network],
-            self.region + "_Long_",
-            self.str_save,
-            self.output_dir,
-            enst_true,
-            enst_saved + [enst_net],
-            self.JUPYTER_MODE
-        )
-
-        ### Spatial matching metrics
-        print("Getting Spatial matching stats...")
-        u_test = np.array(
-            self.test_data[:][1][:, 0] * self.std_out[0] + self.mean_out[0]
-        )
-        v_test = np.array(
-            self.test_data[:][1][:, 1] * self.std_out[1] + self.mean_out[1]
-        )
-        T_test = np.array(
-            self.test_data[:][1][:, 2] * self.std_out[2] + self.mean_out[2]
-        )
-
-        # PDF
-        print("Getting Long PDF stats...")
-        N_days = 1000
-        day_start = 1999  # Last 100 days
-        pdf = {}
-        for ind_plot in range(3):
-            true_field = (
-                self.test_data[day_start : day_start + N_days][1][
-                    :, ind_plot, self.wet_bool
-                ].flatten()
-                * self.std_out[ind_plot]
-            ) + self.mean_out[ind_plot]
-            true_pdf, bins_true = np.histogram(true_field, bins=150, density=True)
-            bins_true = (bins_true[1:] + bins_true[:-1]) / 2
-
-            field_net = model_pred_net[
-                day_start : day_start + N_days, self.wet_bool, ind_plot
-            ].flatten()
-            pdf_net, bins_net = np.histogram(field_net, bins=150, density=True)
-            bins_net = (bins_net[1:] + bins_net[:-1]) / 2
-
-            pdf[ind_plot] = {
-                "true_pdf": true_pdf,
-                "true": [bins_true, true_pdf],
-                self.network: [bins_net, pdf_net],
-            }
-
-            for i, model_pred_saved in enumerate(model_pred_saved_nets):
-                field_i = model_pred_saved[
-                    day_start : day_start + N_days, self.wet_bool, ind_plot
-                ].flatten()
-                pdf_i, bins_i = np.histogram(field_i, bins=150, density=True)
-                bins_i = (bins_i[1:] + bins_i[:-1]) / 2
-
-                pdf[ind_plot][self.pred_names[i]] = [bins_i, pdf_i]
-        
-        # KE PDF
-        long_KE_net, long_KE_true = gen_KE_range(
-            day_start, N_days, self.test_data, model_pred_net
-        )
-
-        true_KE_field = long_KE_true[:, self.wet_bool].flatten()
-        true_KE_pdf, bins_KE_true = np.histogram(true_KE_field, bins=150, density=True)
-        bins_KE_true = (bins_KE_true[1:] + bins_KE_true[:-1]) / 2
-
-        field_KE_net = long_KE_net[:, self.wet_bool].flatten()
-        pdf_KE_net, bins_KE_net = np.histogram(field_KE_net, bins=150, density=True)
-        bins_KE_net = (bins_KE_net[1:] + bins_KE_net[:-1]) / 2
-
-        pdf["KE"] = {
-                "true_pdf": true_KE_pdf,
-                "true": [bins_KE_true, true_KE_pdf],
-                self.network: [bins_KE_net, pdf_KE_net],
-            }
-
-        for i, model_pred_saved in enumerate(model_pred_saved_nets):
-            long_KE_savedi, _ = gen_KE_range(
-                day_start, N_days, self.test_data, model_pred_saved
-            )
-            field_i = long_KE_savedi[:, self.wet_bool].flatten()
-            pdf_i, bins_i = np.histogram(field_i, bins=150, density=True)
-            bins_i = (bins_i[1:] + bins_i[:-1]) / 2
-            pdf["KE"][self.pred_names[i]] = [bins_i, pdf_i]
-
-        print("Plotting Long pdf...")
-        plot_metrics_pdf(
-            self.pred_names + [self.network],
-            self.region + "_Long_",
-            self.output_dir,
-            pdf,
-            self.JUPYTER_MODE
-        )
 
     def send_data_to_cpu(self):
         self.test_data.set_device(device="cpu")
@@ -1769,10 +1623,20 @@ def main(args):
         e.compare_short_pred_lateral()
 
     if args.run_plot_metrics:
-        e.plot_metrics()
+        model_pred_net, model_pred_saved_nets = e.load_short_data()
+        e.plot_maps(model_pred_net, model_pred_saved_nets)
+        e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets)
+        e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets)
+        e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets)
+        e.plot_pdf(model_pred_net, model_pred_saved_nets)
 
     if args.run_long_metrics:
-        e.plot_long_metrics()
+        model_pred_net, model_pred_saved_nets = e.load_long_data()
+        e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=1999, N_plot_map=2999, start_error_map=1999, N_plot_error_map=2999, long=True)
+        e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
+        e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
+        e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=1999, N_eval=2999, long=True)
+        e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
 
     if args.run_plot_animation:
         e.plot_animation()

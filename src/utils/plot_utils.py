@@ -701,6 +701,8 @@ def plot_metrics_KE(
     output_dir,
     KE_true,
     KEs,
+    start,
+    end,
     JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
@@ -714,15 +716,16 @@ def plot_metrics_KE(
     for i, KE_i in enumerate(KEs):
         if KE_i is not None:
             plt.plot(
-                np.arange(1, N_plot + 1),
-                KE_i * rho,
+                np.arange(start, end),
+                KE_i[start:end] * rho,
                 c=clist[i],
                 label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k", label="CM2.6")
+    plt.plot(np.arange(start, end), KE_true[start:end] * rho, "--k", label="CM2.6")
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"KE $( J/m^2 )$")
+    plt.xlim([start, end])
     plt.legend(loc="lower left")
     if JUPYTER_MODE:
         plt.show()
@@ -913,6 +916,49 @@ def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, AC
         plt.clf()
 
 
+def plot_metrics_mean(
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    mean_T_true,
+    mean_Ts,
+    start,
+    end,
+    JUPYTER_MODE=False,
+):
+    plt.style.use("bmh")
+
+    clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
+
+    # Temp
+    N_eval = len(mean_T_true)
+    for i, mean_Ti in enumerate(mean_Ts):
+        if mean_Ti is not None:
+            plt.plot(
+                np.arange(start, end),
+                mean_Ti[start:end],
+                c=clist[i],
+                label=f"{network_names[i]}",
+            )
+
+    plt.plot(np.arange(start, end), mean_T_true[start:end], "--k", label="CM2.6")
+    plt.xlabel(r"time $( days )$")
+    plt.ylabel(r"$\overline{T}$ $( ^\circ C )$")
+    # plt.ylim([0, 1])
+    plt.xlim([start, end])
+
+    plt.legend(loc="lower left")
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Mean" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
+
+
 def plot_metrics_pdf(
     network_names,
     region,
@@ -1092,7 +1138,10 @@ def plot_map(
         [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
     )  # cbar.set_ticks([vmin, 0, vmax])
 
-    cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
+    if mode == "KE":
+        cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
+    elif mode == "TEMP":
+        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=20)
 
     fig.delaxes(cax)
 
@@ -1234,10 +1283,10 @@ def plot_error_map(
 
     if mode == "KE":
         vmin = 0
-        vmax = 200
+        vmax = 20
     elif mode == "TEMP":
         vmin = 0
-        vmax = 20
+        vmax = 2
 
     if "global" in region:
         x_plot = grids["x_C"]
@@ -1306,7 +1355,10 @@ def plot_error_map(
         [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
     )  # cbar.set_ticks([vmin, 0, vmax])
 
-    cbar.set_label(r"RMSE KE $( J/m^2 )$", fontsize=20)
+    if mode == "KE":
+        cbar.set_label(r"MAE KE $( J/m^2 )$", fontsize=20)
+    else:
+        cbar.set_label(r"MAE $\overline{T}$ $( ^\circ C )$", fontsize=20)
 
     fig.delaxes(cax)
 

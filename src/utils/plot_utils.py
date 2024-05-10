@@ -987,12 +987,21 @@ def plot_metrics_pdf(
                 label=f"{network_name}",
             )
 
-        plt.ylim(
-            [
-                pdf[ind_plot]["true_pdf"].min() * 2,
-                pdf[ind_plot]["true_pdf"].max() * 2.5,
-            ]
-        )
+        if ind_plot != 2:
+            plt.ylim(
+                [
+                    pdf[ind_plot]["true_pdf"].min() * 2,
+                    pdf[ind_plot]["true_pdf"].max() * 2.5,
+                ]
+            )
+        else:
+            plt.ylim(
+                [
+                    0.01,
+                    pdf[ind_plot]["true_pdf"].max() * 2.5,
+                ]
+            )
+
 
         plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", ls='--', label="CM2.6")
         plt.legend()

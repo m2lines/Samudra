@@ -1188,110 +1188,110 @@ class Eval:
     def plot_timeseries_temperature(self, model_pred_net, model_pred_saved_nets, start=0, N_eval=200, N_eval_ACC=100, long=False):
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")
-        u_test = np.array(
-            self.test_data[:][1][:, 0] * self.std_out[0] + self.mean_out[0]
-        )
-        v_test = np.array(
-            self.test_data[:][1][:, 1] * self.std_out[1] + self.mean_out[1]
-        )
+        # u_test = np.array(
+        #     self.test_data[:][1][:, 0] * self.std_out[0] + self.mean_out[0]
+        # )
+        # v_test = np.array(
+        #     self.test_data[:][1][:, 1] * self.std_out[1] + self.mean_out[1]
+        # )
         T_test = np.array(
             self.test_data[:][1][:, 2] * self.std_out[2] + self.mean_out[2]
         )
-        if not long:
-            # Corr
-            print("Getting Corr stats...")
-            corr_T_net, corr_T_true = compute_corrs_single(
-                N_eval,
-                T_test,
-                model_pred_net[:, :, :, 2],
-                self.area,
-                self.wet_bool,
-                self.std_out[2],
-                self.mean_out[2],
-            )
-            corr_T_saved = []
-            for model_pred_saved in model_pred_saved_nets:
-                corr_T_i, corr_T_true = compute_corrs_single(
-                    N_eval,
-                    T_test,
-                    model_pred_saved[:, :, :, 2],
-                    self.area,
-                    self.wet_bool,
-                    self.std_out[2],
-                    self.mean_out[2],
-                )
-                corr_T_saved.append(corr_T_i)
+        # if not long:
+        #     # Corr
+        #     print("Getting Corr stats...")
+        #     corr_T_net, corr_T_true = compute_corrs_single(
+        #         N_eval,
+        #         T_test,
+        #         model_pred_net[:, :, :, 2],
+        #         self.area,
+        #         self.wet_bool,
+        #         self.std_out[2],
+        #         self.mean_out[2],
+        #     )
+        #     corr_T_saved = []
+        #     for model_pred_saved in model_pred_saved_nets:
+        #         corr_T_i, corr_T_true = compute_corrs_single(
+        #             N_eval,
+        #             T_test,
+        #             model_pred_saved[:, :, :, 2],
+        #             self.area,
+        #             self.wet_bool,
+        #             self.std_out[2],
+        #             self.mean_out[2],
+        #         )
+        #         corr_T_saved.append(corr_T_i)
 
-            print("Plotting Corr...")
-            plot_metrics_corr(
-                self.pred_names + [self.network],
-                self.region if not long else self.region + '_Long_',
-                self.str_save,
-                self.output_dir,
-                corr_T_true,
-                corr_T_saved + [corr_T_net],
-                self.JUPYTER_MODE
-            )
+        #     print("Plotting Corr...")
+        #     plot_metrics_corr(
+        #         self.pred_names + [self.network],
+        #         self.region if not long else self.region + '_Long_',
+        #         self.str_save,
+        #         self.output_dir,
+        #         corr_T_true,
+        #         corr_T_saved + [corr_T_net],
+        #         self.JUPYTER_MODE
+        #     )
 
-            # RMSE
-            print("Getting RMSE stats...")
-            RMSE_T_net, RMSE_T_true = compute_RMSE_single(
-                N_eval, T_test, model_pred_net[:, :, :, 2], self.area, self.wet_bool
-            )
+        #     # RMSE
+        #     print("Getting RMSE stats...")
+        #     RMSE_T_net, RMSE_T_true = compute_RMSE_single(
+        #         N_eval, T_test, model_pred_net[:, :, :, 2], self.area, self.wet_bool
+        #     )
 
-            RMSE_T_saved = []
-            for model_pred_saved in model_pred_saved_nets:
-                RMSE_T_i, RMSE_T_true = compute_RMSE_single(
-                    N_eval, T_test, model_pred_saved[:, :, :, 2], self.area, self.wet_bool
-                )
-                RMSE_T_saved.append(RMSE_T_i)
+        #     RMSE_T_saved = []
+        #     for model_pred_saved in model_pred_saved_nets:
+        #         RMSE_T_i, RMSE_T_true = compute_RMSE_single(
+        #             N_eval, T_test, model_pred_saved[:, :, :, 2], self.area, self.wet_bool
+        #         )
+        #         RMSE_T_saved.append(RMSE_T_i)
 
-            print("Plotting RMSE...")
-            plot_metrics_rmse(
-                self.pred_names + [self.network],
-                self.region if not long else self.region + '_Long_',
-                self.str_save,
-                self.output_dir,
-                RMSE_T_true,
-                RMSE_T_saved + [RMSE_T_net],
-                self.JUPYTER_MODE
-            )
+        #     print("Plotting RMSE...")
+        #     plot_metrics_rmse(
+        #         self.pred_names + [self.network],
+        #         self.region if not long else self.region + '_Long_',
+        #         self.str_save,
+        #         self.output_dir,
+        #         RMSE_T_true,
+        #         RMSE_T_saved + [RMSE_T_net],
+        #         self.JUPYTER_MODE
+        #     )
 
-            # ACC
-            print("Getting ACC stats...")
-            ACC_T_net, ACC_T_true = compute_ACC_single(
-                N_eval_ACC,
-                T_test,
-                model_pred_net[:, :, :, 2],
-                self.clim[:, :, :, 2],
-                self.time_test,
-                self.area,
-                self.wet_bool,
-            )
+        #     # ACC
+        #     print("Getting ACC stats...")
+        #     ACC_T_net, ACC_T_true = compute_ACC_single(
+        #         N_eval_ACC,
+        #         T_test,
+        #         model_pred_net[:, :, :, 2],
+        #         self.clim[:, :, :, 2],
+        #         self.time_test,
+        #         self.area,
+        #         self.wet_bool,
+        #     )
 
-            ACC_T_saved = []
-            for model_pred_saved in model_pred_saved_nets:
-                ACC_T_i, ACC_T_true = compute_ACC_single(
-                    N_eval_ACC,
-                    T_test,
-                    model_pred_saved[:, :, :, 2],
-                    self.clim[:, :, :, 2],
-                    self.time_test,
-                    self.area,
-                    self.wet_bool,
-                )
-                ACC_T_saved.append(ACC_T_i)
+        #     ACC_T_saved = []
+        #     for model_pred_saved in model_pred_saved_nets:
+        #         ACC_T_i, ACC_T_true = compute_ACC_single(
+        #             N_eval_ACC,
+        #             T_test,
+        #             model_pred_saved[:, :, :, 2],
+        #             self.clim[:, :, :, 2],
+        #             self.time_test,
+        #             self.area,
+        #             self.wet_bool,
+        #         )
+        #         ACC_T_saved.append(ACC_T_i)
 
-            print("Plotting ACC...")
-            plot_metrics_acc(
-                self.pred_names + [self.network],
-                self.region if not long else self.region + '_Long_',
-                self.str_save,
-                self.output_dir,
-                ACC_T_true,
-                ACC_T_saved + [ACC_T_net],
-                self.JUPYTER_MODE
-            )
+        #     print("Plotting ACC...")
+        #     plot_metrics_acc(
+        #         self.pred_names + [self.network],
+        #         self.region if not long else self.region + '_Long_',
+        #         self.str_save,
+        #         self.output_dir,
+        #         ACC_T_true,
+        #         ACC_T_saved + [ACC_T_net],
+        #         self.JUPYTER_MODE
+        #     )
 
         print("Getting Mean...")
         mean_T_net, mean_T_true = compute_mean_single(
@@ -1626,7 +1626,7 @@ def main(args):
         model_pred_net, model_pred_saved_nets = e.load_short_data()
         e.plot_maps(model_pred_net, model_pred_saved_nets)
         e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets)
-        e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets)
+        # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets)
         e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets)
         e.plot_pdf(model_pred_net, model_pred_saved_nets)
 
@@ -1634,7 +1634,7 @@ def main(args):
         model_pred_net, model_pred_saved_nets = e.load_long_data()
         e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=1999, N_plot_map=2999, start_error_map=1999, N_plot_error_map=2999, long=True)
         e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
-        e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
+        # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
         e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=1999, N_eval=2999, long=True)
         e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
 

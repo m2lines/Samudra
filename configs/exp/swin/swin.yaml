@@ -1,0 +1,43 @@
+defaults:
+  - /exp/modules/blocks@core_block: conv_next_block
+  - /exp/modules/blocks@up_sampling_block: bilinear_upsample
+  - /exp/modules/activations@activation: capped_gelu
+
+_target_: models.swin.SwinTransformer
+_recursive_: false
+dilation:
+  - 1
+  - 2
+  - 4
+  - 8
+n_layers:
+  - 1
+  - 1
+  - 1
+  - 1
+patch_size: 4
+embed_dim: 30
+depths: 
+  - 2
+  - 2
+  - 2
+  - 2
+num_heads:
+  - 3
+  - 6
+  - 10
+  - 15
+window_size: 10
+mlp_ratio: 4.0
+qkv_bias: True
+qk_scale: null
+drop_rate: 0.0
+attn_drop_rate: 0.0
+drop_path_rate: 0.2
+ape: False
+patch_norm: True
+out_indices: [0, 1, 2, 3]
+frozen_stages: -1
+pred_residuals: False
+last_kernel_size: 3
+pad: "circular"

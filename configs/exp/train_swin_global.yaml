@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - _self_
-  - swin: default
+  - swin: swin
 
 wandb:
   mode: disabled # online, disabled

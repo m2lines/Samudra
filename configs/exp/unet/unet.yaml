@@ -1,12 +1,28 @@
 defaults:
-  - modules/encoder@encoder: unet_enc
-  - modules/decoder@decoder: unet_dec
+  - /exp/modules/blocks@core_block: conv_next_block
+  - /exp/modules/blocks@down_sampling_block: avg_pool
+  - /exp/modules/blocks@up_sampling_block: bilinear_upsample
+  - /exp/modules/activations@activation: capped_gelu
 
 _target_: models.unet.UNet
 _recursive_: false
-input_time_dim: 1
-output_time_dim: 8
-input_channels: 9
-output_channels: 3
-presteps: 0
-pred_residuals: True
+ch_width:
+  - 6
+  - 24
+  - 45
+  - 90
+  - 180
+n_out: 3
+dilation:
+  - 1
+  - 2
+  - 4
+  - 8
+n_layers:
+  - 1
+  - 1
+  - 1
+  - 1
+pred_residuals: False
+last_kernel_size: 3 
+pad: "circular"

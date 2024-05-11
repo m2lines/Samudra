@@ -22,7 +22,7 @@ rand_seed: 1
 
 #####
 region: global_1
-network: "unet"
+network: "convnextunet"
 scheduler: False
 loss: mse
 testing: False

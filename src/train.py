@@ -147,8 +147,8 @@ class Trainer:
         )
 
         # Model
+        print("Getting model " + args.network)
         if "swin" == args.network:
-            print("Getting model swin")
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
@@ -156,13 +156,7 @@ class Trainer:
                 pretrain_img_size=[*self.train_loader.dataset[0][0].shape[1:]],
                 wet=self.wet.cuda()
             )
-        elif "unet" == args.network:
-            print("Getting model unet")
-            model = instantiate(
-                args.unet, input_channels=self.num_in, output_channels=self.N_in, wet=self.wet.cuda()
-            )
-        elif "adamunet" == args.network:
-            print("Getting model adamunet")
+        elif "convnextunet" == args.network or "adamunet" == args.network:
             model = instantiate(
                 args.unet, wet=self.wet.cuda()
             )

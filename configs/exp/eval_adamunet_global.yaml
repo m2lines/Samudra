@@ -34,13 +34,13 @@ loss: mse
 
 save_test_data: false # change if already saved in prior experiments
 save_clim_data: false # change if already saved in prior experiments
-run_gen_pred: false
-run_gen_short_pred: false
+run_gen_pred: true
+run_gen_short_pred: true
 run_full_pred: false
-run_short_pred: true
+run_short_pred: false
 run_plot_metrics: true
 run_long_metrics: true
-run_plot_animation: false
+run_plot_animation: true
 ####
 
 device: "cuda" # keep this cuda to get preds in gpu

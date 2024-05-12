@@ -46,7 +46,11 @@ class UNet(BaseModel):
                     activation=activation, 
                     pad=pad)
                     )
-        layers.append(instantiate(up_sampling_block))
+        layers.append(instantiate(
+            up_sampling_block,
+            in_channels=b,
+            out_channels=b
+            ))
         ch_width.reverse()
         dilation.reverse()
         n_layers.reverse()
@@ -60,7 +64,11 @@ class UNet(BaseModel):
                         activation=activation, 
                         pad=pad)
                         )
-            layers.append(instantiate(up_sampling_block))
+            layers.append(instantiate(
+                up_sampling_block,
+                in_channels=b,
+                out_channels=b
+                ))
         layers.append(instantiate(
                     core_block,
                     b,

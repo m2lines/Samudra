@@ -836,7 +836,11 @@ class SwinTransformer(BaseModel):
                 activation=activation, 
                 pad=pad
             ))
-            decoder_layers.append(instantiate(up_sampling_block))
+            decoder_layers.append(instantiate(
+                up_sampling_block,
+                in_channels=b,
+                out_channels=b
+            ))
         decoder_layers.append(instantiate(
             core_block,
             b, 
@@ -846,7 +850,12 @@ class SwinTransformer(BaseModel):
             activation=activation, 
             pad=pad
         ))
-        decoder_layers.append(instantiate(up_sampling_block, upsampling=patch_size))
+        decoder_layers.append(instantiate(
+            up_sampling_block,
+            upsampling=patch_size,
+            in_channels=b,
+            out_channels=b
+        ))
         decoder_layers.append(torch.nn.Conv2d(b, output_channels, last_kernel_size))
 
         self.decoder_layers = nn.ModuleList(decoder_layers)

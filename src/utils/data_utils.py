@@ -13,7 +13,7 @@ from einops import rearrange
 
 class data_CNN_Dynamic(torch.utils.data.Dataset):
 
-    def __init__(self, data_in, data_out, wet, device="cuda"):
+    def __init__(self, data_in, data_out, wet, std_dict=None, device="cuda"):
         super().__init__()
         self.device = device
         num_inputs = data_in.shape[3]
@@ -22,11 +22,17 @@ class data_CNN_Dynamic(torch.utils.data.Dataset):
 
         data_in = np.nan_to_num(data_in)
         data_out = np.nan_to_num(data_out)
-
-        std_data = np.nanstd(data_in, axis=(0, 1, 2))
-        mean_data = np.nanmean(data_in, axis=(0, 1, 2))
-        std_label = np.nanstd(data_out, axis=(0, 1, 2))
-        mean_label = np.nanmean(data_out, axis=(0, 1, 2))
+        
+        if std_dict is None:
+            std_data = np.nanstd(data_in, axis=(0, 1, 2))
+            mean_data = np.nanmean(data_in, axis=(0, 1, 2))
+            std_label = np.nanstd(data_out, axis=(0, 1, 2))
+            mean_label = np.nanmean(data_out, axis=(0, 1, 2))
+        else:
+            std_data = std_dict["s_in"]
+            mean_data = std_dict["m_in"]
+            std_label = std_dict["s_out"]
+            mean_label = std_dict["m_out"]
 
         self.wet = wet
 
@@ -77,7 +83,7 @@ class data_CNN_Dynamic(torch.utils.data.Dataset):
 
 class data_CNN_steps_Dynamic(torch.utils.data.Dataset):
 
-    def __init__(self, data_in, data_out, steps, wet=None, device="cuda"):
+    def __init__(self, data_in, data_out, steps, wet=None, std_dict=None, device="cuda"):
         super().__init__()
         self.device = device
         steps = len(data_out)
@@ -91,10 +97,16 @@ class data_CNN_steps_Dynamic(torch.utils.data.Dataset):
             data_out[i] = np.nan_to_num(data_out[i])
             data_in[i] = np.nan_to_num(data_in[i])
 
-        std_data = np.nanstd(data_in[0], axis=(0, 1, 2))
-        mean_data = np.nanmean(data_in[0], axis=(0, 1, 2))
-        std_label = np.nanstd(data_out[0], axis=(0, 1, 2))
-        mean_label = np.nanmean(data_out[0], axis=(0, 1, 2))
+        if std_dict is None:
+            std_data = np.nanstd(data_in[0], axis=(0, 1, 2))
+            mean_data = np.nanmean(data_in[0], axis=(0, 1, 2))
+            std_label = np.nanstd(data_out[0], axis=(0, 1, 2))
+            mean_label = np.nanmean(data_out[0], axis=(0, 1, 2))
+        else:
+            std_data = std_dict["s_in"]
+            mean_data = std_dict["m_in"]
+            std_label = std_dict["s_out"]
+            mean_label = std_dict["m_out"]
 
         for j in range(steps):
             for i in range(num_outputs):

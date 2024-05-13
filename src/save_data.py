@@ -4,7 +4,7 @@ import torch
 import os
 from pathlib import Path
 
-from constants import REGIONS, INPT_VARS, EXTRA_VARS, OUT_VARS
+from constants import REGIONS, INPT_VARS, EXTRA_VARS, OUT_VARS, GLOBAL_COMBINED_STATS
 from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
@@ -82,9 +82,9 @@ def main(args):
     print(f"Train Start: {s_train}, Train End: {e_train}, Test End: {e_test}")
 
     # Generate inputs, extra inputs and outputs
-    if "global_1" == args.region:
+    if "global_1" in args.region:
         inputs, extra_in, outputs = gen_data_global_new(inputs, extra_in, outputs, args.lag)
-    elif "global_2x" == args.region:
+    elif "global_2x" in args.region:
         inputs, extra_in, outputs = gen_data_global_new(inputs, extra_in, outputs, args.lag, run_type ="2x")
     else:
         raise NotImplementedError
@@ -105,7 +105,10 @@ def main(args):
             data_in_val, data_out_val, wet, N_atm, args.Nb, args.device
         )
     else:
-        val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, device=args.device)
+        if "combined" in args.region:
+            val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, GLOBAL_COMBINED_STATS, device=args.device)
+        else:
+            val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, device=args.device)
 
     # Generating Training dataset
     data_in_train = []
@@ -139,13 +142,23 @@ def main(args):
             device=args.device,
         )
     else:
-        train_data = data_CNN_steps_Dynamic(
-            data_in_train,
-            data_out_train,
-            args.steps,
-            wet,
-            device=args.device,
-        )
+        if "combined" in args.region:
+            train_data = data_CNN_steps_Dynamic(
+                data_in_train,
+                data_out_train,
+                args.steps,
+                wet,
+                GLOBAL_COMBINED_STATS,
+                device=args.device,
+            )
+        else:
+            train_data = data_CNN_steps_Dynamic(
+                data_in_train,
+                data_out_train,
+                args.steps,
+                wet,
+                device=args.device,
+            )
 
     # Norm vals
     print("Train Norms: ", train_data.norm_vals)

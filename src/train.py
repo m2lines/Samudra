@@ -91,7 +91,7 @@ class Trainer:
         # 3 (boundary ocean speeds + boundary ocean temp)(t) -> 3 (ocean speeds + ocean temp)(t+1)
         print("Number of outputs: ", self.N_out)  # 3
 
-        assert args.region == 'global_1' or args.region == 'global_2x'
+        assert args.region == 'global_1' or args.region == 'global_2x' or args.region == 'global_1_2x' 
 
         self.str_video = (
             "steps_"
@@ -109,18 +109,79 @@ class Trainer:
             + "_Lateral_Data_025_no_smooth"
         )
 
-        # Dataloaders
-        train_data = torch.load(
-            Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_video),
-            map_location=torch.device("cpu"),
-        )
-        val_data = torch.load(
-            Path(args.data_dir) / "val_data_cnn_{0}.pt".format(self.str_video)
-        )
-        wet = torch.load(
-            Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(self.str_video)
-        )
-        self.wet = wet
+        if args.region == 'global_1_2x':
+            str1_video = (
+                "steps_"
+                + str(args.steps)
+                + "_"
+                + 'combined_global_1'
+                + "_Test_in_"
+                + self.str_in
+                + "ext_"
+                + self.str_ext
+                + "_out"
+                + self.str_out
+                + "N_train_"
+                + str(args.N_samples)
+                + "_Lateral_Data_025_no_smooth"
+            )
+            str2_video = (
+                "steps_"
+                + str(args.steps)
+                + "_"
+                + 'combined_global_2x'
+                + "_Test_in_"
+                + self.str_in
+                + "ext_"
+                + self.str_ext
+                + "_out"
+                + self.str_out
+                + "N_train_"
+                + str(args.N_samples)
+                + "_Lateral_Data_025_no_smooth"
+            )
+
+            # Dataloaders
+            train_data1 = torch.load(
+                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str1_video),
+                map_location=torch.device("cpu"),
+            )
+            val_data1 = torch.load(
+                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str1_video)
+            )
+            wet1 = torch.load(
+                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(str1_video)
+            )
+
+            train_data2 = torch.load(
+                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str2_video),
+                map_location=torch.device("cpu"),
+            )
+            val_data2 = torch.load(
+                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str2_video)
+            )
+            wet2 = torch.load(
+                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(str2_video)
+            )
+
+            assert (wet1 == wet2).all()
+            
+            train_data = torch.utils.data.ConcatDataset([train_data1, train_data2])
+            val_data = torch.utils.data.ConcatDataset([val_data1, val_data2])
+            self.wet = wet1
+        else:
+            # Dataloaders
+            train_data = torch.load(
+                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_video),
+                map_location=torch.device("cpu"),
+            )
+            val_data = torch.load(
+                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(self.str_video)
+            )
+            wet = torch.load(
+                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(self.str_video)
+            )
+            self.wet = wet
 
         print("Loading data")
 

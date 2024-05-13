@@ -1,4 +1,4 @@
-from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, REGIONS
+from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, GLOBAL_COMBINED_STATS
 import hydra
 from hydra.utils import instantiate
 from pathlib import Path
@@ -114,6 +114,8 @@ class Eval:
             "steps_"
             + str(args.steps)
             + "_"
+            + args.train_region
+            + "_"
             + args.region
             + "_in_"
             + self.str_in
@@ -156,6 +158,8 @@ class Eval:
             inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag)
         elif "global_2x" == args.region:
             inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="2x")
+        elif "global_4x" == args.region:
+            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="4x")
         else:
             raise NotImplementedError
 
@@ -180,44 +184,38 @@ class Eval:
                 0, e_test, args.N_test, args.lag, args.hist, outputs
             )
             if "global" in args.region:
+                print("Loading train data to save statistics")
+                train_data = torch.load(
+                    Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
+                    map_location=torch.device("cpu"),
+                )
+                norm_vals = train_data.norm_vals
+                if "combined" in args.train_region:
+                    assert (norm_vals == GLOBAL_COMBINED_STATS).all()
                 self.test_data = data_CNN_Dynamic(
                     data_in_test,
                     data_out_test,
                     self.wet.to(device="cpu"),
+                    norm_vals,
                     device=args.device,
                 )
+                del train_data
             else:
-                self.test_data = data_CNN_Lateral(
-                    data_in_test,
-                    data_out_test,
-                    self.wet.to(device="cpu"),
-                    self.N_atm,
-                    args.Nb,
-                    device=args.device,
-                )
+                raise NotImplementedError()
             torch.save(
                 self.test_data,
                 Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save),
             )
 
         else:
-            print("Loading train data to save statistics")
-            train_data = torch.load(
-                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
-                map_location=torch.device("cpu"),
-            )
-            norm_vals = train_data.norm_vals
             print("Loading test data")
             self.test_data = torch.load(
                 Path(args.data_dir) / "test_data_cnn_{0}.pt".format(self.str_save)
             )
-            # Overwriting statistics in test
-            self.test_data.norm_vals = norm_vals
-            del train_data
 
         # Model
+        print("Loading model " + args.network)
         if "swin" in args.network.lower():
-            print("Loading model swin")
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
@@ -225,15 +223,9 @@ class Eval:
                 pretrain_img_size=[*self.test_data[0][0].shape[1:]],
                 wet=self.wet.cuda()
             )
-        elif "adam unet" in args.network.lower():
-            print("Loading model adam unet")
+        elif "unet" in args.network.lower():
             model = instantiate(
                 args.unet, wet=self.wet.cuda()
-            )
-        elif "unet" in args.network.lower():
-            print("Loading model unet")
-            model = instantiate(
-                args.unet, input_channels=self.num_in, output_channels=self.N_in, wet=self.wet.cuda()
             )
 
         full_model_path = args.ckpt_path

@@ -106,8 +106,7 @@ class Eval:
             + self.str_ext
             + "_out"
             + self.str_out
-            + "N_train_"
-            + str(args.N_samples)
+            + "N_train_4000"
             + "_Lateral_Data_025_no_smooth"
         )
         self.str_save = (
@@ -191,7 +190,7 @@ class Eval:
                 )
                 norm_vals = train_data.norm_vals
                 if "combined" in args.train_region:
-                    assert (norm_vals == GLOBAL_COMBINED_STATS).all()
+                    assert len(norm_vals) == len(GLOBAL_COMBINED_STATS) and all(np.array_equal(norm_vals[k], GLOBAL_COMBINED_STATS[k]) for k in norm_vals)
                 self.test_data = data_CNN_Dynamic(
                     data_in_test,
                     data_out_test,
@@ -291,6 +290,7 @@ class Eval:
         self.hist = args.hist
         self.lag = args.lag
         self.N_test = args.N_test
+        self.N_samples = args.N_samples
         self.output_dir = args.output_dir
         self.region = args.region
         self.steps = args.steps
@@ -870,7 +870,7 @@ class Eval:
                 + "ext_"
                 + "tau_u_tau_v_t_ref_"
                 + "N_samples_"
-                + str(4000)
+                + str(self.N_samples)
                 + "_rand_seed_"
                 + str(1)
                 + ".zarr"
@@ -910,7 +910,7 @@ class Eval:
                 + "ext_"
                 + "tau_u_tau_v_t_ref_"
                 + "N_samples_"
-                + str(4000)
+                + str(self.N_samples)
                 + "_rand_seed_"
                 + str(1)
                 + ".zarr"
@@ -1423,42 +1423,42 @@ class Eval:
             std_out = test_data.norm_vals["s_out"]
             rmse = 1000
             test_time = 25
-            for rand_int in range(1, 4):
-                model_pred_temp = (
-                    xr.open_zarr(
-                        zarr_path
-                        / (
-                            "Pred_lateral_Fast_Data_025_"
-                            + region
-                            + "_in_"
-                            + str_in
-                            + "ext_"
-                            + str_ext
-                            + "N_samples_"
-                            + str(4000)
-                            + "_rand_seed_"
-                            + str(rand_int)
-                            + ".zarr"
-                        )
-                    )
-                    .sel(time=slice(test_time - 1, test_time))
-                    .to_array()
-                    .to_numpy()
-                    .squeeze()
-                )
-                rmse_temp = compute_rmse_snapshot(
-                    test_data[test_time - 1][1],
-                    model_pred_temp,
-                    area,
-                    wet_bool,
-                    mean_out,
-                    std_out,
-                    index,
-                )
-                if rmse_temp < rmse:
-                    rmse = rmse_temp
-                    rand_best = rand_int
-                    print("RMSE: ", rmse)
+            # for rand_int in range(1, 4):
+            #     model_pred_temp = (
+            #         xr.open_zarr(
+            #             zarr_path
+            #             / (
+            #                 "Pred_lateral_Fast_Data_025_"
+            #                 + region
+            #                 + "_in_"
+            #                 + str_in
+            #                 + "ext_"
+            #                 + str_ext
+            #                 + "N_samples_"
+            #                 + str(self.N_samples)
+            #                 + "_rand_seed_"
+            #                 + str(rand_int)
+            #                 + ".zarr"
+            #             )
+            #         )
+            #         .sel(time=slice(test_time - 1, test_time))
+            #         .to_array()
+            #         .to_numpy()
+            #         .squeeze()
+            #     )
+            #     rmse_temp = compute_rmse_snapshot(
+            #         test_data[test_time - 1][1],
+            #         model_pred_temp,
+            #         area,
+            #         wet_bool,
+            #         mean_out,
+            #         std_out,
+            #         index,
+            #     )
+            #     if rmse_temp < rmse:
+            #         rmse = rmse_temp
+            #         rand_best = rand_int
+            #         print("RMSE: ", rmse)
             model_pred_atm = (
                 xr.open_zarr(
                     zarr_path
@@ -1470,9 +1470,9 @@ class Eval:
                         + "ext_"
                         + str_ext
                         + "N_samples_"
-                        + str(4000)
+                        + str(self.N_samples)
                         + "_rand_seed_"
-                        + str(rand_best)
+                        + str(1)
                         + ".zarr"
                     )
                 )
@@ -1624,11 +1624,21 @@ def main(args):
 
     if args.run_long_metrics:
         model_pred_net, model_pred_saved_nets = e.load_long_data()
-        e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=1999, N_plot_map=2999, start_error_map=1999, N_plot_error_map=2999, long=True)
-        e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
-        # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
-        e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=1999, N_eval=2999, long=True)
-        e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
+        if args.N_test == 3000:
+            e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=1999, N_plot_map=2999, start_error_map=1999, N_plot_error_map=2999, long=True)
+            e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
+            # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
+            e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=1999, N_eval=2999, long=True)
+            e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
+        elif args.N_test == 2000:
+            e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=999, N_plot_map=1999, start_error_map=999, N_plot_error_map=1999, long=True)
+            e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=999, N_plot=1999, N_plot_spec=1000, long=True)
+            # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
+            e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=999, N_eval=1999, long=True)
+            e.plot_pdf(model_pred_net, model_pred_saved_nets, start=999, N_days=1000, long=True)
+        else:
+            raise NotImplementedError()
+
 
     if args.run_plot_animation:
         e.plot_animation()

@@ -58,6 +58,7 @@ from utils.plot_utils import (
     plot_metrics_pdf,
     get_initial_snapshot_fig,
     plot_region_based_metric,
+    plot_diff_map,
 )
 
 import numpy as np
@@ -178,6 +179,13 @@ class Eval:
 
         self.time_test = self.time_vec[e_test : (e_test + args.lag * args.N_test)]
 
+        print("Loading Train data")
+        train_data = torch.load(
+                    Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
+                    map_location=torch.device("cpu"),
+                )
+        self.train_data = train_data
+    
         if args.save_test_data:
             print("Saving data")
             data_in_test = gen_data_in_test(
@@ -187,11 +195,6 @@ class Eval:
                 0, e_test, args.N_test, args.lag, args.hist, outputs
             )
             if "global" in args.region:
-                print("Loading train data to save statistics")
-                train_data = torch.load(
-                    Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
-                    map_location=torch.device("cpu"),
-                )
                 norm_vals = train_data.norm_vals
                 if "combined" in args.train_region:
                     assert len(norm_vals) == len(GLOBAL_COMBINED_STATS) and all(np.array_equal(norm_vals[k], GLOBAL_COMBINED_STATS[k]) for k in norm_vals)
@@ -202,7 +205,7 @@ class Eval:
                     norm_vals,
                     device=args.device,
                 )
-                del train_data
+                # del train_data
             else:
                 raise NotImplementedError()
             torch.save(
@@ -972,7 +975,9 @@ class Eval:
         long_KE_net, long_KE_true = gen_KE_range(
             start_error_map, N_plot_error_map, self.test_data, model_pred_net
         )
+        _, long_KE_train_true = gen_KE(1000, self.train_data, model_pred_net)
         mse_KE_net = long_KE_true.mean(axis=0) - long_KE_net.mean(axis=0) # np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
+        diff_KE = long_KE_true.mean(axis=0) - long_KE_train_true.mean(axis=0)
 
         long_mse_KE_saved = []
         for model_pred_saved in model_pred_saved_nets:
@@ -995,6 +1000,20 @@ class Eval:
             self.wet_nan,
             long_KE_true,
             long_mse_KE_saved + [mse_KE_net],
+            "KE",
+            self.JUPYTER_MODE
+        )
+
+        print("Plot diff map")
+        plot_diff_map(
+            self.region if not long else self.region + '_Long_',
+            self.str_save,
+            self.output_dir,
+            self.grids,
+            self.Nb,
+            self.wet_nan,
+            long_KE_true,
+            diff_KE,
             "KE",
             self.JUPYTER_MODE
         )

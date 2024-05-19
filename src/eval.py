@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 from matplotlib.animation import FuncAnimation
 import matplotlib.pyplot as plt
+import logging
 
 from utils.data_utils import (
     get_wet_mask,
@@ -26,6 +27,8 @@ from utils.eval_utils import (
     compute_KE,
     compute_time_spec,
     compute_ACC,
+    compute_nino34,
+    compute_amo,
     gen_KE_spectrum,
     gen_KE,
     gen_KE_range,
@@ -54,6 +57,7 @@ from utils.plot_utils import (
     plot_metrics_mean,
     plot_metrics_pdf,
     get_initial_snapshot_fig,
+    plot_region_based_metric,
 )
 
 import numpy as np
@@ -252,26 +256,25 @@ class Eval:
 
         # clim
         self.clim = None
-        if args.run_short_pred or args.run_plot_metrics or args.run_long_metrics:
-            if args.save_clim_data:
-                print("Saving clim")
-                clim = np.zeros((366, *self.wet.shape, 3))
-                for i in range(self.N_out):
-                    clim[:, :, :, i] = (
-                        outputs[i].groupby("time.dayofyear").mean("time").data
-                    )
-                torch.save(
-                    clim,
-                    Path(args.data_dir) / "clim_cnn_{0}.pt".format(self.str_save),
+        if args.save_clim_data:
+            print("Saving clim")
+            clim = np.zeros((366, *self.wet.shape, 3))
+            for i in range(self.N_out):
+                clim[:, :, :, i] = (
+                    outputs[i].groupby("time.dayofyear").mean("time").data
                 )
+            torch.save(
+                clim,
+                Path(args.data_dir) / "clim_cnn_{0}.pt".format(self.str_save),
+            )
 
-            else:
-                print("Loading clim")
-                clim = torch.load(
-                    Path(args.data_dir) / "clim_cnn_{0}.pt".format(self.str_save)
-                )
+        else:
+            print("Loading clim")
+            clim = torch.load(
+                Path(args.data_dir) / "clim_cnn_{0}.pt".format(self.str_save)
+            )
 
-            self.clim = clim
+        self.clim = clim
 
         # Getting area tensor
         print("Computing area tensor")
@@ -295,6 +298,7 @@ class Eval:
         self.region = args.region
         self.steps = args.steps
         self.network = args.model_name_replace
+        self.inputs = inputs
 
         self.pred_region = args.region
         self.pred_names = args.pred_names if args.pred_names else []
@@ -922,6 +926,10 @@ class Eval:
         
         return model_pred_net, model_pred_saved_nets
 
+    def compute_corr_map(self, area_flat, pred, truth):
+        cor_KE = (area_flat*pred[self.wet_bool].flatten()*truth[self.wet_bool].flatten()).sum()/np.sqrt((area_flat*pred[self.wet_bool].flatten()**2).sum()*(area_flat*truth[self.wet_bool].flatten()**2).sum())
+        return cor_KE
+
     def plot_maps(self, model_pred_net, model_pred_saved_nets, start_map=0, N_plot_map=1000, start_error_map=0, N_plot_error_map=1000, long=False):
         ### Long time KE
         print("Getting Mean KE stats...")
@@ -929,17 +937,20 @@ class Eval:
             start_map, N_plot_map, self.test_data, model_pred_net
         )
         long_KE_net = long_KE_net.mean(0)
+        long_KE_true = long_KE_true.mean(0)
+
+        area_flat = np.array(self.area[self.wet_bool].flatten())
+        logging.info(f"Correlation KE {self.network}: {self.compute_corr_map(area_flat, long_KE_net, long_KE_true)}")
 
 
         long_KE_saved = []
-        for model_pred_saved in model_pred_saved_nets:
+        for i, model_pred_saved in enumerate(model_pred_saved_nets):
             long_KE_savedi, _ = gen_KE_range(
                 start_map, N_plot_map, self.test_data, model_pred_saved
             )
             long_KE_savedi = long_KE_savedi.mean(0)
+            logging.info(f"Correlation KE {self.pred_names[i]}: {self.compute_corr_map(area_flat, long_KE_savedi, long_KE_true)}")
             long_KE_saved.append(long_KE_savedi)
-        
-        long_KE_true = long_KE_true.mean(0)
 
         print("Plotting mean KE...")
         plot_map(
@@ -993,16 +1004,18 @@ class Eval:
             start_map, N_plot_map, self.test_data, model_pred_net, 2
         )
         long_temp_net = long_temp_net.mean(0)
+        long_temp_true = long_temp_true.mean(0)
+
+        logging.info(f"Correlation Temp {self.network}: {self.compute_corr_map(area_flat, long_temp_net, long_temp_true)}")
 
         long_temp_saved = []
-        for model_pred_saved in model_pred_saved_nets:
+        for i, model_pred_saved in enumerate(model_pred_saved_nets):
             long_temp_savedi, _ = gen_value_range(
                 start_map, N_plot_map, self.test_data, model_pred_saved, 2
             )
             long_temp_savedi = long_temp_savedi.mean(0)
+            logging.info(f"Correlation Temp {self.pred_names[i]}: {self.compute_corr_map(area_flat, long_temp_savedi, long_temp_true)}")
             long_temp_saved.append(long_temp_savedi)
-
-        long_temp_true = long_temp_true.mean(0)
 
         print("Plotting Temp map...")
         plot_map(
@@ -1317,6 +1330,66 @@ class Eval:
             self.JUPYTER_MODE
         )
 
+    def plot_indices(self, model_pred_net, model_pred_saved_nets, long=False):
+        print("Getting Nino34...")
+        nino_net, nino_true = compute_nino34(
+            self.grids,
+            self.inputs,
+            model_pred_net, 
+            self.test_data, 
+            self.mean_out,
+            self.std_out,
+            self.time_test
+            )
+        nino_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            nino_net_i, nino_true = compute_nino34(
+                                self.grids,
+                                self.inputs,
+                                model_pred_saved, 
+                                self.test_data, 
+                                self.mean_out,
+                                self.std_out,
+                                self.time_test
+                            )
+            nino_saved.append(nino_net_i)
+
+        print("Plotting Nino34...")
+        plot_region_based_metric(
+            self.pred_names + [self.network],
+            self.region if not long else self.region + '_Long_',
+            self.str_save,
+            self.output_dir,
+            nino_true,
+            nino_saved + [nino_net],
+            self.JUPYTER_MODE,
+            mode='nino34'
+        )
+
+        print("Getting Amo...")
+        amo_net, amo_true = compute_amo(self.grids,
+                                self.inputs,
+                                model_pred_net,
+                                self.time_test)
+        amo_saved = []
+        for model_pred_saved in model_pred_saved_nets:
+            amo_net_i, amo_true = compute_amo(self.grids,
+                                self.inputs,
+                                model_pred_saved,
+                                self.time_test)
+            amo_saved.append(amo_net_i)
+
+        print("Plotting Amo...")
+        plot_region_based_metric(
+            self.pred_names + [self.network],
+            self.region if not long else self.region + '_Long_',
+            self.str_save,
+            self.output_dir,
+            amo_true,
+            amo_saved + [amo_net],
+            self.JUPYTER_MODE,
+            mode='amo'
+        )
         
     def plot_pdf(self, model_pred_net, model_pred_saved_nets, start=100, N_days=100, long=False):
         # PDF
@@ -1638,6 +1711,8 @@ def main(args):
             e.plot_pdf(model_pred_net, model_pred_saved_nets, start=999, N_days=1000, long=True)
         else:
             raise NotImplementedError()
+        
+        e.plot_indices(model_pred_net, model_pred_saved_nets, True)
 
 
     if args.run_plot_animation:

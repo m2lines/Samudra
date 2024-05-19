@@ -1727,3 +1727,44 @@ def get_initial_snapshot_fig(
         fontsize=16,
     )
     return fig, plts, a
+
+def plot_region_based_metric(
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    true,
+    indices,
+    JUPYTER_MODE=False,
+    mode='nino34'):
+
+    plt.style.use("bmh")
+
+    clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
+
+    N_plot = len(indices[0])
+
+    # Indices
+    for i, indices_i in enumerate(indices):
+        if indices_i is not None:
+            plt.plot(
+                np.arange(1, N_plot + 1),
+                indices_i,
+                c=clist[i],
+                label=f"{network_names[i]}",
+            )
+
+    plt.plot(np.arange(1, N_plot + 1), true, "--k", label="CM2.6")
+    plt.xlabel(r"time $( days )$")
+    y = 'Nino 3.4 Index' if mode == 'nino34' else 'AMO Index'
+    plt.ylabel(y)
+    plt.legend(loc="lower left")
+    if JUPYTER_MODE:
+        plt.show()
+
+    else:
+        plt.savefig(
+            Path(output_dir) / (y + '_' + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()

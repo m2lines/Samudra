@@ -69,7 +69,7 @@ run_gen_pred: false
 run_gen_short_pred: false
 run_full_pred: false
 run_short_pred: false
-run_plot_metrics: true
+run_plot_metrics: false
 run_long_metrics: true
 run_plot_animation: false
 ####

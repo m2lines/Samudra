@@ -1289,13 +1289,14 @@ def plot_error_map(
     else:
         print("0 entries in long_KE")
         return
-
+    
+    # Ground Truth
     if mode == "KE":
         vmin = 0
-        vmax = 20
+        vmax = 100
     elif mode == "TEMP":
-        vmin = 0
-        vmax = 2
+        vmin = -10
+        vmax = 50
 
     if "global" in region:
         x_plot = grids["x_C"]
@@ -1349,7 +1350,7 @@ def plot_error_map(
     # Set the new anchor point to be in the middle
     new_pos = [
         pos.x0 - 0.075,
-        pos.y0 + 0.15,
+        pos.y0 + 0.3,
         pos.width * 1.75,
         pos.height * 1.5,
     ]  # Adjust 0.2 as needed
@@ -1365,11 +1366,21 @@ def plot_error_map(
     )  # cbar.set_ticks([vmin, 0, vmax])
 
     if mode == "KE":
-        cbar.set_label(r"MAE KE $( J/m^2 )$", fontsize=20)
-    else:
-        cbar.set_label(r"MAE $\overline{T}$ $( ^\circ C )$", fontsize=20)
+        cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
+    elif mode == "TEMP":
+        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=20)
 
     fig.delaxes(cax)
+
+    # Bias plots
+    if mode == "KE":
+        vmin = -20
+        vmax = 20
+    elif mode == "TEMP":
+        vmin = -2
+        vmax = 2
+    
+    cmap = cmocean.cm.balance
 
     for i, long_mse_KE_i in enumerate(long_mse_KEs):
         if long_mse_KE_i is not None:
@@ -1383,7 +1394,7 @@ def plot_error_map(
                 idy, idx = 1, 2
 
             if "global" in region:
-                axs[idy, idx].pcolormesh(
+                plt_n = axs[idy, idx].pcolormesh(
                     x_plot,
                     y_plot,
                     long_mse_KE_i * wet_nan,
@@ -1393,7 +1404,7 @@ def plot_error_map(
                     shading="auto",
                 )
             else:
-                axs[idy, idx].pcolormesh(
+                plt_n = axs[idy, idx].pcolormesh(
                     x_plot,
                     y_plot,
                     long_mse_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
@@ -1418,6 +1429,31 @@ def plot_error_map(
             gl.xformatter = LONGITUDE_FORMATTER
             gl.yformatter = LATITUDE_FORMATTER
             axs[idy, idx].set_title(network_names[i], size=15)
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.075,
+        pos.y0 + 0.10,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt_n, ax=cax, orientation="horizontal", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    if mode == "KE":
+        cbar.set_label(r"Error KE $( J/m^2 )$", fontsize=20)
+    else:
+        cbar.set_label(r"Error $\overline{T}$ $( ^\circ C )$", fontsize=20)
+
+    fig.delaxes(cax)
 
     axs[1, 0].set_axis_off()
     if len(long_mse_KEs) == 1:

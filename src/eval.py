@@ -961,14 +961,14 @@ class Eval:
         long_KE_net, long_KE_true = gen_KE_range(
             start_error_map, N_plot_error_map, self.test_data, model_pred_net
         )
-        mse_KE_net = np.abs(long_KE_net.mean(axis=0) - long_KE_true.mean(axis=0)) # np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
+        mse_KE_net = long_KE_true.mean(axis=0) - long_KE_net.mean(axis=0) # np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
 
         long_mse_KE_saved = []
         for model_pred_saved in model_pred_saved_nets:
             long_KE_savedi, _ = gen_KE_range(
                 start_error_map, N_plot_error_map, self.test_data, model_pred_saved
             )
-            mse_KE_savedi = np.abs(long_KE_savedi.mean(axis=0) - long_KE_true.mean(axis=0)) # np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
+            mse_KE_savedi = long_KE_true.mean(axis=0) - long_KE_savedi.mean(axis=0) # np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
             long_mse_KE_saved.append(mse_KE_savedi)
         
         long_KE_true = long_KE_true.mean(0)
@@ -1023,7 +1023,7 @@ class Eval:
             start_error_map, N_plot_error_map, self.test_data, model_pred_net, 2
         )
         # mse_temp_net = np.sqrt(((long_temp_net - long_temp_true)**2).mean(axis=0))
-        mse_temp_net = np.abs(long_temp_net.mean(axis=0) - long_temp_true.mean(axis=0))
+        mse_temp_net = long_temp_true.mean(axis=0) - long_temp_net.mean(axis=0)
 
         long_temp_net = long_temp_net.mean(0)
 
@@ -1033,7 +1033,7 @@ class Eval:
                 start_error_map, N_plot_error_map, self.test_data, model_pred_saved, 2
             )
             # mse_KE_savedi = np.sqrt(((long_temp_savedi - long_temp_true)**2).mean(axis=0))
-            mse_KE_savedi = np.abs(long_temp_savedi.mean(axis=0) - long_temp_true.mean(axis=0))
+            mse_KE_savedi = long_temp_true.mean(axis=0) - long_temp_savedi.mean(axis=0)
             long_temp_RMSE_saved.append(mse_KE_savedi)
 
         long_temp_true = long_temp_true.mean(0)

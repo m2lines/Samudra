@@ -1859,7 +1859,7 @@ def plot_diff_map(
     # Set the new anchor point to be in the middle
     new_pos = [
         pos.x0 - 0.075,
-        pos.y0 + 0.3,
+        pos.y0 + 0.15,
         pos.width * 1.75,
         pos.height * 1.5,
     ]  # Adjust 0.2 as needed
@@ -1886,8 +1886,8 @@ def plot_diff_map(
         vmin = -20
         vmax = 20
     elif mode == "TEMP":
-        vmin = -2
-        vmax = 2
+        vmin = -4
+        vmax = 4
     
     cmap = cmocean.cm.balance
 
@@ -1930,10 +1930,12 @@ def plot_diff_map(
     gl.yformatter = LATITUDE_FORMATTER
     axs[idy, idx].set_title("Bias between Eval and Train data", size=15)
 
+    pos = axs[1, 1].get_position()
+    
     # Set the new anchor point to be in the middle
     new_pos = [
         pos.x0 - 0.075,
-        pos.y0 + 0.10,
+        pos.y0 + 0.15,
         pos.width * 1.75,
         pos.height * 1.5,
     ]  # Adjust 0.2 as needed

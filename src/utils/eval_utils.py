@@ -1043,7 +1043,6 @@ def Nino_Index(T,time_test,clim,area):
     return T_clim.to_numpy()[150:]
 
 def compute_nino34(grids, inputs, model_pred, test_data, mean_out, std_out, time_test):
-    N_test = 2000
     Nino34 = grids["x_C"].loc[-5:5,360-170:360-150]
     x_ind = [np.argwhere(grids.xu_ocean.data==Nino34["xu_ocean"][0].data),
             np.argwhere(grids.xu_ocean.data==Nino34["xu_ocean"][-1].data)]
@@ -1055,8 +1054,8 @@ def compute_nino34(grids, inputs, model_pred, test_data, mean_out, std_out, time
 
     clim = inputs[2].loc[:,-5:5,360-170:360-150].groupby('time.dayofyear').mean('time').to_numpy()
 
-    T_pred = model_pred[:N_test,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1,2]
-    T_true = test_data[:][1][:,2,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1]
+    T_pred = model_pred[:,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1,2]
+    T_true = test_data[:len(T_pred)][1][:,2,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1]
     T_true = T_true*std_out[2]+mean_out[2]
 
     Nino_pred = Nino_Index(T_pred,time_test,clim,area_Nino)
@@ -1080,13 +1079,12 @@ def Amo_Index(T,time_test,clim,area):
         day = int(time_test[i].dayofyr-1)
         T_clim[i] = (T[i]-clim[day]).data        
 
-    T_clim = T_clim.rolling(time = 10).mean()
+    T_clim = T_clim.rolling(time = 90).mean()
     T_clim = (T_clim*area).sum(["xu_ocean","yu_ocean"])/area.sum(["xu_ocean","yu_ocean"])
 
-    return T_clim.to_numpy()[10:]
+    return T_clim.to_numpy()[90:]
 
 def compute_amo(grids, inputs, model_pred, time_test):
-    N_test = 2000
     Amo = grids["x_C"].loc[0:80,283:]
     x_ind = [np.argwhere(grids.xu_ocean.data==Amo["xu_ocean"][0].data),
             np.argwhere(grids.xu_ocean.data==Amo["xu_ocean"][-1].data)]
@@ -1098,8 +1096,8 @@ def compute_amo(grids, inputs, model_pred, time_test):
 
     clim = inputs[2].loc[:,0:80,283:].groupby('time.dayofyear').mean('time').to_numpy()
 
-    T_pred = model_pred[:N_test,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1,2]
-    T_true = inputs[2][:N_test,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1].fillna(0).to_numpy()
+    T_pred = model_pred[:,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1,2]
+    T_true = inputs[2][:len(T_pred),y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1].fillna(0).to_numpy()
     
     Amo_pred = Amo_Index(T_pred,time_test,clim,area_Amo)
     Amo_true = Amo_Index(T_true,time_test,clim,area_Amo)

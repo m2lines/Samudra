@@ -1743,10 +1743,10 @@ def main(args):
         model_pred_net, model_pred_saved_nets = e.load_long_data()
         if args.N_test == 3000:
             e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=1999, N_plot_map=2999, start_error_map=1999, N_plot_error_map=2999, long=True)
-            # e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
+            e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
             # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
-            # e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=1999, N_eval=2999, long=True)
-            # e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
+            e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=1999, N_eval=2999, long=True)
+            e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
         elif args.N_test == 2000:
             e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=999, N_plot_map=1999, start_error_map=999, N_plot_error_map=1999, long=True)
             e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=999, N_plot=1999, N_plot_spec=1000, long=True)

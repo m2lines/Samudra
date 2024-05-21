@@ -1057,36 +1057,18 @@ def plot_map(
 
     # Long KE
     plt.rcParams.update({"font.size": 12})
-    if len(long_KEs) > 1:
-        fig, axs = plt.subplots(
-            2,
-            3,
-            figsize=(12, 5),
-            gridspec_kw={
-                "width_ratios": [1, 1, 1],
-                "height_ratios": [1, 1],
-                "wspace": 0.25,
-                "hspace": 0.5,
-            },
-            subplot_kw={"projection": ccrs.PlateCarree()},
-        )
-    elif len(long_KEs) == 1:
-        fig, axs = plt.subplots(
-            2,
-            2,
-            figsize=(12, 5),
-            gridspec_kw={
-                "width_ratios": [1, 1],
-                "height_ratios": [1, 1],
-                "wspace": 0.25,
-                "hspace": 0.5,
-            },
-            subplot_kw={"projection": ccrs.PlateCarree()},
-        )
-    else:
-        print("0 entries in long_KE")
-        return
-
+    fig, axs = plt.subplots(
+        1,
+        4,
+        figsize=(12, 5),
+        gridspec_kw={
+            "width_ratios": [1, 1, 1, 1],
+            "height_ratios": [1],
+            "wspace": 0.3,
+            "hspace": 0.5,
+        },
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
     if mode == "KE":
         vmin = 0
         vmax = 45
@@ -1105,7 +1087,7 @@ def plot_map(
 
     # Ground Truth
     if "global" in region:
-        plt0 = axs[0, 0].pcolormesh(
+        plt0 = axs[0].pcolormesh(
             x_plot,
             y_plot,
             long_KE_true * wet_nan,
@@ -1115,7 +1097,7 @@ def plot_map(
             shading="auto",
         )
     else:
-        plt0 = axs[0, 0].pcolormesh(
+        plt0 = axs[0].pcolormesh(
             x_plot,
             y_plot,
             long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
@@ -1125,8 +1107,8 @@ def plot_map(
             shading="auto",
         )
 
-    axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
-    gl = axs[0, 0].gridlines(
+    axs[0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0].gridlines(
         crs=ccrs.PlateCarree(),
         draw_labels=True,
         linewidth=2,
@@ -1139,14 +1121,14 @@ def plot_map(
     gl.yrotation = False
     gl.xformatter = LONGITUDE_FORMATTER
     gl.yformatter = LATITUDE_FORMATTER
-    axs[0, 0].set_title(r"CM2.6", size=15)
+    axs[0].set_title(r"CM2.6", size=15)
 
-    pos = axs[1, 0].get_position()
+    pos = axs[0].get_position()
 
     # Set the new anchor point to be in the middle
     new_pos = [
-        pos.x0 - 0.075,
-        pos.y0 + 0.15,
+        pos.x0 - 0.35,
+        pos.y0 - 0.02,
         pos.width * 1.75,
         pos.height * 1.5,
     ]  # Adjust 0.2 as needed
@@ -1154,7 +1136,7 @@ def plot_map(
     # Create a new axes with the adjusted position
     cax = fig.add_axes(new_pos)
 
-    cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
+    cbar = plt.colorbar(plt0, ax=cax, orientation="vertical", aspect=10)
     cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
 
     cbar.set_ticks(
@@ -1162,25 +1144,16 @@ def plot_map(
     )  # cbar.set_ticks([vmin, 0, vmax])
 
     if mode == "KE":
-        cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
+        cbar.set_label(r"KE $( J/m^2 )$", fontsize=15)
     elif mode == "TEMP":
-        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=20)
+        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=15)
 
     fig.delaxes(cax)
 
     for i, long_KE_i in enumerate(long_KEs):
         if long_KE_i is not None:
-            if i == 0:
-                idy, idx = 0, 1
-            elif i == 1:
-                idy, idx = 0, 2
-            elif i == 2:
-                idy, idx = 1, 1
-            elif i == 3:
-                idy, idx = 1, 2
-
             if "global" in region:
-                axs[idy, idx].pcolormesh(
+                axs[i+1].pcolormesh(
                     x_plot,
                     y_plot,
                     long_KE_i * wet_nan,
@@ -1190,7 +1163,7 @@ def plot_map(
                     shading="auto",
                 )
             else:
-                axs[idy, idx].pcolormesh(
+                axs[i+1].pcolormesh(
                     x_plot,
                     y_plot,
                     long_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
@@ -1200,8 +1173,8 @@ def plot_map(
                     shading="auto",
                 )
 
-            axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
-            gl = axs[idy, idx].gridlines(
+            axs[i+1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[i+1].gridlines(
                 crs=ccrs.PlateCarree(),
                 draw_labels=True,
                 linewidth=2,
@@ -1214,17 +1187,8 @@ def plot_map(
             gl.yrotation = False
             gl.xformatter = LONGITUDE_FORMATTER
             gl.yformatter = LATITUDE_FORMATTER
-            axs[idy, idx].set_title(network_names[i], size=15)
+            axs[i+1].set_title(network_names[i], size=15)
 
-    axs[1, 0].set_axis_off()
-    if len(long_KEs) == 1:
-        axs[1, 1].set_axis_off()
-    if len(long_KEs) == 2:
-        axs[1, 1].set_axis_off()
-        axs[1, 2].set_axis_off()
-    if len(long_KEs) == 3:
-        axs[1, 2].set_axis_off()
-    
 
     region_title = ""
 
@@ -1274,36 +1238,18 @@ def plot_error_map(
 
     # Long KE
     plt.rcParams.update({"font.size": 12})
-    if len(long_mse_KEs) > 1:
-        fig, axs = plt.subplots(
-            2,
-            3,
-            figsize=(12, 5),
-            gridspec_kw={
-                "width_ratios": [1, 1, 1],
-                "height_ratios": [1, 1],
-                "wspace": 0.25,
-                "hspace": 0.5,
-            },
-            subplot_kw={"projection": ccrs.PlateCarree()},
-        )
-    elif len(long_mse_KEs) == 1:
-        fig, axs = plt.subplots(
-            2,
-            2,
-            figsize=(12, 5),
-            gridspec_kw={
-                "width_ratios": [1, 1],
-                "height_ratios": [1, 1],
-                "wspace": 0.25,
-                "hspace": 0.5,
-            },
-            subplot_kw={"projection": ccrs.PlateCarree()},
-        )
-    else:
-        print("0 entries in long_KE")
-        return
-    
+    fig, axs = plt.subplots(
+        1,
+        4,
+        figsize=(12, 5),
+        gridspec_kw={
+            "width_ratios": [1, 1, 1, 1],
+            "height_ratios": [1],
+            "wspace": 0.3,
+            "hspace": 0.5,
+        },
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
     # Ground Truth
     if mode == "KE":
         vmin = 0
@@ -1311,6 +1257,220 @@ def plot_error_map(
     elif mode == "TEMP":
         vmin = -2
         vmax = 30
+
+    if "global" in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
+    else:
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
+
+    # Ground Truth
+    if "global" in region:
+        plt0 = axs[0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt0 = axs[0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+    axs[0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    axs[0].set_title(r"CM2.6", size=15)
+
+    pos = axs[0].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.35,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt0, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    if mode == "KE":
+        cbar.set_label(r"KE $( J/m^2 )$", fontsize=15)
+    elif mode == "TEMP":
+        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=15)
+
+    fig.delaxes(cax)
+
+    # Bias plots
+    if mode == "KE":
+        vmin = -20
+        vmax = 20
+    elif mode == "TEMP":
+        vmin = -2
+        vmax = 2
+    
+    cmap = cmocean.cm.balance
+
+    for i, long_mse_KE_i in enumerate(long_mse_KEs):
+        if long_mse_KE_i is not None:
+            if "global" in region:
+                plt_n = axs[i+1].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_KE_i * wet_nan,
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+            else:
+                plt_n = axs[i+1].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+
+            axs[i+1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[i+1].gridlines(
+                crs=ccrs.PlateCarree(),
+                draw_labels=True,
+                linewidth=2,
+                color="gray",
+                alpha=0.5,
+                linestyle="--",
+            )
+            gl.top_labels = False
+            gl.right_labels = False
+            gl.yrotation = False
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+            axs[i+1].set_title(network_names[i], size=15)
+
+    pos = axs[3].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.05,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt_n, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    if mode == "KE":
+        cbar.set_label(r"Bias KE $( J/m^2 )$", fontsize=15)
+    else:
+        cbar.set_label(r"Bias $\overline{T}$ $( ^\circ C )$", fontsize=15)
+
+    fig.delaxes(cax)
+
+
+    region_title = ""
+
+    for i in region:
+        if region == "Quiescent_Ext":
+            region_title = "South Pacific"
+        elif region == "Africa_Ext":
+            region_title = "African Cape"
+        elif i == "_":
+            region_title += " "
+        elif i == "E":
+            break
+        else:
+            region_title += i
+    region_title = str(region_title)
+
+    # a = fig.suptitle(
+    #     r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
+    #     fontsize=16,
+    # )
+
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("MSE_" + mode + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
+
+
+def plot_both_error_map(network_names,
+    region,
+    save_str,
+    output_dir,
+    grids,
+    Nb,
+    wet_nan,
+    long_KE_true,
+    long_mse_KEs,
+    long_T_true,
+    long_mse_Ts,
+    JUPYTER_MODE=False):
+
+    plt.style.use("bmh")
+
+    # Long KE
+    plt.rcParams.update({"font.size": 12})
+    fig, axs = plt.subplots(
+        2,
+        4,
+        figsize=(12, 5),
+        gridspec_kw={
+            "width_ratios": [1, 1, 1, 1],
+            "height_ratios": [1, 1],
+            "wspace": 0.3,
+            "hspace": 0.3,
+        },
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
+    # Ground Truth
+    vmin = 0
+    vmax = 100
 
     if "global" in region:
         x_plot = grids["x_C"]
@@ -1359,12 +1519,12 @@ def plot_error_map(
     gl.yformatter = LATITUDE_FORMATTER
     axs[0, 0].set_title(r"CM2.6", size=15)
 
-    pos = axs[1, 0].get_position()
+    pos = axs[0, 0].get_position()
 
     # Set the new anchor point to be in the middle
     new_pos = [
-        pos.x0 - 0.075,
-        pos.y0 + 0.3,
+        pos.x0 - 0.35,
+        pos.y0 - 0.02,
         pos.width * 1.75,
         pos.height * 1.5,
     ]  # Adjust 0.2 as needed
@@ -1372,27 +1532,19 @@ def plot_error_map(
     # Create a new axes with the adjusted position
     cax = fig.add_axes(new_pos)
 
-    cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
+    cbar = plt.colorbar(plt0, ax=cax, orientation="vertical", aspect=10)
     cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
 
     cbar.set_ticks(
         [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
     )  # cbar.set_ticks([vmin, 0, vmax])
 
-    if mode == "KE":
-        cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
-    elif mode == "TEMP":
-        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=20)
-
+    cbar.set_label(r"KE $( J/m^2 )$", fontsize=15)
     fig.delaxes(cax)
 
     # Bias plots
-    if mode == "KE":
-        vmin = -20
-        vmax = 20
-    elif mode == "TEMP":
-        vmin = -2
-        vmax = 2
+    vmin = -20
+    vmax = 20
     
     cmap = cmocean.cm.balance
 
@@ -1403,9 +1555,7 @@ def plot_error_map(
             elif i == 1:
                 idy, idx = 0, 2
             elif i == 2:
-                idy, idx = 1, 1
-            elif i == 3:
-                idy, idx = 1, 2
+                idy, idx = 0, 3
 
             if "global" in region:
                 plt_n = axs[idy, idx].pcolormesh(
@@ -1444,10 +1594,12 @@ def plot_error_map(
             gl.yformatter = LATITUDE_FORMATTER
             axs[idy, idx].set_title(network_names[i], size=15)
 
+    pos = axs[0, 3].get_position()
+
     # Set the new anchor point to be in the middle
     new_pos = [
-        pos.x0 - 0.075,
-        pos.y0 + 0.10,
+        pos.x0 - 0.05,
+        pos.y0 - 0.02,
         pos.width * 1.75,
         pos.height * 1.5,
     ]  # Adjust 0.2 as needed
@@ -1455,55 +1607,175 @@ def plot_error_map(
     # Create a new axes with the adjusted position
     cax = fig.add_axes(new_pos)
 
-    cbar = plt.colorbar(plt_n, ax=cax, orientation="horizontal", aspect=10)
+    cbar = plt.colorbar(plt_n, ax=cax, orientation="vertical", aspect=10)
     cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
 
     cbar.set_ticks(
         [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
     )  # cbar.set_ticks([vmin, 0, vmax])
 
-    if mode == "KE":
-        cbar.set_label(r"Error KE $( J/m^2 )$", fontsize=20)
+    cbar.set_label(r"Bias KE $( J/m^2 )$", fontsize=15)
+
+    fig.delaxes(cax)
+ 
+    ###### TEMP
+
+    # Ground Truth
+    vmin = -2
+    vmax = 30
+
+    if "global" in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
     else:
-        cbar.set_label(r"Error $\overline{T}$ $( ^\circ C )$", fontsize=20)
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
+
+    # Ground Truth
+    if "global" in region:
+        plt0 = axs[1, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_T_true * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt0 = axs[1, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_T_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+    axs[1, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[1, 0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    # axs[1, 0].set_title(r"CM2.6", size=15)
+
+    pos = axs[1, 0].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.35,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt0, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=15)
 
     fig.delaxes(cax)
 
-    axs[1, 0].set_axis_off()
-    if len(long_mse_KEs) == 1:
-        axs[1, 1].set_axis_off()
-    if len(long_mse_KEs) == 2:
-        axs[1, 1].set_axis_off()
-        axs[1, 2].set_axis_off()
-    if len(long_mse_KEs) == 3:
-        axs[1, 2].set_axis_off()
+    # Bias plots
+    vmin = -2
+    vmax = 2
     
+    cmap = cmocean.cm.balance
 
-    region_title = ""
+    for i, long_mse_T_i in enumerate(long_mse_Ts):
+        if long_mse_T_i is not None:
+            if i == 0:
+                idy, idx = 1, 1
+            elif i == 1:
+                idy, idx = 1, 2
+            elif i == 2:
+                idy, idx = 1, 3
 
-    for i in region:
-        if region == "Quiescent_Ext":
-            region_title = "South Pacific"
-        elif region == "Africa_Ext":
-            region_title = "African Cape"
-        elif i == "_":
-            region_title += " "
-        elif i == "E":
-            break
-        else:
-            region_title += i
-    region_title = str(region_title)
+            if "global" in region:
+                plt_n = axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_T_i * wet_nan,
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+            else:
+                plt_n = axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_T_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
 
-    # a = fig.suptitle(
-    #     r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
-    #     fontsize=16,
-    # )
+            axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[idy, idx].gridlines(
+                crs=ccrs.PlateCarree(),
+                draw_labels=True,
+                linewidth=2,
+                color="gray",
+                alpha=0.5,
+                linestyle="--",
+            )
+            gl.top_labels = False
+            gl.right_labels = False
+            gl.yrotation = False
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+            # axs[idy, idx].set_title(network_names[i], size=15)
+
+    pos = axs[1, 3].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.05,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt_n, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    cbar.set_label(r"Bias $\overline{T}$ $( ^\circ C )$", fontsize=15)
+
+    fig.delaxes(cax)
 
     if JUPYTER_MODE:
         plt.show()
     else:
         plt.savefig(
-            Path(output_dir) / ("MSE_" + mode + region + "_" + save_str + ".png"),
+            Path(output_dir) / ("MSE_KE_TEMP" + region + "_" + save_str + ".png"),
             bbox_inches="tight",
         )
         plt.clf()

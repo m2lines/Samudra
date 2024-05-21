@@ -1408,12 +1408,18 @@ class Eval:
         amo_net, amo_true = compute_amo(self.grids,
                                 self.inputs,
                                 model_pred_net,
+                                self.test_data, 
+                                self.mean_out,
+                                self.std_out,
                                 self.time_test)
         amo_saved = []
         for model_pred_saved in model_pred_saved_nets:
             amo_net_i, amo_true = compute_amo(self.grids,
                                 self.inputs,
                                 model_pred_saved,
+                                self.test_data, 
+                                self.mean_out,
+                                self.std_out,
                                 self.time_test)
             amo_saved.append(amo_net_i)
 

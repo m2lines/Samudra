@@ -22,7 +22,8 @@ steps: 4
 ######
 pred_region: null # "global_21"
 model_name_replace: null
-
+pred_names: null
+pred_paths: null
 
 ###############
 ### g1 g1 
@@ -70,10 +71,10 @@ model_name_replace: null
 
 ###############
 ### g1_2x g4x
-pred_names: 
-  - Foundation Adam UNet
-pred_paths:
-  - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth"
+# pred_names: 
+#   - Foundation Adam UNet
+# pred_paths:
+#   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth"
 ###############
 
 ckpt_path: null # changed in command args
@@ -82,13 +83,13 @@ loss: mse
 
 save_test_data: false # change if already saved in prior experiments
 save_clim_data: false # change if already saved in prior experiments
-run_gen_pred: false
-run_gen_short_pred: false
+run_gen_pred: true
+run_gen_short_pred: true
 run_full_pred: false
 run_short_pred: false
-run_plot_metrics: true
-run_long_metrics: true
-run_plot_animation: true
+run_plot_metrics: false
+run_long_metrics: false
+run_plot_animation: false
 ####
 
 device: "cuda" # keep this cuda to get preds in gpu

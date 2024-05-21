@@ -58,7 +58,7 @@ def plot_time_spec(
     axs[plt_index].set_ylim([0, auto_FFT[1:N_int, index].max() * 2])
 
     if legend:
-        axs[plt_index].legend(ncol=1, loc="upper right")
+        axs[plt_index].legend(ncol=1)
 
 
 def plot_var(
@@ -683,7 +683,7 @@ def plot_metrics_KE_spectrum(
     plt.xlabel(r"Wave number $( 1/km )$")
     plt.ylabel(r"KE $( J/m^2 )$")
 
-    plt.legend(loc="lower left")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(KE_specs)+1)
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -726,7 +726,7 @@ def plot_metrics_KE(
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"KE $( J/m^2 )$")
     plt.xlim([start, end])
-    plt.legend(loc="lower left")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(KEs)+1)
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -757,7 +757,7 @@ def plot_metrics_enstrophy_spectrum(
     plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k", label="CM2.6")
     plt.xlabel(r"Wave number $( 1/km )$")
     plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
-    plt.legend(loc="lower left")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(enst_specs)+1)
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -796,7 +796,7 @@ def plot_metrics_entrophy(
     plt.plot(np.arange(1, N_plot + 1), enst_true, "--k", label="CM2.6")
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
-    plt.legend(loc="lower left")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(ensts)+1)
     if JUPYTER_MODE:
         plt.show()
 
@@ -838,7 +838,7 @@ def plot_metrics_corr(
     plt.ylim([0, 1])
     plt.xlim([0, N_eval])
 
-    plt.legend(loc="lower left")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(corr_Ts)+1)
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -872,7 +872,7 @@ def plot_metrics_rmse(
     plt.ylabel(r"RMSE $\overline{T}$")
     plt.xlim([0, N_eval])
 
-    plt.legend()
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(RMSE_Ts)+1)
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -905,7 +905,7 @@ def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, AC
     plt.ylim([0, 1])
     plt.xlim([0, N_eval])
 
-    plt.legend(loc="lower left")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(ACC_Ts)+1)
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -948,7 +948,7 @@ def plot_metrics_mean(
     # plt.ylim([0, 1])
     plt.xlim([start, end])
 
-    plt.legend(loc="lower left")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(mean_Ts)+1)
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -990,21 +990,35 @@ def plot_metrics_pdf(
         if ind_plot != 2:
             plt.ylim(
                 [
-                    pdf[ind_plot]["true_pdf"].min() * 2,
-                    pdf[ind_plot]["true_pdf"].max() * 2.5,
+                    pdf[ind_plot]["true_pdf"].min(),
+                    pdf[ind_plot]["true_pdf"].max(),
                 ]
             )
         else:
             plt.ylim(
                 [
                     0.01,
-                    pdf[ind_plot]["true_pdf"].max() * 2.5,
+                    pdf[ind_plot]["true_pdf"].max(),
+                ]
+            )
+        
+        if ind_plot == 2:
+            plt.xlim(
+                [
+                    -3,31
+                ]
+            )
+        elif ind_plot == "KE":
+            plt.xlim(
+                [
+                    0,
+                    2500
                 ]
             )
 
 
         plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", ls='--', label="CM2.6")
-        plt.legend()
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(pdf[0].keys()))
         
 
         plt.xlabel(var_list[str(ind_plot)])
@@ -1077,8 +1091,8 @@ def plot_map(
         vmin = 0
         vmax = 45
     elif mode == "TEMP":
-        vmin = -10
-        vmax = 50
+        vmin = -2
+        vmax = 30
 
     if "global" in region:
         x_plot = grids["x_C"]
@@ -1295,8 +1309,8 @@ def plot_error_map(
         vmin = 0
         vmax = 100
     elif mode == "TEMP":
-        vmin = -10
-        vmax = 50
+        vmin = -2
+        vmax = 30
 
     if "global" in region:
         x_plot = grids["x_C"]
@@ -1758,7 +1772,7 @@ def plot_region_based_metric(
     plt.xlabel(r"time $( days )$")
     y = 'Nino 3.4 Index' if mode == 'nino34' else 'AMO Index'
     plt.ylabel(y)
-    plt.legend(loc="lower left")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(indices)+1)
     if JUPYTER_MODE:
         plt.show()
 
@@ -1804,8 +1818,8 @@ def plot_diff_map(
         vmin = 0
         vmax = 100
     elif mode == "TEMP":
-        vmin = -10
-        vmax = 50
+        vmin = -2
+        vmax = 30
 
     if "global" in region:
         x_plot = grids["x_C"]

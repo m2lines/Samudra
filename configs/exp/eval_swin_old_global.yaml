@@ -28,9 +28,9 @@ pred_region: null # "global_21"
 ###############
 ### g1_2x g4x
 pred_names: 
-  - Foundation Adam UNet
-  - Foundation ConvNext UNet
-  - Foundation Swin
+  - UNet (Baseline)
+  - ConvNext UNet
+  - Swin
 pred_paths:
   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth"
   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth"

@@ -2041,10 +2041,10 @@ def plot_region_based_metric(
             )
 
     plt.plot(np.arange(1, N_plot + 1), true, "--k", label="CM2.6")
-    plt.xlabel(r"time $( days )$")
+    plt.xlabel(r"time $( days )$", fontsize="15")
     y = 'Nino 3.4 Index' if mode == 'nino34' else 'AMO Index'
-    plt.ylabel(y)
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(indices)+1)
+    plt.ylabel(y, fontsize="15")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, fontsize="15", ncol=len(indices)+1)
     if JUPYTER_MODE:
         plt.show()
 

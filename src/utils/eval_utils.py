@@ -1021,7 +1021,7 @@ def gen_value_range(start, N_eval, test_data, model_pred, index):
     true_temp = data_out_cpu[start : start + N_eval, index]
     return pred_temp, true_temp
 
-def Nino_Index(T,time_test,clim,area):
+def Nino_Index(T,time_test,area):
     T = xr.DataArray(
         data=T,
         dims=["time","yu_ocean", "xu_ocean"],
@@ -1032,15 +1032,16 @@ def Nino_Index(T,time_test,clim,area):
 
             )
         )
+    clim = T.groupby('time.dayofyear').mean('time').to_numpy()
     T_clim = T.copy()
     for i in range(time_test.size):
         day = int(time_test[i].dayofyr-1)
         T_clim[i] = (T[i]-clim[day]).data        
 
-    T_clim = T_clim.rolling(time = 150).mean()
+    T_clim = T_clim.rolling(time = 30).mean()
     T_clim = (T_clim*area).sum(["xu_ocean","yu_ocean"])/area.sum(["xu_ocean","yu_ocean"])
 
-    return T_clim.to_numpy()[150:]
+    return T_clim.to_numpy()[30:]
 
 def compute_nino34(grids, inputs, model_pred, test_data, mean_out, std_out, time_test):
     Nino34 = grids["x_C"].loc[-5:5,360-170:360-150]
@@ -1052,18 +1053,16 @@ def compute_nino34(grids, inputs, model_pred, test_data, mean_out, std_out, time
     y_ind = [y_ind[0][0][0],y_ind[1][0][0]]
     area_Nino = grids["area_C"].loc[-5:5,360-170:360-150]
 
-    clim = inputs[2].loc[:,-5:5,360-170:360-150].groupby('time.dayofyear').mean('time').to_numpy()
-
     T_pred = model_pred[:,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1,2]
     T_true = test_data[:len(T_pred)][1][:,2,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1]
     T_true = T_true*std_out[2]+mean_out[2]
 
-    Nino_pred = Nino_Index(T_pred,time_test,clim,area_Nino)
-    Nino_true = Nino_Index(T_true,time_test,clim,area_Nino)
+    Nino_pred = Nino_Index(T_pred,time_test,area_Nino)
+    Nino_true = Nino_Index(T_true,time_test,area_Nino)
 
     return Nino_pred, Nino_true
 
-def Amo_Index(T,time_test,clim,area):
+def Amo_Index(T,time_test,area):
     T = xr.DataArray(
         data=T,
         dims=["time","yu_ocean", "xu_ocean"],
@@ -1074,15 +1073,16 @@ def Amo_Index(T,time_test,clim,area):
 
             )
         )
+    clim = T.groupby('time.dayofyear').mean('time').to_numpy()
     T_clim = copy.deepcopy(T)
     for i in range(time_test.size):
         day = int(time_test[i].dayofyr-1)
         T_clim[i] = (T[i]-clim[day]).data        
 
-    T_clim = T_clim.rolling(time = 150).mean()
+    T_clim = T_clim.rolling(time = 30).mean()
     T_clim = (T_clim*area).sum(["xu_ocean","yu_ocean"])/area.sum(["xu_ocean","yu_ocean"])
 
-    return T_clim.to_numpy()[150:]
+    return T_clim.to_numpy()[30:]
 
 def compute_amo(grids, inputs, model_pred, test_data, mean_out, std_out, time_test):
     Amo = grids["x_C"].loc[0:80,283:]
@@ -1094,13 +1094,11 @@ def compute_amo(grids, inputs, model_pred, test_data, mean_out, std_out, time_te
     y_ind = [y_ind[0][0][0],y_ind[1][0][0]]
     area_Amo = grids["area_C"].loc[0:80,283:]
 
-    clim = inputs[2].loc[:,0:80,283:].groupby('time.dayofyear').mean('time').to_numpy()
-
     T_pred = model_pred[:,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1,2]
     T_true = test_data[:len(T_pred)][1][:,2,y_ind[0]:y_ind[1]+1,x_ind[0]:x_ind[1]+1]
     T_true = T_true*std_out[2]+mean_out[2]
     
-    Amo_pred = Amo_Index(T_pred,time_test,clim,area_Amo)
-    Amo_true = Amo_Index(T_true,time_test,clim,area_Amo)
+    Amo_pred = Amo_Index(T_pred,time_test,area_Amo)
+    Amo_true = Amo_Index(T_true,time_test,area_Amo)
 
     return Amo_pred, Amo_true

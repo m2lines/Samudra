@@ -36,6 +36,8 @@ class data_CNN_Dynamic(torch.utils.data.Dataset):
 
         self.wet = wet
 
+        # data_in[:, :, :, -1] = (data_in[:, :, :, -1] + 1)
+
         for i in range(num_inputs):
             data_in[:, :, :, i] = (data_in[:, :, :, i] - mean_data[i]) / std_data[i]
 

@@ -246,11 +246,18 @@ class Eval:
         # import pdb; pdb.set_trace()
 
         model = model.to(args.device)
-        model.load_state_dict(
-            torch.load(full_model_path, map_location=torch.device(args.device))
-        )
-
-        self.model = model
+        if isinstance(full_model_path, list):
+            self.model = []
+            for model_path in full_model_path:
+                model.load_state_dict(
+                    torch.load(full_model_path, map_location=torch.device(args.device))
+                )
+                self.model.append(copy.deepcopy(model))
+        else:
+            model.load_state_dict(
+                torch.load(full_model_path, map_location=torch.device(args.device))
+            )
+            self.model = model
 
         # Stats
         self.mean_out = self.test_data.norm_vals["m_out"]
@@ -1759,16 +1766,16 @@ def main(args):
         model_pred_net, model_pred_saved_nets = e.load_long_data()
         if args.N_test == 3000:
             e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=1999, N_plot_map=2999, start_error_map=1999, N_plot_error_map=2999, long=True)
-            e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
+            # e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
             # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
             e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=1999, N_eval=2999, long=True)
-            e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
+            # e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
         elif args.N_test == 2000:
             e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=999, N_plot_map=1999, start_error_map=999, N_plot_error_map=1999, long=True)
-            e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=999, N_plot=1999, N_plot_spec=1000, long=True)
+            # e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=999, N_plot=1999, N_plot_spec=1000, long=True)
             # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
             e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=999, N_eval=1999, long=True)
-            e.plot_pdf(model_pred_net, model_pred_saved_nets, start=999, N_days=1000, long=True)
+            # e.plot_pdf(model_pred_net, model_pred_saved_nets, start=999, N_days=1000, long=True)
         else:
             raise NotImplementedError()
         

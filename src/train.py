@@ -175,6 +175,9 @@ class Trainer:
                 Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_video),
                 map_location=torch.device("cpu"),
             )
+            if args.data_percent < 1.0:
+                train_data = torch.utils.data.Subset(train_data, list(range(int(args.N_samples * args.data_percent))))
+
             val_data = torch.load(
                 Path(args.data_dir) / "val_data_cnn_{0}.pt".format(self.str_video)
             )
@@ -230,6 +233,11 @@ class Trainer:
         # summary(model)
 
         model = model.to(args.device)
+        if args.preload:
+            print("Loaded model from ", args.preload)
+            model.load_state_dict(
+                    torch.load(args.preload, map_location=torch.device(args.device))
+                )
         i = [torch.zeros(1, 6, 180, 360).cuda()] * 2
         summary(
             model,

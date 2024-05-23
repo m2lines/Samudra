@@ -26,6 +26,8 @@ network: "adamunet"
 scheduler: False
 loss: mse
 testing: False
+preload: null
+data_percent: 1.0
 #####
 
 

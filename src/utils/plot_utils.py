@@ -1005,7 +1005,7 @@ def plot_metrics_pdf(
         if ind_plot == 2:
             plt.xlim(
                 [
-                    -3,31
+                    -3,33
                 ]
             )
         elif ind_plot == "KE":

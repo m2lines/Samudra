@@ -370,24 +370,6 @@ if not os.path.exists(args1.output_dir):
 e1 = Eval(args1)
 e1.send_data_to_cpu()
 
-# G1, G2x
-with initialize_config_dir(version_base=None, config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs"):
-    args2 = compose(config_name="exp/eval_swin_global", overrides=[
-        "output_dir=./notebooks/temp/{0}_datapdf".format(str(datetime.now())[:10]),
-        "model_name_replace=Swin",
-        "network=Foundation Swin Train1Eval2x",
-        "train_region=global_1",
-        "region=global_2x",
-        "swin.embed_dim=60",
-        "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
-        "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
-        "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
-        "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train1Eval2x_Train_global_1_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train1Eval2x_Train_global_1_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']"
-    ])
-
-e2 = Eval(args2, no_train=True)
-e2.send_data_to_cpu()
-
 # G1_2x, G_4x
 with initialize_config_dir(version_base=None, config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs"):
     args3 = compose(config_name="exp/eval_swin_global", overrides=[
@@ -448,14 +430,14 @@ def get_pdf(e, model_pred_net, model_pred_saved_nets, start=100, N_days=100, lon
     return pdf
     
 
-model_pred_net, model_pred_saved_nets = e1.load_long_data()
-pdf1 = get_pdf(e1, model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
-model_pred_net, model_pred_saved_nets = e2.load_long_data()
-pdf2 = get_pdf(e2, model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
-model_pred_net, model_pred_saved_nets = e3.load_long_data()
-pdf3 = get_pdf(e3, model_pred_net, model_pred_saved_nets, start=999, N_days=1000, long=True)
+# model_pred_net, model_pred_saved_nets = e1.load_long_data()
+# pdf1 = get_pdf(e1, model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
+# model_pred_net, model_pred_saved_nets = e2.load_long_data()
+# pdf2 = get_pdf(e2, model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
+# model_pred_net, model_pred_saved_nets = e3.load_long_data()
+# pdf3 = get_pdf(e3, model_pred_net, model_pred_saved_nets, start=999, N_days=1000, long=True)
 
-del e2
+# del e2
 del e1.test_data
 del e3.test_data
 # G2x, G2x
@@ -545,6 +527,10 @@ def get_train_pdf(e1, e2, e3):
     return pdf
     
 ground_pdfs = get_train_pdf(e1, e3, e4)
+
+import pdb; pdb.set_trace()
+
+np.save('ground_pdfs', ground_pdfs)
 
 
 import matplotlib.pyplot as plt

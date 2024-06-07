@@ -7,8 +7,9 @@
 Set up a fresh mamba environment (optional but recommended)
 
 ```bash
-mamba create -n -n=ocean_emulators_dev python=3.10
+mamba create -n=ocean_emulators_dev python=3.10
 mamba activate ocean_emulators_dev
+pip install -e ".[dev]"
 ```
 
 >[!NOTE]

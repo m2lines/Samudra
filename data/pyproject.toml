@@ -27,7 +27,8 @@ classifiers = [
 license = { text = "Apache-2.0" }
 keywords = ["climate", "data", "ml", "emulators"]
 dependencies = [
-    "xarray"
+    "xarray",
+    "xmip"
 ]
 
 [project.optional-dependencies]

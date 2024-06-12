@@ -1563,42 +1563,42 @@ class Eval:
             std_out = test_data.norm_vals["s_out"]
             rmse = 1000
             test_time = 25
-            # for rand_int in range(1, 4):
-            #     model_pred_temp = (
-            #         xr.open_zarr(
-            #             zarr_path
-            #             / (
-            #                 "Pred_lateral_Fast_Data_025_"
-            #                 + region
-            #                 + "_in_"
-            #                 + str_in
-            #                 + "ext_"
-            #                 + str_ext
-            #                 + "N_samples_"
-            #                 + str(self.N_samples)
-            #                 + "_rand_seed_"
-            #                 + str(rand_int)
-            #                 + ".zarr"
-            #             )
-            #         )
-            #         .sel(time=slice(test_time - 1, test_time))
-            #         .to_array()
-            #         .to_numpy()
-            #         .squeeze()
-            #     )
-            #     rmse_temp = compute_rmse_snapshot(
-            #         test_data[test_time - 1][1],
-            #         model_pred_temp,
-            #         area,
-            #         wet_bool,
-            #         mean_out,
-            #         std_out,
-            #         index,
-            #     )
-            #     if rmse_temp < rmse:
-            #         rmse = rmse_temp
-            #         rand_best = rand_int
-            #         print("RMSE: ", rmse)
+            for rand_int in range(1, 4):
+                model_pred_temp = (
+                    xr.open_zarr(
+                        zarr_path
+                        / (
+                            "Pred_lateral_Fast_Data_025_"
+                            + region
+                            + "_in_"
+                            + str_in
+                            + "ext_"
+                            + str_ext
+                            + "N_samples_"
+                            + str(self.N_samples)
+                            + "_rand_seed_"
+                            + str(rand_int)
+                            + ".zarr"
+                        )
+                    )
+                    .sel(time=slice(test_time - 1, test_time))
+                    .to_array()
+                    .to_numpy()
+                    .squeeze()
+                )
+                rmse_temp = compute_rmse_snapshot(
+                    test_data[test_time - 1][1],
+                    model_pred_temp,
+                    area,
+                    wet_bool,
+                    mean_out,
+                    std_out,
+                    index,
+                )
+                if rmse_temp < rmse:
+                    rmse = rmse_temp
+                    rand_best = rand_int
+                    print("RMSE: ", rmse)
             model_pred_atm = (
                 xr.open_zarr(
                     zarr_path

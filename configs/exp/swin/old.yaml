@@ -1,11 +1,11 @@
 defaults:
-  - /exp/unet/modules/blocks@conv_block: conv_next_block
-  - /exp/unet/modules/blocks@up_sampling_block: transposed_conv_upsample
-  - /exp/unet/modules/blocks@output_layer: output_layer
+  - /exp/modules/blocks@conv_block: conv_next_block_old_swin
+  - /exp/modules/blocks@up_sampling_block: transposed_conv_upsample
+  - /exp/modules/blocks@output_layer: output_layer
 
-_target_: models.swin.SwinTransformer
+_target_: models.swin_old.SwinTransformer
 _recursive_: false
-n_layers: [1, 2, 2, 1]
+n_layers: [1, 1, 1, 1]
 dilations: [1,1,1,1]
 patch_size: 4
 embed_dim: 24

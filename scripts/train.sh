@@ -1,54 +1,54 @@
 #!/bin/bash
 
-# 1. Basic UNet - GulfStream, Global
-# 2. ConvNeXT UNet, best model - GulfStream, Global
-# 3. Swin Transformer - GulfStream, Global
 
 ###########################################################################################
-# SWIN
+# Global_1 Training
 
-# Swin Transformer (40M)
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin wandb.mode=online name="$(date +%F)-train_swin" batch_size=16 swin.embed_dim=48 scheduler=True
+# 1. AdamUNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_adamunet_global wandb.mode=online name="$(date +%F)-foundation_train_adamunet_global_1" region=global_1 batch_size=16 scheduler=True rand_seed=10
 
+# 2. ConvNext UNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_6hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-foundation_train_convnextunet_global_1" region=global_1 batch_size=8 scheduler=True rand_seed=10
 
-# Swin transformer Global
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global wandb.mode=online name="$(date +%F)-train_swin_global" batch_size=8 swin.embed_dim=48 scheduler=True
+./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_6hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-foundation_train_convnextunet_global_1_7k_seed10" region=global_1 batch_size=8 scheduler=True rand_seed=10 N_samples=7000
+
+# 3. Swin Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global wandb.mode=online name="$(date +%F)-foundation_train_swintrans_global_1" region=global_1 batch_size=16 scheduler=True rand_seed=12 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60
 
 ###########################################################################################
-# UNET
+# Global_2x Training
 
-# Basic UNet
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_basicunet"  batch_size=8 scheduler=True unet.encoder.n_channels=[180,360,720] unet.decoder.n_channels=[720,360,180]
+# 1. AdamUNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_adamunet_global wandb.mode=online name="$(date +%F)-foundation_train_adamunet_global_2x" region=global_2x batch_size=16 scheduler=True rand_seed=10
 
-# Basic UNet - with dil
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_basicunet_dil" batch_size=8 scheduler=True unet.encoder.n_channels=[180,360,720] unet.decoder.n_channels=[720,360,180] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1]
+# 2. ConvNext UNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_6hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-foundation_train_convnextunet_global_2x" region=global_2x batch_size=8 scheduler=True rand_seed=10
 
-# ConvNext UNet
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_convnextunet" batch_size=8 scheduler=True unet.encoder.n_channels=[45,90,180] unet.decoder.n_channels=[180,90,45] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block
+# 3. Swin Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global wandb.mode=online name="$(date +%F)-foundation_train_swin_global_2x" region=global_2x batch_size=16 scheduler=True rand_seed=12 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60
 
-# Original ConvNext UNet
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_orgconvnextunet_rescon" batch_size=8 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig
 
-# Original ConvNext UNet + Dil
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_orgconvnextunet_rescon_dil" batch_size=8 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig
+###########################################################################################
+# Global_1 preloaded Global_2x Training
 
-# Original ConvNext UNet2 + Dil
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_orgconvnextunet2_rescon_dil" batch_size=8 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig2 exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig2
+# 1. AdamUNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_adamunet_global wandb.mode=online name="$(date +%F)-foundation_train_adamunet_loadedglobal1_global_2x_50p" region=global_2x batch_size=16 scheduler=True data_percent=0.5 rand_seed=10 preload='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-13-foundation_train_adamunet_global_1/adamunetseed/saved_nets/adamunet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
-# Original ConvNext UNet2 + Dil 15M
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_orgconvnextunet2_rescon_dil_15M" batch_size=8 scheduler=True unet.encoder.n_channels=[111,222,444] unet.decoder.n_channels=[444,222,111] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig2 exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig2
+# 2. ConvNext UNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_6hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-foundation_train_convnextunet_loadedglobal1_global_2x_50p" region=global_2x batch_size=8 scheduler=True data_percent=0.5 rand_seed=10 preload='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_convnextunet_global_1/next/saved_nets/convnextunet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
-# ConvNext Inverted UNet
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_convnextinvunet" batch_size=8 scheduler=True unet.encoder.n_channels=[90,45,23] unet.decoder.n_channels=[23,45,90] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block
+# 3. Swin Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global wandb.mode=online name="$(date +%F)-foundation_train_swin_loadedglobal1_global_2x_50p" region=global_2x batch_size=16 scheduler=True data_percent=0.5 rand_seed=12 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60 preload='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
-# Original ConvNext Inverted UNet
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet wandb.mode=online name="$(date +%F)-train_orgconvnextinvunet" batch_size=8 scheduler=True unet.encoder.n_channels=[180,90,45] unet.decoder.n_channels=[45,90,180] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig
 
-# Basic UNet Global
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-train_basicunet_global"  batch_size=8 scheduler=True unet.encoder.n_channels=[90,180,360] unet.decoder.n_channels=[360,180,90]
+###########################################################################################
+# Global_1_2x Training
 
-# ConvNext UNet Global
-# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_6hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-train_convnextunet_global_bs4_6hrs" batch_size=4 scheduler=True unet.encoder.n_channels=[45,90,180] unet.decoder.n_channels=[180,90,45] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block
+# 1. AdamUNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_adamunet_global wandb.mode=online name="$(date +%F)-foundation_train_adamunet_global_1_2x" region=global_1_2x batch_size=16 scheduler=True rand_seed=10
 
-# Original ConvNext UNet Global
-./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_12hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-train_orgconvnextunet2_dil_15M_12hrs" batch_size=2 scheduler=True unet.encoder.n_channels=[111,222,444] unet.decoder.n_channels=[444,222,111] unet.encoder.dilations=[1,2,4] unet.decoder.dilations=[4,2,1] exp/unet/modules/blocks@unet.encoder.conv_block=conv_next_block_orig2 exp/unet/modules/blocks@unet.decoder.conv_block=conv_next_block_orig2
+# 2. ConvNext UNet Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_6hrs exp=train_unet_global wandb.mode=online name="$(date +%F)-foundation_train_convnextunet_global_1_2x" region=global_1_2x batch_size=8 scheduler=True rand_seed=10
+
+# 3. Swin Global
+# ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_swin_global wandb.mode=online name="$(date +%F)-foundation_train_swin_global_1_2x" region=global_1_2x batch_size=16 scheduler=True rand_seed=12 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60

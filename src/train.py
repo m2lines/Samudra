@@ -91,6 +91,8 @@ class Trainer:
         # 3 (boundary ocean speeds + boundary ocean temp)(t) -> 3 (ocean speeds + ocean temp)(t+1)
         print("Number of outputs: ", self.N_out)  # 3
 
+        assert args.region == 'global_1' or args.region == 'global_2x' or args.region == 'global_1_2x' 
+
         self.str_video = (
             "steps_"
             + str(args.steps)
@@ -107,14 +109,82 @@ class Trainer:
             + "_Lateral_Data_025_no_smooth"
         )
 
-        # Dataloaders
-        train_data = torch.load(
-            Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_video),
-            map_location=torch.device("cpu"),
-        )
-        val_data = torch.load(
-            Path(args.data_dir) / "val_data_cnn_{0}.pt".format(self.str_video)
-        )
+        if args.region == 'global_1_2x':
+            str1_video = (
+                "steps_"
+                + str(args.steps)
+                + "_"
+                + 'combined_global_1'
+                + "_Test_in_"
+                + self.str_in
+                + "ext_"
+                + self.str_ext
+                + "_out"
+                + self.str_out
+                + "N_train_"
+                + str(args.N_samples)
+                + "_Lateral_Data_025_no_smooth"
+            )
+            str2_video = (
+                "steps_"
+                + str(args.steps)
+                + "_"
+                + 'combined_global_2x'
+                + "_Test_in_"
+                + self.str_in
+                + "ext_"
+                + self.str_ext
+                + "_out"
+                + self.str_out
+                + "N_train_"
+                + str(args.N_samples)
+                + "_Lateral_Data_025_no_smooth"
+            )
+
+            # Dataloaders
+            train_data1 = torch.load(
+                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str1_video),
+                map_location=torch.device("cpu"),
+            )
+            val_data1 = torch.load(
+                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str1_video)
+            )
+            wet1 = torch.load(
+                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(str1_video)
+            )
+
+            train_data2 = torch.load(
+                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str2_video),
+                map_location=torch.device("cpu"),
+            )
+            val_data2 = torch.load(
+                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str2_video)
+            )
+            wet2 = torch.load(
+                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(str2_video)
+            )
+
+            assert (wet1 == wet2).all()
+            
+            train_data = torch.utils.data.ConcatDataset([train_data1, train_data2])
+            val_data = torch.utils.data.ConcatDataset([val_data1, val_data2])
+            self.wet = wet1
+        else:
+            # Dataloaders
+            train_data = torch.load(
+                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_video),
+                map_location=torch.device("cpu"),
+            )
+            if args.data_percent < 1.0:
+                train_data = torch.utils.data.Subset(train_data, list(range(int(args.N_samples * args.data_percent))))
+
+            val_data = torch.load(
+                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(self.str_video)
+            )
+            wet = torch.load(
+                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(self.str_video)
+            )
+            self.wet = wet
 
         print("Loading data")
 
@@ -141,20 +211,21 @@ class Trainer:
         )
 
         # Model
-        if "swin" in args.network:
-            print("Getting model swin")
+        print("Getting model " + args.network)
+        if "swin" == args.network:
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
                 output_channels=self.N_in,
                 pretrain_img_size=[*self.train_loader.dataset[0][0].shape[1:]],
+                wet=self.wet.cuda()
             )
-        elif "unet" in args.network:
-            print("Getting model unet")
+        elif "convnextunet" == args.network or "adamunet" == args.network:
             model = instantiate(
-                args.unet, input_channels=self.num_in, output_channels=self.N_in
+                args.unet, wet=self.wet.cuda()
             )
-            model.set_input_size([*self.train_loader.dataset[0][0].shape[1:]])
+        else:
+            raise NotImplementedError
 
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
@@ -162,10 +233,12 @@ class Trainer:
         # summary(model)
 
         model = model.to(args.device)
-        if self.num_in == 9:
-            i = [torch.zeros(1, 9, 119, 189).cuda()] * 2
-        elif self.num_in == 6:
-            i = [torch.zeros(1, 6, 270, 360).cuda()] * 2
+        if args.preload:
+            print("Loaded model from ", args.preload)
+            model.load_state_dict(
+                    torch.load(args.preload, map_location=torch.device(args.device))
+                )
+        i = [torch.zeros(1, 6, 180, 360).cuda()] * 2
         summary(
             model,
             input_data=[i],
@@ -173,12 +246,7 @@ class Trainer:
             depth=10,
         )
 
-        # import pdb; pdb.set_trace();
-
-        if self.num_in == 9:
-            i = [torch.zeros(1, 9, 119, 189).cuda()] * 16
-        elif self.num_in == 6:
-            i = [torch.zeros(1, 6, 270, 360).cuda()] * 8
+        i = [torch.zeros(1, 6, 180, 360).cuda()] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
 
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -323,7 +391,7 @@ class Trainer:
 
             if self.wandb:
                 wandb.log(
-                    {"train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr}
+                    {"epoch": epoch, "train_loss_per_batch": loss_value_reduce, "lr_per_batch": lr}
                 )
 
         metric_logger.synchronize_between_processes()

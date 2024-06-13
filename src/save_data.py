@@ -4,12 +4,11 @@ import torch
 import os
 from pathlib import Path
 
-from constants import REGIONS, INPT_VARS, EXTRA_VARS, OUT_VARS
+from constants import REGIONS, INPT_VARS, EXTRA_VARS, OUT_VARS, GLOBAL_COMBINED_STATS
 from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
-    gen_data_025_lateral,
-    gen_data_global,
+    gen_data_global_new,
     gen_data_in,
     gen_data_out,
     data_CNN_Lateral,
@@ -83,19 +82,12 @@ def main(args):
     print(f"Train Start: {s_train}, Train End: {e_train}, Test End: {e_test}")
 
     # Generate inputs, extra inputs and outputs
-    if "global_21" == args.region:
-        inputs, extra_in, outputs = gen_data_global(inputs, extra_in, outputs, args.lag)
-
+    if "global_1" in args.region:
+        inputs, extra_in, outputs = gen_data_global_new(inputs, extra_in, outputs, args.lag)
+    elif "global_2x" in args.region:
+        inputs, extra_in, outputs = gen_data_global_new(inputs, extra_in, outputs, args.lag, run_type ="2x")
     else:
-        inputs, extra_in, outputs = gen_data_025_lateral(
-            inputs,
-            extra_in,
-            outputs,
-            args.lag,
-            REGIONS[args.region]["lat"],
-            REGIONS[args.region]["lon"],
-            args.Nb,
-        )
+        raise NotImplementedError
 
     # Generate Wet mask
     wet, _ = get_wet_mask(inputs, "cpu")
@@ -113,7 +105,10 @@ def main(args):
             data_in_val, data_out_val, wet, N_atm, args.Nb, args.device
         )
     else:
-        val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, device=args.device)
+        if "combined" in args.region:
+            val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, GLOBAL_COMBINED_STATS, device=args.device)
+        else:
+            val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, device=args.device)
 
     # Generating Training dataset
     data_in_train = []
@@ -147,13 +142,23 @@ def main(args):
             device=args.device,
         )
     else:
-        train_data = data_CNN_steps_Dynamic(
-            data_in_train,
-            data_out_train,
-            args.steps,
-            wet,
-            device=args.device,
-        )
+        if "combined" in args.region:
+            train_data = data_CNN_steps_Dynamic(
+                data_in_train,
+                data_out_train,
+                args.steps,
+                wet,
+                GLOBAL_COMBINED_STATS,
+                device=args.device,
+            )
+        else:
+            train_data = data_CNN_steps_Dynamic(
+                data_in_train,
+                data_out_train,
+                args.steps,
+                wet,
+                device=args.device,
+            )
 
     # Norm vals
     print("Train Norms: ", train_data.norm_vals)
@@ -172,6 +177,7 @@ def main(args):
     )
     torch.save(val_data, Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str_video))
 
+    torch.save(wet, Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(str_video))
 
 ###
 # Running without workflow

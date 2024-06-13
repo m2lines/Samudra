@@ -1,5 +1,20 @@
 import torch
 
+class ReLU(torch.nn.Module):
+    """
+    Implements a ReLU.
+    """
+
+    def __init__(self, **kwargs):
+        """
+        :param kwargs: passed to torch.nn.ReLU
+        """
+        super().__init__()
+        self.add_module("relu", torch.nn.ReLU())
+
+    def forward(self, inputs):
+        x = self.relu(inputs)
+        return x
 
 class CappedLeakyReLU(torch.nn.Module):
     """

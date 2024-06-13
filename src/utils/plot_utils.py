@@ -7,7 +7,6 @@ import cartopy.crs as ccrs
 import cartopy as cart
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
-
 def plot_time_spec(
     network_names,
     axs,
@@ -59,7 +58,7 @@ def plot_time_spec(
     axs[plt_index].set_ylim([0, auto_FFT[1:N_int, index].max() * 2])
 
     if legend:
-        axs[plt_index].legend(ncol=1, loc="upper right")
+        axs[plt_index].legend(ncol=1)
 
 
 def plot_var(
@@ -213,6 +212,7 @@ def plot_acc(
     auto_ACC,
     ACCs,
     clist,
+    legend=False,
 ):
     T_plot = 100
 
@@ -263,6 +263,8 @@ def plot_acc(
 
     axs[plt_ind_acc].set_ylim([0, 1])
     axs[plt_ind_acc].set_xlim([0, T_plot])
+    if legend:
+        axs[plt_ind_acc].legend(ncol=2)
 
 
 def plot_corr(
@@ -472,6 +474,7 @@ def plot_long_time_stats(
     FFTs,
     auto_mean,
     means,
+    JUPYTER_MODE=False,
 ):
 
     plt.clf()
@@ -561,12 +564,16 @@ def plot_long_time_stats(
 
     # fig.suptitle("Long-Time Statistics " + region_title, fontsize=16)
 
-    plt.savefig(
-        Path(output_dir)
-        / ("Long_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    if JUPYTER_MODE:
+        plt.show()
+    
+    else:
+        plt.savefig(
+            Path(output_dir)
+            / ("Long_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_short_time_stats(
@@ -584,6 +591,7 @@ def plot_short_time_stats(
     KEs,
     auto_corrs,
     corrs,
+    JUPYTER_MODE=False,
 ):
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
@@ -601,101 +609,23 @@ def plot_short_time_stats(
         plt.rc("figure", titlesize=18)
 
         fig, axs = plt.subplots(
+            1,
             2,
-            2,
-            figsize=(11, 6),
+            figsize=(11, 3),
             gridspec_kw={
                 "width_ratios": [1, 1],
-                "height_ratios": [1, 1],
+                "height_ratios": [1],
                 "wspace": 0.4,
                 "hspace": 0.5,
             },
         )
         return fig, axs
 
-    # fig, axs = init_plt()
-    # plot_acc(
-    #     network_names,
-    #     axs,
-    #     (0, 0),
-    #     2,
-    #     N_test,
-    #     lag,
-    #     auto_ACC,
-    #     ACCs,
-    #     clist,
-    # )
-    # plot_corr(
-    #     network_names,
-    #     axs,
-    #     (0, 1),
-    #     1,
-    #     N_test,
-    #     lag,
-    #     auto_corrs,
-    #     corrs,
-    #     clist,
-    # )
-    # plot_rmse(network_names, axs, (1, 0), 2, N_test, lag, auto_rmse, rmses, clist, True)
-    # plot_KE(network_names, axs, (1, 1), N_test, lag, auto_KE, KEs, clist)
-
-    # fig.suptitle("Short-Time Statistics 1" + region, fontsize=16)
-
-    # plt.savefig(
-    #     Path(output_dir)
-    #     / ("Short_Time_Comp_Boundary1_" + region + "_" + save_str + ".png"),
-    #     bbox_inches="tight",
-    # )
-
-    # fig, axs = init_plt()
-    # plot_acc(
-    #     network_names,
-    #     axs,
-    #     (0, 0),
-    #     0,
-    #     N_test,
-    #     lag,
-    #     auto_ACC,
-    #     ACCs,
-    #     clist,
-    # )
-    # plot_acc(
-    #     network_names,
-    #     axs,
-    #     (0, 1),
-    #     1,
-    #     N_test,
-    #     lag,
-    #     auto_ACC,
-    #     ACCs,
-    #     clist,
-    # )
-    # plot_rmse(network_names, axs, (1, 0), 0, N_test, lag, auto_rmse, rmses, clist, True)
-    # plot_rmse(
-    #     network_names,
-    #     axs,
-    #     (1, 1),
-    #     1,
-    #     N_test,
-    #     lag,
-    #     auto_rmse,
-    #     rmses,
-    #     clist,
-    # )
-
-    # # fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
-
-    # plt.savefig(
-    #     Path(output_dir)
-    #     / ("Short_Time_Comp_Boundary2_" + region + "_" + save_str + ".png"),
-    #     bbox_inches="tight",
-    # )
-
     fig, axs = init_plt()
     plot_acc(
         network_names,
         axs,
-        (0, 0),
+        (0),
         0,
         N_test,
         lag,
@@ -706,40 +636,32 @@ def plot_short_time_stats(
     plot_acc(
         network_names,
         axs,
-        (0, 1),
+        (1),
         2,
         N_test,
         lag,
         auto_ACC,
         ACCs,
         clist,
-    )
-    plot_rmse(network_names, axs, (1, 0), 0, N_test, lag, auto_rmse, rmses, clist, True)
-    plot_rmse(
-        network_names,
-        axs,
-        (1, 1),
-        2,
-        N_test,
-        lag,
-        auto_rmse,
-        rmses,
-        clist,
+        True
     )
 
     # fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
 
-    plt.savefig(
-        Path(output_dir)
-        / ("Short_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
+    if JUPYTER_MODE:
+        plt.show()
 
-    plt.clf()
+    else:
+        plt.savefig(
+            Path(output_dir)
+            / ("Short_Time_Comp_Boundary_" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_KE_spectrum(
-    network_names, region, save_str, output_dir, KE_spec_true, KE_specs
+    network_names, region, save_str, output_dir, KE_spec_true, KE_specs, JUPYTER_MODE=False
 ):
 
     plt.style.use("bmh")
@@ -761,12 +683,15 @@ def plot_metrics_KE_spectrum(
     plt.xlabel(r"Wave number $( 1/km )$")
     plt.ylabel(r"KE $( J/m^2 )$")
 
-    plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("KE_spectrum" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(KE_specs)+1)
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("KE_spectrum" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_KE(
@@ -776,6 +701,9 @@ def plot_metrics_KE(
     output_dir,
     KE_true,
     KEs,
+    start,
+    end,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -788,25 +716,29 @@ def plot_metrics_KE(
     for i, KE_i in enumerate(KEs):
         if KE_i is not None:
             plt.plot(
-                np.arange(1, N_plot + 1),
-                KE_i * rho,
+                np.arange(start, end),
+                KE_i[start:end] * rho,
                 c=clist[i],
                 label=f"{network_names[i]}",
             )
 
-    plt.plot(np.arange(1, N_plot + 1), KE_true * rho, "--k", label="CM2.6")
+    plt.plot(np.arange(start, end), KE_true[start:end] * rho, "--k", label="CM2.6")
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"KE $( J/m^2 )$")
-    plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("KE" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    plt.xlim([start, end])
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(KEs)+1)
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("KE" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_enstrophy_spectrum(
-    network_names, region, save_str, output_dir, enst_spec_true, enst_specs
+    network_names, region, save_str, output_dir, enst_spec_true, enst_specs, JUPYTER_MODE=False
 ):
     plt.style.use("bmh")
 
@@ -825,12 +757,15 @@ def plot_metrics_enstrophy_spectrum(
     plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k", label="CM2.6")
     plt.xlabel(r"Wave number $( 1/km )$")
     plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
-    plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("Enstrophy_Spectrum" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(enst_specs)+1)
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Enstrophy_Spectrum" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_entrophy(
@@ -840,6 +775,7 @@ def plot_metrics_entrophy(
     output_dir,
     enst_true,
     ensts,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -860,12 +796,16 @@ def plot_metrics_entrophy(
     plt.plot(np.arange(1, N_plot + 1), enst_true, "--k", label="CM2.6")
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
-    plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("Enstrophy" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(ensts)+1)
+    if JUPYTER_MODE:
+        plt.show()
+
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Enstrophy" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_corr(
@@ -875,6 +815,7 @@ def plot_metrics_corr(
     output_dir,
     corr_T_true,
     corr_Ts,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -897,16 +838,19 @@ def plot_metrics_corr(
     plt.ylim([0, 1])
     plt.xlim([0, N_eval])
 
-    plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("Corr" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(corr_Ts)+1)
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Corr" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_rmse(
-    network_names, region, save_str, output_dir, RMSE_T_true, RMSE_Ts
+    network_names, region, save_str, output_dir, RMSE_T_true, RMSE_Ts, JUPYTER_MODE=False
 ):
     plt.style.use("bmh")
 
@@ -928,15 +872,18 @@ def plot_metrics_rmse(
     plt.ylabel(r"RMSE $\overline{T}$")
     plt.xlim([0, N_eval])
 
-    plt.legend()
-    plt.savefig(
-        Path(output_dir) / ("RMSE" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(RMSE_Ts)+1)
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("RMSE" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
-def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, ACC_Ts):
+def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, ACC_Ts, JUPYTER_MODE=False):
     plt.style.use("bmh")
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
@@ -958,12 +905,58 @@ def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, AC
     plt.ylim([0, 1])
     plt.xlim([0, N_eval])
 
-    plt.legend(loc="lower left")
-    plt.savefig(
-        Path(output_dir) / ("ACC" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
-    )
-    plt.clf()
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(ACC_Ts)+1)
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("ACC" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
+
+
+def plot_metrics_mean(
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    mean_T_true,
+    mean_Ts,
+    start,
+    end,
+    JUPYTER_MODE=False,
+):
+    plt.style.use("bmh")
+
+    clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
+
+    # Temp
+    N_eval = len(mean_T_true)
+    for i, mean_Ti in enumerate(mean_Ts):
+        if mean_Ti is not None:
+            plt.plot(
+                np.arange(start, end),
+                mean_Ti[start:end],
+                c=clist[i],
+                label=f"{network_names[i]}",
+            )
+
+    plt.plot(np.arange(start, end), mean_T_true[start:end], "--k", label="CM2.6")
+    plt.xlabel(r"time $( days )$")
+    plt.ylabel(r"$\overline{T}$ $( ^\circ C )$")
+    # plt.ylim([0, 1])
+    plt.xlim([start, end])
+
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(mean_Ts)+1)
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Mean" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def plot_metrics_pdf(
@@ -971,6 +964,7 @@ def plot_metrics_pdf(
     region,
     output_dir,
     pdf,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -981,10 +975,10 @@ def plot_metrics_pdf(
         "1": r"$\overline{v}$ $( m/s )$",
         "0": r"$\overline{u}$ $( m/s )$",
         "2": r"$\overline{T}$ $( ^\circ C )$",
+        "KE": r"$\overline{KE}$",
     }
 
-    for ind_plot in range(3):
-        plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", label="CM2.6")
+    for ind_plot in pdf.keys():
         for i, network_name in enumerate(network_names):
             plt.semilogy(
                 *pdf[ind_plot][network_name],
@@ -993,26 +987,59 @@ def plot_metrics_pdf(
                 label=f"{network_name}",
             )
 
-        plt.ylim(
-            [
-                pdf[ind_plot]["true_pdf"].min() * 2,
-                pdf[ind_plot]["true_pdf"].max() * 2.5,
-            ]
-        )
+        if ind_plot != 2:
+            plt.ylim(
+                [
+                    pdf[ind_plot]["true_pdf"].min(),
+                    pdf[ind_plot]["true_pdf"].max(),
+                ]
+            )
+        else:
+            plt.ylim(
+                [
+                    0.01,
+                    pdf[ind_plot]["true_pdf"].max(),
+                ]
+            )
+        
+        if ind_plot == 2:
+            plt.xlim(
+                [
+                    -3,33
+                ]
+            )
+        elif ind_plot == "KE":
+            plt.xlim(
+                [
+                    0,
+                    2500
+                ]
+            )
 
-        plt.legend()
+
+        plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", ls='--', label="CM2.6")
+        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(pdf[0].keys()))
+        
 
         plt.xlabel(var_list[str(ind_plot)])
-        plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
-
-        plt.savefig(
-            Path(output_dir) / ("PDF" + region + "_" + str(ind_plot) + ".png"),
-            bbox_inches="tight",
-        )
-        plt.clf()
+        if isinstance(ind_plot, int): 
+            plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
+        else:
+            plt.ylabel(r"${p(}$" + var_list[str(ind_plot)] + "${)}$")
 
 
-def plot_long_KE(
+        if JUPYTER_MODE:
+            plt.show()
+
+        else:
+            plt.savefig(
+                Path(output_dir) / ("PDF" + region + "_" + str(ind_plot) + ".png"),
+                bbox_inches="tight",
+            )
+            plt.clf()
+
+
+def plot_map(
     network_names,
     region,
     save_str,
@@ -1022,44 +1049,428 @@ def plot_long_KE(
     wet_nan,
     long_KE_true,
     long_KEs,
+    mode="KE",
+    JUPYTER_MODE=False,
 ):
 
     plt.style.use("bmh")
 
     # Long KE
     plt.rcParams.update({"font.size": 12})
-    if len(long_KEs) > 1:
-        fig, axs = plt.subplots(
-            2,
-            3,
-            figsize=(12, 5),
-            gridspec_kw={
-                "width_ratios": [1, 1, 1],
-                "height_ratios": [1, 1],
-                "wspace": 0.25,
-                "hspace": 0.5,
-            },
-            subplot_kw={"projection": ccrs.PlateCarree()},
-        )
-    elif len(long_KEs) == 1:
-        fig, axs = plt.subplots(
-            2,
-            2,
-            figsize=(12, 5),
-            gridspec_kw={
-                "width_ratios": [1, 1],
-                "height_ratios": [1, 1],
-                "wspace": 0.25,
-                "hspace": 0.5,
-            },
-            subplot_kw={"projection": ccrs.PlateCarree()},
+    fig, axs = plt.subplots(
+        1,
+        4,
+        figsize=(12, 5),
+        gridspec_kw={
+            "width_ratios": [1, 1, 1, 1],
+            "height_ratios": [1],
+            "wspace": 0.3,
+            "hspace": 0.5,
+        },
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
+    if mode == "KE":
+        vmin = 0
+        vmax = 45
+    elif mode == "TEMP":
+        vmin = -2
+        vmax = 30
+
+    if "global" in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
+    else:
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
+
+    # Ground Truth
+    if "global" in region:
+        plt0 = axs[0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
         )
     else:
-        print("0 entries in long_KE")
-        return
+        plt0 = axs[0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
 
+    axs[0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    axs[0].set_title(r"CM2.6", size=15)
+
+    pos = axs[0].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.35,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt0, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    if mode == "KE":
+        cbar.set_label(r"KE $( J/m^2 )$", fontsize=15)
+    elif mode == "TEMP":
+        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=15)
+
+    fig.delaxes(cax)
+
+    for i, long_KE_i in enumerate(long_KEs):
+        if long_KE_i is not None:
+            if "global" in region:
+                axs[i+1].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_KE_i * wet_nan,
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+            else:
+                axs[i+1].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+
+            axs[i+1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[i+1].gridlines(
+                crs=ccrs.PlateCarree(),
+                draw_labels=True,
+                linewidth=2,
+                color="gray",
+                alpha=0.5,
+                linestyle="--",
+            )
+            gl.top_labels = False
+            gl.right_labels = False
+            gl.yrotation = False
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+            axs[i+1].set_title(network_names[i], size=15)
+
+
+    region_title = ""
+
+    for i in region:
+        if region == "Quiescent_Ext":
+            region_title = "South Pacific"
+        elif region == "Africa_Ext":
+            region_title = "African Cape"
+        elif i == "_":
+            region_title += " "
+        elif i == "E":
+            break
+        else:
+            region_title += i
+    region_title = str(region_title)
+
+    # a = fig.suptitle(
+    #     r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
+    #     fontsize=16,
+    # )
+
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Mean_" + mode + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
+
+
+def plot_error_map(
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    grids,
+    Nb,
+    wet_nan,
+    long_KE_true,
+    long_mse_KEs,
+    mode="KE",
+    JUPYTER_MODE=False,
+):
+
+    plt.style.use("bmh")
+
+    # Long KE
+    plt.rcParams.update({"font.size": 12})
+    fig, axs = plt.subplots(
+        1,
+        4,
+        figsize=(12, 5),
+        gridspec_kw={
+            "width_ratios": [1, 1, 1, 1],
+            "height_ratios": [1],
+            "wspace": 0.3,
+            "hspace": 0.5,
+        },
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
+    # Ground Truth
+    if mode == "KE":
+        vmin = 0
+        vmax = 100
+    elif mode == "TEMP":
+        vmin = -2
+        vmax = 30
+
+    if "global" in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
+    else:
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
+
+    # Ground Truth
+    if "global" in region:
+        plt0 = axs[0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt0 = axs[0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+    axs[0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    axs[0].set_title(r"CM2.6", size=15)
+
+    pos = axs[0].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.35,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt0, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    if mode == "KE":
+        cbar.set_label(r"KE $( J/m^2 )$", fontsize=15)
+    elif mode == "TEMP":
+        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=15)
+
+    fig.delaxes(cax)
+
+    # Bias plots
+    if mode == "KE":
+        vmin = -20
+        vmax = 20
+    elif mode == "TEMP":
+        vmin = -2
+        vmax = 2
+    
+    cmap = cmocean.cm.balance
+
+    for i, long_mse_KE_i in enumerate(long_mse_KEs):
+        if long_mse_KE_i is not None:
+            if "global" in region:
+                plt_n = axs[i+1].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_KE_i * wet_nan,
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+            else:
+                plt_n = axs[i+1].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+
+            axs[i+1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[i+1].gridlines(
+                crs=ccrs.PlateCarree(),
+                draw_labels=True,
+                linewidth=2,
+                color="gray",
+                alpha=0.5,
+                linestyle="--",
+            )
+            gl.top_labels = False
+            gl.right_labels = False
+            gl.yrotation = False
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+            axs[i+1].set_title(network_names[i], size=15)
+
+    pos = axs[3].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.05,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt_n, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    if mode == "KE":
+        cbar.set_label(r"Bias KE $( J/m^2 )$", fontsize=15)
+    else:
+        cbar.set_label(r"Bias $\overline{T}$ $( ^\circ C )$", fontsize=15)
+
+    fig.delaxes(cax)
+
+
+    region_title = ""
+
+    for i in region:
+        if region == "Quiescent_Ext":
+            region_title = "South Pacific"
+        elif region == "Africa_Ext":
+            region_title = "African Cape"
+        elif i == "_":
+            region_title += " "
+        elif i == "E":
+            break
+        else:
+            region_title += i
+    region_title = str(region_title)
+
+    # a = fig.suptitle(
+    #     r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
+    #     fontsize=16,
+    # )
+
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("MSE_" + mode + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
+
+
+def plot_both_error_map(network_names,
+    region,
+    save_str,
+    output_dir,
+    grids,
+    Nb,
+    wet_nan,
+    long_KE_true,
+    long_mse_KEs,
+    long_T_true,
+    long_mse_Ts,
+    JUPYTER_MODE=False):
+
+    plt.style.use("bmh")
+
+    # Long KE
+    plt.rcParams.update({"font.size": 12})
+    fig, axs = plt.subplots(
+        2,
+        4,
+        figsize=(12, 5),
+        gridspec_kw={
+            "width_ratios": [1, 1, 1, 1],
+            "height_ratios": [1, 1],
+            "wspace": 0.3,
+            "hspace": 0.3,
+        },
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
+    # Ground Truth
     vmin = 0
-    vmax = 45
+    vmax = 100
 
     if "global" in region:
         x_plot = grids["x_C"]
@@ -1108,12 +1519,12 @@ def plot_long_KE(
     gl.yformatter = LATITUDE_FORMATTER
     axs[0, 0].set_title(r"CM2.6", size=15)
 
-    pos = axs[1, 0].get_position()
+    pos = axs[0, 0].get_position()
 
     # Set the new anchor point to be in the middle
     new_pos = [
-        pos.x0 - 0.075,
-        pos.y0 + 0.15,
+        pos.x0 - 0.35,
+        pos.y0 - 0.02,
         pos.width * 1.75,
         pos.height * 1.5,
     ]  # Adjust 0.2 as needed
@@ -1121,42 +1532,46 @@ def plot_long_KE(
     # Create a new axes with the adjusted position
     cax = fig.add_axes(new_pos)
 
-    cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
+    cbar = plt.colorbar(plt0, ax=cax, orientation="vertical", aspect=10)
     cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
 
     cbar.set_ticks(
         [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
     )  # cbar.set_ticks([vmin, 0, vmax])
 
-    cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
-
-    fig.delaxes(axs[1, 1])
+    cbar.set_label(r"KE $( J/m^2 )$", fontsize=15)
     fig.delaxes(cax)
 
-    for i, long_KE_i in enumerate(long_KEs):
-        if long_KE_i is not None:
+    # Bias plots
+    vmin = -20
+    vmax = 20
+    
+    cmap = cmocean.cm.balance
+
+    for i, long_mse_KE_i in enumerate(long_mse_KEs):
+        if long_mse_KE_i is not None:
             if i == 0:
                 idy, idx = 0, 1
             elif i == 1:
                 idy, idx = 0, 2
             elif i == 2:
-                idy, idx = 1, 2
+                idy, idx = 0, 3
 
             if "global" in region:
-                axs[idy, idx].pcolormesh(
+                plt_n = axs[idy, idx].pcolormesh(
                     x_plot,
                     y_plot,
-                    long_KE_i * wet_nan,
+                    long_mse_KE_i * wet_nan,
                     cmap=cmap,
                     vmin=vmin,
                     vmax=vmax,
                     shading="auto",
                 )
             else:
-                axs[idy, idx].pcolormesh(
+                plt_n = axs[idy, idx].pcolormesh(
                     x_plot,
                     y_plot,
-                    long_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                    long_mse_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
                     cmap=cmap,
                     vmin=vmin,
                     vmax=vmax,
@@ -1179,36 +1594,191 @@ def plot_long_KE(
             gl.yformatter = LATITUDE_FORMATTER
             axs[idy, idx].set_title(network_names[i], size=15)
 
-    axs[1, 0].set_axis_off()
-    axs[1, 2].set_axis_off()
-    if len(long_KEs) < 3:
-        axs[1, 1].set_axis_off()
+    pos = axs[0, 3].get_position()
 
-    region_title = ""
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.05,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
 
-    for i in region:
-        if region == "Quiescent_Ext":
-            region_title = "South Pacific"
-        elif region == "Africa_Ext":
-            region_title = "African Cape"
-        elif i == "_":
-            region_title += " "
-        elif i == "E":
-            break
-        else:
-            region_title += i
-    region_title = str(region_title)
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
 
-    # a = fig.suptitle(
-    #     r"Mean KE " + region_title + ": $t = " + str(1000) + "$ days ",
-    #     fontsize=16,
-    # )
+    cbar = plt.colorbar(plt_n, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
 
-    plt.savefig(
-        Path(output_dir) / ("Mean_KE" + region + "_" + save_str + ".png"),
-        bbox_inches="tight",
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    cbar.set_label(r"Bias KE $( J/m^2 )$", fontsize=15)
+
+    fig.delaxes(cax)
+ 
+    ###### TEMP
+
+    # Ground Truth
+    vmin = -2
+    vmax = 30
+
+    if "global" in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
+    else:
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
+
+    # Ground Truth
+    if "global" in region:
+        plt0 = axs[1, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_T_true * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt0 = axs[1, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_T_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+    axs[1, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[1, 0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
     )
-    plt.clf()
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    # axs[1, 0].set_title(r"CM2.6", size=15)
+
+    pos = axs[1, 0].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.35,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt0, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=15)
+
+    fig.delaxes(cax)
+
+    # Bias plots
+    vmin = -2
+    vmax = 2
+    
+    cmap = cmocean.cm.balance
+
+    for i, long_mse_T_i in enumerate(long_mse_Ts):
+        if long_mse_T_i is not None:
+            if i == 0:
+                idy, idx = 1, 1
+            elif i == 1:
+                idy, idx = 1, 2
+            elif i == 2:
+                idy, idx = 1, 3
+
+            if "global" in region:
+                plt_n = axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_T_i * wet_nan,
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+            else:
+                plt_n = axs[idy, idx].pcolormesh(
+                    x_plot,
+                    y_plot,
+                    long_mse_T_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+                    cmap=cmap,
+                    vmin=vmin,
+                    vmax=vmax,
+                    shading="auto",
+                )
+
+            axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[idy, idx].gridlines(
+                crs=ccrs.PlateCarree(),
+                draw_labels=True,
+                linewidth=2,
+                color="gray",
+                alpha=0.5,
+                linestyle="--",
+            )
+            gl.top_labels = False
+            gl.right_labels = False
+            gl.yrotation = False
+            gl.xformatter = LONGITUDE_FORMATTER
+            gl.yformatter = LATITUDE_FORMATTER
+            # axs[idy, idx].set_title(network_names[i], size=15)
+
+    pos = axs[1, 3].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.05,
+        pos.y0 - 0.02,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt_n, ax=cax, orientation="vertical", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    cbar.set_label(r"Bias $\overline{T}$ $( ^\circ C )$", fontsize=15)
+
+    fig.delaxes(cax)
+
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("MSE_KE_TEMP" + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
 
 
 def get_initial_snapshot_fig(
@@ -1361,7 +1931,6 @@ def get_initial_snapshot_fig(
 
     cbar.set_label(var_list[str(ind_plot)], fontsize=20)
 
-    fig.delaxes(axs[1, 1])
     fig.delaxes(cax)
 
     plts = [plt0]
@@ -1372,6 +1941,8 @@ def get_initial_snapshot_fig(
             elif i == 1:
                 idy, idx = 0, 2
             elif i == 2:
+                idy, idx = 1, 1
+            elif i == 3:
                 idy, idx = 1, 2
 
             if "global" in region:
@@ -1414,9 +1985,13 @@ def get_initial_snapshot_fig(
             plts.append(plt_temp)
 
     axs[1, 0].set_axis_off()
-    axs[1, 2].set_axis_off()
-    if len(model_preds) < 3:
+    if len(model_preds) == 1:
         axs[1, 1].set_axis_off()
+    if len(model_preds) == 2:
+        axs[1, 1].set_axis_off()
+        axs[1, 2].set_axis_off()
+    if len(model_preds) == 3:
+        axs[1, 2].set_axis_off()
 
     region_title = ""
 
@@ -1438,3 +2013,260 @@ def get_initial_snapshot_fig(
         fontsize=16,
     )
     return fig, plts, a
+
+def plot_region_based_metric(
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    true,
+    indices,
+    JUPYTER_MODE=False,
+    mode='nino34'):
+
+    plt.style.use("bmh")
+
+    clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
+
+    N_plot = len(indices[0])
+
+    # Indices
+    for i, indices_i in enumerate(indices):
+        if indices_i is not None:
+            plt.plot(
+                np.arange(1, N_plot + 1),
+                indices_i,
+                c=clist[i],
+                label=f"{network_names[i]}",
+            )
+
+    plt.plot(np.arange(1, N_plot + 1), true, "--k", label="CM2.6")
+    plt.xlabel(r"time $( days )$", fontsize="15")
+    y = 'Nino 3.4 Index' if mode == 'nino34' else 'AMO Index'
+    plt.ylabel(y, fontsize="15")
+    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, fontsize="15", ncol=len(indices)+1)
+    if JUPYTER_MODE:
+        plt.show()
+
+    else:
+        plt.savefig(
+            Path(output_dir) / (y + '_' + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()
+
+
+def plot_diff_map(
+        region,
+        save_str,
+        output_dir,
+        grids,
+        Nb, 
+        wet_nan,
+        long_KE_true,
+        diff_KE,
+        mode="KE",
+        JUPYTER_MODE=False,
+    ):
+    plt.style.use("bmh")
+
+    # Long KE
+    plt.rcParams.update({"font.size": 12})
+    fig, axs = plt.subplots(
+        2,
+        2,
+        figsize=(12, 5),
+        gridspec_kw={
+            "width_ratios": [1, 1],
+            "height_ratios": [1, 1],
+            "wspace": 0.25,
+            "hspace": 0.5,
+        },
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
+
+    # Ground Truth
+    if mode == "KE":
+        vmin = 0
+        vmax = 100
+    elif mode == "TEMP":
+        vmin = -2
+        vmax = 30
+
+    if "global" in region:
+        x_plot = grids["x_C"]
+        y_plot = grids["y_C"]
+    else:
+        x_plot = grids["x_C"][Nb:-Nb, Nb:-Nb]
+        y_plot = grids["y_C"][Nb:-Nb, Nb:-Nb]
+
+    cmap = cmocean.cm.thermal  # cmocean.cm.diff
+
+    # Ground Truth
+    if "global" in region:
+        plt0 = axs[0, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt0 = axs[0, 0].pcolormesh(
+            x_plot,
+            y_plot,
+            long_KE_true[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+    axs[0, 0].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[0, 0].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    axs[0, 0].set_title(r"CM2.6", size=15)
+
+    pos = axs[1, 0].get_position()
+
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.075,
+        pos.y0 + 0.15,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt0, ax=cax, orientation="horizontal", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    if mode == "KE":
+        cbar.set_label(r"KE $( J/m^2 )$", fontsize=20)
+    elif mode == "TEMP":
+        cbar.set_label(r"$\overline{T}$ $( ^\circ C )$", fontsize=20)
+
+    fig.delaxes(cax)
+
+    # Bias plots
+    if mode == "KE":
+        vmin = -20
+        vmax = 20
+    elif mode == "TEMP":
+        vmin = -4
+        vmax = 4
+    
+    cmap = cmocean.cm.balance
+
+    idy, idx = 0, 1
+        
+    if "global" in region:
+        plt_n = axs[idy, idx].pcolormesh(
+            x_plot,
+            y_plot,
+            diff_KE * wet_nan,
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+    else:
+        plt_n = axs[idy, idx].pcolormesh(
+            x_plot,
+            y_plot,
+            diff_KE[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+            shading="auto",
+        )
+
+    axs[idy, idx].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+    gl = axs[idy, idx].gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=2,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.yrotation = False
+    gl.xformatter = LONGITUDE_FORMATTER
+    gl.yformatter = LATITUDE_FORMATTER
+    axs[idy, idx].set_title("Bias between Eval and Train data", size=15)
+
+    pos = axs[1, 1].get_position()
+    
+    # Set the new anchor point to be in the middle
+    new_pos = [
+        pos.x0 - 0.075,
+        pos.y0 + 0.15,
+        pos.width * 1.75,
+        pos.height * 1.5,
+    ]  # Adjust 0.2 as needed
+
+    # Create a new axes with the adjusted position
+    cax = fig.add_axes(new_pos)
+
+    cbar = plt.colorbar(plt_n, ax=cax, orientation="horizontal", aspect=10)
+    cbar.ax.tick_params(labelsize=16)  # Set the font size for tick labels
+
+    cbar.set_ticks(
+        [np.ceil(vmin), np.round((vmin + vmax) / 2), np.floor(vmax)]
+    )  # cbar.set_ticks([vmin, 0, vmax])
+
+    if mode == "KE":
+        cbar.set_label(r"Error KE $( J/m^2 )$", fontsize=20)
+    else:
+        cbar.set_label(r"Error $\overline{T}$ $( ^\circ C )$", fontsize=20)
+
+    fig.delaxes(cax)
+
+    axs[1, 0].set_axis_off()
+    axs[1, 1].set_axis_off()
+
+    region_title = ""
+
+    for i in region:
+        if region == "Quiescent_Ext":
+            region_title = "South Pacific"
+        elif region == "Africa_Ext":
+            region_title = "African Cape"
+        elif i == "_":
+            region_title += " "
+        elif i == "E":
+            break
+        else:
+            region_title += i
+    region_title = str(region_title)
+
+
+    if JUPYTER_MODE:
+        plt.show()
+    else:
+        plt.savefig(
+            Path(output_dir) / ("Diff_" + mode + region + "_" + save_str + ".png"),
+            bbox_inches="tight",
+        )
+        plt.clf()

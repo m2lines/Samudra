@@ -2,6 +2,7 @@ import torch
 from typing import Sequence
 from hydra.utils import instantiate
 from omegaconf import DictConfig
+import numpy as np
 
 
 class UNetDecoder(torch.nn.Module):
@@ -14,7 +15,6 @@ class UNetDecoder(torch.nn.Module):
         conv_block: DictConfig,
         up_sampling_block: DictConfig,
         output_layer: DictConfig,
-        recurrent_block: DictConfig = None,
         n_channels: Sequence = (34, 68, 136),
         n_layers: Sequence = (1, 2, 2),
         output_channels: int = 3,
@@ -22,9 +22,6 @@ class UNetDecoder(torch.nn.Module):
     ):
         super().__init__()
         self.channel_dim = 1  # 1 in previous layout
-
-        # if enable_nhwc and activation is not None:
-        #     activation = activation.to(memory_format=torch.channels_last)
 
         if dilations is None:
             # Defaults to [1, 1, 1...] in accordance with the number of unet levels
@@ -58,18 +55,11 @@ class UNetDecoder(torch.nn.Module):
                 n_layers=n_layers[n],
             )
 
-            # Recurrent module
-            if recurrent_block:
-                rec_module = instantiate(recurrent_block, in_channels=next_channel)
-            else:
-                rec_module = None
-
             self.decoder.append(
                 torch.nn.ModuleDict(
                     {
                         "upsamp": up_sample_module,
-                        "conv": conv_module,
-                        "recurrent": rec_module,
+                        "conv": conv_module
                     }
                 )
             )
@@ -90,12 +80,12 @@ class UNetDecoder(torch.nn.Module):
         for n, layer in enumerate(self.decoder):
             if layer["upsamp"] is not None:
                 up = layer["upsamp"](x)
-                x = torch.cat([up, inputs[-1 - n]], dim=self.channel_dim)
+                crop = np.array(up.shape[2:])
+                shape = np.array(inputs[-1 - n].shape[2:])
+                pads = (shape - crop)
+                pads = [pads[1]//2, pads[1]-pads[1]//2,
+                        pads[0]//2, pads[0]-pads[0]//2]
+                up = torch.nn.functional.pad(up,pads)
+                x =  torch.cat([up, inputs[-1 - n]], dim=self.channel_dim)
             x = layer["conv"](x)
-            if layer["recurrent"] is not None:
-                x = layer["recurrent"](x)
         return self.output_layer(x)
-
-    def reset(self):
-        for layer in self.decoder:
-            layer["recurrent"].reset()

@@ -1,0 +1,2 @@
+_target_: models.modules.blocks.BilinearUpsample
+upsampling: 2

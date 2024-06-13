@@ -44,7 +44,7 @@ unset -f which
 source $PYTHON_GREENE_ENV_START
 source activate $PYTHON_GREENE_CONDA_ENV
 if [[ -d /opt/slurm/bin ]]; then export PATH=\${PATH}:/opt/slurm/bin; fi
-HYDRA_FULL_ERROR=1 \$(/usr/bin/which python) $args
+HYDRA_FULL_ERROR=1 \$(/usr/bin/which python) -m pdb -c continue $args
 #$args
 exit
 "

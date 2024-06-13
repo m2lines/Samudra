@@ -14,9 +14,38 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from typing import Sequence
-from .base import BaseModel
-from utils.climate_utils import pairwise
-from .modules.blocks import BilinearUpsample, TransposedConvUpsample
+import copy
+from torchvision.transforms import Resize
+
+
+def resize(
+    input,
+    size=None,
+    scale_factor=None,
+    mode="nearest",
+    align_corners=None,
+    warning=True,
+):
+    if warning:
+        if size is not None and align_corners:
+            input_h, input_w = tuple(int(x) for x in input.shape[2:])
+            output_h, output_w = tuple(int(x) for x in size)
+            if output_h > input_h or output_w > output_h:
+                if (
+                    (output_h > 1 and output_w > 1 and input_h > 1 and input_w > 1)
+                    and (output_h - 1) % (input_h - 1)
+                    and (output_w - 1) % (input_w - 1)
+                ):
+                    warnings.warn(
+                        f"When align_corners={align_corners}, "
+                        "the output would more aligned if "
+                        f"input size {(input_h, input_w)} is `x+1` and "
+                        f"out size {(output_h, output_w)} is `nx+1`"
+                    )
+    if isinstance(size, torch.Size):
+        size = tuple(int(x) for x in size)
+    return F.interpolate(input, size, scale_factor, mode, align_corners)
+
 
 class Mlp(nn.Module):
     """Multilayer perceptron."""
@@ -44,6 +73,7 @@ class Mlp(nn.Module):
         x = self.fc2(x)
         x = self.drop(x)
         return x
+
 
 def window_partition(x, window_size):
     """
@@ -283,10 +313,8 @@ class SwinTransformerBlock(nn.Module):
         pad_l = pad_t = 0
         pad_r = (self.window_size - W % self.window_size) % self.window_size
         pad_b = (self.window_size - H % self.window_size) % self.window_size
-        if pad_r > 0:
-            x = F.pad(x,(0, 0, pad_l, pad_r, 0, 0), mode=self.pad)
-        if pad_b > 0:
-            x = F.pad(x, (0, 0, 0, 0, pad_t, pad_b), mode="constant")
+        x = F.pad(x,(0, 0, pad_l, pad_r, 0, 0), mode=self.pad)
+        x = F.pad(x, (0, 0, 0, 0, pad_t, pad_b), mode="constant")
         _, Hp, Wp, _ = x.shape
 
         # cyclic shift
@@ -462,13 +490,7 @@ class BasicLayer(nn.Module):
         # calculate attention mask for SW-MSA
         Hp = int(np.ceil(H / self.window_size)) * self.window_size
         Wp = int(np.ceil(W / self.window_size)) * self.window_size
-
-        # This mask is used only when we shift windows and perform self-attention.
         img_mask = torch.zeros((1, Hp, Wp, 1), device=x.device)  # 1 Hp Wp 1
-        # Slices are created based on window size. We go till the last multiple
-        # of window size which allows us to create fully attented to windows
-        # At the last few indices, we separate the slices based on shift size 
-        # See Figure 4 of the paper and the bottom of this notebook for tests.
         h_slices = (
             slice(0, -self.window_size),
             slice(-self.window_size, -self.shift_size),
@@ -540,10 +562,9 @@ class PatchEmbed(nn.Module):
         # padding
         _, _, H, W = x.size()
         if W % self.patch_size[1] != 0:
-            raise ValueError("Incorrect Input shape")
-
+            x = F.pad(x,(0,self.patch_size[1] - W % self.patch_size[1],0,0), mode=self.pad)
         if H % self.patch_size[0] != 0:
-            raise ValueError("Incorrect Input shape")
+            x = F.pad(x, (0, 0, 0, self.patch_size[0] - H % self.patch_size[0]), mode="constant")
 
         x = self.proj(x)  # B C Wh Ww
         if self.norm is not None:
@@ -758,18 +779,112 @@ class SwinTransformerBackbone(nn.Module):
         super(SwinTransformerBackbone, self).train(mode)
         self._freeze_stages()
 
-class SwinTransformer(BaseModel):
+
+class SwinTransformerDecoder(torch.nn.Module):
+    def __init__(
+        self,
+        conv_block: DictConfig,
+        up_sampling_block: DictConfig,
+        output_layer: DictConfig,
+        n_channels: Sequence = (96, 48, 24, 12),
+        n_layers: Sequence = (1, 2, 2, 1),
+        output_channels: int = 3,
+        dilations: list = (1, 1, 1, 1),
+    ):
+        super().__init__()
+
+        if dilations is None:
+            # Defaults to [1, 1, 1...] in accordance with the number of unet levels
+            dilations = [1 for _ in range(len(n_channels))]
+
+        self.decoder = []
+        for n, curr_channel in enumerate(n_channels):
+            if n == 0:
+                up_sample_module = None
+            else:
+                up_sample_module = instantiate(
+                    up_sampling_block,
+                    in_channels=curr_channel,
+                    out_channels=curr_channel,
+                )
+
+            next_channel = (
+                n_channels[n + 1] if n < len(n_channels) - 1 else n_channels[-1]
+            )
+
+            conv_module = instantiate(
+                conv_block,
+                in_channels=curr_channel,  # Considering skip connection
+                latent_channels=curr_channel,
+                out_channels=next_channel,
+                dilation=dilations[n],
+                n_layers=n_layers[n],
+            )
+
+            # Recurrent module
+            rec_module = None
+
+            self.decoder.append(
+                torch.nn.ModuleDict({"upsamp": up_sample_module, "conv": conv_module})
+            )
+
+        # Last block
+        up_sample_module = instantiate(
+            up_sampling_block,
+            in_channels=curr_channel,
+            out_channels=curr_channel,
+            upsampling=4
+        )
+
+        conv_module = instantiate(
+            conv_block,
+            in_channels=curr_channel,  # Considering skip connection
+            latent_channels=curr_channel,
+            out_channels=next_channel,
+            dilation=dilations[n],
+            n_layers=n_layers[n],
+        )
+
+        self.decoder.append(
+            torch.nn.ModuleDict({"upsamp": up_sample_module, "conv": conv_module})
+        )
+
+        self.decoder = torch.nn.ModuleList(self.decoder)
+
+        # (Linear) Output layer
+        self.output_layer = instantiate(
+            output_layer,
+            in_channels=curr_channel,
+            out_channels=output_channels,
+            dilation=dilations[-1],
+            activation=None,
+        )
+
+    def forward(self, inputs: Sequence) -> torch.Tensor:
+        x = inputs[-1]
+        for n, layer in enumerate(self.decoder):
+            if layer["upsamp"] is not None:
+                up = layer["upsamp"](x)
+                if n < len(inputs) - 1:
+                    x = up + resize(inputs[-1-n], size=[*up.shape[2:]])
+                else:
+                    x = up
+            x = layer["conv"](x)
+        return self.output_layer(x)
+
+
+class SwinTransformer(torch.nn.Module):
     def __init__(
         self,
         in_channels,
         output_channels,
         pretrain_img_size,
-        core_block: DictConfig,
+        conv_block: DictConfig,
         up_sampling_block: DictConfig,
-        activation: DictConfig,
+        output_layer: DictConfig,
         wet,
         n_layers: Sequence = (1, 1, 1, 1),
-        dilation: list = (1, 1, 1, 1),
+        dilations: list = (1, 1, 1, 1),
         patch_size=4,
         embed_dim=96,
         depths=[2, 2, 6, 2],
@@ -785,20 +900,11 @@ class SwinTransformer(BaseModel):
         ape=False,
         patch_norm=True,
         out_indices=(0, 1, 2, 3),
-        pred_residuals=False,
+        pred_residuals=True,
         frozen_stages=-1,
-        last_kernel_size=3,
-        pad="circular"
     ):
 
-        super().__init__(
-            [in_channels] + [embed_dim * (2**i) for i in range(len(depths))],
-            output_channels,
-            wet,
-            pred_residuals,
-            last_kernel_size,
-            pad
-          )
+        super().__init__()
         self.encoder = SwinTransformerBackbone(
             pretrain_img_size,
             patch_size,
@@ -821,66 +927,115 @@ class SwinTransformer(BaseModel):
             False,
         )
 
-        ch_width_reversed = self.ch_width[::-1]
-        dilation_reversed = dilation[::-1]
-        n_layers_reversed = n_layers[::-1]
-
-        decoder_layers = []
-        for i, (a,b) in enumerate(pairwise(ch_width_reversed[:-1])):
-            decoder_layers.append(instantiate(
-                core_block,
-                a, 
-                b, 
-                dilation=dilation_reversed[i], 
-                n_layers=n_layers_reversed[i], 
-                activation=activation, 
-                pad=pad
-            ))
-            decoder_layers.append(instantiate(
-                up_sampling_block,
-                in_channels=b,
-                out_channels=b
-            ))
-        decoder_layers.append(instantiate(
-            core_block,
-            b, 
-            b, 
-            dilation=dilation_reversed[i], 
-            n_layers=n_layers_reversed[i], 
-            activation=activation, 
-            pad=pad
-        ))
-        decoder_layers.append(instantiate(
+        n_channels = [embed_dim * (2**i) for i in range(len(depths) - 1, -1, -1)]
+        self.decoder = SwinTransformerDecoder(
+            conv_block,
             up_sampling_block,
-            upsampling=patch_size,
-            in_channels=b,
-            out_channels=b
-        ))
-        decoder_layers.append(torch.nn.Conv2d(b, output_channels, last_kernel_size))
+            output_layer,
+            n_channels,
+            n_layers,
+            output_channels,
+            dilations,
+        )
+        self.pred_residuals = False
+        self.output_channels = output_channels
+        self.wet = wet
+    
+    def forward_once(self, inputs):
+        encodings = self.encoder(inputs)
+        decodings = self.decoder(encodings)
+        decodings = resize(decodings, size=[*inputs.shape[2:]])
+        decodings = torch.mul(decodings, self.wet)
+        return decodings
 
-        self.decoder_layers = nn.ModuleList(decoder_layers)
-        self.num_steps = int(len(ch_width_reversed)-1)
+    def forward(
+        self,
+        inputs: Sequence,
+        output_only_last=False,
+        loss_fn=None,
+    ) -> torch.Tensor:
 
-    def forward_once(self, fts):
-        temp = self.encoder(fts) # Swin Transformer
-        fts = temp[-1]
+        outputs = []
+        loss = None
+        N, C, H, W = inputs[0].shape
 
-        count = self.num_steps
-        for l in self.decoder_layers:
-            crop = fts.shape[2:]
-            if isinstance(l, nn.Conv2d):
-                fts = torch.nn.functional.pad(fts,(self.N_pad,self.N_pad,0,0),mode=self.pad)
-                fts = torch.nn.functional.pad(fts,(0,0,self.N_pad,self.N_pad),mode="constant")
-            fts= l(fts)
+        for step in range(len(inputs) // 2):
+            if step == 0:
+                input_tensor = inputs[0]
+            else:
+                inputs_0 = outputs[-1]
+                input_tensor = torch.cat(
+                        [inputs_0, inputs[2 * step][:, self.output_channels :]],
+                        dim=1,
+                    )
 
-            if isinstance(l, BilinearUpsample) or isinstance(l, TransposedConvUpsample):
-                if 2*self.num_steps >= count+2:
-                    crop = np.array(fts.shape[2:])
-                    shape = np.array(temp[int(2*self.num_steps-count-2)].shape[2:])
-                    pads = (shape - crop)
-                    pads = [pads[1]//2, pads[1]-pads[1]//2,
-                            pads[0]//2, pads[0]-pads[0]//2]
-                    fts = nn.functional.pad(fts,pads)
-                    fts += temp[int(2*self.num_steps-count-2)]
-                    count+=1
-        return torch.mul(fts,self.wet)
+            decodings = self.forward_once(input_tensor)
+            if self.pred_residuals:
+                reshaped = (
+                    input_tensor[:, : self.output_channels] + decodings
+                )  # Residual prediction
+            else:
+                reshaped = decodings  # Absolute prediction
+            
+            if loss_fn is not None:
+                if loss is None:
+                    loss = loss_fn(
+                        reshaped,
+                        inputs[2 * step + 1][:, : self.output_channels],
+                    )
+                else:
+                    loss += loss_fn(
+                        reshaped,
+                        inputs[2 * step + 1][:, : self.output_channels],
+                    )
+
+            outputs.append(reshaped)
+
+        if loss_fn is None:
+            if output_only_last:
+                res = outputs[-1]
+            else:
+                res = outputs
+            return res
+
+        else:
+            return loss
+
+    def inference(
+        self,
+        inputs: Sequence,
+        num_steps=None,
+        output_only_last=False,
+    ) -> torch.Tensor:
+        outputs = []
+        for step in range(num_steps):
+            if step == 0:
+                input_tensor = inputs[0][0].unsqueeze(0)
+            else:
+                inputs_0 = outputs[-1]
+                input_tensor = torch.cat(
+                        [
+                            inputs_0.unsqueeze(0),
+                            inputs[step][0][self.output_channels :].unsqueeze(0),
+                        ],
+                        dim=1,
+                    )
+
+            decodings = self.forward_once(input_tensor)
+            if self.pred_residuals:
+                reshaped = input_tensor[0, : self.output_channels] + decodings.squeeze(
+                    0
+                )  # Residual prediction
+            else:
+                reshaped = decodings.squeeze(0)  # Absolute prediction
+            
+            reshaped = torch.mul(reshaped, self.wet)
+
+            outputs.append(reshaped)
+
+        if output_only_last:
+            res = outputs[-1]
+        else:
+            res = outputs
+
+        return res

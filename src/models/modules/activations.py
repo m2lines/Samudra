@@ -1,5 +1,6 @@
 import torch
 
+
 class ReLU(torch.nn.Module):
     """
     Implements a ReLU.
@@ -15,6 +16,7 @@ class ReLU(torch.nn.Module):
     def forward(self, inputs):
         x = self.relu(inputs)
         return x
+
 
 class CappedLeakyReLU(torch.nn.Module):
     """

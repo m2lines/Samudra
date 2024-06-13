@@ -18,6 +18,7 @@ from .base import BaseModel
 from utils.climate_utils import pairwise
 from .modules.blocks import BilinearUpsample, TransposedConvUpsample
 
+
 class Mlp(nn.Module):
     """Multilayer perceptron."""
 
@@ -44,6 +45,7 @@ class Mlp(nn.Module):
         x = self.fc2(x)
         x = self.drop(x)
         return x
+
 
 def window_partition(x, window_size):
     """
@@ -284,7 +286,7 @@ class SwinTransformerBlock(nn.Module):
         pad_r = (self.window_size - W % self.window_size) % self.window_size
         pad_b = (self.window_size - H % self.window_size) % self.window_size
         if pad_r > 0:
-            x = F.pad(x,(0, 0, pad_l, pad_r, 0, 0), mode=self.pad)
+            x = F.pad(x, (0, 0, pad_l, pad_r, 0, 0), mode=self.pad)
         if pad_b > 0:
             x = F.pad(x, (0, 0, 0, 0, pad_t, pad_b), mode="constant")
         _, Hp, Wp, _ = x.shape
@@ -366,7 +368,7 @@ class PatchMerging(nn.Module):
         # padding
         pad_input = (H % 2 == 1) or (W % 2 == 1)
         if pad_input:
-            x = F.pad(x,(0, 0, 0, W % 2,0,0), mode=self.pad)
+            x = F.pad(x, (0, 0, 0, W % 2, 0, 0), mode=self.pad)
             x = F.pad(x, (0, 0, 0, 0, 0, H % 2), mode="constant")
 
         x0 = x[:, 0::2, 0::2, :]  # B H/2 W/2 C
@@ -467,7 +469,7 @@ class BasicLayer(nn.Module):
         img_mask = torch.zeros((1, Hp, Wp, 1), device=x.device)  # 1 Hp Wp 1
         # Slices are created based on window size. We go till the last multiple
         # of window size which allows us to create fully attented to windows
-        # At the last few indices, we separate the slices based on shift size 
+        # At the last few indices, we separate the slices based on shift size
         # See Figure 4 of the paper and the bottom of this notebook for tests.
         h_slices = (
             slice(0, -self.window_size),
@@ -758,6 +760,7 @@ class SwinTransformerBackbone(nn.Module):
         super(SwinTransformerBackbone, self).train(mode)
         self._freeze_stages()
 
+
 class SwinTransformer(BaseModel):
     def __init__(
         self,
@@ -788,7 +791,7 @@ class SwinTransformer(BaseModel):
         pred_residuals=False,
         frozen_stages=-1,
         last_kernel_size=3,
-        pad="circular"
+        pad="circular",
     ):
 
         super().__init__(
@@ -797,8 +800,8 @@ class SwinTransformer(BaseModel):
             wet,
             pred_residuals,
             last_kernel_size,
-            pad
-          )
+            pad,
+        )
         self.encoder = SwinTransformerBackbone(
             pretrain_img_size,
             patch_size,
@@ -826,61 +829,72 @@ class SwinTransformer(BaseModel):
         n_layers_reversed = n_layers[::-1]
 
         decoder_layers = []
-        for i, (a,b) in enumerate(pairwise(ch_width_reversed[:-1])):
-            decoder_layers.append(instantiate(
+        for i, (a, b) in enumerate(pairwise(ch_width_reversed[:-1])):
+            decoder_layers.append(
+                instantiate(
+                    core_block,
+                    a,
+                    b,
+                    dilation=dilation_reversed[i],
+                    n_layers=n_layers_reversed[i],
+                    activation=activation,
+                    pad=pad,
+                )
+            )
+            decoder_layers.append(
+                instantiate(up_sampling_block, in_channels=b, out_channels=b)
+            )
+        decoder_layers.append(
+            instantiate(
                 core_block,
-                a, 
-                b, 
-                dilation=dilation_reversed[i], 
-                n_layers=n_layers_reversed[i], 
-                activation=activation, 
-                pad=pad
-            ))
-            decoder_layers.append(instantiate(
-                up_sampling_block,
-                in_channels=b,
-                out_channels=b
-            ))
-        decoder_layers.append(instantiate(
-            core_block,
-            b, 
-            b, 
-            dilation=dilation_reversed[i], 
-            n_layers=n_layers_reversed[i], 
-            activation=activation, 
-            pad=pad
-        ))
-        decoder_layers.append(instantiate(
-            up_sampling_block,
-            upsampling=patch_size,
-            in_channels=b,
-            out_channels=b
-        ))
+                b,
+                b,
+                dilation=dilation_reversed[i],
+                n_layers=n_layers_reversed[i],
+                activation=activation,
+                pad=pad,
+            )
+        )
+        decoder_layers.append(
+            instantiate(
+                up_sampling_block, upsampling=patch_size, in_channels=b, out_channels=b
+            )
+        )
         decoder_layers.append(torch.nn.Conv2d(b, output_channels, last_kernel_size))
 
         self.decoder_layers = nn.ModuleList(decoder_layers)
-        self.num_steps = int(len(ch_width_reversed)-1)
+        self.num_steps = int(len(ch_width_reversed) - 1)
 
     def forward_once(self, fts):
-        temp = self.encoder(fts) # Swin Transformer
+        temp = self.encoder(fts)  # Swin Transformer
         fts = temp[-1]
 
         count = self.num_steps
         for l in self.decoder_layers:
             crop = fts.shape[2:]
             if isinstance(l, nn.Conv2d):
-                fts = torch.nn.functional.pad(fts,(self.N_pad,self.N_pad,0,0),mode=self.pad)
-                fts = torch.nn.functional.pad(fts,(0,0,self.N_pad,self.N_pad),mode="constant")
-            fts= l(fts)
+                fts = torch.nn.functional.pad(
+                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                )
+                fts = torch.nn.functional.pad(
+                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
+                )
+            fts = l(fts)
 
             if isinstance(l, BilinearUpsample) or isinstance(l, TransposedConvUpsample):
-                if 2*self.num_steps >= count+2:
+                if 2 * self.num_steps >= count + 2:
                     crop = np.array(fts.shape[2:])
-                    shape = np.array(temp[int(2*self.num_steps-count-2)].shape[2:])
-                    pads = (shape - crop)
-                    pads = [pads[1]//2, pads[1]-pads[1]//2,
-                            pads[0]//2, pads[0]-pads[0]//2]
-                    fts = nn.functional.pad(fts,pads)
-                    fts += temp[int(2*self.num_steps-count-2)]
-                    count+=1
-        return torch.mul(fts,self.wet)
+                    shape = np.array(
+                        temp[int(2 * self.num_steps - count - 2)].shape[2:]
+                    )
+                    pads = shape - crop
+                    pads = [
+                        pads[1] // 2,
+                        pads[1] - pads[1] // 2,
+                        pads[0] // 2,
+                        pads[0] - pads[0] // 2,
+                    ]
+                    fts = nn.functional.pad(fts, pads)
+                    fts += temp[int(2 * self.num_steps - count - 2)]
+                    count += 1
+        return torch.mul(fts, self.wet)

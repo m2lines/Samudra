@@ -45,7 +45,7 @@ comp="compute=local"
 # ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_load1_global_2x_05p" region=global_2x batch_size=8 scheduler=True rand_seed=10 data_percent=0.05 preload='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_convnextunet_global_1/next/saved_nets/convnextunet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 # 3. Swin Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global name="$(date +%F)-local_train_swin_load1_global_2x_50p" region=global_2x batch_size=16 scheduler=True rand_seed=10 data_percent=0.5 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60 preload='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt' 
+# ./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global name="$(date +%F)-local_train_swin_load1_global_2x_50p" region=global_2x batch_size=16 scheduler=True rand_seed=10 data_percent=0.5 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60 preload='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
 
 ###########################################################################################
 # Global_1_2x Training

@@ -27,7 +27,7 @@ pred_region: null # "global_21"
 
 ###############
 ### g1_2x g4x
-pred_names: 
+pred_names:
   - UNet (Baseline)
   - ConvNext UNet
   - Swin

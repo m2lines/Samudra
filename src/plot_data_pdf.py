@@ -130,8 +130,10 @@ class Eval:
             + str(args.N_samples)
         )
         self.post_model_name = (
-            "Train_" + args.train_region
-            + "_Test_" + args.region
+            "Train_"
+            + args.train_region
+            + "_Test_"
+            + args.region
             + "_Test_in_"
             + self.str_in
             + "ext_"
@@ -160,18 +162,24 @@ class Eval:
         # Saving data
         print("Getting inputs")
         if "global_1" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag)
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag
+            )
         elif "global_2x" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="2x")
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag, run_type="2x"
+            )
         elif "global_4x" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="4x")
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag, run_type="4x"
+            )
         else:
             raise NotImplementedError
 
         print("Calculating mask tensors")
         self.wet, self.wet_nan = get_wet_mask(inputs, "cpu")
         self.wet_bool = np.array(self.wet.cpu()).astype(bool)
-        wet_lap = compute_laplacian_wet(self.wet_nan, 4) # hardcoded
+        wet_lap = compute_laplacian_wet(self.wet_nan, 4)  # hardcoded
         wet_lap = xr.where(wet_lap == 0, 1, np.nan)
         self.wet_lap = np.nan_to_num(wet_lap)
         print("Wet resolution:", self.wet.shape)
@@ -181,7 +189,7 @@ class Eval:
         self.time_test = self.time_vec[e_test : (e_test + args.lag * args.N_test)]
 
         print("Loading Train data")
-        if args.region == 'global_4x':
+        if args.region == "global_4x":
             str1_video = "steps_4_combined_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
             str2_video = "steps_4_combined_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
 
@@ -195,13 +203,13 @@ class Eval:
                 Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str2_video),
                 map_location=torch.device("cpu"),
             )
-            
+
             train_data = torch.utils.data.ConcatDataset([train_data1, train_data2])
         else:
             train_data = torch.load(
-                        Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
-                        map_location=torch.device("cpu"),
-                    )
+                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
+                map_location=torch.device("cpu"),
+            )
         if no_train:
             print("Deleting train data")
             del train_data
@@ -219,7 +227,10 @@ class Eval:
             if "global" in args.region:
                 norm_vals = train_data.norm_vals
                 if "combined" in args.train_region:
-                    assert len(norm_vals) == len(GLOBAL_COMBINED_STATS) and all(np.array_equal(norm_vals[k], GLOBAL_COMBINED_STATS[k]) for k in norm_vals)
+                    assert len(norm_vals) == len(GLOBAL_COMBINED_STATS) and all(
+                        np.array_equal(norm_vals[k], GLOBAL_COMBINED_STATS[k])
+                        for k in norm_vals
+                    )
                 self.test_data = data_CNN_Dynamic(
                     data_in_test,
                     data_out_test,
@@ -273,7 +284,9 @@ class Eval:
 
         # Getting area tensor
         print("Computing area tensor")
-        self.grids = xr.open_dataset('/scratch/as15415/Data/CM2x_grids/Grid_New.nc').rename({"dx": "dxu", "dy": "dyu"})
+        self.grids = xr.open_dataset(
+            "/scratch/as15415/Data/CM2x_grids/Grid_New.nc"
+        ).rename({"dx": "dxu", "dy": "dyu"})
 
         self.area = torch.from_numpy(self.grids["area_C"].to_numpy()).to(device="cpu")
         self.dx = self.grids["dxu"].to_numpy()
@@ -338,11 +351,12 @@ class Eval:
             model_pred_saved_nets.append(
                 xr.open_zarr(net_path).to_array().to_numpy().squeeze()
             )
-        
+
         return model_pred_net, model_pred_saved_nets
-        
+
     def send_data_to_cpu(self):
         self.test_data.set_device(device="cpu")
+
 
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
@@ -351,19 +365,25 @@ from datetime import datetime
 import os
 
 # G1, G1
-with initialize_config_dir(version_base=None, config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs"):
-    args1 = compose(config_name="exp/eval_swin_global", overrides=[
-        "output_dir=./notebooks/temp/{0}_datapdf".format(str(datetime.now())[:10]),
-        "model_name_replace=Swin",
-        "network=Foundation Swin Train1Eval1",
-        "train_region=global_1",
-        "region=global_1",
-        "swin.embed_dim=60",
-        "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
-        "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
-        "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
-        "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']"
-    ])
+with initialize_config_dir(
+    version_base=None,
+    config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs",
+):
+    args1 = compose(
+        config_name="exp/eval_swin_global",
+        overrides=[
+            "output_dir=./notebooks/temp/{0}_datapdf".format(str(datetime.now())[:10]),
+            "model_name_replace=Swin",
+            "network=Foundation Swin Train1Eval1",
+            "train_region=global_1",
+            "region=global_1",
+            "swin.embed_dim=60",
+            "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
+            "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
+            "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
+            "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']",
+        ],
+    )
 if not os.path.exists(args1.output_dir):
     os.mkdir(args1.output_dir)
 
@@ -371,44 +391,48 @@ e1 = Eval(args1)
 e1.send_data_to_cpu()
 
 # G1_2x, G_4x
-with initialize_config_dir(version_base=None, config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs"):
-    args3 = compose(config_name="exp/eval_swin_global", overrides=[
-        "output_dir=./notebooks/temp/{0}_datapdf".format(str(datetime.now())[:10]),
-        "model_name_replace=Swin",
-        "network=Foundation Swin Train12xEval4x",
-        "train_region=combined_global_1",
-        "region=global_4x",
-        "swin.embed_dim=60",
-        "N_samples=0",
-        "N_val=0",
-        "N_test=2000",
-        "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
-        "ckpt_path=/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-13-foundation_train_swin_global_1_2x/foundationswin/saved_nets/swin_best_steps_4_global_1_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
-        "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
-        "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth']"
-    ])
+with initialize_config_dir(
+    version_base=None,
+    config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs",
+):
+    args3 = compose(
+        config_name="exp/eval_swin_global",
+        overrides=[
+            "output_dir=./notebooks/temp/{0}_datapdf".format(str(datetime.now())[:10]),
+            "model_name_replace=Swin",
+            "network=Foundation Swin Train12xEval4x",
+            "train_region=combined_global_1",
+            "region=global_4x",
+            "swin.embed_dim=60",
+            "N_samples=0",
+            "N_val=0",
+            "N_test=2000",
+            "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
+            "ckpt_path=/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-13-foundation_train_swin_global_1_2x/foundationswin/saved_nets/swin_best_steps_4_global_1_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
+            "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
+            "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth']",
+        ],
+    )
 
 e3 = Eval(args3)
 e3.send_data_to_cpu()
 
 
-def get_pdf(e, model_pred_net, model_pred_saved_nets, start=100, N_days=100, long=False):
+def get_pdf(
+    e, model_pred_net, model_pred_saved_nets, start=100, N_days=100, long=False
+):
     # PDF
     print("Getting PDF stats...")
     pdf = {}
     ind_plot = 2
     true_field = (
-        e.test_data[start : start + N_days][1][
-            :, ind_plot, e.wet_bool
-        ].flatten()
+        e.test_data[start : start + N_days][1][:, ind_plot, e.wet_bool].flatten()
         * e.std_out[ind_plot]
     ) + e.mean_out[ind_plot]
     true_pdf, bins_true = np.histogram(true_field, bins=150, density=True)
     bins_true = (bins_true[1:] + bins_true[:-1]) / 2
 
-    field_net = model_pred_net[
-        start : start + N_days, e.wet_bool, ind_plot
-    ].flatten()
+    field_net = model_pred_net[start : start + N_days, e.wet_bool, ind_plot].flatten()
     pdf_net, bins_net = np.histogram(field_net, bins=150, density=True)
     bins_net = (bins_net[1:] + bins_net[:-1]) / 2
 
@@ -428,7 +452,7 @@ def get_pdf(e, model_pred_net, model_pred_saved_nets, start=100, N_days=100, lon
         pdf[ind_plot][e.pred_names[i]] = [bins_i, pdf_i]
 
     return pdf
-    
+
 
 # model_pred_net, model_pred_saved_nets = e1.load_long_data()
 # pdf1 = get_pdf(e1, model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
@@ -441,22 +465,29 @@ def get_pdf(e, model_pred_net, model_pred_saved_nets, start=100, N_days=100, lon
 del e1.test_data
 del e3.test_data
 # G2x, G2x
-with initialize_config_dir(version_base=None, config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs"):
-    args4 = compose(config_name="exp/eval_swin_global", overrides=[
-        "output_dir=./notebooks/temp/{0}_datapdf".format(str(datetime.now())[:10]),
-        "model_name_replace=Swin",
-        "network=Foundation Swin Train2xEval2x",
-        "train_region=global_2x",
-        "region=global_2x",
-        "swin.embed_dim=60",
-        "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
-        "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-20-foundation_train_swin60_global_2x/swin2x/saved_nets/swin_best_steps_4_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
-        "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
-        "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train2xEval2x_Train_global_2x_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train2xEval2x_Train_global_2x_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']"
-    ])
+with initialize_config_dir(
+    version_base=None,
+    config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs",
+):
+    args4 = compose(
+        config_name="exp/eval_swin_global",
+        overrides=[
+            "output_dir=./notebooks/temp/{0}_datapdf".format(str(datetime.now())[:10]),
+            "model_name_replace=Swin",
+            "network=Foundation Swin Train2xEval2x",
+            "train_region=global_2x",
+            "region=global_2x",
+            "swin.embed_dim=60",
+            "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
+            "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-20-foundation_train_swin60_global_2x/swin2x/saved_nets/swin_best_steps_4_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
+            "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
+            "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train2xEval2x_Train_global_2x_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train2xEval2x_Train_global_2x_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']",
+        ],
+    )
 
 e4 = Eval(args4)
 e4.send_data_to_cpu()
+
 
 def get_train_pdf(e1, e2, e3):
     print("Getting PDF stats...")
@@ -467,10 +498,7 @@ def get_train_pdf(e1, e2, e3):
     start = total - 1000 - 1
     end = start + 1000
     true_field1 = (
-        e1.train_data[:][1][
-            :, ind_plot, e1.wet_bool
-        ].flatten()
-        * e1.std_out[ind_plot]
+        e1.train_data[:][1][:, ind_plot, e1.wet_bool].flatten() * e1.std_out[ind_plot]
     ) + e1.mean_out[ind_plot]
     true_pdf1, bins_true1 = np.histogram(true_field1.cpu(), bins=150, density=True)
     bins_true1 = (bins_true1[1:] + bins_true1[:-1]) / 2
@@ -481,22 +509,17 @@ def get_train_pdf(e1, e2, e3):
     start = total - 1000 - 1
     end = start + 1000
     true_field2_1 = (
-        e2.train_data.datasets[0][:][1][
-            :, ind_plot, e2.wet_bool
-        ].flatten()
+        e2.train_data.datasets[0][:][1][:, ind_plot, e2.wet_bool].flatten()
         * e2.std_out[ind_plot]
     ) + e2.mean_out[ind_plot]
     true_field2_2 = (
-        e2.train_data.datasets[1][:][1][
-            :, ind_plot, e2.wet_bool
-        ].flatten()
+        e2.train_data.datasets[1][:][1][:, ind_plot, e2.wet_bool].flatten()
         * e2.std_out[ind_plot]
     ) + e2.mean_out[ind_plot]
-    true_field2 = torch.concat([true_field2_1,true_field2_2])
+    true_field2 = torch.concat([true_field2_1, true_field2_2])
     true_pdf2, bins_true2 = np.histogram(true_field2.cpu(), bins=150, density=True)
     bins_true2 = (bins_true2[1:] + bins_true2[:-1]) / 2
 
-   
     # del e2.train_data
 
     total = len(e3.train_data)
@@ -504,10 +527,7 @@ def get_train_pdf(e1, e2, e3):
     start = total - 1000 - 1
     end = start + 1000
     true_field3 = (
-        e3.train_data[:][1][
-            :, ind_plot, e3.wet_bool
-        ].flatten()
-        * e3.std_out[ind_plot]
+        e3.train_data[:][1][:, ind_plot, e3.wet_bool].flatten() * e3.std_out[ind_plot]
     ) + e3.mean_out[ind_plot]
     true_pdf3, bins_true3 = np.histogram(true_field3.cpu(), bins=150, density=True)
     bins_true3 = (bins_true3[1:] + bins_true3[:-1]) / 2
@@ -522,15 +542,16 @@ def get_train_pdf(e1, e2, e3):
         "true2x": [bins_true3, true_pdf3],
     }
 
-    
-
     return pdf
-    
+
+
 ground_pdfs = get_train_pdf(e1, e3, e4)
 
-import pdb; pdb.set_trace()
+import pdb
 
-np.save('ground_pdfs', ground_pdfs)
+pdb.set_trace()
+
+np.save("ground_pdfs", ground_pdfs)
 
 
 import matplotlib.pyplot as plt
@@ -541,6 +562,7 @@ import numpy as np
 import cartopy.crs as ccrs
 import cartopy as cart
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
 
 def plot_temp_pdf(
     network_names,
@@ -565,7 +587,7 @@ def plot_temp_pdf(
             "height_ratios": [1, 1],
             "wspace": 0.3,
             "hspace": 0.6,
-        }
+        },
     )
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
@@ -581,136 +603,123 @@ def plot_temp_pdf(
     ind_plot = 2
     # Top left
     for i, network_name in enumerate(network_names):
-        axs[0,0].semilogy(
+        axs[0, 0].semilogy(
             *pdf1[ind_plot][network_name],
             lw=2,
             color=clist[i],
             label=f"{network_name}",
         )
 
-    axs[0,0].set_ylim(
+    axs[0, 0].set_ylim(
         [
             0.01,
             pdf1[ind_plot]["true_pdf"].max(),
         ]
     )
-    
-    axs[0,0].set_xlim(
-        [
-            -3,31
-        ]
+
+    axs[0, 0].set_xlim([-3, 31])
+
+    axs[0, 0].semilogy(*pdf1[ind_plot]["true"], lw=2, c="k", ls="--", label="CM2.6")
+    axs[0, 0].legend(
+        bbox_to_anchor=(0, 1.2, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(pdf1[2].keys()),
     )
 
-    axs[0,0].semilogy(*pdf1[ind_plot]["true"], lw=2, c="k", ls='--', label="CM2.6")
-    axs[0,0].legend(bbox_to_anchor=(0, 1.2, 1, 0.2), loc="lower left", fancybox=True, ncol=len(pdf1[2].keys()))
-    
+    axs[0, 0].set_xlabel(var_list[str(ind_plot)])
 
-    axs[0,0].set_xlabel(var_list[str(ind_plot)])
-    
-    axs[0,0].set_ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
-    axs[0,0].set_title('PI Data - PI Data')
+    axs[0, 0].set_ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
+    axs[0, 0].set_title("PI Data - PI Data")
 
     # # Top Right
     for i, network_name in enumerate(network_names):
-        axs[0,1].semilogy(
+        axs[0, 1].semilogy(
             *pdf2[ind_plot][network_name],
             lw=2,
             color=clist[i],
             label=f"{network_name}",
         )
 
-    axs[0,1].set_ylim(
+    axs[0, 1].set_ylim(
         [
             0.01,
             pdf2[ind_plot]["true_pdf"].max(),
         ]
     )
-    
-    axs[0,1].set_xlim(
-        [
-            -3,32
-        ]
-    )
 
-    axs[0,1].semilogy(*pdf2[ind_plot]["true"], lw=2, c="k", ls='--', label="CM2.6")
-    
+    axs[0, 1].set_xlim([-3, 32])
 
-    axs[0,1].set_xlabel(var_list[str(ind_plot)])
-    
-    axs[0,1].set_ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
-    axs[0,1].set_title('PI Data - 2x CO2')
+    axs[0, 1].semilogy(*pdf2[ind_plot]["true"], lw=2, c="k", ls="--", label="CM2.6")
+
+    axs[0, 1].set_xlabel(var_list[str(ind_plot)])
+
+    axs[0, 1].set_ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
+    axs[0, 1].set_title("PI Data - 2x CO2")
 
     # # Bottom Right
     for i, network_name in enumerate(network_names):
-        axs[1,1].semilogy(
+        axs[1, 1].semilogy(
             *pdf3[ind_plot][network_name],
             lw=2,
             color=clist[i],
             label=f"{network_name}",
         )
 
-    axs[1,1].set_ylim(
+    axs[1, 1].set_ylim(
         [
             0.01,
             pdf3[ind_plot]["true_pdf"].max(),
         ]
     )
-    
-    axs[1,1].set_xlim(
-        [
-            -3,32
-        ]
-    )
 
-    axs[1,1].semilogy(*pdf3[ind_plot]["true"], lw=2, c="k", ls='--', label="CM2.6")
-    
+    axs[1, 1].set_xlim([-3, 32])
 
-    axs[1,1].set_xlabel(var_list[str(ind_plot)])
-    
-    axs[1,1].set_ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
-    axs[1,1].set_title('Blended Data - 4x CO2')
+    axs[1, 1].semilogy(*pdf3[ind_plot]["true"], lw=2, c="k", ls="--", label="CM2.6")
+
+    axs[1, 1].set_xlabel(var_list[str(ind_plot)])
+
+    axs[1, 1].set_ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
+    axs[1, 1].set_title("Blended Data - 4x CO2")
 
     # Bottom Left
-    clist2 = ['#d7191c','#abd9e9','#2c7bb6','#fdae61']
-    axs[1,0].semilogy(
+    clist2 = ["#d7191c", "#abd9e9", "#2c7bb6", "#fdae61"]
+    axs[1, 0].semilogy(
         *true_pdf[ind_plot]["true1"],
         lw=2,
         color=clist2[0],
         label="PI Data",
     )
-    axs[1,0].semilogy(
+    axs[1, 0].semilogy(
         *true_pdf[ind_plot]["true2x"],
         lw=2,
         color=clist2[1],
         label="2x CO2",
     )
-    axs[1,0].semilogy(
+    axs[1, 0].semilogy(
         *true_pdf[ind_plot]["trueblended"],
         lw=2,
         color=clist2[2],
         label="Blended Data",
     )
-    axs[1,0].semilogy(*pdf3[ind_plot]["true"], lw=2, c=clist2[3], label="4x CO2")
+    axs[1, 0].semilogy(*pdf3[ind_plot]["true"], lw=2, c=clist2[3], label="4x CO2")
 
-    axs[1,0].set_ylim(
+    axs[1, 0].set_ylim(
         [
             0.01,
             true_pdf[ind_plot]["true_pdf1"].max(),
         ]
     )
-    
-    axs[1,0].set_xlim(
-        [
-            23,32
-        ]
-    )
-    
-    axs[1,0].set_xlabel(var_list[str(ind_plot)])
-    
-    axs[1,0].set_ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
-    axs[1,0].set_title('Ground Truth')
-    axs[1,0].legend(loc='upper center', bbox_to_anchor=(0, -0.6, 1, 0.2), fancybox=True, ncol=4)
 
+    axs[1, 0].set_xlim([23, 32])
+
+    axs[1, 0].set_xlabel(var_list[str(ind_plot)])
+
+    axs[1, 0].set_ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
+    axs[1, 0].set_title("Ground Truth")
+    axs[1, 0].legend(
+        loc="upper center", bbox_to_anchor=(0, -0.6, 1, 0.2), fancybox=True, ncol=4
+    )
 
     # plt.show()
 
@@ -720,13 +729,14 @@ def plot_temp_pdf(
     )
     plt.clf()
 
+
 plot_temp_pdf(
     e1.pred_names + [e1.network],
-    e1.region + '_Long_',
+    e1.region + "_Long_",
     e1.output_dir,
     pdf1,
     pdf2,
     pdf3,
     ground_pdfs,
-    e1.JUPYTER_MODE
+    e1.JUPYTER_MODE,
 )

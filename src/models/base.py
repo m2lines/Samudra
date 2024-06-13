@@ -1,19 +1,20 @@
 import torch
 
+
 class BaseModel(torch.nn.Module):
     def __init__(self, ch_width, n_out, wet, pred_residuals, last_kernel_size, pad):
         super().__init__()
-        assert last_kernel_size % 2 !=0, "Cannot use even kernel sizes!"
+        assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
         self.N_in = ch_width[0]
         self.N_out = ch_width[-1]
         self.ch_width = ch_width
         self.wet = wet
-        self.N_pad = int((last_kernel_size-1)/2)
+        self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad = pad
-        self.pred_residuals=pred_residuals
+        self.pred_residuals = pred_residuals
         self.output_channels = n_out
 
-    def forward_once(self,fts):
+    def forward_once(self, fts):
         raise NotImplementedError()
 
     def forward(
@@ -33,10 +34,9 @@ class BaseModel(torch.nn.Module):
             else:
                 inputs_0 = outputs[-1]
                 input_tensor = torch.cat(
-                        [inputs_0, inputs[2 * step][:, self.output_channels :]],
-                        dim=1,
-                    )
-
+                    [inputs_0, inputs[2 * step][:, self.output_channels :]],
+                    dim=1,
+                )
 
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
@@ -83,13 +83,12 @@ class BaseModel(torch.nn.Module):
             else:
                 inputs_0 = outputs[-1]
                 input_tensor = torch.cat(
-                        [
-                            inputs_0.unsqueeze(0),
-                            inputs[step][0][self.output_channels :].unsqueeze(0),
-                        ],
-                        dim=1,
-                    )
-
+                    [
+                        inputs_0.unsqueeze(0),
+                        inputs[step][0][self.output_channels :].unsqueeze(0),
+                    ],
+                    dim=1,
+                )
 
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
@@ -107,4 +106,3 @@ class BaseModel(torch.nn.Module):
             res = outputs
 
         return res
-

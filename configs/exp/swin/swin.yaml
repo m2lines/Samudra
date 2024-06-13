@@ -17,7 +17,7 @@ n_layers:
   - 1
 patch_size: 4
 embed_dim: 30
-depths: 
+depths:
   - 2
   - 2
   - 2

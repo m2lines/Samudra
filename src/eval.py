@@ -130,8 +130,10 @@ class Eval:
             + str(args.N_samples)
         )
         self.post_model_name = (
-            "Train_" + args.train_region
-            + "_Test_" + args.region
+            "Train_"
+            + args.train_region
+            + "_Test_"
+            + args.region
             + "_Test_in_"
             + self.str_in
             + "ext_"
@@ -160,18 +162,24 @@ class Eval:
         # Saving data
         print("Getting inputs")
         if "global_1" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag)
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag
+            )
         elif "global_2x" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="2x")
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag, run_type="2x"
+            )
         elif "global_4x" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="4x")
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag, run_type="4x"
+            )
         else:
             raise NotImplementedError
 
         print("Calculating mask tensors")
         self.wet, self.wet_nan = get_wet_mask(inputs, "cpu")
         self.wet_bool = np.array(self.wet.cpu()).astype(bool)
-        wet_lap = compute_laplacian_wet(self.wet_nan, 4) # hardcoded
+        wet_lap = compute_laplacian_wet(self.wet_nan, 4)  # hardcoded
         wet_lap = xr.where(wet_lap == 0, 1, np.nan)
         self.wet_lap = np.nan_to_num(wet_lap)
         print("Wet resolution:", self.wet.shape)
@@ -182,11 +190,11 @@ class Eval:
 
         print("Loading Train data")
         train_data = torch.load(
-                    Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
-                    map_location=torch.device("cpu"),
-                )
+            Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
+            map_location=torch.device("cpu"),
+        )
         self.train_data = train_data
-    
+
         if args.save_test_data:
             print("Saving data")
             data_in_test = gen_data_in_test(
@@ -198,7 +206,10 @@ class Eval:
             if "global" in args.region:
                 norm_vals = train_data.norm_vals
                 if "combined" in args.train_region:
-                    assert len(norm_vals) == len(GLOBAL_COMBINED_STATS) and all(np.array_equal(norm_vals[k], GLOBAL_COMBINED_STATS[k]) for k in norm_vals)
+                    assert len(norm_vals) == len(GLOBAL_COMBINED_STATS) and all(
+                        np.array_equal(norm_vals[k], GLOBAL_COMBINED_STATS[k])
+                        for k in norm_vals
+                    )
                 self.test_data = data_CNN_Dynamic(
                     data_in_test,
                     data_out_test,
@@ -228,12 +239,10 @@ class Eval:
                 in_channels=self.num_in,
                 output_channels=self.N_in,
                 pretrain_img_size=[*self.test_data[0][0].shape[1:]],
-                wet=self.wet.cuda()
+                wet=self.wet.cuda(),
             )
         elif "unet" in args.network.lower():
-            model = instantiate(
-                args.unet, wet=self.wet.cuda()
-            )
+            model = instantiate(args.unet, wet=self.wet.cuda())
 
         full_model_path = args.ckpt_path
         self.full_model_name = args.network + "_" + self.post_model_name
@@ -289,7 +298,9 @@ class Eval:
 
         # Getting area tensor
         print("Computing area tensor")
-        self.grids = xr.open_dataset('/scratch/as15415/Data/CM2x_grids/Grid_New.nc').rename({"dx": "dxu", "dy": "dyu"})
+        self.grids = xr.open_dataset(
+            "/scratch/as15415/Data/CM2x_grids/Grid_New.nc"
+        ).rename({"dx": "dxu", "dy": "dyu"})
 
         self.area = torch.from_numpy(self.grids["area_C"].to_numpy()).to(device="cpu")
         self.dx = self.grids["dxu"].to_numpy()
@@ -624,7 +635,7 @@ class Eval:
             FFTs_saved + [FFTs_net],
             auto_mean,
             means_saved + [mean_net],
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
     def compare_short_pred_lateral(self):
@@ -853,7 +864,7 @@ class Eval:
             KE_saved + [KE_net],
             auto_corrs,
             Corrs_saved + [corrs_net],
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
     def load_short_data(self):
@@ -894,9 +905,9 @@ class Eval:
             model_pred_saved_nets.append(
                 xr.open_zarr(net_path).to_array().to_numpy().squeeze()
             )
-        
+
         return model_pred_net, model_pred_saved_nets
-    
+
     def load_long_data(self):
         print("Load long data...")
         model_pred_net = (
@@ -934,14 +945,28 @@ class Eval:
             model_pred_saved_nets.append(
                 xr.open_zarr(net_path).to_array().to_numpy().squeeze()
             )
-        
+
         return model_pred_net, model_pred_saved_nets
 
     def compute_corr_map(self, area_flat, pred, truth):
-        cor_KE = (area_flat*pred[self.wet_bool].flatten()*truth[self.wet_bool].flatten()).sum()/np.sqrt((area_flat*pred[self.wet_bool].flatten()**2).sum()*(area_flat*truth[self.wet_bool].flatten()**2).sum())
+        cor_KE = (
+            area_flat * pred[self.wet_bool].flatten() * truth[self.wet_bool].flatten()
+        ).sum() / np.sqrt(
+            (area_flat * pred[self.wet_bool].flatten() ** 2).sum()
+            * (area_flat * truth[self.wet_bool].flatten() ** 2).sum()
+        )
         return cor_KE
 
-    def plot_maps(self, model_pred_net, model_pred_saved_nets, start_map=0, N_plot_map=1000, start_error_map=0, N_plot_error_map=1000, long=False):
+    def plot_maps(
+        self,
+        model_pred_net,
+        model_pred_saved_nets,
+        start_map=0,
+        N_plot_map=1000,
+        start_error_map=0,
+        N_plot_error_map=1000,
+        long=False,
+    ):
         ### Long time KE
         print("Getting Mean KE stats...")
         long_KE_net, long_KE_true = gen_KE_range(
@@ -951,8 +976,9 @@ class Eval:
         long_KE_true = long_KE_true.mean(0)
 
         area_flat = np.array(self.area[self.wet_bool].flatten())
-        logging.info(f"Correlation KE {self.network}: {self.compute_corr_map(area_flat, long_KE_net, long_KE_true)}")
-
+        logging.info(
+            f"Correlation KE {self.network}: {self.compute_corr_map(area_flat, long_KE_net, long_KE_true)}"
+        )
 
         long_KE_saved = []
         for i, model_pred_saved in enumerate(model_pred_saved_nets):
@@ -960,13 +986,15 @@ class Eval:
                 start_map, N_plot_map, self.test_data, model_pred_saved
             )
             long_KE_savedi = long_KE_savedi.mean(0)
-            logging.info(f"Correlation KE {self.pred_names[i]}: {self.compute_corr_map(area_flat, long_KE_savedi, long_KE_true)}")
+            logging.info(
+                f"Correlation KE {self.pred_names[i]}: {self.compute_corr_map(area_flat, long_KE_savedi, long_KE_true)}"
+            )
             long_KE_saved.append(long_KE_savedi)
 
         print("Plotting mean KE...")
         plot_map(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             self.grids,
@@ -975,7 +1003,7 @@ class Eval:
             long_KE_true,
             long_KE_saved + [long_KE_net],
             "KE",
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
         print("Getting MAE KE stats...")
@@ -984,7 +1012,9 @@ class Eval:
             start_error_map, N_plot_error_map, self.test_data, model_pred_net
         )
         _, long_KE_train_true = gen_KE(1000, self.train_data, model_pred_net)
-        mse_KE_net = long_KE_net.mean(axis=0) - long_KE_true.mean(axis=0) # np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
+        mse_KE_net = long_KE_net.mean(axis=0) - long_KE_true.mean(
+            axis=0
+        )  # np.sqrt(((long_KE_net - long_KE_true)**2).mean(axis=0))
         diff_KE = long_KE_train_true.mean(axis=0) - long_KE_true.mean(axis=0)
 
         long_mse_KE_saved = []
@@ -992,15 +1022,17 @@ class Eval:
             long_KE_savedi, _ = gen_KE_range(
                 start_error_map, N_plot_error_map, self.test_data, model_pred_saved
             )
-            mse_KE_savedi = long_KE_savedi.mean(axis=0) - long_KE_true.mean(axis=0) # np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
+            mse_KE_savedi = long_KE_savedi.mean(axis=0) - long_KE_true.mean(
+                axis=0
+            )  # np.sqrt(((long_KE_savedi - long_KE_true)**2).mean(axis=0))
             long_mse_KE_saved.append(mse_KE_savedi)
-        
+
         long_KE_true = long_KE_true.mean(0)
 
         print("Plotting MAE KE")
         plot_error_map(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             self.grids,
@@ -1009,12 +1041,12 @@ class Eval:
             long_KE_true,
             long_mse_KE_saved + [mse_KE_net],
             "KE",
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
         print("Plotting Diff KE")
         plot_diff_map(
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             self.grids,
@@ -1023,7 +1055,7 @@ class Eval:
             long_KE_true,
             diff_KE,
             "KE",
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
         print("Getting Mean Temp Stats")
@@ -1033,7 +1065,9 @@ class Eval:
         long_temp_net = long_temp_net.mean(0)
         long_temp_true = long_temp_true.mean(0)
 
-        logging.info(f"Correlation Temp {self.network}: {self.compute_corr_map(area_flat, long_temp_net, long_temp_true)}")
+        logging.info(
+            f"Correlation Temp {self.network}: {self.compute_corr_map(area_flat, long_temp_net, long_temp_true)}"
+        )
 
         long_temp_saved = []
         for i, model_pred_saved in enumerate(model_pred_saved_nets):
@@ -1041,13 +1075,15 @@ class Eval:
                 start_map, N_plot_map, self.test_data, model_pred_saved, 2
             )
             long_temp_savedi = long_temp_savedi.mean(0)
-            logging.info(f"Correlation Temp {self.pred_names[i]}: {self.compute_corr_map(area_flat, long_temp_savedi, long_temp_true)}")
+            logging.info(
+                f"Correlation Temp {self.pred_names[i]}: {self.compute_corr_map(area_flat, long_temp_savedi, long_temp_true)}"
+            )
             long_temp_saved.append(long_temp_savedi)
 
         print("Plotting Temp map...")
         plot_map(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             self.grids,
@@ -1056,19 +1092,18 @@ class Eval:
             long_temp_true,
             long_temp_saved + [long_temp_net],
             "TEMP",
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
-        
         long_temp_net, long_temp_true = gen_value_range(
             start_error_map, N_plot_error_map, self.test_data, model_pred_net, 2
         )
-        _, long_temp_train_true = gen_value_range(0, 1000, self.train_data, model_pred_net, 2)
+        _, long_temp_train_true = gen_value_range(
+            0, 1000, self.train_data, model_pred_net, 2
+        )
         # mse_temp_net = np.sqrt(((long_temp_net - long_temp_true)**2).mean(axis=0))
         mse_temp_net = long_temp_net.mean(axis=0) - long_temp_true.mean(axis=0)
         diff_temp = long_temp_train_true.mean(axis=0) - long_temp_true.mean(axis=0)
-
-        
 
         long_temp_net = long_temp_net.mean(0)
 
@@ -1082,7 +1117,6 @@ class Eval:
             long_temp_RMSE_saved.append(mse_KE_savedi)
 
         long_temp_true = long_temp_true.mean(0)
-
 
         print("Plotting MAE temp map")
         # plot_error_map(
@@ -1101,7 +1135,7 @@ class Eval:
 
         plot_both_error_map(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             self.grids,
@@ -1111,12 +1145,12 @@ class Eval:
             long_mse_KE_saved + [mse_KE_net],
             long_temp_true,
             long_temp_RMSE_saved + [mse_temp_net],
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
         print("Plotting Diff Temp")
         plot_diff_map(
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             self.grids,
@@ -1125,10 +1159,18 @@ class Eval:
             long_temp_true,
             diff_temp,
             "TEMP",
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
-    
-    def plot_timeseries_KE(self, model_pred_net, model_pred_saved_nets, start=0, N_plot=200, N_plot_spec=200, long=False):
+
+    def plot_timeseries_KE(
+        self,
+        model_pred_net,
+        model_pred_saved_nets,
+        start=0,
+        N_plot=200,
+        N_plot_spec=200,
+        long=False,
+    ):
         print("Getting KE stats...")
         KE_spec_net, KE_spec_true = gen_KE_spectrum(
             N_plot_spec, self.test_data, model_pred_net, self.grids, self.wet
@@ -1144,12 +1186,12 @@ class Eval:
         print("Plotting KE Spectrum...")
         plot_metrics_KE_spectrum(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             KE_spec_true,
             KE_spec_saved + [KE_spec_net],
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
         KE_net, KE_true = compute_KE(
@@ -1166,17 +1208,19 @@ class Eval:
         print("Plotting KE...")
         plot_metrics_KE(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             KE_true,
             KE_saved + [KE_net],
             start,
             N_plot,
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
-    
-    def plot_timeseries_enstrophy(self, model_pred_net, model_pred_saved_nets, N_plot=200, long=False):
+
+    def plot_timeseries_enstrophy(
+        self, model_pred_net, model_pred_saved_nets, N_plot=200, long=False
+    ):
         # Enstrophy
         print("Getting Enstrophy stats...")
         enst_spec_net, enst_spec_true = gen_enstrophy_spectrum(
@@ -1186,7 +1230,7 @@ class Eval:
             self.grids,
             self.wet,
             self.wet_lap,
-            Nb=4 # hardcoded
+            Nb=4,  # hardcoded
         )
 
         enst_spec_saved = []
@@ -1198,19 +1242,19 @@ class Eval:
                 self.grids,
                 self.wet,
                 self.wet_lap,
-                Nb=4 # hardcoded
+                Nb=4,  # hardcoded
             )
             enst_spec_saved.append(enst_speci)
 
         print("Plotting Enstrophy spectrum...")
         plot_metrics_enstrophy_spectrum(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             enst_spec_true,
             enst_spec_saved + [enst_spec_net],
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
         enst_net, enst_true = gen_enstrophy(
@@ -1219,7 +1263,7 @@ class Eval:
             model_pred_net,
             self.dx,
             self.dy,
-            4, # hardcoded
+            4,  # hardcoded
             self.wet_lap,
         )
         enst_net = enst_net.mean(axis=(1, 2))
@@ -1232,7 +1276,7 @@ class Eval:
                 model_pred_saved,
                 self.dx,
                 self.dy,
-                4, # hardcoded
+                4,  # hardcoded
                 self.wet_lap,
             )
             enst_i = enst_i.mean(axis=(1, 2))
@@ -1243,15 +1287,23 @@ class Eval:
         print("Plotting Enstrophy...")
         plot_metrics_entrophy(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             enst_true,
             enst_saved + [enst_net],
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
-    
-    def plot_timeseries_temperature(self, model_pred_net, model_pred_saved_nets, start=0, N_eval=200, N_eval_ACC=100, long=False):
+
+    def plot_timeseries_temperature(
+        self,
+        model_pred_net,
+        model_pred_saved_nets,
+        start=0,
+        N_eval=200,
+        N_eval_ACC=100,
+        long=False,
+    ):
         ### Spatial matching metrics
         print("Getting Spatial matching stats...")
         # u_test = np.array(
@@ -1381,14 +1433,14 @@ class Eval:
         print("Plotting Temperature Mean...")
         plot_metrics_mean(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             mean_T_true,
             mean_T_saved + [mean_T_net],
             start,
             N_eval,
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
     def plot_indices(self, model_pred_net, model_pred_saved_nets, long=False):
@@ -1396,69 +1448,75 @@ class Eval:
         nino_net, nino_true = compute_nino34(
             self.grids,
             self.inputs,
-            model_pred_net, 
-            self.test_data, 
+            model_pred_net,
+            self.test_data,
             self.mean_out,
             self.std_out,
-            self.time_test
-            )
+            self.time_test,
+        )
         nino_saved = []
         for model_pred_saved in model_pred_saved_nets:
             nino_net_i, nino_true = compute_nino34(
-                                self.grids,
-                                self.inputs,
-                                model_pred_saved, 
-                                self.test_data, 
-                                self.mean_out,
-                                self.std_out,
-                                self.time_test
-                            )
+                self.grids,
+                self.inputs,
+                model_pred_saved,
+                self.test_data,
+                self.mean_out,
+                self.std_out,
+                self.time_test,
+            )
             nino_saved.append(nino_net_i)
 
         print("Plotting Nino34...")
         plot_region_based_metric(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             nino_true,
             nino_saved + [nino_net],
             self.JUPYTER_MODE,
-            mode='nino34'
+            mode="nino34",
         )
 
         print("Getting Amo...")
-        amo_net, amo_true = compute_amo(self.grids,
-                                self.inputs,
-                                model_pred_net,
-                                self.test_data, 
-                                self.mean_out,
-                                self.std_out,
-                                self.time_test)
+        amo_net, amo_true = compute_amo(
+            self.grids,
+            self.inputs,
+            model_pred_net,
+            self.test_data,
+            self.mean_out,
+            self.std_out,
+            self.time_test,
+        )
         amo_saved = []
         for model_pred_saved in model_pred_saved_nets:
-            amo_net_i, amo_true = compute_amo(self.grids,
-                                self.inputs,
-                                model_pred_saved,
-                                self.test_data, 
-                                self.mean_out,
-                                self.std_out,
-                                self.time_test)
+            amo_net_i, amo_true = compute_amo(
+                self.grids,
+                self.inputs,
+                model_pred_saved,
+                self.test_data,
+                self.mean_out,
+                self.std_out,
+                self.time_test,
+            )
             amo_saved.append(amo_net_i)
 
         print("Plotting Amo...")
         plot_region_based_metric(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.str_save,
             self.output_dir,
             amo_true,
             amo_saved + [amo_net],
             self.JUPYTER_MODE,
-            mode='amo'
+            mode="amo",
         )
-        
-    def plot_pdf(self, model_pred_net, model_pred_saved_nets, start=100, N_days=100, long=False):
+
+    def plot_pdf(
+        self, model_pred_net, model_pred_saved_nets, start=100, N_days=100, long=False
+    ):
         # PDF
         print("Getting PDF stats...")
         pdf = {}
@@ -1507,10 +1565,10 @@ class Eval:
         bins_KE_net = (bins_KE_net[1:] + bins_KE_net[:-1]) / 2
 
         pdf["KE"] = {
-                "true_pdf": true_KE_pdf,
-                "true": [bins_KE_true, true_KE_pdf],
-                self.network: [bins_KE_net, pdf_KE_net],
-            }
+            "true_pdf": true_KE_pdf,
+            "true": [bins_KE_true, true_KE_pdf],
+            self.network: [bins_KE_net, pdf_KE_net],
+        }
 
         for i, model_pred_saved in enumerate(model_pred_saved_nets):
             long_KE_savedi, _ = gen_KE_range(
@@ -1524,10 +1582,10 @@ class Eval:
         print("Plotting pdf...")
         plot_metrics_pdf(
             self.pred_names + [self.network],
-            self.region if not long else self.region + '_Long_',
+            self.region if not long else self.region + "_Long_",
             self.output_dir,
             pdf,
-            self.JUPYTER_MODE
+            self.JUPYTER_MODE,
         )
 
     def plot_animation(self):
@@ -1727,7 +1785,6 @@ class Eval:
                 )
             )
 
-
     def send_data_to_cpu(self):
         self.test_data.set_device(device="cpu")
 
@@ -1765,22 +1822,45 @@ def main(args):
     if args.run_long_metrics:
         model_pred_net, model_pred_saved_nets = e.load_long_data()
         if args.N_test == 3000:
-            e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=1999, N_plot_map=2999, start_error_map=1999, N_plot_error_map=2999, long=True)
+            e.plot_maps(
+                model_pred_net,
+                model_pred_saved_nets,
+                start_map=1999,
+                N_plot_map=2999,
+                start_error_map=1999,
+                N_plot_error_map=2999,
+                long=True,
+            )
             # e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=1999, N_plot=2999, N_plot_spec=1000, long=True)
             # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
-            e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=1999, N_eval=2999, long=True)
+            e.plot_timeseries_temperature(
+                model_pred_net,
+                model_pred_saved_nets,
+                start=1999,
+                N_eval=2999,
+                long=True,
+            )
             # e.plot_pdf(model_pred_net, model_pred_saved_nets, start=1999, N_days=1000, long=True)
         elif args.N_test == 2000:
-            e.plot_maps(model_pred_net, model_pred_saved_nets, start_map=999, N_plot_map=1999, start_error_map=999, N_plot_error_map=1999, long=True)
+            e.plot_maps(
+                model_pred_net,
+                model_pred_saved_nets,
+                start_map=999,
+                N_plot_map=1999,
+                start_error_map=999,
+                N_plot_error_map=1999,
+                long=True,
+            )
             # e.plot_timeseries_KE(model_pred_net, model_pred_saved_nets, start=999, N_plot=1999, N_plot_spec=1000, long=True)
             # e.plot_timeseries_enstrophy(model_pred_net, model_pred_saved_nets, N_plot=1000, long=True)
-            e.plot_timeseries_temperature(model_pred_net, model_pred_saved_nets, start=999, N_eval=1999, long=True)
+            e.plot_timeseries_temperature(
+                model_pred_net, model_pred_saved_nets, start=999, N_eval=1999, long=True
+            )
             # e.plot_pdf(model_pred_net, model_pred_saved_nets, start=999, N_days=1000, long=True)
         else:
             raise NotImplementedError()
-        
-        e.plot_indices(model_pred_net, model_pred_saved_nets, True)
 
+        e.plot_indices(model_pred_net, model_pred_saved_nets, True)
 
     if args.run_plot_animation:
         e.plot_animation()

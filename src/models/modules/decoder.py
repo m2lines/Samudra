@@ -56,12 +56,7 @@ class UNetDecoder(torch.nn.Module):
             )
 
             self.decoder.append(
-                torch.nn.ModuleDict(
-                    {
-                        "upsamp": up_sample_module,
-                        "conv": conv_module
-                    }
-                )
+                torch.nn.ModuleDict({"upsamp": up_sample_module, "conv": conv_module})
             )
 
         self.decoder = torch.nn.ModuleList(self.decoder)
@@ -82,10 +77,14 @@ class UNetDecoder(torch.nn.Module):
                 up = layer["upsamp"](x)
                 crop = np.array(up.shape[2:])
                 shape = np.array(inputs[-1 - n].shape[2:])
-                pads = (shape - crop)
-                pads = [pads[1]//2, pads[1]-pads[1]//2,
-                        pads[0]//2, pads[0]-pads[0]//2]
-                up = torch.nn.functional.pad(up,pads)
-                x =  torch.cat([up, inputs[-1 - n]], dim=self.channel_dim)
+                pads = shape - crop
+                pads = [
+                    pads[1] // 2,
+                    pads[1] - pads[1] // 2,
+                    pads[0] // 2,
+                    pads[0] - pads[0] // 2,
+                ]
+                up = torch.nn.functional.pad(up, pads)
+                x = torch.cat([up, inputs[-1 - n]], dim=self.channel_dim)
             x = layer["conv"](x)
         return self.output_layer(x)

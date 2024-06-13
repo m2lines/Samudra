@@ -22,7 +22,7 @@ class data_CNN_Dynamic(torch.utils.data.Dataset):
 
         data_in = np.nan_to_num(data_in)
         data_out = np.nan_to_num(data_out)
-        
+
         if std_dict is None:
             std_data = np.nanstd(data_in, axis=(0, 1, 2))
             mean_data = np.nanmean(data_in, axis=(0, 1, 2))
@@ -85,7 +85,9 @@ class data_CNN_Dynamic(torch.utils.data.Dataset):
 
 class data_CNN_steps_Dynamic(torch.utils.data.Dataset):
 
-    def __init__(self, data_in, data_out, steps, wet=None, std_dict=None, device="cuda"):
+    def __init__(
+        self, data_in, data_out, steps, wet=None, std_dict=None, device="cuda"
+    ):
         super().__init__()
         self.device = device
         steps = len(data_out)
@@ -1036,25 +1038,37 @@ def gen_data_global(input_vars, extra_vars, output_vars, lag, res="1"):
 
     return inputs, extra_in, outputs
 
-def gen_data_global_new(input_vars, extra_vars, output_vars, lag, run_type =""):
-    var_dict = {"u":"u","v":"v","T":"T",
-               "tau_u":"tau_u","tau_v":"tau_v",
-               "t_ref":"t_ref"}
+
+def gen_data_global_new(input_vars, extra_vars, output_vars, lag, run_type=""):
+    var_dict = {
+        "u": "u",
+        "v": "v",
+        "T": "T",
+        "tau_u": "tau_u",
+        "tau_v": "tau_v",
+        "t_ref": "t_ref",
+    }
     if run_type != "":
         run_type = "_" + run_type
-    data = xr.open_zarr("/scratch/as15415/Data/Emulation_Data/Global_Ocean_1deg"+run_type+"_New.zarr")
+    data = xr.open_zarr(
+        "/scratch/as15415/Data/Emulation_Data/Global_Ocean_1deg"
+        + run_type
+        + "_New.zarr"
+    )
 
-    data_atmos = xr.open_zarr("/scratch/as15415/Data/Emulation_Data/Data_Atmos_1deg"+run_type+"_New.zarr")
-    data_atmos = data_atmos.rename_dims({"lat":"yt_ocean","lon":"xt_ocean"})
-    data_atmos = data_atmos.rename({"lat":"yt_ocean","lon":"xt_ocean"})
+    data_atmos = xr.open_zarr(
+        "/scratch/as15415/Data/Emulation_Data/Data_Atmos_1deg" + run_type + "_New.zarr"
+    )
+    data_atmos = data_atmos.rename_dims({"lat": "yt_ocean", "lon": "xt_ocean"})
+    data_atmos = data_atmos.rename({"lat": "yt_ocean", "lon": "xt_ocean"})
 
-    data = data.sel(time=slice(data_atmos.time[0],data_atmos.time[-1]))
-    data_atmos = data_atmos.sel(time=slice(data.time[0],data.time[-1]))
-    
+    data = data.sel(time=slice(data_atmos.time[0], data_atmos.time[-1]))
+    data_atmos = data_atmos.sel(time=slice(data.time[0], data.time[-1]))
+
     data_atmos["xu_ocean"] = data.xt_ocean.data
-    data_atmos["yu_ocean"] = data.yt_ocean.data    
+    data_atmos["yu_ocean"] = data.yt_ocean.data
 
-    data = xr.merge([data,data_atmos])
+    data = xr.merge([data, data_atmos])
 
     inputs = []
     extra_in = []

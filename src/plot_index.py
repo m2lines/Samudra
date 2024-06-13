@@ -130,8 +130,10 @@ class Eval:
             + str(args.N_samples)
         )
         self.post_model_name = (
-            "Train_" + args.train_region
-            + "_Test_" + args.region
+            "Train_"
+            + args.train_region
+            + "_Test_"
+            + args.region
             + "_Test_in_"
             + self.str_in
             + "ext_"
@@ -160,18 +162,24 @@ class Eval:
         # Saving data
         print("Getting inputs")
         if "global_1" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag)
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag
+            )
         elif "global_2x" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="2x")
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag, run_type="2x"
+            )
         elif "global_4x" == args.region:
-            inputs, extra_in, outputs = gen_data_global_new(self.inputs, self.extra_in, self.outputs, args.lag, run_type ="4x")
+            inputs, extra_in, outputs = gen_data_global_new(
+                self.inputs, self.extra_in, self.outputs, args.lag, run_type="4x"
+            )
         else:
             raise NotImplementedError
 
         print("Calculating mask tensors")
         self.wet, self.wet_nan = get_wet_mask(inputs, "cpu")
         self.wet_bool = np.array(self.wet.cpu()).astype(bool)
-        wet_lap = compute_laplacian_wet(self.wet_nan, 4) # hardcoded
+        wet_lap = compute_laplacian_wet(self.wet_nan, 4)  # hardcoded
         wet_lap = xr.where(wet_lap == 0, 1, np.nan)
         self.wet_lap = np.nan_to_num(wet_lap)
         print("Wet resolution:", self.wet.shape)
@@ -182,11 +190,11 @@ class Eval:
 
         print("Loading Train data")
         train_data = torch.load(
-                    Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
-                    map_location=torch.device("cpu"),
-                )
+            Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_train),
+            map_location=torch.device("cpu"),
+        )
         # self.train_data = train_data
-    
+
         if args.save_test_data:
             print("Saving data")
             data_in_test = gen_data_in_test(
@@ -198,7 +206,10 @@ class Eval:
             if "global" in args.region:
                 norm_vals = train_data.norm_vals
                 if "combined" in args.train_region:
-                    assert len(norm_vals) == len(GLOBAL_COMBINED_STATS) and all(np.array_equal(norm_vals[k], GLOBAL_COMBINED_STATS[k]) for k in norm_vals)
+                    assert len(norm_vals) == len(GLOBAL_COMBINED_STATS) and all(
+                        np.array_equal(norm_vals[k], GLOBAL_COMBINED_STATS[k])
+                        for k in norm_vals
+                    )
                 self.test_data = data_CNN_Dynamic(
                     data_in_test,
                     data_out_test,
@@ -253,7 +264,9 @@ class Eval:
 
         # Getting area tensor
         print("Computing area tensor")
-        self.grids = xr.open_dataset('/scratch/as15415/Data/CM2x_grids/Grid_New.nc').rename({"dx": "dxu", "dy": "dyu"})
+        self.grids = xr.open_dataset(
+            "/scratch/as15415/Data/CM2x_grids/Grid_New.nc"
+        ).rename({"dx": "dxu", "dy": "dyu"})
 
         self.area = torch.from_numpy(self.grids["area_C"].to_numpy()).to(device="cpu")
         self.dx = self.grids["dxu"].to_numpy()
@@ -318,7 +331,7 @@ class Eval:
             model_pred_saved_nets.append(
                 xr.open_zarr(net_path).to_array().to_numpy().squeeze()
             )
-        
+
         return model_pred_net, model_pred_saved_nets
 
     def send_data_to_cpu(self):
@@ -332,58 +345,76 @@ from datetime import datetime
 import os
 
 # G1, G1
-with initialize_config_dir(version_base=None, config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs"):
-    args1 = compose(config_name="exp/eval_swin_global", overrides=[
-        "output_dir=./notebooks/temp/{0}_indices".format(str(datetime.now())[:10]),
-        "model_name_replace=Swin",
-        "network=Foundation Swin Train1Eval1",
-        "train_region=global_1",
-        "region=global_1",
-        "swin.embed_dim=60",
-        "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
-        "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
-        "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
-        "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']"
-    ])
+with initialize_config_dir(
+    version_base=None,
+    config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs",
+):
+    args1 = compose(
+        config_name="exp/eval_swin_global",
+        overrides=[
+            "output_dir=./notebooks/temp/{0}_indices".format(str(datetime.now())[:10]),
+            "model_name_replace=Swin",
+            "network=Foundation Swin Train1Eval1",
+            "train_region=global_1",
+            "region=global_1",
+            "swin.embed_dim=60",
+            "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
+            "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
+            "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
+            "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']",
+        ],
+    )
 if not os.path.exists(args1.output_dir):
     os.mkdir(args1.output_dir)
 
 e1 = Eval(args1)
 
 # G1, G2x
-with initialize_config_dir(version_base=None, config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs"):
-    args2 = compose(config_name="exp/eval_swin_global", overrides=[
-        "output_dir=./notebooks/temp/{0}_indices".format(str(datetime.now())[:10]),
-        "model_name_replace=Swin",
-        "network=Foundation Swin Train1Eval2x",
-        "train_region=global_1",
-        "region=global_2x",
-        "swin.embed_dim=60",
-        "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
-        "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
-        "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
-        "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train1Eval2x_Train_global_1_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train1Eval2x_Train_global_1_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']"
-    ])
+with initialize_config_dir(
+    version_base=None,
+    config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs",
+):
+    args2 = compose(
+        config_name="exp/eval_swin_global",
+        overrides=[
+            "output_dir=./notebooks/temp/{0}_indices".format(str(datetime.now())[:10]),
+            "model_name_replace=Swin",
+            "network=Foundation Swin Train1Eval2x",
+            "train_region=global_1",
+            "region=global_2x",
+            "swin.embed_dim=60",
+            "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
+            "ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
+            "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
+            "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train1Eval2x_Train_global_1_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train1Eval2x_Train_global_1_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth']",
+        ],
+    )
 
 e2 = Eval(args2)
 
 # G1_2x, G_4x
-with initialize_config_dir(version_base=None, config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs"):
-    args3 = compose(config_name="exp/eval_swin_global", overrides=[
-        "output_dir=./notebooks/temp/{0}_indices".format(str(datetime.now())[:10]),
-        "model_name_replace=Swin",
-        "network=Foundation Swin Train12xEval4x",
-        "train_region=combined_global_1",
-        "region=global_4x",
-        "swin.embed_dim=60",
-        "N_samples=0",
-        "N_val=0",
-        "N_test=2000",
-        "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
-        "ckpt_path=/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-13-foundation_train_swin_global_1_2x/foundationswin/saved_nets/swin_best_steps_4_global_1_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
-        "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
-        "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth']"
-    ])
+with initialize_config_dir(
+    version_base=None,
+    config_dir="/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/configs",
+):
+    args3 = compose(
+        config_name="exp/eval_swin_global",
+        overrides=[
+            "output_dir=./notebooks/temp/{0}_indices".format(str(datetime.now())[:10]),
+            "model_name_replace=Swin",
+            "network=Foundation Swin Train12xEval4x",
+            "train_region=combined_global_1",
+            "region=global_4x",
+            "swin.embed_dim=60",
+            "N_samples=0",
+            "N_val=0",
+            "N_test=2000",
+            "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
+            "ckpt_path=/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-13-foundation_train_swin_global_1_2x/foundationswin/saved_nets/swin_best_steps_4_global_1_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt",
+            "pred_names=['UNet (Baseline)', 'ConvNext UNet']",
+            "pred_paths=['/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth', '/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation ConvNext UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth']",
+        ],
+    )
 
 e3 = Eval(args3)
 
@@ -393,28 +424,29 @@ e1.send_data_to_cpu()
 e2.send_data_to_cpu()
 e3.send_data_to_cpu()
 
+
 def get_indices(e, model_pred_net, model_pred_saved_nets, long=False):
     print("Getting Nino34...")
     nino_net, nino_true = compute_nino34(
         e.grids,
         e.inputs,
-        model_pred_net, 
-        e.test_data, 
+        model_pred_net,
+        e.test_data,
         e.mean_out,
         e.std_out,
-        e.time_test
-        )
+        e.time_test,
+    )
     nino_saved = []
     for model_pred_saved in model_pred_saved_nets:
         nino_net_i, nino_true = compute_nino34(
-                            e.grids,
-                            e.inputs,
-                            model_pred_saved, 
-                            e.test_data, 
-                            e.mean_out,
-                            e.std_out,
-                            e.time_test
-                        )
+            e.grids,
+            e.inputs,
+            model_pred_saved,
+            e.test_data,
+            e.mean_out,
+            e.std_out,
+            e.time_test,
+        )
         nino_saved.append(nino_net_i)
 
     # print("Plotting Nino34...")
@@ -430,33 +462,43 @@ def get_indices(e, model_pred_net, model_pred_saved_nets, long=False):
     # )
 
     print("Getting Amo...")
-    amo_net, amo_true = compute_amo(e.grids,
-                            e.inputs,
-                            model_pred_net,
-                            e.test_data, 
-                            e.mean_out,
-                            e.std_out,
-                            e.time_test)
+    amo_net, amo_true = compute_amo(
+        e.grids,
+        e.inputs,
+        model_pred_net,
+        e.test_data,
+        e.mean_out,
+        e.std_out,
+        e.time_test,
+    )
     amo_saved = []
     for model_pred_saved in model_pred_saved_nets:
-        amo_net_i, amo_true = compute_amo(e.grids,
-                            e.inputs,
-                            model_pred_saved,
-                            e.test_data, 
-                            e.mean_out,
-                            e.std_out,
-                            e.time_test)
+        amo_net_i, amo_true = compute_amo(
+            e.grids,
+            e.inputs,
+            model_pred_saved,
+            e.test_data,
+            e.mean_out,
+            e.std_out,
+            e.time_test,
+        )
         amo_saved.append(amo_net_i)
 
-    return nino_true, nino_saved + [nino_net], amo_true,  amo_saved + [amo_net]
+    return nino_true, nino_saved + [nino_net], amo_true, amo_saved + [amo_net]
 
 
 model_pred_net, model_pred_saved_nets = e1.load_long_data()
-nino_true1, nino_saved1, amo_true1, amo_saved1 = get_indices(e1, model_pred_net, model_pred_saved_nets, True)
+nino_true1, nino_saved1, amo_true1, amo_saved1 = get_indices(
+    e1, model_pred_net, model_pred_saved_nets, True
+)
 model_pred_net, model_pred_saved_nets = e2.load_long_data()
-nino_true2, nino_saved2, amo_true2, amo_saved2 = get_indices(e2, model_pred_net, model_pred_saved_nets, True)
+nino_true2, nino_saved2, amo_true2, amo_saved2 = get_indices(
+    e2, model_pred_net, model_pred_saved_nets, True
+)
 model_pred_net, model_pred_saved_nets = e3.load_long_data()
-nino_true3, nino_saved3, amo_true3, amo_saved3 = get_indices(e3, model_pred_net, model_pred_saved_nets, True)
+nino_true3, nino_saved3, amo_true3, amo_saved3 = get_indices(
+    e3, model_pred_net, model_pred_saved_nets, True
+)
 
 
 import matplotlib.pyplot as plt
@@ -467,6 +509,7 @@ import numpy as np
 import cartopy.crs as ccrs
 import cartopy as cart
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
 
 def plot_both_region_based_metric(
     network_names,
@@ -485,7 +528,8 @@ def plot_both_region_based_metric(
     indices_amo2,
     true_amo3,
     indices_amo3,
-    JUPYTER_MODE=False):
+    JUPYTER_MODE=False,
+):
 
     plt.style.use("bmh")
 
@@ -500,12 +544,12 @@ def plot_both_region_based_metric(
             "height_ratios": [1, 1],
             "wspace": 0.3,
             "hspace": 0.3,
-        }
+        },
     )
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
 
-    y = 'Nino 3.4 Index'
+    y = "Nino 3.4 Index"
 
     # 1
     k = 0
@@ -522,7 +566,13 @@ def plot_both_region_based_metric(
     # axs[0, k].set_xlabel(r"time $( days )$", fontsize="15")
     axs[0, k].set_ylabel(y, fontsize="15")
     axs[0, k].set_title("PI Data - PI Data")
-    axs[0, k].legend(bbox_to_anchor=(0, 1.2, 1, 0.2), loc="lower left", fancybox=True, fontsize="15", ncol=len(indices_nino1)+1)
+    axs[0, k].legend(
+        bbox_to_anchor=(0, 1.2, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        fontsize="15",
+        ncol=len(indices_nino1) + 1,
+    )
 
     # 2
     k = 1
@@ -551,10 +601,9 @@ def plot_both_region_based_metric(
             )
     axs[0, k].plot(np.arange(1, N_plot + 1), true_nino3, "--k", label="CM2.6")
     axs[0, k].set_title("Blended Data - 4x CO2")
-    
 
     # AMO
-    y = 'AMO Index'
+    y = "AMO Index"
     # 1
     k = 0
     N_plot = len(indices_amo1[0])
@@ -600,12 +649,10 @@ def plot_both_region_based_metric(
     axs[1, k].set_xlabel(r"time $( days )$", fontsize="15")
     # axs[1, k].set_ylabel(y, fontsize="15")
 
-    
     # plt.show()
 
-
     plt.savefig(
-        Path(output_dir) / ('Indexplots' + '_' + region + "_" + save_str + ".png"),
+        Path(output_dir) / ("Indexplots" + "_" + region + "_" + save_str + ".png"),
         bbox_inches="tight",
     )
     plt.clf()
@@ -614,14 +661,20 @@ def plot_both_region_based_metric(
 # Plotting ENSO
 plot_both_region_based_metric(
     e1.pred_names + [e1.network],
-    e1.region + '_Long_',
+    e1.region + "_Long_",
     e1.str_save,
-    e1.output_dir,   
-    nino_true1, nino_saved1,
-    nino_true2, nino_saved2,
-    nino_true3, nino_saved3,
-    amo_true1, amo_saved1,
-    amo_true2, amo_saved2,
-    amo_true3, amo_saved3,
+    e1.output_dir,
+    nino_true1,
+    nino_saved1,
+    nino_true2,
+    nino_saved2,
+    nino_true3,
+    nino_saved3,
+    amo_true1,
+    amo_saved1,
+    amo_true2,
+    amo_saved2,
+    amo_true3,
+    amo_saved3,
     e1.JUPYTER_MODE,
 )

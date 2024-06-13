@@ -7,6 +7,7 @@ import cartopy.crs as ccrs
 import cartopy as cart
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
+
 def plot_time_spec(
     network_names,
     axs,
@@ -566,7 +567,7 @@ def plot_long_time_stats(
 
     if JUPYTER_MODE:
         plt.show()
-    
+
     else:
         plt.savefig(
             Path(output_dir)
@@ -633,18 +634,7 @@ def plot_short_time_stats(
         ACCs,
         clist,
     )
-    plot_acc(
-        network_names,
-        axs,
-        (1),
-        2,
-        N_test,
-        lag,
-        auto_ACC,
-        ACCs,
-        clist,
-        True
-    )
+    plot_acc(network_names, axs, (1), 2, N_test, lag, auto_ACC, ACCs, clist, True)
 
     # fig.suptitle("Short-Time Statistics 2" + region, fontsize=16)
 
@@ -661,7 +651,13 @@ def plot_short_time_stats(
 
 
 def plot_metrics_KE_spectrum(
-    network_names, region, save_str, output_dir, KE_spec_true, KE_specs, JUPYTER_MODE=False
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    KE_spec_true,
+    KE_specs,
+    JUPYTER_MODE=False,
 ):
 
     plt.style.use("bmh")
@@ -683,7 +679,12 @@ def plot_metrics_KE_spectrum(
     plt.xlabel(r"Wave number $( 1/km )$")
     plt.ylabel(r"KE $( J/m^2 )$")
 
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(KE_specs)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(KE_specs) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -726,7 +727,12 @@ def plot_metrics_KE(
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"KE $( J/m^2 )$")
     plt.xlim([start, end])
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(KEs)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(KEs) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -738,7 +744,13 @@ def plot_metrics_KE(
 
 
 def plot_metrics_enstrophy_spectrum(
-    network_names, region, save_str, output_dir, enst_spec_true, enst_specs, JUPYTER_MODE=False
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    enst_spec_true,
+    enst_specs,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -757,12 +769,18 @@ def plot_metrics_enstrophy_spectrum(
     plt.loglog(enst_spec_true.freq_r, enst_spec_true, "--k", label="CM2.6")
     plt.xlabel(r"Wave number $( 1/km )$")
     plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(enst_specs)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(enst_specs) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
     else:
         plt.savefig(
-            Path(output_dir) / ("Enstrophy_Spectrum" + region + "_" + save_str + ".png"),
+            Path(output_dir)
+            / ("Enstrophy_Spectrum" + region + "_" + save_str + ".png"),
             bbox_inches="tight",
         )
         plt.clf()
@@ -796,7 +814,12 @@ def plot_metrics_entrophy(
     plt.plot(np.arange(1, N_plot + 1), enst_true, "--k", label="CM2.6")
     plt.xlabel(r"time $( days )$")
     plt.ylabel(r"Enstrophy $( m^2/s^2 )$")
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(ensts)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(ensts) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
 
@@ -838,7 +861,12 @@ def plot_metrics_corr(
     plt.ylim([0, 1])
     plt.xlim([0, N_eval])
 
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(corr_Ts)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(corr_Ts) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -850,7 +878,13 @@ def plot_metrics_corr(
 
 
 def plot_metrics_rmse(
-    network_names, region, save_str, output_dir, RMSE_T_true, RMSE_Ts, JUPYTER_MODE=False
+    network_names,
+    region,
+    save_str,
+    output_dir,
+    RMSE_T_true,
+    RMSE_Ts,
+    JUPYTER_MODE=False,
 ):
     plt.style.use("bmh")
 
@@ -872,7 +906,12 @@ def plot_metrics_rmse(
     plt.ylabel(r"RMSE $\overline{T}$")
     plt.xlim([0, N_eval])
 
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(RMSE_Ts)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(RMSE_Ts) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -883,7 +922,9 @@ def plot_metrics_rmse(
         plt.clf()
 
 
-def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, ACC_Ts, JUPYTER_MODE=False):
+def plot_metrics_acc(
+    network_names, region, save_str, output_dir, ACC_T_true, ACC_Ts, JUPYTER_MODE=False
+):
     plt.style.use("bmh")
 
     clist = ["#A00B41", "#3300EA", "#00DCDE", "#A6BD00"]
@@ -905,7 +946,12 @@ def plot_metrics_acc(network_names, region, save_str, output_dir, ACC_T_true, AC
     plt.ylim([0, 1])
     plt.xlim([0, N_eval])
 
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(ACC_Ts)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(ACC_Ts) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -948,7 +994,12 @@ def plot_metrics_mean(
     # plt.ylim([0, 1])
     plt.xlim([start, end])
 
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(mean_Ts)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        ncol=len(mean_Ts) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
     else:
@@ -1001,32 +1052,25 @@ def plot_metrics_pdf(
                     pdf[ind_plot]["true_pdf"].max(),
                 ]
             )
-        
+
         if ind_plot == 2:
-            plt.xlim(
-                [
-                    -3,33
-                ]
-            )
+            plt.xlim([-3, 33])
         elif ind_plot == "KE":
-            plt.xlim(
-                [
-                    0,
-                    2500
-                ]
-            )
+            plt.xlim([0, 2500])
 
-
-        plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", ls='--', label="CM2.6")
-        plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, ncol=len(pdf[0].keys()))
-        
+        plt.semilogy(*pdf[ind_plot]["true"], lw=2, c="k", ls="--", label="CM2.6")
+        plt.legend(
+            bbox_to_anchor=(0, 1.02, 1, 0.2),
+            loc="lower left",
+            fancybox=True,
+            ncol=len(pdf[0].keys()),
+        )
 
         plt.xlabel(var_list[str(ind_plot)])
-        if isinstance(ind_plot, int): 
+        if isinstance(ind_plot, int):
             plt.ylabel(r"${p(}$" + var_list[str(ind_plot)][:14] + "${)}$")
         else:
             plt.ylabel(r"${p(}$" + var_list[str(ind_plot)] + "${)}$")
-
 
         if JUPYTER_MODE:
             plt.show()
@@ -1153,7 +1197,7 @@ def plot_map(
     for i, long_KE_i in enumerate(long_KEs):
         if long_KE_i is not None:
             if "global" in region:
-                axs[i+1].pcolormesh(
+                axs[i + 1].pcolormesh(
                     x_plot,
                     y_plot,
                     long_KE_i * wet_nan,
@@ -1163,7 +1207,7 @@ def plot_map(
                     shading="auto",
                 )
             else:
-                axs[i+1].pcolormesh(
+                axs[i + 1].pcolormesh(
                     x_plot,
                     y_plot,
                     long_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
@@ -1173,8 +1217,8 @@ def plot_map(
                     shading="auto",
                 )
 
-            axs[i+1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
-            gl = axs[i+1].gridlines(
+            axs[i + 1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[i + 1].gridlines(
                 crs=ccrs.PlateCarree(),
                 draw_labels=True,
                 linewidth=2,
@@ -1187,8 +1231,7 @@ def plot_map(
             gl.yrotation = False
             gl.xformatter = LONGITUDE_FORMATTER
             gl.yformatter = LATITUDE_FORMATTER
-            axs[i+1].set_title(network_names[i], size=15)
-
+            axs[i + 1].set_title(network_names[i], size=15)
 
     region_title = ""
 
@@ -1339,13 +1382,13 @@ def plot_error_map(
     elif mode == "TEMP":
         vmin = -2
         vmax = 2
-    
+
     cmap = cmocean.cm.balance
 
     for i, long_mse_KE_i in enumerate(long_mse_KEs):
         if long_mse_KE_i is not None:
             if "global" in region:
-                plt_n = axs[i+1].pcolormesh(
+                plt_n = axs[i + 1].pcolormesh(
                     x_plot,
                     y_plot,
                     long_mse_KE_i * wet_nan,
@@ -1355,7 +1398,7 @@ def plot_error_map(
                     shading="auto",
                 )
             else:
-                plt_n = axs[i+1].pcolormesh(
+                plt_n = axs[i + 1].pcolormesh(
                     x_plot,
                     y_plot,
                     long_mse_KE_i[Nb:-Nb, Nb:-Nb] * wet_nan[Nb:-Nb, Nb:-Nb],
@@ -1365,8 +1408,8 @@ def plot_error_map(
                     shading="auto",
                 )
 
-            axs[i+1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
-            gl = axs[i+1].gridlines(
+            axs[i + 1].add_feature(cart.feature.LAND, zorder=100, edgecolor="k")
+            gl = axs[i + 1].gridlines(
                 crs=ccrs.PlateCarree(),
                 draw_labels=True,
                 linewidth=2,
@@ -1379,7 +1422,7 @@ def plot_error_map(
             gl.yrotation = False
             gl.xformatter = LONGITUDE_FORMATTER
             gl.yformatter = LATITUDE_FORMATTER
-            axs[i+1].set_title(network_names[i], size=15)
+            axs[i + 1].set_title(network_names[i], size=15)
 
     pos = axs[3].get_position()
 
@@ -1407,7 +1450,6 @@ def plot_error_map(
         cbar.set_label(r"Bias $\overline{T}$ $( ^\circ C )$", fontsize=15)
 
     fig.delaxes(cax)
-
 
     region_title = ""
 
@@ -1439,7 +1481,8 @@ def plot_error_map(
         plt.clf()
 
 
-def plot_both_error_map(network_names,
+def plot_both_error_map(
+    network_names,
     region,
     save_str,
     output_dir,
@@ -1450,7 +1493,8 @@ def plot_both_error_map(network_names,
     long_mse_KEs,
     long_T_true,
     long_mse_Ts,
-    JUPYTER_MODE=False):
+    JUPYTER_MODE=False,
+):
 
     plt.style.use("bmh")
 
@@ -1545,7 +1589,7 @@ def plot_both_error_map(network_names,
     # Bias plots
     vmin = -20
     vmax = 20
-    
+
     cmap = cmocean.cm.balance
 
     for i, long_mse_KE_i in enumerate(long_mse_KEs):
@@ -1617,7 +1661,7 @@ def plot_both_error_map(network_names,
     cbar.set_label(r"Bias KE $( J/m^2 )$", fontsize=15)
 
     fig.delaxes(cax)
- 
+
     ###### TEMP
 
     # Ground Truth
@@ -1698,7 +1742,7 @@ def plot_both_error_map(network_names,
     # Bias plots
     vmin = -2
     vmax = 2
-    
+
     cmap = cmocean.cm.balance
 
     for i, long_mse_T_i in enumerate(long_mse_Ts):
@@ -2014,6 +2058,7 @@ def get_initial_snapshot_fig(
     )
     return fig, plts, a
 
+
 def plot_region_based_metric(
     network_names,
     region,
@@ -2022,7 +2067,8 @@ def plot_region_based_metric(
     true,
     indices,
     JUPYTER_MODE=False,
-    mode='nino34'):
+    mode="nino34",
+):
 
     plt.style.use("bmh")
 
@@ -2042,32 +2088,38 @@ def plot_region_based_metric(
 
     plt.plot(np.arange(1, N_plot + 1), true, "--k", label="CM2.6")
     plt.xlabel(r"time $( days )$", fontsize="15")
-    y = 'Nino 3.4 Index' if mode == 'nino34' else 'AMO Index'
+    y = "Nino 3.4 Index" if mode == "nino34" else "AMO Index"
     plt.ylabel(y, fontsize="15")
-    plt.legend(bbox_to_anchor=(0, 1.02, 1, 0.2), loc="lower left", fancybox=True, fontsize="15", ncol=len(indices)+1)
+    plt.legend(
+        bbox_to_anchor=(0, 1.02, 1, 0.2),
+        loc="lower left",
+        fancybox=True,
+        fontsize="15",
+        ncol=len(indices) + 1,
+    )
     if JUPYTER_MODE:
         plt.show()
 
     else:
         plt.savefig(
-            Path(output_dir) / (y + '_' + region + "_" + save_str + ".png"),
+            Path(output_dir) / (y + "_" + region + "_" + save_str + ".png"),
             bbox_inches="tight",
         )
         plt.clf()
 
 
 def plot_diff_map(
-        region,
-        save_str,
-        output_dir,
-        grids,
-        Nb, 
-        wet_nan,
-        long_KE_true,
-        diff_KE,
-        mode="KE",
-        JUPYTER_MODE=False,
-    ):
+    region,
+    save_str,
+    output_dir,
+    grids,
+    Nb,
+    wet_nan,
+    long_KE_true,
+    diff_KE,
+    mode="KE",
+    JUPYTER_MODE=False,
+):
     plt.style.use("bmh")
 
     # Long KE
@@ -2174,11 +2226,11 @@ def plot_diff_map(
     elif mode == "TEMP":
         vmin = -4
         vmax = 4
-    
+
     cmap = cmocean.cm.balance
 
     idy, idx = 0, 1
-        
+
     if "global" in region:
         plt_n = axs[idy, idx].pcolormesh(
             x_plot,
@@ -2217,7 +2269,7 @@ def plot_diff_map(
     axs[idy, idx].set_title("Bias between Eval and Train data", size=15)
 
     pos = axs[1, 1].get_position()
-    
+
     # Set the new anchor point to be in the middle
     new_pos = [
         pos.x0 - 0.075,
@@ -2260,7 +2312,6 @@ def plot_diff_map(
         else:
             region_title += i
     region_title = str(region_title)
-
 
     if JUPYTER_MODE:
         plt.show()

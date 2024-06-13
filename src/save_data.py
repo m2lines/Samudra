@@ -83,9 +83,13 @@ def main(args):
 
     # Generate inputs, extra inputs and outputs
     if "global_1" in args.region:
-        inputs, extra_in, outputs = gen_data_global_new(inputs, extra_in, outputs, args.lag)
+        inputs, extra_in, outputs = gen_data_global_new(
+            inputs, extra_in, outputs, args.lag
+        )
     elif "global_2x" in args.region:
-        inputs, extra_in, outputs = gen_data_global_new(inputs, extra_in, outputs, args.lag, run_type ="2x")
+        inputs, extra_in, outputs = gen_data_global_new(
+            inputs, extra_in, outputs, args.lag, run_type="2x"
+        )
     else:
         raise NotImplementedError
 
@@ -106,9 +110,17 @@ def main(args):
         )
     else:
         if "combined" in args.region:
-            val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, GLOBAL_COMBINED_STATS, device=args.device)
+            val_data = data_CNN_Dynamic(
+                data_in_val,
+                data_out_val,
+                wet,
+                GLOBAL_COMBINED_STATS,
+                device=args.device,
+            )
         else:
-            val_data = data_CNN_Dynamic(data_in_val, data_out_val, wet, device=args.device)
+            val_data = data_CNN_Dynamic(
+                data_in_val, data_out_val, wet, device=args.device
+            )
 
     # Generating Training dataset
     data_in_train = []
@@ -178,6 +190,7 @@ def main(args):
     torch.save(val_data, Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str_video))
 
     torch.save(wet, Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(str_video))
+
 
 ###
 # Running without workflow

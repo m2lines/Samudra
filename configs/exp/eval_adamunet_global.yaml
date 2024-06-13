@@ -23,7 +23,7 @@ steps: 4
 model_name_replace: Foundation Adam UNet
 pred_region: null # "global_21"
 ###############
-### g1 g1 
+### g1 g1
 pred_names: null
   # - Adam UNet
 pred_paths: null

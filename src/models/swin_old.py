@@ -313,7 +313,7 @@ class SwinTransformerBlock(nn.Module):
         pad_l = pad_t = 0
         pad_r = (self.window_size - W % self.window_size) % self.window_size
         pad_b = (self.window_size - H % self.window_size) % self.window_size
-        x = F.pad(x,(0, 0, pad_l, pad_r, 0, 0), mode=self.pad)
+        x = F.pad(x, (0, 0, pad_l, pad_r, 0, 0), mode=self.pad)
         x = F.pad(x, (0, 0, 0, 0, pad_t, pad_b), mode="constant")
         _, Hp, Wp, _ = x.shape
 
@@ -394,7 +394,7 @@ class PatchMerging(nn.Module):
         # padding
         pad_input = (H % 2 == 1) or (W % 2 == 1)
         if pad_input:
-            x = F.pad(x,(0, 0, 0, W % 2,0,0), mode=self.pad)
+            x = F.pad(x, (0, 0, 0, W % 2, 0, 0), mode=self.pad)
             x = F.pad(x, (0, 0, 0, 0, 0, H % 2), mode="constant")
 
         x0 = x[:, 0::2, 0::2, :]  # B H/2 W/2 C
@@ -562,9 +562,15 @@ class PatchEmbed(nn.Module):
         # padding
         _, _, H, W = x.size()
         if W % self.patch_size[1] != 0:
-            x = F.pad(x,(0,self.patch_size[1] - W % self.patch_size[1],0,0), mode=self.pad)
+            x = F.pad(
+                x, (0, self.patch_size[1] - W % self.patch_size[1], 0, 0), mode=self.pad
+            )
         if H % self.patch_size[0] != 0:
-            x = F.pad(x, (0, 0, 0, self.patch_size[0] - H % self.patch_size[0]), mode="constant")
+            x = F.pad(
+                x,
+                (0, 0, 0, self.patch_size[0] - H % self.patch_size[0]),
+                mode="constant",
+            )
 
         x = self.proj(x)  # B C Wh Ww
         if self.norm is not None:
@@ -833,7 +839,7 @@ class SwinTransformerDecoder(torch.nn.Module):
             up_sampling_block,
             in_channels=curr_channel,
             out_channels=curr_channel,
-            upsampling=4
+            upsampling=4,
         )
 
         conv_module = instantiate(
@@ -866,7 +872,7 @@ class SwinTransformerDecoder(torch.nn.Module):
             if layer["upsamp"] is not None:
                 up = layer["upsamp"](x)
                 if n < len(inputs) - 1:
-                    x = up + resize(inputs[-1-n], size=[*up.shape[2:]])
+                    x = up + resize(inputs[-1 - n], size=[*up.shape[2:]])
                 else:
                     x = up
             x = layer["conv"](x)
@@ -940,7 +946,7 @@ class SwinTransformer(torch.nn.Module):
         self.pred_residuals = False
         self.output_channels = output_channels
         self.wet = wet
-    
+
     def forward_once(self, inputs):
         encodings = self.encoder(inputs)
         decodings = self.decoder(encodings)
@@ -965,9 +971,9 @@ class SwinTransformer(torch.nn.Module):
             else:
                 inputs_0 = outputs[-1]
                 input_tensor = torch.cat(
-                        [inputs_0, inputs[2 * step][:, self.output_channels :]],
-                        dim=1,
-                    )
+                    [inputs_0, inputs[2 * step][:, self.output_channels :]],
+                    dim=1,
+                )
 
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
@@ -976,7 +982,7 @@ class SwinTransformer(torch.nn.Module):
                 )  # Residual prediction
             else:
                 reshaped = decodings  # Absolute prediction
-            
+
             if loss_fn is not None:
                 if loss is None:
                     loss = loss_fn(
@@ -1014,12 +1020,12 @@ class SwinTransformer(torch.nn.Module):
             else:
                 inputs_0 = outputs[-1]
                 input_tensor = torch.cat(
-                        [
-                            inputs_0.unsqueeze(0),
-                            inputs[step][0][self.output_channels :].unsqueeze(0),
-                        ],
-                        dim=1,
-                    )
+                    [
+                        inputs_0.unsqueeze(0),
+                        inputs[step][0][self.output_channels :].unsqueeze(0),
+                    ],
+                    dim=1,
+                )
 
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
@@ -1028,7 +1034,7 @@ class SwinTransformer(torch.nn.Module):
                 )  # Residual prediction
             else:
                 reshaped = decodings.squeeze(0)  # Absolute prediction
-            
+
             reshaped = torch.mul(reshaped, self.wet)
 
             outputs.append(reshaped)

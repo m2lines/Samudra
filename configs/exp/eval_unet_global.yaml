@@ -26,12 +26,12 @@ pred_names: null
 pred_paths: null
 
 ###############
-### g1 g1 
+### g1 g1
 # pred_names:
 #   - Adam UNet
 #   - ConvNext UNet
 #   - Foundation ConvNext UNet
-# pred_paths: 
+# pred_paths:
 #   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Adam UNet_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
 #   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/ConvNext UNet_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
 #   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/ConvNext UNet Train1Eval1_Train_global_1_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
@@ -43,7 +43,7 @@ pred_paths: null
 # pred_names:
 #   - Adam UNet
 #   - ConvNext UNet
-# pred_paths: 
+# pred_paths:
 #   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train1Eval2x_Train_global_1_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
 #   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/ConvNext UNet Train1Eval2x_Train_global_1_Test_global_2x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
 ###############
@@ -64,14 +64,14 @@ pred_paths: null
 # pred_names:
 #   - Adam UNet
 #   - ConvNext UNet
-# pred_paths: 
+# pred_paths:
 #   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Adam UNet Train2xEval1_Train_global_2x_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
 #   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/ConvNext UNet Train2xEval1_Train_global_2x_Test_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth"
 ##############
 
 ###############
 ### g1_2x g4x
-# pred_names: 
+# pred_names:
 #   - Foundation Adam UNet
 # pred_paths:
 #   - "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/Foundation Adam UNet Train12xEval4x_Train_combined_global_1_Test_global_4x_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_0_Lateral_Data_025_no_smooth"

@@ -803,9 +803,7 @@ def gen_KE(N_eval, test_data, model_pred):
         * 0.5
         * rho
     )
-    true_KE = (
-        (data_out_cpu[:, 0] ** 2 + data_out_cpu[:, 1] ** 2) * 0.5 * rho
-    )
+    true_KE = (data_out_cpu[:, 0] ** 2 + data_out_cpu[:, 1] ** 2) * 0.5 * rho
     return pred_KE, true_KE
 
 

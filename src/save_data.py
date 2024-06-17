@@ -92,7 +92,9 @@ def main(args):
             inputs, extra_in, outputs, args.lag, run_type="2x"
         )
     elif "global_3D":
-        inputs, extra_in, outputs = gen_3D_data(inputs, extra_in, outputs, args.lag, depth_mode=args.depth_mode)
+        inputs, extra_in, outputs = gen_3D_data(
+            inputs, extra_in, outputs, args.lag, depth_mode=args.depth_mode
+        )
     else:
         raise NotImplementedError
 

@@ -9,13 +9,19 @@ comp="compute=local"
 # local train
 
 ###########################################################################################
+# 3D
+
+### Surface only
+./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D name="$(date +%F)-local_train_convnextunet_global_3D_surface" region=global_3D depth_mode=surface batch_size=8 scheduler=True rand_seed=10 data_dir=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/save_data/2024-06-16-save_3D_data_surface_test/surface/data
+
+###########################################################################################
 # Global_1 Training
 
 # 1. AdamUNet Global
 # ./.python-greene submitit_hydra.py $comp testing=true exp=train_adamunet_global name="$(date +%F)-local_train_adamunet_global_1" region=global_1 batch_size=16 scheduler=True rand_seed=10
 
 # 2. ConvNext UNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_global_1" region=global_1 batch_size=8 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample
+# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_global_1" region=global_1 batch_size=8 scheduler=True rand_seed=10 
 
 # ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_global_1_7k" region=global_1 batch_size=8 scheduler=True rand_seed=10 N_samples=7000
 

@@ -95,6 +95,7 @@ class Trainer:
             args.region == "global_1"
             or args.region == "global_2x"
             or args.region == "global_1_2x"
+            or args.region == "global_3D"
         )
 
         self.str_video = (
@@ -242,7 +243,7 @@ class Trainer:
             model.load_state_dict(
                 torch.load(args.preload, map_location=torch.device(args.device))
             )
-        i = [torch.zeros(1, 6, 180, 360).cuda()] * 2
+        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
         summary(
             model,
             input_data=[i],
@@ -250,7 +251,7 @@ class Trainer:
             depth=10,
         )
 
-        i = [torch.zeros(1, 6, 180, 360).cuda()] * 8
+        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
 
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)

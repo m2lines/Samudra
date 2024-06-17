@@ -9,6 +9,7 @@ from utils.data_utils import (
     get_wet_mask,
     get_train_test_ranges,
     gen_data_global_new,
+    gen_3D_data,
     gen_data_in,
     gen_data_out,
     data_CNN_Lateral,
@@ -90,6 +91,8 @@ def main(args):
         inputs, extra_in, outputs = gen_data_global_new(
             inputs, extra_in, outputs, args.lag, run_type="2x"
         )
+    elif "global_3D":
+        inputs, extra_in, outputs = gen_3D_data(inputs, extra_in, outputs, args.lag, depth_mode=args.depth_mode)
     else:
         raise NotImplementedError
 

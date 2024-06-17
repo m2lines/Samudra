@@ -979,6 +979,43 @@ def gen_data(input_vars, extra_vars, output_vars, lag, factor, region="Kuroshio"
     return inputs, extra_in, outputs
 
 
+def gen_3D_data(input_vars, extra_vars, output_vars, lag=1, depth_mode='all'):
+    data = xr.open_zarr('/scratch/as15415/Data/Emulation_Data/OM4_Horizontal_Regrid_Old.zarr')
+    
+    inputs = []
+    extra_in = []
+    outputs = []
+
+    for var in input_vars:
+        if var == 'zos':
+            inputs.append(data[var])
+        elif depth_mode == 'surface':
+            inputs.append(data[var][:,0])
+        elif depth_mode == 'all':
+            assert data[var].shape[1] == 19
+            for i in range(data[var].shape[1]):
+                inputs.append(data[var][:,i])
+
+    for var in extra_vars:
+        extra_in.append(data[var])
+
+    for var in output_vars:
+        if var == 'zos':
+            outputs.append(data[var][lag:])
+        elif depth_mode == 'surface':
+            outputs.append(data[var][lag:,0])
+        elif depth_mode == 'all':
+            assert data[var].shape[1] == 19
+            for i in range(data[var].shape[1]):
+                outputs.append(data[var][lag:,i])
+
+    inputs = tuple(inputs)
+    extra_in = tuple(extra_in)
+    outputs = tuple(outputs)
+
+    return inputs, extra_in, outputs
+
+
 def gen_data_global(input_vars, extra_vars, output_vars, lag, res="1"):
     var_dict = {
         "um": "u_mean",

@@ -30,7 +30,7 @@ EXTRA_VARS = {
     "11": ["t_ref"],
     "12": ["tau_u", "tau_v", "t_ref"],
     "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
-    "3D": ["tauuo", "tauvo", "hfds"]
+    "3D": ["tauuo", "tauvo", "hfds"],
 }
 OUT_VARS = {
     "1": ["um", "vm"],

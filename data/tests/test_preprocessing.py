@@ -12,7 +12,7 @@ def _get_software_version():
 @pytest.fixture
 def ds_test():
     dims = ("time", "deptho", "lat", "lon")
-    vars = ("var1", "var2", "var3")
+    vars = ("zos", "uo", "vo", "thetao", "so")
     return xr.Dataset({v: xr.DataArray([1, 2, 3], dims=dims) for v in vars})
 
 
@@ -72,3 +72,14 @@ def conserve_land_fraction(test_dataset):
 
 def test_filtering():
     pass
+
+
+#############################
+def test_infer_vertical_cell_extent_missing(ds_test):
+    ds = ds_test
+    ds = ds.drop('zos')
+    # TODO: Test that we get a message that *only* asks for zos (not the ones that are already on the dataset)
+    
+                                
+                                            
+    

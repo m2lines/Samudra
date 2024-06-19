@@ -13,7 +13,7 @@ def rename(ds: xr.Dataset) -> xr.Dataset:
     return combined_preprocessing(ds)
 
 
-def standardize_dataset(ds: xr.Dataset) -> xr.Dataset:
+def standardize_dataset(ds_ocean: xr.Dataset, ds_atmos:xr.Dataset) -> xr.Dataset:
     """Full wrapper that does
     1. Rename variables and dimensions to CMOR standard names
     2. Combine varibles if necessary
@@ -46,16 +46,9 @@ def infer_vertical_cell_extent(ds:xr.Dataset, dz_name:str='dz') -> xr.Dataset:
     ds = ds.assign_coords({dz_name:ds.thkcello * (ds.deptho + ds.zos ) / ds.deptho})
     return ds
 
-def vertical_staggered_grid():
-    #Should contain all the stuff that is in `vertical_regrid` below
-    pass
+def cmip_vertical_outer_grid(ds:xr.Dataset) -> xr.Dataset:
+    #TODO: Check if an outer grid position is already available (e.g. from combining tracer and vertical velocities in xmip.grids.something_staggered_grid
 
-##################### General Code #################
-
-
-def vertical_regrid(ds:xr.Dataset, target_depth_bounds: np.ndarray) -> xr.Dataset: 
-    
-    # reconstruct vertical bounds
     # TODO: Ask alistair if it is ok to just use the nominal depth levels + extensive quantities?
     lev_outer = cf_xarray.bounds_to_vertices(ds['lev_bounds'], 'bnds').rename({'lev_vertices':'lev_outer'})
     ds = ds.assign_coords({'lev_outer':cf_xarray.bounds_to_vertices(ds['lev_bounds'], 'bnds').rename({'lev_vertices':'lev_outer'})})
@@ -67,6 +60,16 @@ def vertical_regrid(ds:xr.Dataset, target_depth_bounds: np.ndarray) -> xr.Datase
         boundary="fill",
         autoparse_metadata=False,
     )
+    return grid, ds
+
+##################### General Code #################
+
+
+def vertical_regrid(ds:xr.Dataset, target_depth_bounds: np.ndarray) -> xr.Dataset: 
+    
+    # reconstruct vertical bounds 
+    # TODO (this should be done outside to make this function more general)
+    grid, ds = cmip_vertical_outer_grid(ds)
     dz = ds['dz']
     ds_extensive = ds * dz
 

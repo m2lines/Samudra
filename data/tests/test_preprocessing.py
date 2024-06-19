@@ -77,9 +77,5 @@ def test_filtering():
 #############################
 def test_infer_vertical_cell_extent_missing(ds_test):
     ds = ds_test
-    ds = ds.drop('zos')
+    ds = ds.drop("zos")
     # TODO: Test that we get a message that *only* asks for zos (not the ones that are already on the dataset)
-    
-                                
-                                            
-    

@@ -7,7 +7,6 @@ from pathlib import Path
 from omegaconf import OmegaConf
 import hydra
 from hydra.utils import instantiate
-from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -16,6 +15,7 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 from torch.cuda import amp
 from torchinfo import summary
+from tqdm import tqdm
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS
 from utils.train_utils import loss_KE_pointwise, SmoothedValue, MetricLogger
@@ -28,18 +28,28 @@ from utils.dist_utils import (
     all_reduce_mean,
 )
 from utils.data_utils import (
-    data_CNN_Lateral,
-    data_CNN_steps_Lateral,
+    data_CNN_Disk,
+    data_CNN_Disk_steps,
     data_CNN_Dynamic,
     data_CNN_steps_Dynamic,
 )
 
+import xarray as xr
 
 class Trainer:
     def __init__(self, args) -> None:
+
         # Distributed mode
         init_distributed_mode(args)
         cudnn.benchmark = True
+
+        if not args.disk_mode:
+            assert args.num_workers == 0 and args.pin_mem == False
+        else:
+            args.num_workers = torch.cuda.device_count() * 4
+            args.pin_mem = True
+
+            print(args.num_workers)
 
         # Set seeds
         set_seed(args.rand_seed)
@@ -75,6 +85,10 @@ class Trainer:
         print("extra inputs: " + self.str_ext)
         print("outputs: " + self.str_out)
 
+        s_train = args.lag*args.hist
+        e_train = s_train + args.N_samples*args.interval
+        e_test = e_train + args.interval*args.N_val
+
         self.N_atm = len(self.extra_in)  # Number of atmosphere variables
         self.N_in = len(self.inputs)
         if args.lateral:
@@ -92,11 +106,7 @@ class Trainer:
         # 3 (boundary ocean speeds + boundary ocean temp)(t) -> 3 (ocean speeds + ocean temp)(t+1)
         print("Number of outputs: ", self.N_out)  # 3
 
-        assert (
-            args.region == "global_1"
-            or args.region == "global_2x"
-            or args.region == "global_1_2x"
-        )
+        assert args.region == "global_3D"
 
         self.str_video = (
             "steps_"
@@ -114,107 +124,54 @@ class Trainer:
             + "_Lateral_Data_025_no_smooth"
         )
 
-        if args.region == "global_1_2x":
-            str1_video = (
-                "steps_"
-                + str(args.steps)
-                + "_"
-                + "combined_global_1"
-                + "_Test_in_"
-                + self.str_in
-                + "ext_"
-                + self.str_ext
-                + "_out"
-                + self.str_out
-                + "N_train_"
-                + str(args.N_samples)
-                + "_Lateral_Data_025_no_smooth"
-            )
-            str2_video = (
-                "steps_"
-                + str(args.steps)
-                + "_"
-                + "combined_global_2x"
-                + "_Test_in_"
-                + self.str_in
-                + "ext_"
-                + self.str_ext
-                + "_out"
-                + self.str_out
-                + "N_train_"
-                + str(args.N_samples)
-                + "_Lateral_Data_025_no_smooth"
-            )
-
-            # Dataloaders
-            train_data1 = torch.load(
-                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str1_video),
-                map_location=torch.device("cpu"),
-            )
-            val_data1 = torch.load(
-                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str1_video)
-            )
-            wet1 = torch.load(
-                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(str1_video)
-            )
-
-            train_data2 = torch.load(
-                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(str2_video),
-                map_location=torch.device("cpu"),
-            )
-            val_data2 = torch.load(
-                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(str2_video)
-            )
-            wet2 = torch.load(
-                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(str2_video)
-            )
-
-            assert (wet1 == wet2).all()
-
-            train_data = torch.utils.data.ConcatDataset([train_data1, train_data2])
-            val_data = torch.utils.data.ConcatDataset([val_data1, val_data2])
-            self.wet = wet1
-        else:
-            # Dataloaders
-            train_data = torch.load(
-                Path(args.data_dir) / "train_data_cnn_{0}.pt".format(self.str_video),
-                map_location=torch.device("cpu"),
-            )
-            if args.data_percent < 1.0:
-                train_data = torch.utils.data.Subset(
-                    train_data, list(range(int(args.N_samples * args.data_percent)))
-                )
-
-            val_data = torch.load(
-                Path(args.data_dir) / "val_data_cnn_{0}.pt".format(self.str_video)
-            )
-            wet = torch.load(
+        # Dataloaders
+        print("Loading data")
+        wet = torch.load(
                 Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(self.str_video)
             )
-            self.wet = wet
+        self.wet = wet
 
-        print("Loading data")
+        assert args.depth_mode == "surface" or args.depth_mode == "all"
+
+        if args.depth_mode == "surface":
+            data = xr.open_zarr('/vast/sd5313/data/m2lines/3D_ocean_data/surface_data')
+            data_mean = xr.open_zarr('/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means')
+            data_std = xr.open_zarr('/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_stds')
+        elif args.depth_mode == "all":
+            raise NotImplementedError("")
+
+        train_data = data_CNN_Disk_steps(data, self.inputs, self.extra_in, self.outputs,
+                    self.wet, data_mean, data_std,
+                    args.N_samples, args.lag, args.interval, args.steps, device="cuda")
+
+
+        val_data = data_CNN_Disk(data, self.inputs, self.extra_in, self.outputs,
+                            self.wet, data_mean, data_std,
+                            args.N_val, args.lag, args.interval, e_train, device="cuda")
+
+        print("Instantiating torch loaders")
 
         self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_data, shuffle=True, seed=args.rand_seed
-        )
-        self.train_loader = torch_geometric.loader.DataLoader(
+                train_data, shuffle=True, seed=args.rand_seed
+            )
+        self.train_loader = torch.utils.data.DataLoader(
             train_data,
             batch_size=args.batch_size,
             sampler=self.train_sampler,
             num_workers=args.num_workers,
             pin_memory=args.pin_mem,
+            drop_last=True,
         )
 
         self.test_sampler = torch.utils.data.DistributedSampler(
-            val_data, num_replicas=get_world_size(), rank=get_rank(), shuffle=False
-        )
-        self.test_loader = torch_geometric.loader.DataLoader(
+                val_data, num_replicas=get_world_size(), rank=get_rank(), shuffle=False
+            )
+        self.test_loader = torch.utils.data.DataLoader(
             val_data,
             batch_size=args.batch_size,
             sampler=self.test_sampler,
             num_workers=args.num_workers,
-            pin_memory=args.pin_mem,
+            pin_memory=args.pin_mem
         )
 
         # Model
@@ -243,16 +200,17 @@ class Trainer:
             model.load_state_dict(
                 torch.load(args.preload, map_location=torch.device(args.device))
             )
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
-        summary(
-            model,
-            input_data=[i],
-            col_names=["kernel_size", "output_size", "num_params"],
-            depth=10,
-        )
+        # This will freeze training if you use num workers > 0 and pin mem = True
+        # i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
+        # summary(
+        #     model,
+        #     input_data=[i],
+        #     col_names=["kernel_size", "output_size", "num_params"],
+        #     depth=10,
+        # )
 
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
-        summary(model, input_data=[i], col_names=[], depth=10)
+        # i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
+        # summary(model, input_data=[i], col_names=[], depth=10)
 
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
         if "swin" in args.network:
@@ -305,7 +263,7 @@ class Trainer:
         self.output_dir = args.output_dir
         self.network = args.network
         self.testing = args.testing
-
+    
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
 
@@ -370,7 +328,9 @@ class Trainer:
         ):
             if self.testing and (data_iter_step + 1) % 5 == 0:
                 break
+
             self.optimizer.zero_grad()
+            data = [d.cuda() for d in data]
 
             loss = self.model(data, loss_fn=self.loss)
             loss.backward()
@@ -415,6 +375,7 @@ class Trainer:
         header = "Test:"
         for data in self.test_loader:
             with torch.no_grad():
+                data = [d.cuda() for d in data]
                 loss = self.model(data, loss_fn=self.loss)
                 loss_value = loss.item()
                 metric_logger.update(loss=loss_value)
@@ -432,25 +393,3 @@ class Trainer:
 def main(args):
     trainer = Trainer(args)
     trainer.run()
-
-
-###
-# Running without workflow
-###
-import hydra
-import logging
-
-
-@hydra.main(config_path="../configs/exp", config_name="train_without_workflow")
-def run_without_workflow(args):
-    num_gpus = torch.cuda.device_count()
-    logging.info(
-        f"Process ID {os.getpid()} executing task {args.experiment} with {num_gpus} gpu(s)."
-    )
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir, exist_ok=True)
-    main(args)
-
-
-if __name__ == "__main__":
-    run_without_workflow()

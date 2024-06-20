@@ -19,3 +19,5 @@ train_unet
 train_unet_old
 train_swin
 notebooks/temp
+temp
+train_3D

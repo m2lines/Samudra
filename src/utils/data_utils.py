@@ -10,33 +10,46 @@ from einops import rearrange
 # Class defined to store information about the grid and corresponding graph of data. Importantly produces the adjacency matrices
 # and keeps track of what is land vs ocean
 
+
 class data_CNN_Disk(torch.utils.data.Dataset):
 
-    def __init__(self,data,inputs_str,extra_in_str,outputs_str,
-                 wet,data_mean,data_std,
-                 n_samples,lag,interval,ind_start,device = "cuda"):
+    def __init__(
+        self,
+        data,
+        inputs_str,
+        extra_in_str,
+        outputs_str,
+        wet,
+        data_mean,
+        data_std,
+        n_samples,
+        lag,
+        interval,
+        ind_start,
+        device="cuda",
+    ):
         super().__init__()
-        self.device = device        
+        self.device = device
 
         self.size = n_samples
         self.lag = lag
         self.interval = interval
         self.ind_start = ind_start
-        
-        self.inputs = data[inputs_str+extra_in_str]
+
+        self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
-        
-        self.in_mean = data_mean[inputs_str+extra_in_str]
-        self.in_std = data_std[inputs_str+extra_in_str]
-        
+
+        self.in_mean = data_mean[inputs_str + extra_in_str]
+        self.in_std = data_std[inputs_str + extra_in_str]
+
         self.out_mean = data_mean[outputs_str]
-        self.out_std = data_std[outputs_str]        
-        
+        self.out_std = data_std[outputs_str]
+
         self.wet = wet
-                    
-    def set_device(self,device):
+
+    def set_device(self, device):
         self.device = device
-    
+
     def __len__(self):
         # Number of data point we have. Alternatively self.data.shape[0], or self.label.shape[0]
         return self.size
@@ -45,65 +58,85 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         # Return the idx-th data point of the dataset
         # If we have multiple things to return (data point and label), we can return them as tuple
         if type(idx) == list:
-            ind_in = [self.ind_start+i*self.interval for i in idx]
-            ind_out = [self.ind_start+i*self.interval + self.lag for i in idx] 
+            ind_in = [self.ind_start + i * self.interval for i in idx]
+            ind_out = [self.ind_start + i * self.interval + self.lag for i in idx]
         elif type(idx) == slice:
             if idx.start == None and idx.stop == None:
-                idx = slice(0,self.size,idx.step)
+                idx = slice(0, self.size, idx.step)
             elif idx.start == None:
-                idx = slice(0,idx.stop,idx.step)
+                idx = slice(0, idx.stop, idx.step)
             elif idx.stop == None:
-                idx = slice(idx.start,self.size,idx.step)                
-            
-            ind_in = slice(self.ind_start+idx.start,idx.stop*self.interval,self.interval)
-            ind_out = slice(self.ind_start+idx.start+self.lag,self.ind_start+idx.stop*self.interval+self.lag,self.interval)
+                idx = slice(idx.start, self.size, idx.step)
+
+            ind_in = slice(
+                self.ind_start + idx.start, idx.stop * self.interval, self.interval
+            )
+            ind_out = slice(
+                self.ind_start + idx.start + self.lag,
+                self.ind_start + idx.stop * self.interval + self.lag,
+                self.interval,
+            )
         if type(idx) == int:
-            ind_in = self.ind_start+idx*self.interval
-            ind_out = self.ind_start+idx*self.interval + self.lag
-            
+            ind_in = self.ind_start + idx * self.interval
+            ind_out = self.ind_start + idx * self.interval + self.lag
+
         data_in = self.inputs.isel(time=ind_in)
-        data_in = ((data_in-self.in_mean)/self.in_std).fillna(0)
+        data_in = ((data_in - self.in_mean) / self.in_std).fillna(0)
         label = self.outputs.isel(time=ind_out)
-        label = ((label-self.out_mean)/self.out_std).fillna(0)
+        label = ((label - self.out_mean) / self.out_std).fillna(0)
 
         if type(idx) == int:
-            data_in = data_in.to_array().transpose("variable","y","x").to_numpy()
-            label = label.to_array().transpose("variable","y","x").to_numpy()
+            data_in = data_in.to_array().transpose("variable", "y", "x").to_numpy()
+            label = label.to_array().transpose("variable", "y", "x").to_numpy()
         else:
-            data_in = data_in.to_array().transpose("time","variable","y","x").to_numpy()
-            label = label.to_array().transpose("time","variable","y","x").to_numpy()
-            
-        items = (torch.from_numpy(data_in).float(),
-                 torch.from_numpy(label).float())
+            data_in = (
+                data_in.to_array().transpose("time", "variable", "y", "x").to_numpy()
+            )
+            label = label.to_array().transpose("time", "variable", "y", "x").to_numpy()
+
+        items = (torch.from_numpy(data_in).float(), torch.from_numpy(label).float())
 
         return items
-    
+
+
 class data_CNN_Disk_steps(torch.utils.data.Dataset):
 
-    def __init__(self,data,inputs_str,extra_in_str,outputs_str,
-                 wet,data_mean,data_std,
-                 n_samples,lag,interval,steps,device = "cuda"):
+    def __init__(
+        self,
+        data,
+        inputs_str,
+        extra_in_str,
+        outputs_str,
+        wet,
+        data_mean,
+        data_std,
+        n_samples,
+        lag,
+        interval,
+        steps,
+        device="cuda",
+    ):
         super().__init__()
-        self.device = device        
+        self.device = device
 
         self.size = n_samples
         self.lag = lag
         self.interval = interval
         self.steps = steps
-        self.inputs = data[inputs_str+extra_in_str]
+        self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
-        
-        self.in_mean = data_mean[inputs_str+extra_in_str]
-        self.in_std = data_std[inputs_str+extra_in_str]
-        
+
+        self.in_mean = data_mean[inputs_str + extra_in_str]
+        self.in_std = data_std[inputs_str + extra_in_str]
+
         self.out_mean = data_mean[outputs_str]
-        self.out_std = data_std[outputs_str]        
-        
+        self.out_std = data_std[outputs_str]
+
         self.wet = wet
-                    
-    def set_device(self,device):
+
+    def set_device(self, device):
         self.device = device
-    
+
     def __len__(self):
         # Number of data point we have. Alternatively self.data.shape[0], or self.label.shape[0]
         return self.size
@@ -114,41 +147,53 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         outputs = []
         for step in range(self.steps):
             if type(idx) == list:
-                ind_in = [i*self.interval + self.lag*step for i in idx]
-                ind_out = [i*self.interval + self.lag*(step+1) for i in idx] 
-                              
+                ind_in = [i * self.interval + self.lag * step for i in idx]
+                ind_out = [i * self.interval + self.lag * (step + 1) for i in idx]
+
             elif type(idx) == slice:
                 if idx.start == None and idx.stop == None:
-                    idx = slice(0,self.size,idx.step)
+                    idx = slice(0, self.size, idx.step)
                 elif idx.start == None:
-                    idx = slice(0,idx.stop,idx.step)
+                    idx = slice(0, idx.stop, idx.step)
                 elif idx.stop == None:
-                    idx = slice(idx.start,self.size,idx.step)                    
-                
-                ind_in = slice(idx.start,idx.stop*self.interval+ self.lag*step,self.interval)
-                ind_out = slice(idx.start+self.lag,idx.stop*self.interval+ self.lag*(step+1),self.interval)
-                
+                    idx = slice(idx.start, self.size, idx.step)
+
+                ind_in = slice(
+                    idx.start, idx.stop * self.interval + self.lag * step, self.interval
+                )
+                ind_out = slice(
+                    idx.start + self.lag,
+                    idx.stop * self.interval + self.lag * (step + 1),
+                    self.interval,
+                )
 
             if type(idx) == int:
-                ind_in = idx*self.interval + self.lag*step
-                ind_out = idx*self.interval + self.lag*(step+1)    
-                
+                ind_in = idx * self.interval + self.lag * step
+                ind_out = idx * self.interval + self.lag * (step + 1)
+
             data_in = self.inputs.isel(time=ind_in)
-            data_in = ((data_in-self.in_mean)/self.in_std).fillna(0)
+            data_in = ((data_in - self.in_mean) / self.in_std).fillna(0)
             label = self.outputs.isel(time=ind_out)
-            label = ((label-self.out_mean)/self.out_std).fillna(0)
-            
+            label = ((label - self.out_mean) / self.out_std).fillna(0)
+
             if type(idx) == int:
-                data_in = data_in.to_array().transpose("variable","y","x").to_numpy()
-                label = label.to_array().transpose("variable","y","x").to_numpy()
+                data_in = data_in.to_array().transpose("variable", "y", "x").to_numpy()
+                label = label.to_array().transpose("variable", "y", "x").to_numpy()
             else:
-                data_in = data_in.to_array().transpose("time","variable","y","x").to_numpy()
-                label = label.to_array().transpose("time","variable","y","x").to_numpy()
-                
+                data_in = (
+                    data_in.to_array()
+                    .transpose("time", "variable", "y", "x")
+                    .to_numpy()
+                )
+                label = (
+                    label.to_array().transpose("time", "variable", "y", "x").to_numpy()
+                )
+
             outputs.append(torch.from_numpy(data_in).float())
             outputs.append(torch.from_numpy(label).float())
 
-        return outputs  
+        return outputs
+
 
 class data_CNN_Dynamic(torch.utils.data.Dataset):
 

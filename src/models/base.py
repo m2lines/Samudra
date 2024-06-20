@@ -71,11 +71,7 @@ class BaseModel(torch.nn.Module):
             return loss
 
     def inference(
-        self,
-        inputs,
-        num_steps=None,
-        output_only_last=False,
-        device="cuda"
+        self, inputs, num_steps=None, output_only_last=False, device="cuda"
     ) -> torch.Tensor:
         outputs = []
         for step in range(num_steps):
@@ -86,14 +82,18 @@ class BaseModel(torch.nn.Module):
                 input_tensor = torch.cat(
                     [
                         inputs_0.unsqueeze(0),
-                        inputs[step][0][self.output_channels :].unsqueeze(0).to(device=device),
+                        inputs[step][0][self.output_channels :]
+                        .unsqueeze(0)
+                        .to(device=device),
                     ],
                     dim=1,
                 )
 
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
-                reshaped = input_tensor[0, : self.output_channels].to(device=device) + decodings.squeeze(
+                reshaped = input_tensor[0, : self.output_channels].to(
+                    device=device
+                ) + decodings.squeeze(
                     0
                 )  # Residual prediction
             else:

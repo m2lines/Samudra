@@ -36,6 +36,7 @@ from utils.data_utils import (
 
 import xarray as xr
 
+
 class Trainer:
     def __init__(self, args) -> None:
 
@@ -85,9 +86,9 @@ class Trainer:
         print("extra inputs: " + self.str_ext)
         print("outputs: " + self.str_out)
 
-        s_train = args.lag*args.hist
-        e_train = s_train + args.N_samples*args.interval
-        e_test = e_train + args.interval*args.N_val
+        s_train = args.lag * args.hist
+        e_train = s_train + args.N_samples * args.interval
+        e_test = e_train + args.interval * args.N_val
 
         self.N_atm = len(self.extra_in)  # Number of atmosphere variables
         self.N_in = len(self.inputs)
@@ -127,33 +128,58 @@ class Trainer:
         # Dataloaders
         print("Loading data")
         wet = torch.load(
-                Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(self.str_video)
-            )
+            Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(self.str_video)
+        )
         self.wet = wet
 
         assert args.depth_mode == "surface" or args.depth_mode == "all"
 
         if args.depth_mode == "surface":
-            data = xr.open_zarr('/vast/sd5313/data/m2lines/3D_ocean_data/surface_data')
-            data_mean = xr.open_zarr('/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means')
-            data_std = xr.open_zarr('/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_stds')
+            data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/surface_data")
+            data_mean = xr.open_zarr(
+                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means"
+            )
+            data_std = xr.open_zarr(
+                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_stds"
+            )
         elif args.depth_mode == "all":
             raise NotImplementedError("")
 
-        train_data = data_CNN_Disk_steps(data, self.inputs, self.extra_in, self.outputs,
-                    self.wet, data_mean, data_std,
-                    args.N_samples, args.lag, args.interval, args.steps, device="cuda")
+        train_data = data_CNN_Disk_steps(
+            data,
+            self.inputs,
+            self.extra_in,
+            self.outputs,
+            self.wet,
+            data_mean,
+            data_std,
+            args.N_samples,
+            args.lag,
+            args.interval,
+            args.steps,
+            device="cuda",
+        )
 
-
-        val_data = data_CNN_Disk(data, self.inputs, self.extra_in, self.outputs,
-                            self.wet, data_mean, data_std,
-                            args.N_val, args.lag, args.interval, e_train, device="cuda")
+        val_data = data_CNN_Disk(
+            data,
+            self.inputs,
+            self.extra_in,
+            self.outputs,
+            self.wet,
+            data_mean,
+            data_std,
+            args.N_val,
+            args.lag,
+            args.interval,
+            e_train,
+            device="cuda",
+        )
 
         print("Instantiating torch loaders")
 
         self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-                train_data, shuffle=True, seed=args.rand_seed
-            )
+            train_data, shuffle=True, seed=args.rand_seed
+        )
         self.train_loader = torch.utils.data.DataLoader(
             train_data,
             batch_size=args.batch_size,
@@ -164,14 +190,14 @@ class Trainer:
         )
 
         self.test_sampler = torch.utils.data.DistributedSampler(
-                val_data, num_replicas=get_world_size(), rank=get_rank(), shuffle=False
-            )
+            val_data, num_replicas=get_world_size(), rank=get_rank(), shuffle=False
+        )
         self.test_loader = torch.utils.data.DataLoader(
             val_data,
             batch_size=args.batch_size,
             sampler=self.test_sampler,
             num_workers=args.num_workers,
-            pin_memory=args.pin_mem
+            pin_memory=args.pin_mem,
         )
 
         # Model
@@ -263,7 +289,7 @@ class Trainer:
         self.output_dir = args.output_dir
         self.network = args.network
         self.testing = args.testing
-    
+
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
 

@@ -12,7 +12,7 @@ wandb:
   notes: null
 
 ### experiment args
-experiment: train
+experiment: train_3D
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
 data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
@@ -34,8 +34,9 @@ data_percent: 1.0
 
 device: "cuda"
 distributed: True
-num_workers: 0 # Keep 0
-pin_mem: False # Keep false
+disk_mode: True
+num_workers: 4 
+pin_mem: True
 save_freq: 5
 epochs: 100
 batch_size: 32

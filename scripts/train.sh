@@ -4,7 +4,7 @@
 # 3D
 
 ### Surface only
-./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global_3D wandb.mode=online name="$(date +%F)-train_convnextunet_global_3D_surface" region=global_3D depth_mode=surface batch_size=8 scheduler=True rand_seed=10 data_dir=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/save_data/2024-06-16-save_3D_data_surface_test/surface/data
+./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global_3D wandb.mode=online name="$(date +%F)-train_convnextunet_global_3D_surface_fromdisk" region=global_3D depth_mode=surface batch_size=16 scheduler=True rand_seed=9 data_dir=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/save_data/2024-06-16-save_3D_data_surface_test/surface/data
 
 ###########################################################################################
 # Global_1 Training

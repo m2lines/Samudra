@@ -127,7 +127,9 @@ class Trainer:
         assert args.depth_mode == "surface" or args.depth_mode == "all"
 
         if args.depth_mode == "surface":
-            self.wet = torch.load("/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt")
+            self.wet = torch.load(
+                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
+            )
             data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/surface_data")
             data_mean = xr.open_zarr(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means"

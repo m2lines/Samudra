@@ -12,7 +12,10 @@ comp="compute=local"
 # 3D
 
 ### Surface only
-./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D name="$(date +%F)-local_train_convnextunet_global_3D_surface" region=global_3D depth_mode=surface batch_size=16 scheduler=True rand_seed=10 data_dir=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/save_data/2024-06-16-save_3D_data_surface_test/surface/data
+# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D name="$(date +%F)-local_train_convnextunet_global_3D_surface" region=global_3D batch_size=16 scheduler=True rand_seed=10
+
+### All
+./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D_all name="$(date +%F)-local_train_convnextunet_global_3D_all" region=global_3D batch_size=8 scheduler=True rand_seed=10
 
 ###########################################################################################
 # Global_1 Training

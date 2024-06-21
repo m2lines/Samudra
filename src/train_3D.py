@@ -114,12 +114,9 @@ class Trainer:
             + str(args.steps)
             + "_"
             + args.region
-            + "_Test_in_"
-            + self.str_in
-            + "ext_"
-            + self.str_ext
-            + "_out"
-            + self.str_out
+            + "_"
+            + args.depth_mode
+            + "_"
             + "N_train_"
             + str(args.N_samples)
             + "_Lateral_Data_025_no_smooth"
@@ -127,14 +124,10 @@ class Trainer:
 
         # Dataloaders
         print("Loading data")
-        wet = torch.load(
-            Path(args.data_dir) / "wet_data_cnn_{0}.pt".format(self.str_video)
-        )
-        self.wet = wet
-
         assert args.depth_mode == "surface" or args.depth_mode == "all"
 
         if args.depth_mode == "surface":
+            self.wet = torch.load("/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt")
             data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/surface_data")
             data_mean = xr.open_zarr(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means"
@@ -143,7 +136,14 @@ class Trainer:
                 "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_stds"
             )
         elif args.depth_mode == "all":
-            raise NotImplementedError("")
+            self.wet = torch.load("/vast/sd5313/data/m2lines/3D_ocean_data/3D_wet.pt")
+            data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data")
+            data_mean = xr.open_zarr(
+                "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_means"
+            )
+            data_std = xr.open_zarr(
+                "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds"
+            )
 
         train_data = data_CNN_Disk_steps(
             data,

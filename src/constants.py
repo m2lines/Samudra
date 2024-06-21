@@ -15,6 +15,7 @@ INPT_VARS = {
     "11": ["tau_u", "tau_v"],
     "12": ["tau_u", "tau_v", "t_ref"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
+    "3D_all": [k+str(j) for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"] for j in range(19)] + ["zos"]
 }
 EXTRA_VARS = {
     "1": ["ur", "vr"],
@@ -31,6 +32,7 @@ EXTRA_VARS = {
     "12": ["tau_u", "tau_v", "t_ref"],
     "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
     "3D": ["tauuo", "tauvo", "hfds"],
+    "3D_all": ["tauuo", "tauvo", "hfds"],
 }
 OUT_VARS = {
     "1": ["um", "vm"],
@@ -40,6 +42,7 @@ OUT_VARS = {
     "5": ["u", "v"],
     "6": ["u", "v", "T"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
+    "3D_all": [k+str(j) for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"] for j in range(19)] + ["zos"],
 }
 
 # Region boundaries

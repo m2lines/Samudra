@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - _self_
-  - unet: unet_3D
+  - unet: unet_3D_all
 
 wandb:
   mode: disabled # online, disabled
@@ -22,7 +22,7 @@ rand_seed: 1
 
 #####
 region: "global_1"
-depth_mode: surface
+depth_mode: all
 network: "convnextunet"
 scheduler: False
 loss: mse
@@ -47,9 +47,9 @@ lr: 2e-4
 T: ${epochs} # 10 # CosineA / CosineAWarm param
 
 # Parameters
-exp_num_in: "3D"
-exp_num_extra: "3D"
-exp_num_out: "3D"
+exp_num_in: "3D_all"
+exp_num_extra: "3D_all"
+exp_num_out: "3D_all"
 N_samples:  4000 #4000
 N_val:  140 #300
 N_test: 600 #500

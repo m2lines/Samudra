@@ -10,12 +10,15 @@ comp="compute=local"
 
 ###########################################################################################
 # 3D
-
-### Surface only
+### ConvNext
+# Surface only
 # ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D name="$(date +%F)-local_train_convnextunet_global_3D_surface" region=global_3D batch_size=16 scheduler=True rand_seed=10
 
-### All
-./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D_all name="$(date +%F)-local_train_convnextunet_global_3D_all" region=global_3D batch_size=8 scheduler=True rand_seed=10
+# All
+# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D_all name="$(date +%F)-local_train_convnextunet_global_3D_all" region=global_3D batch_size=8 scheduler=True rand_seed=10
+
+### Swin
+./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all name="$(date +%F)-local_train_swin_global_3D_all" region=global_3D batch_size=16 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60
 
 ###########################################################################################
 # Global_1 Training

@@ -209,7 +209,7 @@ class Trainer:
                 args.swin,
                 in_channels=self.num_in,
                 output_channels=self.N_in,
-                pretrain_img_size=[180,360],
+                pretrain_img_size=[180, 360],
                 wet=self.wet.cuda(),
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:

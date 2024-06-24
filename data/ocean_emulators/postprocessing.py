@@ -26,7 +26,7 @@ def prediction_data_test(ds_prediction: xr.Dataset, ds_input):
         set(list(expected_sizes.keys()) + list(given_sizes.keys())) - set(["time"])
     )
     if any(expected_sizes[dim] != given_sizes[dim] for dim in compare_dims):
-        raise ValuError(
+        raise ValueError(
             f"Input dataset does not have the right sizes. Expected{expected_sizes}, got {given_sizes}"
         )
 
@@ -41,6 +41,6 @@ def prediction_data_test(ds_prediction: xr.Dataset, ds_input):
 
     # ensure the attributes are the same on both datasets
     if not ds_prediction.attrs == ds_input.attrs:
-        raise ValuError("Prediction and Input datasets do not have matching attributes")
+        raise ValueError("Prediction and Input datasets do not have matching attributes")
 
     # TODO: ensure that both arrays have the same coordinates

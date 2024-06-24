@@ -41,6 +41,8 @@ def prediction_data_test(ds_prediction: xr.Dataset, ds_input):
 
     # ensure the attributes are the same on both datasets
     if not ds_prediction.attrs == ds_input.attrs:
-        raise ValueError("Prediction and Input datasets do not have matching attributes")
+        raise ValueError(
+            "Prediction and Input datasets do not have matching attributes"
+        )
 
     # TODO: ensure that both arrays have the same coordinates

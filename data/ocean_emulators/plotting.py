@@ -4,7 +4,6 @@ import xarray as xr
 
 
 def qc_plots(ds: xr.Dataset):
-
     ## plot maps
     fig, axarr = plt.subplots(ncols=2, nrows=3, figsize=[15, 13])
     for var, ax in zip(ds.data_vars, axarr.flat):

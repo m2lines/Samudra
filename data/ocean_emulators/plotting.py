@@ -4,8 +4,6 @@ import xarray as xr
 
 
 def qc_plots(ds: xr.Dataset):
-    ds = ds.squeeze()
-    ds = ds.drop(["variant_label", "sub_experiment_id"])
 
     ## plot maps
     fig, axarr = plt.subplots(ncols=2, nrows=3, figsize=[15, 13])

@@ -99,7 +99,7 @@ class Trainer:
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
 
         print("Number of inputs: ", self.num_in)
-        print("Number of outputs: ", self.N_out)  
+        print("Number of outputs: ", self.N_out)
 
         assert args.region == "global_3D"
 

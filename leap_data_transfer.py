@@ -22,10 +22,8 @@ fs = gcsfs.GCSFileSystem(token=token)
 # with ProgressBar():
 #     ds.to_zarr(mapper)
 
-mapper = fs.get_mapper(
-    "gs://leap-persistent/sd5313/OM4_train_data_stds"
-)
-ds = xr.open_zarr('/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds')
+mapper = fs.get_mapper("gs://leap-persistent/sd5313/OM4_train_data_stds")
+ds = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds")
 
 with ProgressBar():
     ds.to_zarr(mapper)

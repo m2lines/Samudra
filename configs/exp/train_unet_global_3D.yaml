@@ -5,7 +5,7 @@ defaults:
 
 wandb:
   mode: disabled # online, disabled
-  project: ocean_emu
+  project: 3D_ocean_emu
   entity: suryadheeshjith
   group: null
   tags: null

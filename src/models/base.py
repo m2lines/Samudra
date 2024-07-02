@@ -1,6 +1,7 @@
 import torch
 from huggingface_hub import PyTorchModelHubMixin
 
+
 class BaseModel(torch.nn.Module, PyTorchModelHubMixin):
     def __init__(self, ch_width, n_out, wet, pred_residuals, last_kernel_size, pad):
         super().__init__()

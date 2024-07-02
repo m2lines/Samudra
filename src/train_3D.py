@@ -5,12 +5,10 @@ import datetime
 import json
 from pathlib import Path
 from omegaconf import OmegaConf
-import hydra
 from hydra.utils import instantiate
 
 import torch
 import torch.nn as nn
-import torch_geometric
 import torch.backends.cudnn as cudnn
 import numpy as np
 from torch.cuda import amp
@@ -30,8 +28,6 @@ from utils.dist_utils import (
 from utils.data_utils import (
     data_CNN_Disk,
     data_CNN_Disk_steps,
-    data_CNN_Dynamic,
-    data_CNN_steps_Dynamic,
 )
 
 import xarray as xr
@@ -90,7 +86,7 @@ class Trainer:
         e_train = s_train + args.N_samples * args.interval
         e_test = e_train + args.interval * args.N_val
 
-        self.N_atm = len(self.extra_in)  # Number of atmosphere variables
+        self.N_atm = len(self.extra_in)
         self.N_in = len(self.inputs)
         if args.lateral:
             self.N_extra = (
@@ -102,10 +98,8 @@ class Trainer:
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
 
-        print("Number of inputs: ", self.num_in)  # 3 (ocean speeds + ocean temp)(t) +
-        # 3 (atm wind stresses + atm temp)(t) +
-        # 3 (boundary ocean speeds + boundary ocean temp)(t) -> 3 (ocean speeds + ocean temp)(t+1)
-        print("Number of outputs: ", self.N_out)  # 3
+        print("Number of inputs: ", self.num_in)
+        print("Number of outputs: ", self.N_out)  
 
         assert args.region == "global_3D"
 
@@ -259,29 +253,16 @@ class Trainer:
         if args.loss == "mse":
             print("Using mse loss")
             self.loss = lambda out, pred: mse(out, pred)
-        elif args.loss == "mse_ke":
-            print("lam KE: ", lam)
-            self.loss = (
-                lambda out, pred: mse(out, pred) * (1 - lam)
-                + loss_KE_pointwise(out, pred) * lam
-            )
 
         # Optimizer
         self.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-        self.step_weights = [
-            1.0
-        ] * args.steps  # Constant weighting of losses across steps
 
         # Scheduler
         self.scheduler = None
         if args.scheduler:
-            # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, args.T)
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 self.optimizer, args.T
             )
-
-        # Gscaler
-        # self.gscaler = amp.GradScaler(enabled=args.grad_clip)
 
         # Training
         self.epochs = args.epochs
@@ -304,7 +285,7 @@ class Trainer:
             self.test_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
-            val_stats = self.validate()
+            val_stats = self.validate(epoch)
 
             v_loss = val_stats["loss"]
 
@@ -396,11 +377,9 @@ class Trainer:
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
     @torch.no_grad()
-    def validate(self):
+    def validate(self, epoch):
         self.model.eval()
-
         metric_logger = MetricLogger(delimiter="  ")
-        header = "Test:"
         for data in self.test_loader:
             with torch.no_grad():
                 data = [d.cuda() for d in data]

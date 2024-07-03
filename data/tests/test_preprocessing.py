@@ -1,10 +1,3 @@
-from ocean_emulators.preprocessing import standardize_dataset
-import pytest
-import xarray as xr
-from xgcm import Grid
-from data import input_data
-
-
 ################################## TODO:rework these tests once the preprocessing is more mature
 # def _get_software_version():
 #     pass

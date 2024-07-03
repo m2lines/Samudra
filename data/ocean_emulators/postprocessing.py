@@ -10,8 +10,10 @@ def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
     try:
         input_data_test(ds_truth, deep=False)
     except:
-        raise ValueError(f"Checking the input dataset failed with {e}. Please fix those issues before creating a postprocessed dataset.")
-        
+        raise ValueError(
+            f"Checking the input dataset failed with {e}. Please fix those issues before creating a postprocessed dataset."
+        )
+
     # correct swapped dimensions and warn
     if len(ds.x) == 180 and len(ds.y) == 360:
         ds = ds.rename({"x": "x_i", "y": "y_i"}).rename({"x_i": "y", "y_i": "x"})

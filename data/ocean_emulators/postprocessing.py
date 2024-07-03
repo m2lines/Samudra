@@ -1,8 +1,17 @@
 import xarray as xr
+import warnings
+import numpy as np
 
 
-def post_processor(ds: xr.Dataset) -> xr.Dataset:
+def post_processor(ds: xr.Dataset, ds_truth:xr.Dataset) -> xr.Dataset:
     """Converts the prediction output to an xarray dataset with the same dimensions/variables as input"""
+    #TODO: Add the input data check here so we can assume a certain state on `ds_input`
+    
+    # correct swapped dimensions and warn
+    if len(ds.x) == 180 and len(ds.y) == 360:
+        ds = ds.rename({'x':'x_i', 'y':'y_i'}).rename({'x_i':'y', 'y_i':'x'})
+        warnings.warn("Swapped x and y dimensions detected. Fixing this now, but should be corrected upstream")
+    
     da = ds["__xarray_dataarray_variable__"]
     n_lev = 19
     variables = ["uo", "vo", "thetao", "so"]
@@ -12,7 +21,15 @@ def post_processor(ds: xr.Dataset) -> xr.Dataset:
         k: da.isel(var=sl).rename({"var": "lev"}) for k, sl in var_slices.items()
     }
     variables["zos"] = da.isel(var=-1).squeeze()
-    return xr.Dataset(variables)
+
+    ds_out = xr.Dataset(variables)
+
+    ds_out = ds_out.where(ds_truth.wetmask)
+
+    ## attach all coordinates from input
+    ds_out = ds_out.assign_coords({co:ds_truth[co] for co in ds_truth.coords})
+
+    return ds_out
 
 
 def prediction_data_test(ds_prediction: xr.Dataset, ds_input):
@@ -44,5 +61,12 @@ def prediction_data_test(ds_prediction: xr.Dataset, ds_input):
         raise ValueError(
             "Prediction and Input datasets do not have matching attributes"
         )
-
+    # Check that the wetmask is applied to the data
+    mask_test = ~np.isnan(ds_prediction.isel(time=0).reset_coords(drop=True)).load()
+    if not (mask_test.to_array() == ds_input.wetmask).all():
+        raise ValueError("Wetmask does not match between `ds_prediction` and `ds_input`!")
+    
+        
     # TODO: ensure that both arrays have the same coordinates
+
+    # TODO: Check that the wetmask is applied to the data

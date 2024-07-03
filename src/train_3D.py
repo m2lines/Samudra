@@ -41,7 +41,7 @@ class Trainer:
 
         # Distributed mode
         init_distributed_mode(args)
-        dask.config.set(scheduler='synchronous')
+        dask.config.set(scheduler="synchronous")
         cudnn.benchmark = True
 
         if not args.disk_mode:
@@ -201,7 +201,7 @@ class Trainer:
             model.load_state_dict(
                 torch.load(args.preload, map_location=torch.device(args.device))
             )
-        
+
         # Summary
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
         summary(
@@ -462,7 +462,7 @@ class Trainer:
         metric_logger.synchronize_between_processes()
         print("Averaged train stats:", metric_logger)
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-    
+
     @torch.no_grad()
     def validate(self):
         self.model.eval()
@@ -483,7 +483,7 @@ class Trainer:
         targets = self.target_set[rank]
 
         loss_per_channel = np.sqrt(((predictions - targets) ** 2).mean(axis=(0,2,3)))
-        loss_value = np.mean(loss_per_channel)        
+        loss_value = np.mean(loss_per_channel)
 
         # Surface level evaluation
         surface_preds = model_pred[:, :, :, self.indices]
@@ -501,24 +501,39 @@ class Trainer:
             wandb.log({"eval/total_eval_loss_per_batch": loss_value})
             # Loss per channel
             for i, var in enumerate(self.inputs):
-                wandb.log({"eval/per_channel/"+var: loss_per_channel[i]})
-            
+                wandb.log({"eval/per_channel/" + var: loss_per_channel[i]})
+
             # Loss per depth
             for i in range(19):
-                wandb.log({"eval/depth/depth_"+str(i)+"_loss": np.mean(loss_per_channel[DP_3D_IDX[i]])})
+                wandb.log(
+                    {
+                        "eval/depth/depth_"
+                        + str(i)
+                        + "_loss": np.mean(loss_per_channel[DP_3D_IDX[i]])
+                    }
+                )
 
             # Loss per input variable
             for k in ["uo", "vo", "thetao", "so"]:
                 wandb.log({"eval/per_var/"+k+"_loss": np.mean(loss_per_channel[CH_3D_IDX[k]])})
 
         if self.wandb:
-            wandb.log({"eval/surface/KE_corr": KE_corr, "eval/surface/KE_rmse": KE_rmse,
-                       "eval/surface/temp_corr": temp_corr, "eval/surface/temp_rmse": temp_rmse,
-                       "eval/surface/saline_corr": saline_corr, "eval/surface/saline_rmse": saline_rmse,
-                       "eval/surface/zos_corr": zos_corr, "eval/surface/zos_rmse": zos_rmse,
-                       "eval/surface/u_corr": u_corr, "eval/surface/u_rmse": u_rmse,
-                       "eval/surface/v_corr": v_corr, "eval/surface/v_rmse": v_rmse,
-                       })
+            wandb.log(
+                {
+                    "eval/surface/KE_corr": KE_corr,
+                    "eval/surface/KE_rmse": KE_rmse,
+                    "eval/surface/temp_corr": temp_corr,
+                    "eval/surface/temp_rmse": temp_rmse,
+                    "eval/surface/saline_corr": saline_corr,
+                    "eval/surface/saline_rmse": saline_rmse,
+                    "eval/surface/zos_corr": zos_corr,
+                    "eval/surface/zos_rmse": zos_rmse,
+                    "eval/surface/u_corr": u_corr,
+                    "eval/surface/u_rmse": u_rmse,
+                    "eval/surface/v_corr": v_corr,
+                    "eval/surface/v_rmse": v_rmse,
+                }
+            )
         return {"loss": loss_value}
 
 

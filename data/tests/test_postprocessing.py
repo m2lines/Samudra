@@ -1,6 +1,6 @@
 import xarray as xr
 from ocean_emulators.postprocessing import post_processor
-from data import input_data, raw_prediction
+
 
 def test_post_processor(input_data, raw_prediction):
     ds_input = input_data
@@ -11,6 +11,7 @@ def test_post_processor(input_data, raw_prediction):
     for co in ds.coords:
         xr.testing.assert_equal(ds[co], ds_input[co])
 
+
 def test_prediction_data_test():
     pass
-    #TODO: Check each test in there with a failcase
+    # TODO: Check each test in there with a failcase

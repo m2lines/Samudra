@@ -87,37 +87,37 @@ def find_index_for_true(da_bool: xr.DataArray):
         other_dims = [di for di in da_bool.dims if di != dim]        test = da_bool.any(other_dims).load()
         index = da_bool[dim].isel({dim:test})
         true_found_index[dim] = index.data
-    return true_found_index 
+    return true_found_index
 
 def test_nan_consistency(ds:xr.Dataset, name='None'):
-    """Test the consistency of nan values in the dataset across variables and time 
+    """Test the consistency of nan values in the dataset across variables and time
     (compared to a reference at time=0)."""
     ds = ds.to_array()
     ref = ds.isel(time=0)
     # # make sure the ref data has nans in the same places for all variables
     a = (np.isnan(ref.isel(variable=0)) != np.isnan(ref)).all(['variable'])
-    
+
     # find the index values for true values in b
     index = find_index_for_true(a)
     if not all(len(v) == 0 for v in index.values()):
         raise ValueError(f"Found non-matching nan values between variables on the first time step.")
-    
+
     ## make sure that the ref nan pattern is the same as every time step
     b = np.isnan(ref) != np.isnan(ds)
-    
+
     # find the index values for true values in b
     index = find_index_for_true(b)
-    
+
     # if they are all length 0 all is good, otherwise raise.
     if not all(len(v) == 0 for v in index.values()):
         raise ValueError(f"{name}:Found nonmatching nans compared to first time step in the following indexes {index}")
 
 def input_data_test_deep(ds_input: xr.Dataset):
     """Expensive tests that compute on the entire dataset"""
-    ds_nan_test_2d, ds_nan_test_3d = split_2d_3d(ds_input) 
+    ds_nan_test_2d, ds_nan_test_3d = split_2d_3d(ds_input)
     print('2D consistency check')
     test_nan_consistency(ds_nan_test_2d, '2D nan consistency check')
-    
+
     print('3D consistency check')
     test_nan_consistency(ds_nan_test_3d, '3D nan consistency check')
 
@@ -170,7 +170,7 @@ def input_data_test(ds_input: xr.Dataset, deep=False):
     for co, expected_dims in dims_expected_on_coords.items():
         if not set(expected_dims) == set(ds_input[co].dims):
             raise ValueError(f"Expected dimensions {set(expected_dims)} on {co}, but got {set(ds_input[co].dims)}")
-    
+
     if deep:
         input_data_test_deep(ds_input)
 

@@ -3,6 +3,7 @@ import xarray as xr
 import numpy as np
 import pytest
 
+
 @pytest.fixture
 def input_data():
     y = xr.DataArray(np.arange(-89, 91, 1), dims=["y"])
@@ -126,6 +127,7 @@ def input_data():
         attrs={"something": "for now"},
     )
     return ds
+
 
 @pytest.fixture
 def raw_prediction():

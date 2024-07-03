@@ -58,8 +58,8 @@ OUT_VARS = {
 
 
 CH_3D_IDX = {}
-for k, key in enumerate(['uo', 'vo', 'thetao', 'so']):
-    CH_3D_IDX[key] = torch.tensor([i for i in range(k*19, k*19+19)])
+for k, key in enumerate(["uo", "vo", "thetao", "so"]):
+    CH_3D_IDX[key] = torch.tensor([i for i in range(k * 19, k * 19 + 19)])
 
 DP_3D_IDX = {}
 for k in range(19):

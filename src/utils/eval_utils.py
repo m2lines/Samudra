@@ -9,7 +9,9 @@ from .subgrid_utils import *
 from .data_utils import *
 
 
-def generate_model_rollout(N_eval, test_data, model, hist, N_in, N_extra, Nb=0, region="global"):
+def generate_model_rollout(
+    N_eval, test_data, model, hist, N_in, N_extra, Nb=0, region="global"
+):
 
     N_test = test_data.size
     assert hist == 0
@@ -1113,6 +1115,7 @@ def compute_amo(grids, inputs, model_pred, test_data, mean_out, std_out, time_te
 
     return Amo_pred, Amo_true
 
+
 def get_map_metrics(pred, true, area_flat, wet_bool):
     cor = (
         area_flat * pred[wet_bool].flatten() * true[wet_bool].flatten()
@@ -1121,10 +1124,7 @@ def get_map_metrics(pred, true, area_flat, wet_bool):
         * (area_flat * true[wet_bool].flatten() ** 2).sum()
     )
     rmse = np.sqrt(
-        (
-            area_flat
-            * (pred[wet_bool].flatten() - true[wet_bool].flatten()) ** 2
-        ).sum()
+        (area_flat * (pred[wet_bool].flatten() - true[wet_bool].flatten()) ** 2).sum()
         / area_flat.sum()
     )
     return cor, rmse
@@ -1142,32 +1142,36 @@ def get_corr_rmse(
     long_KE_net, long_KE_true = gen_KE_range(
         start_map, N_plot_map, test_data, model_pred_net
     )
-    mse_KE_net = long_KE_net.mean(axis=0) - long_KE_true.mean(
-        axis=0
-    )
+    mse_KE_net = long_KE_net.mean(axis=0) - long_KE_true.mean(axis=0)
     long_KE_true = long_KE_true.mean(0)
     KE_corr, KE_rmse = get_map_metrics(mse_KE_net, long_KE_true, area_flat, wet_bool)
-    
+
     long_temp_net, long_temp_true = gen_value_range(
         start_map, N_plot_map, test_data, model_pred_net, 2
     )
     mse_temp_net = long_temp_net.mean(axis=0) - long_temp_true.mean(axis=0)
     long_temp_true = long_temp_true.mean(0)
-    temp_corr, temp_rmse = get_map_metrics(mse_temp_net, long_temp_true, area_flat, wet_bool)
+    temp_corr, temp_rmse = get_map_metrics(
+        mse_temp_net, long_temp_true, area_flat, wet_bool
+    )
 
     long_saline_net, long_saline_true = gen_value_range(
         start_map, N_plot_map, test_data, model_pred_net, 3
     )
     mse_saline_net = long_saline_net.mean(axis=0) - long_saline_true.mean(axis=0)
     long_saline_true = long_saline_true.mean(0)
-    saline_corr, saline_rmse = get_map_metrics(mse_saline_net, long_saline_true, area_flat, wet_bool)
+    saline_corr, saline_rmse = get_map_metrics(
+        mse_saline_net, long_saline_true, area_flat, wet_bool
+    )
 
     long_zos_net, long_zos_true = gen_value_range(
         start_map, N_plot_map, test_data, model_pred_net, 4
     )
     mse_zos_net = long_zos_net.mean(axis=0) - long_zos_true.mean(axis=0)
     long_zos_true = long_zos_true.mean(0)
-    zos_corr, zos_rmse = get_map_metrics(mse_zos_net, long_zos_true, area_flat, wet_bool)
+    zos_corr, zos_rmse = get_map_metrics(
+        mse_zos_net, long_zos_true, area_flat, wet_bool
+    )
 
     long_u_net, long_u_true = gen_value_range(
         start_map, N_plot_map, test_data, model_pred_net, 0
@@ -1184,10 +1188,16 @@ def get_corr_rmse(
     v_corr, v_rmse = get_map_metrics(mse_v_net, long_v_true, area_flat, wet_bool)
 
     return (
-        KE_corr, KE_rmse,
-        temp_corr, temp_rmse,
-        saline_corr, saline_rmse,
-        zos_corr, zos_rmse,
-        u_corr, u_rmse,
-        v_corr, v_rmse
+        KE_corr,
+        KE_rmse,
+        temp_corr,
+        temp_rmse,
+        saline_corr,
+        saline_rmse,
+        zos_corr,
+        zos_rmse,
+        u_corr,
+        u_rmse,
+        v_corr,
+        v_rmse,
     )

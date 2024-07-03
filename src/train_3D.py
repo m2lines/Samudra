@@ -125,7 +125,9 @@ class Trainer:
             self.wet = torch.load(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
             )
-            self.data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/surface_data")
+            self.data = xr.open_zarr(
+                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data"
+            )
             self.data_mean = xr.open_zarr(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means"
             )
@@ -200,9 +202,7 @@ class Trainer:
         data_mean2 = xr.open_zarr(
             "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_means"
         )
-        data_std2 = xr.open_zarr(
-            "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds"
-        )
+        data_std2 = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds")
         self.val_data_copy = data_CNN_Disk(
             data2,
             self.inputs,
@@ -217,7 +217,7 @@ class Trainer:
             e_train,
             device="cuda",
         )
-        
+
         mean_in = self.val_data_copy.in_mean.to_array().to_numpy().reshape(-1)
         std_in = self.val_data_copy.in_std.to_array().to_numpy().reshape(-1)
         mean_out = self.val_data_copy.out_mean.to_array().to_numpy().reshape(-1)
@@ -249,8 +249,8 @@ class Trainer:
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
         # Surface Data
         self.surface_wet = torch.load(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
-            )
+            "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
+        )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         self.indices = [i * 19 for i in range(4)] + [-1]
         indices_str = [self.inputs[i] for i in self.indices]
@@ -457,15 +457,27 @@ class Trainer:
                 )
                 # Loss per channel
                 for i, var in enumerate(self.inputs):
-                    wandb.log({"train/per_channel/"+var: loss_per_channel[i]})
-                
+                    wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
+
                 # Loss per depth
                 for i in range(19):
-                    wandb.log({"train/depth/depth_"+str(i)+"_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()})
-                
+                    wandb.log(
+                        {
+                            "train/depth/depth_"
+                            + str(i)
+                            + "_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()
+                        }
+                    )
+
                 # Loss per input variable
                 for k in ["uo", "vo", "thetao", "so"]:
-                    wandb.log({"train/per_var/"+k+"_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()})
+                    wandb.log(
+                        {
+                            "train/per_var/"
+                            + k
+                            + "_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()
+                        }
+                    )
 
         metric_logger.synchronize_between_processes()
         print("Averaged train stats:", metric_logger)
@@ -488,22 +500,39 @@ class Trainer:
                     wandb.log({"eval/total_eval_loss_per_batch": loss_value_reduce})
                     # Loss per channel
                     for i, var in enumerate(self.inputs):
-                        wandb.log({"eval/per_channel/"+var: loss_per_channel[i].item()})
-                    
+                        wandb.log(
+                            {"eval/per_channel/" + var: loss_per_channel[i].item()}
+                        )
+
                     # Loss per depth
                     for i in range(19):
-                        wandb.log({"eval/depth/depth_"+str(i)+"_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()})
+                        wandb.log(
+                            {
+                                "eval/depth/depth_"
+                                + str(i)
+                                + "_loss": torch.mean(
+                                    loss_per_channel[DP_3D_IDX[i]]
+                                ).item()
+                            }
+                        )
 
                     # Loss per input variable
                     for k in ["uo", "vo", "thetao", "so"]:
-                        wandb.log({"eval/per_var/"+k+"_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()})
-        
+                        wandb.log(
+                            {
+                                "eval/per_var/"
+                                + k
+                                + "_loss": torch.mean(
+                                    loss_per_channel[CH_3D_IDX[k]]
+                                ).item()
+                            }
+                        )
 
         metric_logger.synchronize_between_processes()
         print("Averaged eval stats:", metric_logger)
 
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-    
+
     @torch.no_grad()
     def validate_long(self):
         self.model.eval()
@@ -523,8 +552,6 @@ class Trainer:
         predictions = model_pred.transpose(0, 3, 1, 2)
         targets = self.val_data_copy[:N][1].numpy()
         total_rmse_loss = np.sqrt(((predictions - targets) ** 2).mean())
-
-        
 
         # Surface level evaluation
         # surface_preds = model_pred[:, :, :, self.indices]

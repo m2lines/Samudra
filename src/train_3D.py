@@ -161,20 +161,6 @@ class Trainer:
             device="cuda",
         )
 
-        val_data = data_CNN_Disk(
-            self.data,
-            self.inputs,
-            self.extra_in,
-            self.outputs,
-            self.wet,
-            self.data_mean,
-            self.data_std,
-            args.N_val,
-            args.lag,
-            args.interval,
-            e_train,
-            device="cuda",
-        )
         print("Instantiating torch loaders")
 
         self.train_sampler = torch.utils.data.distributed.DistributedSampler(
@@ -188,68 +174,6 @@ class Trainer:
             pin_memory=args.pin_mem,
             drop_last=True,
         )
-
-        self.test_sampler = torch.utils.data.DistributedSampler(
-            val_data, num_replicas=get_world_size(), rank=get_rank(), shuffle=False
-        )
-        self.test_loader = torch.utils.data.DataLoader(
-            val_data,
-            batch_size=args.batch_size,
-            sampler=self.test_sampler,
-            num_workers=args.num_workers,
-            pin_memory=args.pin_mem,
-        )
-
-        self.val_data = val_data
-        mean_in = self.val_data.in_mean.to_array().to_numpy().reshape(-1)
-        std_in = self.val_data.in_std.to_array().to_numpy().reshape(-1)
-        mean_out = self.val_data.out_mean.to_array().to_numpy().reshape(-1)
-        std_out = self.val_data.out_std.to_array().to_numpy().reshape(-1)
-
-        self.val_data.norm_vals = {
-            "s_out": std_out,
-            "s_in": std_in,
-            "m_out": mean_out,
-            "m_in": mean_in,
-        }
-        grids = xr.open_dataset("/scratch/as15415/Data/CM2x_grids/Grid_New.nc").rename(
-            {"dx": "dxu", "dy": "dyu"}
-        )
-
-        self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
-
-        # Surface Data
-        self.surface_wet = torch.load(
-            "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
-        )
-        self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
-        self.indices = [i * 19 for i in range(4)] + [-1]
-        indices_str = [self.inputs[i] for i in self.indices]
-        self.surface_targets = data_CNN_Disk(
-            self.data,
-            indices_str,
-            self.extra_in,
-            indices_str,
-            self.wet[0],
-            self.data_mean,
-            self.data_std,
-            args.N_val,
-            args.lag,
-            args.interval,
-            e_train,
-            device="cuda",
-        )
-        mean_in = self.surface_targets.in_mean.to_array().to_numpy().reshape(-1)
-        std_in = self.surface_targets.in_std.to_array().to_numpy().reshape(-1)
-        mean_out = self.surface_targets.out_mean.to_array().to_numpy().reshape(-1)
-        std_out = self.surface_targets.out_std.to_array().to_numpy().reshape(-1)
-
-        self.surface_targets.norm_vals = {
-            "s_out": std_out,
-            "s_in": std_in,
-            "m_out": mean_out,
-            "m_in": mean_in,
-        }
 
         # Model
         print("Getting model " + args.network)
@@ -326,6 +250,92 @@ class Trainer:
         self.output_dir = args.output_dir
         self.network = args.network
         self.testing = args.testing
+        self.N_val = args.N_val
+        self.lag = args.lag
+        self.interval = args.interval
+        self.e_train = e_train
+
+        self.init_validation_stores()
+
+    def init_validation_stores(self):
+        N = 72 # 72 x 5 days ~ 1 year
+        num_gpus = get_world_size()
+        self.N_local = N // num_gpus
+
+        grids = xr.open_dataset("/scratch/as15415/Data/CM2x_grids/Grid_New.nc").rename(
+            {"dx": "dxu", "dy": "dyu"}
+        )
+
+        self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
+
+        self.surface_wet = torch.load(
+            "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
+        )
+        self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
+        self.indices = [i * 19 for i in range(4)] + [-1]
+        indices_str = [self.inputs[i] for i in self.indices]
+        
+        self.val_data_set = []
+        self.target_set = []
+        self.surface_targets_set = []
+        for i in range(num_gpus):
+            val_data = data_CNN_Disk(
+                            self.data,
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.wet,
+                            self.data_mean,
+                            self.data_std,
+                            self.N_val,
+                            self.lag,
+                            self.interval,
+                            self.e_train + i*self.N_local,
+                            device="cuda",
+                        ) 
+                                
+            mean_in = val_data.in_mean.to_array().to_numpy().reshape(-1)
+            std_in = val_data.in_std.to_array().to_numpy().reshape(-1)
+            mean_out = val_data.out_mean.to_array().to_numpy().reshape(-1)
+            std_out = val_data.out_std.to_array().to_numpy().reshape(-1)
+
+            val_data.norm_vals = {
+                "s_out": std_out,
+                "s_in": std_in,
+                "m_out": mean_out,
+                "m_in": mean_in,
+            }
+
+            self.val_data_set.append(val_data)
+            self.target_set.append(val_data[i*self.N_local:(i+1)*self.N_local][1].numpy())
+
+            # Surface Data        
+            surface_targets = data_CNN_Disk(
+                self.data,
+                indices_str,
+                self.extra_in,
+                indices_str,
+                self.wet[0],
+                self.data_mean,
+                self.data_std,
+                self.N_val,
+                self.lag,
+                self.interval,
+                self.e_train + i*self.N_local,
+                device="cuda",
+            )
+            mean_in = surface_targets.in_mean.to_array().to_numpy().reshape(-1)
+            std_in = surface_targets.in_std.to_array().to_numpy().reshape(-1)
+            mean_out = surface_targets.out_mean.to_array().to_numpy().reshape(-1)
+            std_out = surface_targets.out_std.to_array().to_numpy().reshape(-1)
+
+            surface_targets.norm_vals = {
+                "s_out": std_out,
+                "s_in": std_in,
+                "m_out": mean_out,
+                "m_in": mean_in,
+            }
+            self.surface_targets_set.append(surface_targets)
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
@@ -336,7 +346,6 @@ class Trainer:
         start_time = time.time()
         for epoch in range(self.epochs):
             self.train_sampler.set_epoch(epoch)
-            self.test_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
             val_stats = self.validate()
@@ -457,11 +466,11 @@ class Trainer:
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-        N = 75
+        rank = get_rank()
 
         model_pred = generate_model_rollout(
-            N,
-            self.val_data,
+            self.N_local,
+            self.val_data_set[rank],
             self.model.module,
             self.hist,
             self.N_in,
@@ -471,10 +480,22 @@ class Trainer:
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)
-        targets = self.val_data[:N][1].numpy()
+        targets = self.target_set[rank]
 
         loss_per_channel = np.sqrt(((predictions - targets) ** 2).mean(axis=(0,2,3)))
-        loss_value = np.mean(loss_per_channel)
+        loss_value = np.mean(loss_per_channel)        
+
+        # Surface level evaluation
+        surface_preds = model_pred[:, :, :, self.indices]
+
+        (KE_corr, KE_rmse,
+        temp_corr, temp_rmse,
+        saline_corr, saline_rmse,
+        zos_corr, zos_rmse,
+        u_corr, u_rmse,
+        v_corr, v_rmse)= get_corr_rmse(self.surface_targets_set[rank], surface_preds, self.area, self.surface_wet_bool, 0, self.N_local)
+
+        all_reduce_mean(loss_value)
 
         if self.wandb:
             wandb.log({"eval/total_eval_loss_per_batch": loss_value})
@@ -489,17 +510,6 @@ class Trainer:
             # Loss per input variable
             for k in ["uo", "vo", "thetao", "so"]:
                 wandb.log({"eval/per_var/"+k+"_loss": np.mean(loss_per_channel[CH_3D_IDX[k]])})
-        
-
-        # Surface level evaluation
-        surface_preds = model_pred[:, :, :, self.indices]
-
-        (KE_corr, KE_rmse,
-        temp_corr, temp_rmse,
-        saline_corr, saline_rmse,
-        zos_corr, zos_rmse,
-        u_corr, u_rmse,
-        v_corr, v_rmse)= get_corr_rmse(self.surface_targets, surface_preds, self.area, self.surface_wet_bool, 0, N)
 
         if self.wandb:
             wandb.log({"eval/surface/KE_corr": KE_corr, "eval/surface/KE_rmse": KE_rmse,

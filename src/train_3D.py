@@ -258,7 +258,7 @@ class Trainer:
         self.init_validation_stores()
 
     def init_validation_stores(self):
-        N = 72 # 72 x 5 days ~ 1 year
+        N = 72  # 72 x 5 days ~ 1 year
         num_gpus = get_world_size()
         self.N_local = N // num_gpus
 
@@ -274,26 +274,26 @@ class Trainer:
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         self.indices = [i * 19 for i in range(4)] + [-1]
         indices_str = [self.inputs[i] for i in self.indices]
-        
+
         self.val_data_set = []
         self.target_set = []
         self.surface_targets_set = []
         for i in range(num_gpus):
             val_data = data_CNN_Disk(
-                            self.data,
-                            self.inputs,
-                            self.extra_in,
-                            self.outputs,
-                            self.wet,
-                            self.data_mean,
-                            self.data_std,
-                            self.N_val,
-                            self.lag,
-                            self.interval,
-                            self.e_train + i*self.N_local,
-                            device="cuda",
-                        ) 
-                                
+                self.data,
+                self.inputs,
+                self.extra_in,
+                self.outputs,
+                self.wet,
+                self.data_mean,
+                self.data_std,
+                self.N_val,
+                self.lag,
+                self.interval,
+                self.e_train + i * self.N_local,
+                device="cuda",
+            )
+
             mean_in = val_data.in_mean.to_array().to_numpy().reshape(-1)
             std_in = val_data.in_std.to_array().to_numpy().reshape(-1)
             mean_out = val_data.out_mean.to_array().to_numpy().reshape(-1)
@@ -307,9 +307,11 @@ class Trainer:
             }
 
             self.val_data_set.append(val_data)
-            self.target_set.append(val_data[i*self.N_local:(i+1)*self.N_local][1].numpy())
+            self.target_set.append(
+                val_data[i * self.N_local : (i + 1) * self.N_local][1].numpy()
+            )
 
-            # Surface Data        
+            # Surface Data
             surface_targets = data_CNN_Disk(
                 self.data,
                 indices_str,
@@ -321,7 +323,7 @@ class Trainer:
                 self.N_val,
                 self.lag,
                 self.interval,
-                self.e_train + i*self.N_local,
+                self.e_train + i * self.N_local,
                 device="cuda",
             )
             mean_in = surface_targets.in_mean.to_array().to_numpy().reshape(-1)
@@ -482,18 +484,33 @@ class Trainer:
         predictions = model_pred.transpose(0, 3, 1, 2)
         targets = self.target_set[rank]
 
-        loss_per_channel = np.sqrt(((predictions - targets) ** 2).mean(axis=(0,2,3)))
+        loss_per_channel = np.sqrt(((predictions - targets) ** 2).mean(axis=(0, 2, 3)))
         loss_value = np.mean(loss_per_channel)
 
         # Surface level evaluation
         surface_preds = model_pred[:, :, :, self.indices]
 
-        (KE_corr, KE_rmse,
-        temp_corr, temp_rmse,
-        saline_corr, saline_rmse,
-        zos_corr, zos_rmse,
-        u_corr, u_rmse,
-        v_corr, v_rmse)= get_corr_rmse(self.surface_targets_set[rank], surface_preds, self.area, self.surface_wet_bool, 0, self.N_local)
+        (
+            KE_corr,
+            KE_rmse,
+            temp_corr,
+            temp_rmse,
+            saline_corr,
+            saline_rmse,
+            zos_corr,
+            zos_rmse,
+            u_corr,
+            u_rmse,
+            v_corr,
+            v_rmse,
+        ) = get_corr_rmse(
+            self.surface_targets_set[rank],
+            surface_preds,
+            self.area,
+            self.surface_wet_bool,
+            0,
+            self.N_local,
+        )
 
         all_reduce_mean(loss_value)
 
@@ -515,7 +532,13 @@ class Trainer:
 
             # Loss per input variable
             for k in ["uo", "vo", "thetao", "so"]:
-                wandb.log({"eval/per_var/"+k+"_loss": np.mean(loss_per_channel[CH_3D_IDX[k]])})
+                wandb.log(
+                    {
+                        "eval/per_var/"
+                        + k
+                        + "_loss": np.mean(loss_per_channel[CH_3D_IDX[k]])
+                    }
+                )
 
         if self.wandb:
             wandb.log(

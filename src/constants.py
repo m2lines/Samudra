@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 # Experiment inputs and outputs
 INPT_VARS = {
@@ -54,6 +55,15 @@ OUT_VARS = {
     ]
     + ["zos"],
 }
+
+
+CH_3D_IDX = {}
+for k, key in enumerate(['uo', 'vo', 'thetao', 'so']):
+    CH_3D_IDX[key] = torch.tensor([i for i in range(k*19, k*19+19)])
+
+DP_3D_IDX = {}
+for k in range(19):
+    DP_3D_IDX[k] = torch.tensor([i for i in range(k, 77, 19)])
 
 # Region boundaries
 REGIONS = {

@@ -8,7 +8,7 @@
 # ./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global_3D wandb.mode=online name="$(date +%F)-train_convnextunet_global_3D_surface_fromdisk" region=global_3D batch_size=16 scheduler=True rand_seed=9
 
 # All
-./.python-greene submitit_hydra.py compute/greene=1x4 compute/greene/node=a100 exp=train_unet_global_3D_all wandb.mode=online name="$(date +%F)-train_convnextunet_global_3D_all_100M" region=global_3D batch_size=4 scheduler=True rand_seed=5 unet.ch_width=[80,100,150,300,400]
+./.python-greene submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000 exp=train_unet_global_3D_all wandb.mode=online name="$(date +%F)-train_convnextunet_global_3D_all_100M" region=global_3D batch_size=4 scheduler=True rand_seed=5 unet.ch_width=[80,100,150,300,400]
 
 ### Swin
 

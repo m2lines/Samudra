@@ -1,4 +1,5 @@
 import os
+import copy
 import wandb
 import time
 import datetime
@@ -15,8 +16,8 @@ from torch.cuda import amp
 from torchinfo import summary
 from tqdm import tqdm
 
-from constants import INPT_VARS, EXTRA_VARS, OUT_VARS
-from utils.train_utils import loss_KE_pointwise, SmoothedValue, MetricLogger
+from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, CH_3D_IDX, DP_3D_IDX
+from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -25,6 +26,7 @@ from utils.dist_utils import (
     is_main_process,
     all_reduce_mean,
 )
+from utils.eval_utils import generate_model_rollout, get_corr_rmse
 from utils.data_utils import (
     data_CNN_Disk,
     data_CNN_Disk_steps,
@@ -45,8 +47,6 @@ class Trainer:
         else:
             args.num_workers = torch.cuda.device_count() * 4
             args.pin_mem = True
-
-            print(args.num_workers)
 
         # Set seeds
         set_seed(args.rand_seed)
@@ -102,6 +102,7 @@ class Trainer:
         print("Number of outputs: ", self.N_out)
 
         assert args.region == "global_3D"
+        self.region = args.region
 
         self.str_video = (
             "steps_"
@@ -124,31 +125,31 @@ class Trainer:
             self.wet = torch.load(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
             )
-            data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/surface_data")
-            data_mean = xr.open_zarr(
+            self.data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/surface_data")
+            self.data_mean = xr.open_zarr(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means"
             )
-            data_std = xr.open_zarr(
+            self.data_std = xr.open_zarr(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_stds"
             )
         elif args.depth_mode == "all":
             self.wet = torch.load("/vast/sd5313/data/m2lines/3D_ocean_data/3D_wet.pt")
-            data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data")
-            data_mean = xr.open_zarr(
+            self.data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data")
+            self.data_mean = xr.open_zarr(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_means"
             )
-            data_std = xr.open_zarr(
+            self.data_std = xr.open_zarr(
                 "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds"
             )
 
         train_data = data_CNN_Disk_steps(
-            data,
+            self.data,
             self.inputs,
             self.extra_in,
             self.outputs,
             self.wet,
-            data_mean,
-            data_std,
+            self.data_mean,
+            self.data_std,
             args.N_samples,
             args.lag,
             args.interval,
@@ -157,20 +158,19 @@ class Trainer:
         )
 
         val_data = data_CNN_Disk(
-            data,
+            self.data,
             self.inputs,
             self.extra_in,
             self.outputs,
             self.wet,
-            data_mean,
-            data_std,
+            self.data_mean,
+            self.data_std,
             args.N_val,
             args.lag,
             args.interval,
             e_train,
             device="cuda",
         )
-
         print("Instantiating torch loaders")
 
         self.train_sampler = torch.utils.data.distributed.DistributedSampler(
@@ -195,6 +195,90 @@ class Trainer:
             num_workers=args.num_workers,
             pin_memory=args.pin_mem,
         )
+
+        data2 = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data")
+        data_mean2 = xr.open_zarr(
+            "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_means"
+        )
+        data_std2 = xr.open_zarr(
+            "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds"
+        )
+        self.val_data_copy = data_CNN_Disk(
+            data2,
+            self.inputs,
+            self.extra_in,
+            self.outputs,
+            self.wet,
+            data_mean2,
+            data_std2,
+            args.N_val,
+            args.lag,
+            args.interval,
+            e_train,
+            device="cuda",
+        )
+        
+        mean_in = self.val_data_copy.in_mean.to_array().to_numpy().reshape(-1)
+        std_in = self.val_data_copy.in_std.to_array().to_numpy().reshape(-1)
+        mean_out = self.val_data_copy.out_mean.to_array().to_numpy().reshape(-1)
+        std_out = self.val_data_copy.out_std.to_array().to_numpy().reshape(-1)
+
+        self.val_data_copy.norm_vals = {
+            "s_out": std_out,
+            "s_in": std_in,
+            "m_out": mean_out,
+            "m_in": mean_in,
+        }
+
+        self.test_sampler2 = torch.utils.data.DistributedSampler(
+            val_data, num_replicas=get_world_size(), rank=get_rank(), shuffle=False
+        )
+
+        self.test_loader2 = torch.utils.data.DataLoader(
+            self.val_data_copy,
+            batch_size=len(self.val_data_copy),
+            sampler=self.test_sampler2,
+            num_workers=args.num_workers,
+            pin_memory=args.pin_mem,
+        )
+
+        grids = xr.open_dataset("/scratch/as15415/Data/CM2x_grids/Grid_New.nc").rename(
+            {"dx": "dxu", "dy": "dyu"}
+        )
+
+        self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
+        # Surface Data
+        self.surface_wet = torch.load(
+                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
+            )
+        self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
+        self.indices = [i * 19 for i in range(4)] + [-1]
+        indices_str = [self.inputs[i] for i in self.indices]
+        self.surface_targets = data_CNN_Disk(
+            self.data,
+            indices_str,
+            self.extra_in,
+            indices_str,
+            self.wet[0],
+            self.data_mean,
+            self.data_std,
+            args.N_val,
+            args.lag,
+            args.interval,
+            e_train,
+            device="cuda",
+        )
+        mean_in = self.surface_targets.in_mean.to_array().to_numpy().reshape(-1)
+        std_in = self.surface_targets.in_std.to_array().to_numpy().reshape(-1)
+        mean_out = self.surface_targets.out_mean.to_array().to_numpy().reshape(-1)
+        std_out = self.surface_targets.out_std.to_array().to_numpy().reshape(-1)
+
+        self.surface_targets.norm_vals = {
+            "s_out": std_out,
+            "s_in": std_in,
+            "m_out": mean_out,
+            "m_in": mean_in,
+        }
 
         # Model
         print("Getting model " + args.network)
@@ -248,11 +332,9 @@ class Trainer:
         self.device = args.device
 
         # Loss function
-        lam = args.lam
-        mse = nn.MSELoss()
         if args.loss == "mse":
-            print("Using mse loss")
-            self.loss = lambda out, pred: mse(out, pred)
+            print("Using decomposed mse loss")
+            self.loss = decomposed_mse
 
         # Optimizer
         self.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
@@ -285,7 +367,8 @@ class Trainer:
             self.test_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
-            val_stats = self.validate(epoch)
+            val_stats = self.validate()
+            # self.validate_long()
 
             v_loss = val_stats["loss"]
 
@@ -341,7 +424,8 @@ class Trainer:
             self.optimizer.zero_grad()
             data = [d.cuda() for d in data]
 
-            loss = self.model(data, loss_fn=self.loss)
+            loss_per_channel = self.model(data, loss_fn=self.loss)
+            loss = torch.mean(loss_per_channel)
             loss.backward()
             loss_value = loss.item()
 
@@ -366,35 +450,103 @@ class Trainer:
             if self.wandb:
                 wandb.log(
                     {
-                        "epoch": epoch,
-                        "train_loss_per_batch": loss_value_reduce,
-                        "lr_per_batch": lr,
+                        "train/epoch": epoch,
+                        "train/total_train_loss_per_batch": loss_value_reduce,
+                        "train/lr_per_batch": lr,
                     }
                 )
+                # Loss per channel
+                for i, var in enumerate(self.inputs):
+                    wandb.log({"train/per_channel/"+var: loss_per_channel[i]})
+                
+                # Loss per depth
+                for i in range(19):
+                    wandb.log({"train/depth/depth_"+str(i)+"_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()})
+                
+                # Loss per input variable
+                for k in ["uo", "vo", "thetao", "so"]:
+                    wandb.log({"train/per_var/"+k+"_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()})
 
         metric_logger.synchronize_between_processes()
         print("Averaged train stats:", metric_logger)
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
     @torch.no_grad()
-    def validate(self, epoch):
+    def validate(self):
         self.model.eval()
         metric_logger = MetricLogger(delimiter="  ")
         for data in self.test_loader:
             with torch.no_grad():
                 data = [d.cuda() for d in data]
-                loss = self.model(data, loss_fn=self.loss)
+                loss_per_channel = self.model(data, loss_fn=self.loss)
+                loss = torch.mean(loss_per_channel)
                 loss_value = loss.item()
                 metric_logger.update(loss=loss_value)
 
                 loss_value_reduce = all_reduce_mean(loss_value)
                 if self.wandb:
-                    wandb.log({"eval_loss_per_batch": loss_value_reduce})
+                    wandb.log({"eval/total_eval_loss_per_batch": loss_value_reduce})
+                    # Loss per channel
+                    for i, var in enumerate(self.inputs):
+                        wandb.log({"eval/per_channel/"+var: loss_per_channel[i].item()})
+                    
+                    # Loss per depth
+                    for i in range(19):
+                        wandb.log({"eval/depth/depth_"+str(i)+"_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()})
+
+                    # Loss per input variable
+                    for k in ["uo", "vo", "thetao", "so"]:
+                        wandb.log({"eval/per_var/"+k+"_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()})
+        
 
         metric_logger.synchronize_between_processes()
         print("Averaged eval stats:", metric_logger)
 
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+    
+    @torch.no_grad()
+    def validate_long(self):
+        self.model.eval()
+        N = 5
+
+        model_pred = generate_model_rollout(
+            N,
+            self.val_data_copy,
+            self.model.module,
+            self.hist,
+            self.N_in,
+            self.N_extra,
+            0,
+            self.region,
+        )
+
+        predictions = model_pred.transpose(0, 3, 1, 2)
+        targets = self.val_data_copy[:N][1].numpy()
+        total_rmse_loss = np.sqrt(((predictions - targets) ** 2).mean())
+
+        
+
+        # Surface level evaluation
+        # surface_preds = model_pred[:, :, :, self.indices]
+
+        # (KE_corr, KE_rmse,
+        # temp_corr, temp_rmse,
+        # saline_corr, saline_rmse,
+        # zos_corr, zos_rmse,
+        # u_corr, u_rmse,
+        # v_corr, v_rmse)= get_corr_rmse(self.surface_targets, surface_preds, self.area, self.surface_wet_bool, 0, N)
+
+        # if self.wandb:
+        #     wandb.log({"eval/long/total_loss": total_rmse_loss,
+        #                "eval/long/surface_KE_corr": KE_corr, "eval/long/surface_KE_rmse": KE_rmse,
+        #                "eval/long/surface_temp_corr": temp_corr, "eval/long/surface_temp_rmse": temp_rmse,
+        #                "eval/long/surface_saline_corr": saline_corr, "eval/long/surface_saline_rmse": saline_rmse,
+        #                "eval/long/surface_zos_corr": zos_corr, "eval/long/surface_zos_rmse": zos_rmse,
+        #                "eval/long/surface_u_corr": u_corr, "eval/long/surface_u_rmse": u_rmse,
+        #                "eval/long/surface_v_corr": v_corr, "eval/long/surface_v_rmse": v_rmse,
+        #                })
+        print("Done")
+        return {"loss": total_rmse_loss}
 
 
 def main(args):

@@ -12,7 +12,7 @@ ch_width:
   - 45
   - 90
   - 180
-n_out: 77
+n_out: 76
 dilation:
   - 1
   - 2

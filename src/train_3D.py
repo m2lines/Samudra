@@ -138,7 +138,7 @@ class Trainer:
             )
         elif args.depth_mode == "all":
             self.wet = torch.load("/vast/sd5313/data/m2lines/3D_ocean_data/3D_wet.pt")
-            self.wet = torch.cat([self.wet[:38],self.wet[39:]])
+            self.wet = torch.cat([self.wet[:38], self.wet[39:]])
 
             self.data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data")
             self.data_mean = xr.open_zarr(

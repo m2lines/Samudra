@@ -264,9 +264,9 @@ class Trainer:
         num_gpus = get_world_size()
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset("/vast/sd5313/data/m2lines/3D_ocean_data/Grid_New.nc").rename(
-            {"dx": "dxu", "dy": "dyu"}
-        )
+        grids = xr.open_dataset(
+            "/vast/sd5313/data/m2lines/3D_ocean_data/Grid_New.nc"
+        ).rename({"dx": "dxu", "dy": "dyu"})
 
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 

@@ -15,7 +15,7 @@ comp="compute=local"
 # ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D name="$(date +%F)-local_train_convnextunet_global_3D_surface" region=global_3D batch_size=16 scheduler=True rand_seed=10
 
 # All
-./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D_all name="$(date +%F)-local_train_convnextunet_global_3D_all_SSTtest" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400]
+./.python-greene submitit_hydra.py $comp testing=true wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-local_train_convnextunet_global_3D_all_SSTtest" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400]
 
 ### Swin
 # ./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all name="$(date +%F)-local_train_swin_global_3D_all" region=global_3D batch_size=16 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60

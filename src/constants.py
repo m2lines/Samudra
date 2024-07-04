@@ -57,14 +57,14 @@ OUT_VARS = {
 }
 
 #### SPECIAL CASE : Boundary condition with thetao_lev_0
-INPT_VARS['3D_all'].remove('thetao_lev_0')
-EXTRA_VARS['3D_all'].append('thetao_lev_0')
-OUT_VARS['3D_all'].remove('thetao_lev_0')
+INPT_VARS["3D_all"].remove("thetao_lev_0")
+EXTRA_VARS["3D_all"].append("thetao_lev_0")
+OUT_VARS["3D_all"].remove("thetao_lev_0")
 
 CH_3D_IDX = {}
-for kt in ['uo', 'vo', 'thetao', 'so']:
+for kt in ["uo", "vo", "thetao", "so"]:
     CH_3D_IDX[kt] = torch.tensor([])
-    for i, k in enumerate(INPT_VARS['3D_all']):
+    for i, k in enumerate(INPT_VARS["3D_all"]):
         if kt in k:
             CH_3D_IDX[kt] = torch.cat([CH_3D_IDX[kt], torch.tensor([i])])
     CH_3D_IDX[kt].to(torch.int32)
@@ -72,10 +72,10 @@ for kt in ['uo', 'vo', 'thetao', 'so']:
 DP_3D_IDX = {}
 for d in range(19):
     DP_3D_IDX[d] = torch.tensor([])
-    for i, k in enumerate(INPT_VARS['3D_all']):
-        if k == 'zos':
+    for i, k in enumerate(INPT_VARS["3D_all"]):
+        if k == "zos":
             continue
-        elif d == int(k.split('lev_')[-1]):
+        elif d == int(k.split("lev_")[-1]):
             DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
     DP_3D_IDX[d].to(torch.int32)
 DP_3D_IDX[0] = torch.cat([DP_3D_IDX[0], torch.tensor([len(INPT_VARS['3D_all'])-1])]) # zos

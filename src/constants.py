@@ -78,7 +78,9 @@ for d in range(19):
         elif d == int(k.split("lev_")[-1]):
             DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
     DP_3D_IDX[d].to(torch.int32)
-DP_3D_IDX[0] = torch.cat([DP_3D_IDX[0], torch.tensor([len(INPT_VARS['3D_all'])-1])]) # zos
+DP_3D_IDX[0] = torch.cat(
+    [DP_3D_IDX[0], torch.tensor([len(INPT_VARS["3D_all"]) - 1])]
+)  # zos
 DP_3D_IDX[0].to(torch.int32)
 
 # Region boundaries

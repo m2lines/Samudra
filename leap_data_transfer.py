@@ -17,7 +17,9 @@ fs = gcsfs.GCSFileSystem(token=token)
 mapper = fs.get_mapper(
     "gs://leap-persistent/sd5313/convnext100M_epoch-25_train-OM4v0.0_eval-OM4v0.0"
 )
-ds = xr.open_zarr('/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/ConvNext UNet Train3DEval3D100MEpoch25_Train_global_3D_Test_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth/Pred_lateral_Fast_Data_025_global_3D_all_N_samples_4000_rand_seed_1.zarr')
+ds = xr.open_zarr(
+    "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/ConvNext UNet Train3DEval3D100MEpoch25_Train_global_3D_Test_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth/Pred_lateral_Fast_Data_025_global_3D_all_N_samples_4000_rand_seed_1.zarr"
+)
 
 with ProgressBar():
     ds.to_zarr(mapper)

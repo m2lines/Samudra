@@ -262,7 +262,7 @@ class Trainer:
         num_gpus = get_world_size()
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset("/scratch/as15415/Data/CM2x_grids/Grid_New.nc").rename(
+        grids = xr.open_dataset("/vast/sd5313/data/m2lines/3D_ocean_data/Grid_New.nc").rename(
             {"dx": "dxu", "dy": "dyu"}
         )
 

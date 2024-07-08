@@ -275,8 +275,8 @@ class Trainer:
         )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         self.indices = [i * 19 for i in range(4)] + [-1]
-        self.indices[2] = self.indices[2] -1
-        self.indices[3] = self.indices[3] -1
+        self.indices[2] = self.indices[2] - 1
+        self.indices[3] = self.indices[3] - 1
         indices_str = [self.inputs[i] for i in self.indices]
 
         self.val_data_set = []
@@ -311,9 +311,7 @@ class Trainer:
             }
 
             self.val_data_set.append(val_data)
-            self.target_set.append(
-                val_data[:self.N_local][1].numpy()
-            )
+            self.target_set.append(val_data[: self.N_local][1].numpy())
 
             # Surface Data
             surface_targets = data_CNN_Disk(
@@ -483,21 +481,24 @@ class Trainer:
             self.N_extra,
             0,
             self.region,
-            train=True
+            train=True,
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)
         targets = self.target_set[rank]
 
-        predictions = torch.from_numpy(predictions)*self.wet
-        targets = torch.from_numpy(targets)*self.wet
+        predictions = torch.from_numpy(predictions) * self.wet
+        targets = torch.from_numpy(targets) * self.wet
 
         full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
         loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
         loss_value = torch.mean(loss_per_channel)
 
         # Surface level evaluation
-        model_pred_unnormalized = model_pred * self.val_data_set[rank].norm_vals["s_out"] + self.val_data_set[rank].norm_vals["m_out"]
+        model_pred_unnormalized = (
+            model_pred * self.val_data_set[rank].norm_vals["s_out"]
+            + self.val_data_set[rank].norm_vals["m_out"]
+        )
         surface_preds = model_pred_unnormalized[:, :, :, self.indices]
 
         (

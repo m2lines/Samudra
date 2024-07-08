@@ -84,7 +84,8 @@ def find_index_for_true(da_bool: xr.DataArray):
     # not necessary to check e.g. x,y, lev here
     true_found_index = {}
     for dim in all_dims:
-        other_dims = [di for di in da_bool.dims if di != dim]        test = da_bool.any(other_dims).load()
+        other_dims = [di for di in da_bool.dims if di != dim]        
+        test = da_bool.any(other_dims).load()
         index = da_bool[dim].isel({dim:test})
         true_found_index[dim] = index.data
     return true_found_index

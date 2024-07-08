@@ -257,8 +257,7 @@ def cmip_vertical_outer_grid(ds: xr.Dataset) -> xr.Dataset:
     )
     ds = ds.assign_coords(
         {
-            "lev_outer": cf_xarray.bounds_to_vertices(ds["lev_bounds"], "bnds").rename(
-                {"lev_vertices": "lev_outer"}
+            "lev_outer": lev_outer
             )
         }
     )

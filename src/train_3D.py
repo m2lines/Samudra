@@ -275,6 +275,8 @@ class Trainer:
         )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         self.indices = [i * 19 for i in range(4)] + [-1]
+        self.indices[2] = self.indices[2] -1
+        self.indices[3] = self.indices[3] -1
         indices_str = [self.inputs[i] for i in self.indices]
 
         self.val_data_set = []
@@ -310,7 +312,7 @@ class Trainer:
 
             self.val_data_set.append(val_data)
             self.target_set.append(
-                val_data[i * self.N_local : (i + 1) * self.N_local][1].numpy()
+                val_data[:self.N_local][1].numpy()
             )
 
             # Surface Data
@@ -481,16 +483,22 @@ class Trainer:
             self.N_extra,
             0,
             self.region,
+            train=True
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)
         targets = self.target_set[rank]
 
-        loss_per_channel = np.sqrt(((predictions - targets) ** 2).mean(axis=(0, 2, 3)))
-        loss_value = np.mean(loss_per_channel)
+        predictions = torch.from_numpy(predictions)*self.wet
+        targets = torch.from_numpy(targets)*self.wet
+
+        full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
+        loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
+        loss_value = torch.mean(loss_per_channel)
 
         # Surface level evaluation
-        surface_preds = model_pred[:, :, :, self.indices]
+        model_pred_unnormalized = model_pred * self.val_data_set[rank].norm_vals["s_out"] + self.val_data_set[rank].norm_vals["m_out"]
+        surface_preds = model_pred_unnormalized[:, :, :, self.indices]
 
         (
             KE_corr,
@@ -520,7 +528,7 @@ class Trainer:
             wandb.log({"eval/total_eval_loss_per_batch": loss_value})
             # Loss per channel
             for i, var in enumerate(self.inputs):
-                wandb.log({"eval/per_channel/" + var: loss_per_channel[i]})
+                wandb.log({"eval/per_channel/" + var: loss_per_channel[i].item()})
 
             # Loss per depth
             for i in range(19):
@@ -528,7 +536,7 @@ class Trainer:
                     {
                         "eval/depth/depth_"
                         + str(i)
-                        + "_loss": np.mean(loss_per_channel[DP_3D_IDX[i]])
+                        + "_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()
                     }
                 )
 
@@ -538,7 +546,7 @@ class Trainer:
                     {
                         "eval/per_var/"
                         + k
-                        + "_loss": np.mean(loss_per_channel[CH_3D_IDX[k]])
+                        + "_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()
                     }
                 )
 
@@ -559,7 +567,7 @@ class Trainer:
                     "eval/surface/v_rmse": v_rmse,
                 }
             )
-        return {"loss": loss_value}
+        return {"loss": loss_value.item()}
 
 
 def main(args):

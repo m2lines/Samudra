@@ -1,3 +1,4 @@
+from .data import input_data
 ################################## TODO:rework these tests once the preprocessing is more mature
 # def _get_software_version():
 #     pass

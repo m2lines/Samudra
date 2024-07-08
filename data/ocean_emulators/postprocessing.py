@@ -9,7 +9,7 @@ def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
     # Always run the input_data_test in non-deep mode here
     try:
         input_data_test(ds_truth, deep=False)
-    except:
+    except ValueError as e:
         raise ValueError(
             f"Checking the input dataset failed with {e}. Please fix those issues before creating a postprocessed dataset."
         )

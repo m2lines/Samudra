@@ -380,11 +380,7 @@ def spatially_regrid(
                     f"something is wrong with the vertex order of the {name}"
                 )
     if xe is None:
-        raise ImportError(
-            "
-            The spatial regridding requires xesmf. Install using `conda install xesmf`.
-            "
-        )
+        raise ImportError("The spatial regridding requires xesmf. Install using `conda install xesmf`.")
 
     regridder = xe.Regridder(
         cmip_bounds_to_xesmf(ds_source),

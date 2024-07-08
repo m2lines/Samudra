@@ -357,7 +357,10 @@ def test_vertex_order(ds):
         ds_p, order=None
     )  # woudld be nice if this could automatically get the settings provided to `cmip_bounds_to_xesmf`
     ds_p = ds_p.load().transpose(..., "x", "y", "vertex")
-    if not (ds_p.lon_b.diff("x_vertices") > 0).all() and (ds_p.lat_b.diff("y_vertices") > 0).all():
+    if (
+        not (ds_p.lon_b.diff("x_vertices") > 0).all()
+        and (ds_p.lat_b.diff("y_vertices") > 0).all()
+    ):
         raise ValueError("Test vertices not strictly monotinically increasing")
 
 

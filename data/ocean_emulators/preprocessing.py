@@ -3,16 +3,16 @@
 from xgcm import Grid
 import xarray as xr
 import numpy as np
-from xmip.preprocessing import combined_preprocessing
 import cf_xarray
 import xesmf as xe
 
-def manual_v0_fixes(ds_input:xr.Dataset)->xr.Dataset:
+
+def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
     """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future"""
     # fixes that should be checked and fixes on the input data
     area = xr.open_dataset(
         "gs://leap-persistent/sd5313/grids_CM2x.zarr", engine="zarr", chunks={}
-    )["area_C"].rename({'xu_ocean':'x', 'yu_ocean':'y'})
+    )["area_C"].rename({"xu_ocean": "x", "yu_ocean": "y"})
     # from https://github.com/m2lines/ocean_emulators/issues/17
     dz = xr.DataArray(
         [
@@ -63,45 +63,53 @@ def manual_v0_fixes(ds_input:xr.Dataset)->xr.Dataset:
         dims="lev",
     )
     wetmask = ~np.isnan(ds_input.thetao.isel(time=0).reset_coords(drop=True)).load()
-    lon = xr.ones_like(ds_input.y)*ds_input.x
-    lat = ds_input.y*xr.ones_like(ds_input.x)
-    ds_input = ds_input.assign_coords(areacello=area, dz=dz, lev=z, wetmask=wetmask, lon=lon, lat=lat)
+    lon = xr.ones_like(ds_input.y) * ds_input.x
+    lat = ds_input.y * xr.ones_like(ds_input.x)
+    ds_input = ds_input.assign_coords(
+        areacello=area, dz=dz, lev=z, wetmask=wetmask, lon=lon, lat=lat
+    )
     # give a dummy commit hash
-    ds_input.attrs['m2lines/ocean-emulators_git_hash'] = 'dummy'
+    ds_input.attrs["m2lines/ocean-emulators_git_hash"] = "dummy"
     return ds_input
 
 
 # i need to test 2d and 3d separately
-def split_2d_3d(ds:xr.Dataset):
-    ds_2d = xr.Dataset({v:ds[v] for v in ds.data_vars if 'lev' not in ds[v].dims})
-    ds_3d = xr.Dataset({v:ds[v] for v in ds.data_vars if 'lev' in ds[v].dims})
+def split_2d_3d(ds: xr.Dataset):
+    ds_2d = xr.Dataset({v: ds[v] for v in ds.data_vars if "lev" not in ds[v].dims})
+    ds_3d = xr.Dataset({v: ds[v] for v in ds.data_vars if "lev" in ds[v].dims})
     return ds_2d, ds_3d
+
 
 def find_index_for_true(da_bool: xr.DataArray):
     """Find slices along all dimensions within a boolean array that have any True value"""
     # all_dims = da_bool.dims
-    all_dims = [di for di in ['variable', 'time'] if di in da_bool.dims] # all variables that should be checked for indexers
+    all_dims = [
+        di for di in ["variable", "time"] if di in da_bool.dims
+    ]  # all variables that should be checked for indexers
     # not necessary to check e.g. x,y, lev here
     true_found_index = {}
     for dim in all_dims:
-        other_dims = [di for di in da_bool.dims if di != dim]        
+        other_dims = [di for di in da_bool.dims if di != dim]
         test = da_bool.any(other_dims).load()
-        index = da_bool[dim].isel({dim:test})
+        index = da_bool[dim].isel({dim: test})
         true_found_index[dim] = index.data
     return true_found_index
 
-def test_nan_consistency(ds:xr.Dataset, name='None'):
+
+def test_nan_consistency(ds: xr.Dataset, name="None"):
     """Test the consistency of nan values in the dataset across variables and time
     (compared to a reference at time=0)."""
     ds = ds.to_array()
     ref = ds.isel(time=0)
     # # make sure the ref data has nans in the same places for all variables
-    a = (np.isnan(ref.isel(variable=0)) != np.isnan(ref)).all(['variable'])
+    a = (np.isnan(ref.isel(variable=0)) != np.isnan(ref)).all(["variable"])
 
     # find the index values for true values in b
     index = find_index_for_true(a)
     if not all(len(v) == 0 for v in index.values()):
-        raise ValueError(f"Found non-matching nan values between variables on the first time step.")
+        raise ValueError(
+            "Found non-matching nan values between variables on the first time step."
+        )
 
     ## make sure that the ref nan pattern is the same as every time step
     b = np.isnan(ref) != np.isnan(ds)
@@ -111,16 +119,19 @@ def test_nan_consistency(ds:xr.Dataset, name='None'):
 
     # if they are all length 0 all is good, otherwise raise.
     if not all(len(v) == 0 for v in index.values()):
-        raise ValueError(f"{name}:Found nonmatching nans compared to first time step in the following indexes {index}")
+        raise ValueError(
+            f"{name}:Found nonmatching nans compared to first time step in the following indexes {index}"
+        )
+
 
 def input_data_test_deep(ds_input: xr.Dataset):
     """Expensive tests that compute on the entire dataset"""
     ds_nan_test_2d, ds_nan_test_3d = split_2d_3d(ds_input)
-    print('2D consistency check')
-    test_nan_consistency(ds_nan_test_2d, '2D nan consistency check')
+    print("2D consistency check")
+    test_nan_consistency(ds_nan_test_2d, "2D nan consistency check")
 
-    print('3D consistency check')
-    test_nan_consistency(ds_nan_test_3d, '3D nan consistency check')
+    print("3D consistency check")
+    test_nan_consistency(ds_nan_test_3d, "3D nan consistency check")
 
 
 def input_data_test(ds_input: xr.Dataset, deep=False):
@@ -144,7 +155,17 @@ def input_data_test(ds_input: xr.Dataset, deep=False):
     for v in expected_data_vars:
         expected_data_vars_full.extend([f"{v}_mean", f"{v}_std"])
 
-    expected_coords = ["areacello", "dz", "x", "y", "time", "lev", "lon", "lat", "wetmask"]
+    expected_coords = [
+        "areacello",
+        "dz",
+        "x",
+        "y",
+        "time",
+        "lev",
+        "lon",
+        "lat",
+        "wetmask",
+    ]
     if not set(ds_input.coords.keys()) == set(expected_coords):
         raise ValueError(
             f"Expected coords {set(expected_coords)} but found {list(set(ds_input.coords.keys()))}"
@@ -153,7 +174,9 @@ def input_data_test(ds_input: xr.Dataset, deep=False):
     expected_sizes = {"x": 360, "y": 180, "lev": 19}
     for di, s in expected_sizes.items():
         if not ds_input.sizes[di] == s:
-            raise ValueError(f"Expected size ({s}) for dimension {di}, but got {ds_input.sizes[di]}")
+            raise ValueError(
+                f"Expected size ({s}) for dimension {di}, but got {ds_input.sizes[di]}"
+            )
 
     check_attrs = ["m2lines/ocean-emulators_git_hash"]
     for attr in check_attrs:
@@ -162,15 +185,17 @@ def input_data_test(ds_input: xr.Dataset, deep=False):
 
     # asser shape of coordinates
     dims_expected_on_coords = {
-        'wetmask':['x','y', 'lev'],
-        'areacello':['x', 'y'],
-        'lon':['x', 'y'],
-        'lat':['x', 'y'],
-        'dz':['lev']
+        "wetmask": ["x", "y", "lev"],
+        "areacello": ["x", "y"],
+        "lon": ["x", "y"],
+        "lat": ["x", "y"],
+        "dz": ["lev"],
     }
     for co, expected_dims in dims_expected_on_coords.items():
         if not set(expected_dims) == set(ds_input[co].dims):
-            raise ValueError(f"Expected dimensions {set(expected_dims)} on {co}, but got {set(ds_input[co].dims)}")
+            raise ValueError(
+                f"Expected dimensions {set(expected_dims)} on {co}, but got {set(ds_input[co].dims)}"
+            )
 
     if deep:
         input_data_test_deep(ds_input)

@@ -1,4 +1,5 @@
 import xarray as xr
+from tests.data import input_data #noqa # Might want to put these in conftest.py (see https://stackoverflow.com/questions/73191533/using-conftest-py-vs-importing-fixtures-from-dedicate-modules)
 from ocean_emulators.postprocessing import post_processor
 
 

@@ -1,5 +1,4 @@
 import xarray as xr
-from tests.data import input_data
 from ocean_emulators.postprocessing import post_processor
 
 

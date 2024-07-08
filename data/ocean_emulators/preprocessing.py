@@ -11,7 +11,6 @@ except ImportError:
     xe = None
 
 
-
 def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
     """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future"""
     # fixes that should be checked and fixes on the input data
@@ -380,7 +379,9 @@ def spatially_regrid(
                     f"something is wrong with the vertex order of the {name}"
                 )
     if xe is None:
-        raise ImportError("The spatial regridding requires xesmf. Install using `conda install xesmf`.")
+        raise ImportError(
+            "The spatial regridding requires xesmf. Install using `conda install xesmf`."
+        )
 
     regridder = xe.Regridder(
         cmip_bounds_to_xesmf(ds_source),

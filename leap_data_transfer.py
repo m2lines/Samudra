@@ -23,22 +23,23 @@ ds = xr.open_zarr(
 )
 
 ds1 = xr.open_zarr(
-    "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data", 
+    "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data",
 )
 
-ds1 = ds1.rename({'x':'x_i', 'y':'y_i'}).rename({'x_i':'y', 'y_i':'x'})
-ds1 = ds1['thetao_lev_0'].isel(time=slice(4441, 4741)) # Last 300 / 600
-ds1 = ds1.expand_dims('var', axis=-1)
-ds1['var'] = [38]
+ds1 = ds1.rename({"x": "x_i", "y": "y_i"}).rename({"x_i": "y", "y_i": "x"})
+ds1 = ds1["thetao_lev_0"].isel(time=slice(4441, 4741))  # Last 300 / 600
+ds1 = ds1.expand_dims("var", axis=-1)
+ds1["var"] = [38]
 
 import numpy as np
+
 before = ds.isel(var=slice(0, 38)).to_array().squeeze().to_numpy()
 after = ds.isel(var=slice(38, None)).to_array().squeeze().to_numpy()
 middle = ds1.to_numpy()
 
 final = np.concatenate([before, middle, after], axis=-1)
 
-final_ds = xr.DataArray(final, dims=['time', 'x', 'y', 'var'])
+final_ds = xr.DataArray(final, dims=["time", "x", "y", "var"])
 
 with ProgressBar():
     final_ds.to_zarr(mapper)

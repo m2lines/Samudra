@@ -1,11 +1,18 @@
 import xarray as xr
 import warnings
 import numpy as np
+from ocean_emulators.preprocessing import input_data_test
 
 
 def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
     """Converts the prediction output to an xarray dataset with the same dimensions/variables as input"""
-    # TODO: Add the input data check here so we can assume a certain state on `ds_input`
+    # Always run the input_data_test in non-deep mode here
+    try:
+        input_data_test(ds_truth, deep=False)
+    except ValueError as e:
+        raise ValueError(
+            f"Checking the input dataset failed with {e}. Please fix those issues before creating a postprocessed dataset."
+        )
 
     # correct swapped dimensions and warn
     if len(ds.x) == 180 and len(ds.y) == 360:

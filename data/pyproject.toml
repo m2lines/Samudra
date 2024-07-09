@@ -27,7 +27,8 @@ classifiers = [
 license = { text = "Apache-2.0" }
 keywords = ["climate", "data", "ml", "emulators"]
 dependencies = [
-    "xarray"
+    "xarray",
+    "xmip"
 ]
 
 [project.optional-dependencies]
@@ -46,7 +47,7 @@ Homepage = "https://github.com/jbusecke/ocean_emulators"
 Tracker = "https://github.com/jbusecke/ocean_emulators/issues"
 
 [tool.setuptools.packages.find]
-exclude = ["book", "docs", "tests"]  # exclude packages matching these glob patterns (empty by default)
+exclude = ["book", "docs"]  # exclude packages matching these glob patterns (empty by default)
 
 [tool.setuptools_scm]
 write_to = "ocean_emulators/_version.py"
@@ -67,7 +68,8 @@ indent-width = 4
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 select = ["E4", "E7", "E9", "F"]
-ignore = []
+# not the cleanest solution, but otherwise pytest fixtures raise error in tests ( I wish I could apply this to test modules only, some more discusstion here: https://github.com/astral-sh/ruff/issues/3295)
+ignore = ["F811"]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]

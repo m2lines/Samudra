@@ -8,6 +8,9 @@ import pytest
 def input_data():
     y = xr.DataArray(np.arange(-89, 91, 1), dims=["y"])
     x = xr.DataArray(np.arange(0, 360, 1), dims=["x"])
+    time = xr.DataArray(np.arange(0, 3, 1), dims=["time"])
+    lon = xr.ones_like(x) * y
+    lat = y * xr.ones_like(x)
     # area +wetmask  is fake data for now (might have to change this for range checks later)
     areacello = x * y
     # from https://github.com/m2lines/ocean_emulators/issues/17
@@ -68,6 +71,8 @@ def input_data():
         "dz": dz,
         "areacello": areacello,
         "wetmask": wetmask,
+        "lon": lon,
+        "lat": lat,
     }
 
     coords_2d = {k: da for k, da in coords.items() if "lev" not in da.dims}

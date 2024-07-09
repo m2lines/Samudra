@@ -130,7 +130,7 @@ def input_data():
                 coords=coords_2d,
             ),
         },
-        attrs={"something": "for now", "m2lines/ocean-emulators_git_hash":"dummy"},
+        attrs={"something": "for now", "m2lines/ocean-emulators_git_hash": "dummy"},
     )
     return ds
 

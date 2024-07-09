@@ -22,26 +22,8 @@ ds = xr.open_zarr(
     "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds/ConvNext UNet Train3DEval3D100M_SSTB_Epoch60_300_Train_global_3D_Test_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth/Pred_lateral_Fast_Data_025_global_3D_all_N_samples_4000_rand_seed_1.zarr"
 )
 
-ds1 = xr.open_zarr(
-    "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data", 
-)
-
-ds1 = ds1.rename({'x':'x_i', 'y':'y_i'}).rename({'x_i':'y', 'y_i':'x'})
-ds1 = ds1['thetao_lev_0'].isel(time=slice(4441, 4741)) # Last 300 / 600
-ds1 = ds1.expand_dims('var', axis=-1)
-ds1['var'] = [38]
-
-import numpy as np
-before = ds.isel(var=slice(0, 38)).to_array().squeeze().to_numpy()
-after = ds.isel(var=slice(38, None)).to_array().squeeze().to_numpy()
-middle = ds1.to_numpy()
-
-final = np.concatenate([before, middle, after], axis=-1)
-
-final_ds = xr.DataArray(final, dims=['time', 'x', 'y', 'var'])
-
 with ProgressBar():
-    final_ds.to_zarr(mapper)
+    ds.to_zarr(mapper)
 
 # mapper = fs.get_mapper("gs://leap-persistent/sd5313/OM4_train_data_stds")
 # ds = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds")

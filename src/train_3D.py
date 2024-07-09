@@ -138,7 +138,6 @@ class Trainer:
             )
         elif args.depth_mode == "all":
             self.wet = torch.load("/vast/sd5313/data/m2lines/3D_ocean_data/3D_wet.pt")
-            self.wet = torch.cat([self.wet[:38], self.wet[39:]])
 
             self.data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data")
             self.data_mean = xr.open_zarr(
@@ -275,8 +274,6 @@ class Trainer:
         )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         self.indices = [i * 19 for i in range(4)] + [-1]
-        self.indices[2] = self.indices[2] -1
-        self.indices[3] = self.indices[3] -1
         indices_str = [self.inputs[i] for i in self.indices]
 
         self.val_data_set = []
@@ -489,8 +486,8 @@ class Trainer:
         predictions = model_pred.transpose(0, 3, 1, 2)
         targets = self.target_set[rank]
 
-        predictions = torch.from_numpy(predictions)*self.wet
-        targets = torch.from_numpy(targets)*self.wet
+        predictions = torch.from_numpy(predictions)
+        targets = torch.from_numpy(targets)
 
         full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
         loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))

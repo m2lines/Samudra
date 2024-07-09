@@ -57,9 +57,9 @@ OUT_VARS = {
 }
 
 #### SPECIAL CASE : Boundary condition with thetao_lev_0
-INPT_VARS["3D_all"].remove("thetao_lev_0")
-EXTRA_VARS["3D_all"].append("thetao_lev_0")
-OUT_VARS["3D_all"].remove("thetao_lev_0")
+# INPT_VARS["3D_all"].remove("thetao_lev_0")
+# EXTRA_VARS["3D_all"].append("thetao_lev_0")
+# OUT_VARS["3D_all"].remove("thetao_lev_0")
 
 CH_3D_IDX = {}
 for kt in ["uo", "vo", "thetao", "so"]:

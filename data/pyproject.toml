@@ -47,7 +47,7 @@ Homepage = "https://github.com/jbusecke/ocean_emulators"
 Tracker = "https://github.com/jbusecke/ocean_emulators/issues"
 
 [tool.setuptools.packages.find]
-exclude = ["book", "docs", "tests"]  # exclude packages matching these glob patterns (empty by default)
+exclude = ["book", "docs"]  # exclude packages matching these glob patterns (empty by default)
 
 [tool.setuptools_scm]
 write_to = "ocean_emulators/_version.py"

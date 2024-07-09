@@ -68,7 +68,7 @@ def input_data():
         "x": x,
         "y": y,
         "lev": lev,
-        "time":time, 
+        "time": time,
         "dz": dz,
         "areacello": areacello,
         "wetmask": wetmask,

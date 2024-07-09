@@ -308,9 +308,7 @@ class Trainer:
             }
 
             self.val_data_set.append(val_data)
-            self.target_set.append(
-                val_data[:self.N_local][1].numpy()
-            )
+            self.target_set.append(val_data[: self.N_local][1].numpy())
 
             # Surface Data
             surface_targets = data_CNN_Disk(
@@ -480,7 +478,7 @@ class Trainer:
             self.N_extra,
             0,
             self.region,
-            train=True
+            train=True,
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)
@@ -494,7 +492,10 @@ class Trainer:
         loss_value = torch.mean(loss_per_channel)
 
         # Surface level evaluation
-        model_pred_unnormalized = model_pred * self.val_data_set[rank].norm_vals["s_out"] + self.val_data_set[rank].norm_vals["m_out"]
+        model_pred_unnormalized = (
+            model_pred * self.val_data_set[rank].norm_vals["s_out"]
+            + self.val_data_set[rank].norm_vals["m_out"]
+        )
         surface_preds = model_pred_unnormalized[:, :, :, self.indices]
 
         (

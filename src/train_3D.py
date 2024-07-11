@@ -123,31 +123,26 @@ class Trainer:
         print("Loading data")
         assert args.depth_mode == "surface" or args.depth_mode == "all"
         self.data_dir = args.data_dir
+        self.wet_file = args.wet_file
+        self.surface_wet_file = args.surface_wet_file
+        self.data_zarr = args.data_zarr
+        self.data_means_zarr = args.data_means_zarr
+        self.data_stds_zarr = args.data_stds_zarr
+        self.grid_file = args.grid_file
 
-        if args.depth_mode == "surface":
-            self.wet = torch.load(
-                os.path.join(self.data_dir, "surface_wet.pt")
-            )
-            self.data = xr.open_zarr(
-                os.path.join(self.data_dir, "surface_data")
-            )
-            self.data_mean = xr.open_zarr(
-                os.path.join(self.data_dir, "surface_data_means")
-            )
-            self.data_std = xr.open_zarr(
-                os.path.join(self.data_dir, "surface_data_stds")
-            )
-        elif args.depth_mode == "all":
-            self.wet = torch.load(os.path.join(self.data_dir, "3D_wet.pt"))
-
-            self.data = xr.open_zarr(os.path.join(self.data_dir, "3D_data"))
-            self.data_mean = xr.open_zarr(
-                os.path.join(self.data_dir, "3D_data_means")
-            )
-            self.data_std = xr.open_zarr(
-                os.path.join(self.data_dir, "3D_data_stds")
-            )
-
+        self.wet = torch.load(
+            os.path.join(self.data_dir, self.wet_file)
+        )
+        self.data = xr.open_zarr(
+            os.path.join(self.data_dir, self.data_zarr)
+        )
+        self.data_mean = xr.open_zarr(
+            os.path.join(self.data_dir, self.data_means_zarr)
+        )
+        self.data_std = xr.open_zarr(
+            os.path.join(self.data_dir, self.data_stds_zarr)
+        )
+            
         train_data = data_CNN_Disk_steps(
             self.data,
             self.inputs,
@@ -265,13 +260,13 @@ class Trainer:
         self.N_local = N // num_gpus
 
         grids = xr.open_dataset(
-            os.path.join(self.data_dir, "Grid_New.nc")
+            os.path.join(self.data_dir, self.grid_file)
         ).rename({"dx": "dxu", "dy": "dyu"})
 
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
         self.surface_wet = torch.load(
-            os.path.join(self.data_dir, "surface_wet.pt")
+            os.path.join(self.data_dir, self.surface_wet_file)
         )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         self.indices = [i * 19 for i in range(4)] + [-1]

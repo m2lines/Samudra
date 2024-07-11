@@ -15,7 +15,12 @@ wandb:
 experiment: train_3D
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-data_dir: /pscratch/sd/s/suryad/data
+wet_file: 3D_wet.pt
+surface_wet_file: surface_wet.pt
+data_zarr: 3D_data
+data_means_zarr: 3D_data_means
+data_stds_zarr: 3D_data_stds
+grid_file: Grid_New.nc
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
 

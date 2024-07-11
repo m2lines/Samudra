@@ -4,6 +4,8 @@ defaults:
   - exp: ???
 
 base_output_dir: /pscratch/sd/s/suryad/Ocean_Emulator
+data_dir: /pscratch/sd/s/suryad/data
+pred_dir: /pscratch/sd/s/suryad/Ocean_Emulator/Preds
 experiment: ???
 sub_dir: ${experiment}
 name: ???

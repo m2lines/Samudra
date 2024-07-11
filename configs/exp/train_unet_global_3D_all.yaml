@@ -15,7 +15,7 @@ wandb:
 experiment: train_3D
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
+data_dir: /pscratch/sd/s/suryad/data
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
 

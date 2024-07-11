@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.utils.data as data
 from scipy.ndimage import gaussian_filter
 from einops import rearrange
-
+import os
 
 # Class defined to store information about the grid and corresponding graph of data. Importantly produces the adjacency matrices
 # and keeps track of what is land vs ocean
@@ -1163,9 +1163,9 @@ def gen_data(input_vars, extra_vars, output_vars, lag, factor, region="Kuroshio"
     return inputs, extra_in, outputs
 
 
-def gen_3D_data(input_vars, extra_vars, output_vars, lag=1, depth_mode="all"):
+def gen_3D_data(data_dir, input_vars, extra_vars, output_vars, lag=1, depth_mode="all"):
     data = xr.open_zarr(
-        "/scratch/as15415/Data/Emulation_Data/OM4_Horizontal_Regrid_Old.zarr"
+        os.path.join(data_dir, "OM4_Horizontal_Regrid_Old.zarr")
     )
 
     inputs = []

@@ -1163,10 +1163,8 @@ def gen_data(input_vars, extra_vars, output_vars, lag, factor, region="Kuroshio"
     return inputs, extra_in, outputs
 
 
-def gen_3D_data(data_dir, input_vars, extra_vars, output_vars, lag=1, depth_mode="all"):
-    data = xr.open_zarr(
-        os.path.join(data_dir, "OM4_Horizontal_Regrid_Old.zarr")
-    )
+def gen_3D_data(raw_data_path, input_vars, extra_vars, output_vars, lag=1, depth_mode="all"):
+    data = xr.open_zarr(raw_data_path)
 
     inputs = []
     extra_in = []

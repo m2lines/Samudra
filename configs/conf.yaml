@@ -3,7 +3,7 @@ defaults:
   - compute: slurm # must be slurm or local
   - exp: ???
 
-base_output_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator
+base_output_dir: /pscratch/sd/s/suryad/Ocean_Emulator
 experiment: ???
 sub_dir: ${experiment}
 name: ???

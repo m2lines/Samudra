@@ -122,29 +122,30 @@ class Trainer:
         # Dataloaders
         print("Loading data")
         assert args.depth_mode == "surface" or args.depth_mode == "all"
+        self.data_dir = args.data_dir
 
         if args.depth_mode == "surface":
             self.wet = torch.load(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
+                os.path.join(self.data_dir, "surface_wet.pt")
             )
             self.data = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data"
+                os.path.join(self.data_dir, "surface_data")
             )
             self.data_mean = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means"
+                os.path.join(self.data_dir, "surface_data_means")
             )
             self.data_std = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_stds"
+                os.path.join(self.data_dir, "surface_data_stds")
             )
         elif args.depth_mode == "all":
-            self.wet = torch.load("/vast/sd5313/data/m2lines/3D_ocean_data/3D_wet.pt")
+            self.wet = torch.load(os.path.join(self.data_dir, "3D_wet.pt"))
 
-            self.data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data")
+            self.data = xr.open_zarr(os.path.join(self.data_dir, "3D_data"))
             self.data_mean = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_means"
+                os.path.join(self.data_dir, "3D_data_means")
             )
             self.data_std = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds"
+                os.path.join(self.data_dir, "3D_data_stds")
             )
 
         train_data = data_CNN_Disk_steps(
@@ -264,13 +265,13 @@ class Trainer:
         self.N_local = N // num_gpus
 
         grids = xr.open_dataset(
-            "/vast/sd5313/data/m2lines/3D_ocean_data/Grid_New.nc"
+            os.path.join(self.data_dir, "Grid_New.nc")
         ).rename({"dx": "dxu", "dy": "dyu"})
 
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
         self.surface_wet = torch.load(
-            "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
+            os.path.join(self.data_dir, "surface_wet.pt")
         )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         self.indices = [i * 19 for i in range(4)] + [-1]

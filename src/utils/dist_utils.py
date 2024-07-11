@@ -77,24 +77,21 @@ def init_distributed_mode(args):
         args.dist_url = "env://"
         args.gpu = args.rank % torch.cuda.device_count()
     elif "SLURM_PROCID" in os.environ:
-        if not args.dist_url:
-            if "MASTER_ADDR" in os.environ and "MASTER_PORT" in os.environ:
-                args.dist_url = "tcp://{}:{}".format(
-                    os.environ["MASTER_ADDR"], os.environ["MASTER_PORT"]
-                )
-            else:
-                args.dist_url = "tcp://localhost:40000"
         args.rank = int(os.environ["SLURM_PROCID"])
         args.gpu = args.rank % torch.cuda.device_count()
         args.world_size = int(os.environ["SLURM_NNODES"]) * int(
             os.environ["SLURM_TASKS_PER_NODE"][0]
         )
+        if "MASTER_ADDR" not in os.environ:
+            args.dist_url = "tcp://localhost:40000" # Local execution
+        else:
+            args.dist_url = None # Slurm execution
 
     torch.cuda.set_device(args.gpu)
     args.dist_backend = "nccl"
     log.info(
-        "| distributed init (rank {}): {}, gpu {}, world_size {}".format(
-            args.rank, args.dist_url, args.gpu, args.world_size
+        "| distributed init (rank {}), gpu {}, world_size {}".format(
+            args.rank, args.gpu, args.world_size
         )
     )
 

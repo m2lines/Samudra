@@ -104,7 +104,7 @@ if __name__ == "__main__":
                 "\\\n",
                 shlex.quote(
                     os.path.join(
-                        os.path.dirname(os.path.realpath(__file__)), ".python-greene"
+                        os.path.dirname(os.path.realpath(__file__)), ".python-perlmutter"
                     )
                 ),
                 "\\\n",
@@ -130,6 +130,7 @@ if __name__ == "__main__":
     parser.add_argument("--array", type=str, required=False)
     parser.add_argument("--cpus-per-task", type=str, required=False)
     parser.add_argument("--mem", type=str, required=False)
+    parser.add_argument("--qos", type=str, required=False)
     args, replace = parser.parse_known_args()
     sys.argv = (
         sys.argv[:1] + replace
@@ -143,6 +144,13 @@ if __name__ == "__main__":
             command_list.insert(1, f"--cpus-per-task={args.cpus_per_task}")
         if args.array is not None:
             command_list.insert(1, f"--array={args.array}")
+        if args.qos is not None:
+            command_list.insert(1, f"--qos={args.qos}")
+        else:
+            command_list.insert(1, "--qos=regular")
+        command_list.insert(1, "--account=m4331")
+        command_list.insert(1, "--constraint=gpu&hbm80g")
+        
         return command_list
 
     submitit_slurm.SlurmExecutor._make_submission_command = _make_submission_command

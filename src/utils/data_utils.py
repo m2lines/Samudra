@@ -25,6 +25,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         n_samples,
         lag,
         interval,
+        hist,
         ind_start,
         device="cuda",
     ):
@@ -34,6 +35,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         self.size = n_samples
         self.lag = lag
         self.interval = interval
+        self.hist = hist
         self.ind_start = ind_start
 
         self.inputs = data[inputs_str + extra_in_str]
@@ -58,9 +60,11 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         # Return the idx-th data point of the dataset
         # If we have multiple things to return (data point and label), we can return them as tuple
         if type(idx) == list:
+            assert self.hist == 0
             ind_in = [self.ind_start + i * self.interval for i in idx]
             ind_out = [self.ind_start + i * self.interval + self.lag for i in idx]
         elif type(idx) == slice:
+            assert self.hist == 0
             if idx.start == None and idx.stop == None:
                 idx = slice(0, self.size, idx.step)
             elif idx.start == None:
@@ -77,18 +81,31 @@ class data_CNN_Disk(torch.utils.data.Dataset):
                 self.interval,
             )
         if type(idx) == int:
-            ind_in = self.ind_start + idx * self.interval
-            ind_out = self.ind_start + idx * self.interval + self.lag
-
+            if self.hist == 0:
+                ind_in = self.ind_start + idx * self.interval
+                ind_out = self.ind_start + idx * self.interval + self.lag
+            else:
+                assert idx >= 0 
+                ind_in = [self.ind_start + idx * self.interval + i for i in range(self.hist+1)]
+                ind_out = self.ind_start + idx * self.interval + self.lag + self.hist
+                
+        # print("Index in: ", ind_in)
+        # print("Index out: ", ind_out)
+            
         data_in = self.inputs.isel(time=ind_in)
         data_in = ((data_in - self.in_mean) / self.in_std).fillna(0)
         label = self.outputs.isel(time=ind_out)
         label = ((label - self.out_mean) / self.out_std).fillna(0)
 
         if type(idx) == int:
-            data_in = data_in.to_array().transpose("variable", "y", "x").to_numpy()
+            if self.hist == 0:
+                data_in = data_in.to_array().transpose("variable", "y", "x").to_numpy()
+            else:
+                data_in = data_in.to_array().transpose("time", "variable", "y", "x").to_numpy()
+                data_in = data_in.reshape((-1, data_in.shape[2], data_in.shape[3]))
             label = label.to_array().transpose("variable", "y", "x").to_numpy()
         else:
+            assert self.hist == 0
             data_in = (
                 data_in.to_array().transpose("time", "variable", "y", "x").to_numpy()
             )
@@ -113,6 +130,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         n_samples,
         lag,
         interval,
+        hist,
         steps,
         device="cuda",
     ):
@@ -122,6 +140,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.size = n_samples
         self.lag = lag
         self.interval = interval
+        self.hist = hist
         self.steps = steps
         self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
@@ -147,10 +166,12 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         outputs = []
         for step in range(self.steps):
             if type(idx) == list:
+                assert self.hist == 0
                 ind_in = [i * self.interval + self.lag * step for i in idx]
                 ind_out = [i * self.interval + self.lag * (step + 1) for i in idx]
 
             elif type(idx) == slice:
+                assert self.hist == 0
                 if idx.start == None and idx.stop == None:
                     idx = slice(0, self.size, idx.step)
                 elif idx.start == None:
@@ -168,18 +189,34 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
                 )
 
             if type(idx) == int:
-                ind_in = idx * self.interval + self.lag * step
-                ind_out = idx * self.interval + self.lag * (step + 1)
+                if self.hist == 0:
+                    ind_in = idx * self.interval + self.lag * step
+                    ind_out = idx * self.interval + self.lag * (step + 1)
+                else:
+                    assert idx >= 0 
+                    ind_in = [
+                        idx * self.interval + i + self.lag * step
+                        for i in range(self.hist + 1)
+                    ]
+                    ind_out = idx * self.interval + self.lag * (step + 1) + self.hist
 
+            # print("Index in: ", ind_in)
+            # print("Index out: ", ind_out)
+            
             data_in = self.inputs.isel(time=ind_in)
             data_in = ((data_in - self.in_mean) / self.in_std).fillna(0)
             label = self.outputs.isel(time=ind_out)
             label = ((label - self.out_mean) / self.out_std).fillna(0)
 
             if type(idx) == int:
-                data_in = data_in.to_array().transpose("variable", "y", "x").to_numpy()
+                if self.hist == 0:
+                    data_in = data_in.to_array().transpose("variable", "y", "x").to_numpy()
+                else:
+                    data_in = data_in.to_array().transpose("time", "variable", "y", "x").to_numpy()
+                    data_in = data_in.reshape((-1, data_in.shape[2], data_in.shape[3]))
                 label = label.to_array().transpose("variable", "y", "x").to_numpy()
             else:
+                assert self.hist == 0
                 data_in = (
                     data_in.to_array()
                     .transpose("time", "variable", "y", "x")

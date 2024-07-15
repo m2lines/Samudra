@@ -154,6 +154,7 @@ class Trainer:
             args.N_samples,
             args.lag,
             args.interval,
+            args.hist,
             args.steps,
             device="cuda",
         )
@@ -183,7 +184,8 @@ class Trainer:
                 wet=self.wet.cuda(),
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:
-            model = instantiate(args.unet, wet=self.wet.cuda())
+            args.unet.ch_width[0] = self.num_in
+            model = instantiate(args.unet, n_out=self.N_in, wet=self.wet.cuda())
         else:
             raise NotImplementedError
 
@@ -287,6 +289,7 @@ class Trainer:
                 self.N_val,
                 self.lag,
                 self.interval,
+                self.hist,
                 self.e_train + i * self.N_local,
                 device="cuda",
             )
@@ -318,6 +321,7 @@ class Trainer:
                 self.N_val,
                 self.lag,
                 self.interval,
+                self.hist,
                 self.e_train + i * self.N_local,
                 device="cuda",
             )

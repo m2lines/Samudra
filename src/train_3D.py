@@ -182,10 +182,11 @@ class Trainer:
                 output_channels=self.N_in,
                 pretrain_img_size=[180, 360],
                 wet=self.wet.cuda(),
+                hist=args.hist,
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:
             args.unet.ch_width[0] = self.num_in
-            model = instantiate(args.unet, n_out=self.N_in, wet=self.wet.cuda())
+            model = instantiate(args.unet, n_out=self.N_in, wet=self.wet.cuda(), hist=args.hist)
         else:
             raise NotImplementedError
 

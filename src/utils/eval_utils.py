@@ -14,10 +14,9 @@ def generate_model_rollout(
 ):
 
     N_test = test_data.size
-    assert hist == 0
 
     model.eval()
-    model_pred = np.zeros((N_eval, *test_data[0][0].shape[1:], N_in))
+    model_pred = np.zeros((N_eval, *test_data[0][0].shape[2:], N_in))
 
     with torch.no_grad():
         outs = model.inference(test_data, num_steps=N_eval)

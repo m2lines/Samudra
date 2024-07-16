@@ -36,10 +36,30 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         self.lag = lag
         self.interval = interval
         self.hist = hist
-        self.ind_start = ind_start
-
+        
+        assert self.interval == 1
+        assert self.lag == 1
+        
+        data = data.isel(time=slice(ind_start, None))
         self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
+
+        total_steps = self.hist + 1
+        
+        indices = xr.DataArray(
+            np.arange(data.time.size),
+            dims=["time"],
+            coords={"time": data.time},
+        )
+        
+        rolling_indices = indices.rolling(time=len(data.time)-total_steps, center=False).construct("window_dim").astype(int)
+        self.rolling_indices = rolling_indices.transpose('window_dim', 'time').isel(time=slice(len(data.time)-total_steps-1, None))
+        self.inputs_no_extra = data[inputs_str]
+        self.extras = data[extra_in_str]
+        self.inputs_no_extra_mean = data_mean[inputs_str]
+        self.inputs_no_extra_std = data_std[inputs_str]
+        self.extras_mean = data_mean[extra_in_str]
+        self.extras_std = data_std[extra_in_str]
 
         self.in_mean = data_mean[inputs_str + extra_in_str]
         self.in_std = data_std[inputs_str + extra_in_str]
@@ -54,62 +74,33 @@ class data_CNN_Disk(torch.utils.data.Dataset):
 
     def __len__(self):
         # Number of data point we have. Alternatively self.data.shape[0], or self.label.shape[0]
-        return self.size
+        return self.rolling_indices.window_dim.size
 
     def __getitem__(self, idx):
         # Return the idx-th data point of the dataset
         # If we have multiple things to return (data point and label), we can return them as tuple
-        if type(idx) == list:
-            assert self.hist == 0
-            ind_in = [self.ind_start + i * self.interval for i in idx]
-            ind_out = [self.ind_start + i * self.interval + self.lag for i in idx]
-        elif type(idx) == slice:
-            assert self.hist == 0
+        if type(idx) == slice:
             if idx.start == None and idx.stop == None:
                 idx = slice(0, self.size, idx.step)
             elif idx.start == None:
                 idx = slice(0, idx.stop, idx.step)
             elif idx.stop == None:
                 idx = slice(idx.start, self.size, idx.step)
+        elif type(idx) == int:
+            idx = slice(idx, idx + 1, 1)
+        
+        data_in = self.inputs_no_extra.isel(time=xr.Variable(["window_dim", "time"], self.rolling_indices.isel(window_dim=idx))).isel(time=slice(None, -1))
+        data_in = ((data_in - self.inputs_no_extra_mean) / self.inputs_no_extra_std).fillna(0)
+        data_in = data_in.to_array().transpose("window_dim", "time", "variable", "y", "x").to_numpy()
+        data_in = data_in.reshape((data_in.shape[0], -1, data_in.shape[3], data_in.shape[4]))
+        data_in_boundary = self.extras.isel(time=xr.Variable(["window_dim", "time"], self.rolling_indices.isel(window_dim=idx))).isel(time=-2)
+        data_in_boundary = ((data_in_boundary - self.extras_mean) / self.extras_std).fillna(0)
+        data_in_boundary = data_in_boundary.to_array().transpose("window_dim", "variable", "y", "x").to_numpy()
+        data_in = np.concatenate((data_in, data_in_boundary), axis=1)
 
-            ind_in = slice(
-                self.ind_start + idx.start, idx.stop * self.interval, self.interval
-            )
-            ind_out = slice(
-                self.ind_start + idx.start + self.lag,
-                self.ind_start + idx.stop * self.interval + self.lag,
-                self.interval,
-            )
-        if type(idx) == int:
-            if self.hist == 0:
-                ind_in = self.ind_start + idx * self.interval
-                ind_out = self.ind_start + idx * self.interval + self.lag
-            else:
-                assert idx >= 0 
-                ind_in = [self.ind_start + idx * self.interval + i for i in range(self.hist+1)]
-                ind_out = self.ind_start + idx * self.interval + self.lag + self.hist
-                
-        # print("Index in: ", ind_in)
-        # print("Index out: ", ind_out)
-            
-        data_in = self.inputs.isel(time=ind_in)
-        data_in = ((data_in - self.in_mean) / self.in_std).fillna(0)
-        label = self.outputs.isel(time=ind_out)
+        label = self.outputs.isel(time=xr.Variable(["window_dim", "time"], self.rolling_indices.isel(window_dim=idx))).isel(time=-1)
         label = ((label - self.out_mean) / self.out_std).fillna(0)
-
-        if type(idx) == int:
-            if self.hist == 0:
-                data_in = data_in.to_array().transpose("variable", "y", "x").to_numpy()
-            else:
-                data_in = data_in.to_array().transpose("time", "variable", "y", "x").to_numpy()
-                data_in = data_in.reshape((-1, data_in.shape[2], data_in.shape[3]))
-            label = label.to_array().transpose("variable", "y", "x").to_numpy()
-        else:
-            assert self.hist == 0
-            data_in = (
-                data_in.to_array().transpose("time", "variable", "y", "x").to_numpy()
-            )
-            label = label.to_array().transpose("time", "variable", "y", "x").to_numpy()
+        label = label.to_array().transpose("window_dim", "variable", "y", "x").to_numpy()
 
         items = (torch.from_numpy(data_in).float(), torch.from_numpy(label).float())
 
@@ -142,9 +133,30 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.interval = interval
         self.hist = hist
         self.steps = steps
+        
+        assert self.interval == 1
+        assert self.lag == 1
+        
         self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
-
+        
+        total_steps = self.hist + 1
+        
+        indices = xr.DataArray(
+            np.arange(data.time.size),
+            dims=["time"],
+            coords={"time": data.time},
+        )
+        
+        rolling_indices = indices.rolling(time=len(data.time)-total_steps, center=False).construct("window_dim").astype(int)
+        self.rolling_indices = rolling_indices.transpose('window_dim', 'time').isel(time=slice(len(data.time)-total_steps-1, None))
+        self.inputs_no_extra = data[inputs_str]
+        self.extras = data[extra_in_str]
+        self.inputs_no_extra_mean = data_mean[inputs_str]
+        self.inputs_no_extra_std = data_std[inputs_str]
+        self.extras_mean = data_mean[extra_in_str]
+        self.extras_std = data_std[extra_in_str]
+        
         self.in_mean = data_mean[inputs_str + extra_in_str]
         self.in_std = data_std[inputs_str + extra_in_str]
 
@@ -158,73 +170,36 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
 
     def __len__(self):
         # Number of data point we have. Alternatively self.data.shape[0], or self.label.shape[0]
-        return self.size
-
+        return self.rolling_indices.window_dim.size - self.steps
+    
     def __getitem__(self, idx):
         # Return the idx-th data point of the dataset
         # If we have multiple things to return (data point and label), we can return them as tuple
+        # Return the idx-th data point of the dataset
+        # If we have multiple things to return (data point and label), we can return them as tuple
         outputs = []
-        for step in range(self.steps):
-            if type(idx) == list:
-                assert self.hist == 0
-                ind_in = [i * self.interval + self.lag * step for i in idx]
-                ind_out = [i * self.interval + self.lag * (step + 1) for i in idx]
-
-            elif type(idx) == slice:
-                assert self.hist == 0
-                if idx.start == None and idx.stop == None:
-                    idx = slice(0, self.size, idx.step)
-                elif idx.start == None:
-                    idx = slice(0, idx.stop, idx.step)
-                elif idx.stop == None:
-                    idx = slice(idx.start, self.size, idx.step)
-
-                ind_in = slice(
-                    idx.start, idx.stop * self.interval + self.lag * step, self.interval
-                )
-                ind_out = slice(
-                    idx.start + self.lag,
-                    idx.stop * self.interval + self.lag * (step + 1),
-                    self.interval,
-                )
-
-            if type(idx) == int:
-                if self.hist == 0:
-                    ind_in = idx * self.interval + self.lag * step
-                    ind_out = idx * self.interval + self.lag * (step + 1)
-                else:
-                    assert idx >= 0 
-                    ind_in = [
-                        idx * self.interval + i + self.lag * step
-                        for i in range(self.hist + 1)
-                    ]
-                    ind_out = idx * self.interval + self.lag * (step + 1) + self.hist
-
-            # print("Index in: ", ind_in)
-            # print("Index out: ", ind_out)
+        
+        assert type(idx) == int
             
-            data_in = self.inputs.isel(time=ind_in)
-            data_in = ((data_in - self.in_mean) / self.in_std).fillna(0)
-            label = self.outputs.isel(time=ind_out)
-            label = ((label - self.out_mean) / self.out_std).fillna(0)
+        for step in range(self.steps): 
+            
+            start = idx + step
+            end = idx + step + 1
+            idx_slice = slice(
+                    start, end, self.interval
+            )
+            data_in = self.inputs_no_extra.isel(time=xr.Variable(["window_dim", "time"], self.rolling_indices.isel(window_dim=idx_slice))).isel(time=slice(None, -1))
+            data_in = ((data_in - self.inputs_no_extra_mean) / self.inputs_no_extra_std).fillna(0)
+            data_in = data_in.to_array().transpose("window_dim", "time", "variable", "y", "x").to_numpy()
+            data_in = data_in.reshape((data_in.shape[0], -1, data_in.shape[3], data_in.shape[4]))
+            data_in_boundary = self.extras.isel(time=xr.Variable(["window_dim", "time"], self.rolling_indices.isel(window_dim=idx_slice))).isel(time=-2)
+            data_in_boundary = ((data_in_boundary - self.extras_mean) / self.extras_std).fillna(0)
+            data_in_boundary = data_in_boundary.to_array().transpose("window_dim", "variable", "y", "x").to_numpy()
+            data_in = np.concatenate((data_in, data_in_boundary), axis=1).squeeze()
 
-            if type(idx) == int:
-                if self.hist == 0:
-                    data_in = data_in.to_array().transpose("variable", "y", "x").to_numpy()
-                else:
-                    data_in = data_in.to_array().transpose("time", "variable", "y", "x").to_numpy()
-                    data_in = data_in.reshape((-1, data_in.shape[2], data_in.shape[3]))
-                label = label.to_array().transpose("variable", "y", "x").to_numpy()
-            else:
-                assert self.hist == 0
-                data_in = (
-                    data_in.to_array()
-                    .transpose("time", "variable", "y", "x")
-                    .to_numpy()
-                )
-                label = (
-                    label.to_array().transpose("time", "variable", "y", "x").to_numpy()
-                )
+            label = self.outputs.isel(time=xr.Variable(["window_dim", "time"], self.rolling_indices.isel(window_dim=idx_slice))).isel(time=-1)
+            label = ((label - self.out_mean) / self.out_std).fillna(0)
+            label = label.to_array().transpose("window_dim", "variable", "y", "x").to_numpy().squeeze()
 
             outputs.append(torch.from_numpy(data_in).float())
             outputs.append(torch.from_numpy(label).float())

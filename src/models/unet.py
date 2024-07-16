@@ -20,11 +20,12 @@ class UNet(BaseModel):
         dilation,
         n_layers,
         wet,
+        hist,
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
     ):
-        super().__init__(ch_width, n_out, wet, pred_residuals, last_kernel_size, pad)
+        super().__init__(ch_width, n_out, wet, hist, pred_residuals, last_kernel_size, pad)
 
         # going down
         layers = []

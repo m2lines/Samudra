@@ -60,7 +60,7 @@ N_val:  140 #300
 N_test: 600 #500
 steps: 4
 interval: 1
-hist: 1
+hist: 0
 lag: 1
 lam: 0.05
 Nb: 0

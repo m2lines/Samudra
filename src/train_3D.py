@@ -185,6 +185,10 @@ class Trainer:
                 hist=args.hist,
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:
+            if args.unet.ch_width[0] != self.num_in:
+                print("NOTE: Changing input channels to match data {}->{}".format(
+                    args.unet.ch_width[0], self.num_in
+                ))
             args.unet.ch_width[0] = self.num_in
             model = instantiate(args.unet, n_out=self.N_in, wet=self.wet.cuda(), hist=args.hist)
         else:

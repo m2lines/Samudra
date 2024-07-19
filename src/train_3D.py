@@ -16,7 +16,7 @@ from torch.cuda import amp
 from torchinfo import summary
 from tqdm import tqdm
 
-from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, CH_3D_IDX, DP_3D_IDX
+from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, get_eval_maps
 from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
 from utils.dist_utils import (
     set_seed,
@@ -75,7 +75,13 @@ class Trainer:
         self.inputs = INPT_VARS[args.exp_num_in]
         self.extra_in = EXTRA_VARS[args.exp_num_extra]
         self.outputs = OUT_VARS[args.exp_num_out]
-
+        self.CH_3D_IDX, self.DP_3D_IDX = get_eval_maps(args.exp_num_in)
+        levels = args.exp_num_in.split('_')[-1]
+        if levels == "all":
+            self.levels = 19
+        else:
+            self.levels = int(levels)
+        
         self.str_in = "".join([i + "_" for i in self.inputs])
         self.str_ext = "".join([i + "_" for i in self.extra_in])
         self.str_out = "".join([i + "_" for i in self.outputs])
@@ -83,6 +89,7 @@ class Trainer:
         print("inputs: " + self.str_in)
         print("extra inputs: " + self.str_ext)
         print("outputs: " + self.str_out)
+        print("levels: " + str(self.levels))
 
         s_train = args.lag * args.hist
         e_train = s_train + args.N_samples * args.interval
@@ -189,7 +196,7 @@ class Trainer:
                 print("NOTE: Changing input channels to match data {}->{}".format(
                     args.unet.ch_width[0], self.num_in
                 ))
-            args.unet.ch_width[0] = self.num_in
+                args.unet.ch_width[0] = self.num_in
             model = instantiate(args.unet, n_out=self.N_in, wet=self.wet.cuda(), hist=args.hist)
         else:
             raise NotImplementedError
@@ -276,7 +283,7 @@ class Trainer:
             os.path.join(self.data_dir, self.surface_wet_file)
         )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
-        self.indices = [i * 19 for i in range(4)] + [-1]
+        self.indices = [i * self.levels for i in range(4)] + [-1]
         indices_str = [self.inputs[i] for i in self.indices]
 
         self.val_data_set = []
@@ -296,6 +303,7 @@ class Trainer:
                 self.interval,
                 self.hist,
                 self.e_train + i * self.N_local,
+                long_rollout=True,
                 device="cuda",
             )
 
@@ -328,6 +336,7 @@ class Trainer:
                 self.interval,
                 self.hist,
                 self.e_train + i * self.N_local,
+                long_rollout=True,
                 device="cuda",
             )
             mean_in = surface_targets.in_mean.to_array().to_numpy().reshape(-1)
@@ -446,12 +455,12 @@ class Trainer:
                     wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
 
                 # Loss per depth
-                for i in range(19):
+                for i in range(self.levels):
                     wandb.log(
                         {
                             "train/depth/depth_"
                             + str(i)
-                            + "_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()
+                            + "_loss": torch.mean(loss_per_channel[self.DP_3D_IDX[i]]).item()
                         }
                     )
 
@@ -461,7 +470,7 @@ class Trainer:
                         {
                             "train/per_var/"
                             + k
-                            + "_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()
+                            + "_loss": torch.mean(loss_per_channel[self.CH_3D_IDX[k]]).item()
                         }
                     )
 
@@ -534,12 +543,12 @@ class Trainer:
                 wandb.log({"eval/per_channel/" + var: loss_per_channel[i].item()})
 
             # Loss per depth
-            for i in range(19):
+            for i in range(self.levels):
                 wandb.log(
                     {
                         "eval/depth/depth_"
                         + str(i)
-                        + "_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()
+                        + "_loss": torch.mean(loss_per_channel[self.DP_3D_IDX[i]]).item()
                     }
                 )
 
@@ -549,7 +558,7 @@ class Trainer:
                     {
                         "eval/per_var/"
                         + k
-                        + "_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()
+                        + "_loss": torch.mean(loss_per_channel[self.CH_3D_IDX[k]]).item()
                     }
                 )
 

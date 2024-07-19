@@ -24,6 +24,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         interval,
         hist,
         ind_start,
+        long_rollout,
         device="cuda",
     ):
         super().__init__()
@@ -57,6 +58,10 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         rolling_indices = indices.rolling(time=len(data.time)-total_steps, center=False).construct("window_dim").astype(int)
         self.rolling_indices = rolling_indices.transpose('window_dim', 'time').isel(time=slice(len(data.time)-total_steps-1, None)) # Remove first few null indices
         
+        if long_rollout:
+            window0 = self.rolling_indices.isel(window_dim=0)
+            print("Long rollout will begin with input and produce output from time index {0} and {1} respectively".format(window0.isel(time=0).values+ind_start, window0.isel(time=-1).values+ind_start))
+
         self.in_mean = data_mean[inputs_str + extra_in_str]
         self.in_std = data_std[inputs_str + extra_in_str]
         self.out_mean = data_mean[outputs_str]

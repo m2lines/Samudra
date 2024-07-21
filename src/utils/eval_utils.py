@@ -18,6 +18,7 @@ def generate_model_rollout(
     model.eval()
     model_pred = np.zeros((N_eval, *test_data[0][0].shape[2:], N_in))
 
+    assert N_in == (test_data[0][0].shape[1]-N_extra) // (hist+1)
     with torch.no_grad():
         outs = model.inference(test_data, num_steps=N_eval)
 
@@ -26,7 +27,7 @@ def generate_model_rollout(
         pred_temp = torch.nan_to_num(pred_temp)
         pred_temp = torch.clip(pred_temp, min=-1e5, max=1e5)
 
-        model_pred[i] = torch.swapaxes(torch.swapaxes(pred_temp, 2, 0), 1, 0).cpu()
+        model_pred[i] = torch.swapaxes(torch.swapaxes(pred_temp[:N_in], 2, 0), 1, 0).cpu()
 
     if train:
         return model_pred

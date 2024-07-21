@@ -103,7 +103,7 @@ class Trainer:
             )  # Number of atmosphere variables + Lateral boundary variables
         else:
             self.N_extra = self.N_atm  # Number of atmosphere variables
-        self.N_out = len(self.outputs)
+        self.N_out = (args.hist + 1) * len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
 
@@ -140,6 +140,7 @@ class Trainer:
         self.wet = torch.load(
             os.path.join(self.data_dir, self.wet_file)
         )
+        self.wet = torch.concat([self.wet] * (args.hist+1), dim=0)
         self.data = xr.open_zarr(
             os.path.join(self.data_dir, self.data_zarr)
         )
@@ -186,7 +187,7 @@ class Trainer:
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
-                output_channels=self.N_in,
+                output_channels=self.N_out,
                 pretrain_img_size=[180, 360],
                 wet=self.wet.cuda(),
                 hist=args.hist,
@@ -197,7 +198,12 @@ class Trainer:
                     args.unet.ch_width[0], self.num_in
                 ))
                 args.unet.ch_width[0] = self.num_in
-            model = instantiate(args.unet, n_out=self.N_in, wet=self.wet.cuda(), hist=args.hist)
+            if args.unet.n_out != self.N_out:
+                print("NOTE: Changing output channels to match data {}->{}".format(
+                    args.unet.n_out, self.N_out
+                ))
+                args.unet.n_out = self.N_out
+            model = instantiate(args.unet, n_out=self.N_out, wet=self.wet.cuda(), hist=args.hist)
         else:
             raise NotImplementedError
 

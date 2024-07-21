@@ -147,14 +147,14 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         # Rolling indices to keep track of histories/past states
         # We would want to return a tuple of input and output data like this (interval=lag=1 for now):
         # HIST=0, 4 steps ; 0->[0in, 1out, 1in, 2out, 2in, 3out, 3in, 4out]
-        # HIST=1, 4 steps , 0->[[0in, 1in], 2out, [1in, 2in], 3out, [2in, 3in], 4out, [3in, 4in], 5out]
-        # HIST=2, 4 steps , 0->[[0in, 1in, 2in], 3out, [1in, 2in, 3in], 4out, [2in, 3in, 4in], 5out, [3in, 4in, 5in], 6out]
+        # HIST=1, 4 steps , 0->[[0in, 1in], [2out, 3out], [1in, 2in], [3out, 4out], [2in, 3in], [4out, 5out], [3in, 4in], [5out, 6out]]
+        # HIST=2, 4 steps , 0->[[0in, 1in, 2in], [3out, 4out, 5out], [1in, 2in, 3in], [4out, 5out, 6out], [2in, 3in, 4in], [5out, 6out, 7out], [3in, 4in, 5in], [6out, 7out, 8out]]
         indices = xr.DataArray(
             np.arange(data.time.size),
             dims=["time"],
             coords={"time": data.time},
         )
-        total_steps = self.hist + 1
+        total_steps = 2*self.hist + 1
         rolling_indices = indices.rolling(time=len(data.time)-total_steps, center=False).construct("window_dim").astype(int)
         self.rolling_indices = rolling_indices.transpose('window_dim', 'time').isel(time=slice(len(data.time)-total_steps-1, None)) # Remove first few null indices
         
@@ -188,18 +188,19 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
                     start, end, self.interval
             ) # Create a slice for similar indexing as in data_CNN_Disk
             x_index = xr.Variable(["window_dim", "time"], self.rolling_indices.isel(window_dim=idx_slice))
-            data_in = self.inputs_no_extra.isel(time=x_index).isel(time=slice(None, -1))
+            data_in = self.inputs_no_extra.isel(time=x_index).isel(time=slice(None, self.hist+1))
             data_in = ((data_in - self.inputs_no_extra_mean) / self.inputs_no_extra_std).fillna(0)
             data_in = data_in.to_array().transpose("window_dim", "time", "variable", "y", "x").to_numpy()
             data_in = rearrange(data_in, "window_dim time variable y x -> window_dim (time variable) y x")
-            data_in_boundary = self.extras.isel(time=x_index).isel(time=-2)
+            data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
             data_in_boundary = ((data_in_boundary - self.extras_mean) / self.extras_std).fillna(0)
             data_in_boundary = data_in_boundary.to_array().transpose("window_dim", "variable", "y", "x").to_numpy()
             data_in = np.concatenate((data_in, data_in_boundary), axis=1).squeeze()
 
-            label = self.outputs.isel(time=x_index).isel(time=-1)
+            label = self.outputs.isel(time=x_index).isel(time=slice(self.hist+1, None))
             label = ((label - self.out_mean) / self.out_std).fillna(0)
-            label = label.to_array().transpose("window_dim", "variable", "y", "x").to_numpy().squeeze()
+            label = label.to_array().transpose("window_dim", "time", "variable", "y", "x").to_numpy()
+            label = rearrange(label, "window_dim time variable y x -> window_dim (time variable) y x").squeeze()
 
             outputs.append(torch.from_numpy(data_in).float())
             outputs.append(torch.from_numpy(label).float())

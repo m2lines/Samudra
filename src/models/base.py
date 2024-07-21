@@ -36,22 +36,22 @@ class BaseModel(torch.nn.Module):
             if step == 0:
                 input_tensor = inputs[0]
             elif step <= self.hist:
-                inputs_0 = inputs[2 * step][:, :self.output_channels * (self.hist-step+1)]
-                inputs_1 = torch.cat([outputs[i] for i in range(step)], dim=1)
+                inputs_0 = inputs[2 * step][:, :self.output_channels // (self.hist+1) * (self.hist-step+1)]
+                inputs_1 = outputs[0][:, self.output_channels // (self.hist+1)  * (self.hist-step+1) :]
                 input_tensor = torch.cat(
                     [
                         inputs_0,
                         inputs_1,
-                        inputs[2 * step][:, self.output_channels * (self.hist+1) :],
+                        inputs[2 * step][:, self.output_channels :],
                     ],
                     dim=1,
                 )   
             else:
-                inputs_0 = torch.cat([outputs[i] for i in range(-self.hist-1, 0)], dim=1)
+                inputs_0 = outputs[-self.hist-1]
                 input_tensor = torch.cat(
                     [
                         inputs_0,
-                        inputs[2 * step][:, self.output_channels * (self.hist+1) :],
+                        inputs[2 * step][:, self.output_channels :],
                     ],
                     dim=1,
                 )
@@ -98,23 +98,23 @@ class BaseModel(torch.nn.Module):
             if step == 0:
                 input_tensor = inputs[0][0].to(device=device) # inputs[0][0] is the input at step 0 
             elif step <= self.hist:
-                inputs_0 = inputs[step][0][0, :self.output_channels * (self.hist-step+1)].unsqueeze(0).to(device=device) # If we are within the range of using states in inputs[0][0], we use them until we have produced enough outputs
-                inputs_1 = torch.cat([outputs[i].unsqueeze(0) for i in range(step)], dim=1) # Outputs we currently have
+                inputs_0 = inputs[step][0][:, :self.output_channels // (self.hist+1) * (self.hist-step+1)].to(device=device) # If we are within the range of using states in inputs[0][0], we use them until we have produced enough outputs
+                inputs_1 = outputs[0][self.output_channels // (self.hist+1)  * (self.hist-step+1) :].unsqueeze(0) # Outputs we currently have
                 input_tensor = torch.cat(
                     [
                         inputs_0,
                         inputs_1,
-                        inputs[step][0][0, self.output_channels * (self.hist+1) :].unsqueeze(0) # concatenate the boundary conditions
+                        inputs[step][0][:, self.output_channels :] # concatenate the boundary conditions
                         .to(device=device),
                     ],
                     dim=1,
                 )
             else:
-                inputs_0 = torch.cat([outputs[i].unsqueeze(0) for i in range(-self.hist-1, 0)], dim=1) # Last self.hist+1 outputs
+                inputs_0 = outputs[-self.hist-1].unsqueeze(0) # Last output corresponding to current input
                 input_tensor = torch.cat(
                     [
                         inputs_0,
-                        inputs[step][0][0, self.output_channels*(self.hist+1) :].unsqueeze(0) # concatenate the boundary conditions
+                        inputs[step][0][:, self.output_channels :] # concatenate the boundary conditions
                         .to(device=device),
                     ],
                     dim=1,

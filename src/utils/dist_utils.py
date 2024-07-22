@@ -83,9 +83,9 @@ def init_distributed_mode(args):
             os.environ["SLURM_TASKS_PER_NODE"][0]
         )
         if "MASTER_ADDR" not in os.environ:
-            args.dist_url = "tcp://localhost:40000" # Local execution
+            args.dist_url = "tcp://localhost:40000"  # Local execution
         else:
-            args.dist_url = None # Slurm execution
+            args.dist_url = None  # Slurm execution
 
     torch.cuda.set_device(args.gpu)
     args.dist_backend = "nccl"

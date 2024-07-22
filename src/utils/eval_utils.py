@@ -18,7 +18,6 @@ def generate_model_rollout(
     model.eval()
     model_pred = np.zeros((N_eval, *test_data[0][0].shape[2:], N_in))
 
-    # assert N_in == (test_data[0][0].shape[1]-N_extra) // (hist+1)
     with torch.no_grad():
         outs = model.inference(test_data, num_steps=N_eval // (hist+1))
     for i in range(N_eval // (hist+1)):

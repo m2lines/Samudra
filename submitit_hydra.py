@@ -104,7 +104,8 @@ if __name__ == "__main__":
                 "\\\n",
                 shlex.quote(
                     os.path.join(
-                        os.path.dirname(os.path.realpath(__file__)), ".python-perlmutter"
+                        os.path.dirname(os.path.realpath(__file__)),
+                        ".python-perlmutter",
                     )
                 ),
                 "\\\n",
@@ -150,7 +151,7 @@ if __name__ == "__main__":
             command_list.insert(1, "--qos=regular")
         command_list.insert(1, "--account=m4331")
         command_list.insert(1, "--constraint=gpu&hbm80g")
-        
+
         return command_list
 
     submitit_slurm.SlurmExecutor._make_submission_command = _make_submission_command

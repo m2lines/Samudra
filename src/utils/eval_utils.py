@@ -20,15 +20,17 @@ def generate_model_rollout(
 
     # assert N_in == (test_data[0][0].shape[1]-N_extra) // (hist+1)
     with torch.no_grad():
-        outs = model.inference(test_data, num_steps=N_eval // (hist+1))
-    for i in range(N_eval // (hist+1)):
+        outs = model.inference(test_data, num_steps=N_eval // (hist + 1))
+    for i in range(N_eval // (hist + 1)):
         pred_temp = outs[i]
         pred_temp = torch.nan_to_num(pred_temp)
         pred_temp = torch.clip(pred_temp, min=-1e5, max=1e5)
         C, H, W = pred_temp.shape
-        pred_temp = torch.reshape(pred_temp, (hist+1, C // (hist+1), H, W))
-        model_pred[i * (hist+1): (i+1) * (hist+1)] = torch.swapaxes(torch.swapaxes(pred_temp, 3, 1), 2, 1).cpu()
-        
+        pred_temp = torch.reshape(pred_temp, (hist + 1, C // (hist + 1), H, W))
+        model_pred[i * (hist + 1) : (i + 1) * (hist + 1)] = torch.swapaxes(
+            torch.swapaxes(pred_temp, 3, 1), 2, 1
+        ).cpu()
+
     if train:
         return model_pred
     else:

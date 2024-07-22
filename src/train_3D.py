@@ -47,7 +47,7 @@ class Trainer:
         if not args.disk_mode:
             assert args.num_workers == 0 and args.pin_mem == False
         else:
-            args.num_workers = torch.cuda.device_count() * 4
+            args.num_workers = torch.cuda.device_count() * args.num_workers
             args.pin_mem = True
 
         # Set seeds
@@ -326,7 +326,7 @@ class Trainer:
             }
 
             self.val_data_set.append(val_data)
-            self.target_set.append(val_data[: self.N_local][1].numpy())
+            self.target_set.append(val_data[: (self.N_local) // (self.hist + 1)][1].reshape((self.N_local, -1, *self.surface_wet.shape)).numpy())
 
             # Surface Data
             surface_targets = data_CNN_Disk(
@@ -356,7 +356,8 @@ class Trainer:
                 "m_out": mean_out,
                 "m_in": mean_in,
             }
-            self.surface_targets_set.append(surface_targets)
+            self.surface_targets_norm_vals = surface_targets.norm_vals
+            self.surface_targets_set.append(surface_targets[: (self.N_local) // (self.hist + 1)][1].reshape((self.N_local, -1, *self.surface_wet.shape)).numpy())
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
@@ -533,6 +534,7 @@ class Trainer:
             v_rmse,
         ) = get_corr_rmse(
             self.surface_targets_set[rank],
+            self.surface_targets_norm_vals,
             surface_preds,
             self.area,
             self.surface_wet_bool,

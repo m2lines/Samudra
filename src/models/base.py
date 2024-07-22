@@ -97,20 +97,8 @@ class BaseModel(torch.nn.Module):
         for step in range(num_steps):
             if step == 0:
                 input_tensor = inputs[0][0].to(device=device) # inputs[0][0] is the input at step 0 
-            elif step <= self.hist:
-                inputs_0 = inputs[step][0][:, :self.output_channels // (self.hist+1) * (self.hist-step+1)].to(device=device) # If we are within the range of using states in inputs[0][0], we use them until we have produced enough outputs
-                inputs_1 = outputs[0][self.output_channels // (self.hist+1)  * (self.hist-step+1) :].unsqueeze(0) # Outputs we currently have
-                input_tensor = torch.cat(
-                    [
-                        inputs_0,
-                        inputs_1,
-                        inputs[step][0][:, self.output_channels :] # concatenate the boundary conditions
-                        .to(device=device),
-                    ],
-                    dim=1,
-                )
             else:
-                inputs_0 = outputs[-self.hist-1].unsqueeze(0) # Last output corresponding to current input
+                inputs_0 = outputs[-1].unsqueeze(0) # Last output corresponding to current input
                 input_tensor = torch.cat(
                     [
                         inputs_0,

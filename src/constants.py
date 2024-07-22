@@ -16,6 +16,12 @@ INPT_VARS = {
     "11": ["tau_u", "tau_v"],
     "12": ["tau_u", "tau_v", "t_ref"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
+    "3D_5": [
+        k + str(j)
+        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for j in range(5)
+    ]
+    + ["zos"],
     "3D_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
@@ -38,6 +44,7 @@ EXTRA_VARS = {
     "12": ["tau_u", "tau_v", "t_ref"],
     "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
     "3D": ["tauuo", "tauvo", "hfds"],
+    "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
 }
 OUT_VARS = {
@@ -48,6 +55,12 @@ OUT_VARS = {
     "5": ["u", "v"],
     "6": ["u", "v", "T"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
+    "3D_5": [
+        k + str(j)
+        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for j in range(5)
+    ]
+    + ["zos"],
     "3D_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
@@ -61,27 +74,32 @@ OUT_VARS = {
 # EXTRA_VARS["3D_all"].append("thetao_lev_0")
 # OUT_VARS["3D_all"].remove("thetao_lev_0")
 
-CH_3D_IDX = {}
-for kt in ["uo", "vo", "thetao", "so"]:
-    CH_3D_IDX[kt] = torch.tensor([])
-    for i, k in enumerate(INPT_VARS["3D_all"]):
-        if kt in k:
-            CH_3D_IDX[kt] = torch.cat([CH_3D_IDX[kt], torch.tensor([i])])
-    CH_3D_IDX[kt] = CH_3D_IDX[kt].to(torch.int32)
 
-DP_3D_IDX = {}
-for d in range(19):
-    DP_3D_IDX[d] = torch.tensor([])
-    for i, k in enumerate(INPT_VARS["3D_all"]):
-        if k == "zos":
-            continue
-        elif d == int(k.split("lev_")[-1]):
-            DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
-    DP_3D_IDX[d] = DP_3D_IDX[d].to(torch.int32)
-DP_3D_IDX[0] = torch.cat(
-    [DP_3D_IDX[0], torch.tensor([len(INPT_VARS["3D_all"]) - 1])]
-)  # zos
-DP_3D_IDX[0] = DP_3D_IDX[0].to(torch.int32)
+def get_eval_maps(exp_num):
+    CH_3D_IDX = {}
+    for kt in ["uo", "vo", "thetao", "so"]:
+        CH_3D_IDX[kt] = torch.tensor([])
+        for i, k in enumerate(INPT_VARS[exp_num]):
+            if kt in k:
+                CH_3D_IDX[kt] = torch.cat([CH_3D_IDX[kt], torch.tensor([i])])
+        CH_3D_IDX[kt] = CH_3D_IDX[kt].to(torch.int32)
+
+    DP_3D_IDX = {}
+    for d in range(19):
+        DP_3D_IDX[d] = torch.tensor([])
+        for i, k in enumerate(INPT_VARS[exp_num]):
+            if k == "zos":
+                continue
+            elif d == int(k.split("lev_")[-1]):
+                DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
+        DP_3D_IDX[d] = DP_3D_IDX[d].to(torch.int32)
+    DP_3D_IDX[0] = torch.cat(
+        [DP_3D_IDX[0], torch.tensor([len(INPT_VARS[exp_num]) - 1])]
+    )  # zos
+    DP_3D_IDX[0] = DP_3D_IDX[0].to(torch.int32)
+
+    return CH_3D_IDX, DP_3D_IDX
+
 
 # Region boundaries
 REGIONS = {

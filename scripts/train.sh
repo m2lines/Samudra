@@ -8,7 +8,11 @@
 # ./.python-perlmutter submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global_3D wandb.mode=online name="$(date +%F)-train_convnextunet_global_3D_surface_fromdisk" region=global_3D batch_size=16 scheduler=True rand_seed=9
 
 # All
-./.python-perlmutter submitit_hydra.py compute/greene=4x1 compute/greene/node=a100 wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-train_convnextunet_global_3D_all_debug_multigpu4x1_test" region=global_3D batch_size=4 scheduler=True rand_seed=5 unet.ch_width=[80,100,150,300,400] --qos=debug
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_4hrs wandb.mode=online exp=train_unet_global_3D_5 name="$(date +%F)-train_convnextunet_global_3D_hist1_5levels_out2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 --qos=preempt
+
+# All 8 hours - history=1
+./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_12hrs wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-train_convnextunet_global_3D_hist1_130M_out2_12hrs" region=global_3D batch_size=4 scheduler=True rand_seed=12 unet.ch_width=[157,200,250,300,400] hist=1 --qos=regular
+
 
 ### Swin
 

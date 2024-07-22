@@ -16,7 +16,7 @@ from torch.cuda import amp
 from torchinfo import summary
 from tqdm import tqdm
 
-from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, CH_3D_IDX, DP_3D_IDX
+from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, get_eval_maps
 from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
 from utils.dist_utils import (
     set_seed,
@@ -47,7 +47,7 @@ class Trainer:
         if not args.disk_mode:
             assert args.num_workers == 0 and args.pin_mem == False
         else:
-            args.num_workers = torch.cuda.device_count() * 4
+            args.num_workers = torch.cuda.device_count() * args.num_workers
             args.pin_mem = True
 
         # Set seeds
@@ -75,6 +75,12 @@ class Trainer:
         self.inputs = INPT_VARS[args.exp_num_in]
         self.extra_in = EXTRA_VARS[args.exp_num_extra]
         self.outputs = OUT_VARS[args.exp_num_out]
+        self.CH_3D_IDX, self.DP_3D_IDX = get_eval_maps(args.exp_num_in)
+        levels = args.exp_num_in.split("_")[-1]
+        if levels == "all":
+            self.levels = 19
+        else:
+            self.levels = int(levels)
 
         self.str_in = "".join([i + "_" for i in self.inputs])
         self.str_ext = "".join([i + "_" for i in self.extra_in])
@@ -83,6 +89,7 @@ class Trainer:
         print("inputs: " + self.str_in)
         print("extra inputs: " + self.str_ext)
         print("outputs: " + self.str_out)
+        print("levels: " + str(self.levels))
 
         s_train = args.lag * args.hist
         e_train = s_train + args.N_samples * args.interval
@@ -96,7 +103,7 @@ class Trainer:
             )  # Number of atmosphere variables + Lateral boundary variables
         else:
             self.N_extra = self.N_atm  # Number of atmosphere variables
-        self.N_out = len(self.outputs)
+        self.N_out = (args.hist + 1) * len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
 
@@ -130,19 +137,12 @@ class Trainer:
         self.data_stds_zarr = args.data_stds_zarr
         self.grid_file = args.grid_file
 
-        self.wet = torch.load(
-            os.path.join(self.data_dir, self.wet_file)
-        )
-        self.data = xr.open_zarr(
-            os.path.join(self.data_dir, self.data_zarr)
-        )
-        self.data_mean = xr.open_zarr(
-            os.path.join(self.data_dir, self.data_means_zarr)
-        )
-        self.data_std = xr.open_zarr(
-            os.path.join(self.data_dir, self.data_stds_zarr)
-        )
-            
+        self.wet = torch.load(os.path.join(self.data_dir, self.wet_file))
+        self.wet = torch.concat([self.wet] * (args.hist + 1), dim=0)
+        self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
+        self.data_mean = xr.open_zarr(os.path.join(self.data_dir, self.data_means_zarr))
+        self.data_std = xr.open_zarr(os.path.join(self.data_dir, self.data_stds_zarr))
+
         train_data = data_CNN_Disk_steps(
             self.data,
             self.inputs,
@@ -154,6 +154,7 @@ class Trainer:
             args.N_samples,
             args.lag,
             args.interval,
+            args.hist,
             args.steps,
             device="cuda",
         )
@@ -178,12 +179,29 @@ class Trainer:
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
-                output_channels=self.N_in,
+                output_channels=self.N_out,
                 pretrain_img_size=[180, 360],
                 wet=self.wet.cuda(),
+                hist=args.hist,
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:
-            model = instantiate(args.unet, wet=self.wet.cuda())
+            if args.unet.ch_width[0] != self.num_in:
+                print(
+                    "NOTE: Changing input channels to match data {}->{}".format(
+                        args.unet.ch_width[0], self.num_in
+                    )
+                )
+                args.unet.ch_width[0] = self.num_in
+            if args.unet.n_out != self.N_out:
+                print(
+                    "NOTE: Changing output channels to match data {}->{}".format(
+                        args.unet.n_out, self.N_out
+                    )
+                )
+                args.unet.n_out = self.N_out
+            model = instantiate(
+                args.unet, n_out=self.N_out, wet=self.wet.cuda(), hist=args.hist
+            )
         else:
             raise NotImplementedError
 
@@ -259,9 +277,9 @@ class Trainer:
         num_gpus = get_world_size()
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset(
-            os.path.join(self.data_dir, self.grid_file)
-        ).rename({"dx": "dxu", "dy": "dyu"})
+        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename(
+            {"dx": "dxu", "dy": "dyu"}
+        )
 
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
@@ -269,7 +287,7 @@ class Trainer:
             os.path.join(self.data_dir, self.surface_wet_file)
         )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
-        self.indices = [i * 19 for i in range(4)] + [-1]
+        self.indices = [i * self.levels for i in range(4)] + [-1]
         indices_str = [self.inputs[i] for i in self.indices]
 
         self.val_data_set = []
@@ -287,7 +305,9 @@ class Trainer:
                 self.N_val,
                 self.lag,
                 self.interval,
+                self.hist,
                 self.e_train + i * self.N_local,
+                long_rollout=True,
                 device="cuda",
             )
 
@@ -304,7 +324,11 @@ class Trainer:
             }
 
             self.val_data_set.append(val_data)
-            self.target_set.append(val_data[: self.N_local][1].numpy())
+            self.target_set.append(
+                val_data[: (self.N_local) // (self.hist + 1)][1]
+                .reshape((self.N_local, -1, *self.surface_wet.shape))
+                .numpy()
+            )
 
             # Surface Data
             surface_targets = data_CNN_Disk(
@@ -318,7 +342,9 @@ class Trainer:
                 self.N_val,
                 self.lag,
                 self.interval,
+                self.hist,
                 self.e_train + i * self.N_local,
+                long_rollout=True,
                 device="cuda",
             )
             mean_in = surface_targets.in_mean.to_array().to_numpy().reshape(-1)
@@ -332,7 +358,12 @@ class Trainer:
                 "m_out": mean_out,
                 "m_in": mean_in,
             }
-            self.surface_targets_set.append(surface_targets)
+            self.surface_targets_norm_vals = surface_targets.norm_vals
+            self.surface_targets_set.append(
+                surface_targets[: (self.N_local) // (self.hist + 1)][1]
+                .reshape((self.N_local, -1, *self.surface_wet.shape))
+                .numpy()
+            )
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
@@ -437,12 +468,14 @@ class Trainer:
                     wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
 
                 # Loss per depth
-                for i in range(19):
+                for i in range(self.levels):
                     wandb.log(
                         {
                             "train/depth/depth_"
                             + str(i)
-                            + "_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()
+                            + "_loss": torch.mean(
+                                loss_per_channel[self.DP_3D_IDX[i]]
+                            ).item()
                         }
                     )
 
@@ -452,7 +485,9 @@ class Trainer:
                         {
                             "train/per_var/"
                             + k
-                            + "_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()
+                            + "_loss": torch.mean(
+                                loss_per_channel[self.CH_3D_IDX[k]]
+                            ).item()
                         }
                     )
 
@@ -509,6 +544,7 @@ class Trainer:
             v_rmse,
         ) = get_corr_rmse(
             self.surface_targets_set[rank],
+            self.surface_targets_norm_vals,
             surface_preds,
             self.area,
             self.surface_wet_bool,
@@ -525,12 +561,14 @@ class Trainer:
                 wandb.log({"eval/per_channel/" + var: loss_per_channel[i].item()})
 
             # Loss per depth
-            for i in range(19):
+            for i in range(self.levels):
                 wandb.log(
                     {
                         "eval/depth/depth_"
                         + str(i)
-                        + "_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()
+                        + "_loss": torch.mean(
+                            loss_per_channel[self.DP_3D_IDX[i]]
+                        ).item()
                     }
                 )
 
@@ -540,7 +578,9 @@ class Trainer:
                     {
                         "eval/per_var/"
                         + k
-                        + "_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()
+                        + "_loss": torch.mean(
+                            loss_per_channel[self.CH_3D_IDX[k]]
+                        ).item()
                     }
                 )
 

@@ -34,11 +34,12 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         self.lag = lag
         self.interval = interval
         self.hist = hist
+        self.ind_start = ind_start
         
         assert self.interval == 1
         assert self.lag == 1
         
-        data = data.isel(time=slice(ind_start, None))
+        data = data.isel(time=slice(self.ind_start, None))
         self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
         self.inputs_no_extra = data[inputs_str]
@@ -47,20 +48,21 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         # Rolling indices to keep track of histories/past states
         # We would want to return a tuple of input and output data like this:
         # HIST=0 ; 0->[0, 1]; 1->[1, 2]; 2->[2, 3]; 3->[3, 4]
-        # HIST=1 ; 0->[[0, 1], 2]; 1->[[1, 2], 3]; 2->[[2, 3], 4]; 3->[[3, 4], 5]
-        # HIST=2 ; 0->[[0, 1, 2], 3]; 1->[[1, 2, 3], 4]; 2->[[2, 3, 4], 5]; 3->[[3, 4, 5], 6]
+        # HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[1, 2], [3, 4]]; 2->[[2, 3], [4, 5]]; 3->[[3, 4], [5, 6]]
+        # HIST=2 ; 0->[[0, 1, 2], [3, 4, 5]]; 1->[[1, 2, 3], [4, 5, 6]]; 2->[[2, 3, 4], [5, 6, 7]]; 3->[[3, 4, 5], [6, 7, 8]]
         indices = xr.DataArray(
             np.arange(data.time.size),
             dims=["time"],
             coords={"time": data.time},
         )
-        total_steps = self.hist + 1
+        total_steps = 2*self.hist + 1
         rolling_indices = indices.rolling(time=len(data.time)-total_steps, center=False).construct("window_dim").astype(int)
-        self.rolling_indices = rolling_indices.transpose('window_dim', 'time').isel(time=slice(len(data.time)-total_steps-1, None)) # Remove first few null indices
+        rolling_indices = rolling_indices.transpose('window_dim', 'time').isel(time=slice(len(data.time)-total_steps-1, None)) # Remove first few null indices
+        self.rolling_indices = rolling_indices.isel(window_dim=slice(0, None, self.hist+1))
         
         if long_rollout:
             window0 = self.rolling_indices.isel(window_dim=0)
-            print("Long rollout will begin with input and produce output from time index {0} and {1} respectively".format(window0.isel(time=0).values+ind_start, window0.isel(time=-1).values+ind_start))
+            print("Long rollout will begin with input and produce output from time index {0} and {1} respectively".format(window0.isel(time=0).values+ind_start, window0.isel(time=self.hist+1).values+ind_start))
 
         self.in_mean = data_mean[inputs_str + extra_in_str]
         self.in_std = data_std[inputs_str + extra_in_str]
@@ -91,18 +93,19 @@ class data_CNN_Disk(torch.utils.data.Dataset):
             idx = slice(idx, idx + 1, 1)
         
         x_index = xr.Variable(["window_dim", "time"], self.rolling_indices.isel(window_dim=idx))
-        data_in = self.inputs_no_extra.isel(time=x_index).isel(time=slice(None, -1))
+        data_in = self.inputs_no_extra.isel(time=x_index).isel(time=slice(None, self.hist+1))
         data_in = ((data_in - self.inputs_no_extra_mean) / self.inputs_no_extra_std).fillna(0)
         data_in = data_in.to_array().transpose("window_dim", "time", "variable", "y", "x").to_numpy()
         data_in = rearrange(data_in, "window_dim time variable y x -> window_dim (time variable) y x")
-        data_in_boundary = self.extras.isel(time=x_index).isel(time=-2)
+        data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
         data_in_boundary = ((data_in_boundary - self.extras_mean) / self.extras_std).fillna(0)
         data_in_boundary = data_in_boundary.to_array().transpose("window_dim", "variable", "y", "x").to_numpy()
         data_in = np.concatenate((data_in, data_in_boundary), axis=1)
 
-        label = self.outputs.isel(time=x_index).isel(time=-1)
+        label = self.outputs.isel(time=x_index).isel(time=slice(self.hist+1, None))
         label = ((label - self.out_mean) / self.out_std).fillna(0)
-        label = label.to_array().transpose("window_dim", "variable", "y", "x").to_numpy()
+        label = label.to_array().transpose("window_dim", "time", "variable", "y", "x").to_numpy()
+        label = rearrange(label, "window_dim time variable y x -> window_dim (time variable) y x")
 
         items = (torch.from_numpy(data_in).float(), torch.from_numpy(label).float())
 

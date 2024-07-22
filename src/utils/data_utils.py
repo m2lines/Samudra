@@ -45,11 +45,11 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         self.inputs_no_extra = data[inputs_str]
         self.extras = data[extra_in_str]
 
-        # Rolling indices to keep track of histories/past states
-        # We would want to return a tuple of input and output data like this:
+        # This class will be used only for validation and rollouts
+        # Rolling indices to keep track of histories/past states:
         # HIST=0 ; 0->[0, 1]; 1->[1, 2]; 2->[2, 3]; 3->[3, 4]
-        # HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[1, 2], [3, 4]]; 2->[[2, 3], [4, 5]]; 3->[[3, 4], [5, 6]]
-        # HIST=2 ; 0->[[0, 1, 2], [3, 4, 5]]; 1->[[1, 2, 3], [4, 5, 6]]; 2->[[2, 3, 4], [5, 6, 7]]; 3->[[3, 4, 5], [6, 7, 8]]
+        # HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]]; 2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
+        # HIST=2 ; 0->[[0, 1, 2], [3, 4, 5]]; 1->[[3, 4, 5], [6, 7, 8]]; 2->[[6, 7, 8], [9, 10, 11]]; 3->[[9, 10, 11], [12, 13, 14]]
         indices = xr.DataArray(
             np.arange(data.time.size),
             dims=["time"],
@@ -66,7 +66,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         )  # Remove first few null indices
         self.rolling_indices = rolling_indices.isel(
             window_dim=slice(0, None, self.hist + 1)
-        )
+        ) # Skip indices based on history
 
         if long_rollout:
             window0 = self.rolling_indices.isel(window_dim=0)
@@ -184,8 +184,8 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.inputs_no_extra = data[inputs_str]
         self.extras = data[extra_in_str]
 
-        # Rolling indices to keep track of histories/past states
-        # We would want to return a tuple of input and output data like this (interval=lag=1 for now):
+        # This class will be used only for training
+        # Rolling indices to keep track of histories/past states (without skips): 
         # HIST=0, 4 steps ; 0->[0in, 1out, 1in, 2out, 2in, 3out, 3in, 4out]
         # HIST=1, 4 steps , 0->[[0in, 1in], [2out, 3out], [1in, 2in], [3out, 4out], [2in, 3in], [4out, 5out], [3in, 4in], [5out, 6out]]
         # HIST=2, 4 steps , 0->[[0in, 1in, 2in], [3out, 4out, 5out], [1in, 2in, 3in], [4out, 5out, 6out], [2in, 3in, 4in], [5out, 6out, 7out], [3in, 4in, 5in], [6out, 7out, 8out]]

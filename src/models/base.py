@@ -5,7 +5,9 @@ import torch
 
 # class BaseModel(torch.nn.Module, PyTorchModelHubMixin):
 class BaseModel(torch.nn.Module):
-    def __init__(self, ch_width, n_out, wet, pred_residuals, last_kernel_size, pad):
+    def __init__(
+        self, ch_width, n_out, wet, hist, pred_residuals, last_kernel_size, pad
+    ):
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
         self.N_in = ch_width[0]
@@ -15,6 +17,8 @@ class BaseModel(torch.nn.Module):
         self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad = pad
         self.pred_residuals = pred_residuals
+        self.hist = hist
+        self.input_channels = ch_width[0]
         self.output_channels = n_out
 
     def forward_once(self, fts):
@@ -26,39 +30,80 @@ class BaseModel(torch.nn.Module):
         output_only_last=False,
         loss_fn=None,
     ) -> torch.Tensor:
-
         outputs = []
         loss = None
         N, C, H, W = inputs[0].shape
 
         for step in range(len(inputs) // 2):
             if step == 0:
-                input_tensor = inputs[0]
-            else:
-                inputs_0 = outputs[-1]
+                input_tensor = inputs[
+                    0
+                ]  # For HIST=1, [0->[0in, 1in], 1->[2out, 3out], 2->[1in, 2in], 3->[3out, 4out], 4->[2in, 3in], 5->[4out, 5out]
+            elif (
+                step <= self.hist
+            ):  # At this stage, we still use part of the input in inputs[0] depending on the step. For example, for hist=1, at step=1, we use 1in from [1in, 2in] as input and 2out from [2out, 3out] output.
+                inputs_0 = inputs[2 * step][
+                    :,
+                    : self.output_channels // (self.hist + 1) * (self.hist - step + 1),
+                ]
+                inputs_1 = outputs[0][
+                    :,
+                    self.output_channels // (self.hist + 1) * (self.hist - step + 1) :,
+                ]
                 input_tensor = torch.cat(
-                    [inputs_0, inputs[2 * step][:, self.output_channels :]],
+                    [
+                        inputs_0,
+                        inputs_1,
+                        inputs[2 * step][
+                            :, self.output_channels :
+                        ],  # boundary conditions
+                    ],
+                    dim=1,
+                )
+            else:
+                inputs_0 = outputs[
+                    -self.hist - 1
+                ]  # output from self.hist+1 steps ago corresponds to current input. For hist=1, input at step 2 [2in, 3in] is output at step 0 [2out, 3out].
+                input_tensor = torch.cat(
+                    [
+                        inputs_0,
+                        inputs[2 * step][
+                            :, self.output_channels :
+                        ],  # boundary conditions
+                    ],
                     dim=1,
                 )
 
+            assert (
+                input_tensor.shape[1] == self.input_channels
+            ), f"Input shape is {input_tensor.shape[1]} but should be {self.input_channels}"
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
                 reshaped = (
-                    input_tensor[:, : self.output_channels] + decodings
+                    input_tensor[
+                        :,
+                        self.output_channels
+                        // (self.hist + 1)
+                        * self.hist : self.output_channels,
+                    ]  # Residuals on last state in input
+                    + decodings
                 )  # Residual prediction
             else:
                 reshaped = decodings  # Absolute prediction
 
             if loss_fn is not None:
+                assert (
+                    reshaped.shape == inputs[2 * step + 1].shape
+                ), f"Output shape is {reshaped.shape} but should be {inputs[2 * step + 1].shape}"
                 if loss is None:
                     loss = loss_fn(
                         reshaped,
-                        inputs[2 * step + 1][:, : self.output_channels],
+                        inputs[2 * step + 1],
                     )
                 else:
                     loss += loss_fn(
                         reshaped,
-                        inputs[2 * step + 1][:, : self.output_channels],
+                        inputs[2 * step + 1],
                     )
 
             outputs.append(reshaped)
@@ -79,28 +124,42 @@ class BaseModel(torch.nn.Module):
         outputs = []
         for step in range(num_steps):
             if step == 0:
-                input_tensor = inputs[0][0].unsqueeze(0).to(device=device)
+                input_tensor = inputs[0][0].to(
+                    device=device
+                )  # inputs[0][0] is the input at step 0. For HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]]; 2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
             else:
-                inputs_0 = outputs[-1]
+                inputs_0 = outputs[-1].unsqueeze(
+                    0
+                )  # Last output corresponds to input at current time step
                 input_tensor = torch.cat(
                     [
-                        inputs_0.unsqueeze(0),
-                        inputs[step][0][self.output_channels :]
-                        .unsqueeze(0)
-                        .to(device=device),
+                        inputs_0,
+                        inputs[step][0][
+                            :, self.output_channels :
+                        ].to(  # boundary conditions
+                            device=device
+                        ),
                     ],
                     dim=1,
                 )
 
+            assert (
+                input_tensor.shape[1] == self.input_channels
+            ), f"Input shape is {input_tensor.shape[1]} but should be {self.input_channels}"
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
-                reshaped = input_tensor[0, : self.output_channels].to(
+                reshaped = input_tensor[
+                    0,
+                    self.output_channels
+                    // (self.hist + 1)
+                    * self.hist : self.output_channels,
+                ].to(  # Residuals on last state in input
                     device=device
                 ) + decodings.squeeze(
                     0
-                )  # Residual prediction
+                )
             else:
-                reshaped = decodings.squeeze(0)  # Absolute prediction
+                reshaped = decodings.squeeze(0)
 
             outputs.append(reshaped)
 

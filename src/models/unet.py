@@ -25,7 +25,9 @@ class UNet(BaseModel):
         last_kernel_size=3,
         pad="circular",
     ):
-        super().__init__(ch_width, n_out, wet, hist, pred_residuals, last_kernel_size, pad)
+        super().__init__(
+            ch_width, n_out, wet, hist, pred_residuals, last_kernel_size, pad
+        )
 
         # going down
         layers = []

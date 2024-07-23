@@ -52,7 +52,7 @@ class Trainer:
 
         # Set seeds
         set_seed(args.rand_seed)
-        
+
         # Check dirs
         if not os.path.exists(args.nets_dir):
             os.makedirs(args.nets_dir, exist_ok=True)
@@ -229,7 +229,7 @@ class Trainer:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 self.optimizer, args.T
             )
-        
+
         # Wandb and Loading Checkpoint
         self.wandb = args.wandb.mode == "online"
         if args.resume_ckpt_path is not None:
@@ -244,7 +244,9 @@ class Trainer:
                     **args.wandb,
                 )
             elif is_main_process():
-                assert self.wandb_id is None, "This checkpoint has used a wandb run, set wandb.mode to online"
+                assert (
+                    self.wandb_id is None
+                ), "This checkpoint has used a wandb run, set wandb.mode to online"
         else:
             self.start_epoch = 1
             self.wandb_id = None
@@ -260,8 +262,8 @@ class Trainer:
                     dir=args.experiment_dir,
                     **args.wandb,
                 )
-                self.wandb_id = wandb.run.id 
-                
+                self.wandb_id = wandb.run.id
+
         # DDP Model
         self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
         if "swin" in args.network:
@@ -269,7 +271,9 @@ class Trainer:
                 self.model, device_ids=[args.gpu], find_unused_parameters=True
             )
         elif "unet" in args.network:
-            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[args.gpu])
+            self.model = nn.parallel.DistributedDataParallel(
+                self.model, device_ids=[args.gpu]
+            )
 
         # Training
         self.epochs = args.epochs
@@ -385,7 +389,7 @@ class Trainer:
             wandb.watch(self.model, log="all")
 
         start_time = time.time()
-        for epoch in range(self.start_epoch, self.epochs+1):
+        for epoch in range(self.start_epoch, self.epochs + 1):
             self.train_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
@@ -624,7 +628,7 @@ class Trainer:
                 self.network, epoch, ("best" if best else "") + self.str_video
             ),
         )
-    
+
     def load_checkpoint(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         self.model.load_state_dict(checkpoint["model"])
@@ -633,7 +637,7 @@ class Trainer:
         self.start_epoch = checkpoint["epoch"] + 1
         self.wandb_id = checkpoint["wandb_id"]
         self.wandb_name = checkpoint["wandb_name"]
-        
+
         print("Loaded checkpoint from", checkpoint_path)
         print("Start Epoch:", self.start_epoch)
         print("Wandb id:", self.wandb_id)
@@ -642,7 +646,7 @@ class Trainer:
 
     def is_wandb_enabled(self):
         return self.wandb and is_main_process()
-    
+
     def finish(self):
         if self.is_wandb_enabled():
             wandb.finish()

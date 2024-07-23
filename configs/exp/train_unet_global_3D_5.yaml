@@ -32,7 +32,7 @@ network: "convnextunet"
 scheduler: False
 loss: mse
 testing: False
-preload: null
+resume_ckpt_path: null
 data_percent: 1.0
 #####
 

@@ -32,7 +32,7 @@ network: "convnextunet"
 scheduler: False
 loss: mse
 testing: False
-preload: null
+resume_ckpt_path: /pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL/train_3D/2024-07-22-local_train_convnextunet_global_3D_all_hist1_out2_Test/saved_nets/convnextunet_epoch_5_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt
 data_percent: 1.0
 #####
 

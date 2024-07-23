@@ -52,21 +52,7 @@ class Trainer:
 
         # Set seeds
         set_seed(args.rand_seed)
-
-        # Wandb
-        name = (
-            args.name + "//" + args.sub_name
-            if hasattr(args, "sub_name")
-            else ".LOCAL" + "//" + args.name
-        )
-        wandb.init(
-            config=OmegaConf.to_container(args, resolve=True),
-            name=name,
-            dir=args.experiment_dir,
-            **args.wandb,
-        )
-        self.wandb = args.wandb.mode == "online"
-
+        
         # Check dirs
         if not os.path.exists(args.nets_dir):
             os.makedirs(args.nets_dir, exist_ok=True)
@@ -211,11 +197,6 @@ class Trainer:
         # summary(model)
 
         model = model.to(args.device)
-        if args.preload:
-            print("Loaded model from ", args.preload)
-            model.load_state_dict(
-                torch.load(args.preload, map_location=torch.device(args.device))
-            )
 
         # Summary
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
@@ -229,14 +210,6 @@ class Trainer:
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
 
-        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        if "swin" in args.network:
-            model = nn.parallel.DistributedDataParallel(
-                model, device_ids=[args.gpu], find_unused_parameters=True
-            )
-        elif "unet" in args.network:
-            model = nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-
         self.model = model
         self.nets_dir = args.nets_dir
         self.network = args.network
@@ -248,7 +221,7 @@ class Trainer:
             self.loss = decomposed_mse
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr)
 
         # Scheduler
         self.scheduler = None
@@ -256,6 +229,47 @@ class Trainer:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 self.optimizer, args.T
             )
+        
+        # Wandb and Loading Checkpoint
+        self.wandb = args.wandb.mode == "online"
+        if args.resume_ckpt_path is not None:
+            self.load_checkpoint(args.resume_ckpt_path)
+            if self.is_wandb_enabled():
+                wandb.init(
+                    config=OmegaConf.to_container(args, resolve=True),
+                    name=self.wandb_name,
+                    dir=args.experiment_dir,
+                    resume="must",
+                    id=self.wandb_id,
+                    **args.wandb,
+                )
+            elif is_main_process():
+                assert self.wandb_id is None, "This checkpoint has used a wandb run, set wandb.mode to online"
+        else:
+            self.start_epoch = 1
+            self.wandb_id = None
+            self.wandb_name = (
+                args.name + "//" + args.sub_name
+                if hasattr(args, "sub_name")
+                else ".LOCAL" + "//" + args.name
+            )
+            if self.is_wandb_enabled():
+                wandb.init(
+                    config=OmegaConf.to_container(args, resolve=True),
+                    name=self.wandb_name,
+                    dir=args.experiment_dir,
+                    **args.wandb,
+                )
+                self.wandb_id = wandb.run.id 
+                
+        # DDP Model
+        self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
+        if "swin" in args.network:
+            self.model = nn.parallel.DistributedDataParallel(
+                self.model, device_ids=[args.gpu], find_unused_parameters=True
+            )
+        elif "unet" in args.network:
+            self.model = nn.parallel.DistributedDataParallel(self.model, device_ids=[args.gpu])
 
         # Training
         self.epochs = args.epochs
@@ -344,7 +358,7 @@ class Trainer:
                 self.interval,
                 self.hist,
                 self.e_train + i * self.N_local,
-                long_rollout=True,
+                long_rollout=False,
                 device="cuda",
             )
             mean_in = surface_targets.in_mean.to_array().to_numpy().reshape(-1)
@@ -367,12 +381,11 @@ class Trainer:
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
-
-        if self.wandb:
+        if self.is_wandb_enabled():
             wandb.watch(self.model, log="all")
 
         start_time = time.time()
-        for epoch in range(self.epochs):
+        for epoch in range(self.start_epoch, self.epochs+1):
             self.train_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
@@ -395,26 +408,17 @@ class Trainer:
                 if v_loss < best_loss:
                     print("Achieved Best Validation Loss = {:5.3f}".format(v_loss))
                     best_loss = v_loss
-                    print("Saving best model at epoch {0}".format(epoch + 1))
-                    torch.save(
-                        self.model.module.state_dict(),
-                        Path(self.nets_dir)
-                        / "{0}_best_{1}.pt".format(self.network, self.str_video),
-                    )
+                    print("Saving best model at epoch {0}".format(epoch))
+                    self.save_checkpoint(epoch, best=True)
 
-                if (epoch + 1) % self.save_freq == 0:
-                    print("Saving model at epoch {0}".format(epoch + 1))
-                    torch.save(
-                        self.model.module.state_dict(),
-                        Path(self.nets_dir)
-                        / "{0}_epoch_{1}_{2}.pt".format(
-                            self.network, epoch + 1, self.str_video
-                        ),
-                    )
+                if (epoch) % self.save_freq == 0:
+                    print("Saving model at epoch {0}".format(epoch))
+                    self.save_checkpoint(epoch)
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print("Training time {}".format(total_time_str))
+        self.finish()
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
@@ -455,7 +459,7 @@ class Trainer:
 
             loss_value_reduce = all_reduce_mean(loss_value)
 
-            if self.wandb:
+            if self.is_wandb_enabled():
                 wandb.log(
                     {
                         "train/epoch": epoch,
@@ -554,7 +558,7 @@ class Trainer:
 
         all_reduce_mean(loss_value)
 
-        if self.wandb:
+        if self.is_wandb_enabled():
             wandb.log({"eval/total_eval_loss_per_batch": loss_value})
             # Loss per channel
             for i, var in enumerate(self.inputs):
@@ -584,7 +588,7 @@ class Trainer:
                     }
                 )
 
-        if self.wandb:
+        if self.is_wandb_enabled():
             wandb.log(
                 {
                     "eval/surface/KE_corr": KE_corr,
@@ -602,6 +606,46 @@ class Trainer:
                 }
             )
         return {"loss": loss_value.item()}
+
+    def save_checkpoint(self, epoch, best=False):
+        checkpoint = {
+            "model": self.model.module.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "epoch": epoch,
+            "wandb_id": self.wandb_id,
+            "wandb_name": self.wandb_name,
+        }
+        if self.scheduler:
+            checkpoint["scheduler"] = self.scheduler.state_dict()
+        torch.save(
+            checkpoint,
+            Path(self.nets_dir)
+            / "{0}_epoch_{1}_{2}.pt".format(
+                self.network, epoch, ("best" if best else "") + self.str_video
+            ),
+        )
+    
+    def load_checkpoint(self, checkpoint_path):
+        checkpoint = torch.load(checkpoint_path)
+        self.model.load_state_dict(checkpoint["model"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.scheduler.load_state_dict(checkpoint["scheduler"])
+        self.start_epoch = checkpoint["epoch"] + 1
+        self.wandb_id = checkpoint["wandb_id"]
+        self.wandb_name = checkpoint["wandb_name"]
+        
+        print("Loaded checkpoint from", checkpoint_path)
+        print("Start Epoch:", self.start_epoch)
+        print("Wandb id:", self.wandb_id)
+        print("Wandb name:", self.wandb_name)
+        print("Optimizer LR:", self.optimizer.param_groups[-1]["lr"])
+
+    def is_wandb_enabled(self):
+        return self.wandb and is_main_process()
+    
+    def finish(self):
+        if self.is_wandb_enabled():
+            wandb.finish()
 
 
 def main(args):

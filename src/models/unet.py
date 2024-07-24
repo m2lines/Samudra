@@ -2,6 +2,7 @@ import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from utils.climate_utils import pairwise
+from utils.train_utils import init_weights
 from .modules.blocks import CoreBlock, BilinearUpsample, TransposedConvUpsample
 import torch.nn as nn
 import numpy as np
@@ -88,7 +89,7 @@ class UNet(BaseModel):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
 
-        # self.layers = nn.ModuleList(layer)
+        self.apply(init_weights)
 
     def forward_once(self, fts):
         temp = []

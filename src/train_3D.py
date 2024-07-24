@@ -415,7 +415,7 @@ class Trainer:
                     print("Saving best model at epoch {0}".format(epoch))
                     self.save_checkpoint(epoch, best=True)
 
-                if (epoch) % self.save_freq == 0:
+                elif (epoch) % self.save_freq == 0:
                     print("Saving model at epoch {0}".format(epoch))
                     self.save_checkpoint(epoch)
 
@@ -444,6 +444,9 @@ class Trainer:
             loss = torch.mean(loss_per_channel)
             loss.backward()
             loss_value = loss.item()
+            
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             self.optimizer.step()
             if self.scheduler is not None:

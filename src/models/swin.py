@@ -16,6 +16,7 @@ from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from typing import Sequence
 from .base import BaseModel
 from utils.climate_utils import pairwise
+from utils.train_utils import init_weights
 from .modules.blocks import BilinearUpsample, TransposedConvUpsample
 
 
@@ -866,6 +867,8 @@ class SwinTransformer(BaseModel):
 
         self.decoder_layers = nn.ModuleList(decoder_layers)
         self.num_steps = int(len(ch_width_reversed) - 1)
+        
+        self.apply(init_weights)
 
     def forward_once(self, fts):
         temp = self.encoder(fts)  # Swin Transformer

@@ -38,32 +38,9 @@ class BaseModel(torch.nn.Module):
             if step == 0:
                 input_tensor = inputs[
                     0
-                ]  # For HIST=1, [0->[0in, 1in], 1->[2out, 3out], 2->[1in, 2in], 3->[3out, 4out], 4->[2in, 3in], 5->[4out, 5out]
-            elif (
-                step <= self.hist
-            ):  # At this stage, we still use part of the input in inputs[0] depending on the step. For example, for hist=1, at step=1, we use 1in from [1in, 2in] as input and 2out from [2out, 3out] output.
-                inputs_0 = inputs[2 * step][
-                    :,
-                    : self.output_channels // (self.hist + 1) * (self.hist - step + 1),
-                ]
-                inputs_1 = outputs[0][
-                    :,
-                    self.output_channels // (self.hist + 1) * (self.hist - step + 1) :,
-                ]
-                input_tensor = torch.cat(
-                    [
-                        inputs_0,
-                        inputs_1,
-                        inputs[2 * step][
-                            :, self.output_channels :
-                        ],  # boundary conditions
-                    ],
-                    dim=1,
-                )
+                ]  # For HIST=1, [0->[0in, 1in], 1->[2out, 3out], 2->[2in, 3in], 3->[4out, 5out]
             else:
-                inputs_0 = outputs[
-                    -self.hist - 1
-                ]  # output from self.hist+1 steps ago corresponds to current input. For hist=1, input at step 2 [2in, 3in] is output at step 0 [2out, 3out].
+                inputs_0 = outputs[-1]  # Last output corresponds to input at current time step
                 input_tensor = torch.cat(
                     [
                         inputs_0,

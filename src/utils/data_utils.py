@@ -92,7 +92,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         self.device = device
 
     def __len__(self):
-        return self.rolling_indices.window_dim.size
+        return self.size
 
     def __getitem__(self, idx):
         if type(idx) == slice:
@@ -105,8 +105,9 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         elif type(idx) == int:
             idx = slice(idx, idx + 1, 1)
 
+        rolling_idx = self.rolling_indices.isel(window_dim=idx)
         x_index = xr.Variable(
-            ["window_dim", "time"], self.rolling_indices.isel(window_dim=idx)
+            ["window_dim", "time"], rolling_idx
         )
         data_in = self.inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
@@ -187,8 +188,8 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         # This class will be used only for training
         # Rolling indices to keep track of histories/past states (without skips):
         # HIST=0, 4 steps ; 0->[0in, 1out, 1in, 2out, 2in, 3out, 3in, 4out]
-        # HIST=1, 4 steps , 0->[[0in, 1in], [2out, 3out], [1in, 2in], [3out, 4out], [2in, 3in], [4out, 5out], [3in, 4in], [5out, 6out]]
-        # HIST=2, 4 steps , 0->[[0in, 1in, 2in], [3out, 4out, 5out], [1in, 2in, 3in], [4out, 5out, 6out], [2in, 3in, 4in], [5out, 6out, 7out], [3in, 4in, 5in], [6out, 7out, 8out]]
+        # HIST=1, 4 steps , 0->[[0in, 1in], [2out, 3out], [2in, 3in], [4out, 5out]], 1->[[1in, 2in], [3out, 4out], [3in, 4in], [5out, 6out]]
+        # HIST=2, 4 steps , 0->[[0in, 1in, 2in], [3out, 4out, 5out], [3in, 4in, 5in], [6out, 7out, 8out], [6in, 7in, 8in], [9out, 10out, 11out], [9in, 10in, 11in], [12out, 13out, 14out]]
         indices = xr.DataArray(
             np.arange(data.time.size),
             dims=["time"],
@@ -220,21 +221,21 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.device = device
 
     def __len__(self):
-        return self.rolling_indices.window_dim.size - self.steps
+        return self.size - self.steps * (self.hist + 1) - self.hist
 
     def __getitem__(self, idx):
         outputs = []
 
         assert type(idx) == int
         for step in range(self.steps):
-
-            start = idx + step
-            end = idx + step + 1
+            start = idx + step * (self.hist + 1)
+            end = start + 1
             idx_slice = slice(
                 start, end, self.interval
             )  # Create a slice for similar indexing as in data_CNN_Disk
+            rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
             x_index = xr.Variable(
-                ["window_dim", "time"], self.rolling_indices.isel(window_dim=idx_slice)
+                ["window_dim", "time"], rolling_idx
             )
             data_in = self.inputs_no_extra.isel(time=x_index).isel(
                 time=slice(None, self.hist + 1)

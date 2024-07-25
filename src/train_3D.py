@@ -451,7 +451,7 @@ class Trainer:
             self.optimizer.step()
             if self.scheduler is not None:
                 # self.scheduler.step()
-                self.scheduler.step(epoch + data_iter_step / iters)
+                self.scheduler.step(epoch - 1 + data_iter_step / iters)
             torch.cuda.synchronize()
             torch.cuda.empty_cache()
 

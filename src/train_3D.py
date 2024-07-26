@@ -436,19 +436,35 @@ class Trainer:
         ):
             if self.testing and (data_iter_step + 1) % 5 == 0:
                 break
+            
+            if is_main_process():
+                if (epoch == 3 and data_iter_step == 0):
+                    torch.cuda.profiler.start()
+                if (epoch == 3 and data_iter_step == len(self.train_loader) - 1):
+                    torch.cuda.profiler.stop()
+            torch.cuda.nvtx.range_push(f"step {data_iter_step}")
+            torch.cuda.nvtx.range_push(f"cuda copy in {data_iter_step}")
+            data = [d.cuda() for d in data]
+            torch.cuda.nvtx.range_pop() # cuda copy
 
             self.optimizer.zero_grad()
-            data = [d.cuda() for d in data]
 
+            torch.cuda.nvtx.range_push(f"forward")
             loss_per_channel = self.model(data, loss_fn=self.loss)
             loss = torch.mean(loss_per_channel)
+            torch.cuda.nvtx.range_pop() #forward
+
             loss.backward()
             loss_value = loss.item()
             
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
+            torch.cuda.nvtx.range_push(f"optimizer")
             self.optimizer.step()
+            torch.cuda.nvtx.range_pop() # optimizer
+            torch.cuda.nvtx.range_pop() # step
+            
             if self.scheduler is not None:
                 # self.scheduler.step()
                 self.scheduler.step(epoch - 1 + data_iter_step / iters)

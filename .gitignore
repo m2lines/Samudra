@@ -22,3 +22,7 @@ notebooks/temp
 temp
 train_3D
 token.txt
+profile-logs/*
+*.nsys-rep
+*.prof
+

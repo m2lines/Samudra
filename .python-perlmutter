@@ -1,8 +1,37 @@
 #!/bin/bash
 
+
+LOGDIR=./profile-logs
+mkdir -p ${LOGDIR}
+
 module load conda
 conda activate emulator
-python3 $@
+
+# Profiling
+if [ "${ENABLE_NSYS_PROFILING:-0}" -eq 1 ]; then
+    module load cudatoolkit
+    echo "Enabling nsys profiling..."
+    NSYS_ARGS="--trace=cuda,cublas,nvtx --kill none -c cudaProfilerApi -f true"
+    NSYS_OUTPUT=${LOGDIR}/${PROFILE_OUTPUT:-"profile"}
+    export PROFILE_CMD="nsys profile $NSYS_ARGS -o $NSYS_OUTPUT"
+    
+fi
+
+if [ "${ENABLE_CPROF_PROFILING:-0}" -eq 1 ]; then
+    echo "Enabling cProfile profiling..."
+    CPROF_OUTPUT=${LOGDIR}/${PROFILE_OUTPUT:-"profile"}
+    export CPROF_CMD="-m cProfile -o $CPROF_OUTPUT"
+fi
+
+if [ "${ENABLE_PERF_PROFILING:-0}" -eq 1 ]; then
+    echo "Enabling perf-report profiling..."
+    module load cudatoolkit forge
+    module unload cray-mpich/8.1.28
+    PERF_OUTPUT=${LOGDIR}
+    export PERF_CMD="perf-report --nompi -o $PERF_OUTPUT"
+fi
+
+${PROFILE_CMD} ${PERF_CMD} python3 ${CPROF_CMD} $@
 
 # https://stackoverflow.com/questions/1668649/how-to-keep-quotes-in-bash-arguments
 # args=''

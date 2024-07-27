@@ -2,7 +2,7 @@
 
 module load conda
 conda activate emulator
-python -m cProfile -o output-file.prof $@
+python -m cProfile -o ./profile-logs/output-file.prof $@
 
 # https://stackoverflow.com/questions/1668649/how-to-keep-quotes-in-bash-arguments
 # args=''

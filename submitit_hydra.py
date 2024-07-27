@@ -29,6 +29,14 @@ NAME_MAX = 255
 
 @hydra.main(version_base=None, config_name="conf", config_path=CONFIG_PATH)
 def my_app(cfg: DictConfig) -> None:
+
+    # Check if profiling is enabled
+    profiling_enabled = os.getenv('ENABLE_NSYS_PROFILING', '0') == '1'
+    
+    if profiling_enabled:
+        log.info("Profiling is enabled. Pausing profiling before experiment starts.")
+        os.system("srun dcgmi profile --pause")
+
     try:
         env = submitit.JobEnvironment()
         log.info(env.__repr__())
@@ -41,6 +49,10 @@ def my_app(cfg: DictConfig) -> None:
     log.info(f"Beginning experiment [{cfg.experiment}].")
     main_fn(cfg)
     log.info(f"Completed experiment.")
+
+    if profiling_enabled:
+        log.info("Resuming profiling after experiment ends.")
+        os.system("srun dcgmi profile --resume")
 
 
 class LogJobReturnCallback(Callback):

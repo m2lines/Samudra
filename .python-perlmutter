@@ -10,6 +10,7 @@ conda activate emulator
 # Profiling
 if [ "${ENABLE_NSYS_PROFILING:-0}" -eq 1 ]; then
     module load cudatoolkit
+    module unload Nsight/Systems
     echo "Enabling nsys profiling..."
     NSYS_ARGS="--trace=cuda,cublas,nvtx --kill none -c cudaProfilerApi -f true"
     NSYS_OUTPUT=${LOGDIR}/${PROFILE_OUTPUT:-"profile"}

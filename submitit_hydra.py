@@ -44,6 +44,7 @@ def my_app(cfg: DictConfig) -> None:
     main_fn(cfg)
     log.info(f"Completed experiment.")
 
+
 class LogJobReturnCallback(Callback):
     def __init__(self) -> None:
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -93,7 +94,7 @@ if __name__ == "__main__":
     # By setting this, submitit will use this alternative to produce the SBATCH script.
     @property
     def _submitit_command_str(self) -> str:
-        profiling_enabled = os.getenv('ENABLE_NSYS_PROFILING', '0') == '1'
+        profiling_enabled = os.getenv("ENABLE_NSYS_PROFILING", "0") == "1"
         if profiling_enabled:
             log.info("submitit is enabling nsys profiling")
         return " ".join(
@@ -264,7 +265,7 @@ if __name__ == "__main__":
         self.hydra_context.config_loader = ConfigLoaderImpl(
             create_config_search_path(os.path.join(job_dir, ".snapshot", "configs"))
         )
-        
+
         jobs = executor.map_array(self, *zip(*job_params))
         return [j.results()[0] for j in jobs]
 
@@ -357,16 +358,22 @@ if __name__ == "__main__":
             "srun_args",
             "use_srun",  # if False, un python directly in sbatch instead of through srun
         ]
-        parameters = {k: v for k, v in locals().items() if v is not None and k not in nonslurm}
+        parameters = {
+            k: v for k, v in locals().items() if v is not None and k not in nonslurm
+        }
         # rename and reformat parameters
-        parameters["signal"] = f"{submitit_slurm.SlurmJobEnvironment.USR_SIG}@{signal_delay_s}"
+        parameters["signal"] = (
+            f"{submitit_slurm.SlurmJobEnvironment.USR_SIG}@{signal_delay_s}"
+        )
         if num_gpus is not None:
             warnings.warn(
                 '"num_gpus" is deprecated, please use "gpus_per_node" instead (overwritting with num_gpus)'
             )
             parameters["gpus_per_node"] = parameters.pop("num_gpus", 0)
         if "cpus_per_gpu" in parameters and "gpus_per_task" not in parameters:
-            warnings.warn('"cpus_per_gpu" requires to set "gpus_per_task" to work (and not "gpus_per_node")')
+            warnings.warn(
+                '"cpus_per_gpu" requires to set "gpus_per_task" to work (and not "gpus_per_node")'
+            )
         # add necessary parameters
         paths = utils.JobPaths(folder=folder)
         stdout = str(paths.stdout)
@@ -374,7 +381,9 @@ if __name__ == "__main__":
         # Job arrays will write files in the form  <ARRAY_ID>_<ARRAY_TASK_ID>_<TASK_ID>
         if map_count is not None:
             assert isinstance(map_count, int) and map_count
-            parameters["array"] = f"0-{map_count - 1}%{min(map_count, array_parallelism)}"
+            parameters["array"] = (
+                f"0-{map_count - 1}%{min(map_count, array_parallelism)}"
+            )
             stdout = stdout.replace("%j", "%A_%a")
             stderr = stderr.replace("%j", "%A_%a")
         parameters["output"] = stdout.replace("%t", "0")
@@ -400,14 +409,18 @@ if __name__ == "__main__":
             stderr_flags = [] if stderr_to_stdout else ["--error", stderr]
             if srun_args is None:
                 srun_args = []
-            srun_cmd = submitit_slurm._shlex_join(["srun", "--unbuffered", "--output", stdout, *stderr_flags, *srun_args])
+            srun_cmd = submitit_slurm._shlex_join(
+                ["srun", "--unbuffered", "--output", stdout, *stderr_flags, *srun_args]
+            )
             command = " ".join((srun_cmd, command))
 
-        profiling_enabled = os.getenv('ENABLE_NSYS_PROFILING', '0') == '1'
+        profiling_enabled = os.getenv("ENABLE_NSYS_PROFILING", "0") == "1"
         if profiling_enabled:
-            command = "srun dcgmi profile --pause\n" +\
-                command +\
-                "\nsrun dcgmi profile --resume"
+            command = (
+                "srun dcgmi profile --pause\n"
+                + command
+                + "\nsrun dcgmi profile --resume"
+            )
         lines += [
             "",
             "# command",
@@ -418,6 +431,6 @@ if __name__ == "__main__":
         ]
         return "\n".join(lines)
 
-    submitit_slurm._make_sbatch_string=_make_sbatch_string
+    submitit_slurm._make_sbatch_string = _make_sbatch_string
 
     my_app()

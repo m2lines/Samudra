@@ -40,7 +40,9 @@ class BaseModel(torch.nn.Module):
                     0
                 ]  # For HIST=1, [0->[0in, 1in], 1->[2out, 3out], 2->[2in, 3in], 3->[4out, 5out]
             else:
-                inputs_0 = outputs[-1]  # Last output corresponds to input at current time step
+                inputs_0 = outputs[
+                    -1
+                ]  # Last output corresponds to input at current time step
                 input_tensor = torch.cat(
                     [
                         inputs_0,

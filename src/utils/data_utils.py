@@ -106,9 +106,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
             idx = slice(idx, idx + 1, 1)
 
         rolling_idx = self.rolling_indices.isel(window_dim=idx)
-        x_index = xr.Variable(
-            ["window_dim", "time"], rolling_idx
-        )
+        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         data_in = self.inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
@@ -234,9 +232,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
                 start, end, self.interval
             )  # Create a slice for similar indexing as in data_CNN_Disk
             rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
-            x_index = xr.Variable(
-                ["window_dim", "time"], rolling_idx
-            )
+            x_index = xr.Variable(["window_dim", "time"], rolling_idx)
             data_in = self.inputs_no_extra.isel(time=x_index).isel(
                 time=slice(None, self.hist + 1)
             )

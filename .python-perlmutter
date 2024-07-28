@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-LOGDIR=./profile-logs
+LOGDIR=/pscratch/sd/s/shubhamg/m2lines/m2lines/Ocean_Emulator/profile-logs
 mkdir -p ${LOGDIR}
 
 module load conda
@@ -11,10 +11,9 @@ conda activate emulator
 if [ "${ENABLE_NSYS_PROFILING:-0}" -eq 1 ]; then
     module load cudatoolkit
     echo "Enabling nsys profiling..."
-    NSYS_ARGS="--trace=cuda,cublas,nvtx --kill none -c cudaProfilerApi -f true"
+    NSYS_ARGS="profile --trace=cuda,nvtx,osrt,cudnn,cublas --backtrace=dwarf --gpu-metrics-device=all"
     NSYS_OUTPUT=${LOGDIR}/${PROFILE_OUTPUT:-"profile"}
-    export PROFILE_CMD="nsys profile $NSYS_ARGS -o $NSYS_OUTPUT"
-    
+    export PROFILE_CMD="nsys $NSYS_ARGS -o $NSYS_OUTPUT"
 fi
 
 if [ "${ENABLE_CPROF_PROFILING:-0}" -eq 1 ]; then
@@ -26,13 +25,13 @@ fi
 if [ "${ENABLE_PERF_PROFILING:-0}" -eq 1 ]; then
     echo "Enabling perf-report profiling..."
     module load cudatoolkit forge
-    module unload cray-mpich/8.1.28
     PERF_OUTPUT=${LOGDIR}
     export PERF_CMD="perf-report --nompi -o $PERF_OUTPUT"
 fi
 
-${PROFILE_CMD} ${PERF_CMD} python3 ${CPROF_CMD} $@
+${PROFILE_CMD} python ${CPROF_CMD} $@
 
+exit
 # https://stackoverflow.com/questions/1668649/how-to-keep-quotes-in-bash-arguments
 # args=''
 # for i in "$@"; do

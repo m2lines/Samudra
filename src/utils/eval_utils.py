@@ -19,14 +19,16 @@ def generate_model_rollout(
     model_pred = np.zeros((N_eval, *test_data[0][0].shape[2:], N_in))
 
     with torch.no_grad():
-        outs = model.inference(test_data, num_steps=N_eval)
-
-    for i in range(N_eval):
+        outs = model.inference(test_data, num_steps=N_eval // (hist + 1))
+    for i in range(N_eval // (hist + 1)):
         pred_temp = outs[i]
         pred_temp = torch.nan_to_num(pred_temp)
         pred_temp = torch.clip(pred_temp, min=-1e5, max=1e5)
-
-        model_pred[i] = torch.swapaxes(torch.swapaxes(pred_temp, 2, 0), 1, 0).cpu()
+        C, H, W = pred_temp.shape
+        pred_temp = torch.reshape(pred_temp, (hist + 1, C // (hist + 1), H, W))
+        model_pred[i * (hist + 1) : (i + 1) * (hist + 1)] = torch.swapaxes(
+            torch.swapaxes(pred_temp, 3, 1), 2, 1
+        ).cpu()
 
     if train:
         return model_pred
@@ -611,15 +613,15 @@ def compute_heat_flux(N_eval, test_data, model_pred, dx, dy):
     return flux_u, flux_v, flux_true_u, flux_true_v
 
 
-def compute_KE(N_eval, test_data, model_pred, area, wet):
+def compute_KE(N_eval, test_data, norm_vals, model_pred, area, wet):
     N_in = model_pred.shape[-1]
 
     KE = np.zeros((N_eval,))
     auto_KE = np.zeros((N_eval,))
 
-    data_out_cpu = np.array(test_data[:][1].cpu()) * np.expand_dims(
-        test_data.norm_vals["s_out"], [0, 2, 3]
-    ) + np.expand_dims(test_data.norm_vals["m_out"], [0, 2, 3])
+    data_out_cpu = test_data * np.expand_dims(
+        norm_vals["s_out"], [0, 2, 3]
+    ) + np.expand_dims(norm_vals["m_out"], [0, 2, 3])
 
     area_flat = np.array(area[wet].flatten())
 
@@ -804,30 +806,6 @@ def gen_KE(N_eval, test_data, model_pred):
     return pred_KE, true_KE
 
 
-def gen_KE_range(start, N_eval, test_data, model_pred):
-    rho = 1.2e3
-    data_out_cpu = np.array(test_data[:][1].cpu()) * np.expand_dims(
-        test_data.norm_vals["s_out"], [0, 2, 3]
-    ) + np.expand_dims(test_data.norm_vals["m_out"], [0, 2, 3])
-    pred_KE = (
-        (
-            model_pred[start : start + N_eval, :, :, 0] ** 2
-            + model_pred[start : start + N_eval, :, :, 1] ** 2
-        )
-        * 0.5
-        * rho
-    )
-    true_KE = (
-        (
-            data_out_cpu[start : start + N_eval, 0] ** 2
-            + data_out_cpu[start : start + N_eval, 1] ** 2
-        )
-        * 0.5
-        * rho
-    )
-    return pred_KE, true_KE
-
-
 def compute_corrs_single(N_eval, test_data, model_pred, area, wet, std, mean):
     N_in = model_pred.shape[-1]
     corrs = np.zeros((N_eval))
@@ -1009,15 +987,6 @@ def gen_enstrophy_spectrum(N_eval, test_data, model_pred, grids, wet, wet_lap, N
     return enst_spec, enst_spec_true
 
 
-def gen_value_range(start, N_eval, test_data, model_pred, index):
-    data_out_cpu = np.array(test_data[:][1].cpu()) * np.expand_dims(
-        test_data.norm_vals["s_out"], [0, 2, 3]
-    ) + np.expand_dims(test_data.norm_vals["m_out"], [0, 2, 3])
-    pred_temp = model_pred[start : start + N_eval, :, :, index]
-    true_temp = data_out_cpu[start : start + N_eval, index]
-    return pred_temp, true_temp
-
-
 def Nino_Index(T, time_test, area):
     T = xr.DataArray(
         data=T,
@@ -1118,6 +1087,39 @@ def compute_amo(grids, inputs, model_pred, test_data, mean_out, std_out, time_te
     return Amo_pred, Amo_true
 
 
+def gen_KE_range(start, N_eval, test_data, norm_vals, model_pred):
+    rho = 1.2e3
+    data_out_cpu = test_data * np.expand_dims(
+        norm_vals["s_out"], [0, 2, 3]
+    ) + np.expand_dims(norm_vals["m_out"], [0, 2, 3])
+    pred_KE = (
+        (
+            model_pred[start : start + N_eval, :, :, 0] ** 2
+            + model_pred[start : start + N_eval, :, :, 1] ** 2
+        )
+        * 0.5
+        * rho
+    )
+    true_KE = (
+        (
+            data_out_cpu[start : start + N_eval, 0] ** 2
+            + data_out_cpu[start : start + N_eval, 1] ** 2
+        )
+        * 0.5
+        * rho
+    )
+    return pred_KE, true_KE
+
+
+def gen_value_range(start, N_eval, test_data, norm_vals, model_pred, index):
+    data_out_cpu = test_data * np.expand_dims(
+        norm_vals["s_out"], [0, 2, 3]
+    ) + np.expand_dims(norm_vals["m_out"], [0, 2, 3])
+    pred_temp = model_pred[start : start + N_eval, :, :, index]
+    true_temp = data_out_cpu[start : start + N_eval, index]
+    return pred_temp, true_temp
+
+
 def get_map_metrics(pred, true, area_flat, wet_bool):
     cor = (
         area_flat * pred[wet_bool].flatten() * true[wet_bool].flatten()
@@ -1134,6 +1136,7 @@ def get_map_metrics(pred, true, area_flat, wet_bool):
 
 def get_corr_rmse(
     test_data,
+    norm_vals,
     model_pred_net,
     area,
     wet_bool,
@@ -1142,14 +1145,14 @@ def get_corr_rmse(
 ):
     area_flat = np.array(area[wet_bool].flatten())
     long_KE_net, long_KE_true = gen_KE_range(
-        start_map, N_plot_map, test_data, model_pred_net
+        start_map, N_plot_map, test_data, norm_vals, model_pred_net
     )
     long_KE_net = long_KE_net.mean(0)
     long_KE_true = long_KE_true.mean(0)
     KE_corr, KE_rmse = get_map_metrics(long_KE_net, long_KE_true, area_flat, wet_bool)
 
     long_temp_net, long_temp_true = gen_value_range(
-        start_map, N_plot_map, test_data, model_pred_net, 2
+        start_map, N_plot_map, test_data, norm_vals, model_pred_net, 2
     )
     long_temp_net = long_temp_net.mean(0)
     long_temp_true = long_temp_true.mean(0)
@@ -1158,7 +1161,7 @@ def get_corr_rmse(
     )
 
     long_saline_net, long_saline_true = gen_value_range(
-        start_map, N_plot_map, test_data, model_pred_net, 3
+        start_map, N_plot_map, test_data, norm_vals, model_pred_net, 3
     )
     long_saline_net = long_saline_net.mean(0)
     long_saline_true = long_saline_true.mean(0)
@@ -1167,7 +1170,7 @@ def get_corr_rmse(
     )
 
     long_zos_net, long_zos_true = gen_value_range(
-        start_map, N_plot_map, test_data, model_pred_net, 4
+        start_map, N_plot_map, test_data, norm_vals, model_pred_net, 4
     )
     long_zos_net = long_zos_net.mean(0)
     long_zos_true = long_zos_true.mean(0)
@@ -1176,14 +1179,14 @@ def get_corr_rmse(
     )
 
     long_u_net, long_u_true = gen_value_range(
-        start_map, N_plot_map, test_data, model_pred_net, 0
+        start_map, N_plot_map, test_data, norm_vals, model_pred_net, 0
     )
     long_u_net = long_u_net.mean(0)
     long_u_true = long_u_true.mean(0)
     u_corr, u_rmse = get_map_metrics(long_u_net, long_u_true, area_flat, wet_bool)
 
     long_v_net, long_v_true = gen_value_range(
-        start_map, N_plot_map, test_data, model_pred_net, 1
+        start_map, N_plot_map, test_data, norm_vals, model_pred_net, 1
     )
     long_v_net = long_v_net.mean(0)
     long_v_true = long_v_true.mean(0)

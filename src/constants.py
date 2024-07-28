@@ -74,6 +74,7 @@ OUT_VARS = {
 # EXTRA_VARS["3D_all"].append("thetao_lev_0")
 # OUT_VARS["3D_all"].remove("thetao_lev_0")
 
+
 def get_eval_maps(exp_num):
     CH_3D_IDX = {}
     for kt in ["uo", "vo", "thetao", "so"]:
@@ -96,8 +97,9 @@ def get_eval_maps(exp_num):
         [DP_3D_IDX[0], torch.tensor([len(INPT_VARS[exp_num]) - 1])]
     )  # zos
     DP_3D_IDX[0] = DP_3D_IDX[0].to(torch.int32)
-    
+
     return CH_3D_IDX, DP_3D_IDX
+
 
 # Region boundaries
 REGIONS = {

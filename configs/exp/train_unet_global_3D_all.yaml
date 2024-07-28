@@ -32,7 +32,7 @@ network: "convnextunet"
 scheduler: False
 loss: mse
 testing: False
-preload: null
+resume_ckpt_path: null
 data_percent: 1.0
 #####
 
@@ -43,7 +43,7 @@ disk_mode: True
 num_workers: 4
 pin_mem: True
 save_freq: 5
-epochs: 100
+epochs: 35
 batch_size: 32
 # grad_clip: False
 

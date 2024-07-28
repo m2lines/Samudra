@@ -8,7 +8,7 @@
 # ./.python-perlmutter submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global_3D wandb.mode=online name="$(date +%F)-train_convnextunet_global_3D_surface_fromdisk" region=global_3D batch_size=16 scheduler=True rand_seed=9
 
 # All
-./.python-perlmutter -m cProfile -o ./profile-logs/baseline_5level.prof submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_debug wandb.mode=online wandb.entity=m2lines wandb.project=profile_nersc exp=train_unet_global_3D_5 epochs=2 name="$(date +%F)-train_convnextunet_global_3D_hist1_5levels" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 --qos=debug
+./.python-perlmutter-launch submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_3hrs wandb.mode=online wandb.entity=m2lines wandb.project=profile_nersc exp=train_unet_global_3D_all epochs=4 name="$(date +%F)-train_convnextunet_global_3D_hist1_5levels" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 --qos=preempt
 
 # All 8 hours - history=1
 # ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_3hrs wandb.mode=online wandb.entity=m2lines wandb.project=profile_nersc exp=train_unet_global_3D_all name="$(date +%F)-train_convnextunet_global_3D_hist1_130M" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 --qos=preempt

@@ -47,25 +47,11 @@ class Trainer:
         if not args.disk_mode:
             assert args.num_workers == 0 and args.pin_mem == False
         else:
-            args.num_workers = torch.cuda.device_count() * 4
+            args.num_workers = torch.cuda.device_count() * args.num_workers
             args.pin_mem = True
 
         # Set seeds
         set_seed(args.rand_seed)
-
-        # Wandb
-        name = (
-            args.name + "//" + args.sub_name
-            if hasattr(args, "sub_name")
-            else ".LOCAL" + "//" + args.name
-        )
-        wandb.init(
-            config=OmegaConf.to_container(args, resolve=True),
-            name=name,
-            dir=args.experiment_dir,
-            **args.wandb,
-        )
-        self.wandb = args.wandb.mode == "online"
 
         # Check dirs
         if not os.path.exists(args.nets_dir):
@@ -76,12 +62,12 @@ class Trainer:
         self.extra_in = EXTRA_VARS[args.exp_num_extra]
         self.outputs = OUT_VARS[args.exp_num_out]
         self.CH_3D_IDX, self.DP_3D_IDX = get_eval_maps(args.exp_num_in)
-        levels = args.exp_num_in.split('_')[-1]
+        levels = args.exp_num_in.split("_")[-1]
         if levels == "all":
             self.levels = 19
         else:
             self.levels = int(levels)
-        
+
         self.str_in = "".join([i + "_" for i in self.inputs])
         self.str_ext = "".join([i + "_" for i in self.extra_in])
         self.str_out = "".join([i + "_" for i in self.outputs])
@@ -103,7 +89,7 @@ class Trainer:
             )  # Number of atmosphere variables + Lateral boundary variables
         else:
             self.N_extra = self.N_atm  # Number of atmosphere variables
-        self.N_out = len(self.outputs)
+        self.N_out = (args.hist + 1) * len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
 
@@ -137,19 +123,12 @@ class Trainer:
         self.data_stds_zarr = args.data_stds_zarr
         self.grid_file = args.grid_file
 
-        self.wet = torch.load(
-            os.path.join(self.data_dir, self.wet_file)
-        )
-        self.data = xr.open_zarr(
-            os.path.join(self.data_dir, self.data_zarr)
-        )
-        self.data_mean = xr.open_zarr(
-            os.path.join(self.data_dir, self.data_means_zarr)
-        )
-        self.data_std = xr.open_zarr(
-            os.path.join(self.data_dir, self.data_stds_zarr)
-        )
-            
+        self.wet = torch.load(os.path.join(self.data_dir, self.wet_file))
+        self.wet = torch.concat([self.wet] * (args.hist + 1), dim=0)
+        self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
+        self.data_mean = xr.open_zarr(os.path.join(self.data_dir, self.data_means_zarr))
+        self.data_std = xr.open_zarr(os.path.join(self.data_dir, self.data_stds_zarr))
+
         train_data = data_CNN_Disk_steps(
             self.data,
             self.inputs,
@@ -186,18 +165,29 @@ class Trainer:
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
-                output_channels=self.N_in,
+                output_channels=self.N_out,
                 pretrain_img_size=[180, 360],
                 wet=self.wet.cuda(),
                 hist=args.hist,
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:
             if args.unet.ch_width[0] != self.num_in:
-                print("NOTE: Changing input channels to match data {}->{}".format(
-                    args.unet.ch_width[0], self.num_in
-                ))
+                print(
+                    "NOTE: Changing input channels to match data {}->{}".format(
+                        args.unet.ch_width[0], self.num_in
+                    )
+                )
                 args.unet.ch_width[0] = self.num_in
-            model = instantiate(args.unet, n_out=self.N_in, wet=self.wet.cuda(), hist=args.hist)
+            if args.unet.n_out != self.N_out:
+                print(
+                    "NOTE: Changing output channels to match data {}->{}".format(
+                        args.unet.n_out, self.N_out
+                    )
+                )
+                args.unet.n_out = self.N_out
+            model = instantiate(
+                args.unet, n_out=self.N_out, wet=self.wet.cuda(), hist=args.hist
+            )
         else:
             raise NotImplementedError
 
@@ -207,11 +197,6 @@ class Trainer:
         # summary(model)
 
         model = model.to(args.device)
-        if args.preload:
-            print("Loaded model from ", args.preload)
-            model.load_state_dict(
-                torch.load(args.preload, map_location=torch.device(args.device))
-            )
 
         # Summary
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
@@ -225,14 +210,6 @@ class Trainer:
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
 
-        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        if "swin" in args.network:
-            model = nn.parallel.DistributedDataParallel(
-                model, device_ids=[args.gpu], find_unused_parameters=True
-            )
-        elif "unet" in args.network:
-            model = nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
-
         self.model = model
         self.nets_dir = args.nets_dir
         self.network = args.network
@@ -244,13 +221,58 @@ class Trainer:
             self.loss = decomposed_mse
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr)
 
         # Scheduler
         self.scheduler = None
         if args.scheduler:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
                 self.optimizer, args.T
+            )
+
+        # Wandb and Loading Checkpoint
+        self.wandb = args.wandb.mode == "online"
+        if args.resume_ckpt_path is not None:
+            self.load_checkpoint(args.resume_ckpt_path)
+            if self.is_wandb_enabled():
+                wandb.init(
+                    config=OmegaConf.to_container(args, resolve=True),
+                    name=self.wandb_name,
+                    dir=args.experiment_dir,
+                    resume="must",
+                    id=self.wandb_id,
+                    **args.wandb,
+                )
+            elif is_main_process():
+                assert (
+                    self.wandb_id is None
+                ), "This checkpoint has used a wandb run, set wandb.mode to online"
+        else:
+            self.start_epoch = 1
+            self.wandb_id = None
+            self.wandb_name = (
+                args.name + "//" + args.sub_name
+                if hasattr(args, "sub_name")
+                else ".LOCAL" + "//" + args.name
+            )
+            if self.is_wandb_enabled():
+                wandb.init(
+                    config=OmegaConf.to_container(args, resolve=True),
+                    name=self.wandb_name,
+                    dir=args.experiment_dir,
+                    **args.wandb,
+                )
+                self.wandb_id = wandb.run.id
+
+        # DDP Model
+        self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
+        if "swin" in args.network:
+            self.model = nn.parallel.DistributedDataParallel(
+                self.model, device_ids=[args.gpu], find_unused_parameters=True
+            )
+        elif "unet" in args.network:
+            self.model = nn.parallel.DistributedDataParallel(
+                self.model, device_ids=[args.gpu]
             )
 
         # Training
@@ -273,9 +295,9 @@ class Trainer:
         num_gpus = get_world_size()
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset(
-            os.path.join(self.data_dir, self.grid_file)
-        ).rename({"dx": "dxu", "dy": "dyu"})
+        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename(
+            {"dx": "dxu", "dy": "dyu"}
+        )
 
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
@@ -320,7 +342,11 @@ class Trainer:
             }
 
             self.val_data_set.append(val_data)
-            self.target_set.append(val_data[: self.N_local][1].numpy())
+            self.target_set.append(
+                val_data[: (self.N_local) // (self.hist + 1)][1]
+                .reshape((self.N_local, -1, *self.surface_wet.shape))
+                .numpy()
+            )
 
             # Surface Data
             surface_targets = data_CNN_Disk(
@@ -336,7 +362,7 @@ class Trainer:
                 self.interval,
                 self.hist,
                 self.e_train + i * self.N_local,
-                long_rollout=True,
+                long_rollout=False,
                 device="cuda",
             )
             mean_in = surface_targets.in_mean.to_array().to_numpy().reshape(-1)
@@ -350,16 +376,20 @@ class Trainer:
                 "m_out": mean_out,
                 "m_in": mean_in,
             }
-            self.surface_targets_set.append(surface_targets)
+            self.surface_targets_norm_vals = surface_targets.norm_vals
+            self.surface_targets_set.append(
+                surface_targets[: (self.N_local) // (self.hist + 1)][1]
+                .reshape((self.N_local, -1, *self.surface_wet.shape))
+                .numpy()
+            )
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
-
-        if self.wandb:
+        if self.is_wandb_enabled():
             wandb.watch(self.model, log="all")
 
         start_time = time.time()
-        for epoch in range(self.epochs):
+        for epoch in range(self.start_epoch, self.epochs + 1):
             self.train_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
@@ -382,26 +412,17 @@ class Trainer:
                 if v_loss < best_loss:
                     print("Achieved Best Validation Loss = {:5.3f}".format(v_loss))
                     best_loss = v_loss
-                    print("Saving best model at epoch {0}".format(epoch + 1))
-                    torch.save(
-                        self.model.module.state_dict(),
-                        Path(self.nets_dir)
-                        / "{0}_best_{1}.pt".format(self.network, self.str_video),
-                    )
+                    print("Saving best model at epoch {0}".format(epoch))
+                    self.save_checkpoint(epoch, best=True)
 
-                if (epoch + 1) % self.save_freq == 0:
-                    print("Saving model at epoch {0}".format(epoch + 1))
-                    torch.save(
-                        self.model.module.state_dict(),
-                        Path(self.nets_dir)
-                        / "{0}_epoch_{1}_{2}.pt".format(
-                            self.network, epoch + 1, self.str_video
-                        ),
-                    )
+                elif (epoch) % self.save_freq == 0:
+                    print("Saving model at epoch {0}".format(epoch))
+                    self.save_checkpoint(epoch)
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print("Training time {}".format(total_time_str))
+        self.finish()
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
@@ -415,35 +436,38 @@ class Trainer:
         ):
             if self.testing and (data_iter_step + 1) % 5 == 0:
                 break
-            
+
             if is_main_process():
-                if (epoch == 3 and data_iter_step == 0):
+                if epoch == 3 and data_iter_step == 0:
                     torch.cuda.profiler.start()
-                if (epoch == 3 and data_iter_step == len(self.train_loader) - 1):
+                if epoch == 3 and data_iter_step == len(self.train_loader) - 1:
                     torch.cuda.profiler.stop()
             torch.cuda.nvtx.range_push(f"step {data_iter_step}")
             torch.cuda.nvtx.range_push(f"cuda copy in {data_iter_step}")
             data = [d.cuda() for d in data]
-            torch.cuda.nvtx.range_pop() # cuda copy
+            torch.cuda.nvtx.range_pop()  # cuda copy
 
             self.optimizer.zero_grad()
 
             torch.cuda.nvtx.range_push(f"forward")
             loss_per_channel = self.model(data, loss_fn=self.loss)
             loss = torch.mean(loss_per_channel)
-            torch.cuda.nvtx.range_pop() #forward
+            torch.cuda.nvtx.range_pop()  # forward
 
             loss.backward()
             loss_value = loss.item()
 
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+
             torch.cuda.nvtx.range_push(f"optimizer")
             self.optimizer.step()
-            torch.cuda.nvtx.range_pop() # optimizer
-            torch.cuda.nvtx.range_pop() # step
-            
+            torch.cuda.nvtx.range_pop()  # optimizer
+            torch.cuda.nvtx.range_pop()  # step
+
             if self.scheduler is not None:
                 # self.scheduler.step()
-                self.scheduler.step(epoch + data_iter_step / iters)
+                self.scheduler.step(epoch - 1 + data_iter_step / iters)
             torch.cuda.synchronize()
             torch.cuda.empty_cache()
 
@@ -458,7 +482,7 @@ class Trainer:
 
             loss_value_reduce = all_reduce_mean(loss_value)
 
-            if self.wandb:
+            if self.is_wandb_enabled():
                 wandb.log(
                     {
                         "train/epoch": epoch,
@@ -476,7 +500,9 @@ class Trainer:
                         {
                             "train/depth/depth_"
                             + str(i)
-                            + "_loss": torch.mean(loss_per_channel[self.DP_3D_IDX[i]]).item()
+                            + "_loss": torch.mean(
+                                loss_per_channel[self.DP_3D_IDX[i]]
+                            ).item()
                         }
                     )
 
@@ -486,7 +512,9 @@ class Trainer:
                         {
                             "train/per_var/"
                             + k
-                            + "_loss": torch.mean(loss_per_channel[self.CH_3D_IDX[k]]).item()
+                            + "_loss": torch.mean(
+                                loss_per_channel[self.CH_3D_IDX[k]]
+                            ).item()
                         }
                     )
 
@@ -543,6 +571,7 @@ class Trainer:
             v_rmse,
         ) = get_corr_rmse(
             self.surface_targets_set[rank],
+            self.surface_targets_norm_vals,
             surface_preds,
             self.area,
             self.surface_wet_bool,
@@ -552,7 +581,7 @@ class Trainer:
 
         all_reduce_mean(loss_value)
 
-        if self.wandb:
+        if self.is_wandb_enabled():
             wandb.log({"eval/total_eval_loss_per_batch": loss_value})
             # Loss per channel
             for i, var in enumerate(self.inputs):
@@ -564,7 +593,9 @@ class Trainer:
                     {
                         "eval/depth/depth_"
                         + str(i)
-                        + "_loss": torch.mean(loss_per_channel[self.DP_3D_IDX[i]]).item()
+                        + "_loss": torch.mean(
+                            loss_per_channel[self.DP_3D_IDX[i]]
+                        ).item()
                     }
                 )
 
@@ -574,11 +605,13 @@ class Trainer:
                     {
                         "eval/per_var/"
                         + k
-                        + "_loss": torch.mean(loss_per_channel[self.CH_3D_IDX[k]]).item()
+                        + "_loss": torch.mean(
+                            loss_per_channel[self.CH_3D_IDX[k]]
+                        ).item()
                     }
                 )
 
-        if self.wandb:
+        if self.is_wandb_enabled():
             wandb.log(
                 {
                     "eval/surface/KE_corr": KE_corr,
@@ -596,6 +629,46 @@ class Trainer:
                 }
             )
         return {"loss": loss_value.item()}
+
+    def save_checkpoint(self, epoch, best=False):
+        checkpoint = {
+            "model": self.model.module.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "epoch": epoch,
+            "wandb_id": self.wandb_id,
+            "wandb_name": self.wandb_name,
+        }
+        if self.scheduler:
+            checkpoint["scheduler"] = self.scheduler.state_dict()
+        torch.save(
+            checkpoint,
+            Path(self.nets_dir)
+            / "{0}_epoch_{1}_{2}.pt".format(
+                self.network, epoch, ("best" if best else "") + self.str_video
+            ),
+        )
+
+    def load_checkpoint(self, checkpoint_path):
+        checkpoint = torch.load(checkpoint_path)
+        self.model.load_state_dict(checkpoint["model"])
+        self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.scheduler.load_state_dict(checkpoint["scheduler"])
+        self.start_epoch = checkpoint["epoch"] + 1
+        self.wandb_id = checkpoint["wandb_id"]
+        self.wandb_name = checkpoint["wandb_name"]
+
+        print("Loaded checkpoint from", checkpoint_path)
+        print("Start Epoch:", self.start_epoch)
+        print("Wandb id:", self.wandb_id)
+        print("Wandb name:", self.wandb_name)
+        print("Optimizer LR:", self.optimizer.param_groups[-1]["lr"])
+
+    def is_wandb_enabled(self):
+        return self.wandb and is_main_process()
+
+    def finish(self):
+        if self.is_wandb_enabled():
+            wandb.finish()
 
 
 def main(args):

@@ -16,12 +16,15 @@ if [ "${ENABLE_NSYS_PROFILING:-0}" -eq 1 ]; then
     export PROFILE_CMD="nsys $NSYS_ARGS -o $NSYS_OUTPUT"
 fi
 
+# broken
 if [ "${ENABLE_CPROF_PROFILING:-0}" -eq 1 ]; then
     echo "Enabling cProfile profiling..."
     CPROF_OUTPUT=${LOGDIR}/${PROFILE_OUTPUT:-"profile"}
+    CPROF_OUTPUT="${CPROF_OUTPUT}.prof"
     export CPROF_CMD="-m cProfile -o $CPROF_OUTPUT"
 fi
 
+# broken
 if [ "${ENABLE_PERF_PROFILING:-0}" -eq 1 ]; then
     echo "Enabling perf-report profiling..."
     module load cudatoolkit forge

@@ -3,9 +3,9 @@ defaults:
   - compute: slurm # must be slurm or local
   - exp: ???
 
-base_output_dir: /pscratch/sd/s/shubhamg/m2lines/m2lines/Ocean_Emulator
+base_output_dir: ${oc.env:PWD}
 data_dir: /pscratch/sd/s/suryad/data
-pred_dir: /pscratch/sd/s/shubhamg/m2lines/m2lines/Ocean_Emulator/Preds
+pred_dir: ${oc.env:PWD}/Preds
 experiment: ???
 sub_dir: ${experiment}
 name: ???

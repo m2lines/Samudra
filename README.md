@@ -5,23 +5,10 @@ Ocean modeling serves as an indispensable tool in marine science, enabling the s
 
 We explore UNet and Transformer architectures to predict Ocean states in the Gulf Stream Region and Global Region respectively. The ocean state (u, v, T) represents zonal velocity, meridional velocity, and temperature, respectively, in the surface layer.
 
-## Execution
-### Installation
+## Installation
 ```
 conda env create -f environment.yml
 ```
-### Run
-```
-./scripts/train.sh
-```
-
-### Nsight profiling
-**NOTE**: Nsight profiling works only on NERSC
-
-```
-ENABLE_NSYS_PROFILING=1 PROFILE_OUTPUT=<profile name> ./scripts/profile.sh
-```
-
 
 ## Gulf Stream Region Predictions
 ### Zonal Velocity

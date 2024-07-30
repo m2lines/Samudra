@@ -1,21 +1,8 @@
 #!/bin/bash
 
-
-LOGDIR=./profile-logs
-mkdir -p ${LOGDIR}
-
+export BASE_OE_DIR=$PWD
 module load conda
 conda activate emulator
-
-# Profiling
-if [ "${ENABLE_NSYS_PROFILING:-0}" -eq 1 ]; then
-    module load cudatoolkit
-    echo "Enabling nsys profiling..."
-    NSYS_ARGS="profile --trace=cuda,nvtx,osrt,cudnn,cublas --backtrace=dwarf --gpu-metrics-device=all"
-    NSYS_OUTPUT=${LOGDIR}/${PROFILE_OUTPUT:-"profile"}
-    export PROFILE_CMD="nsys $NSYS_ARGS -o $NSYS_OUTPUT"
-fi
-
-${PROFILE_CMD} python $@
+python $@
 
 exit

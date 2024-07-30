@@ -1,3 +1,4 @@
+import warnings
 import argparse
 import logging
 import os
@@ -34,6 +35,10 @@ def my_app(cfg: DictConfig) -> None:
     try:
         env = submitit.JobEnvironment()
         log.info(env.__repr__())
+        profiling_enabled = os.getenv("ENABLE_NSYS_PROFILING", "0") == "1"
+        if profiling_enabled:
+            log.info("submitit is enabling profiling")
+            cfg.profiling = True
     except:
         log.info("Running locally.")
 
@@ -94,9 +99,6 @@ if __name__ == "__main__":
     # By setting this, submitit will use this alternative to produce the SBATCH script.
     @property
     def _submitit_command_str(self) -> str:
-        profiling_enabled = os.getenv("ENABLE_NSYS_PROFILING", "0") == "1"
-        if profiling_enabled:
-            log.info("submitit is enabling nsys profiling")
         return " ".join(
             [
                 "--cpu-bind=verbose",
@@ -110,7 +112,7 @@ if __name__ == "__main__":
                 shlex.quote(
                     os.path.join(
                         os.path.dirname(os.path.realpath(__file__)),
-                        ".python-perlmutter",
+                        ".python-perlmutter-worker",
                     )
                 ),
                 "\\\n",
@@ -275,7 +277,7 @@ if __name__ == "__main__":
 
     # [HACK] 5
     # We hijack the sbatch string creation function to insert profiling changes
-    # If the user sets ENABLE_NSYS_PROFILING=1, Nsight is wrapped before the python call in .python-perlmutter
+    # If the user sets ENABLE_NSYS_PROFILING=1, Nsight is wrapped before the python call in .python-perlmutter-worker
     # In order to use Nsight, we need to disable NVIDIA DCGMI profiling code
     # We wrap the experiment srun command with DCGMI profile commands
     def _make_sbatch_string(

@@ -443,7 +443,7 @@ class Trainer:
             if self.testing and (data_iter_step + 1) % 5 == 0:
                 break
 
-            with profiler_context(self.profiling, is_main_process(), self.profiling_start_epoch, self.profiling_end_epoch, epoch) as profiler_active:
+            with profiler_context(self.profiling, is_main_process(), self.profiling_start_epoch, self.profiling_end_epoch, epoch, data_iter_step, len(self.train_loader)) as profiler_active:
                 with nvtx_range(profiler_active, f"step {data_iter_step}"):
                     with nvtx_range(profiler_active, f"cuda copy in {data_iter_step}"):
                         data = [d.cuda() for d in data]

@@ -31,6 +31,7 @@ from utils.data_utils import (
     data_CNN_Disk,
     data_CNN_Disk_steps,
 )
+from utils.profile_utils import nvtx_range, profiler_context
 
 import xarray as xr
 import dask
@@ -288,6 +289,11 @@ class Trainer:
         self.interval = args.interval
         self.e_train = e_train
 
+        # Profiling
+        self.profiling = args.profiling
+        self.profiling_start_epoch = 3
+        self.profiling_end_epoch = 3
+        
         self.init_validation_stores()
 
     def init_validation_stores(self):
@@ -437,86 +443,78 @@ class Trainer:
             if self.testing and (data_iter_step + 1) % 5 == 0:
                 break
 
-            if is_main_process():
-                if epoch == 3 and data_iter_step == 0:
-                    torch.cuda.profiler.start()
-                if epoch == 3 and data_iter_step == len(self.train_loader) - 1:
-                    torch.cuda.profiler.stop()
-            torch.cuda.nvtx.range_push(f"step {data_iter_step}")
-            torch.cuda.nvtx.range_push(f"cuda copy in {data_iter_step}")
-            data = [d.cuda() for d in data]
-            torch.cuda.nvtx.range_pop()  # cuda copy
+            with profiler_context(self.profiling, is_main_process(), self.profiling_start_epoch, self.profiling_end_epoch, epoch) as profiler_active:
+                with nvtx_range(profiler_active, f"step {data_iter_step}"):
+                    with nvtx_range(profiler_active, f"cuda copy in {data_iter_step}"):
+                        data = [d.cuda() for d in data]
 
-            self.optimizer.zero_grad()
+                    self.optimizer.zero_grad()
+                    with nvtx_range(profiler_active, f"forward"):
+                        loss_per_channel = self.model(data, loss_fn=self.loss)
+                    
+                    loss = torch.mean(loss_per_channel)
+                    with nvtx_range(profiler_active, f"backward"):
+                        loss.backward()
+                    loss_value = loss.item()
 
-            torch.cuda.nvtx.range_push(f"forward")
-            loss_per_channel = self.model(data, loss_fn=self.loss)
-            loss = torch.mean(loss_per_channel)
-            torch.cuda.nvtx.range_pop()  # forward
+                    # Gradient clipping
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                    
+                    with nvtx_range(profiler_active, f"optimizer"):
+                        self.optimizer.step()
 
-            loss.backward()
-            loss_value = loss.item()
+                    if self.scheduler is not None:
+                        # self.scheduler.step()
+                        self.scheduler.step(epoch - 1 + data_iter_step / iters)
+                    torch.cuda.synchronize()
+                    torch.cuda.empty_cache()
 
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                    metric_logger.update(loss=loss_value)
 
-            torch.cuda.nvtx.range_push(f"optimizer")
-            self.optimizer.step()
-            torch.cuda.nvtx.range_pop()  # optimizer
-            torch.cuda.nvtx.range_pop()  # step
-
-            if self.scheduler is not None:
-                # self.scheduler.step()
-                self.scheduler.step(epoch - 1 + data_iter_step / iters)
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
-
-            metric_logger.update(loss=loss_value)
-
-            lr = (
-                self.optimizer.param_groups[-1]["lr"]
-                if self.scheduler is None
-                else self.scheduler.get_last_lr()[0]
-            )
-            metric_logger.update(lr=lr)
-
-            loss_value_reduce = all_reduce_mean(loss_value)
-
-            if self.is_wandb_enabled():
-                wandb.log(
-                    {
-                        "train/epoch": epoch,
-                        "train/total_train_loss_per_batch": loss_value_reduce,
-                        "train/lr_per_batch": lr,
-                    }
-                )
-                # Loss per channel
-                for i, var in enumerate(self.inputs):
-                    wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
-
-                # Loss per depth
-                for i in range(self.levels):
-                    wandb.log(
-                        {
-                            "train/depth/depth_"
-                            + str(i)
-                            + "_loss": torch.mean(
-                                loss_per_channel[self.DP_3D_IDX[i]]
-                            ).item()
-                        }
+                    lr = (
+                        self.optimizer.param_groups[-1]["lr"]
+                        if self.scheduler is None
+                        else self.scheduler.get_last_lr()[0]
                     )
+                    metric_logger.update(lr=lr)
 
-                # Loss per input variable
-                for k in ["uo", "vo", "thetao", "so"]:
-                    wandb.log(
-                        {
-                            "train/per_var/"
-                            + k
-                            + "_loss": torch.mean(
-                                loss_per_channel[self.CH_3D_IDX[k]]
-                            ).item()
-                        }
-                    )
+                    loss_value_reduce = all_reduce_mean(loss_value)
+
+                    if self.is_wandb_enabled():
+                        wandb.log(
+                            {
+                                "train/epoch": epoch,
+                                "train/total_train_loss_per_batch": loss_value_reduce,
+                                "train/lr_per_batch": lr,
+                            }
+                        )
+                        # Loss per channel
+                        for i, var in enumerate(self.inputs):
+                            wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
+
+                        # Loss per depth
+                        for i in range(self.levels):
+                            wandb.log(
+                                {
+                                    "train/depth/depth_"
+                                    + str(i)
+                                    + "_loss": torch.mean(
+                                        loss_per_channel[self.DP_3D_IDX[i]]
+                                    ).item()
+                                }
+                            )
+
+                        # Loss per input variable
+                        for k in ["uo", "vo", "thetao", "so"]:
+                            wandb.log(
+                                {
+                                    "train/per_var/"
+                                    + k
+                                    + "_loss": torch.mean(
+                                        loss_per_channel[self.CH_3D_IDX[k]]
+                                    ).item()
+                                }
+                            )
 
         metric_logger.synchronize_between_processes()
         print("Averaged train stats:", metric_logger)

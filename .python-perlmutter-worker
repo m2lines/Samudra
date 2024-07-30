@@ -9,7 +9,7 @@ conda activate emulator
 # Profiling
 if [ "${ENABLE_NSYS_PROFILING:-0}" -eq 1 ]; then
     module load cudatoolkit
-    NSYS_ARGS="profile --trace=cuda,nvtx,osrt,cudnn,cublas --backtrace=dwarf --gpu-metrics-device=all"
+    NSYS_ARGS="profile --trace=cuda,nvtx,osrt,cudnn,cublas --backtrace=dwarf --gpu-metrics-device=0"
     NSYS_OUTPUT=${LOGDIR}/${PROFILE_OUTPUT:-"profile"}
     export PROFILE_CMD="nsys $NSYS_ARGS -o $NSYS_OUTPUT"
 fi

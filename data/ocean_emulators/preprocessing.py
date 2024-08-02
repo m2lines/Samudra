@@ -97,7 +97,7 @@ def find_index_for_true(da_bool: xr.DataArray):
         test = da_bool.any(other_dims).load()
         index = da_bool[dim].isel({dim: test})
         true_found_index[dim] = index.data
-    return true_found_index
+    return true_found_index 
 
 
 def test_nan_consistency(ds: xr.Dataset, name="None"):
@@ -117,10 +117,10 @@ def test_nan_consistency(ds: xr.Dataset, name="None"):
 
     ## make sure that the ref nan pattern is the same as every time step
     b = np.isnan(ref) != np.isnan(ds)
-
+    
     # find the index values for true values in b
     index = find_index_for_true(b)
-
+    
     # if they are all length 0 all is good, otherwise raise.
     if not all(len(v) == 0 for v in index.values()):
         raise ValueError(

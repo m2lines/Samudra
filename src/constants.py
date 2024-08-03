@@ -28,6 +28,12 @@ INPT_VARS = {
         for j in range(19)
     ]
     + ["zos"],
+    "3D_SST_all": [
+        k + str(j)
+        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for j in range(19) if not (k == "thetao_lev_" and j == 0) 
+    ] 
+    + ["zos"],
 }
 EXTRA_VARS = {
     "1": ["ur", "vr"],
@@ -46,6 +52,7 @@ EXTRA_VARS = {
     "3D": ["tauuo", "tauvo", "hfds"],
     "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
+    "3D_SST_all": ["tauuo", "tauvo", "hfds", "thetao_lev_0"],
 }
 OUT_VARS = {
     "1": ["um", "vm"],
@@ -67,12 +74,13 @@ OUT_VARS = {
         for j in range(19)
     ]
     + ["zos"],
+    "3D_SST_all": [
+        k + str(j)
+        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for j in range(19) if not (k == "thetao_lev_" and j == 0) 
+    ] 
+    + ["zos"],
 }
-
-#### SPECIAL CASE : Boundary condition with thetao_lev_0
-# INPT_VARS["3D_all"].remove("thetao_lev_0")
-# EXTRA_VARS["3D_all"].append("thetao_lev_0")
-# OUT_VARS["3D_all"].remove("thetao_lev_0")
 
 
 def get_eval_maps(exp_num):

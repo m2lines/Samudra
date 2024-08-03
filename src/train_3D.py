@@ -63,7 +63,7 @@ class Trainer:
         self.outputs = OUT_VARS[args.exp_num_out]
         self.CH_3D_IDX, self.DP_3D_IDX = get_eval_maps(args.exp_num_in)
         levels = args.exp_num_in.split("_")[-1]
-        if levels == "all":
+        if "all" in levels:
             self.levels = 19
         else:
             self.levels = int(levels)

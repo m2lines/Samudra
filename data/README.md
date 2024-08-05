@@ -16,7 +16,7 @@ input_data_test(ds, deep=True) # deep enables long-running tests that check for 
 ### Prediction Datasets
 
 #### Postprocessing Raw prediction output
-We aim to not upload the 'raw prediction output. Instead use the postprocessor to create an xarray dataset that is formattes as much as possible as the input data:
+We aim to not upload the raw prediction output. Instead use the postprocessor to create an xarray dataset that is formattes as much as possible as the input data:
 
 ```python
 from ocean_emulators.postprocessing import post_processor
@@ -34,6 +34,24 @@ ds_prediction = ... # see above
 ds_truth = ...# see above
 prediction_data_test(ds_prediction, ds_truth)
 ```
+
+## Where is the data?
+
+### Input data
+| input_id | Cloud | Greene |
+| --- | --- | --- | 
+| `'OM4_5daily'` | `'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
+
+### Preprocessed data
+
+| input_id | Cloud |
+| --- | --- |
+| `'OM4_5daily_v0.0'` | `"gs://leap-persistent/sd5313/input_OM4v0.0"` |
+| `"CMIP_CM4_v0.1"` | `"gs://leap-persistent/jbusecke/ocean-emulators/CMIP6_GFDL-CM4.piControl.r1i1p1f1_v0.1.zarr"` |
+
+
+
+
 
 ## Developing this package
 

@@ -39,7 +39,7 @@ prediction_data_test(ds_prediction, ds_truth)
 
 ### Input data
 | input_id | Cloud | Greene |
-| --- | --- | --- | 
+| --- | --- | --- |
 | `'OM4_5daily'` | `'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
 
 ### Preprocessed data

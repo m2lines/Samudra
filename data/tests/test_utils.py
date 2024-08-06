@@ -1,5 +1,6 @@
 import xarray as xr
 import numpy as np
+from tests.data import input_data  # noqa # Might want to put these in conftest.py (see https://stackoverflow.com/questions/73191533/using-conftest-py-vs-importing-fixtures-from-dedicate-modules)
 from ocean_emulators.utils import assert_mask_match, apply_mask
 import pytest
 

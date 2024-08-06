@@ -24,7 +24,6 @@ def test_assert_mask_match(mask_dtype):
     ds = xr.Dataset({"3d": data_3d, "2d": data_2d})
     data_3d_masked = data_3d.where(mask_3d)
     data_2d_masked = data_2d.where(mask_3d.isel(z=0))
-    print(ds)
     ds_masked = xr.Dataset({"3d": data_3d_masked, "2d": data_2d_masked})
 
     assert_mask_match(ds_masked, mask_3d)

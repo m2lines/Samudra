@@ -33,7 +33,7 @@ def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
 
     ds_out = xr.Dataset(variables)
     for var in ds_out.data_vars:
-        if 'lev' in ds_out[var].dims:
+        if "lev" in ds_out[var].dims:
             ds_out[var] = ds_out[var].where(ds_truth.wetmask)
         else:
             ds_out[var] = ds_out[var].where(ds_truth.wetmask.isel(lev=0))

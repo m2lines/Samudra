@@ -25,8 +25,6 @@ def assert_mask_match(ds: xr.Dataset, mask: xr.DataArray):
         data_test = ds[var]
         # make sure that 2d variables are only tested agains 2d wetmask
         mask_test = _pick_first_element_of_missing_dims(mask, data_test)
-        print("data_test", data_test)
-        print("mask_test", mask_test)
         if not (data_test.notnull() == mask_test).all():
             raise ValueError(
                 f"Wetmask does not match between `ds` and `wetmask` for variable {var}!"

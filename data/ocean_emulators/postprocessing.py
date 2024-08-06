@@ -32,8 +32,11 @@ def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
     variables["zos"] = da.isel(var=-1).squeeze()
 
     ds_out = xr.Dataset(variables)
-
-    ds_out = ds_out.where(ds_truth.wetmask)
+    for var in ds_out.data_vars:
+        if "lev" in ds_out[var].dims:
+            ds_out[var] = ds_out[var].where(ds_truth.wetmask)
+        else:
+            ds_out[var] = ds_out[var].where(ds_truth.wetmask.isel(lev=0))
 
     ## attach all coordinates from input
     ds_out = ds_out.assign_coords({co: ds_truth[co] for co in ds_truth.coords})

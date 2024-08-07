@@ -37,6 +37,11 @@ prediction_data_test(ds_prediction, ds_truth)
 
 ## Where is the data?
 
+### Raw data
+| name | Cloud | HPC + path |
+| --- | --- | --- |
+
+
 ### Input data
 | input_id | Cloud | Greene |
 | --- | --- | --- |

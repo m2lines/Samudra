@@ -51,4 +51,5 @@ hydra:
             "export RESUBMIT_COUNT=${compute.resubmit}",
             "export EXPT_DIR=${hydra.sweep.dir}",
             "export MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)",
-            "export MASTER_PORT=$(for port in $(shuf -i 30000-65500 -n 20); do if [[ $(netstat -tupln 2>&1 | grep $port | wc -l) -eq 0 ]] ; then echo $port; break; fi; done;)"]
+            "export MASTER_PORT=$(for port in $(shuf -i 30000-65500 -n 20); do if [[ $(netstat -tupln 2>&1 | grep $port | wc -l) -eq 0 ]] ; then echo $port; break; fi; done;)",
+            "export CUDA_VISIBLE_DEVICES=3,2,1,0"]

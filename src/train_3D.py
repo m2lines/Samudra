@@ -200,7 +200,7 @@ class Trainer:
         model = model.to(args.device)
 
         # Summary
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
+        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda(non_blocking=True)] * 2
         summary(
             model,
             input_data=[i],
@@ -208,7 +208,7 @@ class Trainer:
             depth=10,
         )
 
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
+        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda(non_blocking=True)] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
 
         self.model = model
@@ -446,7 +446,7 @@ class Trainer:
             with profiler_context(self.profiling, is_main_process(), self.profiling_start_epoch, self.profiling_end_epoch, epoch, data_iter_step, len(self.train_loader)) as profiler_active:
                 with nvtx_range(profiler_active, f"step {data_iter_step}"):
                     with nvtx_range(profiler_active, f"cuda copy in {data_iter_step}"):
-                        data = [d.cuda() for d in data]
+                        data = [d.cuda(non_blocking=True) for d in data]
 
                     self.optimizer.zero_grad()
                     with nvtx_range(profiler_active, f"forward"):

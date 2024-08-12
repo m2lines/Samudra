@@ -289,7 +289,6 @@ def rotate_vectors(u,v,angle):
     v_rotated = rotated_vector.isel(dim_out=1)
     return u_rotated, v_rotated
 
-
 def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.Dataset:
     # reconstruct vertical bounds
     # TODO (this should be done outside to make this function more general)

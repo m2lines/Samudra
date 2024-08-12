@@ -1,7 +1,7 @@
 import xarray as xr
 import warnings
-import numpy as np
 from ocean_emulators.preprocessing import input_data_test
+from ocean_emulators.utils import assert_mask_match
 
 
 def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
@@ -32,8 +32,11 @@ def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
     variables["zos"] = da.isel(var=-1).squeeze()
 
     ds_out = xr.Dataset(variables)
-
-    ds_out = ds_out.where(ds_truth.wetmask)
+    for var in ds_out.data_vars:
+        if "lev" in ds_out[var].dims:
+            ds_out[var] = ds_out[var].where(ds_truth.wetmask)
+        else:
+            ds_out[var] = ds_out[var].where(ds_truth.wetmask.isel(lev=0))
 
     ## attach all coordinates from input
     ds_out = ds_out.assign_coords({co: ds_truth[co] for co in ds_truth.coords})
@@ -71,11 +74,9 @@ def prediction_data_test(ds_prediction: xr.Dataset, ds_input):
             "Prediction and Input datasets do not have matching attributes"
         )
     # Check that the wetmask is applied to the data
-    mask_test = ~np.isnan(ds_prediction.isel(time=0).reset_coords(drop=True)).load()
-    if not (mask_test.to_array() == ds_input.wetmask).all():
-        raise ValueError(
-            "Wetmask does not match between `ds_prediction` and `ds_input`!"
-        )
+    assert_mask_match(
+        ds_prediction.isel(time=0).reset_coords(drop=True), ds_input.wetmask
+    )
 
     # TODO: ensure that both arrays have the same coordinates
 

@@ -2,6 +2,7 @@ import dask.array as dsa
 import xarray as xr
 import numpy as np
 import pytest
+from ocean_emulators.utils import apply_mask
 
 
 @pytest.fixture
@@ -63,6 +64,7 @@ def input_data():
         dims="lev",
     )
     wetmask = x * y * lev
+    wetmask.data = np.random.random(wetmask.shape) > 0.25
 
     coords = {
         "x": x,
@@ -132,7 +134,8 @@ def input_data():
         },
         attrs={"something": "for now", "m2lines/ocean-emulators_git_hash": "dummy"},
     )
-    return ds
+    ds_masked = apply_mask(ds, wetmask)
+    return ds_masked
 
 
 @pytest.fixture
@@ -140,3 +143,8 @@ def raw_prediction():
     return xr.DataArray(
         np.random.random([3, 180, 360, 77]), dims=["time", "y", "x", "var"]
     ).to_dataset(name="__xarray_dataarray_variable__")
+
+
+@pytest.fixture
+def prediction(input_data):
+    return input_data[["so", "thetao", "uo", "vo", "zos"]].drop_vars("wetmask")

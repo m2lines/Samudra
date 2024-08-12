@@ -325,7 +325,7 @@ def get_area_tensor(grid_path, region, device, factor=10):
             {"yu_ocean": slice(lat[0], lat[1]), "xu_ocean": slice(lon[0], lon[1])}
         )
 
-    area = torch.from_numpy(grids["area_C"].to_numpy()).to(device=device)
+    area = torch.from_numpy(grids["area_C"].to_numpy()).to(device=device, non_blocking=True)
     return area
 
 

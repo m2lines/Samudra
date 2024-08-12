@@ -197,7 +197,7 @@ class Trainer:
         print("Number of parameters: ", params)
         # summary(model)
 
-        model = model.to(args.device)
+        model = model.to(args.device, non_blocking=True)
 
         # Summary
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda(non_blocking=True)] * 2
@@ -305,7 +305,7 @@ class Trainer:
             {"dx": "dxu", "dy": "dyu"}
         )
 
-        self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
+        self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu", non_blocking=True)
 
         self.surface_wet = torch.load(
             os.path.join(self.data_dir, self.surface_wet_file)

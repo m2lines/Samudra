@@ -59,9 +59,7 @@ class BaseModel(torch.nn.Module):
                 reshaped = (
                     input_tensor[
                         :,
-                        self.output_channels
-                        // (self.hist + 1)
-                        * self.hist : self.output_channels,
+                        : self.output_channels,
                     ]  # Residuals on last state in input
                     + decodings
                 )  # Residual prediction
@@ -130,9 +128,7 @@ class BaseModel(torch.nn.Module):
             if self.pred_residuals:
                 reshaped = input_tensor[
                     0,
-                    self.output_channels
-                    // (self.hist + 1)
-                    * self.hist : self.output_channels,
+                    : self.output_channels,
                 ].to(  # Residuals on last state in input
                     device=device
                 ) + decodings.squeeze(

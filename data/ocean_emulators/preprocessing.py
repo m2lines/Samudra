@@ -10,7 +10,6 @@ try:
 except ImportError:
     xe = None
 
-
 def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
     """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future"""
     # fixes that should be checked and fixes on the input data
@@ -268,6 +267,27 @@ def cmip_vertical_outer_grid(ds: xr.Dataset) -> xr.Dataset:
 
 
 ##################### General Code #################
+def rotate_vectors(u,v,angle):
+    """rotates vector components u and v using `angle` 
+    (assumed to be defined in deg, and in the CCW direction)
+    Currently only works when all components are on the same grid position
+    """
+    # angle should be a 2d array
+    if not len(angle.dims) == 2:
+        raise ValueError(f'Expected only two dimensions on `angle`. Got {angle.dims}')
+    # assert that all components are on the same position
+    if not (set(angle.dims).issubset(set(u.dims)) and set(angle.dims).issubset(set(v.dims))):
+        raise ValueError("`u` and `v` need to be on the same grid position as `angle`.")
+
+    # rotate velocities
+    theta = np.deg2rad(angle)
+    vec = xr.concat([u, v], dim='dim_in')
+    # construct rotation matrix
+    rot = xr.concat([xr.concat([np.cos(theta), np.sin(theta)], dim='dim_out'), xr.concat([-np.sin(theta), np.cos(theta)], dim='dim_out')], dim = 'dim_in')
+    rotated_vector = xr.dot(rot, vec, dim='dim_in')
+    u_rotated = rotated_vector.isel(dim_out=0)
+    v_rotated = rotated_vector.isel(dim_out=1)
+    return u_rotated, v_rotated
 
 
 def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.Dataset:

@@ -3,14 +3,35 @@
 
 ## Producing Input and Prediction Datasets
 
-### Input Datasets
+### Preprocessed Datasets (`ds_processed`)
+This is the only model specific step produced by modules in `ocean_emulators.model_preprocessing.<model_module>`. The output `ds_processed` can then be fed into the generic preprocessing steps to produce the input dataset. 
+
+Example:
+```python
+from ocean_emulators.model_preprocessing.gfdl_om4 import om4_preprocessing
+
+zarr_data_path = 'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'
+nc_grid_path = 'gs://leap-persistent/sd5313/OM4-5daily/ocean_static_no_mask_table.nc'
+nc_mosaic_path = "gs://leap-persistent/sd5313/OM4-5daily/ocean_hgrid.nc"
+ds_processed = om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path)
+```
+
+#### QC
+To ensure that the output of model specific preprocessing is correct, run the validation function before applying further steps:
+```python
+from ocean_emulators.dataset_validation import ds_processed_validate
+
+ds_processed_validate(ds_processed, deep=True) # deep enables long-running tests that check for nan consistency on the entire dataset
+```
+
+### Input Datasets (`ds_input`)
 
 #### QC
 To ensure that an input dataset adheres to the most recent checks please always run the following before publishing/uploading:
 ```python
-from ocean_emulators.preprocessing import input_data_test
+from ocean_emulators.dataset_validation import ds_input_validate
 ds = ...
-input_data_test(ds, deep=True) # deep enables long-running tests that check for nan consistency on the entire dataset
+ds_input_validate(ds, deep=True) # deep enables long-running tests that check for nan consistency on the entire dataset
 ```
 
 ### Prediction Datasets

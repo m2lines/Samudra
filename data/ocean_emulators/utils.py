@@ -1,5 +1,27 @@
 import xarray as xr
 import numpy as np
+import subprocess
+def get_git_url_hash():
+    github_server_url = 'https://github.com'
+    # Get the repository's remote origin URL
+    try:
+        repo_origin_url = subprocess.check_output(
+            ['git', 'config', '--get', 'remote.origin.url'], text=True
+        ).strip()
+    
+        # Extract the repository path from the remote URL
+        repository_path = repo_origin_url.replace('github.com/', '').replace('git@github.com:', '').replace('.git', '')
+    
+        # Get the current commit SHA
+        commit_sha = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+    
+        # Construct the GitHub commit URL
+        git_url_hash = f'{github_server_url}/{repository_path}/commit/{commit_sha}'
+    except Exception as e:
+        print(f'Getting git_url_hash failed with {e}')
+        git_url_hash = 'none'
+        # Output the GitHub commit URL
+    return git_url_hash
 
 
 def _pick_first_element_of_missing_dims(mask: xr.DataArray, data: xr.DataArray):

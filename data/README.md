@@ -1,6 +1,28 @@
 # ocean_emulators
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/m2lines/ocean_emulators/main.svg)](https://results.pre-commit.ci/latest/github/m2lines/ocean_emulators/main)
 
+## Data flow diagram
+```mermaid
+flowchart TD
+    a{A bunch of files/Zarr stores} --> A[model specific processing \n `ocean_emulators.model_preprocessing.<>`]
+    A -->  b(`ds_processed`)
+    b --> |validate| B[`ocean_emulators.dataset_validation.ds_processed_validate`]
+    B --> C[Generic Preprocessing \n ocean_emulators.preprocessing]
+    C --> c(`ds_input`)
+    c --> |validate| D[`ocean_emulators.dataset_validation.ds_input_validate`]
+    D --> E[training]
+    E --> d(model)
+    d --> F[rollout]
+    F --> e{`ds_prediction_raw`}
+    e --> |validate| G[`ocean_emulators.dataset_validation.ds_prediction_raw_validate`]
+    c --> G
+    G --> H[Postprocessing \n `ocean_emulators.postprocessing`]
+    H --> |validate| I[`ocean_emulators.dataset_validation.ds_prediction_validate`]
+    c --> I
+    I --> f(`ds_prediction`)
+```
+
+
 ## Producing Input and Prediction Datasets
 
 ### Input Datasets

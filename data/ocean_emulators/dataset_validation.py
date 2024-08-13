@@ -27,5 +27,9 @@ def ds_input_validate(ds_input: xr.Dataset, deep=False):
     If `deep` is True, this will run expensive compuation across the entire dataset."""
     ds_input_schema.validate(ds_input)
     ds_input_coords_schema.validate(ds_input.coords)
+    # ds_input_attrs_schema.validate(ds_input.attrs) # this does not work as I want, replace with manual check for now
+    required_attrs_keys = ["m2lines/ocean-emulators_git_hash"]
+    for rk in required_attrs_keys:
+        assert rk in ds_input.attrs.keys()
     if deep:
         nan_test_deep(ds_input)

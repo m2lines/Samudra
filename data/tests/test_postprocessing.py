@@ -7,8 +7,9 @@ def test_post_processor(input_data, raw_prediction):
     ds_input = input_data
     ds_raw = raw_prediction
     ds = post_processor(ds_raw, ds_input)
+    # replace these with xarray-schema once I have improved the useability of that stuff a bit. This was a very horrible late night haha.
     assert set(ds.data_vars) == set(["so", "thetao", "zos", "uo", "vo"])
-    assert ds.sizes == {"time": 3, "x": 360, "y": 180, "lev": 19}
+    assert ds.sizes == {"time": 3, "x": 360, "y": 180, "lev": 19, "x_b": 361, "y_b": 181,}
     assert set(["x", "y", "time"]) == set(ds["zos"].dims)
     for co in ds.coords:
         xr.testing.assert_equal(ds[co], ds_input[co])

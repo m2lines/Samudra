@@ -268,6 +268,9 @@ def horizontal_regrid(ds, ds_target):
     # get lon/lats from the target grid
     lon = ds_target.lon
     lat = ds_target.lat
+
+    lon_b = ds_target.lon_b
+    lat_b = ds_target.lat_b
     
     # get x and y values
     x = lon.isel(y=0)
@@ -280,10 +283,13 @@ def horizontal_regrid(ds, ds_target):
     ## calculate the wetmask afterwards...
     wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars('time')).load()
     ocean_frac = regridder(ds.wetmask.astype('float64')).fillna(0.0)
-    
+
+    ds_regridded = ds_regridded.drop_vars(['lon_b', 'lat_b'])
     ds_regridded = ds_regridded.assign_coords(
         lon=lon,
         lat=lat,
+        lon_b=lon_b,
+        lat_b=lat_b,
         areacello=new_area,
         x=x,
         y=y,

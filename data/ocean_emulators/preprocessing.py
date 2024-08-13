@@ -4,6 +4,8 @@ from xgcm import Grid
 import xarray as xr
 import numpy as np
 import cf_xarray
+from ocean_emulators.utils import split_2d_3d
+import gcm_filters
 
 try:
     import xesmf as xe  # type: ignore
@@ -210,10 +212,87 @@ def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.D
     ds_regridded.attrs = ds_raw.attrs
     return ds_regridded
 
+def spatially_filter(ds:xr.Dataset, w_mask, filter_scale=18, depth_dim='lev'):
+    """Applies a spatial filter with 3d/2d wetmask depending on the variable dimensions"""
+    wmask_3d = (w_mask==1).astype(int).reset_coords(drop=True)
+    wmask_2d = wmask_3d.isel(lev=0).drop_vars('lev')
+    
+    ds_2d, ds_3d = split_2d_3d(ds)
+    ds_2d = ds_2d.reset_coords(drop=True)
+    ds_3d = ds_3d.reset_coords(drop=True)
+    
+    filt_2d = gcm_filters.Filter(
+        filter_scale=filter_scale, 
+        dx_min=1,
+        filter_shape=gcm_filters.FilterShape.GAUSSIAN,
+        grid_type=gcm_filters.GridType.REGULAR_WITH_LAND,
+        grid_vars={'wet_mask': wmask_2d} #why can gcm filters not accept bool masks?
+    )
+    filt_3d = gcm_filters.Filter(
+        filter_scale=filter_scale, 
+        dx_min=1,
+        filter_shape=gcm_filters.FilterShape.GAUSSIAN,
+        grid_type=gcm_filters.GridType.REGULAR_WITH_LAND,
+        grid_vars={'wet_mask': wmask_3d} #why can gcm filters not accept bool masks?
+    )
+    datasets = [
+        filt_2d.apply(ds_2d, dims=['y', 'x']),
+        filt_3d.apply(ds_3d, dims=['y', 'x']),
+    ]
+    ds_filtered = xr.merge(datasets)
+    # get attrs and coords back
+    ds_filtered = ds_filtered.assign_coords({co:ds[co] for co in ds.coords})
+    ds_filtered.attrs = ds.attrs
+    return ds_filtered
 
-# test:
-# - What about the coordinates after? Are the non-depth ones the same (not weirdly scaled?).
+def horizontal_regrid(ds, ds_target):
+    """Regrid `ds` horizontally, and conserve the integral in space"""
+    regridder_kwargs = dict(
+        ignore_degenerate=True,
+        periodic=True,
+        unmapped_to_nan =True
+    )
+    
+    # try to run this with higher precision (TODO: Test if this actually makes a difference).
+    s = xr.Dataset(coords = {co:ds[co].astype('float128') for co in ['lon','lat','lon_b', 'lat_b']})
+    t = xr.Dataset(coords = {co:ds_target[co].astype('float128') for co in ['lon','lat','lon_b', 'lat_b']})
+    
+    regridder = xe.Regridder(
+        s,
+        t,
+        'conservative',
+        **regridder_kwargs
+    )
+    ds_regridded = regridder(ds, skipna=True, na_thres=1)
 
+    # get lon/lats from the target grid
+    lon = ds_target.lon
+    lat = ds_target.lat
+    
+    # get x and y values
+    x = lon.isel(y=0)
+    y = lat.isel(x=0)
+    
+    # calculate new area
+    r_earth = 6356 # in km
+    new_area = xe.util.cell_area(ds_target, r_earth)*1e6
+    
+    ## calculate the wetmask afterwards...
+    wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars('time')).load()
+    ocean_frac = regridder(ds.wetmask.astype('float64')).fillna(0.0)
+    
+    ds_regridded = ds_regridded.assign_coords(
+        lon=lon,
+        lat=lat,
+        areacello=new_area,
+        x=x,
+        y=y,
+        wetmask=wetmask,
+        ocean_fraction=ocean_frac
+    )
+    ds_regridded.attrs = ds.attrs | ds_regridded.attrs
+    
+    return ds_regridded
 
 def cmip_bounds_to_xesmf(ds: xr.Dataset, order=None):
     # the order is specific to the way I reorganized vertex order in xmip (if not passed we get the stripes in the regridded output!
@@ -251,36 +330,3 @@ def test_vertex_order(ds):
         and (ds_p.lat_b.diff("y_vertices") > 0).all()
     ):
         raise ValueError("Test vertices not strictly monotinically increasing")
-
-
-def spatially_regrid(
-    ds_source: xr.Dataset,
-    ds_target: xr.Dataset,
-    method: str = "conservative",
-    check=False,
-) -> xr.Dataset:
-    if check:
-        for test_ds, name in [
-            (ds_source, "source dataset"),
-            (ds_target, "target dataset"),
-        ]:
-            try:
-                test_vertex_order(test_ds)
-            except ValueError:
-                raise ValueError(
-                    f"something is wrong with the vertex order of the {name}"
-                )
-    if xe is None:
-        raise ImportError(
-            "The spatial regridding requires xesmf. Install using `conda install xesmf`."
-        )
-
-    regridder = xe.Regridder(
-        cmip_bounds_to_xesmf(ds_source),
-        cmip_bounds_to_xesmf(ds_target),
-        method,
-        ignore_degenerate=True,
-        unmapped_to_nan=True,
-        periodic=True,
-    )
-    return regridder(ds_source)

@@ -4,7 +4,7 @@
 ## Producing Input and Prediction Datasets
 
 ### Preprocessed Datasets (`ds_processed`)
-This is the only model specific step produced by modules in `ocean_emulators.model_preprocessing.<model_module>`. The output `ds_processed` can then be fed into the generic preprocessing steps to produce the input dataset. 
+This is the only model specific step produced by modules in `ocean_emulators.model_preprocessing.<model_module>`. The output `ds_processed` can then be fed into the generic preprocessing steps to produce the input dataset. These functions should not modify the data in any other way than interpolating velocity data onto the tracer points (the setup/execution of which might depend on the source).
 
 Example:
 ```python

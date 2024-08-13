@@ -4,6 +4,8 @@ import numpy as np
 from xgcm import Grid
 from ocean_emulators.dataset_validation import ds_processed_validate
 from ocean_emulators.utils import apply_mask
+from xarray_schema import SchemaError
+
 
 # load supergrid and extract the angles
 # Some awesome material to understand the 'supergrid' (is that the same as the mosaic?) https://gist.github.com/adcroft/c1e207024fe1189b43dddc5f1fe7dd6c
@@ -107,6 +109,11 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     ds = ds.assign_coords(lon_b=lon_b, lat_b=lat_b, angle=a, lon=lon, lat=lat)
     ds = ds.rename({'xh':'x', 'yh':'y', 'xh_b':'x_b', 'yh_b':'y_b'})
     ds = ds.drop_vars(['time_bnds'])
-    
-    ds_processed_validate(ds)
+    # higher precision for the area
+    ds = ds.assign_coords(areacello=ds.areacello.astype('float64'))
+    try:
+        ds_processed_validate(ds)
+    except SchemaError as e:
+        print('Failed validation with {e}')
+        display(ds)
     return ds

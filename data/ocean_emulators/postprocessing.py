@@ -1,14 +1,14 @@
 import xarray as xr
 import warnings
-from ocean_emulators.preprocessing import input_data_test
+from ocean_emulators.dataset_validation import ds_input_validate
 from ocean_emulators.utils import assert_mask_match
 
 
 def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
     """Converts the prediction output to an xarray dataset with the same dimensions/variables as input"""
-    # Always run the input_data_test in non-deep mode here
+    # Always run the ds_input_validate in non-deep mode here
     try:
-        input_data_test(ds_truth, deep=False)
+        ds_input_validate(ds_truth, deep=False)
     except ValueError as e:
         raise ValueError(
             f"Checking the input dataset failed with {e}. Please fix those issues before creating a postprocessed dataset."

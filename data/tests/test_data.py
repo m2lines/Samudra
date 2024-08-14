@@ -3,7 +3,6 @@
 from ocean_emulators.dataset_validation import (
     ds_processed_validate,
     ds_input_validate,
-    ds_raw_prediction_validate,
     ds_prediction_validate,
 )
 

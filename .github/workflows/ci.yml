@@ -3,7 +3,7 @@ name: pre-commit-ci
 on:
   pull_request:
   push:
-    branches: [master, test]
+    branches: [master]
 
 permissions:
   contents: write

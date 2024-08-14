@@ -4,11 +4,14 @@ from xgcm import Grid
 import xarray as xr
 import numpy as np
 import cf_xarray
+from ocean_emulators.utils import split_2d_3d
+import gcm_filters
 
 try:
     import xesmf as xe  # type: ignore
 except ImportError:
     xe = None
+# Could I replace this with the xarray logic I am using in the tests?
 
 
 def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
@@ -78,131 +81,6 @@ def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
 
 
 # i need to test 2d and 3d separately
-def split_2d_3d(ds: xr.Dataset):
-    ds_2d = xr.Dataset({v: ds[v] for v in ds.data_vars if "lev" not in ds[v].dims})
-    ds_3d = xr.Dataset({v: ds[v] for v in ds.data_vars if "lev" in ds[v].dims})
-    return ds_2d, ds_3d
-
-
-def find_index_for_true(da_bool: xr.DataArray):
-    """Find slices along all dimensions within a boolean array that have any True value"""
-    # all_dims = da_bool.dims
-    all_dims = [
-        di for di in ["variable", "time"] if di in da_bool.dims
-    ]  # all variables that should be checked for indexers
-    # not necessary to check e.g. x,y, lev here
-    true_found_index = {}
-    for dim in all_dims:
-        other_dims = [di for di in da_bool.dims if di != dim]
-        test = da_bool.any(other_dims).load()
-        index = da_bool[dim].isel({dim: test})
-        true_found_index[dim] = index.data
-    return true_found_index
-
-
-def test_nan_consistency(ds: xr.Dataset, name="None"):
-    """Test the consistency of nan values in the dataset across variables and time
-    (compared to a reference at time=0)."""
-    ds = ds.to_array()
-    ref = ds.isel(time=0)
-    # # make sure the ref data has nans in the same places for all variables
-    a = (np.isnan(ref.isel(variable=0)) != np.isnan(ref)).all(["variable"])
-
-    # find the index values for true values in b
-    index = find_index_for_true(a)
-    if not all(len(v) == 0 for v in index.values()):
-        raise ValueError(
-            "Found non-matching nan values between variables on the first time step."
-        )
-
-    ## make sure that the ref nan pattern is the same as every time step
-    b = np.isnan(ref) != np.isnan(ds)
-
-    # find the index values for true values in b
-    index = find_index_for_true(b)
-
-    # if they are all length 0 all is good, otherwise raise.
-    if not all(len(v) == 0 for v in index.values()):
-        raise ValueError(
-            f"{name}:Found nonmatching nans compared to first time step in the following indexes {index}"
-        )
-
-
-def input_data_test_deep(ds_input: xr.Dataset):
-    """Expensive tests that compute on the entire dataset"""
-    ds_nan_test_2d, ds_nan_test_3d = split_2d_3d(ds_input)
-    print("2D consistency check")
-    test_nan_consistency(ds_nan_test_2d, "2D nan consistency check")
-
-    print("3D consistency check")
-    test_nan_consistency(ds_nan_test_3d, "3D nan consistency check")
-
-
-def input_data_test(ds_input: xr.Dataset, deep=False):
-    """Test function to assert the format of the input dataset.
-    If `deep` is True, this will run expensive compuation across the entire dataset."""
-
-    expected_data_vars = [
-        "thetao",
-        "so",
-        "uo",
-        "vo",
-        "zos",
-        "hfds",
-        "tauvo",
-        "tauuo",
-        "sithick",
-        "siconc",
-    ]
-    # add the derived mean/std variables
-    expected_data_vars_full = []
-    for v in expected_data_vars:
-        expected_data_vars_full.extend([f"{v}_mean", f"{v}_std"])
-
-    expected_coords = [
-        "areacello",
-        "dz",
-        "x",
-        "y",
-        "time",
-        "lev",
-        "lon",
-        "lat",
-        "wetmask",
-    ]
-    if not set(ds_input.coords.keys()) == set(expected_coords):
-        raise ValueError(
-            f"Expected coords {set(expected_coords)} but found {list(set(ds_input.coords.keys()))}"
-        )
-
-    expected_sizes = {"x": 360, "y": 180, "lev": 19}
-    for di, s in expected_sizes.items():
-        if not ds_input.sizes[di] == s:
-            raise ValueError(
-                f"Expected size ({s}) for dimension {di}, but got {ds_input.sizes[di]}"
-            )
-
-    check_attrs = ["m2lines/ocean-emulators_git_hash"]
-    for attr in check_attrs:
-        if attr not in ds_input.attrs.keys():
-            raise ValueError(f"Could not find {attr} in dataset attributes")
-
-    # asser shape of coordinates
-    dims_expected_on_coords = {
-        "wetmask": ["x", "y", "lev"],
-        "areacello": ["x", "y"],
-        "lon": ["x", "y"],
-        "lat": ["x", "y"],
-        "dz": ["lev"],
-    }
-    for co, expected_dims in dims_expected_on_coords.items():
-        if not set(expected_dims) == set(ds_input[co].dims):
-            raise ValueError(
-                f"Expected dimensions {set(expected_dims)} on {co}, but got {set(ds_input[co].dims)}"
-            )
-
-    if deep:
-        input_data_test_deep(ds_input)
 
 
 # def rename(ds: xr.Dataset) -> xr.Dataset:
@@ -268,6 +146,35 @@ def cmip_vertical_outer_grid(ds: xr.Dataset) -> xr.Dataset:
 
 
 ##################### General Code #################
+def rotate_vectors(u, v, angle):
+    """rotates vector components u and v using `angle`
+    (assumed to be defined in deg, and in the CCW direction)
+    Currently only works when all components are on the same grid position
+    """
+    # angle should be a 2d array
+    if not len(angle.dims) == 2:
+        raise ValueError(f"Expected only two dimensions on `angle`. Got {angle.dims}")
+    # assert that all components are on the same position
+    if not (
+        set(angle.dims).issubset(set(u.dims)) and set(angle.dims).issubset(set(v.dims))
+    ):
+        raise ValueError("`u` and `v` need to be on the same grid position as `angle`.")
+
+    # rotate velocities
+    theta = np.deg2rad(angle)
+    vec = xr.concat([u, v], dim="dim_in")
+    # construct rotation matrix
+    rot = xr.concat(
+        [
+            xr.concat([np.cos(theta), np.sin(theta)], dim="dim_out"),
+            xr.concat([-np.sin(theta), np.cos(theta)], dim="dim_out"),
+        ],
+        dim="dim_in",
+    )
+    rotated_vector = xr.dot(rot, vec, dim="dim_in")
+    u_rotated = rotated_vector.isel(dim_out=0)
+    v_rotated = rotated_vector.isel(dim_out=1)
+    return u_rotated, v_rotated
 
 
 def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.Dataset:
@@ -316,8 +223,94 @@ def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.D
     return ds_regridded
 
 
-# test:
-# - What about the coordinates after? Are the non-depth ones the same (not weirdly scaled?).
+def spatially_filter(ds: xr.Dataset, w_mask, filter_scale=18, depth_dim="lev"):
+    """Applies a spatial filter with 3d/2d wetmask depending on the variable dimensions"""
+    wmask_3d = (w_mask == 1).astype(int).reset_coords(drop=True)
+    wmask_2d = wmask_3d.isel(lev=0).drop_vars("lev")
+
+    ds_2d, ds_3d = split_2d_3d(ds)
+    ds_2d = ds_2d.reset_coords(drop=True)
+    ds_3d = ds_3d.reset_coords(drop=True)
+
+    filt_2d = gcm_filters.Filter(
+        filter_scale=filter_scale,
+        dx_min=1,
+        filter_shape=gcm_filters.FilterShape.GAUSSIAN,
+        grid_type=gcm_filters.GridType.REGULAR_WITH_LAND,
+        grid_vars={"wet_mask": wmask_2d},  # why can gcm filters not accept bool masks?
+    )
+    filt_3d = gcm_filters.Filter(
+        filter_scale=filter_scale,
+        dx_min=1,
+        filter_shape=gcm_filters.FilterShape.GAUSSIAN,
+        grid_type=gcm_filters.GridType.REGULAR_WITH_LAND,
+        grid_vars={"wet_mask": wmask_3d},  # why can gcm filters not accept bool masks?
+    )
+    datasets = [
+        filt_2d.apply(ds_2d, dims=["y", "x"]),
+        filt_3d.apply(ds_3d, dims=["y", "x"]),
+    ]
+    ds_filtered = xr.merge(datasets)
+    # get attrs and coords back
+    ds_filtered = ds_filtered.assign_coords({co: ds[co] for co in ds.coords})
+    ds_filtered.attrs = ds.attrs
+    return ds_filtered
+
+
+def horizontal_regrid(ds, ds_target):
+    """Regrid `ds` horizontally, and conserve the integral in space"""
+    regridder_kwargs = dict(ignore_degenerate=True, periodic=True, unmapped_to_nan=True)
+
+    # try to run this with higher precision (TODO: Test if this actually makes a difference).
+    s = xr.Dataset(
+        coords={
+            co: ds[co].astype("float128") for co in ["lon", "lat", "lon_b", "lat_b"]
+        }
+    )
+    t = xr.Dataset(
+        coords={
+            co: ds_target[co].astype("float128")
+            for co in ["lon", "lat", "lon_b", "lat_b"]
+        }
+    )
+
+    regridder = xe.Regridder(s, t, "conservative", **regridder_kwargs)
+    ds_regridded = regridder(ds, skipna=True, na_thres=1)
+
+    # get lon/lats from the target grid
+    lon = ds_target.lon
+    lat = ds_target.lat
+
+    lon_b = ds_target.lon_b
+    lat_b = ds_target.lat_b
+
+    # get x and y values
+    x = lon.isel(y=0)
+    y = lat.isel(x=0)
+
+    # calculate new area
+    r_earth = 6356  # in km
+    new_area = xe.util.cell_area(ds_target, r_earth) * 1e6
+
+    ## calculate the wetmask afterwards...
+    wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars("time")).load()
+    ocean_frac = regridder(ds.wetmask.astype("float64")).fillna(0.0)
+
+    ds_regridded = ds_regridded.drop_vars(["lon_b", "lat_b"])
+    ds_regridded = ds_regridded.assign_coords(
+        lon=lon,
+        lat=lat,
+        lon_b=lon_b,
+        lat_b=lat_b,
+        areacello=new_area,
+        x=x,
+        y=y,
+        wetmask=wetmask,
+        ocean_fraction=ocean_frac,
+    )
+    ds_regridded.attrs = ds.attrs | ds_regridded.attrs
+
+    return ds_regridded
 
 
 def cmip_bounds_to_xesmf(ds: xr.Dataset, order=None):
@@ -356,36 +349,3 @@ def test_vertex_order(ds):
         and (ds_p.lat_b.diff("y_vertices") > 0).all()
     ):
         raise ValueError("Test vertices not strictly monotinically increasing")
-
-
-def spatially_regrid(
-    ds_source: xr.Dataset,
-    ds_target: xr.Dataset,
-    method: str = "conservative",
-    check=False,
-) -> xr.Dataset:
-    if check:
-        for test_ds, name in [
-            (ds_source, "source dataset"),
-            (ds_target, "target dataset"),
-        ]:
-            try:
-                test_vertex_order(test_ds)
-            except ValueError:
-                raise ValueError(
-                    f"something is wrong with the vertex order of the {name}"
-                )
-    if xe is None:
-        raise ImportError(
-            "The spatial regridding requires xesmf. Install using `conda install xesmf`."
-        )
-
-    regridder = xe.Regridder(
-        cmip_bounds_to_xesmf(ds_source),
-        cmip_bounds_to_xesmf(ds_target),
-        method,
-        ignore_degenerate=True,
-        unmapped_to_nan=True,
-        periodic=True,
-    )
-    return regridder(ds_source)

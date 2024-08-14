@@ -28,7 +28,10 @@ license = { text = "Apache-2.0" }
 keywords = ["climate", "data", "ml", "emulators"]
 dependencies = [
     "xarray",
-    "xmip"
+    "xmip",
+    "xarray-schema",
+    "gcm_filters",
+    "setuptools" # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
 ]
 
 [project.optional-dependencies]

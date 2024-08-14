@@ -15,12 +15,12 @@ wandb:
 experiment: eval
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-wet_file: 3D_wet.pt
-data_zarr: 3D_data
-data_means_zarr: 3D_data_means
-data_stds_zarr: 3D_data_stds
+wet_file: 3D_wet_OM4_5daily_v0.2.1.pt
+data_zarr: 3D_data_OM4_5daily_v0.2.1
+data_means_zarr: 3D_data_OM4_5daily_v0.2.1_means
+data_stds_zarr: 3D_data_OM4_5daily_v0.2.1_stds
 grid_file: Grid_New.nc
-raw_data_zarr: OM4_Horizontal_Regrid_Old.zarr
+raw_data_zarr: OM4_5daily_v0.2.1.zarr
 path_dir: ${pred_dir}
 steps: 4
 

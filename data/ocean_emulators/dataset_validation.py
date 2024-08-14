@@ -3,8 +3,6 @@ from ocean_emulators.schema import (
     ds_processed_schema,
     ds_input_coords_schema,
     ds_input_schema,
-    ds_raw_prediction_coords_schema,
-    ds_raw_prediction_schema,
     ds_prediction_coords_schema,
     ds_prediction_schema,
 )
@@ -46,13 +44,6 @@ def ds_input_validate(ds_input: xr.Dataset, deep=False):
         assert rk in ds_input.attrs.keys()
     if deep:
         _nan_test_deep(ds_input)
-
-
-### For raw prediction output
-def ds_raw_prediction_validate(ds_raw_prediction: xr.Dataset):
-    warnings.warn("This checks nothing yet")
-    ds_raw_prediction_schema.validate(ds_raw_prediction)
-    ds_raw_prediction_coords_schema.validate(ds_raw_prediction.coords)
 
 
 ### for the final prediction output

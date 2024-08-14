@@ -444,7 +444,7 @@ class Trainer:
             loss = torch.mean(loss_per_channel)
             loss.backward()
             loss_value = loss.item()
-            
+
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 

@@ -40,7 +40,9 @@ class BaseModel(torch.nn.Module):
                     0
                 ]  # For HIST=1, [0->[0in, 1in], 1->[2out, 3out], 2->[2in, 3in], 3->[4out, 5out]
             else:
-                inputs_0 = outputs[-1]  # Last output corresponds to input at current time step
+                inputs_0 = outputs[
+                    -1
+                ]  # Last output corresponds to input at current time step
                 input_tensor = torch.cat(
                     [
                         inputs_0,
@@ -94,17 +96,22 @@ class BaseModel(torch.nn.Module):
             return loss
 
     def inference(
-        self, inputs, initial_input=None, num_steps=None, output_only_last=False, device="cuda"
+        self,
+        inputs,
+        initial_input=None,
+        num_steps=None,
+        output_only_last=False,
+        device="cuda",
     ) -> torch.Tensor:
         outputs = []
         for step in range(num_steps):
             if step == 0:
                 input_tensor = inputs[0][0].to(
-                        device=device
-                    )  # inputs[0][0] is the input at step 0. For HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]]; 2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
-                
+                    device=device
+                )  # inputs[0][0] is the input at step 0. For HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]]; 2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
+
                 if initial_input is not None:
-                    input_tensor[:, :self.output_channels] = initial_input
+                    input_tensor[:, : self.output_channels] = initial_input
             else:
                 inputs_0 = outputs[-1].unsqueeze(
                     0

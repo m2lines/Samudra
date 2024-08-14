@@ -42,35 +42,33 @@ def test_apply_mask(input_data):
         assert input_data[var].coords.keys() == input_data_masked[var].coords.keys()
         assert input_data[var].attrs.keys() == input_data_masked[var].attrs.keys()
 
-@pytest.mark.parametrize('dask', [True, False])
+
+@pytest.mark.parametrize("dask", [True, False])
 def test_ensure_nan_consistency(dask):
-    
-    ds = xr.Dataset({
-        'a':xr.DataArray(np.random.rand(4,5,6), dims=['x','y','time']),
-        'b':xr.DataArray(np.random.rand(4,5,6), dims=['x','y','time'])
-    })
+    ds = xr.Dataset(
+        {
+            "a": xr.DataArray(np.random.rand(4, 5, 6), dims=["x", "y", "time"]),
+            "b": xr.DataArray(np.random.rand(4, 5, 6), dims=["x", "y", "time"]),
+        }
+    )
 
     if dask:
-        ds = ds.chunk({'time':1})
+        ds = ds.chunk({"time": 1})
 
     # masking the same thing in each variable should pass
-    ensure_nan_consistency(ds.where(ds.x>1))
+    ensure_nan_consistency(ds.where(ds.x > 1))
 
     # create a mismatch between variables
-    ds_mismatch_variables = xr.Dataset({'a':ds.a.where(ds.x>2), 'b':ds.b.where(ds.x<=2)})
-    
+    ds_mismatch_variables = xr.Dataset(
+        {"a": ds.a.where(ds.x > 2), "b": ds.b.where(ds.x <= 2)}
+    )
+
     msg = "Found non-matching nan values between variables on the first time step."
     with pytest.raises(ValueError, match=msg):
         ensure_nan_consistency(ds_mismatch_variables)
 
     # create a nan mismatch in only one of the variables in time
-    ds_mismatch_time_single = xr.Dataset({
-        'a':ds.a,
-        'b':ds.b.where(ds.time>1)
-    })
+    ds_mismatch_time_single = xr.Dataset({"a": ds.a, "b": ds.b.where(ds.time > 1)})
     msg = "None:Found nonmatching nans compared to first time step in the following indexes*"
     with pytest.raises(ValueError, match=msg):
         ensure_nan_consistency(ds_mismatch_time_single)
-    
-        
-    

@@ -12,6 +12,7 @@ try:
 except ImportError:
     xe = None
 
+
 def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
     """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future"""
     # fixes that should be checked and fixes on the input data
@@ -81,7 +82,6 @@ def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
 # i need to test 2d and 3d separately
 
 
-
 # def rename(ds: xr.Dataset) -> xr.Dataset:
 #     """Rename variables and dimensions to CMOR standard names"""
 #     # TODO: how to detect non-CMIP datasets?
@@ -145,27 +145,36 @@ def cmip_vertical_outer_grid(ds: xr.Dataset) -> xr.Dataset:
 
 
 ##################### General Code #################
-def rotate_vectors(u,v,angle):
-    """rotates vector components u and v using `angle` 
+def rotate_vectors(u, v, angle):
+    """rotates vector components u and v using `angle`
     (assumed to be defined in deg, and in the CCW direction)
     Currently only works when all components are on the same grid position
     """
     # angle should be a 2d array
     if not len(angle.dims) == 2:
-        raise ValueError(f'Expected only two dimensions on `angle`. Got {angle.dims}')
+        raise ValueError(f"Expected only two dimensions on `angle`. Got {angle.dims}")
     # assert that all components are on the same position
-    if not (set(angle.dims).issubset(set(u.dims)) and set(angle.dims).issubset(set(v.dims))):
+    if not (
+        set(angle.dims).issubset(set(u.dims)) and set(angle.dims).issubset(set(v.dims))
+    ):
         raise ValueError("`u` and `v` need to be on the same grid position as `angle`.")
 
     # rotate velocities
     theta = np.deg2rad(angle)
-    vec = xr.concat([u, v], dim='dim_in')
+    vec = xr.concat([u, v], dim="dim_in")
     # construct rotation matrix
-    rot = xr.concat([xr.concat([np.cos(theta), np.sin(theta)], dim='dim_out'), xr.concat([-np.sin(theta), np.cos(theta)], dim='dim_out')], dim = 'dim_in')
-    rotated_vector = xr.dot(rot, vec, dim='dim_in')
+    rot = xr.concat(
+        [
+            xr.concat([np.cos(theta), np.sin(theta)], dim="dim_out"),
+            xr.concat([-np.sin(theta), np.cos(theta)], dim="dim_out"),
+        ],
+        dim="dim_in",
+    )
+    rotated_vector = xr.dot(rot, vec, dim="dim_in")
     u_rotated = rotated_vector.isel(dim_out=0)
     v_rotated = rotated_vector.isel(dim_out=1)
     return u_rotated, v_rotated
+
 
 def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.Dataset:
     # reconstruct vertical bounds
@@ -212,57 +221,59 @@ def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.D
     ds_regridded.attrs = ds_raw.attrs
     return ds_regridded
 
-def spatially_filter(ds:xr.Dataset, w_mask, filter_scale=18, depth_dim='lev'):
+
+def spatially_filter(ds: xr.Dataset, w_mask, filter_scale=18, depth_dim="lev"):
     """Applies a spatial filter with 3d/2d wetmask depending on the variable dimensions"""
-    wmask_3d = (w_mask==1).astype(int).reset_coords(drop=True)
-    wmask_2d = wmask_3d.isel(lev=0).drop_vars('lev')
-    
+    wmask_3d = (w_mask == 1).astype(int).reset_coords(drop=True)
+    wmask_2d = wmask_3d.isel(lev=0).drop_vars("lev")
+
     ds_2d, ds_3d = split_2d_3d(ds)
     ds_2d = ds_2d.reset_coords(drop=True)
     ds_3d = ds_3d.reset_coords(drop=True)
-    
+
     filt_2d = gcm_filters.Filter(
-        filter_scale=filter_scale, 
+        filter_scale=filter_scale,
         dx_min=1,
         filter_shape=gcm_filters.FilterShape.GAUSSIAN,
         grid_type=gcm_filters.GridType.REGULAR_WITH_LAND,
-        grid_vars={'wet_mask': wmask_2d} #why can gcm filters not accept bool masks?
+        grid_vars={"wet_mask": wmask_2d},  # why can gcm filters not accept bool masks?
     )
     filt_3d = gcm_filters.Filter(
-        filter_scale=filter_scale, 
+        filter_scale=filter_scale,
         dx_min=1,
         filter_shape=gcm_filters.FilterShape.GAUSSIAN,
         grid_type=gcm_filters.GridType.REGULAR_WITH_LAND,
-        grid_vars={'wet_mask': wmask_3d} #why can gcm filters not accept bool masks?
+        grid_vars={"wet_mask": wmask_3d},  # why can gcm filters not accept bool masks?
     )
     datasets = [
-        filt_2d.apply(ds_2d, dims=['y', 'x']),
-        filt_3d.apply(ds_3d, dims=['y', 'x']),
+        filt_2d.apply(ds_2d, dims=["y", "x"]),
+        filt_3d.apply(ds_3d, dims=["y", "x"]),
     ]
     ds_filtered = xr.merge(datasets)
     # get attrs and coords back
-    ds_filtered = ds_filtered.assign_coords({co:ds[co] for co in ds.coords})
+    ds_filtered = ds_filtered.assign_coords({co: ds[co] for co in ds.coords})
     ds_filtered.attrs = ds.attrs
     return ds_filtered
 
+
 def horizontal_regrid(ds, ds_target):
     """Regrid `ds` horizontally, and conserve the integral in space"""
-    regridder_kwargs = dict(
-        ignore_degenerate=True,
-        periodic=True,
-        unmapped_to_nan =True
-    )
-    
+    regridder_kwargs = dict(ignore_degenerate=True, periodic=True, unmapped_to_nan=True)
+
     # try to run this with higher precision (TODO: Test if this actually makes a difference).
-    s = xr.Dataset(coords = {co:ds[co].astype('float128') for co in ['lon','lat','lon_b', 'lat_b']})
-    t = xr.Dataset(coords = {co:ds_target[co].astype('float128') for co in ['lon','lat','lon_b', 'lat_b']})
-    
-    regridder = xe.Regridder(
-        s,
-        t,
-        'conservative',
-        **regridder_kwargs
+    s = xr.Dataset(
+        coords={
+            co: ds[co].astype("float128") for co in ["lon", "lat", "lon_b", "lat_b"]
+        }
     )
+    t = xr.Dataset(
+        coords={
+            co: ds_target[co].astype("float128")
+            for co in ["lon", "lat", "lon_b", "lat_b"]
+        }
+    )
+
+    regridder = xe.Regridder(s, t, "conservative", **regridder_kwargs)
     ds_regridded = regridder(ds, skipna=True, na_thres=1)
 
     # get lon/lats from the target grid
@@ -271,20 +282,20 @@ def horizontal_regrid(ds, ds_target):
 
     lon_b = ds_target.lon_b
     lat_b = ds_target.lat_b
-    
+
     # get x and y values
     x = lon.isel(y=0)
     y = lat.isel(x=0)
-    
-    # calculate new area
-    r_earth = 6356 # in km
-    new_area = xe.util.cell_area(ds_target, r_earth)*1e6
-    
-    ## calculate the wetmask afterwards...
-    wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars('time')).load()
-    ocean_frac = regridder(ds.wetmask.astype('float64')).fillna(0.0)
 
-    ds_regridded = ds_regridded.drop_vars(['lon_b', 'lat_b'])
+    # calculate new area
+    r_earth = 6356  # in km
+    new_area = xe.util.cell_area(ds_target, r_earth) * 1e6
+
+    ## calculate the wetmask afterwards...
+    wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars("time")).load()
+    ocean_frac = regridder(ds.wetmask.astype("float64")).fillna(0.0)
+
+    ds_regridded = ds_regridded.drop_vars(["lon_b", "lat_b"])
     ds_regridded = ds_regridded.assign_coords(
         lon=lon,
         lat=lat,
@@ -294,11 +305,12 @@ def horizontal_regrid(ds, ds_target):
         x=x,
         y=y,
         wetmask=wetmask,
-        ocean_fraction=ocean_frac
+        ocean_fraction=ocean_frac,
     )
     ds_regridded.attrs = ds.attrs | ds_regridded.attrs
-    
+
     return ds_regridded
+
 
 def cmip_bounds_to_xesmf(ds: xr.Dataset, order=None):
     # the order is specific to the way I reorganized vertex order in xmip (if not passed we get the stripes in the regridded output!

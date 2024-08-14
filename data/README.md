@@ -58,25 +58,19 @@ prediction_data_test(ds_prediction, ds_truth)
 
 ## Where is the data?
 
+
 ### Raw data
-| name | Cloud | HPC + path |
-| --- | --- | --- |
-
-
-### Input data
 | input_id | Cloud | Greene |
 | --- | --- | --- |
 | `'OM4_5daily'` | `'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
 
-### Preprocessed data
+### Input data
 
 | input_id | Cloud |
 | --- | --- |
 | `'OM4_5daily_v0.0'` | `"gs://leap-persistent/sd5313/input_OM4v0.0"` |
+| `'OM4_5daily_v0.2.1'` | `"gs://leap-persistent/jbusecke/ocean-emulators/OM4_5daily_v0.2.1.zarr"`|
 | `"CMIP_CM4_v0.1"` | `"gs://leap-persistent/jbusecke/ocean-emulators/CMIP6_GFDL-CM4.piControl.r1i1p1f1_v0.1.zarr"` |
-
-
-
 
 
 ## Developing this package

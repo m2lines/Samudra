@@ -29,6 +29,7 @@ jobs:
       - name: 🔁 Create mamba environment
         uses: mamba-org/setup-micromamba@v1
         with:
+          environment-name: ci
           cache-downloads: true
           micromamba-version: 'latest'
           create-args: >-

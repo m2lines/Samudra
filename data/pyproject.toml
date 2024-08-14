@@ -29,7 +29,8 @@ keywords = ["climate", "data", "ml", "emulators"]
 dependencies = [
     "xarray",
     "xmip",
-    "xarray-schema"
+    "xarray-schema",
+    "gcm_filters"
 ]
 
 [project.optional-dependencies]

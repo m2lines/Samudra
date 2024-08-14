@@ -1,9 +1,14 @@
 import pytest
 import xarray as xr
-import xesmf as xe
 import numpy as np
 from ocean_emulators.preprocessing import rotate_vectors, horizontal_regrid
 from tests.data import input_data  # noqa # Might want to put these in conftest.py (see https://stackoverflow.com/questions/73191533/using-conftest-py-vs-importing-fixtures-from-dedicate-modules)
+from tests import requires_xesmf
+
+try:
+    import xesmf as xe
+except ImportError:
+    pass
 
 
 #############################
@@ -98,6 +103,7 @@ def test_horizontal_regrid():
     pass
 
 
+@requires_xesmf
 def test_horizontal_regrid_idealized():
     # set up a simple test_case
     test_grid_fine = xe.util.grid_2d(-20, 60, 20, -10, 86, 32)

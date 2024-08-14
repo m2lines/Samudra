@@ -28,7 +28,8 @@ license = { text = "Apache-2.0" }
 keywords = ["climate", "data", "ml", "emulators"]
 dependencies = [
     "xarray",
-    "xmip"
+    "xmip",
+    "xarray-schema"
 ]
 
 [project.optional-dependencies]

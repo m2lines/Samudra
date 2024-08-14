@@ -80,8 +80,6 @@ ds_input_schema = DatasetSchema(
     },
 )
 
-### Raw Prediction
-ds_raw_prediction_schema = DatasetSchema()
-ds_raw_prediction_coords_schema = CoordsSchema({"time": DataArraySchema(dims=["time"])})
+### Prediction
 ds_prediction_schema = DatasetSchema()
 ds_prediction_coords_schema = CoordsSchema({"time": DataArraySchema(dims=["time"])})

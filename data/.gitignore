@@ -163,3 +163,4 @@ ocean_emulators/_version.py
 
 ## Jupyter Book files
 */_build/
+.vscode/settings.json

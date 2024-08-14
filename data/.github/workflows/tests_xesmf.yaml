@@ -1,0 +1,47 @@
+name: Run Unit Tests requiring xESMF
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+    branches:
+      - "*"
+  schedule:
+    - cron: "0 13 * * 1"
+
+jobs:
+  build:
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: 🫙 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # checkout tags (which is not done by default)
+      - name: 🔁 Create mamba environment
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          cache-environment: true
+          cache-downloads: true
+          micromamba-version: 'latest'
+          create-args: >-
+            python=${{ matrix.python-version }} xesmf
+      - name: 🌈 Install ocean_emulator package
+        shell: bash -l {0}
+        run: |
+          python -m pip install -e  ".[test]"
+      - name: 🔎 Check current version
+        run: python -c "import ocean_emulators; print(ocean_emulators.__version__)"
+      - name: 🏄‍♂️ Run Tests
+        shell: bash -l {0}
+        run: |
+          pytest tests -v
+          # for now I am running all tests again. We could only cover the preprocessing here to save time.

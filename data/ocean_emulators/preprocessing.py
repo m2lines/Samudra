@@ -11,6 +11,7 @@ try:
     import xesmf as xe  # type: ignore
 except ImportError:
     xe = None
+# Could I replace this with the xarray logic I am using in the tests?
 
 
 def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:

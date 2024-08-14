@@ -16,9 +16,5 @@ def test_input_data(input_data):
     ds_input_validate(input_data)
 
 
-def test_raw_prediction_data(raw_prediction_data):
-    ds_raw_prediction_validate(raw_prediction_data)
-
-
 def test_prediction_data(prediction_data):
     ds_prediction_validate(prediction_data)

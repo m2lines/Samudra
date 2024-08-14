@@ -16,7 +16,7 @@ from torch.cuda import amp
 from torchinfo import summary
 from tqdm import tqdm
 
-from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, get_eval_maps
+from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
 from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
 from utils.dist_utils import (
     set_seed,
@@ -479,13 +479,13 @@ class Trainer:
                     wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
 
                 # Loss per depth
-                for i in range(self.levels):
+                for d in DEPTH_LEVELS:
                     wandb.log(
                         {
                             "train/depth/depth_"
-                            + str(i)
+                            + str(d)
                             + "_loss": torch.mean(
-                                loss_per_channel[self.DP_3D_IDX[i]]
+                                loss_per_channel[self.DP_3D_IDX[d]]
                             ).item()
                         }
                     )
@@ -572,13 +572,13 @@ class Trainer:
                 wandb.log({"eval/per_channel/" + var: loss_per_channel[i].item()})
 
             # Loss per depth
-            for i in range(self.levels):
+            for d in DEPTH_LEVELS:
                 wandb.log(
                     {
                         "eval/depth/depth_"
-                        + str(i)
+                        + str(d)
                         + "_loss": torch.mean(
-                            loss_per_channel[self.DP_3D_IDX[i]]
+                            loss_per_channel[self.DP_3D_IDX[d]]
                         ).item()
                     }
                 )

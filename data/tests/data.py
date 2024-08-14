@@ -179,15 +179,5 @@ def input_data():
 
 
 @pytest.fixture
-def raw_prediction_data(input_data):
-    coords = {co: input_data.coords[co] for co in ["time", "y", "x"]}
-    return xr.DataArray(
-        np.random.random([3, 180, 360, 77]),
-        dims=["time", "y", "x", "var"],
-        coords=coords,
-    ).to_dataset(name="__xarray_dataarray_variable__")
-
-
-@pytest.fixture
 def prediction_data(input_data):
     return input_data[["so", "thetao", "uo", "vo", "zos"]].drop_vars("wetmask")

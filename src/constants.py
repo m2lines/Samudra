@@ -2,6 +2,26 @@ import numpy as np
 import torch
 
 # Experiment inputs and outputs
+DEPTH_LEVELS = ['2_5',
+ '10_0',
+ '22_5',
+ '40_0',
+ '65_0',
+ '105_0',
+ '165_0',
+ '250_0',
+ '375_0',
+ '550_0',
+ '775_0',
+ '1050_0',
+ '1400_0',
+ '1850_0',
+ '2400_0',
+ '3100_0',
+ '4000_0',
+ '5000_0',
+ '6000_0']
+
 INPT_VARS = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "ur", "vr"],
@@ -19,19 +39,19 @@ INPT_VARS = {
     "3D_5": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
-        for j in range(5)
+        for j in DEPTH_LEVELS[:5]
     ]
     + ["zos"],
     "3D_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
-        for j in range(19)
+        for j in DEPTH_LEVELS
     ]
     + ["zos"],
     "3D_SST_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
-        for j in range(19) if not (k == "thetao_lev_" and j == 0) 
+        for j in DEPTH_LEVELS if not (k == "thetao_lev_" and j == DEPTH_LEVELS[0]) 
     ] 
     + ["zos"],
 }
@@ -65,25 +85,27 @@ OUT_VARS = {
     "3D_5": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
-        for j in range(5)
+        for j in DEPTH_LEVELS[:5]
     ]
     + ["zos"],
     "3D_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
-        for j in range(19)
+        for j in DEPTH_LEVELS
     ]
     + ["zos"],
     "3D_SST_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
-        for j in range(19) if not (k == "thetao_lev_" and j == 0) 
+        for j in DEPTH_LEVELS if not (k == "thetao_lev_" and j == DEPTH_LEVELS[0]) 
     ] 
     + ["zos"],
 }
 
 
 def get_eval_maps(exp_num):
+    # CH_3D_IDX maps the input variables to their indices in the input tensor
+    # DP_3D_IDX maps the depth levels to their indices in the input tensor
     CH_3D_IDX = {}
     for kt in ["uo", "vo", "thetao", "so"]:
         CH_3D_IDX[kt] = torch.tensor([])
@@ -93,18 +115,18 @@ def get_eval_maps(exp_num):
         CH_3D_IDX[kt] = CH_3D_IDX[kt].to(torch.int32)
 
     DP_3D_IDX = {}
-    for d in range(19):
+    for d in DEPTH_LEVELS:
         DP_3D_IDX[d] = torch.tensor([])
         for i, k in enumerate(INPT_VARS[exp_num]):
             if k == "zos":
                 continue
-            elif d == int(k.split("lev_")[-1]):
+            elif d == k.split("lev_")[-1]:
                 DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
         DP_3D_IDX[d] = DP_3D_IDX[d].to(torch.int32)
-    DP_3D_IDX[0] = torch.cat(
-        [DP_3D_IDX[0], torch.tensor([len(INPT_VARS[exp_num]) - 1])]
+    DP_3D_IDX[DEPTH_LEVELS[0]] = torch.cat(
+        [DP_3D_IDX[DEPTH_LEVELS[0]], torch.tensor([len(INPT_VARS[exp_num]) - 1])]
     )  # zos
-    DP_3D_IDX[0] = DP_3D_IDX[0].to(torch.int32)
+    DP_3D_IDX[DEPTH_LEVELS[0]] = DP_3D_IDX[DEPTH_LEVELS[0]].to(torch.int32)
 
     return CH_3D_IDX, DP_3D_IDX
 

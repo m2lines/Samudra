@@ -4,7 +4,7 @@
 ## Data flow diagram
 ```mermaid
 flowchart TD
-    a{A bunch of files/Zarr stores} --> A[model specific processing \n `ocean_emulators.model_preprocessing.<>`]
+    a[(A bunch of files/Zarr stores)] --> A[model specific processing \n `ocean_emulators.model_preprocessing.<>`]
     A -->  b(`ds_processed`)
     b --> |validate| B[`ocean_emulators.dataset_validation.ds_processed_validate`]
     B --> C[Generic Preprocessing \n ocean_emulators.preprocessing]
@@ -13,10 +13,8 @@ flowchart TD
     D --> E[training]
     E --> d(model)
     d --> F[rollout]
-    F --> e{`ds_prediction_raw`}
-    e --> |validate| G[`ocean_emulators.dataset_validation.ds_prediction_raw_validate`]
-    c --> G
-    G --> H[Postprocessing \n `ocean_emulators.postprocessing`]
+    F --> e[`ds_prediction_raw`]
+    e --> H[Postprocessing \n `ocean_emulators.postprocessing`]
     H --> |validate| I[`ocean_emulators.dataset_validation.ds_prediction_validate`]
     c --> I
     I --> f(`ds_prediction`)

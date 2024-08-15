@@ -12,12 +12,12 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import numpy as np
-from torch.cuda import amp
+from torch.cuda.amp import autocast, GradScaler
 from torchinfo import summary
 from tqdm import tqdm
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
-from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
+from utils.train_utils import decomposed_mse,decompose_mse_opt, SmoothedValue, MetricLogger
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -52,6 +52,20 @@ class Trainer:
 
         # Set seeds
         set_seed(args.rand_seed)
+
+        # Set precision
+        amp_dtype = torch.float32
+        self.enable_amp = False
+        if args.amp_mode is not None:
+            if args.amp_mode == "fp16":
+                amp_dtype = torch.float16
+            elif args.amp_mode == "bf16":
+                amp_dtype = torch.bfloat16 
+            self.enable_amp = True
+        self.amp_dtype = amp_dtype
+
+        if args.amp_dtype == torch.float16: 
+            self.scaler = GradScaler()
 
         # Check dirs
         if not os.path.exists(args.nets_dir):
@@ -198,6 +212,9 @@ class Trainer:
 
         model = model.to(args.device)
 
+        if args.enable_jit:
+            model = torch.compile(model)
+
         # Summary
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
         summary(
@@ -219,9 +236,11 @@ class Trainer:
         if args.loss == "mse":
             print("Using decomposed mse loss")
             self.loss = decomposed_mse
+            if args.enable_jit:
+                self.loss = decompose_mse_opt
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, fused=args.enable_fused)
 
         # Scheduler
         self.scheduler = None
@@ -439,16 +458,24 @@ class Trainer:
 
             self.optimizer.zero_grad()
             data = [d.cuda() for d in data]
-
-            loss_per_channel = self.model(data, loss_fn=self.loss)
-            loss = torch.mean(loss_per_channel)
-            loss.backward()
-            loss_value = loss.item()
+            with autocast(enabled=self.enable_amp, dtype=self.amp_dtype):
+                loss_per_channel = self.model(data, loss_fn=self.loss)
+                loss = torch.mean(loss_per_channel)
             
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            if self.amp_dtype == torch.float16: 
+                self.scaler.scale(loss).backward()
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                loss.backward()
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.optimizer.step()
+            
+            loss_value = loss.item()
 
-            self.optimizer.step()
             if self.scheduler is not None:
                 # self.scheduler.step()
                 self.scheduler.step(epoch - 1 + data_iter_step / iters)
@@ -506,32 +533,34 @@ class Trainer:
         print("Averaged train stats:", metric_logger)
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
+    @torch.inference_mode()
     @torch.no_grad()
     def validate(self):
         self.model.eval()
         rank = get_rank()
+        with autocast(enabled=self.enable_amp, dtype=self.amp_dtype):
+            model_pred = generate_model_rollout(
+                self.N_local,
+                self.val_data_set[rank],
+                self.model.module,
+                self.hist,
+                self.N_in,
+                self.N_extra,
+                0,
+                self.region,
+                train=True,
+            )
 
-        model_pred = generate_model_rollout(
-            self.N_local,
-            self.val_data_set[rank],
-            self.model.module,
-            self.hist,
-            self.N_in,
-            self.N_extra,
-            0,
-            self.region,
-            train=True,
-        )
+            predictions = model_pred.transpose(0, 3, 1, 2)
+            targets = self.target_set[rank]
 
-        predictions = model_pred.transpose(0, 3, 1, 2)
-        targets = self.target_set[rank]
+            predictions = torch.from_numpy(predictions)
+            targets = torch.from_numpy(targets)
 
-        predictions = torch.from_numpy(predictions)
-        targets = torch.from_numpy(targets)
-
-        full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
-        loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
-        loss_value = torch.mean(loss_per_channel)
+            # full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
+            # loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
+            loss_per_channel = self.loss(predictions, targets)
+            loss_value = torch.mean(loss_per_channel)
 
         # Surface level evaluation
         model_pred_unnormalized = (

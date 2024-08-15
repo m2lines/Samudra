@@ -158,6 +158,7 @@ class Trainer:
             num_workers=args.num_workers,
             pin_memory=args.pin_mem,
             drop_last=True,
+            persistent_workers=True
         )
 
         # Model

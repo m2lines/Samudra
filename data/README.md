@@ -63,6 +63,10 @@ prediction_data_test(ds_prediction, ds_truth)
 | input_id | Cloud | Greene |
 | --- | --- | --- |
 | `'OM4_5daily'` | `'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
+| `"10_year_CM4_ocean_5daily"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_5daily.zarr"`| |
+| `"10_year_CM4_ice_5daily"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ice_5daily.zarr"` | |
+| `"10_year_CM4_ocean_6hourly"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_6hourly.zarr"` | |
+| `"10_year_CM4_ice_6hourly"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/full_state_ice.zarr"` | |
 
 ### Input data
 

@@ -40,7 +40,6 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         assert self.lag == 1
 
         data = data.isel(time=slice(self.ind_start, None))
-        data = data.astype("float32")
         self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
         self.inputs_no_extra = data[inputs_str]
@@ -181,7 +180,6 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         assert self.interval == 1
         assert self.lag == 1
 
-        data = data.astype("float32")
         self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
         self.inputs_no_extra = data[inputs_str]

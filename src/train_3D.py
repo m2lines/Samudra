@@ -18,7 +18,7 @@ from torchinfo import summary
 from tqdm import tqdm
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
-from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
+from utils.train_utils import decomposed_mse, decomposed_mse_opt, SmoothedValue, MetricLogger
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -53,6 +53,20 @@ class Trainer:
 
         # Set seeds
         set_seed(args.rand_seed)
+
+        # Set precision
+        amp_dtype = torch.float32
+        self.enable_amp = False
+        if args.amp_mode is not None:
+            if args.amp_mode == "fp16":
+                amp_dtype = torch.float16
+            elif args.amp_mode == "bf16":
+                amp_dtype = torch.bfloat16 
+            self.enable_amp = True
+        self.amp_dtype = amp_dtype
+
+        if args.amp_dtype == torch.float16: 
+            self.scaler = GradScaler()
 
         # Check dirs
         if not os.path.exists(args.nets_dir):
@@ -223,6 +237,8 @@ class Trainer:
         if args.loss == "mse":
             print("Using decomposed mse loss")
             self.loss = decomposed_mse
+            if args.enable_jit:
+                 self.loss = decomposed_mse_opt
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, fused=args.enable_fused)
@@ -527,7 +543,7 @@ class Trainer:
                 self.N_in,
                 self.N_extra,
                 initial_input=None, 
-            Nb=0, 
+                Nb=0, 
                 region=self.region, 
                 train=True
             )

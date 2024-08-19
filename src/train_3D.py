@@ -213,9 +213,6 @@ class Trainer:
 
         model = model.to(args.device)
 
-        if args.enable_jit:
-            model = torch.compile(model)
-
         # Summary
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
         summary(
@@ -227,6 +224,9 @@ class Trainer:
 
         i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
+
+        if args.enable_jit:
+            model = torch.compile(model)
 
         self.model = model
         self.nets_dir = args.nets_dir

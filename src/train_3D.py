@@ -1,6 +1,7 @@
 import os
 import copy
 import wandb
+import warnings
 import time
 import datetime
 import json
@@ -244,9 +245,7 @@ class Trainer:
                     **args.wandb,
                 )
             elif is_main_process():
-                assert (
-                    self.wandb_id is None
-                ), "This checkpoint has used a wandb run, set wandb.mode to online"
+                warnings.warn("This checkpoint had wandb enabled, but wandb is not enabled now!")
         else:
             self.start_epoch = 1
             self.wandb_id = None
@@ -295,13 +294,8 @@ class Trainer:
         num_gpus = get_world_size()
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename(
-            {"dx": "dxu", "dy": "dyu"}
-        )
-
+        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
-        # grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
-        # self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
         self.surface_wet = torch.load(
             os.path.join(self.data_dir, self.surface_wet_file)
@@ -520,9 +514,10 @@ class Trainer:
             self.hist,
             self.N_in,
             self.N_extra,
-            0,
-            self.region,
-            train=True,
+            initial_input=None, 
+            Nb=0, 
+            region=self.region, 
+            train=True
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)

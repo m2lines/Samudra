@@ -47,7 +47,7 @@ epochs: 100
 batch_size: 32
 # grad_clip: False
 
-amp_mode: null
+amp_mode: bf16
 enable_fused: False
 enable_jit: False
 

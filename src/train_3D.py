@@ -65,7 +65,7 @@ class Trainer:
             self.enable_amp = True
         self.amp_dtype = amp_dtype
 
-        if args.amp_dtype == torch.float16: 
+        if self.amp_dtype == torch.float16: 
             self.scaler = GradScaler()
 
         # Check dirs

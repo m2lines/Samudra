@@ -300,6 +300,8 @@ class Trainer:
         )
 
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
+        # grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
+        # self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
         self.surface_wet = torch.load(
             os.path.join(self.data_dir, self.surface_wet_file)
@@ -409,8 +411,8 @@ class Trainer:
                 ) as f:
                     f.write(json.dumps(log_stats) + "\n")
 
+                print("Achieved Validation Loss = {:5.3f}".format(v_loss))
                 if v_loss < best_loss:
-                    print("Achieved Best Validation Loss = {:5.3f}".format(v_loss))
                     best_loss = v_loss
                     print("Saving best model at epoch {0}".format(epoch))
                     self.save_checkpoint(epoch, best=True)

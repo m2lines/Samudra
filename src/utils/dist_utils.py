@@ -8,6 +8,7 @@ import os
 import torch
 import torch.distributed as dist
 from torch import inf
+import torch.backends.cudnn as cudnn
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +17,11 @@ def set_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
     random.seed(seed)
+    cudnn.benchmark = False # Set to True for better performance but lose reproducibility
+    cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True)
 
 
 def suppress_prints(is_master):

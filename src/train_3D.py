@@ -21,7 +21,6 @@ from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_ma
 from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
 from utils.dist_utils import (
     set_seed,
-    seed_worker,
     init_distributed_mode,
     get_world_size,
     get_rank,

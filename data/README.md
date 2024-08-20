@@ -1,6 +1,28 @@
 # ocean_emulators
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/m2lines/ocean_emulators/main.svg)](https://results.pre-commit.ci/latest/github/m2lines/ocean_emulators/main)
 
+## Data flow diagram
+```mermaid
+flowchart TD
+    a[(A bunch of files/Zarr stores)] --> A[model specific processing \n `ocean_emulators.simulation_preprocessing.<>`]
+    A -->  b(`ds_processed`)
+    b --> |validate| B[`ocean_emulators.dataset_validation.ds_processed_validate`]
+    B --> C[Generic Preprocessing \n ocean_emulators.preprocessing]
+    C --> c(`ds_input`)
+    c --> |validate| D[`ocean_emulators.dataset_validation.ds_input_validate`]
+    D --> |download into uncompressed zarr| CC[ `ds_input` Local HPC copy]
+    CC --> E[training]
+    E --> d(model)
+    d --> F[rollout]
+    F --> e[`ds_prediction_raw`]
+    e --> H[Postprocessing \n `ocean_emulators.postprocessing`]
+    H --> f(`ds_prediction`)
+    f -->|validate| I[`ocean_emulators.dataset_validation.ds_prediction_validate`]
+    CC --> I
+    I --> |upload to cloud| J[`ds_prediction` Shareable prediction output]
+```
+
+
 ## Producing Input and Prediction Datasets
 
 ### Preprocessed Datasets (`ds_processed`)

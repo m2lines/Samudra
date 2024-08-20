@@ -195,3 +195,9 @@ def decomposed_mse(pred, out):
     full_mse = nn.functional.mse_loss(pred, out, reduction="none")
     mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
     return mse_channels
+
+@torch.jit.script
+def decomposed_mse_opt(pred, out):
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
+    return mse_channels

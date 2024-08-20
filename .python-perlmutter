@@ -1,4 +1,5 @@
 #!/bin/bash
+export CUBLAS_WORKSPACE_CONFIG=:16:8 # For reproducibility
 export BASE_OE_DIR=$PWD
 module load conda
 conda activate emulator

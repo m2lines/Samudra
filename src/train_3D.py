@@ -43,7 +43,6 @@ class Trainer:
         # Distributed mode
         init_distributed_mode(args)
         dask.config.set(scheduler="synchronous")
-        cudnn.benchmark = True
 
         if not args.disk_mode:
             assert args.num_workers == 0 and args.pin_mem == False
@@ -149,7 +148,7 @@ class Trainer:
         print("Instantiating torch loaders")
 
         self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_data, shuffle=True, seed=args.rand_seed
+            train_data, shuffle=True
         )
         self.train_loader = torch.utils.data.DataLoader(
             train_data,

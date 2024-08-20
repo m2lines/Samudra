@@ -4,11 +4,11 @@
 ## Producing Input and Prediction Datasets
 
 ### Preprocessed Datasets (`ds_processed`)
-This is the only model specific step produced by modules in `ocean_emulators.model_preprocessing.<model_module>`. The output `ds_processed` can then be fed into the generic preprocessing steps to produce the input dataset. These functions should not modify the data in any other way than interpolating velocity data onto the tracer points (the setup/execution of which might depend on the source).
+This is the only model specific step produced by modules in `ocean_emulators.simulation_preprocessing.<model_module>`. The output `ds_processed` can then be fed into the generic preprocessing steps to produce the input dataset. These functions should not modify the data in any other way than interpolating velocity data onto the tracer points (the setup/execution of which might depend on the source).
 
 Example:
 ```python
-from ocean_emulators.model_preprocessing.gfdl_om4 import om4_preprocessing
+from ocean_emulators.simulation_preprocessing.gfdl_om4 import om4_preprocessing
 
 zarr_data_path = 'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'
 nc_grid_path = 'gs://leap-persistent/sd5313/OM4-5daily/ocean_static_no_mask_table.nc'

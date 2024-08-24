@@ -1,7 +1,7 @@
 # @package _global_
 defaults:
   - _self_
-  - unet: unet_3D_all
+  - unet: unet_2D
 
 wandb:
   mode: disabled # online, disabled
@@ -15,11 +15,11 @@ wandb:
 experiment: train_3D
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-wet_file: 3D_wet_OM4_5daily_v0.2.1.pt
-surface_wet_file: surface_wet_OM4_5daily_v0.2.1.pt
-data_zarr: 3D_data_OM4_5daily_v0.2.1
-data_means_zarr: 3D_data_OM4_5daily_v0.2.1_means
-data_stds_zarr: 3D_data_OM4_5daily_v0.2.1_stds
+wet_file: surface_wet_OM4_v0.0.pt
+surface_wet_file: surface_wet_OM4_v0.0.pt
+data_zarr: 3D_data_OM4_v0.0
+data_means_zarr: 3D_data_OM4_v0.0_means
+data_stds_zarr: 3D_data_OM4_v0.0_stds
 grid_file: Grid_New.nc
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
@@ -52,9 +52,9 @@ lr: 2e-4
 T: ${epochs} # 10 # CosineA / CosineAWarm param
 
 # Parameters
-exp_num_in: "3D_all"
-exp_num_extra: "3D_all"
-exp_num_out: "3D_all"
+exp_num_in: "2D"
+exp_num_extra: "2D"
+exp_num_out: "2D"
 N_samples:  4000 #4000
 N_val:  140 #300
 N_test: 600 #500

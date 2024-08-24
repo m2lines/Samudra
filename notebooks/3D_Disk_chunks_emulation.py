@@ -35,9 +35,9 @@ import copy
 from datetime import datetime
 import os
 
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+# $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 ### Convnext unet
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+# $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 # 5 Levels
 # with initialize_config_dir(
@@ -47,12 +47,12 @@ import os
 #     args = compose(
 #         config_name="exp/eval_unet_global_3D_5",
 #         overrides=[
-            # "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Levels5".format(
-            #     str(datetime.now())[:10]
-            # ),
-            # "network={0}_ConvNextUNetTrain3DEval3DHist1Levels5".format(
-            #     str(datetime.now())[:10]
-            # ),
+# "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Levels5".format(
+#     str(datetime.now())[:10]
+# ),
+# "network={0}_ConvNextUNetTrain3DEval3DHist1Levels5".format(
+#     str(datetime.now())[:10]
+# ),
 #             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-07-19-train_convnextunet_global_3D_hist1_5levels_out2/out2/saved_nets/convnextunet_epoch_20_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
 #             "hist=1",
 #             "unet.ch_width=[80,100,150,300,400]",
@@ -80,12 +80,12 @@ import os
 #     args = compose(
 #         config_name="exp/eval_unet_global_3D_all",
 #         overrides=[
-            # "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DWtinitEpochs35Best".format(
-            #     str(datetime.now())[:10]
-            # ),
-            # "network={0}_ConvNextUNetTrain3DEval3DWtinitEpochs35Best".format(
-            #     str(datetime.now())[:10]
-            # ),
+# "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DWtinitEpochs35Best".format(
+#     str(datetime.now())[:10]
+# ),
+# "network={0}_ConvNextUNetTrain3DEval3DWtinitEpochs35Best".format(
+#     str(datetime.now())[:10]
+# ),
 #             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-07-25-convnextunet_hist1_out2_Wtinit_35epochs/wtinit/saved_nets/convnextunet_epoch_19_beststeps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
 #             "hist=1",
 #             "unet.ch_width=[157,200,250,300,400]",
@@ -202,7 +202,7 @@ with initialize_config_dir(
 #             "depth_mode=all",
 #         ],
 #     )
-    
+
 ########################################################
 
 # All Levels - Hist = 0
@@ -238,9 +238,9 @@ with initialize_config_dir(
 
 ########################################################
 
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+# $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 ### Swin
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+# $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 # with initialize_config_dir(
 #     version_base=None,
 #     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
@@ -274,7 +274,7 @@ with initialize_config_dir(
 
 if not os.path.exists(args.output_dir):
     os.mkdir(args.output_dir)
-    
+
 inputs_str = INPT_VARS[args.exp_num_in]
 extra_in_str = EXTRA_VARS[args.exp_num_extra]
 outputs_str = OUT_VARS[args.exp_num_out]
@@ -464,6 +464,7 @@ from scipy.ndimage import gaussian_filter
 from einops import rearrange
 import os
 
+
 class data_CNN_Disk(torch.utils.data.Dataset):
 
     def __init__(
@@ -562,10 +563,12 @@ class data_CNN_Disk(torch.utils.data.Dataset):
             idx = slice(idx, idx + 1, 1)
 
         rolling_idx = self.rolling_indices.isel(window_dim=idx)
-        x_index = xr.Variable(
-            ["window_dim", "time"], rolling_idx
+        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
+        print(
+            "Out: ",
+            (self.ind_start + x_index.isel(time=slice(self.hist + 1, None))).values,
+            end=" ",
         )
-        print("Out: ", (self.ind_start + x_index.isel(time=slice(self.hist + 1, None))).values, end=' ')
         data_in = self.inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
@@ -605,7 +608,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         items = (torch.from_numpy(data_in).float(), torch.from_numpy(label).float())
 
         return items
-    
+
 
 import xarray as xr
 
@@ -753,7 +756,8 @@ JUPYTER_MODE = False
 
 def send_data_to_cpu():
     test_data.set_device(device="cpu")
-    
+
+
 def generate_pred_lateral():
     print("Generation Pred begin...")
     for rand_ind, model_path in enumerate(args.ckpt_path):
@@ -767,12 +771,12 @@ def generate_pred_lateral():
         #         torch.load(model_path, map_location=torch.device("cuda"))
         #     )
         pred_path = pred_model_path / (
-                        "Pred_lateral_Fast_Data_025_"
-                        + post_pred_name
-                        + "_rand_seed_"
-                        + str(rand_ind + 1)
-                        + ".zarr"
-                    )
+            "Pred_lateral_Fast_Data_025_"
+            + post_pred_name
+            + "_rand_seed_"
+            + str(rand_ind + 1)
+            + ".zarr"
+        )
         factor = 20
         outs = None
         initial_input = None
@@ -793,7 +797,7 @@ def generate_pred_lateral():
                 long_rollout=True,
                 device="cuda",
             )
-            
+
             test_data.norm_vals = {
                 "s_out": std_out,
                 "s_in": std_in,
@@ -802,7 +806,7 @@ def generate_pred_lateral():
             }
             if outs is not None:
                 initial_input = outs[-1]
-                
+
             model_pred, outs = generate_model_rollout(
                 N_test // factor,
                 test_data,
@@ -825,9 +829,11 @@ def generate_pred_lateral():
                 da.to_zarr(pred_path, mode="a", append_dim="time")
             print("Saved: ", i, " to ", i + N_test // factor)
 
-import time 
+
+import time
+
 start = time.time()
 if args.run_gen_pred:
     generate_pred_lateral()
-    
+
 print(f"Time taken for generating {N_test} predictions: {time.time() - start} seconds")

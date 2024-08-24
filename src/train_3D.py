@@ -246,7 +246,9 @@ class Trainer:
                     **args.wandb,
                 )
             elif is_main_process():
-                warnings.warn("This checkpoint had wandb enabled, but wandb is not enabled now!")
+                warnings.warn(
+                    "This checkpoint had wandb enabled, but wandb is not enabled now!"
+                )
         else:
             self.start_epoch = 1
             self.wandb_id = None
@@ -295,7 +297,9 @@ class Trainer:
         num_gpus = get_world_size()
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
+        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename(
+            {"xu_ocean": "x", "yu_ocean": "y"}
+        )
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
         self.surface_wet = torch.load(
@@ -441,7 +445,7 @@ class Trainer:
             loss = torch.mean(loss_per_channel)
             loss.backward()
             loss_value = loss.item()
-            
+
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
@@ -515,10 +519,10 @@ class Trainer:
             self.hist,
             self.N_in,
             self.N_extra,
-            initial_input=None, 
-            Nb=0, 
-            region=self.region, 
-            train=True
+            initial_input=None,
+            Nb=0,
+            region=self.region,
+            train=True,
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)

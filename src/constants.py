@@ -36,6 +36,10 @@ INPT_VARS = {
     "11": ["tau_u", "tau_v"],
     "12": ["tau_u", "tau_v", "t_ref"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
+    "2D": [k + DEPTH_LEVELS[0]
+        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+    ]
+    + ["zos"],
     "3D_5": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
@@ -70,6 +74,7 @@ EXTRA_VARS = {
     "12": ["tau_u", "tau_v", "t_ref"],
     "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
     "3D": ["tauuo", "tauvo", "hfds"],
+    "2D": ["tauuo", "tauvo", "hfds"],
     "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
     "3D_SST_all": ["tauuo", "tauvo", "hfds", "thetao_lev_0"],
@@ -82,6 +87,10 @@ OUT_VARS = {
     "5": ["u", "v"],
     "6": ["u", "v", "T"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
+    "2D": [k + DEPTH_LEVELS[0]
+        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+    ]
+    + ["zos"],
     "3D_5": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]

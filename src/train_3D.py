@@ -65,6 +65,8 @@ class Trainer:
         levels = args.exp_num_in.split("_")[-1]
         if "all" in levels:
             self.levels = 19
+        if "2D" in levels:
+            self.levels = 1
         else:
             self.levels = int(levels)
 

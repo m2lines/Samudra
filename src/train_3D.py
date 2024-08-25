@@ -18,7 +18,7 @@ from torchinfo import summary
 from tqdm import tqdm
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
-from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
+from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -61,7 +61,7 @@ class Trainer:
         self.inputs = INPT_VARS[args.exp_num_in]
         self.extra_in = EXTRA_VARS[args.exp_num_extra]
         self.outputs = OUT_VARS[args.exp_num_out]
-        self.CH_3D_IDX, self.DP_3D_IDX = get_eval_maps(args.exp_num_in)
+        self.CH_3D_IDX, self.DP_3D_IDX, self.VAR_SET, self.DEPTH_SET = get_eval_maps(args.exp_num_out)
         levels = args.exp_num_in.split("_")[-1]
         if "all" in levels:
             self.levels = 19
@@ -91,12 +91,13 @@ class Trainer:
             )  # Number of atmosphere variables + Lateral boundary variables
         else:
             self.N_extra = self.N_atm  # Number of atmosphere variables
-        self.N_out = (args.hist + 1) * len(self.outputs)
+        self.N_out = len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
+        self.num_out = int((args.hist + 1) * len(self.outputs))
 
         print("Number of inputs: ", self.num_in)
-        print("Number of outputs: ", self.N_out)
+        print("Number of outputs: ", self.num_out)
 
         assert args.region == "global_3D"
         self.region = args.region
@@ -119,17 +120,17 @@ class Trainer:
         assert args.depth_mode == "surface" or args.depth_mode == "all"
         self.data_dir = args.data_dir
         self.wet_file = args.wet_file
-        self.surface_wet_file = args.surface_wet_file
         self.data_zarr = args.data_zarr
         self.data_means_zarr = args.data_means_zarr
         self.data_stds_zarr = args.data_stds_zarr
         self.grid_file = args.grid_file
 
-        self.wet = torch.load(os.path.join(self.data_dir, self.wet_file))
-        self.wet = torch.concat([self.wet] * (args.hist + 1), dim=0)
         self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
         self.data_mean = xr.open_zarr(os.path.join(self.data_dir, self.data_means_zarr))
         self.data_std = xr.open_zarr(os.path.join(self.data_dir, self.data_stds_zarr))
+        wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
+        self.wet = extract_wet(wet_zarr, self.outputs, args.hist)
+        self.surface_wet = extract_surface_wet(wet_zarr)
 
         train_data = data_CNN_Disk_steps(
             self.data,
@@ -167,7 +168,7 @@ class Trainer:
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
-                output_channels=self.N_out,
+                output_channels=self.num_out,
                 pretrain_img_size=[180, 360],
                 wet=self.wet.cuda(),
                 hist=args.hist,
@@ -180,15 +181,15 @@ class Trainer:
                     )
                 )
                 args.unet.ch_width[0] = self.num_in
-            if args.unet.n_out != self.N_out:
+            if args.unet.n_out != self.num_out:
                 print(
                     "NOTE: Changing output channels to match data {}->{}".format(
-                        args.unet.n_out, self.N_out
+                        args.unet.n_out, self.num_out
                     )
                 )
-                args.unet.n_out = self.N_out
+                args.unet.n_out = self.num_out
             model = instantiate(
-                args.unet, n_out=self.N_out, wet=self.wet.cuda(), hist=args.hist
+                args.unet, n_out=self.num_out, wet=self.wet.cuda(), hist=args.hist
             )
         else:
             raise NotImplementedError
@@ -298,12 +299,10 @@ class Trainer:
         grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
-        self.surface_wet = torch.load(
-            os.path.join(self.data_dir, self.surface_wet_file)
-        )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
-        self.indices = [i * self.levels for i in range(4)] + [-1]
-        indices_str = [self.inputs[i] for i in self.indices]
+        num_vars = len(self.VAR_SET)
+        self.surface_indices = [i * self.levels for i in range(num_vars-1)] + [-1]
+        surface_indices_str = [self.inputs[i] for i in self.surface_indices]
 
         self.val_data_set = []
         self.target_set = []
@@ -348,9 +347,9 @@ class Trainer:
             # Surface Data
             surface_targets = data_CNN_Disk(
                 self.data,
-                indices_str,
+                surface_indices_str,
                 self.extra_in,
-                indices_str,
+                surface_indices_str,
                 self.wet[0],
                 self.data_mean,
                 self.data_std,
@@ -472,11 +471,11 @@ class Trainer:
                     }
                 )
                 # Loss per channel
-                for i, var in enumerate(self.inputs):
+                for i, var in enumerate(self.outputs):
                     wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
 
                 # Loss per depth
-                for d in DEPTH_LEVELS:
+                for d in self.DEPTH_SET:
                     wandb.log(
                         {
                             "train/depth/depth_"
@@ -488,7 +487,7 @@ class Trainer:
                     )
 
                 # Loss per input variable
-                for k in ["uo", "vo", "thetao", "so"]:
+                for k in self.VAR_SET:
                     wandb.log(
                         {
                             "train/per_var/"
@@ -513,7 +512,7 @@ class Trainer:
             self.val_data_set[rank],
             self.model.module,
             self.hist,
-            self.N_in,
+            self.N_out,
             self.N_extra,
             initial_input=None, 
             Nb=0, 
@@ -536,41 +535,43 @@ class Trainer:
             model_pred * self.val_data_set[rank].norm_vals["s_out"]
             + self.val_data_set[rank].norm_vals["m_out"]
         )
-        surface_preds = model_pred_unnormalized[:, :, :, self.indices]
-
-        (
-            KE_corr,
-            KE_rmse,
-            temp_corr,
-            temp_rmse,
-            saline_corr,
-            saline_rmse,
-            zos_corr,
-            zos_rmse,
-            u_corr,
-            u_rmse,
-            v_corr,
-            v_rmse,
-        ) = get_corr_rmse(
-            self.surface_targets_set[rank],
-            self.surface_targets_norm_vals,
-            surface_preds,
-            self.area,
-            self.surface_wet_bool,
-            0,
-            self.N_local,
-        )
+        surface_preds = model_pred_unnormalized[:, :, :, self.surface_indices]
+        if self.VAR_SET == set(["uo", "vo", "thetao", "so", "zos"]): # TODO: Need surface eval func fixes. Hardcoded indices.
+            (
+                KE_corr,
+                KE_rmse,
+                temp_corr,
+                temp_rmse,
+                saline_corr,
+                saline_rmse,
+                zos_corr,
+                zos_rmse,
+                u_corr,
+                u_rmse,
+                v_corr,
+                v_rmse,
+            ) = get_corr_rmse(
+                self.surface_targets_set[rank],
+                self.surface_targets_norm_vals,
+                surface_preds,
+                self.area,
+                self.surface_wet_bool,
+                0,
+                self.N_local,
+            )
+        else:
+            KE_corr = KE_rmse = temp_corr = temp_rmse = saline_corr = saline_rmse = zos_corr = zos_rmse = u_corr = u_rmse = v_corr = v_rmse = 0
 
         all_reduce_mean(loss_value)
 
         if self.is_wandb_enabled():
             wandb.log({"eval/total_eval_loss_per_batch": loss_value})
             # Loss per channel
-            for i, var in enumerate(self.inputs):
+            for i, var in enumerate(self.outputs):
                 wandb.log({"eval/per_channel/" + var: loss_per_channel[i].item()})
 
             # Loss per depth
-            for d in DEPTH_LEVELS:
+            for d in self.DEPTH_SET:
                 wandb.log(
                     {
                         "eval/depth/depth_"
@@ -582,7 +583,9 @@ class Trainer:
                 )
 
             # Loss per input variable
-            for k in ["uo", "vo", "thetao", "so"]:
+            for k in self.VAR_SET:
+                if k == "zos":
+                    continue
                 wandb.log(
                     {
                         "eval/per_var/"

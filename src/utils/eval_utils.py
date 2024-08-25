@@ -10,13 +10,13 @@ from .data_utils import *
 
 
 def generate_model_rollout(
-    N_eval, test_data, model, hist, N_in, N_extra, initial_input=None, Nb=0, region="global", train=False
+    N_eval, test_data, model, hist, N_out, N_extra, initial_input=None, Nb=0, region="global", train=False
 ):
 
     N_test = test_data.size
 
     model.eval()
-    model_pred = np.zeros((N_eval, *test_data[0][0].shape[2:], N_in))
+    model_pred = np.zeros((N_eval, *test_data[0][0].shape[2:], N_out))
 
     with torch.no_grad():
         outs = model.inference(test_data, initial_input, num_steps=N_eval // (hist + 1))

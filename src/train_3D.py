@@ -16,6 +16,7 @@ import numpy as np
 from torch.cuda import amp
 from torchinfo import summary
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
 from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet
@@ -65,7 +66,7 @@ class Trainer:
         levels = args.exp_num_in.split("_")[-1]
         if "all" in levels:
             self.levels = 19
-        if "2D" in levels:
+        elif "2D" in levels:
             self.levels = 1
         else:
             self.levels = int(levels)
@@ -238,14 +239,22 @@ class Trainer:
         if args.resume_ckpt_path is not None:
             self.load_checkpoint(args.resume_ckpt_path)
             if self.is_wandb_enabled():
-                wandb.init(
-                    config=OmegaConf.to_container(args, resolve=True),
-                    name=self.wandb_name,
-                    dir=args.experiment_dir,
-                    resume="must",
-                    id=self.wandb_id,
-                    **args.wandb,
-                )
+                try:
+                    wandb.init(
+                        config=OmegaConf.to_container(args, resolve=True),
+                        name=self.wandb_name,
+                        dir=args.experiment_dir,
+                        resume="must",
+                        id=self.wandb_id,
+                        **args.wandb,
+                    )
+                except:
+                    wandb.init(
+                        config=OmegaConf.to_container(args, resolve=True),
+                        name=self.wandb_name,
+                        dir=args.experiment_dir,
+                        **args.wandb,
+                    )
             elif is_main_process():
                 warnings.warn("This checkpoint had wandb enabled, but wandb is not enabled now!")
         else:
@@ -522,6 +531,7 @@ class Trainer:
 
         predictions = model_pred.transpose(0, 3, 1, 2)
         targets = self.target_set[rank]
+        targets_transposed = targets.transpose(0, 2, 3, 1)
 
         predictions = torch.from_numpy(predictions)
         targets = torch.from_numpy(targets)
@@ -530,11 +540,15 @@ class Trainer:
         loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
         loss_value = torch.mean(loss_per_channel)
 
-        # Surface level evaluation
         model_pred_unnormalized = (
             model_pred * self.val_data_set[rank].norm_vals["s_out"]
             + self.val_data_set[rank].norm_vals["m_out"]
         )
+        targets_unnormalized = (
+            targets_transposed * self.val_data_set[rank].norm_vals["s_out"] 
+            + self.val_data_set[rank].norm_vals["m_out"]
+        )
+        # Surface level evaluation
         surface_preds = model_pred_unnormalized[:, :, :, self.surface_indices]
         if self.VAR_SET == set(["uo", "vo", "thetao", "so", "zos"]): # TODO: Need surface eval func fixes. Hardcoded indices.
             (
@@ -595,6 +609,31 @@ class Trainer:
                         ).item()
                     }
                 )
+                
+            # Plot prediction and target
+            for i, var in enumerate(self.outputs):
+                plt.figure(figsize=(10, 5))
+                plt.plot(
+                    range(targets.shape[0]),
+                    targets_unnormalized[:, :, :, i].mean(axis=(1, 2)),
+                    label="Target",
+                )
+                min, max = plt.ylim()
+                plt.plot(
+                    range(predictions.shape[0]),
+                    model_pred_unnormalized[:, :, :, i].mean(axis=(1, 2)),
+                    label="Prediction",
+                )
+                if 'thetao' in var:
+                    plt.ylim(min - 0.25, max + 0.25)
+                elif 'so' in var:
+                    plt.ylim(min - 0.2, max + 0.2)
+                elif 'KE' in var:
+                    plt.ylim(min - 0.5, max + 0.5)
+                plt.title(var)
+                plt.legend()
+                wandb.log({f"eval/plots/{var}": wandb.Image(plt)})
+                plt.close()
 
         if self.is_wandb_enabled():
             wandb.log(

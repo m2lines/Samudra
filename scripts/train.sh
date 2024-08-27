@@ -1,19 +1,27 @@
 #!/bin/bash
+export BASE_OE_DIR=$PWD
 
 ###########################################################################################
 # 3D
 
 ### ConvNext
 # Surface only
-# ./.python-perlmutter submitit_hydra.py compute/greene=1x2 compute/greene/node=rtx8000_3hrs exp=train_unet_global_3D wandb.mode=online name="$(date +%F)-train_convnextunet_global_3D_surface_fromdisk" region=global_3D batch_size=16 scheduler=True rand_seed=9
+# v0.0
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_4hrs wandb.mode=online exp=train_unet_global_2Dv0.0 name="$(date +%F)-train_convnextunet_global_2Dv0.0_100epochs" epochs=100 region=global_3D batch_size=16 scheduler=True rand_seed=10 --qos=regular
+
+# v0.2.1
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_3hrs wandb.mode=online exp=train_unet_global_2D name="$(date +%F)-train_convnextunet_global_2D" region=global_3D batch_size=16 scheduler=True rand_seed=10
 
 # 5 levels
-# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_debug wandb.mode=online exp=train_unet_global_3D_5 name="$(date +%F)-train_convnextunet_global_3D" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 --qos=debug
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_5 name="$(date +%F)-train_convnextunet_global_3D_5levels" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 --qos=regular
 
-./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_debug testing=true exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_testingseed2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 N_samples=128 --qos=debug
+# 5 No fast output
+./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_5 name="$(date +%F)-train_convnextunet_global_3D_5levels_NoFastOuts" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 exp_num_out=3D_5_noFast --qos=regular
+
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_debug testing=true exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_testingseed2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 N_samples=128 --qos=debug
 
 # All history=1
-# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_70epochs" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 --qos=regular
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_DETtest" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 --qos=regular
 
 
 # All history=0

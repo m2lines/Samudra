@@ -195,3 +195,19 @@ def decomposed_mse(pred, out):
     full_mse = nn.functional.mse_loss(pred, out, reduction="none")
     mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
     return mse_channels
+
+def extract_wet(wet_zarr, outputs, hist):
+    depths = [var.split('lev_')[-1].replace('_', '.') for var in outputs]
+    if 'zos' in depths:
+        zos_index = depths.index('zos')
+        depths[zos_index] = str(wet_zarr.lev.values[0])
+        assert depths[zos_index] == '2.5'
+    depths = [float(depth) for depth in depths]
+    wet = wet_zarr.sel(lev=depths)
+    wet = torch.from_numpy(wet.to_array().to_numpy().squeeze())
+    wet = torch.concat([wet] * (hist + 1), dim=0)
+    print(wet.shape)
+    return wet
+
+def extract_surface_wet(wet_zarr):
+    return torch.from_numpy(wet_zarr.isel(lev=0).to_array().to_numpy().squeeze())

@@ -36,6 +36,10 @@ INPT_VARS = {
     "11": ["tau_u", "tau_v"],
     "12": ["tau_u", "tau_v", "t_ref"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
+    "2D": [k + DEPTH_LEVELS[0]
+        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+    ]
+    + ["zos"],
     "3D_5": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
@@ -70,6 +74,7 @@ EXTRA_VARS = {
     "12": ["tau_u", "tau_v", "t_ref"],
     "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
     "3D": ["tauuo", "tauvo", "hfds"],
+    "2D": ["tauuo", "tauvo", "hfds"],
     "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
     "3D_SST_all": ["tauuo", "tauvo", "hfds", "thetao_lev_0"],
@@ -82,15 +87,31 @@ OUT_VARS = {
     "5": ["u", "v"],
     "6": ["u", "v", "T"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
+    "2D": [k + DEPTH_LEVELS[0]
+        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+    ]
+    + ["zos"],
     "3D_5": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
         for j in DEPTH_LEVELS[:5]
     ]
     + ["zos"],
+    "3D_noFast_5": [
+        k + str(j)
+        for k in ["thetao_lev_", "so_lev_"]
+        for j in DEPTH_LEVELS[:5]
+    ]
+    + ["zos"],
     "3D_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for j in DEPTH_LEVELS
+    ]
+    + ["zos"],
+    "3D_noFast_all": [
+        k + str(j)
+        for k in ["thetao_lev_", "so_lev_"]
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
@@ -107,28 +128,31 @@ def get_eval_maps(exp_num):
     # CH_3D_IDX maps the input variables to their indices in the input tensor
     # DP_3D_IDX maps the depth levels to their indices in the input tensor
     CH_3D_IDX = {}
-    for kt in ["uo", "vo", "thetao", "so"]:
+    VAR_SET = list(dict.fromkeys(([out.split('_')[0] for out in OUT_VARS[exp_num]])))
+    assert VAR_SET[-3] == 'thetao' and VAR_SET[-2] == 'so' and VAR_SET[-1] == 'zos'
+    DEPTH_SET = list(dict.fromkeys(([out.split('lev_')[-1] for out in OUT_VARS[exp_num]])))
+    assert DEPTH_SET[0] == DEPTH_LEVELS[0]
+    for kt in VAR_SET:
         CH_3D_IDX[kt] = torch.tensor([])
-        for i, k in enumerate(INPT_VARS[exp_num]):
+        for i, k in enumerate(OUT_VARS[exp_num]):
             if kt in k:
                 CH_3D_IDX[kt] = torch.cat([CH_3D_IDX[kt], torch.tensor([i])])
         CH_3D_IDX[kt] = CH_3D_IDX[kt].to(torch.int32)
 
     DP_3D_IDX = {}
-    for d in DEPTH_LEVELS:
+    for d in DEPTH_SET:
         DP_3D_IDX[d] = torch.tensor([])
-        for i, k in enumerate(INPT_VARS[exp_num]):
+        for i, k in enumerate(OUT_VARS[exp_num]):
             if k == "zos":
                 continue
             elif d == k.split("lev_")[-1]:
                 DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
         DP_3D_IDX[d] = DP_3D_IDX[d].to(torch.int32)
     DP_3D_IDX[DEPTH_LEVELS[0]] = torch.cat(
-        [DP_3D_IDX[DEPTH_LEVELS[0]], torch.tensor([len(INPT_VARS[exp_num]) - 1])]
+        [DP_3D_IDX[DEPTH_LEVELS[0]], torch.tensor([len(OUT_VARS[exp_num]) - 1])]
     )  # zos
     DP_3D_IDX[DEPTH_LEVELS[0]] = DP_3D_IDX[DEPTH_LEVELS[0]].to(torch.int32)
-
-    return CH_3D_IDX, DP_3D_IDX
+    return CH_3D_IDX, DP_3D_IDX, VAR_SET, DEPTH_SET
 
 
 # Region boundaries

@@ -19,9 +19,9 @@ def set_seed(seed):
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     random.seed(seed)
-    cudnn.benchmark = False # Set to True for better performance but lose reproducibility
-    cudnn.deterministic = True
-    torch.use_deterministic_algorithms(True)
+    cudnn.benchmark = True # False # Set to True for better performance but lose reproducibility
+    # cudnn.deterministic = True
+    # torch.use_deterministic_algorithms(True)
 
 
 def suppress_prints(is_master):

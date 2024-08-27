@@ -15,11 +15,10 @@ wandb:
 experiment: train_3D
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-wet_file: 3D_wet_OM4_5_levels.pt
-surface_wet_file: surface_wet.pt
-data_zarr: 3D_data
-data_means_zarr: 3D_data_means
-data_stds_zarr: 3D_data_stds
+wet_file: OM4_5daily_v0.2.1_wetmask
+data_zarr: 3D_data_OM4_5daily_v0.2.1
+data_means_zarr: 3D_data_OM4_5daily_v0.2.1_means
+data_stds_zarr: 3D_data_OM4_5daily_v0.2.1_stds
 grid_file: Grid_New.nc
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
@@ -43,7 +42,7 @@ disk_mode: True
 num_workers: 4
 pin_mem: True
 save_freq: 5
-epochs: 100
+epochs: 35
 batch_size: 32
 # grad_clip: False
 

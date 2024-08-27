@@ -19,13 +19,16 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_unet_global_3D_5 name="$(date +%F)-local_train_convnextunet_global_3D_5" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1
 
 # 5 No fast output
-./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_unet_global_3D_5 wandb.mode=online name="$(date +%F)-local_train_convnextunet_global_3D_5" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 exp_num_out=3D_5_noFast
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_unet_global_3D_5 wandb.mode=online name="$(date +%F)-local_train_convnextunet_global_3D_5" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 exp_num_out=3D_noFast_5
 
 # Hist 0
 # ./.python-perlmutter submitit_hydra.py $comp exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3Dv021" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=0
 
 # Hist 1
-# ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3D_seedtest2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1
+# ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all testing=true wandb.mode=online name="$(date +%F)-local_train_convnextunet_global_3D_seedtest2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 resume_ckpt_path=/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-19-convnextunet_v021_hist1_70epochs/convnextunet_epoch_60_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt epochs=75
+
+# Hist 1 No fast output
+# ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3D_seedtest2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_out=3D_noFast_all
 
 
 ### Swin

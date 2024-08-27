@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .activations import CappedGELU
+import timm
 
 
 class BasicConvBlock(torch.nn.Module):
@@ -381,3 +382,63 @@ class LayerNorm(nn.Module):
             x = (x - u) / torch.sqrt(s + self.eps)
             x = self.weight[:, None, None] * x + self.bias[:, None, None]
             return x
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from einops import rearrange, repeat
+
+class ViTBlock(nn.Module):
+    def __init__(self, in_channels, patch_size=16, embed_dim=768, num_heads=8, depth=12, dropout=0.1):
+        super(ViTBlock, self).__init__()
+        self.patch_size = patch_size
+        self.embed_dim = embed_dim
+        self.num_patches = None  # Will be set dynamically based on input size
+        self.pos_embedding = None
+
+        # Linear projection of flattened patches
+        print(in_channels * patch_size * patch_size)
+        self.patch_to_embedding = nn.Linear(in_channels * patch_size * patch_size, embed_dim)
+
+        # Transformer blocks
+        self.transformer = nn.ModuleList([
+            nn.TransformerEncoderLayer(
+                embed_dim, num_heads, dim_feedforward=embed_dim * 4, dropout=dropout
+            ) for _ in range(depth)
+        ])
+
+        self.norm = nn.LayerNorm(embed_dim)
+    
+    def forward(self, x):
+        b, c, h, w = x.shape
+        patch_h, patch_w = h // self.patch_size, w // self.patch_size
+        self.num_patches = patch_h * patch_w
+
+        # Flatten and embed patches
+        print("1 : ", x.shape)
+        x = rearrange(x, 'b c (ph p1) (pw p2) -> b (ph pw) (c p1 p2)', p1=self.patch_size, p2=self.patch_size)
+        print("2 : ", x.shape)
+        x = self.patch_to_embedding(x)
+        print("3 : ", x.shape)
+
+        # Create or resize position embeddings
+        # if self.pos_embedding is None or self.pos_embedding.shape[1] != self.num_patches:
+        #     pos_embedding = nn.Parameter(torch.zeros(1, self.num_patches, self.embed_dim))
+        #     nn.init.trunc_normal_(self.pos_embedding, std=0.02)
+        
+        # Interpolate position embeddings if input size has changed
+        # pos_embedding = F.interpolate(self.pos_embedding, size=(self.num_patches, self.embed_dim), mode='linear')
+
+        # x = x + pos_embedding
+
+        # Apply transformer layers
+        for transformer in self.transformer:
+            x = transformer(x)
+
+        x = self.norm(x)
+        
+        # Reshape back to (B, C, H, W)
+        print("1 : ", x.shape)
+        x = rearrange(x, 'b (ph pw) e -> b e ph pw', ph=patch_h, pw=patch_w)
+        print("2 : ", x.shape)
+        return x

@@ -27,6 +27,9 @@ export BASE_OE_DIR=$PWD
 # Hist 1
 # ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3D_seedtest2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1
 
+# Hist 1 : Attention
+./.python-perlmutter submitit_hydra.py compute=local exp=train_unetattention_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3D_attention" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1
+
 
 ### Swin
 # ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all name="$(date +%F)-local_train_swin_global_3D_all" region=global_3D batch_size=4 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=180 hist=1

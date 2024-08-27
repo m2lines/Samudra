@@ -97,7 +97,7 @@ OUT_VARS = {
         for j in DEPTH_LEVELS[:5]
     ]
     + ["zos"],
-    "3D_5_noFast": [
+    "3D_noFast_5": [
         k + str(j)
         for k in ["thetao_lev_", "so_lev_"]
         for j in DEPTH_LEVELS[:5]
@@ -106,6 +106,12 @@ OUT_VARS = {
     "3D_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for j in DEPTH_LEVELS
+    ]
+    + ["zos"],
+    "3D_noFast_all": [
+        k + str(j)
+        for k in ["thetao_lev_", "so_lev_"]
         for j in DEPTH_LEVELS
     ]
     + ["zos"],

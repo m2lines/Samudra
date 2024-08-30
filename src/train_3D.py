@@ -612,7 +612,7 @@ class Trainer:
                 
             # Plot prediction and target
             for i, var in enumerate(self.outputs):
-                plt.figure(figsize=(10, 5))
+                fig = plt.figure(figsize=(10, 5))
                 plt.plot(
                     range(targets.shape[0]),
                     targets_unnormalized[:, :, :, i].mean(axis=(1, 2)),
@@ -632,7 +632,7 @@ class Trainer:
                     plt.ylim(min - 0.5, max + 0.5)
                 plt.title(var)
                 plt.legend()
-                wandb.log({f"eval/plots/{var}": wandb.Image(plt)})
+                wandb.log({f"eval/plots/{var}": wandb.Image(fig)})
                 plt.close()
 
         if self.is_wandb_enabled():

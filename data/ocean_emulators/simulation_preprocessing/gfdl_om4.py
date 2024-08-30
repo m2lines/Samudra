@@ -57,17 +57,28 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, vertical_dim
     )
     ds = ds.assign_coords(dz=dz)
 
-    # interpolate all velocities from outer to center grid position
-    grid = Grid(
-        ds,
-        coords={
-            "X": {"center": "xh", "outer": "xq"},
-            "Y": {"center": "yh", "outer": "yq"},
-        },
-        boundary={"X": None, "Y": "extend"},
+    if ds["xh"].size == ds["xq"].size:
+        # outputs written in "non-symmetric" mode
+        # see https://xgcm.readthedocs.io/en/latest/xgcm-examples/03_MOM6.html#xgcm-grid-definition
+        grid_coords = {
+            "X": {"center": "xh", "right": "xq"},
+            "Y": {"center": "yh", "right": "yq"},
+        }
+    else:
+        # outputs written in "symmetric" mode
         # periodicity is already 'built in with the outer coords'.
         # NOTE: This would not be sufficient to interpolate tracer points back!
         # For the velocity we need to extend, not pad otherwise the QC plots in the rotation will not work!
+        grid_coords = {
+            "X": {"center": "xh", "outer": "xq"},
+            "Y": {"center": "yh", "outer": "yq"},
+        }
+
+    # interpolate all velocities from outer to center grid position
+    grid = Grid(
+        ds,
+        coords=grid_coords,
+        boundary={"X": None, "Y": "extend"},
     )
     ds_interpolated = xr.Dataset()
     for var in ds.data_vars:

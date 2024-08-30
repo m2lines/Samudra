@@ -6,6 +6,7 @@ from .modules.blocks import CoreBlock, BilinearUpsample, TransposedConvUpsample
 import torch.nn as nn
 import numpy as np
 from .base import BaseModel
+import torch.utils.checkpoint as checkpoint
 
 
 class UNet(BaseModel):
@@ -102,19 +103,21 @@ class UNet(BaseModel):
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            fts = l(fts)
+            
+            # Apply checkpointing to core_block layers or other memory-heavy layers
+            if isinstance(l, CoreBlock):
+                fts = checkpoint.checkpoint(l, fts)
+            else:
+                fts = l(fts)
+            
             if count < self.num_steps:
                 if isinstance(l, CoreBlock):
                     temp[count] = fts
                     count += 1
             elif count >= self.num_steps:
-                if isinstance(l, BilinearUpsample) or isinstance(
-                    l, TransposedConvUpsample
-                ):
+                if isinstance(l, BilinearUpsample) or isinstance(l, TransposedConvUpsample):
                     crop = np.array(fts.shape[2:])
-                    shape = np.array(
-                        temp[int(2 * self.num_steps - count - 1)].shape[2:]
-                    )
+                    shape = np.array(temp[int(2 * self.num_steps - count - 1)].shape[2:])
                     pads = shape - crop
                     pads = [
                         pads[1] // 2,

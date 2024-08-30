@@ -66,6 +66,9 @@ Nb: 0
 factor: 10
 lateral: false
 
+amp_mode: null
+enable_fused: False
+
 ### Do not touch these
 # distributed args
 dist_url: null

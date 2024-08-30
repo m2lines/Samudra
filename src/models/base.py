@@ -100,7 +100,8 @@ class BaseModel(torch.nn.Module):
         for step in range(num_steps):
             if step == 0:
                 input_tensor = inputs[0][0].to(
-                        device=device
+                        device=device,
+                        non_blocking=True
                     )  # inputs[0][0] is the input at step 0. For HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]]; 2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
                 
                 if initial_input is not None:
@@ -115,7 +116,8 @@ class BaseModel(torch.nn.Module):
                         inputs[step][0][
                             :, self.output_channels :
                         ].to(  # boundary conditions
-                            device=device
+                            device=device,
+                            non_blocking=True 
                         ),
                     ],
                     dim=1,
@@ -130,7 +132,8 @@ class BaseModel(torch.nn.Module):
                     0,
                     : self.output_channels,
                 ].to(  # Residuals on last state in input
-                    device=device
+                    device=device,
+                    non_blocking=True
                 ) + decodings.squeeze(
                     0
                 )

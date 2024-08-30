@@ -1873,5 +1873,5 @@ def get_wet_mask(inputs, device="cpu"):
     wet_nan = xr.where(wet != 0, np.nan, 1).to_numpy()
     wet = np.isnan(xr.where(wet == 0, np.nan, 0))
     wet = np.nan_to_num(wet.to_numpy())
-    wet = torch.from_numpy(wet).type(torch.float32).to(device=device)
+    wet = torch.from_numpy(wet).type(torch.float32).to(device=device, non_blocking=True)
     return wet, wet_nan

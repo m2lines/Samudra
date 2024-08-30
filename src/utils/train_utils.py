@@ -190,7 +190,11 @@ class MetricLogger(object):
             )
         )
 
-
+def set_debug_apis(state: bool = False):
+    torch.autograd.profiler.profile(enabled=state)
+    torch.autograd.profiler.emit_nvtx(enabled=state)
+    torch.autograd.set_detect_anomaly(mode=state)
+    
 def decomposed_mse(pred, out):
     full_mse = nn.functional.mse_loss(pred, out, reduction="none")
     mse_channels = torch.mean(full_mse, dim=(0, 2, 3))

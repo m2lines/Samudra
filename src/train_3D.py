@@ -13,13 +13,13 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 import numpy as np
-from torch.cuda import amp
+from torch.cuda.amp import autocast, GradScaler
 from torchinfo import summary
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
-from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet
+from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet, set_debug_apis
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -44,6 +44,24 @@ class Trainer:
         # Distributed mode
         init_distributed_mode(args)
         dask.config.set(scheduler="synchronous")
+        
+        torch.backends.cuda.matmul.allow_tf32 = True
+        # disable pytorch debugging apis
+        set_debug_apis(state=False)
+        
+        # Set precision
+        amp_dtype = torch.float32
+        self.enable_amp = False
+        if args.amp_mode is not None:
+            if args.amp_mode == "fp16":
+                amp_dtype = torch.float16
+            elif args.amp_mode == "bf16":
+                amp_dtype = torch.bfloat16 
+            self.enable_amp = True
+        self.amp_dtype = amp_dtype
+
+        if self.amp_dtype == torch.float16: 
+            self.scaler = GradScaler()
 
         if not args.disk_mode:
             assert args.num_workers == 0 and args.pin_mem == False
@@ -161,6 +179,7 @@ class Trainer:
             num_workers=args.num_workers,
             pin_memory=args.pin_mem,
             drop_last=True,
+            persistent_workers=True
         )
 
         # Model
@@ -171,7 +190,7 @@ class Trainer:
                 in_channels=self.num_in,
                 output_channels=self.num_out,
                 pretrain_img_size=[180, 360],
-                wet=self.wet.cuda(),
+                wet=self.wet.cuda(non_blocking=True),
                 hist=args.hist,
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:
@@ -190,7 +209,7 @@ class Trainer:
                 )
                 args.unet.n_out = self.num_out
             model = instantiate(
-                args.unet, n_out=self.num_out, wet=self.wet.cuda(), hist=args.hist
+                args.unet, n_out=self.num_out, wet=self.wet.cuda(non_blocking=True), hist=args.hist
             )
         else:
             raise NotImplementedError
@@ -200,10 +219,10 @@ class Trainer:
         print("Number of parameters: ", params)
         # summary(model)
 
-        model = model.to(args.device)
+        model = model.to(args.device, non_blocking=True)
 
         # Summary
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
+        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda(non_blocking=True)] * 2
         summary(
             model,
             input_data=[i],
@@ -211,7 +230,7 @@ class Trainer:
             depth=10,
         )
 
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
+        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda(non_blocking=True)] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
 
         self.model = model
@@ -225,7 +244,7 @@ class Trainer:
             self.loss = decomposed_mse
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, fused=args.enable_fused)
 
         # Scheduler
         self.scheduler = None
@@ -301,12 +320,12 @@ class Trainer:
         self.init_validation_stores()
 
     def init_validation_stores(self):
-        N = 72  # 72 x 5 days ~ 1 year
         num_gpus = get_world_size()
+        N = 72 // 4 * num_gpus  # 72 x 5 days ~ 1 year
         self.N_local = N // num_gpus
 
         grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
-        self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
+        self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu", non_blocking=True)
 
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         num_vars = len(self.VAR_SET)
@@ -442,12 +461,24 @@ class Trainer:
             if self.testing and (data_iter_step + 1) % 5 == 0:
                 break
 
-            self.optimizer.zero_grad()
-            data = [d.cuda() for d in data]
+            self.optimizer.zero_grad(set_to_none=True)
+            data = [d.cuda(non_blocking=True) for d in data]
+            with autocast(enabled=self.enable_amp, dtype=self.amp_dtype):
+                loss_per_channel = self.model(data, loss_fn=self.loss)
+                loss = torch.mean(loss_per_channel)
+            
+            if self.amp_dtype == torch.float16: 
+                self.scaler.scale(loss).backward()
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.scaler.step(self.optimizer)
+                self.scaler.update()
+            else:
+                loss.backward()
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.optimizer.step()
 
-            loss_per_channel = self.model(data, loss_fn=self.loss)
-            loss = torch.mean(loss_per_channel)
-            loss.backward()
             loss_value = loss.item()
             
             # Gradient clipping
@@ -511,34 +542,35 @@ class Trainer:
         print("Averaged train stats:", metric_logger)
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
+    @torch.inference_mode()
     @torch.no_grad()
     def validate(self):
         self.model.eval()
         rank = get_rank()
+        with autocast(enabled=self.enable_amp, dtype=self.amp_dtype):
+            model_pred = generate_model_rollout(
+                self.N_local,
+                self.val_data_set[rank],
+                self.model.module,
+                self.hist,
+                self.N_out,
+                self.N_extra,
+                initial_input=None, 
+                Nb=0, 
+                region=self.region, 
+                train=True
+            )
 
-        model_pred = generate_model_rollout(
-            self.N_local,
-            self.val_data_set[rank],
-            self.model.module,
-            self.hist,
-            self.N_out,
-            self.N_extra,
-            initial_input=None, 
-            Nb=0, 
-            region=self.region, 
-            train=True
-        )
+            predictions = model_pred.transpose(0, 3, 1, 2)
+            targets = self.target_set[rank]
+            targets_transposed = targets.transpose(0, 2, 3, 1)
 
-        predictions = model_pred.transpose(0, 3, 1, 2)
-        targets = self.target_set[rank]
-        targets_transposed = targets.transpose(0, 2, 3, 1)
+            predictions = torch.from_numpy(predictions)
+            targets = torch.from_numpy(targets)
 
-        predictions = torch.from_numpy(predictions)
-        targets = torch.from_numpy(targets)
-
-        full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
-        loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
-        loss_value = torch.mean(loss_per_channel)
+            full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
+            loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
+            loss_value = torch.mean(loss_per_channel)
 
         model_pred_unnormalized = (
             model_pred * self.val_data_set[rank].norm_vals["s_out"]

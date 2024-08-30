@@ -1,10 +1,10 @@
-import xarray as xr
 import fsspec
 import numpy as np
-from xgcm import Grid
+import xarray as xr
 from ocean_emulators.dataset_validation import ds_processed_validate
 from ocean_emulators.utils import apply_mask
 from xarray_schema import SchemaError
+from xgcm import Grid
 
 
 # load supergrid and extract the angles
@@ -27,7 +27,7 @@ def convert_super_grid(ds_super_grid: xr.Dataset):
     return angle_h, lon_h, lat_h, lon_b, lat_b
 
 
-def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
+def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, vertical_dim="lev"):
     """OM4 specific preprocessing"""
     ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={})
     # add vertical info
@@ -53,7 +53,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
             1000,
             1000,
         ],
-        dims=["lev"],
+        dims=[vertical_dim],
     )
     ds = ds.assign_coords(dz=dz)
 
@@ -100,7 +100,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
         "time",
         "xh",
         "lat",
-        "lev",
+        vertical_dim,
         "yh",
         "areacello",
         "wetmask",

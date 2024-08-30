@@ -27,9 +27,13 @@ def convert_super_grid(ds_super_grid: xr.Dataset):
     return angle_h, lon_h, lat_h, lon_b, lat_b
 
 
-def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, vertical_dim="lev"):
+def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     """OM4 specific preprocessing"""
     ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={})
+
+    if "z_l" in ds.coords:
+        ds = ds.rename({"z_l": "lev"})
+
     # add vertical info
     dz = xr.DataArray(
         [
@@ -53,7 +57,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, vertical_dim
             1000,
             1000,
         ],
-        dims=[vertical_dim],
+        dims=["lev"],
     )
     ds = ds.assign_coords(dz=dz)
 
@@ -111,7 +115,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, vertical_dim
         "time",
         "xh",
         "lat",
-        vertical_dim,
+        "lev",
         "yh",
         "areacello",
         "wetmask",

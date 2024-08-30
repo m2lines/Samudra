@@ -14,7 +14,6 @@ def cm4_preprocessing(om_zarr_path, sis_zarr_path, nc_grid_path, nc_mosaic_path)
         zarr_data_path=om_zarr_path,
         nc_grid_path=nc_grid_path,
         nc_mosaic_path=nc_mosaic_path,
-        vertical_dim="z_l",
     )
 
     return ds_om

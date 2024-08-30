@@ -52,6 +52,12 @@ INPT_VARS = {
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
+     "3D_noFast_all": [
+        k + str(j)
+        for k in ["thetao_lev_", "so_lev_"]
+        for j in DEPTH_LEVELS
+    ]
+    + ["zos"],
     "3D_SST_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
@@ -64,7 +70,7 @@ EXTRA_VARS = {
     "2": ["ur", "vr", "Tm"],
     "3": ["Tm"],
     "4": ["ur", "vr", "Tm", "Tr"],
-    "5": [],
+    "NoBoundary": [],
     "6": ["um", "vm"],
     "7": ["um", "vm", "Tm"],
     "8": ["um", "vm", "Tm", "Tr"],
@@ -115,6 +121,12 @@ OUT_VARS = {
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
+    "3D_onlyFast_all": [
+        k + str(j)
+        for k in ["uo_lev_", "vo_lev_"]
+        for j in DEPTH_LEVELS
+    ]
+    + ["zos"],
     "3D_SST_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
@@ -129,7 +141,7 @@ def get_eval_maps(exp_num):
     # DP_3D_IDX maps the depth levels to their indices in the input tensor
     CH_3D_IDX = {}
     VAR_SET = list(dict.fromkeys(([out.split('_')[0] for out in OUT_VARS[exp_num]])))
-    assert VAR_SET[-3] == 'thetao' and VAR_SET[-2] == 'so' and VAR_SET[-1] == 'zos'
+    # assert VAR_SET[-3] == 'thetao' and VAR_SET[-2] == 'so' and VAR_SET[-1] == 'zos'
     DEPTH_SET = list(dict.fromkeys(([out.split('lev_')[-1] for out in OUT_VARS[exp_num]])))
     assert DEPTH_SET[0] == DEPTH_LEVELS[0]
     for kt in VAR_SET:

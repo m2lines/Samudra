@@ -137,7 +137,10 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
 
     ds = ds.assign_coords(lon_b=lon_b, lat_b=lat_b, angle=a, lon=lon, lat=lat)
     ds = ds.rename({"xh": "x", "yh": "y", "xh_b": "x_b", "yh_b": "y_b"})
-    ds = ds.drop_vars(["time_bnds"])
+    if "time_bnds" in ds.data_vars:
+        ds = ds.drop_vars(["time_bnds"])
+    for var in ds.data_vars:
+        ds[var] = ds[var].astype(np.float32)
     # higher precision for the area
     ds = ds.assign_coords(areacello=ds.areacello.astype("float64"))
     try:

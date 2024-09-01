@@ -3,6 +3,6 @@
 gpu: a100
 nodes: ???
 gpus_per_node: ???
-mem_per_task: 90
+mem_per_task: 110
 cpus_per_task: 32
 timeout: 25 #${prod:60,24,2}

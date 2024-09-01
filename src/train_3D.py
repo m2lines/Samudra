@@ -129,6 +129,19 @@ class Trainer:
         self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
         self.data_mean = xr.open_zarr(os.path.join(self.data_dir, self.data_means_zarr))
         self.data_std = xr.open_zarr(os.path.join(self.data_dir, self.data_stds_zarr))
+        
+        ## TEMP SMOOTHING FIX HERE
+        if args.smooth:
+            start = time.time()
+            window = 30
+            for var in self.outputs:
+                if 'uo' in var or 'vo' in var:
+                    print(f"Smoothing {var} with window size {window}")
+                    window = 30 
+                    self.data[var] = self.data[var].rolling(time=window, min_periods=1, center=False).mean().compute()
+            
+            print(f"Smoothing took minutes: {(time.time() - start) / 60}")
+                    
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, self.outputs, args.hist)
         self.surface_wet = extract_surface_wet(wet_zarr)

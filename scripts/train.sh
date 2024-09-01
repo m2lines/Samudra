@@ -21,10 +21,13 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_debug testing=true exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_testingseed2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 N_samples=128 --qos=debug
 
 # All history=1
-# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_DETtest" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 --qos=regular
+./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_2days wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_8steps_nocheckp" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 steps=8 amp_mode=fp16 enable_fused=True --qos=regular
+
+# All history=1 testing
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_debug testing=true wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_8steps_test_nocheck" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 steps=8 amp_mode=fp16 enable_fused=True --qos=debug
 
 # All history=1 No fast output
-./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_nofastout" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_out=3D_noFast_all resume_ckpt_path=/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-25-convnextunet_v021_hist1_nofastout/nofast/saved_nets/convnextunet_epoch_28_beststeps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt --qos=regular
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_nofastout" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_out=3D_noFast_all resume_ckpt_path=/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-25-convnextunet_v021_hist1_nofastout/nofast/saved_nets/convnextunet_epoch_28_beststeps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt --qos=regular
 
 
 # All history=0

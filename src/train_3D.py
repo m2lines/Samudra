@@ -303,7 +303,7 @@ class Trainer:
             self.model = nn.parallel.DistributedDataParallel(
                 self.model, device_ids=[args.gpu]
             )
-            self.model._set_static_graph()
+            # self.model._set_static_graph()
 
         # Training
         self.epochs = args.epochs

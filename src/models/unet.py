@@ -105,10 +105,11 @@ class UNet(BaseModel):
                 )
             
             # Apply checkpointing to core_block layers or other memory-heavy layers
-            if isinstance(l, CoreBlock):
-                fts = checkpoint.checkpoint(l, fts)
-            else:
-                fts = l(fts)
+            # if isinstance(l, CoreBlock):
+            #     fts = checkpoint.checkpoint(l, fts)
+            # else:
+            #     fts = l(fts)
+            fts = l(fts)
             
             if count < self.num_steps:
                 if isinstance(l, CoreBlock):

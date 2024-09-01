@@ -303,6 +303,7 @@ class Trainer:
             self.model = nn.parallel.DistributedDataParallel(
                 self.model, device_ids=[args.gpu]
             )
+            self.model._set_static_graph()
 
         # Training
         self.epochs = args.epochs
@@ -480,6 +481,11 @@ class Trainer:
                 self.optimizer.step()
 
             loss_value = loss.item()
+            
+            # Check if loss is nan
+            if torch.isnan(loss):
+                print("Loss is NaN")
+                raise ValueError("Loss is NaN")
             
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)

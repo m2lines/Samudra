@@ -24,7 +24,7 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute/greene=4x2 compute/greene/node=a100_2days wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_8steps" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 steps=8 amp_mode=fp16 enable_fused=True --qos=regular
 
 # All history=1 Fast Smoothed 30
-./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_smoothed30 name="$(date +%F)-convnextunet_v021_hist1_fastsmoothed30_110G" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 --qos=regular
+./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all_smoothed30 name="$(date +%F)-convnextunet_v021_hist1_fastsmoothed10_110G" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=35 --qos=regular
 
 # All history=1 Fast Smoothed 30 TEST
 # ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_debug wandb.mode=online testing=true exp=train_unet_global_3D_all_smoothed30 name="$(date +%F)-convnextunet_v021_hist1_fastsmoothed30_explicit_110g" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 --qos=debug

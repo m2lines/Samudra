@@ -133,11 +133,10 @@ class Trainer:
         ## TEMP SMOOTHING FIX HERE
         if args.smooth:
             start = time.time()
-            window = 30
             for var in self.outputs:
                 if 'uo' in var or 'vo' in var:
+                    window = 10
                     print(f"Smoothing {var} with window size {window}")
-                    window = 30 
                     self.data[var] = self.data[var].rolling(time=window, min_periods=1, center=False).mean().compute()
             
             print(f"Smoothing took minutes: {(time.time() - start) / 60}")

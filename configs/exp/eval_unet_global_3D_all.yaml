@@ -17,6 +17,7 @@ output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
 wet_file: OM4_5daily_v0.2.1_wetmask
 data_zarr: 3D_data_OM4_5daily_v0.2.1
+smooth: False
 data_means_zarr: 3D_data_OM4_5daily_v0.2.1_means
 data_stds_zarr: 3D_data_OM4_5daily_v0.2.1_stds
 grid_file: Grid_New.nc

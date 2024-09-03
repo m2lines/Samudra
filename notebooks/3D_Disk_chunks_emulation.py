@@ -114,13 +114,13 @@ with initialize_config_dir(
     args = compose(
         config_name="exp/eval_unet_global_3D_all",
         overrides=[
-            "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Epoch28Years100-1996".format(
+            "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Epoch70Years100-1996".format(
                 str(datetime.now())[:10]
             ),
-            "network={0}_ConvNextUNetTrain3DEval3DHist1Epoch28Years100-1996".format(
+            "network={0}_ConvNextUNetTrain3DEval3DHist1Epoch70Years100-1996".format(
                 str(datetime.now())[:10]
             ),
-            "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-19-convnextunet_v021_hist1_70epochs/aaa/saved_nets/convnextunet_epoch_28_beststeps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
+            "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-19-convnextunet_v021_hist1_70epochs/aaa/saved_nets/convnextunet_epoch_70_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
             "hist=1",
             "unet.ch_width=[157,200,250,300,400]",
             "run_gen_pred=True",

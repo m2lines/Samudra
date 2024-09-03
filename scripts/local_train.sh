@@ -28,10 +28,10 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all name="$(date +%F)-local_train_convnextunet_global_3D_hist1" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1
 
 # Hist 1 Fast Smoothed 30
-./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all_smoothed30 name="$(date +%F)-local_train_convnextunet_global_3D_smoothed" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1
+# ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all_smoothed30 name="$(date +%F)-local_train_convnextunet_global_3D_smoothed" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1
 
-# Hist 1 No fast output
-# ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3D_seedtest2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
+# Hist 1 No fast input/output
+./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3D_seedtest2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_extra=3D_noFast_all exp_num_out=3D_noFast_all
 
 # Hist 1 Only fast output
 # ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3D_seedtest2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_out=3D_onlyFast_all

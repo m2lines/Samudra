@@ -486,11 +486,7 @@ class Trainer:
             if torch.isnan(loss):
                 print("Loss is NaN")
                 raise ValueError("Loss is NaN")
-            
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
-            self.optimizer.step()
             if self.scheduler is not None:
                 # self.scheduler.step()
                 self.scheduler.step(epoch - 1 + data_iter_step / iters)

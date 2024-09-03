@@ -8,6 +8,7 @@ from pathlib import Path
 import os
 from matplotlib.animation import FuncAnimation
 
+from utils.train_utils import extract_wet
 from utils.data_utils import (
     get_train_test_ranges,
     data_CNN_Disk,
@@ -113,22 +114,22 @@ with initialize_config_dir(
     args = compose(
         config_name="exp/eval_unet_global_3D_all",
         overrides=[
-            "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Yr10TrainEpoch24Years100-1996".format(
+            "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Epoch28Years100-1996".format(
                 str(datetime.now())[:10]
             ),
-            "network={0}_ConvNextUNetTrain3DEval3DHist1Yr10TrainEpoch24Years100-1996".format(
+            "network={0}_ConvNextUNetTrain3DEval3DHist1Epoch28Years100-1996".format(
                 str(datetime.now())[:10]
             ),
-            "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-03-convnextunet_hist1_out2_10yrs_35epochs/10/saved_nets/convnextunet_epoch_24_beststeps_4_global_3D_all_N_train_730_Lateral_Data_025_no_smooth.pt]",
+            "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-19-convnextunet_v021_hist1_70epochs/aaa/saved_nets/convnextunet_epoch_28_beststeps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
             "hist=1",
             "unet.ch_width=[157,200,250,300,400]",
             "run_gen_pred=True",
             "N_samples=0",
             "N_val=0",
             "N_test=7000",
-            "data_zarr=3D_data_100_years",
-            "data_means_zarr=3D_data_100_years_means",
-            "data_stds_zarr=3D_data_100_years_stds",
+            "data_zarr=3D_data_OM4_5daily_v0.2.1_100_years",
+            "data_means_zarr=3D_data_OM4_5daily_v0.2.1_100_years_means",
+            "data_stds_zarr=3D_data_OM4_5daily_v0.2.1_100_years_stds",
             "pred_names=null",
             "pred_paths=null",
             "+dataset_name=OM4_1996_repeat",
@@ -279,8 +280,10 @@ inputs_str = INPT_VARS[args.exp_num_in]
 extra_in_str = EXTRA_VARS[args.exp_num_extra]
 outputs_str = OUT_VARS[args.exp_num_out]
 levels = args.exp_num_in.split("_")[-1]
-if levels == "all":
+if "all" in levels:
     levels = 19
+elif "2D" in levels:
+    levels = 1
 else:
     levels = int(levels)
 
@@ -292,6 +295,7 @@ print("inputs: " + str_in)
 print("extra inputs: " + str_ext)
 print("outputs: " + str_out)
 print("levels: " + str(levels))
+
 N_atm = len(extra_in_str)  # Number of atmosphere variables
 N_in = len(inputs_str)
 if args.lateral:
@@ -300,24 +304,26 @@ if args.lateral:
     )  # Number of atmosphere variables + Lateral boundary variables
 else:
     N_extra = N_atm  # Number of atmosphere variables
-N_out = (args.hist + 1) * len(outputs_str)
+N_out = len(outputs_str)
 
 num_in = int((args.hist + 1) * N_in + N_extra)
+num_out = int((args.hist + 1) * len(outputs_str))
 
 print("Number of inputs: ", num_in)  # 3 (ocean speeds + ocean temp)(t) +
 # 3 (atm wind stresses + atm temp)(t) +
 # 3 (boundary ocean speeds + boundary ocean temp)(t) -> 3 (ocean speeds + ocean temp)(t+1)
-print("Number of outputs: ", N_out)  # 3
+print("Number of outputs: ", num_out)  # 3
 
 if "swin" in args.network.lower():
-    model = instantiate(
-        args.swin,
-        in_channels=self.num_in,
-        output_channels=self.N_out,
-        pretrain_img_size=[180, 360],
-        wet=self.wet.cuda(),
-        hist=args.hist,
-    )
+    pass
+    # model = instantiate(
+    #     args.swin,
+    #     in_channels=num_in,
+    #     output_channels=num_out,
+    #     pretrain_img_size=[180, 360],
+    #     wet=wet.cuda(),
+    #     hist=args.hist,
+    # )
 elif "convnext" in args.network.lower():
     if args.unet.ch_width[0] != num_in:
         print(
@@ -378,82 +384,9 @@ else:
 
 
 print("Calculating mask tensors")
-
-ds = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.raw_data_zarr))
-ds = ds.drop(["tauuo", "tauvo", "hfds"])
-
-
-def get_wet_mask(inputs, device="cpu"):
-    wet = xr.zeros_like(inputs[0][0])
-    # inputs[0][0,12,12] = np.nan
-    for ds in inputs:
-        wet += np.isnan(ds[0])
-
-    wet_nan = xr.where(wet != 0, np.nan, 1).to_numpy()
-    wet = np.isnan(xr.where(wet == 0, np.nan, 0))
-    wet = np.nan_to_num(wet.to_numpy())
-    wet = torch.from_numpy(wet).type(torch.float32).to(device=device)
-    return wet, wet_nan
-
-
-if args.depth_mode == "surface":
-    inputs, extra_in, outputs = gen_3D_data(
-        os.path.join("/pscratch/sd/s/suryad/data", args.raw_data_zarr),
-        inputs_str,
-        extra_in_str,
-        outputs_str,
-        args.lag,
-        depth_mode=args.depth_mode,
-    )
-    wet, wet_nan = get_wet_mask(inputs, "cpu")
-    wet_bool = np.array(wet.cpu()).astype(bool)
-    wet_lap = compute_laplacian_wet(wet_nan, 4)  # hardcoded
-    wet_lap = xr.where(wet_lap == 0, 1, np.nan)
-    wet_lap = np.nan_to_num(wet_lap)
-
-
-elif args.depth_mode == "all":
-    wet_stacked = []
-    wet_nan_stacked = []
-    for i in range(levels):
-        inputs = []
-        inputs.append(ds["uo"][:, i])
-        inputs.append(ds["vo"][:, i])
-        inputs.append(ds["thetao"][:, i])
-        inputs.append(ds["so"][:, i])
-        if i == 0:
-            inputs.append(ds["zos"])
-
-        inputs = tuple(inputs)
-        wet, wet_nan = get_wet_mask(inputs)
-        wet_stacked.append(wet)
-        wet_nan_stacked.append(wet_nan)
-
-    wet_3D = torch.stack(wet_stacked)
-    wet_nan_3D = np.stack(wet_nan_stacked)
-
-    final_wet = []
-    final_wet_nan = []
-    for var in inputs_str:
-        try:
-            level = int(var.split("lev_")[-1])
-        except:
-            level = 0
-        final_wet.append(wet_3D[level])
-        final_wet_nan.append(wet_nan_3D[level])
-
-    wet = torch.stack(final_wet)
-    wet_nan = np.stack(final_wet_nan)
-
-    wet_bool = np.array(wet.cpu()).astype(bool)
-    # wet_lap = compute_laplacian_wet(wet_nan, 4)  # hardcoded
-    # wet_lap = xr.where(wet_lap == 0, 1, np.nan)
-    # wet_lap = np.nan_to_num(wet_lap)
-
-wet = torch.concat([wet] * (args.hist + 1), dim=0)
+wet_zarr = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.wet_file))
+wet = extract_wet(wet_zarr, outputs_str, args.hist)
 print("Wet resolution:", wet.shape)
-time_vec = inputs[0].time.data
-time_test = time_vec[e_test : (e_test + args.lag * args.N_test)]
 
 import xarray as xr
 import numpy as np
@@ -580,16 +513,17 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         data_in = rearrange(
             data_in, "window_dim time variable y x -> window_dim (time variable) y x"
         )
-        data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
-        data_in_boundary = (
-            (data_in_boundary - self.extras_mean) / self.extras_std
-        ).fillna(0)
-        data_in_boundary = (
-            data_in_boundary.to_array()
-            .transpose("window_dim", "variable", "y", "x")
-            .to_numpy()
-        )
-        data_in = np.concatenate((data_in, data_in_boundary), axis=1)
+        if len(self.extras.variables) != 0:
+            data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
+            data_in_boundary = (
+                (data_in_boundary - self.extras_mean) / self.extras_std
+            ).fillna(0)
+            data_in_boundary = (
+                data_in_boundary.to_array()
+                .transpose("window_dim", "variable", "y", "x")
+                .to_numpy()
+            )
+            data_in = np.concatenate((data_in, data_in_boundary), axis=1)
 
         label = self.outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = ((label - self.out_mean) / self.out_std).fillna(0)
@@ -629,6 +563,14 @@ elif args.depth_mode == "all":
     data_std = xr.open_zarr(
         os.path.join("/pscratch/sd/s/suryad/data", args.data_stds_zarr)
     )
+    ### Smoothening
+    if args.smooth:
+        for var in outputs_str:
+            if 'uo' in var or 'vo' in var:
+                window = window_size
+                print(f"Smoothing {var} with window size {window}")
+                data[var] = data[var].rolling(time=window, min_periods=1, center=False).mean().compute()
+
 
 train_data = data_CNN_Disk_steps(
     data,
@@ -662,6 +604,7 @@ test_data = data_CNN_Disk(
     long_rollout=True,
     device="cuda",
 )
+# test_data[0]
 
 # Model
 print("Loading model " + args.network)
@@ -669,13 +612,13 @@ if "swin" in args.network.lower():
     model = instantiate(
         args.swin,
         in_channels=num_in,
-        output_channels=N_out,
+        output_channels=num_out,
         pretrain_img_size=[180, 360],
         wet=wet.cuda(),
         hist=args.hist,
     )
 elif "unet" in args.network.lower():
-    model = instantiate(args.unet, n_out=N_out, wet=wet.cuda(), hist=args.hist)
+    model = instantiate(args.unet, n_out=num_out, wet=wet.cuda(), hist=args.hist)
 
 full_model_path = args.ckpt_path
 full_model_name = args.network + "_" + post_model_name
@@ -698,37 +641,11 @@ test_data.norm_vals = {
     "m_in": mean_in,
 }
 
-# clim
-# clim = None
-# if args.save_clim_data:
-#     print("Saving clim")
-#     clim = np.zeros((total_steps, *wet.shape, N_out))
-#     for i in range(N_out):
-#         clim[:, :, :, i] = (
-#             outputs[i].groupby("time.dayofyear").mean("time").data
-#         )
-#     torch.save(
-#         clim,
-#         Path(args.data_dir) / "clim_cnn_{0}.pt".format(str_save),
-#     )
-
-# else:
-#     print("Loading clim")
-#     clim = torch.load(
-#         Path(args.data_dir) / "clim_cnn_{0}.pt".format(str_save)
-#     )
-
-
 # Getting area tensor
 print("Computing area tensor")
-grids = xr.open_dataset(
-    os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)
-).rename({"dx": "dxu", "dy": "dyu"})
+grids = xr.open_dataset(os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
 
 area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
-dx = grids["dxu"].to_numpy()
-dy = grids["dyu"].to_numpy()
-
 pred_model_path = Path("/pscratch/sd/s/suryad/Ocean_Emulator/Preds") / full_model_name
 if not os.path.isdir(pred_model_path):
     os.makedirs(pred_model_path)
@@ -742,7 +659,6 @@ output_dir = args.output_dir
 region = args.region
 steps = args.steps
 network = args.model_name_replace
-inputs = inputs
 
 pred_region = args.region
 pred_names = args.pred_names if args.pred_names else []
@@ -754,6 +670,8 @@ JUPYTER_MODE = False
 def send_data_to_cpu():
     test_data.set_device(device="cpu")
     
+    
+### Generate
 def generate_pred_lateral():
     print("Generation Pred begin...")
     for rand_ind, model_path in enumerate(args.ckpt_path):

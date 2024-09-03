@@ -81,6 +81,12 @@ EXTRA_VARS = {
     "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
     "3D": ["tauuo", "tauvo", "hfds"],
     "2D": ["tauuo", "tauvo", "hfds"],
+    "3D_noFast_all": [
+        k + str(j)
+        for k in ["uo_lev_", "vo_lev_"]
+        for j in DEPTH_LEVELS
+    ]
+    + ["tauuo", "tauvo", "hfds"],
     "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
     "3D_SST_all": ["tauuo", "tauvo", "hfds", "thetao_lev_0"],

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
+from functools import partial
 
 import torch
 import torch.nn as nn
@@ -19,7 +20,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
-from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet
+from utils.train_utils import decomposed_mse, decomposed_mse_diff_weighted, decomposed_mse_cos_weighted, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -235,6 +236,17 @@ class Trainer:
         if args.loss == "mse":
             print("Using decomposed mse loss")
             self.loss = decomposed_mse
+        elif args.loss == "mse_diff_weighted":
+            assert args.hist == 1 # TEMP
+            print("Using decomposed mse loss with weighted diff")
+            self.loss = decomposed_mse_diff_weighted
+        elif args.loss == "mse_cos_weighted":
+            print("Using decomposed mse loss with weighted cos")
+            area_weights = np.cos(np.deg2rad(self.data.y)).to_numpy()
+            area_weights = torch.from_numpy(area_weights).to(device="cuda")
+            self.loss = partial(decomposed_mse_cos_weighted, cos=area_weights)
+        else:
+            raise NotImplementedError
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr)

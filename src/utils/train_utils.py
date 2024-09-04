@@ -196,6 +196,26 @@ def decomposed_mse(pred, out):
     mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
     return mse_channels
 
+def decomposed_mse_diff_weighted(pred, out):
+    # Split out into 2 parts - xt and xt+1
+    # This works on the assumption that hist = 1.
+    N, C, H, W = out.shape
+    out_t = out[:, :C//2, :, :]
+    out_tp1 = out[:, C//2:, :, :]
+    diff_weights = torch.sqrt(torch.mean((out_t - out_tp1) ** 2, dim=(0, 2, 3)))
+    diff_weights = diff_weights.repeat_interleave(2)
+    
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
+    mse_channels = mse_channels
+    return mse_channels
+
+def decomposed_mse_cos_weighted(pred, out, cos):
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels_lat = torch.mean(full_mse, dim=(0, 3))
+    mse_channels = torch.mean(mse_channels_lat * cos, dim=(1))
+    return mse_channels
+
 def extract_wet(wet_zarr, outputs, hist):
     depths = [var.split('lev_')[-1].replace('_', '.') for var in outputs]
     if 'zos' in depths:

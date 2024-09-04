@@ -203,6 +203,8 @@ def decomposed_mse_diff_weighted(pred, out):
     out_t = out[:, :C//2, :, :]
     out_tp1 = out[:, C//2:, :, :]
     diff_weights = torch.sqrt(torch.mean((out_t - out_tp1) ** 2, dim=(0, 2, 3)))
+    indices = np.arange(0, C//2-1, 19)
+    diff_weights[indices[:, None] + np.arange(11, 19)] = diff_weights[indices + 11, None]
     diff_weights = diff_weights.repeat_interleave(2)
     
     full_mse = nn.functional.mse_loss(pred, out, reduction="none")

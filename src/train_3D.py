@@ -242,7 +242,7 @@ class Trainer:
             self.loss = decomposed_mse_diff_weighted
         elif args.loss == "mse_cos_weighted":
             print("Using decomposed mse loss with weighted cos")
-            area_weights = np.cos(np.deg2rad(self.data.y)).to_numpy()
+            area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device="cuda")
             self.loss = partial(decomposed_mse_cos_weighted, cos=area_weights)
         else:

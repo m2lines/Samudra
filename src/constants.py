@@ -89,6 +89,7 @@ EXTRA_VARS = {
     + ["tauuo", "tauvo", "hfds"],
     "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
+    "3D_all_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
     "3D_SST_all": ["tauuo", "tauvo", "hfds", "thetao_lev_0"],
 }
 OUT_VARS = {

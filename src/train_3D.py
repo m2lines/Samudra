@@ -325,8 +325,8 @@ class Trainer:
         self.init_validation_stores()
 
     def init_validation_stores(self):
-        N = 72  # 72 x 5 days ~ 1 year
         num_gpus = get_world_size()
+        N = 72 // 4 * num_gpus  # 72 x 5 days ~ 1 year
         self.N_local = N // num_gpus
 
         grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})

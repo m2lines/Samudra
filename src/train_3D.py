@@ -263,22 +263,22 @@ class Trainer:
         if args.resume_ckpt_path is not None:
             self.load_checkpoint(args.resume_ckpt_path)
             if self.is_wandb_enabled():
-                try:
-                    wandb.init(
-                        config=OmegaConf.to_container(args, resolve=True),
-                        name=self.wandb_name,
-                        dir=args.experiment_dir,
-                        resume="must",
-                        id=self.wandb_id,
-                        **args.wandb,
-                    )
-                except:
-                    wandb.init(
-                        config=OmegaConf.to_container(args, resolve=True),
-                        name=self.wandb_name,
-                        dir=args.experiment_dir,
-                        **args.wandb,
-                    )
+                # try:
+                wandb.init(
+                    config=OmegaConf.to_container(args, resolve=True),
+                    name=self.wandb_name,
+                    dir=args.experiment_dir,
+                    resume="must",
+                    id=self.wandb_id,
+                    **args.wandb,
+                )
+                # except:
+                #     wandb.init(
+                #         config=OmegaConf.to_container(args, resolve=True),
+                #         name=self.wandb_name,
+                #         dir=args.experiment_dir,
+                #         **args.wandb,
+                #     )
             elif is_main_process():
                 warnings.warn("This checkpoint had wandb enabled, but wandb is not enabled now!")
         else:
@@ -325,8 +325,8 @@ class Trainer:
         self.init_validation_stores()
 
     def init_validation_stores(self):
-        N = 72  # 72 x 5 days ~ 1 year
         num_gpus = get_world_size()
+        N = 72 // 4 * num_gpus  # 72 x 5 days ~ 1 year
         self.N_local = N // num_gpus
 
         grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})

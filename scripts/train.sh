@@ -26,7 +26,7 @@ export BASE_OE_DIR=$PWD
 # All history=1 diff
 # ./.python-greene submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_diffloss_resume" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 loss=mse_diff_weighted resume_ckpt_path=/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train_3D/2024-09-05-convnextunet_v021_hist1_diffloss/bbb/saved_nets/convnextunet_epoch_50_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt
 
-# All history=1 hfds anom + diff loss
+# All history=1 hfds anom
 ./.python-greene submitit_hydra.py compute/greene=1x4 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-convnextunet_v021_hist1_hfds_anom" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70
 
 # All history=1 hfds anom + diff loss

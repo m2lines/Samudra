@@ -28,7 +28,10 @@ export BASE_OE_DIR=$PWD
 # ./.python-greene submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all name="$(date +%F)-local_train_convnextunet_global_3D_hist1" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 loss=mse_diff_weighted
 
 # All history=1 hdfs + diff
-./.python-greene submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-local_train_convnextunet_global_3D_hist1_hfds_anom_diff" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 loss=mse_diff_weighted
+# ./.python-greene submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-local_train_convnextunet_global_3D_hist1_hfds_anom_diff" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 loss=mse_diff_weighted
+
+# Hist 1 anom 1975
+./.python-greene submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70
 
 # Hist 1 Fast Smoothed 30
 # ./.python-greene submitit_hydra.py compute=local exp=train_unet_global_3D_all_smoothed30 name="$(date +%F)-local_train_convnextunet_global_3D_smoothed" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1

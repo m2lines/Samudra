@@ -39,38 +39,6 @@ import os
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 ### Convnext unet
 #$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-
-# 5 Levels
-# with initialize_config_dir(
-#     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
-# ):
-#     args = compose(
-#         config_name="exp/eval_unet_global_3D_5",
-#         overrides=[
-            # "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Levels5".format(
-            #     str(datetime.now())[:10]
-            # ),
-            # "network={0}_ConvNextUNetTrain3DEval3DHist1Levels5".format(
-            #     str(datetime.now())[:10]
-            # ),
-#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-07-19-train_convnextunet_global_3D_hist1_5levels_out2/out2/saved_nets/convnextunet_epoch_20_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
-#             "hist=1",
-#             "unet.ch_width=[80,100,150,300,400]",
-#             "run_gen_pred=True",
-#             "N_samples=4000",
-#             "N_val=340",
-#             "N_test=400",
-#             "pred_names=null",
-#             "pred_paths=null",
-#             "+dataset_name=OM4",
-#             "train_region=global_3D",
-#             "region=global_3D",
-#             "model_name_replace=Convnext",
-#             "depth_mode=all"
-#         ],
-#     )
-
 ########################################################
 
 # All Levels - Hist = 1
@@ -107,29 +75,137 @@ import os
 ########################################################
 
 # All Levels - Hist = 1, 100 year emulation
+# with initialize_config_dir(
+#     version_base=None,
+#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+# ):
+#     args = compose(
+#         config_name="exp/eval_unet_global_3D_all",
+#         overrides=[
+#             "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Epoch70Years100-1996".format(
+#                 str(datetime.now())[:10]
+#             ),
+#             "network={0}_ConvNextUNetTrain3DEval3DHist1Epoch70Years100-1996".format(
+#                 str(datetime.now())[:10]
+#             ),
+#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-19-convnextunet_v021_hist1_70epochs/aaa/saved_nets/convnextunet_epoch_70_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
+#             "hist=1",
+#             "unet.ch_width=[157,200,250,300,400]",
+#             "run_gen_pred=True",
+#             "N_samples=0",
+#             "N_val=0",
+#             "N_test=7000",
+#             "data_zarr=3D_data_OM4_5daily_v0.2.1_100_years",
+#             "data_means_zarr=3D_data_OM4_5daily_v0.2.1_100_years_means",
+#             "data_stds_zarr=3D_data_OM4_5daily_v0.2.1_100_years_stds",
+#             "pred_names=null",
+#             "pred_paths=null",
+#             "+dataset_name=OM4_1996_repeat",
+#             "train_region=global_3D",
+#             "region=global_3D",
+#             "model_name_replace=Convnext",
+#             "depth_mode=all",
+#         ],
+#     )
+
+# ########################################################
+
+# # All Levels - Hist = 1, 100 year emulation, Climate Change forcing
+# with initialize_config_dir(
+#     version_base=None,
+#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+# ):
+#     args = compose(
+#         config_name="exp/eval_unet_global_3D_all",
+#         overrides=[
+#             "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DClimateChangeForcingHist1Epoch70Years100-1996".format(
+#                 str(datetime.now())[:10]
+#             ),
+#             "network={0}_ConvNextUNetTrain3DEval3DClimateChangeForcingHist1Epoch70Years100-1996".format(
+#                 str(datetime.now())[:10]
+#             ),
+#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-19-convnextunet_v021_hist1_70epochs/aaa/saved_nets/convnextunet_epoch_70_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
+#             "hist=1",
+#             "unet.ch_width=[157,200,250,300,400]",
+#             "run_gen_pred=True",
+#             "N_samples=0",
+#             "N_val=0",
+#             "N_test=7000",
+#             "data_zarr=3D_data_OM4_5daily_v0.2.1_100_years_cc",
+#             "data_means_zarr=3D_data_OM4_5daily_v0.2.1_100_years_cc_means",
+#             "data_stds_zarr=3D_data_OM4_5daily_v0.2.1_100_years_cc_stds",
+#             "pred_names=null",
+#             "pred_paths=null",
+#             "+dataset_name=OM4_1996_repeat",
+#             "train_region=global_3D",
+#             "region=global_3D",
+#             "model_name_replace=Convnext",
+#             "depth_mode=all",
+#         ],
+#     )
+
+########################################################
+
+# All Levels - Hist = 1, HFDS Anom, 100 year emulation
+# with initialize_config_dir(
+#     version_base=None,
+#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+# ):
+#     args = compose(
+#         config_name="exp/eval_unet_global_3D_all_hfds_anoms",
+#         overrides=[
+#             "output_dir=./temp/{0}_ConvNextUNetTrain3Dv021Eval3DhfdsanomsNoccEpochs70Epoch55Years100_10repeat-1996".format(
+#                 str(datetime.now())[:10]
+#             ),
+#             "network={0}_ConvNextUNetTrain3Dv021Eval3DhfdsanomsNoccEpochs70Epoch55Years100_10repeat-1996".format(
+#                 str(datetime.now())[:10]
+#             ),
+#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-09-04-convnextunet_v021_hist1_hfds_anom/aaa/saved_nets/convnextunet_epoch_55_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
+#             "hist=1",
+#             "unet.ch_width=[157,200,250,300,400]",
+#             "run_gen_pred=True",
+#             "N_samples=0",
+#             "N_val=0",
+#             "N_test=7000",
+#             "data_zarr=3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat",
+#             "data_means_zarr=3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_means",
+#             "data_stds_zarr=3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_stds",
+#             "pred_names=null",
+#             "pred_paths=null",
+#             "+dataset_name=OM4_1996_repeat",
+#             "train_region=global_3D",
+#             "region=global_3D",
+#             "model_name_replace=Convnext",
+#             "depth_mode=all",
+#         ],
+#     )
+
+########################################################
+
+# All Levels - Hist = 1, HFDS Anom, 100 year emulation, Climate Change Forcing
 with initialize_config_dir(
     version_base=None,
     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
 ):
     args = compose(
-        config_name="exp/eval_unet_global_3D_all",
+        config_name="exp/eval_unet_global_3D_all_hfds_anoms",
         overrides=[
-            "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist1Epoch70Years100-1996".format(
+            "output_dir=./temp/{0}_ConvNextUNetTrain3Dv021Eval3Dhfdsanomsnojump3xccEpochs70Epoch55Years100_10repeat-1996".format(
                 str(datetime.now())[:10]
             ),
-            "network={0}_ConvNextUNetTrain3DEval3DHist1Epoch70Years100-1996".format(
+            "network={0}_ConvNextUNetTrain3Dv021Eval3Dhfdsanomsnojump3xccEpochs70Epoch55Years100_10repeat-1996".format(
                 str(datetime.now())[:10]
             ),
-            "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-19-convnextunet_v021_hist1_70epochs/aaa/saved_nets/convnextunet_epoch_70_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
+            "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-09-04-convnextunet_v021_hist1_hfds_anom/aaa/saved_nets/convnextunet_epoch_55_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
             "hist=1",
             "unet.ch_width=[157,200,250,300,400]",
             "run_gen_pred=True",
             "N_samples=0",
             "N_val=0",
             "N_test=7000",
-            "data_zarr=3D_data_OM4_5daily_v0.2.1_100_years",
-            "data_means_zarr=3D_data_OM4_5daily_v0.2.1_100_years_means",
-            "data_stds_zarr=3D_data_OM4_5daily_v0.2.1_100_years_stds",
+            "data_zarr=3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_nojump_3xcc",
+            "data_means_zarr=3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_nojump_3xcc_means",
+            "data_stds_zarr=3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_nojump_3xcc_stds",
             "pred_names=null",
             "pred_paths=null",
             "+dataset_name=OM4_1996_repeat",
@@ -140,138 +216,7 @@ with initialize_config_dir(
         ],
     )
 
-
 ########################################################
-
-# All Levels - Hist = 1, 10 years
-# with initialize_config_dir(
-#     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
-# ):
-#     args = compose(
-#         config_name="exp/eval_unet_global_3D_all_10yrs",
-#         overrides=[
-#             "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3D10yrsEpoch24".format(
-#                 str(datetime.now())[:10]
-#             ),
-#             "network={0}_ConvNextUNetTrain3DEval3D10yrsEpoch24".format(
-#                 str(datetime.now())[:10]
-#             ),
-#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-03-convnextunet_hist1_out2_10yrs_35epochs/10/saved_nets/convnextunet_epoch_24_beststeps_4_global_3D_all_N_train_730_Lateral_Data_025_no_smooth.pt]",
-#             "hist=1",
-#             "unet.ch_width=[157,200,250,300,400]",
-#             "run_gen_pred=True",
-#             "pred_names=null",
-#             "pred_paths=null",
-#             "+dataset_name=OM4",
-#             "train_region=global_3D",
-#             "region=global_3D",
-#             "model_name_replace=Convnext",
-#             "depth_mode=all",
-#         ],
-#     )
-
-########################################################
-
-# All Levels - Hist = 1, SST
-# with initialize_config_dir(
-#     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
-# ):
-#     args = compose(
-#         config_name="exp/eval_unet_global_3D_all_SST",
-#         overrides=[
-#             "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DSSTEpoch35".format(
-#                 str(datetime.now())[:10]
-#             ),
-#             "network={0}_ConvNextUNetTrain3DEval3DSSTEpoch35".format(
-#                 str(datetime.now())[:10]
-#             ),
-#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-01-convnextunet_hist1_out2_SSTBoundary_35epochs/sst/saved_nets/convnextunet_epoch_35_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
-#             "hist=1",
-#             "unet.ch_width=[157,200,250,300,400]",
-#             "run_gen_pred=True",
-#             "N_samples=4000",
-#             "N_val=140",
-#             "N_test=600",
-#             "pred_names=null",
-#             "pred_paths=null",
-#             "+dataset_name=OM4",
-#             "train_region=global_3D",
-#             "region=global_3D",
-#             "model_name_replace=Convnext",
-#             "depth_mode=all",
-#         ],
-#     )
-    
-########################################################
-
-# All Levels - Hist = 0
-# with initialize_config_dir(
-#     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
-# ):
-#     args = compose(
-#         config_name="exp/eval_unet_global_3D_all",
-#         overrides=[
-#             "output_dir=./temp/{0}_ConvNextUNetTrain3DEval3DHist0Epoch35".format(
-#                 str(datetime.now())[:10]
-#             ),
-#             "network={0}_ConvNextUNetTrain3DEval3DHist0Epoch35".format(
-#                 str(datetime.now())[:10]
-#             ),
-#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-01-convnextunet_hist0_35epochs/hist0/saved_nets/convnextunet_epoch_35_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
-#             "hist=0",
-#             "unet.ch_width=[80,100,150,300,400]",
-#             "run_gen_pred=True",
-#             "N_samples=4000",
-#             "N_val=140",
-#             "N_test=600",
-#             "pred_names=null",
-#             "pred_paths=null",
-#             "+dataset_name=OM4",
-#             "train_region=global_3D",
-#             "region=global_3D",
-#             "model_name_replace=Convnext",
-#             "depth_mode=all",
-#         ],
-#     )
-
-########################################################
-
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-### Swin
-#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-# with initialize_config_dir(
-#     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
-# ):
-#     args = compose(
-#         config_name="exp/eval_swin_global_3D_all",
-#         overrides=[
-#             "output_dir=./temp/{0}_SwinTrain3DSurfaceEval3DHist1Epoch35".format(
-#                 str(datetime.now())[:10]
-#             ),
-#             "network={0}_SwinTrain3DSurfaceEval3DHist1Epoch35".format(
-#                 str(datetime.now())[:10]
-#             ),
-#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-08-01-train_swin_global_3D_all_out2_35epochs/swin/saved_nets/swin_epoch_35_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
-#             "run_gen_pred=True",  # Done Generation
-#             "hist=1",
-#             "exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample",
-#             "swin.embed_dim=180",
-#             "N_samples=4000",
-#             "N_val=140",
-#             "N_test=600",
-#             "pred_names=null",
-#             "pred_paths=null",
-#             "model_name_replace=Swin",
-#             "train_region=global_3D",
-#             "region=global_3D",
-#             "depth_mode=all",
-#             "+dataset_name=OM4",
-#         ],
-#     )
 
 if not os.path.exists(args.output_dir):
     os.mkdir(args.output_dir)

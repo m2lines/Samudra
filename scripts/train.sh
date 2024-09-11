@@ -29,8 +29,14 @@ export BASE_OE_DIR=$PWD
 # All history=1 hfds anom
 # ./.python-greene submitit_hydra.py compute/greene=1x4 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-convnextunet_v021_hist1_hfds_anom" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70
 
+# All history=1 hfds anom + no fast inp/out 
+./.python-greene submitit_hydra.py compute/greene=1x4 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
+
 # All history=1 hfds anom 1975
-./.python-greene submitit_hydra.py compute/greene=1x4 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70
+# ./.python-greene submitit_hydra.py compute/greene=1x4 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70
+
+# All history=1 hfds anom 1975 + diff loss
+# ./.python-greene submitit_hydra.py compute/greene=1x4 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_diffloss" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 loss=mse_diff_weighted
 
 # All history=1 hfds anom + diff loss
 # ./.python-greene submitit_hydra.py compute/greene=1x4 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_diffloss" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 loss=mse_diff_weighted

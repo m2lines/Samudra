@@ -4,7 +4,11 @@ defaults:
   - exp: ???
 
 base_output_dir: ${oc.env:BASE_OE_DIR}
+<<<<<<< Updated upstream
 data_dir: /pscratch/sd/s/suryad/data
+=======
+data_dir: /vast/as15415/Data
+>>>>>>> Stashed changes
 pred_dir: ${oc.env:BASE_OE_DIR}/Preds
 experiment: ???
 sub_dir: ${experiment}

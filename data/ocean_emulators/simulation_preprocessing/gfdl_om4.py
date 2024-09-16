@@ -92,12 +92,13 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
         elif "xq" in da.dims or "yq" in da.dims:
             # fill the velocities with 0 before interpolation to avoid mismatches in nans
             ds_interpolated[var] = grid.interp_like(da.fillna(0), ds.thetao)
+        if var in ds_interpolated:
+            ds_interpolated[var].attrs = da.attrs
 
     # remove the same areas as for the tracers again
     tracer_wetmask = ~np.isnan(ds_interpolated.thetao.isel(time=0)).drop_vars("time")
     ds = apply_mask(ds_interpolated, tracer_wetmask)
     ds = ds.assign_coords(wetmask=tracer_wetmask)
-    ds
 
     with fsspec.open(nc_grid_path) as f:
         ds_grid = xr.open_dataset(f)

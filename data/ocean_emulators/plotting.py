@@ -1,8 +1,8 @@
+import cartopy.crs as ccrs
 import matplotlib
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-from xarrayutils.plotting import linear_piecewise_scale
 import xarray as xr
+from xarrayutils.plotting import linear_piecewise_scale
 
 
 def qc_plots(ds: xr.Dataset):
@@ -64,7 +64,9 @@ def qc_plots(ds: xr.Dataset):
 
 ####### QC plotting for preprocessing #########
 def rotated_vectors_qc_plots(u, v, u_rotated, v_rotated):
-    roi = dict(lev=0, time=100, y=slice(900, None))
+    roi = dict(time=100, y=slice(900, None))
+    if "lev" in u.dims:
+        roi["lev"] = 0
     kwargs = dict(x="lon", y="lat", robust=True, transform=ccrs.PlateCarree())
 
     fig, axarr = plt.subplots(

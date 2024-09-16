@@ -6,6 +6,8 @@ from ocean_emulators.utils import apply_mask
 from xarray_schema import SchemaError
 from xgcm import Grid
 
+from .interpolate import interpolate_to_cell_centers
+
 
 # load supergrid and extract the angles
 # Some awesome material to understand the 'supergrid' (is that the same as the mosaic?) https://gist.github.com/adcroft/c1e207024fe1189b43dddc5f1fe7dd6c
@@ -61,39 +63,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     )
     ds = ds.assign_coords(dz=dz)
 
-    if ds["xh"].size == ds["xq"].size:
-        # outputs written in "non-symmetric" mode
-        # see https://xgcm.readthedocs.io/en/latest/xgcm-examples/03_MOM6.html#xgcm-grid-definition
-        grid_coords = {
-            "X": {"center": "xh", "right": "xq"},
-            "Y": {"center": "yh", "right": "yq"},
-        }
-    else:
-        # outputs written in "symmetric" mode
-        # periodicity is already 'built in with the outer coords'.
-        # NOTE: This would not be sufficient to interpolate tracer points back!
-        # For the velocity we need to extend, not pad otherwise the QC plots in the rotation will not work!
-        grid_coords = {
-            "X": {"center": "xh", "outer": "xq"},
-            "Y": {"center": "yh", "outer": "yq"},
-        }
-
-    # interpolate all velocities from outer to center grid position
-    grid = Grid(
-        ds,
-        coords=grid_coords,
-        boundary={"X": None, "Y": "extend"},
-    )
-    ds_interpolated = xr.Dataset()
-    for var in ds.data_vars:
-        da = ds[var]
-        if set(["xh", "yh"]).issubset(da.dims):
-            ds_interpolated[var] = da
-        elif "xq" in da.dims or "yq" in da.dims:
-            # fill the velocities with 0 before interpolation to avoid mismatches in nans
-            ds_interpolated[var] = grid.interp_like(da.fillna(0), ds.thetao)
-        if var in ds_interpolated:
-            ds_interpolated[var].attrs = da.attrs
+    ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao)
 
     # remove the same areas as for the tracers again
     tracer_wetmask = ~np.isnan(ds_interpolated.thetao.isel(time=0)).drop_vars("time")

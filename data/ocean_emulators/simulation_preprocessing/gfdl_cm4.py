@@ -1,4 +1,24 @@
+import numpy as np
+import xarray as xr
+from xgcm import Grid
+
 from .gfdl_om4 import om4_preprocessing
+from .interpolate import interpolate_to_cell_centers
+
+
+def sis2_preprocessing(zarr_data_path):
+    """SIS2.0 specific preprocessing
+
+    Args:
+        sis_zarr_path (str): path to the sea ice model output
+    """
+    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={})
+    ds_interpolated = interpolate_to_cell_centers(
+        ds, ds.EXT, center_dim_names=("xT", "yT"), boundary_dim_names=("xB", "yB")
+    )
+    for var in ds_interpolated.data_vars:
+        ds_interpolated[var] = ds_interpolated[var].astype(np.float32)
+    return ds_interpolated.rename({"xT": "x", "yT": "y"})
 
 
 def cm4_preprocessing(om_zarr_path, sis_zarr_path, nc_grid_path, nc_mosaic_path):
@@ -15,5 +35,5 @@ def cm4_preprocessing(om_zarr_path, sis_zarr_path, nc_grid_path, nc_mosaic_path)
         nc_grid_path=nc_grid_path,
         nc_mosaic_path=nc_mosaic_path,
     )
-
-    return ds_om
+    ds_sis = sis2_preprocessing(sis_zarr_path)
+    return xr.merge([ds_om, ds_sis])

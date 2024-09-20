@@ -26,7 +26,8 @@ def sis2_preprocessing(zarr_data_path):
             "X": {"center": "xT", "right": "xB"},
             "Y": {"center": "yT", "right": "yB"},
         },
-        boundary={"X": "periodic", "Y": "extend"},
+        boundary={"X": None, "Y": "extend"},
+        periodic=["xT", "xB", "xTe"],
     )
     ds = interpolate_to_cell_centers(ds, ds.EXT, grid)
     ds = ds.astype(np.float32)

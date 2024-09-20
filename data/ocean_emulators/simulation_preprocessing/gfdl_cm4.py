@@ -20,6 +20,7 @@ def sis2_preprocessing(zarr_data_path):
     if ds["yB"].size == ds["yT"].size + 1:
         ds = ds.isel(yB=slice(1, None))
 
+    ds = ds.drop(["xTe", "yTe", "nv"])
     grid = Grid(
         ds,
         coords={
@@ -27,7 +28,7 @@ def sis2_preprocessing(zarr_data_path):
             "Y": {"center": "yT", "right": "yB"},
         },
         boundary="extend",
-        periodic=["xT", "xB", "xTe"],
+        periodic=["xT", "xB"],
     )
     ds = interpolate_to_cell_centers(ds, ds.EXT, grid)
     ds = ds.astype(np.float32)

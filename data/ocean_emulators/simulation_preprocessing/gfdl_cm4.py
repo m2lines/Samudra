@@ -10,15 +10,27 @@ def sis2_preprocessing(zarr_data_path):
     """SIS2.0 specific preprocessing
 
     Args:
-        sis_zarr_path (str): path to the sea ice model output
+        zarr_data_path (str): path to the sea ice model output
     """
     ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={})
-    ds_interpolated = interpolate_to_cell_centers(
-        ds, ds.EXT, center_dim_names=("xT", "yT"), boundary_dim_names=("xB", "yB")
+
+    # trim excess padding
+    if ds["xB"].size == ds["xT"].size + 1:
+        ds = ds.isel(xB=slice(1, None))
+    if ds["yB"].size == ds["yT"].size + 1:
+        ds = ds.isel(yB=slice(1, None))
+
+    grid = Grid(
+        ds,
+        coords={
+            "X": {"center": "xT", "right": "xB"},
+            "Y": {"center": "yT", "right": "yB"},
+        },
+        boundary={"X": "periodic", "Y": "extend"},
     )
-    for var in ds_interpolated.data_vars:
-        ds_interpolated[var] = ds_interpolated[var].astype(np.float32)
-    return ds_interpolated.rename({"xT": "x", "yT": "y"})
+    ds = interpolate_to_cell_centers(ds, ds.EXT, grid)
+    ds = ds.astype(np.float32)
+    return ds.rename({"xT": "x", "yT": "y"})
 
 
 def cm4_preprocessing(om_zarr_path, sis_zarr_path, nc_grid_path, nc_mosaic_path):

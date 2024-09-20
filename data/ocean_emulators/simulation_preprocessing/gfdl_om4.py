@@ -63,7 +63,21 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     )
     ds = ds.assign_coords(dz=dz)
 
-    ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao)
+    # trim excess padding
+    if ds["xq"].size == ds["xh"].size + 1:
+        ds = ds.isel(xq=slice(1, None))
+    if ds["yq"].size == ds["yh"].size + 1:
+        ds = ds.isel(yq=slice(1, None))
+
+    grid = Grid(
+        ds,
+        coords={
+            "X": {"center": "xh", "right": "xq"},
+            "Y": {"center": "yh", "right": "yq"},
+        },
+        boundary={"X": "periodic", "Y": "extend"},
+    )
+    ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao, grid)
 
     # remove the same areas as for the tracers again
     tracer_wetmask = ~np.isnan(ds_interpolated.thetao.isel(time=0)).drop_vars("time")

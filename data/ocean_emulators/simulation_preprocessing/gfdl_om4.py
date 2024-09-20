@@ -75,7 +75,8 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
             "X": {"center": "xh", "right": "xq"},
             "Y": {"center": "yh", "right": "yq"},
         },
-        boundary={"X": "periodic", "Y": "extend"},
+        boundary={"X": None, "Y": "extend"},
+        periodic=["xh", "xq"],
     )
     ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao, grid)
 

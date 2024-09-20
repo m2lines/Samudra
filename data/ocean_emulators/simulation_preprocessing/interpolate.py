@@ -27,6 +27,7 @@ def interpolate_to_cell_centers(
             "X": {"center": xh, "right": xq},
             "Y": {"center": yh, "right": yq},
         }
+        boundary = {"X": "periodic", "Y": "extend"}
     else:
         # outputs written in "symmetric" mode
         # periodicity is already 'built in with the outer coords'.
@@ -36,11 +37,12 @@ def interpolate_to_cell_centers(
             "X": {"center": xh, "outer": xq},
             "Y": {"center": yh, "outer": yq},
         }
+        boundary = {"X": None, "Y": "extend"}
 
     grid = Grid(
         ds,
         coords=grid_coords,
-        boundary={"X": None, "Y": "extend"},
+        boundary=boundary,
     )
     ds_interpolated = xr.Dataset()
     for var in ds.data_vars:

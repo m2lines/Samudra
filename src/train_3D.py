@@ -95,7 +95,7 @@ class Trainer:
             self.N_extra = self.N_atm  # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
-        self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
+        self.num_in = int((args.hist + 1) * (self.N_in + self.N_extra))
         self.num_out = int((args.hist + 1) * len(self.outputs))
 
         print("Number of inputs: ", self.num_in)

@@ -29,8 +29,11 @@ export BASE_OE_DIR=$PWD
 # All history=1 hfds anom
 # ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_6hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_restart" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 resume_ckpt_path=/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-09-04-convnextunet_v021_hist1_hfds_anom/aaa/saved_nets/convnextunet_epoch_55_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt --qos=regular
 
-# All history=1 hfds anom + no fast inp/out 
-# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular
+# All history=1 hfds anom 1975
+./.python-perlmutter submitit_hydra.py compute/greene=4x2 compute/greene/node=a100_48hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_allatm" region=global_3D batch_size=1 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 --qos=regular
+
+# All history=1 hfds anom 1975 + no fast inp/out
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_30hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_nofast_allatm" region=global_3D batch_size=2 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular
 
 # All history=1 loss
 # ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-convnextunet_v021_hist1_sqrtcosloss" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 loss=mse_cos_weighted --qos=regular

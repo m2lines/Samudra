@@ -13,6 +13,7 @@ from functools import partial
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
+from torch.utils.data import ConcatDataset
 import numpy as np
 from torch.cuda import amp
 from torchinfo import summary
@@ -146,7 +147,7 @@ class Trainer:
         self.wet = extract_wet(wet_zarr, self.outputs, args.hist)
         self.surface_wet = extract_surface_wet(wet_zarr)
 
-        train_data = data_CNN_Disk_steps(
+        train_data = [ data_CNN_Disk_steps(
             self.data,
             self.inputs,
             self.extra_in,
@@ -159,8 +160,10 @@ class Trainer:
             args.interval,
             args.hist,
             args.steps,
+            stride,
             device="cuda",
-        )
+        ) for stride in args.data_stride ]
+        train_data = ConcatDataset(train_data)
 
         print("Instantiating torch loaders")
 

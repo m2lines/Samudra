@@ -58,6 +58,7 @@ exp_num_out: "3D_all"
 N_samples:  2850 #4000
 N_val:  140 #300
 N_test: 600 #500
+data_stride: [1, 2, 3, 6]
 steps: 4
 interval: 1
 hist: 0

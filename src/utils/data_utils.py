@@ -166,6 +166,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         interval,
         hist,
         steps,
+        stride=1,
         device="cuda",
     ):
         super().__init__()
@@ -176,6 +177,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.interval = interval
         self.hist = hist
         self.steps = steps
+        self.stride = stride
 
         assert self.interval == 1
         assert self.lag == 1
@@ -186,23 +188,19 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.extras = data[extra_in_str]
 
         # This class will be used only for training
-        # Rolling indices to keep track of histories/past states (without skips):
-        # HIST=0, 4 steps ; 0->[0in, 1out, 1in, 2out, 2in, 3out, 3in, 4out]
-        # HIST=1, 4 steps , 0->[[0in, 1in], [2out, 3out], [2in, 3in], [4out, 5out]], 1->[[1in, 2in], [3out, 4out], [3in, 4in], [5out, 6out]]
-        # HIST=2, 4 steps , 0->[[0in, 1in, 2in], [3out, 4out, 5out], [3in, 4in, 5in], [6out, 7out, 8out], [6in, 7in, 8in], [9out, 10out, 11out], [9in, 10in, 11in], [12out, 13out, 14out]]
         indices = xr.DataArray(
-            np.arange(data.time.size),
+            np.arange(0, data.time.size, self.stride),
             dims=["time"],
-            coords={"time": data.time},
+            coords={"time": data.time[::self.stride]},
         )
         total_steps = 2 * self.hist + 1
         rolling_indices = (
-            indices.rolling(time=len(data.time) - total_steps, center=False)
+            indices.rolling(time=len(indices) - total_steps, center=False)
             .construct("window_dim")
             .astype(int)
         )
         self.rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
-            time=slice(len(data.time) - total_steps - 1, None)
+            time=slice(len(indices) - total_steps - 1, None)
         )  # Remove first few null indices
 
         self.inputs_no_extra_mean = data_mean[inputs_str]
@@ -221,10 +219,13 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.device = device
 
     def __len__(self):
-        return self.size - self.steps * (self.hist + 1) - self.hist
-
+        return (self.size // self.stride - self.steps * (self.hist + 1) - self.hist)
+    
     def __getitem__(self, idx):
         outputs = []
+        
+        if idx >= len(self):
+            raise IndexError("Index out of range")
 
         assert type(idx) == int
         for step in range(self.steps):

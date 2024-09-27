@@ -58,6 +58,11 @@ INPT_VARS = {
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
+    "3D_onlyTemp_all": [
+        k + str(j)
+        for k in ["thetao_lev_"]
+        for j in DEPTH_LEVELS
+    ],
     "3D_SST_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
@@ -128,6 +133,11 @@ OUT_VARS = {
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
+    "3D_onlyTemp_all": [
+        k + str(j)
+        for k in ["thetao_lev_"]
+        for j in DEPTH_LEVELS
+    ],
     "3D_onlyFast_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_"]
@@ -167,9 +177,10 @@ def get_eval_maps(exp_num):
             elif d == k.split("lev_")[-1]:
                 DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
         DP_3D_IDX[d] = DP_3D_IDX[d].to(torch.int32)
-    DP_3D_IDX[DEPTH_LEVELS[0]] = torch.cat(
-        [DP_3D_IDX[DEPTH_LEVELS[0]], torch.tensor([len(OUT_VARS[exp_num]) - 1])]
-    )  # zos
+    if 'zos' in VAR_SET:
+        DP_3D_IDX[DEPTH_LEVELS[0]] = torch.cat(
+            [DP_3D_IDX[DEPTH_LEVELS[0]], torch.tensor([len(OUT_VARS[exp_num]) - 1])]
+        )  # zos
     DP_3D_IDX[DEPTH_LEVELS[0]] = DP_3D_IDX[DEPTH_LEVELS[0]].to(torch.int32)
     return CH_3D_IDX, DP_3D_IDX, VAR_SET, DEPTH_SET
 

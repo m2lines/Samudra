@@ -223,10 +223,13 @@ def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.D
     return ds_regridded
 
 
-def spatially_filter(ds: xr.Dataset, w_mask, filter_scale=18, depth_dim="lev"):
+def spatially_filter(
+    ds: xr.Dataset, w_mask, filter_scale=18, depth_dim="lev", y_dim="y", x_dim="x"
+):
     """Applies a spatial filter with 3d/2d wetmask depending on the variable dimensions"""
     wmask_3d = (w_mask == 1).astype(int).reset_coords(drop=True)
-    wmask_2d = wmask_3d.isel(lev=0).drop_vars("lev")
+    depth_indexer = {depth_dim: 0}
+    wmask_2d = wmask_3d.isel(**depth_indexer).drop_vars(depth_dim)
 
     ds_2d, ds_3d = split_2d_3d(ds)
     ds_2d = ds_2d.reset_coords(drop=True)
@@ -247,8 +250,8 @@ def spatially_filter(ds: xr.Dataset, w_mask, filter_scale=18, depth_dim="lev"):
         grid_vars={"wet_mask": wmask_3d},  # why can gcm filters not accept bool masks?
     )
     datasets = [
-        filt_2d.apply(ds_2d, dims=["y", "x"]),
-        filt_3d.apply(ds_3d, dims=["y", "x"]),
+        filt_2d.apply(ds_2d, dims=[y_dim, x_dim]),
+        filt_3d.apply(ds_3d, dims=[y_dim, x_dim]),
     ]
     ds_filtered = xr.merge(datasets)
     # get attrs and coords back

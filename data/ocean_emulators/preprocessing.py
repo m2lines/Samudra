@@ -229,7 +229,7 @@ def spatially_filter(
     """Applies a spatial filter with 3d/2d wetmask depending on the variable dimensions"""
     wmask_3d = (w_mask == 1).astype(int).reset_coords(drop=True)
     depth_indexer = {depth_dim: 0}
-    wmask_2d = wmask_3d.isel(**depth_indexer)
+    wmask_2d = wmask_3d.isel(**depth_indexer).drop_vars(depth_dim)
 
     ds_2d, ds_3d = split_2d_3d(ds, depth_dim=depth_dim)
     ds_2d = ds_2d.reset_coords(drop=True)

@@ -263,7 +263,7 @@ class Trainer:
 
         # Wandb and Loading Checkpoint
         self.wandb = args.wandb.mode == "online"
-        if args.resume_ckpt_path is not None:
+        if args.resume_ckpt_path is not None and not args.finetune:
             self.load_checkpoint(args.resume_ckpt_path)
             if self.is_wandb_enabled():
                 try:
@@ -285,6 +285,8 @@ class Trainer:
             elif is_main_process():
                 warnings.warn("This checkpoint had wandb enabled, but wandb is not enabled now!")
         else:
+            if args.finetune:
+                self.load_checkpoint(args.resume_ckpt_path, finetune=True)
             self.start_epoch = 1
             self.wandb_id = None
             self.wandb_name = (
@@ -699,20 +701,22 @@ class Trainer:
             ),
         )
 
-    def load_checkpoint(self, checkpoint_path):
-        checkpoint = torch.load(checkpoint_path)
-        self.model.load_state_dict(checkpoint["model"])
-        self.optimizer.load_state_dict(checkpoint["optimizer"])
-        self.scheduler.load_state_dict(checkpoint["scheduler"])
-        self.start_epoch = checkpoint["epoch"] + 1
-        self.wandb_id = checkpoint["wandb_id"]
-        self.wandb_name = checkpoint["wandb_name"]
-
+    def load_checkpoint(self, checkpoint_path, finetune=False):
         print("Loaded checkpoint from", checkpoint_path)
-        print("Start Epoch:", self.start_epoch)
-        print("Wandb id:", self.wandb_id)
-        print("Wandb name:", self.wandb_name)
-        print("Optimizer LR:", self.optimizer.param_groups[-1]["lr"])
+        checkpoint = torch.load(checkpoint_path)
+        if finetune:
+            self.model.load_state_dict(checkpoint["model"])
+        else:
+            self.optimizer.load_state_dict(checkpoint["optimizer"])
+            self.scheduler.load_state_dict(checkpoint["scheduler"])
+            self.start_epoch = checkpoint["epoch"] + 1
+            self.wandb_id = checkpoint["wandb_id"]
+            self.wandb_name = checkpoint["wandb_name"]
+        
+            print("Start Epoch:", self.start_epoch)
+            print("Wandb id:", self.wandb_id)
+            print("Wandb name:", self.wandb_name)
+            print("Optimizer LR:", self.optimizer.param_groups[-1]["lr"])
 
     def is_wandb_enabled(self):
         return self.wandb and is_main_process()

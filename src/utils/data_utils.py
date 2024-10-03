@@ -188,20 +188,26 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.extras = data[extra_in_str]
 
         # This class will be used only for training
-        indices = xr.DataArray(
-            np.arange(0, data.time.size, self.stride),
-            dims=["time"],
-            coords={"time": data.time[::self.stride]},
+        total_steps = (2 * self.hist + 2)
+
+        # Calculate the number of windows
+        num_windows = data.time.size - (total_steps - 1) * self.stride
+
+        # Create base indices
+        indices = np.arange(num_windows)
+        indices_da = xr.DataArray(
+            indices,
+            dims=["window_dim"]
         )
-        total_steps = 2 * self.hist + 1
-        rolling_indices = (
-            indices.rolling(time=len(indices) - total_steps, center=False)
-            .construct("window_dim")
-            .astype(int)
+
+        # Create window dimension
+        window_dim = xr.DataArray(
+            np.arange(total_steps),
+            dims=["time"]
         )
-        self.rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
-            time=slice(len(indices) - total_steps - 1, None)
-        )  # Remove first few null indices
+
+        # Construct rolling indices
+        self.rolling_indices = indices_da + stride * window_dim
 
         self.inputs_no_extra_mean = data_mean[inputs_str]
         self.inputs_no_extra_std = data_std[inputs_str]
@@ -219,7 +225,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.device = device
 
     def __len__(self):
-        return (self.size // self.stride - self.steps * (self.hist + 1) - self.hist)
+        return (self.size - self.steps * (self.hist + 1) * self.stride - self.hist * self.stride)
     
     def __getitem__(self, idx):
         outputs = []
@@ -228,13 +234,18 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
             raise IndexError("Index out of range")
 
         assert type(idx) == int
+        prev_rolling_idx = None
         for step in range(self.steps):
-            start = idx + step * (self.hist + 1)
+            start = idx + step * (self.hist + 1) * self.stride
             end = start + 1
             idx_slice = slice(
                 start, end, self.interval
             )  # Create a slice for similar indexing as in data_CNN_Disk
             rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
+            if prev_rolling_idx is not None:
+                assert (prev_rolling_idx.isel(time=slice(self.hist+1, None)) - rolling_idx.isel(time=slice(0, self.hist+1))).sum() == 0 # Prev output = Cur Input 
+                assert (rolling_idx.diff("time") == self.stride).all() # Stride is maintained
+                assert rolling_idx.isel(time=-1) < self.size # Last index check
             x_index = xr.Variable(
                 ["window_dim", "time"], rolling_idx
             )

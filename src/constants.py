@@ -52,12 +52,17 @@ INPT_VARS = {
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
-     "3D_noFast_all": [
+    "3D_noFast_all": [
         k + str(j)
         for k in ["thetao_lev_", "so_lev_"]
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
+    "3D_TS_all": [
+        k + str(j)
+        for k in ["thetao_lev_", "so_lev_"]
+        for j in DEPTH_LEVELS
+    ],
     "3D_onlyTemp_all": [
         k + str(j)
         for k in ["thetao_lev_"]
@@ -144,6 +149,11 @@ OUT_VARS = {
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
+    "3D_TS_all": [
+        k + str(j)
+        for k in ["thetao_lev_", "so_lev_"]
+        for j in DEPTH_LEVELS
+    ],
     "3D_SST_all": [
         k + str(j)
         for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]

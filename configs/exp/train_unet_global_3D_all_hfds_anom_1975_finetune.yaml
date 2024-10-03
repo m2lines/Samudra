@@ -48,7 +48,7 @@ batch_size: 32
 # grad_clip: False
 
 # Optimizer
-lr: 2e-4
+lr: 2e-5
 T: ${epochs} # 10 # CosineA / CosineAWarm param
 
 # Parameters
@@ -67,7 +67,7 @@ lam: 0.05
 Nb: 0
 factor: 10
 lateral: false
-finetune: false
+finetune: true
 
 ### Do not touch these
 # distributed args

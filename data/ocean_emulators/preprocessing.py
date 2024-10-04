@@ -171,7 +171,7 @@ def rotate_vectors(u, v, angle):
         ],
         dim="dim_in",
     )
-    rotated_vector = xr.dot(vec, rot, dim="dim_in", optimize=True)
+    rotated_vector = xr.dot(vec, rot, dim="dim_in")
     u_rotated = rotated_vector.isel(dim_out=0)
     v_rotated = rotated_vector.isel(dim_out=1)
     return u_rotated, v_rotated

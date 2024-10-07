@@ -34,7 +34,7 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_TS_hist1" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=2 epochs=70 exp_num_in=3D_TS_all exp_num_out=3D_TS_all
 
 # anom 1975 + nofast - T,S,SSH
-./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
+./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 
 
 # Hist 1 anom 1975 + Only temp
 # ./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom_1975_finetune name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_onlytemp_deltaTmix_Full_Finetune" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_onlyTemp_all exp_num_out=3D_onlyTemp_all resume_ckpt_path=/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-09-29-convnextunet_v021_hist1_hfds_anom_1975_onlyTemp_deltaTmix_Full/convnextunet_epoch_20_beststeps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt

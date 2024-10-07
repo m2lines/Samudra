@@ -21,7 +21,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
-from utils.train_utils import decomposed_mse, decomposed_mse_diff_weighted, decomposed_mse_cos_weighted, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet
+from utils.train_utils import decomposed_mse, decomposed_mse_diff_weighted, decomposed_mse_cos_weighted, decomposed_mse_scaled, decomposed_mse_mae, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -126,6 +126,7 @@ class Trainer:
         self.data_zarr = args.data_zarr
         self.data_means_zarr = args.data_means_zarr
         self.data_stds_zarr = args.data_stds_zarr
+        self.scaling_residuals_file = args.scaling_residuals_file
         self.grid_file = args.grid_file
 
         self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
@@ -248,6 +249,15 @@ class Trainer:
             area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device="cuda")
             self.loss = partial(decomposed_mse_cos_weighted, cos=area_weights)
+        elif args.loss == "mse_residual_scaled":
+            print("Using decomposed mse loss with scaled residuals")
+            scaling_residuals = xr.open_zarr(os.path.join(self.data_dir, self.scaling_residuals_file))
+            scale = torch.from_numpy(( self.data_std[self.outputs] / scaling_residuals[self.outputs] ).compute().to_array().to_numpy()).to(device="cuda")
+            scale = torch.concat([scale] * (args.hist + 1), dim=0)
+            self.loss = partial(decomposed_mse_scaled, scaling=scale)
+        elif args.loss == "mse_mae":
+            print("Using decomposed mse loss with mae")
+            self.loss = decomposed_mse_mae
         else:
             raise NotImplementedError
 
@@ -331,7 +341,7 @@ class Trainer:
 
     def init_validation_stores(self):
         num_gpus = get_world_size()
-        N = 72 // 4 * num_gpus  # 72 x 5 days ~ 1 year
+        N = 72 * 2 // 4 * num_gpus  # 72 x 5 days ~ 1 year
         self.N_local = N // num_gpus
 
         grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})

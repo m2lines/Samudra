@@ -20,6 +20,7 @@ smooth: False
 data_zarr: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_1975
 data_means_zarr: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_1975_means
 data_stds_zarr: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_1975_stds
+scaling_residuals_file: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_1975_scaling_residuals
 grid_file: Grid_New.nc
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1

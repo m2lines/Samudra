@@ -191,9 +191,22 @@ class MetricLogger(object):
         )
 
 
+def decomposed_mse_mae(pred, out, weight=0.01):
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
+    full_mae = nn.functional.l1_loss(pred, out, reduction="none")
+    mae_channels = torch.mean(full_mae, dim=(0, 2, 3))
+    return mse_channels + weight * mae_channels
+
+
 def decomposed_mse(pred, out):
     full_mse = nn.functional.mse_loss(pred, out, reduction="none")
     mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
+    return mse_channels
+
+def decomposed_mse_scaled(pred, out, scaling):
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels = torch.mean(full_mse, dim=(0, 2, 3)) * scaling
     return mse_channels
 
 def decomposed_mse_diff_weighted(pred, out):

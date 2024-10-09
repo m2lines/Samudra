@@ -62,9 +62,9 @@ def assert_mask_match(ds: xr.Dataset, mask: xr.DataArray):
             )
 
 
-def split_2d_3d(ds: xr.Dataset):
-    ds_2d = xr.Dataset({v: ds[v] for v in ds.data_vars if "lev" not in ds[v].dims})
-    ds_3d = xr.Dataset({v: ds[v] for v in ds.data_vars if "lev" in ds[v].dims})
+def split_2d_3d(ds: xr.Dataset, depth_dim="lev"):
+    ds_2d = xr.Dataset({v: ds[v] for v in ds.data_vars if depth_dim not in ds[v].dims})
+    ds_3d = xr.Dataset({v: ds[v] for v in ds.data_vars if depth_dim in ds[v].dims})
     return ds_2d, ds_3d
 
 

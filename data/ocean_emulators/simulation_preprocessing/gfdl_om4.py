@@ -86,7 +86,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     ds = ds.assign_coords(wetmask=tracer_wetmask)
 
     with fsspec.open(nc_grid_path) as f:
-        ds_grid = xr.open_dataset(f)
+        ds_grid = xr.open_dataset(f).load()
     ds_grid = ds_grid.drop_vars("time")
     ds_grid = ds_grid.set_coords([v for v in ds_grid.data_vars])
     # ds_grid

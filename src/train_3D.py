@@ -413,7 +413,7 @@ class Trainer:
 
         start_time = time.time()
         for epoch in range(self.start_epoch, self.epochs + 1):
-            # Multiple step training
+            # Iterative step training
             if epoch == self.start_epoch or epoch in self.step_transition:
                 if epoch == self.start_epoch:
                     for i, step in enumerate(self.steps):

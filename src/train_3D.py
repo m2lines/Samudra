@@ -105,9 +105,14 @@ class Trainer:
         assert args.region == "global_3D"
         self.region = args.region
 
+        assert type(args.stride) == list
+        assert type(args.steps) == list
+        assert type(args.step_transition) == list
+        assert len(args.step_transition) == len(args.steps) - 1
+        max_steps = str(args.steps[-1])
         self.str_video = (
             "steps_"
-            + str(args.steps)
+            + max_steps
             + "_"
             + args.region
             + "_"
@@ -147,38 +152,6 @@ class Trainer:
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, self.outputs, args.hist)
         self.surface_wet = extract_surface_wet(wet_zarr)
-
-        train_data = [ data_CNN_Disk_steps(
-            self.data,
-            self.inputs,
-            self.extra_in,
-            self.outputs,
-            self.wet,
-            self.data_mean,
-            self.data_std,
-            args.N_samples,
-            args.lag,
-            args.interval,
-            args.hist,
-            args.steps,
-            stride,
-            device="cuda",
-        ) for stride in args.data_stride ]
-        train_data = ConcatDataset(train_data)
-
-        print("Instantiating torch loaders")
-
-        self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_data, shuffle=True
-        )
-        self.train_loader = torch.utils.data.DataLoader(
-            train_data,
-            batch_size=args.batch_size,
-            sampler=self.train_sampler,
-            num_workers=args.num_workers,
-            pin_memory=args.pin_mem,
-            drop_last=True,
-        )
 
         # Model
         print("Getting model " + args.network)
@@ -220,7 +193,7 @@ class Trainer:
         model = model.to(args.device)
 
         # Summary
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
+        i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 2
         summary(
             model,
             input_data=[i],
@@ -228,7 +201,7 @@ class Trainer:
             depth=10,
         )
 
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
+        i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
 
         self.model = model
@@ -328,6 +301,7 @@ class Trainer:
         self.epochs = args.epochs
         self.hist = args.hist
         self.steps = args.steps
+        self.step_transition = args.step_transition
         self.save_freq = args.save_freq
         self.output_dir = args.output_dir
         self.network = args.network
@@ -336,6 +310,11 @@ class Trainer:
         self.lag = args.lag
         self.interval = args.interval
         self.e_train = e_train
+        self.data_stride = args.data_stride
+        self.N_samples = args.N_samples
+        self.batch_size = args.batch_size
+        self.num_workers=args.num_workers
+        self.pin_mem=args.pin_mem
 
         self.init_validation_stores()
 
@@ -434,6 +413,50 @@ class Trainer:
 
         start_time = time.time()
         for epoch in range(self.start_epoch, self.epochs + 1):
+            # Multiple step training
+            if epoch == self.start_epoch or epoch in self.step_transition:
+                if epoch == self.start_epoch:
+                    for i, step in enumerate(self.steps):
+                        if epoch <= step:
+                            cur_step = step
+                            cur_step_idx = i
+                            break
+                    print(f"Starting training at step {cur_step}")
+                elif epoch in self.step_transition:
+                    cur_step_idx += 1
+                    cur_step = self.steps[cur_step_idx]
+                    print(f"Transitioning to step {cur_step}")
+                train_data = [ data_CNN_Disk_steps(
+                            self.data,
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.wet,
+                            self.data_mean,
+                            self.data_std,
+                            self.N_samples,
+                            self.lag,
+                            self.interval,
+                            self.hist,
+                            cur_step,
+                            stride,
+                            device="cuda",
+                            ) for stride in self.data_stride ]
+                train_data = ConcatDataset(train_data)
+
+                print("Instantiating torch loaders")
+
+                self.train_sampler = torch.utils.data.distributed.DistributedSampler(
+                    train_data, shuffle=True
+                )
+                self.train_loader = torch.utils.data.DataLoader(
+                    train_data,
+                    batch_size=self.batch_size,
+                    sampler=self.train_sampler,
+                    num_workers=self.num_workers,
+                    pin_memory=self.pin_mem,
+                    drop_last=True,
+                )
             self.train_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)

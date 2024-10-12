@@ -44,7 +44,7 @@ disk_mode: True
 num_workers: 4
 pin_mem: True
 save_freq: 5
-epochs: 35
+epochs: 70
 batch_size: 32
 # grad_clip: False
 
@@ -60,7 +60,8 @@ N_samples:  2850 #4000
 N_val:  140 #300
 N_test: 600 #500
 data_stride: [1]
-steps: 4
+steps: [4]
+step_transition: []
 interval: 1
 hist: 0
 lag: 1

@@ -121,16 +121,19 @@ class data_CNN_Disk(torch.utils.data.Dataset):
             .to_numpy()
         )
         data_in = rearrange(
-            data_in, "window_dim time variable y x -> window_dim (time variable) y x"
+            data_in, "window_dim time variable y x -> window_dim variable time y x"
         )
-        data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary = self.extras.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         data_in_boundary = (
             (data_in_boundary - self.extras_mean) / self.extras_std
         ).fillna(0)
         data_in_boundary = (
             data_in_boundary.to_array()
-            .transpose("window_dim", "variable", "y", "x")
+            .transpose("window_dim", "time", "variable", "y", "x")
             .to_numpy()
+        )
+        data_in_boundary = rearrange(
+            data_in_boundary, "window_dim time variable y x -> window_dim variable time y x"
         )
         data_in = np.concatenate((data_in, data_in_boundary), axis=1)
 
@@ -142,7 +145,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
             .to_numpy()
         )
         label = rearrange(
-            label, "window_dim time variable y x -> window_dim (time variable) y x"
+            label, "window_dim time variable y x -> window_dim variable time y x"
         )
 
         items = (torch.from_numpy(data_in).float(), torch.from_numpy(label).float())
@@ -262,16 +265,20 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
             )
             data_in = rearrange(
                 data_in,
-                "window_dim time variable y x -> window_dim (time variable) y x",
+                "window_dim time variable y x -> window_dim variable time y x",
             )
-            data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
+            data_in_boundary = self.extras.isel(time=x_index).isel(time=slice(None, self.hist + 1))
             data_in_boundary = (
                 (data_in_boundary - self.extras_mean) / self.extras_std
             ).fillna(0)
             data_in_boundary = (
                 data_in_boundary.to_array()
-                .transpose("window_dim", "variable", "y", "x")
+                .transpose("window_dim", "time", "variable", "y", "x")
                 .to_numpy()
+            )
+            data_in_boundary = rearrange(
+                data_in_boundary,
+                "window_dim time variable y x -> window_dim variable time y x",
             )
             data_in = np.concatenate((data_in, data_in_boundary), axis=1).squeeze()
 
@@ -285,7 +292,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
                 .to_numpy()
             )
             label = rearrange(
-                label, "window_dim time variable y x -> window_dim (time variable) y x"
+                label, "window_dim time variable y x -> window_dim variable time y x"
             ).squeeze()
 
             outputs.append(torch.from_numpy(data_in).float())

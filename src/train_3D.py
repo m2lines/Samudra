@@ -9,6 +9,7 @@ from pathlib import Path
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
 from functools import partial
+from einops import rearrange
 
 import torch
 import torch.nn as nn
@@ -96,8 +97,12 @@ class Trainer:
             self.N_extra = self.N_atm  # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
-        self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
-        self.num_out = int((args.hist + 1) * len(self.outputs))
+        if args.unet._target_ == "models.unet.UNet3D":
+            self.num_in = int(self.N_in + self.N_extra)
+            self.num_out = int(len(self.outputs))
+        else:
+            self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
+            self.num_out = int((args.hist + 1) * len(self.outputs))
 
         print("Number of inputs: ", self.num_in)
         print("Number of outputs: ", self.num_out)
@@ -105,9 +110,9 @@ class Trainer:
         assert args.region == "global_3D"
         self.region = args.region
 
-        assert type(args.stride) == list
-        assert type(args.steps) == list
-        assert type(args.step_transition) == list
+        assert type(args.data_stride) == list or OmegaConf.is_list(args.data_stride)
+        assert type(args.steps) == list or OmegaConf.is_list(args.steps)
+        assert type(args.step_transition) == list or OmegaConf.is_list(args.step_transition)
         assert len(args.step_transition) == len(args.steps) - 1
         max_steps = str(args.steps[-1])
         self.str_video = (
@@ -150,7 +155,7 @@ class Trainer:
             print(f"Smoothing took minutes: {(time.time() - start) / 60}")
                     
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
-        self.wet = extract_wet(wet_zarr, self.outputs, args.hist)
+        self.wet = extract_wet(wet_zarr, self.outputs, args.hist if str(args.unet._target_) != 'models.unet.UNet3D' else 0)
         self.surface_wet = extract_surface_wet(wet_zarr)
 
         # Model
@@ -193,7 +198,10 @@ class Trainer:
         model = model.to(args.device)
 
         # Summary
-        i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 2
+        if args.unet._target_ == "models.unet.UNet3D":
+            i = [torch.zeros(1, self.num_in, args.hist+1, 180, 360).cuda()] * 2
+        else:
+            i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 2
         summary(
             model,
             input_data=[i],
@@ -201,8 +209,17 @@ class Trainer:
             depth=10,
         )
 
-        i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 8
+        if args.unet._target_ == "models.unet.UNet3D":
+            i = [torch.zeros(1, self.num_in, args.hist+1, 180, 360).cuda()] * 8
+        else:
+            i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
+        
+        from thop import profile
+        macs, params = profile(model, inputs=(i,))
+        print(f"MACs: {macs / 1e9:.2f} GFLOPs")
+        print(f"Params: {params} ")
+        model = model.to(args.device) # This is required here because profile does something weird to the model
 
         self.model = model
         self.nets_dir = args.nets_dir
@@ -366,7 +383,7 @@ class Trainer:
 
             self.val_data_set.append(val_data)
             self.target_set.append(
-                val_data[: (self.N_local) // (self.hist + 1)][1]
+                val_data[: (self.N_local)][1]
                 .reshape((self.N_local, -1, *self.surface_wet.shape))
                 .numpy()
             )
@@ -591,7 +608,8 @@ class Trainer:
             train=True
         )
 
-        predictions = model_pred.transpose(0, 3, 1, 2)
+        # predictions = model_pred.transpose(0, 3, 1, 2)
+        predictions = rearrange(model_pred, "b t h w c -> b (t c) h w")
         targets = self.target_set[rank]
         targets_transposed = targets.transpose(0, 2, 3, 1)
 
@@ -602,16 +620,16 @@ class Trainer:
         loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
         loss_value = torch.mean(loss_per_channel)
 
-        model_pred_unnormalized = (
-            model_pred * self.val_data_set[rank].norm_vals["s_out"]
-            + self.val_data_set[rank].norm_vals["m_out"]
-        )
-        targets_unnormalized = (
-            targets_transposed * self.val_data_set[rank].norm_vals["s_out"] 
-            + self.val_data_set[rank].norm_vals["m_out"]
-        )
+        # model_pred_unnormalized = (
+        #     model_pred * self.val_data_set[rank].norm_vals["s_out"]
+        #     + self.val_data_set[rank].norm_vals["m_out"]
+        # )
+        # targets_unnormalized = (
+        #     targets_transposed * self.val_data_set[rank].norm_vals["s_out"] 
+        #     + self.val_data_set[rank].norm_vals["m_out"]
+        # )
         # Surface level evaluation
-        surface_preds = model_pred_unnormalized[:, :, :, self.surface_indices]
+        # surface_preds = model_pred_unnormalized[:, :, :, self.surface_indices]
         if self.VAR_SET == set(["uo", "vo", "thetao", "so", "zos"]): # TODO: Need surface eval func fixes. Hardcoded indices.
             (
                 KE_corr,
@@ -673,29 +691,29 @@ class Trainer:
                 )
                 
             # Plot prediction and target
-            for i, var in enumerate(self.outputs):
-                fig = plt.figure(figsize=(10, 5))
-                plt.plot(
-                    range(targets.shape[0]),
-                    targets_unnormalized[:, :, :, i].mean(axis=(1, 2)),
-                    label="Target",
-                )
-                min, max = plt.ylim()
-                plt.plot(
-                    range(predictions.shape[0]),
-                    model_pred_unnormalized[:, :, :, i].mean(axis=(1, 2)),
-                    label="Prediction",
-                )
-                if 'thetao' in var:
-                    plt.ylim(min - 0.25, max + 0.25)
-                elif 'so' in var:
-                    plt.ylim(min - 0.2, max + 0.2)
-                elif 'KE' in var:
-                    plt.ylim(min - 0.5, max + 0.5)
-                plt.title(var)
-                plt.legend()
-                wandb.log({f"eval/plots/{var}": wandb.Image(fig)})
-                plt.close()
+            # for i, var in enumerate(self.outputs):
+            #     fig = plt.figure(figsize=(10, 5))
+            #     plt.plot(
+            #         range(targets.shape[0]),
+            #         targets_unnormalized[:, :, :, i].mean(axis=(1, 2)),
+            #         label="Target",
+            #     )
+            #     min, max = plt.ylim()
+            #     plt.plot(
+            #         range(predictions.shape[0]),
+            #         model_pred_unnormalized[:, :, :, i].mean(axis=(1, 2)),
+            #         label="Prediction",
+            #     )
+            #     if 'thetao' in var:
+            #         plt.ylim(min - 0.25, max + 0.25)
+            #     elif 'so' in var:
+            #         plt.ylim(min - 0.2, max + 0.2)
+            #     elif 'KE' in var:
+            #         plt.ylim(min - 0.5, max + 0.5)
+            #     plt.title(var)
+            #     plt.legend()
+            #     wandb.log({f"eval/plots/{var}": wandb.Image(fig)})
+            #     plt.close()
 
         if self.is_wandb_enabled():
             wandb.log(

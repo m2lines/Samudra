@@ -7,6 +7,7 @@ import numpy.fft as fft
 from .climate_utils import *
 from .subgrid_utils import *
 from .data_utils import *
+from einops import rearrange
 
 
 def generate_model_rollout(
@@ -24,8 +25,9 @@ def generate_model_rollout(
         pred_temp = outs[i]
         pred_temp = torch.nan_to_num(pred_temp)
         pred_temp = torch.clip(pred_temp, min=-1e5, max=1e5)
-        C, H, W = pred_temp.shape
-        pred_temp = torch.reshape(pred_temp, (hist + 1, C // (hist + 1), H, W))
+        C, T, H, W = pred_temp.shape
+        # pred_temp = torch.reshape(pred_temp, (hist + 1, C // (hist + 1), H, W))
+        pred_temp = rearrange(pred_temp, "C T H W -> T C H W")
         model_pred[i * (hist + 1) : (i + 1) * (hist + 1)] = torch.swapaxes(
             torch.swapaxes(pred_temp, 3, 1), 2, 1
         ).cpu()

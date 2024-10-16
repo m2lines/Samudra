@@ -32,7 +32,7 @@ class BaseModel(torch.nn.Module):
     ) -> torch.Tensor:
         outputs = []
         loss = None
-        N, C, H, W = inputs[0].shape
+        N, C, T, H, W = inputs[0].shape
 
         for step in range(len(inputs) // 2):
             if step == 0:

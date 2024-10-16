@@ -1,0 +1,3 @@
+
+_target_: models.modules.blocks.AvgPool3D
+pooling: 2

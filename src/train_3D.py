@@ -105,9 +105,9 @@ class Trainer:
         assert args.region == "global_3D"
         self.region = args.region
 
-        assert type(args.stride) == list
-        assert type(args.steps) == list
-        assert type(args.step_transition) == list
+        assert type(args.data_stride) == list or OmegaConf.is_list(args.data_stride)
+        assert type(args.steps) == list or OmegaConf.is_list(args.steps)
+        assert type(args.step_transition) == list or OmegaConf.is_list(args.step_transition)
         assert len(args.step_transition) == len(args.steps) - 1
         max_steps = str(args.steps[-1])
         self.str_video = (

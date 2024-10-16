@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .activations import CappedGELU
+from einops import rearrange
 
 
 class BasicConvBlock(torch.nn.Module):
@@ -184,6 +185,14 @@ class BilinearUpsample(torch.nn.Module):
     def forward(self, x):
         return self.upsampler(x)
 
+class BilinearUpsample3D(torch.nn.Module):
+    def __init__(self, upsampling: int = 2, **kwargs):
+        super().__init__()
+        self.upsampler = torch.nn.Upsample(scale_factor=(1, upsampling, upsampling), mode="trilinear")
+
+    def forward(self, x):
+        return self.upsampler(x)
+
 
 class AvgPool(torch.nn.Module):
     def __init__(
@@ -192,6 +201,17 @@ class AvgPool(torch.nn.Module):
     ):
         super().__init__()
         self.avgpool = torch.nn.AvgPool2d(pooling)
+
+    def forward(self, x):
+        return self.avgpool(x)
+    
+class AvgPool3D(torch.nn.Module):
+    def __init__(
+        self,
+        pooling: int = 2,
+    ):
+        super().__init__()
+        self.avgpool = torch.nn.AvgPool3d((1, pooling, pooling))
 
     def forward(self, x):
         return self.avgpool(x)
@@ -368,6 +388,203 @@ class ConvNeXtBlock(CoreBlock):
                 )
             x = l(x)
         return skip + x
+
+
+class ConvNeXtBlock3D(CoreBlock):
+    """
+    A convolution block as reported in https://github.com/CognitiveModeling/dlwp-hpx/blob/main/src/dlwp-hpx/dlwp/model/modules/blocks.py.
+
+    This is a modified version of the actual ConvNextblock which is used in the HealPix paper. Use of dilations here.
+
+    """
+
+    def __init__(
+        self,
+        in_channels: int = 300,
+        out_channels: int = 1,
+        kernel_size: int = 3,
+        dilation: int = 1,
+        n_layers: int = 1,
+        activation: torch.nn.Module = torch.nn.ReLU,
+        pad="circular",
+        upscale_factor: int = 4,
+        norm="batch",
+    ):
+        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        assert n_layers == 1, "Can only use a single layer here!"
+
+        # Instantiate 1x1 conv to increase/decrease channel depth if necessary
+        if in_channels == out_channels:
+            self.skip_module = lambda x: x  # Identity-function required in forward pass
+        else:
+            self.skip_module = torch.nn.Conv3d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+            )
+
+        # Convolution block
+        convblock = []
+        convblock.append(
+            torch.nn.Conv3d(
+                in_channels=in_channels,
+                out_channels=int(in_channels * upscale_factor),
+                kernel_size=(1, kernel_size, kernel_size),
+                dilation=dilation,
+            )
+        )
+        # BatchNorm
+        if norm == "batch":
+            convblock.append(torch.nn.BatchNorm3d(in_channels * upscale_factor))
+        # Instance Norm
+        elif norm == "instance":
+            convblock.append(torch.nn.InstanceNorm3d(in_channels * upscale_factor))
+        elif norm == "nonorm":
+            pass
+        else:
+            raise NotImplementedError
+        if activation is not None:
+            convblock.append(activation)
+        convblock.append(
+            torch.nn.Conv3d(
+                in_channels=int(in_channels * upscale_factor),
+                out_channels=int(in_channels * upscale_factor),
+                kernel_size=(1, kernel_size, kernel_size),
+                dilation=dilation,
+            )
+        )
+        # BatchNorm
+        if norm == "batch":
+            convblock.append(torch.nn.BatchNorm3d(in_channels * upscale_factor))
+        # Instance Norm
+        elif norm == "instance":
+            convblock.append(torch.nn.InstanceNorm3d(in_channels * upscale_factor))
+        elif norm == "nonorm":
+            pass
+        else:
+            raise NotImplementedError
+        if activation is not None:
+            convblock.append(activation)
+        # Linear postprocessing
+        convblock.append(
+            torch.nn.Conv3d(
+                in_channels=int(in_channels * upscale_factor),
+                out_channels=out_channels,
+                kernel_size=1,
+            )
+        )
+        self.convblock = torch.nn.Sequential(*convblock)
+
+    def forward(self, x):
+        # return self.skip_module(x) + self.convblock(x)
+        skip = self.skip_module(x)
+        for l in self.convblock:
+            if isinstance(l, nn.Conv3d) and l.kernel_size[-1] != 1:
+                x = torch.nn.functional.pad(
+                    x, (self.N_pad, self.N_pad, 0, 0, 0, 0), mode=self.pad
+                )
+                x = torch.nn.functional.pad(
+                    x, (0, 0, self.N_pad, self.N_pad, 0, 0), mode="constant"
+                )
+            x = l(x)
+        return skip + x
+
+
+class ConvNeXtTemporalBlock(CoreBlock):
+    def __init__(
+        self,
+        in_channels: int = 300,
+        out_channels: int = 1,
+        kernel_size: int = 3,
+        dilation: int = 1,
+        n_layers: int = 1,
+        activation: torch.nn.Module = torch.nn.ReLU,
+        pad="circular",
+        upscale_factor: int = 4,
+        norm="batch",
+    ):
+        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        assert n_layers == 1, "Can only use a single layer here!"
+
+        # Instantiate 1x1 conv to increase/decrease channel depth if necessary
+        if in_channels == out_channels:
+            self.skip_module = lambda x: x  # Identity-function required in forward pass
+        else:
+            self.skip_module = torch.nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+            )
+
+        # Convolution block
+        convblock = []
+        convblock.append(
+            torch.nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=int(in_channels * upscale_factor),
+                kernel_size=kernel_size,
+                dilation=dilation,
+            )
+        )
+        # BatchNorm
+        if norm == "batch":
+            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
+        # Instance Norm
+        elif norm == "instance":
+            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
+        elif norm == "nonorm":
+            pass
+        else:
+            raise NotImplementedError
+        if activation is not None:
+            convblock.append(activation)
+        convblock.append(
+            torch.nn.Conv2d(
+                in_channels=int(in_channels * upscale_factor),
+                out_channels=int(in_channels * upscale_factor),
+                kernel_size=kernel_size,
+                dilation=dilation,
+            )
+        )
+        # BatchNorm
+        if norm == "batch":
+            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
+        # Instance Norm
+        elif norm == "instance":
+            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
+        elif norm == "nonorm":
+            pass
+        else:
+            raise NotImplementedError
+        if activation is not None:
+            convblock.append(activation)
+        # Linear postprocessing
+        convblock.append(
+            torch.nn.Conv2d(
+                in_channels=int(in_channels * upscale_factor),
+                out_channels=out_channels,
+                kernel_size=1,
+            )
+        )
+        self.convblock = torch.nn.Sequential(*convblock)
+
+    def forward(self, x):
+        # return self.skip_module(x) + self.convblock(x)
+        N,C,T,H,W = x.shape
+        x = rearrange(x, 'n c t h w -> n (c t) h w')
+        skip = self.skip_module(x)
+        for l in self.convblock:
+            if isinstance(l, nn.Conv2d) and l.kernel_size[-1] != 1:
+                x = torch.nn.functional.pad(
+                    x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                )
+                x = torch.nn.functional.pad(
+                    x, (0, 0, self.N_pad, self.N_pad), mode="constant"
+                )
+            x = l(x)
+        x = skip + x
+        x = rearrange(x, 'n (c t) h w -> n c t h w', t=T)
+        return x
 
 
 class LayerNorm(nn.Module):

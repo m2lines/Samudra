@@ -215,11 +215,11 @@ class Trainer:
             i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 8
         summary(model, input_data=[i], col_names=[], depth=10)
         
-        from thop import profile
-        macs, params = profile(model, inputs=(i,))
-        print(f"MACs: {macs / 1e9:.2f} GFLOPs")
-        print(f"Params: {params} ")
-        model = model.to(args.device) # This is required here because profile does something weird to the model
+        # from thop import profile
+        # macs, params = profile(model, inputs=(i,))
+        # print(f"MACs: {macs / 1e9:.2f} GFLOPs")
+        # print(f"Params: {params} ")
+        # model = model.to(args.device) # This is required here because profile does something weird to the model
 
         self.model = model
         self.nets_dir = args.nets_dir
@@ -433,11 +433,15 @@ class Trainer:
             # Iterative step training
             if epoch == self.start_epoch or epoch in self.step_transition:
                 if epoch == self.start_epoch:
-                    for i, step in enumerate(self.steps):
-                        if epoch <= step:
-                            cur_step = step
-                            cur_step_idx = i
-                            break
+                    if len(self.steps) == 1:
+                        cur_step = self.steps[0]
+                        cur_step_idx = 0
+                    else:
+                        for i, step in enumerate(self.steps):
+                            if epoch <= step:
+                                cur_step = step
+                                cur_step_idx = i
+                                break
                     print(f"Starting training at step {cur_step}")
                 elif epoch in self.step_transition:
                     cur_step_idx += 1
@@ -609,7 +613,7 @@ class Trainer:
         )
 
         # predictions = model_pred.transpose(0, 3, 1, 2)
-        predictions = rearrange(model_pred, "b t h w c -> b (t c) h w")
+        predictions = rearrange(model_pred, "b t h w c -> b (c t) h w")
         targets = self.target_set[rank]
         targets_transposed = targets.transpose(0, 2, 3, 1)
 
@@ -756,8 +760,9 @@ class Trainer:
         print("Loaded checkpoint from", checkpoint_path)
         checkpoint = torch.load(checkpoint_path)
         if finetune:
-            self.model.load_state_dict(checkpoint["model"])
+            self.model.load_state_dict(checkpoint["model"], strict=False)
         else:
+            self.model.load_state_dict(checkpoint["model"], strict=False)
             self.optimizer.load_state_dict(checkpoint["optimizer"])
             self.scheduler.load_state_dict(checkpoint["scheduler"])
             self.start_epoch = checkpoint["epoch"] + 1

@@ -30,7 +30,13 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_debug wandb.mode=online exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_restart" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 resume_ckpt_path=/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-09-04-convnextunet_v021_hist1_hfds_anom/aaa/saved_nets/convnextunet_epoch_55_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt --qos=debug
 
 # All history=1 1975 + no fast inp/out 
-./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all_1975 name="$(date +%F)-convnextunet_v021_hist1_1975" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all_1975 name="$(date +%F)-convnextunet_v021_hist1_1975" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular
+
+# All history=1 1975 cuminteg + no fast inp/out 
+./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_14hrs wandb.mode=online exp=train_unet_global_3D_all_hfds_cuminteg_1975 name="$(date +%F)-convnextunet_v021_hist1_1975_onlyseasonalizedcuminteg" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular
+
+# All history=1 1975 cuminteg
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all_hfds_anomcuminteg_1975 name="$(date +%F)-convnextunet_v021_hist1_1975_cuminteg_all" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70 --qos=regular
 
 # All history=1 hfds anom + no fast inp/out 
 # ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_1day wandb.mode=online exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_nofast_iterativesteptraining" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=100 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular

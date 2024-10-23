@@ -4,7 +4,7 @@ defaults:
   - exp: ???
 
 base_output_dir: ${oc.env:BASE_OE_DIR}
-data_dir: /pscratch/sd/s/suryad/data
+data_dir: /vast/sd5313/data/m2lines/3D_ocean_data
 pred_dir: ${oc.env:BASE_OE_DIR}/Preds
 experiment: ???
 sub_dir: ${experiment}

@@ -29,9 +29,9 @@ def convert_super_grid(ds_super_grid: xr.Dataset):
     return angle_h, lon_h, lat_h, lon_b, lat_b
 
 
-def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
+def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None):
     """OM4 specific preprocessing"""
-    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={})
+    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs)
 
     if "z_i" in ds.coords:
         ds = ds.rename({"z_i": "ilev", "z_l": "lev"})
@@ -116,7 +116,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     ds = apply_mask(ds_interpolated, tracer_wetmask)
     ds = ds.assign_coords(ilev=ilev, wetmask=tracer_wetmask)
 
-    with fsspec.open(nc_grid_path) as f:
+    with fs.open(nc_grid_path) as f:
         ds_grid = xr.open_dataset(f).load()
 
     ds_grid = ds_grid.drop_vars("time")
@@ -143,7 +143,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     drop_coords = [co for co in ds.coords.keys() if co not in required_coords]
     ds = ds.drop(drop_coords)
 
-    with fsspec.open(nc_mosaic_path) as f:
+    with fs.open(nc_mosaic_path) as f:
         ds_super_grid = xr.open_dataset(f).load()
 
     a, lon, lat, lon_b, lat_b = convert_super_grid(ds_super_grid)

@@ -1,18 +1,19 @@
 import numpy as np
 import xarray as xr
 from xgcm import Grid
+import fsspec
 
 from .gfdl_om4 import om4_preprocessing
 from .interpolate import interpolate_to_cell_centers
 
 
-def sis2_preprocessing(zarr_data_path):
+def sis2_preprocessing(zarr_data_path, backend_kwargs=None):
     """SIS2.0 specific preprocessing
 
     Args:
         zarr_data_path (str): path to the sea ice model output
     """
-    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={})
+    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs)
 
     # trim excess padding
     if ds["xB"].size == ds["xT"].size + 1:
@@ -35,7 +36,7 @@ def sis2_preprocessing(zarr_data_path):
     return ds.rename({"xT": "x", "yT": "y"})
 
 
-def cm4_preprocessing(om_zarr_path, sis_zarr_path, nc_grid_path, nc_mosaic_path):
+def cm4_preprocessing(om_zarr_path, sis_zarr_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None):
     """CM4 specific preprocessing
 
     Args:
@@ -48,6 +49,8 @@ def cm4_preprocessing(om_zarr_path, sis_zarr_path, nc_grid_path, nc_mosaic_path)
         zarr_data_path=om_zarr_path,
         nc_grid_path=nc_grid_path,
         nc_mosaic_path=nc_mosaic_path,
+        fs=fs,
+        backend_kwargs=backend_kwargs,
     )
-    ds_sis = sis2_preprocessing(sis_zarr_path)
+    ds_sis = sis2_preprocessing(sis_zarr_path, backend_kwargs=backend_kwargs)
     return xr.merge([ds_om, ds_sis])

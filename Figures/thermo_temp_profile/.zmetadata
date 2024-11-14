@@ -1,0 +1,118 @@
+{
+    "metadata": {
+        "$/.zgroup": {
+            "zarr_format": 2
+        },
+        "$/theta_O$/.zarray": {
+            "chunks": [
+                10,
+                10
+            ],
+            "compressor": {
+                "blocksize": 0,
+                "clevel": 5,
+                "cname": "lz4",
+                "id": "blosc",
+                "shuffle": 1
+            },
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                19,
+                180
+            ],
+            "zarr_format": 2
+        },
+        "$/theta_O$/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "lev",
+                "y"
+            ],
+            "coordinates": "time dz",
+            "units": "\\degree C"
+        },
+        ".zattrs": {},
+        ".zgroup": {
+            "zarr_format": 2
+        },
+        "dz/.zarray": {
+            "chunks": [
+                19
+            ],
+            "compressor": null,
+            "dtype": "<i8",
+            "fill_value": null,
+            "filters": null,
+            "order": "C",
+            "shape": [
+                19
+            ],
+            "zarr_format": 2
+        },
+        "dz/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "lev"
+            ]
+        },
+        "lev/.zarray": {
+            "chunks": [
+                19
+            ],
+            "compressor": null,
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                19
+            ],
+            "zarr_format": 2
+        },
+        "lev/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "lev"
+            ],
+            "long_name": "depth",
+            "units": "m"
+        },
+        "time/.zarray": {
+            "chunks": [],
+            "compressor": null,
+            "dtype": "<i8",
+            "fill_value": null,
+            "filters": null,
+            "order": "C",
+            "shape": [],
+            "zarr_format": 2
+        },
+        "time/.zattrs": {
+            "_ARRAY_DIMENSIONS": [],
+            "calendar": "proleptic_gregorian",
+            "units": "days since 1990-01-18 12:00:00"
+        },
+        "y/.zarray": {
+            "chunks": [
+                180
+            ],
+            "compressor": null,
+            "dtype": "<f8",
+            "fill_value": "NaN",
+            "filters": null,
+            "order": "C",
+            "shape": [
+                180
+            ],
+            "zarr_format": 2
+        },
+        "y/.zattrs": {
+            "_ARRAY_DIMENSIONS": [
+                "y"
+            ],
+            "long_name": "latitude",
+            "units": "$\\degree$"
+        }
+    },
+    "zarr_consolidated_format": 1
+}

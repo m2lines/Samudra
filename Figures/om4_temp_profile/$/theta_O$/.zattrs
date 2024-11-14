@@ -1,0 +1,8 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "lev",
+        "y"
+    ],
+    "coordinates": "time dz",
+    "units": "\\degree C"
+}

@@ -31,13 +31,16 @@ export BASE_OE_DIR=$PWD
 # ./.python-greene submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_1975 name="$(date +%F)-local_train_convnextunet_global_3D_hist1_1975" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
 
 # Hist 1 cuminteg 1975 Slow
-./.python-greene submitit_hydra.py compute=local exp=train_unet_global_3D_all_hfds_cuminteg_1975 name="$(date +%F)-local_train_convnextunet_global_3D_anom_cuminteg_hist1_1975" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
+# ./.python-greene submitit_hydra.py compute=local exp=train_unet_global_3D_all_hfds_cuminteg_1975 name="$(date +%F)-local_train_convnextunet_global_3D_anom_cuminteg_hist1_1975" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
 
 # Hist 1 anom
 # ./.python-greene submitit_hydra.py compute=local exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-local_train_convnextunet_global_3D_hist1_hfds_anom" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 
 
 # anom 1975 + TS
 # ./.python-greene submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_TS_hist1" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=2 epochs=70 exp_num_in=3D_TS_all exp_num_out=3D_TS_all
+
+# anom 1975
+./.python-greene submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=70
 
 # anom 1975 + nofast - T,S,SSH
 # ./.python-greene submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_hfds_anom_1975 name="$(date +%F)-convnextunet_v021_hist1_hfds_anom_1975_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=100 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 

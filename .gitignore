@@ -23,3 +23,6 @@ temp
 train_3D
 token.txt
 profile-logs/
+tiny-imagenet-200
+*.pth
+Figures

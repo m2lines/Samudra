@@ -416,11 +416,15 @@ class Trainer:
             # Iterative step training
             if epoch == self.start_epoch or epoch in self.step_transition:
                 if epoch == self.start_epoch:
-                    for i, step in enumerate(self.steps):
-                        if epoch <= step:
-                            cur_step = step
+                    cur_step = None
+                    for i, epoch_to_transition in enumerate(self.step_transition):
+                        if epoch <= epoch_to_transition:
+                            cur_step = self.steps[i]
                             cur_step_idx = i
                             break
+                    if cur_step is None:
+                        cur_step = self.steps[-1]
+                        cur_step_idx = len(self.steps) - 1
                     print(f"Starting training at step {cur_step}")
                 elif epoch in self.step_transition:
                     cur_step_idx += 1

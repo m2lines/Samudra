@@ -31,7 +31,7 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_1975 name="$(date +%F)-local_train_convnextunet_global_3D_hist1_1975" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
 
 # Hist 1 cuminteg 1975 Slow
-./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all_hfds_cuminteg_1975 name="$(date +%F)-local_train_convnextunet_global_3D_anom_cuminteg_hist1_1975" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
+# ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all_hfds_cuminteg_1975 name="$(date +%F)-local_train_convnextunet_global_3D_anom_cuminteg_hist1_1975" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
 
 # Hist 1 anom
 # ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all_hfds_anom name="$(date +%F)-local_train_convnextunet_global_3D_hist1_hfds_anom" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 
@@ -61,4 +61,11 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute=local exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3D_seedtest2" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_out=3D_onlyFast_all
 
 ### Swin
-# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all name="$(date +%F)-local_train_swin_global_3D_all" region=global_3D batch_size=4 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=180 hist=1
+# Hist 1 all
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_hfds_anom_1975 name="$(date +%F)-local_train_swin_global_3D_all" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1
+
+# Hist 1 no fast
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_hfds_anom_1975 name="$(date +%F)-local_train_swin_global_3D_all_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 
+
+# Hist 1 no fast v2
+./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_hfds_anom_1975 name="$(date +%F)-local_train_swin_global_3D_all_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp/modules/blocks@swin.block=swin_blockv2 exp/modules/blocks@swin.downsample_layer=patch_mergev2 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 

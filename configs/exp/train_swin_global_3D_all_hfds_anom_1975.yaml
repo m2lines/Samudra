@@ -1,6 +1,5 @@
 # @package _global_
 defaults:
-  - _self_
   - swin: swin
 
 wandb:
@@ -15,18 +14,19 @@ wandb:
 experiment: train_3D
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-wet_file: 3D_wet.pt
-surface_wet_file: surface_wet.pt
-data_zarr: 3D_data
-data_means_zarr: 3D_data_means
-data_stds_zarr: 3D_data_stds
+wet_file: OM4_5daily_v0.2.1_wetmask
+smooth: False
+data_zarr: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_1975
+data_means_zarr: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_1975_means
+data_stds_zarr: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_1975_stds
+scaling_residuals_file: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_1975_scaling_residuals
 grid_file: Grid_New.nc
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
 
 
 #####
-region: global_3D # "global_21"
+region: "global_1"
 depth_mode: all
 network: "swin"
 scheduler: False
@@ -43,7 +43,7 @@ disk_mode: True
 num_workers: 4
 pin_mem: True
 save_freq: 5
-epochs: 35
+epochs: 70
 batch_size: 32
 # grad_clip: False
 
@@ -53,12 +53,14 @@ T: ${epochs} # 10 # CosineA / CosineAWarm param
 
 # Parameters
 exp_num_in: "3D_all"
-exp_num_extra: "3D_all"
+exp_num_extra: "3D_all_hfds_anom"
 exp_num_out: "3D_all"
-N_samples:  4000 #4000
+N_samples:  2850 #4000
 N_val:  140 #300
 N_test: 600 #500
-steps: 4
+data_stride: [1]
+steps: [4]
+step_transition: []
 interval: 1
 hist: 0
 lag: 1
@@ -66,6 +68,7 @@ lam: 0.05
 Nb: 0
 factor: 10
 lateral: false
+finetune: false
 
 ### Do not touch these
 # distributed args

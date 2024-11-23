@@ -1,11 +1,37 @@
 defaults:
-  - /exp/modules/blocks@core_block: conv_next_block
+  - /exp/modules/blocks@core_block: conv_next_block_swin
   - /exp/modules/blocks@up_sampling_block: bilinear_upsample
   - /exp/modules/activations@activation: capped_gelu
+  - /exp/modules/blocks@block: swin_block
+  - /exp/modules/blocks@downsample_layer: patch_merge
 
 _target_: models.swin.SwinTransformer
 _recursive_: false
-dilation:
+# Swin Encoder
+patch_size: 
+  - 2
+  - 2
+window_size:
+  - 18
+  - 18
+embed_dim: 240
+depths:
+  - 2
+  - 2
+  - 6
+  - 2
+num_heads:
+  - 3
+  - 6
+  - 12
+  - 24
+mlp_ratio: 4.0
+dropout: 0.0
+attention_dropout: 0.0
+stochastic_depth_prob: 0.2
+norm_layer: null # Default is LayerNorm
+# ConvNext Decoder
+dilation: 
   - 1
   - 2
   - 4
@@ -15,29 +41,6 @@ n_layers:
   - 1
   - 1
   - 1
-patch_size: 4
-embed_dim: 30
-depths:
-  - 2
-  - 2
-  - 2
-  - 2
-num_heads:
-  - 3
-  - 6
-  - 10
-  - 15
-window_size: 10
-mlp_ratio: 4.0
-qkv_bias: True
-qk_scale: null
-drop_rate: 0.0
-attn_drop_rate: 0.0
-drop_path_rate: 0.2
-ape: False
-patch_norm: True
-out_indices: [0, 1, 2, 3]
-frozen_stages: -1
 pred_residuals: False
 last_kernel_size: 3
 pad: "circular"

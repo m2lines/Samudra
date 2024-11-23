@@ -9,6 +9,7 @@ from pathlib import Path
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
 from functools import partial
+import logging
 
 import torch
 import torch.nn as nn
@@ -156,13 +157,19 @@ class Trainer:
         # Model
         print("Getting model " + args.network)
         if "swin" == args.network:
+            lat = torch.tensor(self.data.lat.values).to(dtype=torch.float32).unsqueeze(0).cuda()
+            lon = torch.tensor(self.data.lon.values).to(dtype=torch.float32).unsqueeze(0).cuda()
+            mask = ~torch.tensor(self.data.wetmask.isel(lev=0).values).cuda()
+            
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
                 output_channels=self.num_out,
-                pretrain_img_size=[180, 360],
                 wet=self.wet.cuda(),
                 hist=args.hist,
+                lat=lat,
+                lon=lon,
+                land_mask=mask,
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:
             if args.unet.ch_width[0] != self.num_in:
@@ -194,15 +201,16 @@ class Trainer:
 
         # Summary
         i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 2
-        summary(
+        
+        logging.info(summary(
             model,
             input_data=[i],
             col_names=["kernel_size", "output_size", "num_params"],
             depth=10,
-        )
+        ))
 
         i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 8
-        summary(model, input_data=[i], col_names=[], depth=10)
+        logging.info(summary(model, input_data=[i], col_names=[], depth=10))
 
         self.model = model
         self.nets_dir = args.nets_dir
@@ -288,14 +296,9 @@ class Trainer:
 
         # DDP Model
         self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
-        if "swin" in args.network:
-            self.model = nn.parallel.DistributedDataParallel(
-                self.model, device_ids=[args.gpu], find_unused_parameters=True
-            )
-        elif "unet" in args.network:
-            self.model = nn.parallel.DistributedDataParallel(
-                self.model, device_ids=[args.gpu]
-            )
+        self.model = nn.parallel.DistributedDataParallel(
+            self.model, device_ids=[args.gpu]
+        )
 
         # Training
         self.epochs = args.epochs

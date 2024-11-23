@@ -31,4 +31,8 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_CM4 name="$(date +%F)-convnextunet_v021_hist1_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=100 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 
 
 ### Swin
-# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all name="$(date +%F)-local_train_swin_global_3D_all" region=global_3D batch_size=4 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=180 hist=1
+# Hist 1 CM4 all
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swin_global_3D_all_CM4" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1
+
+# Hist 1 CM4 no fast
+./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swin_global_3D_all_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 

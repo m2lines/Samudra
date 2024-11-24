@@ -728,7 +728,7 @@ class SwinTransformerEncoder(nn.Module):
         for layer in self.features:        
             x = layer(x.cuda())
             
-            if not isinstance(layer, PatchMerging):
+            if not isinstance(layer, PatchMerging) and not isinstance(layer, PatchMergingV2):
                 out = (
                     x.permute(0, 3, 1, 2)
                     .contiguous()

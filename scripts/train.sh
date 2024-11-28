@@ -75,8 +75,17 @@ export BASE_OE_DIR=$PWD
 
 ### Swin
 
+# All history=1 
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_30hrs wandb.mode=online exp=train_swin_global_3D_all_hfds_anom_1975 name="$(date +%F)-swinv1_hist1" region=global_3D batch_size=4 scheduler=True rand_seed=15 hist=1 epochs=70 --qos=regular
+
+
 # All history=1 no fast inp/out 
-./.python-perlmutter submitit_hydra.py compute/greene=4x2 compute/greene/node=a100_30hrs wandb.mode=online exp=train_swin_global_3D_all_hfds_anom_1975 name="$(date +%F)-swinv1_hist1_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular
+# ./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_30hrs wandb.mode=online exp=train_swin_global_3D_all_hfds_anom_1975 name="$(date +%F)-swinv1_hist1_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 hist=1 epochs=70 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular
+
+
+# All history=1 no fast inp/out v2
+./.python-perlmutter submitit_hydra.py compute/greene=2x2 compute/greene/node=a100_30hrs wandb.mode=online exp=train_swin_global_3D_all_hfds_anom_1975 name="$(date +%F)-swinv2_hist1_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 hist=1 epochs=70 exp/modules/blocks@swin.block=swin_blockv2 exp/modules/blocks@swin.downsample_layer=patch_mergev2 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all --qos=regular
+
 
 ###########################################################################################
 # Global_1 Training

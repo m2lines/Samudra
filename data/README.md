@@ -84,19 +84,20 @@ prediction_data_test(ds_prediction, ds_truth)
 ### Raw data
 | input_id | Cloud | Greene |
 | --- | --- | --- |
-| `'OM4_5daily'` | `'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
-| `"10_year_CM4_ocean_5daily"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_5daily.zarr"`| |
-| `"10_year_CM4_ice_5daily"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ice_5daily.zarr"` | |
-| `"10_year_CM4_ocean_6hourly"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_6hourly.zarr"` | |
-| `"10_year_CM4_ice_6hourly"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/full_state_ice.zarr"` | |
+| `'OM4_5daily'` | `'https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
+| `"10_year_CM4_ocean_5daily"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_5daily.zarr"`| |
+| `"10_year_CM4_ice_5daily"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ice_5daily.zarr"` | |
+| `"10_year_CM4_ocean_6hourly"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_6hourly.zarr"` | |
+| `"10_year_CM4_ice_6hourly"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/full_state_ice.zarr"` | |
 
 ### Input data
 
 | input_id | Cloud |
 | --- | --- |
-| `'OM4_5daily_v0.0'` | `"gs://leap-persistent/sd5313/input_OM4v0.0"` |
-| `'OM4_5daily_v0.2.1'` | `"gs://leap-persistent/jbusecke/ocean-emulators/OM4_5daily_v0.2.1.zarr"`|
-| `"CMIP_CM4_v0.1"` | `"gs://leap-persistent/jbusecke/ocean-emulators/CMIP6_GFDL-CM4.piControl.r1i1p1f1_v0.1.zarr"` |
+| `'OM4_5daily_v0.0'` | `"https://nyu1.osn.mghpcc.org/emulators/sd5313/input_OM4v0.0"` |
+| `'OM4_5daily_v0.2.1'` | `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/OM4_5daily_v0.2.1.zarr"`|
+| `"CMIP_CM4_v0.1"` | `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CMIP6_GFDL-CM4.piControl.r1i1p1f1_v0.1.zarr"` |
+| `"CM4_5daily_v0.4.0"`| `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CM4_5daily_v0.4.0.zarr"`| 
 
 
 ## Developing this package

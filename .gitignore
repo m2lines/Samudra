@@ -23,3 +23,5 @@ temp
 train_3D
 token.txt
 profile-logs/
+*.mp4
+*.gif

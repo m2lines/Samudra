@@ -102,7 +102,8 @@ EXTRA_VARS = {
     "3D_all_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
     "3D_all_hfds_anom_cuminteg": ["tauuo", "tauvo", "hfds", "hfds_anomalies", "cum_integrated_heat"],
     "3D_all_onlyhfds_cuminteg": ["tauuo", "tauvo", "cum_integrated_heat"],
-    "3D_SST_all": ["tauuo", "tauvo", "hfds", "thetao_lev_0"],
+    "3D_all_SAT_tos": ["tauuo", "tauvo", "DSWRFtoa", "air_temperature_at_two_meters"],
+    "3D_all_SAT": ["tauuo", "tauvo", "air_temperature_at_two_meters"],
 }
 OUT_VARS = {
     "1": ["um", "vm"],

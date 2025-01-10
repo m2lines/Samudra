@@ -28,7 +28,7 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_CM4 name="$(date +%F)-convnextunet_v021_hist1_CM4" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=100
 
 # Hist 1 CM4 no fast
-# ./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_CM4 name="$(date +%F)-convnextunet_v021_hist1_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=100 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 
+./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_CM4 name="$(date +%F)-convnextunet_v021_hist1_CM4_SAT" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all exp_num_extra=3D_all_SAT lr=2e-5
 
 ### Swin
 # Hist 1 CM4 all

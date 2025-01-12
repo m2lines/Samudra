@@ -15,8 +15,14 @@ wandb:
 experiment: eval
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-path_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/Preds
-data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/.LOCAL/save_data/2024-03-06-save_data_test/data # /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
+wet_file: OM4_5daily_v0.2.1_wetmask
+data_zarr: 3D_data_OM4_5daily_v0.2.1
+smooth: False
+data_means_zarr: 3D_data_OM4_5daily_v0.2.1_means
+data_stds_zarr: 3D_data_OM4_5daily_v0.2.1_stds
+grid_file: Grid_New.nc
+raw_data_zarr: OM4_5daily_v0.2.1.zarr
+path_dir: ${pred_dir}
 steps: 4
 
 ######

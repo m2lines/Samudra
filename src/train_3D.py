@@ -1,23 +1,38 @@
 import os
 import copy
 import wandb
+import warnings
 import time
 import datetime
 import json
 from pathlib import Path
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
+from functools import partial
+import logging
 
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
+from torch.utils.data import ConcatDataset
 import numpy as np
 from torch.cuda import amp
 from torchinfo import summary
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
-from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, CH_3D_IDX, DP_3D_IDX
-from utils.train_utils import decomposed_mse, SmoothedValue, MetricLogger
+from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
+from utils.train_utils import (
+    decomposed_mse,
+    decomposed_mse_diff_weighted,
+    decomposed_mse_cos_weighted,
+    decomposed_mse_scaled,
+    decomposed_mse_mae,
+    SmoothedValue,
+    MetricLogger,
+    extract_wet,
+    extract_surface_wet,
+)
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -42,30 +57,15 @@ class Trainer:
         # Distributed mode
         init_distributed_mode(args)
         dask.config.set(scheduler="synchronous")
-        cudnn.benchmark = True
 
         if not args.disk_mode:
             assert args.num_workers == 0 and args.pin_mem == False
         else:
-            args.num_workers = torch.cuda.device_count() * 4
+            args.num_workers = torch.cuda.device_count() * args.num_workers
             args.pin_mem = True
 
         # Set seeds
         set_seed(args.rand_seed)
-
-        # Wandb
-        name = (
-            args.name + "//" + args.sub_name
-            if hasattr(args, "sub_name")
-            else ".LOCAL" + "//" + args.name
-        )
-        wandb.init(
-            config=OmegaConf.to_container(args, resolve=True),
-            name=name,
-            dir=args.experiment_dir,
-            **args.wandb,
-        )
-        self.wandb = args.wandb.mode == "online"
 
         # Check dirs
         if not os.path.exists(args.nets_dir):
@@ -75,6 +75,16 @@ class Trainer:
         self.inputs = INPT_VARS[args.exp_num_in]
         self.extra_in = EXTRA_VARS[args.exp_num_extra]
         self.outputs = OUT_VARS[args.exp_num_out]
+        self.CH_3D_IDX, self.DP_3D_IDX, self.VAR_SET, self.DEPTH_SET = get_eval_maps(
+            args.exp_num_out
+        )
+        levels = args.exp_num_in.split("_")[-1]
+        if "all" in levels:
+            self.levels = 19
+        elif "2D" in levels:
+            self.levels = 1
+        else:
+            self.levels = int(levels)
 
         self.str_in = "".join([i + "_" for i in self.inputs])
         self.str_ext = "".join([i + "_" for i in self.extra_in])
@@ -83,6 +93,7 @@ class Trainer:
         print("inputs: " + self.str_in)
         print("extra inputs: " + self.str_ext)
         print("outputs: " + self.str_out)
+        print("levels: " + str(self.levels))
 
         s_train = args.lag * args.hist
         e_train = s_train + args.N_samples * args.interval
@@ -99,16 +110,24 @@ class Trainer:
         self.N_out = len(self.outputs)
 
         self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
+        self.num_out = int((args.hist + 1) * len(self.outputs))
 
         print("Number of inputs: ", self.num_in)
-        print("Number of outputs: ", self.N_out)
+        print("Number of outputs: ", self.num_out)
 
         assert args.region == "global_3D"
         self.region = args.region
 
+        assert type(args.data_stride) == list or OmegaConf.is_list(args.data_stride)
+        assert type(args.steps) == list or OmegaConf.is_list(args.steps)
+        assert type(args.step_transition) == list or OmegaConf.is_list(
+            args.step_transition
+        )
+        assert len(args.step_transition) == len(args.steps) - 1
+        max_steps = str(args.steps[-1])
         self.str_video = (
             "steps_"
-            + str(args.steps)
+            + max_steps
             + "_"
             + args.region
             + "_"
@@ -122,72 +141,83 @@ class Trainer:
         # Dataloaders
         print("Loading data")
         assert args.depth_mode == "surface" or args.depth_mode == "all"
+        self.data_dir = args.data_dir
+        self.wet_file = args.wet_file
+        self.data_zarr = args.data_zarr
+        self.data_means_zarr = args.data_means_zarr
+        self.data_stds_zarr = args.data_stds_zarr
+        self.scaling_residuals_file = args.scaling_residuals_file
+        self.grid_file = args.grid_file
 
-        if args.depth_mode == "surface":
-            self.wet = torch.load(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
-            )
-            self.data = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data"
-            )
-            self.data_mean = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_means"
-            )
-            self.data_std = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/surface_data_stds"
-            )
-        elif args.depth_mode == "all":
-            self.wet = torch.load("/vast/sd5313/data/m2lines/3D_ocean_data/3D_wet.pt")
+        self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
+        self.data_mean = xr.open_zarr(os.path.join(self.data_dir, self.data_means_zarr))
+        self.data_std = xr.open_zarr(os.path.join(self.data_dir, self.data_stds_zarr))
 
-            self.data = xr.open_zarr("/vast/sd5313/data/m2lines/3D_ocean_data/3D_data")
-            self.data_mean = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_means"
-            )
-            self.data_std = xr.open_zarr(
-                "/vast/sd5313/data/m2lines/3D_ocean_data/3D_data_stds"
-            )
+        ## TEMP SMOOTHING FIX HERE
+        if args.smooth:
+            start = time.time()
+            for var in self.outputs:
+                if "uo" in var or "vo" in var:
+                    window = 10
+                    print(f"Smoothing {var} with window size {window}")
+                    self.data[var] = (
+                        self.data[var]
+                        .rolling(time=window, min_periods=1, center=False)
+                        .mean()
+                        .compute()
+                    )
 
-        train_data = data_CNN_Disk_steps(
-            self.data,
-            self.inputs,
-            self.extra_in,
-            self.outputs,
-            self.wet,
-            self.data_mean,
-            self.data_std,
-            args.N_samples,
-            args.lag,
-            args.interval,
-            args.steps,
-            device="cuda",
-        )
+            print(f"Smoothing took minutes: {(time.time() - start) / 60}")
 
-        print("Instantiating torch loaders")
-
-        self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_data, shuffle=True, seed=args.rand_seed
-        )
-        self.train_loader = torch.utils.data.DataLoader(
-            train_data,
-            batch_size=args.batch_size,
-            sampler=self.train_sampler,
-            num_workers=args.num_workers,
-            pin_memory=args.pin_mem,
-            drop_last=True,
-        )
+        wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
+        self.wet = extract_wet(wet_zarr, self.outputs, args.hist)
+        self.surface_wet = extract_surface_wet(wet_zarr)
 
         # Model
         print("Getting model " + args.network)
         if "swin" == args.network:
+            lat = (
+                torch.tensor(self.data.lat.values)
+                .to(dtype=torch.float32)
+                .unsqueeze(0)
+                .cuda()
+            )
+            lon = (
+                torch.tensor(self.data.lon.values)
+                .to(dtype=torch.float32)
+                .unsqueeze(0)
+                .cuda()
+            )
+            mask = ~torch.tensor(self.data.wetmask.isel(lev=0).values).cuda()
+
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
-                output_channels=self.N_in,
-                pretrain_img_size=[180, 360],
+                output_channels=self.num_out,
                 wet=self.wet.cuda(),
+                hist=args.hist,
+                lat=lat,
+                lon=lon,
+                land_mask=mask,
             )
         elif "convnextunet" == args.network or "adamunet" == args.network:
-            model = instantiate(args.unet, wet=self.wet.cuda())
+            if args.unet.ch_width[0] != self.num_in:
+                print(
+                    "NOTE: Changing input channels to match data {}->{}".format(
+                        args.unet.ch_width[0], self.num_in
+                    )
+                )
+                args.unet.ch_width[0] = self.num_in
+            if args.unet.n_out != self.num_out:
+                print(
+                    "NOTE: Changing output channels to match data {}->{}".format(
+                        args.unet.n_out, self.num_out
+                    )
+                )
+                args.unet.n_out = self.num_out
+            model = instantiate(
+                args.unet, n_out=self.num_out, wet=self.wet.cuda(), hist=args.hist
+            )
         else:
             raise NotImplementedError
 
@@ -197,31 +227,21 @@ class Trainer:
         # summary(model)
 
         model = model.to(args.device)
-        if args.preload:
-            print("Loaded model from ", args.preload)
-            model.load_state_dict(
-                torch.load(args.preload, map_location=torch.device(args.device))
-            )
 
         # Summary
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 2
-        summary(
-            model,
-            input_data=[i],
-            col_names=["kernel_size", "output_size", "num_params"],
-            depth=10,
+        i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 2
+
+        logging.info(
+            summary(
+                model,
+                input_data=[i],
+                col_names=["kernel_size", "output_size", "num_params"],
+                depth=10,
+            )
         )
 
-        i = [torch.zeros(1, *self.train_loader.dataset[0][0].shape).cuda()] * 8
-        summary(model, input_data=[i], col_names=[], depth=10)
-
-        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-        if "swin" in args.network:
-            model = nn.parallel.DistributedDataParallel(
-                model, device_ids=[args.gpu], find_unused_parameters=True
-            )
-        elif "unet" in args.network:
-            model = nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 8
+        logging.info(summary(model, input_data=[i], col_names=[], depth=10))
 
         self.model = model
         self.nets_dir = args.nets_dir
@@ -232,9 +252,36 @@ class Trainer:
         if args.loss == "mse":
             print("Using decomposed mse loss")
             self.loss = decomposed_mse
+        elif args.loss == "mse_diff_weighted":
+            assert args.hist == 1  # TEMP
+            print("Using decomposed mse loss with weighted diff")
+            self.loss = decomposed_mse_diff_weighted
+        elif args.loss == "mse_cos_weighted":
+            print("Using decomposed mse loss with weighted cos")
+            area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
+            area_weights = torch.from_numpy(area_weights).to(device="cuda")
+            self.loss = partial(decomposed_mse_cos_weighted, cos=area_weights)
+        elif args.loss == "mse_residual_scaled":
+            print("Using decomposed mse loss with scaled residuals")
+            scaling_residuals = xr.open_zarr(
+                os.path.join(self.data_dir, self.scaling_residuals_file)
+            )
+            scale = torch.from_numpy(
+                (self.data_std[self.outputs] / scaling_residuals[self.outputs])
+                .compute()
+                .to_array()
+                .to_numpy()
+            ).to(device="cuda")
+            scale = torch.concat([scale] * (args.hist + 1), dim=0)
+            self.loss = partial(decomposed_mse_scaled, scaling=scale)
+        elif args.loss == "mse_mae":
+            print("Using decomposed mse loss with mae")
+            self.loss = decomposed_mse_mae
+        else:
+            raise NotImplementedError
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr)
 
         # Scheduler
         self.scheduler = None
@@ -243,10 +290,61 @@ class Trainer:
                 self.optimizer, args.T
             )
 
+        # Wandb and Loading Checkpoint
+        self.wandb = args.wandb.mode == "online"
+        if args.resume_ckpt_path is not None and not args.finetune:
+            self.load_checkpoint(args.resume_ckpt_path)
+            if self.is_wandb_enabled():
+                try:
+                    wandb.init(
+                        config=OmegaConf.to_container(args, resolve=True),
+                        name=self.wandb_name,
+                        dir=args.experiment_dir,
+                        resume="must",
+                        id=self.wandb_id,
+                        **args.wandb,
+                    )
+                except:
+                    wandb.init(
+                        config=OmegaConf.to_container(args, resolve=True),
+                        name=self.wandb_name,
+                        dir=args.experiment_dir,
+                        **args.wandb,
+                    )
+            elif is_main_process():
+                warnings.warn(
+                    "This checkpoint had wandb enabled, but wandb is not enabled now!"
+                )
+        else:
+            if args.finetune:
+                self.load_checkpoint(args.resume_ckpt_path, finetune=True)
+            self.start_epoch = 1
+            self.wandb_id = None
+            self.wandb_name = (
+                args.name + "//" + args.sub_name
+                if hasattr(args, "sub_name")
+                else ".LOCAL" + "//" + args.name
+            )
+            if self.is_wandb_enabled():
+                wandb.init(
+                    config=OmegaConf.to_container(args, resolve=True),
+                    name=self.wandb_name,
+                    dir=args.experiment_dir,
+                    **args.wandb,
+                )
+                self.wandb_id = wandb.run.id
+
+        # DDP Model
+        self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
+        self.model = nn.parallel.DistributedDataParallel(
+            self.model, device_ids=[args.gpu]
+        )
+
         # Training
         self.epochs = args.epochs
         self.hist = args.hist
         self.steps = args.steps
+        self.step_transition = args.step_transition
         self.save_freq = args.save_freq
         self.output_dir = args.output_dir
         self.network = args.network
@@ -255,26 +353,28 @@ class Trainer:
         self.lag = args.lag
         self.interval = args.interval
         self.e_train = e_train
+        self.data_stride = args.data_stride
+        self.N_samples = args.N_samples
+        self.batch_size = args.batch_size
+        self.num_workers = args.num_workers
+        self.pin_mem = args.pin_mem
 
         self.init_validation_stores()
 
     def init_validation_stores(self):
-        N = 72  # 72 x 5 days ~ 1 year
         num_gpus = get_world_size()
+        N = 72 * 2 // 4 * num_gpus  # 72 x 5 days ~ 1 year
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset(
-            "/vast/sd5313/data/m2lines/3D_ocean_data/Grid_New.nc"
-        ).rename({"dx": "dxu", "dy": "dyu"})
-
+        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename(
+            {"xu_ocean": "x", "yu_ocean": "y"}
+        )
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
-        self.surface_wet = torch.load(
-            "/vast/sd5313/data/m2lines/3D_ocean_data/surface_wet.pt"
-        )
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
-        self.indices = [i * 19 for i in range(4)] + [-1]
-        indices_str = [self.inputs[i] for i in self.indices]
+        num_vars = len(self.VAR_SET)
+        self.surface_indices = [i * self.levels for i in range(num_vars - 1)] + [-1]
+        surface_indices_str = [self.inputs[i] for i in self.surface_indices]
 
         self.val_data_set = []
         self.target_set = []
@@ -291,7 +391,9 @@ class Trainer:
                 self.N_val,
                 self.lag,
                 self.interval,
+                self.hist,
                 self.e_train + i * self.N_local,
+                long_rollout=True,
                 device="cuda",
             )
 
@@ -308,21 +410,27 @@ class Trainer:
             }
 
             self.val_data_set.append(val_data)
-            self.target_set.append(val_data[: self.N_local][1].numpy())
+            self.target_set.append(
+                val_data[: (self.N_local) // (self.hist + 1)][1]
+                .reshape((self.N_local, -1, *self.surface_wet.shape))
+                .numpy()
+            )
 
             # Surface Data
             surface_targets = data_CNN_Disk(
                 self.data,
-                indices_str,
+                surface_indices_str,
                 self.extra_in,
-                indices_str,
+                surface_indices_str,
                 self.wet[0],
                 self.data_mean,
                 self.data_std,
                 self.N_val,
                 self.lag,
                 self.interval,
+                self.hist,
                 self.e_train + i * self.N_local,
+                long_rollout=False,
                 device="cuda",
             )
             mean_in = surface_targets.in_mean.to_array().to_numpy().reshape(-1)
@@ -336,16 +444,71 @@ class Trainer:
                 "m_out": mean_out,
                 "m_in": mean_in,
             }
-            self.surface_targets_set.append(surface_targets)
+            self.surface_targets_norm_vals = surface_targets.norm_vals
+            self.surface_targets_set.append(
+                surface_targets[: (self.N_local) // (self.hist + 1)][1]
+                .reshape((self.N_local, -1, *self.surface_wet.shape))
+                .numpy()
+            )
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
-
-        if self.wandb:
+        if self.is_wandb_enabled():
             wandb.watch(self.model, log="all")
 
         start_time = time.time()
-        for epoch in range(self.epochs):
+        for epoch in range(self.start_epoch, self.epochs + 1):
+            # Iterative step training
+            if epoch == self.start_epoch or epoch in self.step_transition:
+                if epoch == self.start_epoch:
+                    cur_step = None
+                    for i, epoch_to_transition in enumerate(self.step_transition):
+                        if epoch <= epoch_to_transition:
+                            cur_step = self.steps[i]
+                            cur_step_idx = i
+                            break
+                    if cur_step is None:
+                        cur_step = self.steps[-1]
+                        cur_step_idx = len(self.steps) - 1
+                    print(f"Starting training at step {cur_step}")
+                elif epoch in self.step_transition:
+                    cur_step_idx += 1
+                    cur_step = self.steps[cur_step_idx]
+                    print(f"Transitioning to step {cur_step}")
+                train_data = [
+                    data_CNN_Disk_steps(
+                        self.data,
+                        self.inputs,
+                        self.extra_in,
+                        self.outputs,
+                        self.wet,
+                        self.data_mean,
+                        self.data_std,
+                        self.N_samples,
+                        self.lag,
+                        self.interval,
+                        self.hist,
+                        cur_step,
+                        stride,
+                        device="cuda",
+                    )
+                    for stride in self.data_stride
+                ]
+                train_data = ConcatDataset(train_data)
+
+                print("Instantiating torch loaders")
+
+                self.train_sampler = torch.utils.data.distributed.DistributedSampler(
+                    train_data, shuffle=True
+                )
+                self.train_loader = torch.utils.data.DataLoader(
+                    train_data,
+                    batch_size=self.batch_size,
+                    sampler=self.train_sampler,
+                    num_workers=self.num_workers,
+                    pin_memory=self.pin_mem,
+                    drop_last=True,
+                )
             self.train_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
@@ -365,29 +528,20 @@ class Trainer:
                 ) as f:
                     f.write(json.dumps(log_stats) + "\n")
 
+                print("Achieved Validation Loss = {:5.3f}".format(v_loss))
                 if v_loss < best_loss:
-                    print("Achieved Best Validation Loss = {:5.3f}".format(v_loss))
                     best_loss = v_loss
-                    print("Saving best model at epoch {0}".format(epoch + 1))
-                    torch.save(
-                        self.model.module.state_dict(),
-                        Path(self.nets_dir)
-                        / "{0}_best_{1}.pt".format(self.network, self.str_video),
-                    )
+                    print("Saving best model at epoch {0}".format(epoch))
+                    self.save_checkpoint(epoch, best=True)
 
-                if (epoch + 1) % self.save_freq == 0:
-                    print("Saving model at epoch {0}".format(epoch + 1))
-                    torch.save(
-                        self.model.module.state_dict(),
-                        Path(self.nets_dir)
-                        / "{0}_epoch_{1}_{2}.pt".format(
-                            self.network, epoch + 1, self.str_video
-                        ),
-                    )
+                elif (epoch) % self.save_freq == 0:
+                    print("Saving model at epoch {0}".format(epoch))
+                    self.save_checkpoint(epoch)
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print("Training time {}".format(total_time_str))
+        self.finish()
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
@@ -410,10 +564,13 @@ class Trainer:
             loss.backward()
             loss_value = loss.item()
 
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+
             self.optimizer.step()
             if self.scheduler is not None:
                 # self.scheduler.step()
-                self.scheduler.step(epoch + data_iter_step / iters)
+                self.scheduler.step(epoch - 1 + data_iter_step / iters)
             torch.cuda.synchronize()
             torch.cuda.empty_cache()
 
@@ -428,7 +585,7 @@ class Trainer:
 
             loss_value_reduce = all_reduce_mean(loss_value)
 
-            if self.wandb:
+            if self.is_wandb_enabled():
                 wandb.log(
                     {
                         "train/epoch": epoch,
@@ -437,26 +594,30 @@ class Trainer:
                     }
                 )
                 # Loss per channel
-                for i, var in enumerate(self.inputs):
+                for i, var in enumerate(self.outputs):
                     wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
 
                 # Loss per depth
-                for i in range(19):
+                for d in self.DEPTH_SET:
                     wandb.log(
                         {
                             "train/depth/depth_"
-                            + str(i)
-                            + "_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()
+                            + str(d)
+                            + "_loss": torch.mean(
+                                loss_per_channel[self.DP_3D_IDX[d]]
+                            ).item()
                         }
                     )
 
                 # Loss per input variable
-                for k in ["uo", "vo", "thetao", "so"]:
+                for k in self.VAR_SET:
                     wandb.log(
                         {
                             "train/per_var/"
                             + k
-                            + "_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()
+                            + "_loss": torch.mean(
+                                loss_per_channel[self.CH_3D_IDX[k]]
+                            ).item()
                         }
                     )
 
@@ -474,15 +635,17 @@ class Trainer:
             self.val_data_set[rank],
             self.model.module,
             self.hist,
-            self.N_in,
+            self.N_out,
             self.N_extra,
-            0,
-            self.region,
+            initial_input=None,
+            Nb=0,
+            region=self.region,
             train=True,
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)
         targets = self.target_set[rank]
+        targets_transposed = targets.transpose(0, 2, 3, 1)
 
         predictions = torch.from_numpy(predictions)
         targets = torch.from_numpy(targets)
@@ -491,64 +654,106 @@ class Trainer:
         loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
         loss_value = torch.mean(loss_per_channel)
 
-        # Surface level evaluation
         model_pred_unnormalized = (
             model_pred * self.val_data_set[rank].norm_vals["s_out"]
             + self.val_data_set[rank].norm_vals["m_out"]
         )
-        surface_preds = model_pred_unnormalized[:, :, :, self.indices]
-
-        (
-            KE_corr,
-            KE_rmse,
-            temp_corr,
-            temp_rmse,
-            saline_corr,
-            saline_rmse,
-            zos_corr,
-            zos_rmse,
-            u_corr,
-            u_rmse,
-            v_corr,
-            v_rmse,
-        ) = get_corr_rmse(
-            self.surface_targets_set[rank],
-            surface_preds,
-            self.area,
-            self.surface_wet_bool,
-            0,
-            self.N_local,
+        targets_unnormalized = (
+            targets_transposed * self.val_data_set[rank].norm_vals["s_out"]
+            + self.val_data_set[rank].norm_vals["m_out"]
         )
+        # Surface level evaluation
+        surface_preds = model_pred_unnormalized[:, :, :, self.surface_indices]
+        if self.VAR_SET == set(
+            ["uo", "vo", "thetao", "so", "zos"]
+        ):  # TODO: Need surface eval func fixes. Hardcoded indices.
+            (
+                KE_corr,
+                KE_rmse,
+                temp_corr,
+                temp_rmse,
+                saline_corr,
+                saline_rmse,
+                zos_corr,
+                zos_rmse,
+                u_corr,
+                u_rmse,
+                v_corr,
+                v_rmse,
+            ) = get_corr_rmse(
+                self.surface_targets_set[rank],
+                self.surface_targets_norm_vals,
+                surface_preds,
+                self.area,
+                self.surface_wet_bool,
+                0,
+                self.N_local,
+            )
+        else:
+            KE_corr = KE_rmse = temp_corr = temp_rmse = saline_corr = saline_rmse = (
+                zos_corr
+            ) = zos_rmse = u_corr = u_rmse = v_corr = v_rmse = 0
 
         all_reduce_mean(loss_value)
 
-        if self.wandb:
+        if self.is_wandb_enabled():
             wandb.log({"eval/total_eval_loss_per_batch": loss_value})
             # Loss per channel
-            for i, var in enumerate(self.inputs):
+            for i, var in enumerate(self.outputs):
                 wandb.log({"eval/per_channel/" + var: loss_per_channel[i].item()})
 
             # Loss per depth
-            for i in range(19):
+            for d in self.DEPTH_SET:
                 wandb.log(
                     {
                         "eval/depth/depth_"
-                        + str(i)
-                        + "_loss": torch.mean(loss_per_channel[DP_3D_IDX[i]]).item()
+                        + str(d)
+                        + "_loss": torch.mean(
+                            loss_per_channel[self.DP_3D_IDX[d]]
+                        ).item()
                     }
                 )
 
             # Loss per input variable
-            for k in ["uo", "vo", "thetao", "so"]:
+            for k in self.VAR_SET:
+                if k == "zos":
+                    continue
                 wandb.log(
                     {
                         "eval/per_var/"
                         + k
-                        + "_loss": torch.mean(loss_per_channel[CH_3D_IDX[k]]).item()
+                        + "_loss": torch.mean(
+                            loss_per_channel[self.CH_3D_IDX[k]]
+                        ).item()
                     }
                 )
 
-        if self.wandb:
+            # Plot prediction and target
+            for i, var in enumerate(self.outputs):
+                fig = plt.figure(figsize=(10, 5))
+                plt.plot(
+                    range(targets.shape[0]),
+                    targets_unnormalized[:, :, :, i].mean(axis=(1, 2)),
+                    label="Target",
+                )
+                min, max = plt.ylim()
+                plt.plot(
+                    range(predictions.shape[0]),
+                    model_pred_unnormalized[:, :, :, i].mean(axis=(1, 2)),
+                    label="Prediction",
+                )
+                if "thetao" in var:
+                    plt.ylim(min - 0.25, max + 0.25)
+                elif "so" in var:
+                    plt.ylim(min - 0.2, max + 0.2)
+                elif "KE" in var:
+                    plt.ylim(min - 0.5, max + 0.5)
+                plt.title(var)
+                plt.legend()
+                wandb.log({f"eval/plots/{var}": wandb.Image(fig)})
+                plt.close()
+
+        if self.is_wandb_enabled():
             wandb.log(
                 {
                     "eval/surface/KE_corr": KE_corr,
@@ -566,6 +771,48 @@ class Trainer:
                 }
             )
         return {"loss": loss_value.item()}
+
+    def save_checkpoint(self, epoch, best=False):
+        checkpoint = {
+            "model": self.model.module.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "epoch": epoch,
+            "wandb_id": self.wandb_id,
+            "wandb_name": self.wandb_name,
+        }
+        if self.scheduler:
+            checkpoint["scheduler"] = self.scheduler.state_dict()
+        torch.save(
+            checkpoint,
+            Path(self.nets_dir)
+            / "{0}_epoch_{1}_{2}.pt".format(
+                self.network, epoch, ("best" if best else "") + self.str_video
+            ),
+        )
+
+    def load_checkpoint(self, checkpoint_path, finetune=False):
+        print("Loaded checkpoint from", checkpoint_path)
+        checkpoint = torch.load(checkpoint_path)
+        if finetune:
+            self.model.load_state_dict(checkpoint["model"])
+        else:
+            self.optimizer.load_state_dict(checkpoint["optimizer"])
+            self.scheduler.load_state_dict(checkpoint["scheduler"])
+            self.start_epoch = checkpoint["epoch"] + 1
+            self.wandb_id = checkpoint["wandb_id"]
+            self.wandb_name = checkpoint["wandb_name"]
+
+            print("Start Epoch:", self.start_epoch)
+            print("Wandb id:", self.wandb_id)
+            print("Wandb name:", self.wandb_name)
+            print("Optimizer LR:", self.optimizer.param_groups[-1]["lr"])
+
+    def is_wandb_enabled(self):
+        return self.wandb and is_main_process()
+
+    def finish(self):
+        if self.is_wandb_enabled():
+            wandb.finish()
 
 
 def main(args):

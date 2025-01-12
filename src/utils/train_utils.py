@@ -191,7 +191,65 @@ class MetricLogger(object):
         )
 
 
+def decomposed_mse_mae(pred, out, weight=0.01):
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
+    full_mae = nn.functional.l1_loss(pred, out, reduction="none")
+    mae_channels = torch.mean(full_mae, dim=(0, 2, 3))
+    return mse_channels + weight * mae_channels
+
+
 def decomposed_mse(pred, out):
     full_mse = nn.functional.mse_loss(pred, out, reduction="none")
     mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
     return mse_channels
+
+
+def decomposed_mse_scaled(pred, out, scaling):
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels = torch.mean(full_mse, dim=(0, 2, 3)) * scaling
+    return mse_channels
+
+
+def decomposed_mse_diff_weighted(pred, out):
+    # Split out into 2 parts - xt and xt+1
+    # This works on the assumption that hist = 1.
+    N, C, H, W = out.shape
+    out_t = out[:, : C // 2, :, :]
+    out_tp1 = out[:, C // 2 :, :, :]
+    diff_weights = torch.sqrt(torch.mean((out_t - out_tp1) ** 2, dim=(0, 2, 3)))
+    indices = np.arange(0, C // 2 - 1, 19)
+    diff_weights[indices[:, None] + np.arange(11, 19)] = diff_weights[
+        indices + 11, None
+    ]
+    diff_weights = diff_weights.repeat_interleave(2)
+
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels = torch.mean(full_mse, dim=(0, 2, 3))
+    mse_channels = mse_channels
+    return mse_channels
+
+
+def decomposed_mse_cos_weighted(pred, out, cos):
+    full_mse = nn.functional.mse_loss(pred, out, reduction="none")
+    mse_channels_lat = torch.mean(full_mse, dim=(0, 3))
+    mse_channels = torch.mean(mse_channels_lat * cos, dim=(1))
+    return mse_channels
+
+
+def extract_wet(wet_zarr, outputs, hist):
+    depths = [var.split("lev_")[-1].replace("_", ".") for var in outputs]
+    if "zos" in depths:
+        zos_index = depths.index("zos")
+        depths[zos_index] = str(wet_zarr.lev.values[0])
+        assert depths[zos_index] == "2.5"
+    depths = [float(depth) for depth in depths]
+    wet = wet_zarr.sel(lev=depths)
+    wet = torch.from_numpy(wet.to_array().to_numpy().squeeze())
+    wet = torch.concat([wet] * (hist + 1), dim=0)
+    print(wet.shape)
+    return wet
+
+
+def extract_surface_wet(wet_zarr):
+    return torch.from_numpy(wet_zarr.isel(lev=0).to_array().to_numpy().squeeze())

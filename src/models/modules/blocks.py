@@ -286,6 +286,7 @@ class ConvNeXtBlock(CoreBlock):
         activation: torch.nn.Module = torch.nn.ReLU,
         pad="circular",
         upscale_factor: int = 4,
+        norm="batch",
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
         assert n_layers == 1, "Can only use a single layer here!"
@@ -312,7 +313,15 @@ class ConvNeXtBlock(CoreBlock):
             )
         )
         # BatchNorm
-        convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
+        if norm == "batch":
+            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
+        # Instance Norm
+        elif norm == "instance":
+            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
+        elif norm == "nonorm":
+            pass
+        else:
+            raise NotImplementedError
         if activation is not None:
             convblock.append(activation)
         convblock.append(
@@ -324,7 +333,15 @@ class ConvNeXtBlock(CoreBlock):
             )
         )
         # BatchNorm
-        convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
+        if norm == "batch":
+            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
+        # Instance Norm
+        elif norm == "instance":
+            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
+        elif norm == "nonorm":
+            pass
+        else:
+            raise NotImplementedError
         if activation is not None:
             convblock.append(activation)
         # Linear postprocessing

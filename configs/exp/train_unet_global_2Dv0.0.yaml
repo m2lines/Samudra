@@ -1,0 +1,76 @@
+# @package _global_
+defaults:
+  - _self_
+  - unet: unet_2D
+
+wandb:
+  mode: disabled # online, disabled
+  project: 3D_ocean_emu
+  entity: suryadheeshjith
+  group: null
+  tags: null
+  notes: null
+
+### experiment args
+experiment: train_3D
+output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
+data_overlay: ''
+wet_file: surface_wet_OM4_v0.0.pt
+surface_wet_file: surface_wet_OM4_v0.0.pt
+data_zarr: 3D_data_OM4_v0.0
+data_means_zarr: 3D_data_OM4_v0.0_means
+data_stds_zarr: 3D_data_OM4_v0.0_stds
+grid_file: Grid_New.nc
+nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
+rand_seed: 1
+
+
+#####
+region: "global_1"
+depth_mode: all
+network: "convnextunet"
+scheduler: False
+loss: mse
+testing: False
+resume_ckpt_path: null
+data_percent: 1.0
+#####
+
+
+device: "cuda"
+distributed: True
+disk_mode: True
+num_workers: 4
+pin_mem: True
+save_freq: 5
+epochs: 35
+batch_size: 32
+# grad_clip: False
+
+# Optimizer
+lr: 2e-4
+T: ${epochs} # 10 # CosineA / CosineAWarm param
+
+# Parameters
+exp_num_in: "2D"
+exp_num_extra: "2D"
+exp_num_out: "2D"
+N_samples:  4000 #4000
+N_val:  140 #300
+N_test: 600 #500
+steps: 4
+interval: 1
+hist: 0
+lag: 1
+lam: 0.05
+Nb: 0
+factor: 10
+lateral: false
+
+### Do not touch these
+# distributed args
+dist_url: null
+world_size: null
+rank: null
+gpu: null
+dist_backend: null

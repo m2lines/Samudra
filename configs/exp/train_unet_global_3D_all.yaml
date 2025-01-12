@@ -15,7 +15,12 @@ wandb:
 experiment: train_3D
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-data_dir: /scratch/sd5313/M2Lines/emulator/Ocean_Emulator/data
+wet_file: OM4_5daily_v0.2.1_wetmask
+smooth: False
+data_zarr: 3D_data_OM4_5daily_v0.2.1
+data_means_zarr: 3D_data_OM4_5daily_v0.2.1_means
+data_stds_zarr: 3D_data_OM4_5daily_v0.2.1_stds
+grid_file: Grid_New.nc
 nets_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}, 'saved_nets'}
 rand_seed: 1
 
@@ -27,7 +32,7 @@ network: "convnextunet"
 scheduler: False
 loss: mse
 testing: False
-preload: null
+resume_ckpt_path: null
 data_percent: 1.0
 #####
 
@@ -38,7 +43,7 @@ disk_mode: True
 num_workers: 4
 pin_mem: True
 save_freq: 5
-epochs: 100
+epochs: 35
 batch_size: 32
 # grad_clip: False
 

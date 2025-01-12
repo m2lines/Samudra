@@ -2,6 +2,7 @@
 
 # Obvious / static arguments
 comp="compute=local"
+export BASE_OE_DIR=$PWD
 
 # EXPERIMENT LAUNCHES
 # GO BOTTOM TO TOP
@@ -12,61 +13,29 @@ comp="compute=local"
 # 3D
 ### ConvNext
 # Surface only
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global_3D name="$(date +%F)-local_train_convnextunet_global_3D_surface" region=global_3D batch_size=16 scheduler=True rand_seed=10
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_unet_global_2Dv0.0 name="$(date +%F)-local_train_convnextunet_global_2D_v0.0" region=global_3D batch_size=16 scheduler=True rand_seed=10
 
-# All
-./.python-greene submitit_hydra.py $comp testing=true wandb.mode=online exp=train_unet_global_3D_all name="$(date +%F)-local_train_convnextunet_global_3D_all" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400]
+# 5
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_unet_global_3D_5 name="$(date +%F)-local_train_convnextunet_global_3D_5" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1
+
+# 5 No fast output
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_unet_global_3D_5 wandb.mode=online name="$(date +%F)-local_train_convnextunet_global_3D_5" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=1 exp_num_out=3D_noFast_5
+
+# Hist 0
+# ./.python-perlmutter submitit_hydra.py $comp exp=train_unet_global_3D_all testing=true name="$(date +%F)-local_train_convnextunet_global_3Dv021" region=global_3D batch_size=4 scheduler=True rand_seed=10 unet.ch_width=[80,100,150,300,400] hist=0
+
+# Hist 1 CM4 all
+# ./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_CM4 name="$(date +%F)-convnextunet_v021_hist1_CM4" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=100
+
+# Hist 1 CM4 no fast
+./.python-perlmutter submitit_hydra.py compute=local testing=true exp=train_unet_global_3D_all_CM4 name="$(date +%F)-convnextunet_v021_hist1_CM4_SAT" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all exp_num_extra=3D_all_SAT lr=2e-5
 
 ### Swin
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all name="$(date +%F)-local_train_swin_global_3D_all" region=global_3D batch_size=16 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60
+# Hist 1 CM4 all
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swin_global_3D_all_CM4" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1
 
-###########################################################################################
-# Global_1 Training
+# Hist 1 CM4 no fast
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swin_global_3D_all_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
 
-# 1. AdamUNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_adamunet_global name="$(date +%F)-local_train_adamunet_global_1" region=global_1 batch_size=16 scheduler=True rand_seed=10
-
-# 2. ConvNext UNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_global_1" region=global_1 batch_size=8 scheduler=True rand_seed=10
-
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_global_1_7k" region=global_1 batch_size=8 scheduler=True rand_seed=10 N_samples=7000
-
-# 3. Swin Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global name="$(date +%F)-local_train_swin_global_1" region=global_1 batch_size=16 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60
-
-
-###########################################################################################
-# Global_2x Training
-
-# 1. AdamUNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_adamunet_global name="$(date +%F)-local_train_adamunet_global_2x" region=global_2x batch_size=16 scheduler=True rand_seed=10
-
-# 2. ConvNext UNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_global_2x" region=global_2x batch_size=8 scheduler=True rand_seed=10
-
-# 3. Swin Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global name="$(date +%F)-local_train_swin_global_2x" region=global_2x batch_size=16 scheduler=True rand_seed=10
-
-
-###########################################################################################
-# Global_1 loaded Global_2x Training
-# 1. AdamUNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_adamunet_global name="$(date +%F)-local_train_adamunet_load1_global_2x_50p" region=global_2x batch_size=16 scheduler=True rand_seed=10 data_percent=0.5 preload='/scratch/sg7761/m2lines/Ocean_Emulator/train/2024-05-13-foundation_train_adamunet_global_1/adamunetseed/saved_nets/adamunet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
-
-# 2. ConvNext UNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_load1_global_2x_05p" region=global_2x batch_size=8 scheduler=True rand_seed=10 data_percent=0.05 preload='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_convnextunet_global_1/next/saved_nets/convnextunet_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
-
-# 3. Swin Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global name="$(date +%F)-local_train_swin_load1_global_2x_50p" region=global_2x batch_size=16 scheduler=True rand_seed=10 data_percent=0.5 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60 preload='/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/train/2024-05-11-foundation_train_swintrans60_global_1/swintrans60/saved_nets/swin_best_steps_4_global_1_Test_in_u_v_T_ext_tau_u_tau_v_t_ref__outu_v_T_N_train_4000_Lateral_Data_025_no_smooth.pt'
-
-###########################################################################################
-# Global_1_2x Training
-
-# 1. AdamUNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_adamunet_global name="$(date +%F)-local_train_adamunet_global_1_2x" region=global_1_2x batch_size=16 scheduler=True rand_seed=10
-
-# 2. ConvNext UNet Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_unet_global name="$(date +%F)-local_train_convnextunet_global_1_2x" region=global_1_2x batch_size=8 scheduler=True rand_seed=10
-
-# 3. Swin Global
-# ./.python-greene submitit_hydra.py $comp testing=true exp=train_swin_global name="$(date +%F)-local_train_swin_global_1_2x" region=global_1_2x batch_size=16 scheduler=True rand_seed=10 exp/modules/blocks@swin.up_sampling_block=transposed_conv_upsample swin.embed_dim=60
+# Hist 1 CM4 no fast v2
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swinv2_global_3D_all_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp/modules/blocks@swin.block=swin_blockv2 exp/modules/blocks@swin.downsample_layer=patch_mergev2 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all

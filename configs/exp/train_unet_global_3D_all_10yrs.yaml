@@ -56,7 +56,7 @@ exp_num_in: "3D_all"
 exp_num_extra: "3D_all"
 exp_num_out: "3D_all"
 N_samples:  730
-N_val:  140 
+N_val:  140
 N_test: 600
 steps: 4
 interval: 1

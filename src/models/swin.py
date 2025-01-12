@@ -12,6 +12,7 @@ from models.base import BaseModel
 from utils.climate_utils import pairwise
 from models.modules.blocks import BilinearUpsample, TransposedConvUpsample
 
+
 class MLP(torch.nn.Sequential):
     """This block implements the multi-layer perceptron (MLP) module.
 
@@ -69,7 +70,9 @@ class Permute(torch.nn.Module):
         return torch.permute(x, self.dims)
 
 
-def stochastic_depth(input: Tensor, p: float, mode: str, training: bool = True) -> Tensor:
+def stochastic_depth(
+    input: Tensor, p: float, mode: str, training: bool = True
+) -> Tensor:
     """
     Implements the Stochastic Depth from `"Deep Networks with Stochastic Depth"
     <https://arxiv.org/abs/1603.09382>`_ used for randomly dropping residual
@@ -122,8 +125,8 @@ class StochasticDepth(nn.Module):
     def __repr__(self) -> str:
         s = f"{self.__class__.__name__}(p={self.p}, mode={self.mode})"
         return s
-    
-    
+
+
 def _patch_merging_data(x: torch.Tensor) -> torch.Tensor:
     """
     Patch merging for data tensor with circular padding on x-axis and zero padding on y-axis.
@@ -137,7 +140,7 @@ def _patch_merging_data(x: torch.Tensor) -> torch.Tensor:
     H, W, _ = x.shape[-3:]
 
     # Circular padding for x-axis (width)
-    x = F.pad(x, (0, 0, W % 2, 0), mode='circular')
+    x = F.pad(x, (0, 0, W % 2, 0), mode="circular")
 
     # Zero padding for y-axis (height)
     x = F.pad(x, (0, 0, 0, 0, 0, H % 2))
@@ -150,6 +153,7 @@ def _patch_merging_data(x: torch.Tensor) -> torch.Tensor:
     x = torch.cat([x0, x1, x2, x3], dim=-1)  # Concatenate along channel dimension
 
     return x
+
 
 def _patch_merging_mask(mask: torch.Tensor) -> torch.Tensor:
     """
@@ -164,7 +168,7 @@ def _patch_merging_mask(mask: torch.Tensor) -> torch.Tensor:
     H, W = mask.shape[-2:]
 
     # Circular padding for x-axis (width)
-    mask = F.pad(mask.float(), (0, W % 2), mode='circular').bool()
+    mask = F.pad(mask.float(), (0, W % 2), mode="circular").bool()
 
     # Zero padding for y-axis (height)
     mask = F.pad(mask.float(), (0, 0, 0, H % 2), value=0).bool()
@@ -174,9 +178,10 @@ def _patch_merging_mask(mask: torch.Tensor) -> torch.Tensor:
     m1 = mask[..., 1::2, 0::2]  # Bottom-left
     m2 = mask[..., 0::2, 1::2]  # Top-right
     m3 = mask[..., 1::2, 1::2]  # Bottom-right
-    mask = (m0 & m1 & m2 & m3)  # Logical OR for mask merging
+    mask = m0 & m1 & m2 & m3  # Logical OR for mask merging
 
     return mask
+
 
 class PatchMerging(nn.Module):
     """Patch Merging Layer.
@@ -228,8 +233,8 @@ class PatchMergingV2(nn.Module):
         x = self.reduction(x)  # ... H/2 W/2 2*C
         x = self.norm(x)
         return x
-    
-    
+
+
 def shifted_window_attention(
     input: Tensor,
     qkv_weight: Tensor,
@@ -268,12 +273,12 @@ def shifted_window_attention(
     # pad feature maps to multiples of window size
     pad_r = (window_size[1] - W % window_size[1]) % window_size[1]
     pad_b = (window_size[0] - H % window_size[0]) % window_size[0]
-    x = F.pad(input, (0, 0, pad_r, 0), mode='circular')
+    x = F.pad(input, (0, 0, pad_r, 0), mode="circular")
     x = F.pad(x, (0, 0, 0, 0, 0, pad_b))
     _, pad_H, pad_W, _ = x.shape
-    
+
     if land_mask is not None:
-        land_mask = F.pad(land_mask, (pad_r, 0), mode='circular')
+        land_mask = F.pad(land_mask, (pad_r, 0), mode="circular")
         land_mask = F.pad(land_mask, (0, 0, 0, pad_b))
 
     shift_size = shift_size.copy()
@@ -287,20 +292,37 @@ def shifted_window_attention(
     if sum(shift_size) > 0:
         x = torch.roll(x, shifts=(-shift_size[0], -shift_size[1]), dims=(1, 2))
         if land_mask is not None:
-            land_mask = torch.roll(land_mask, shifts=(-shift_size[0], -shift_size[1]), dims=(0, 1))
+            land_mask = torch.roll(
+                land_mask, shifts=(-shift_size[0], -shift_size[1]), dims=(0, 1)
+            )
 
     # partition windows
     num_windows = (pad_H // window_size[0]) * (pad_W // window_size[1])
-    x = x.view(B, pad_H // window_size[0], window_size[0], pad_W // window_size[1], window_size[1], C)
-    x = x.permute(0, 1, 3, 2, 4, 5).reshape(B * num_windows, window_size[0] * window_size[1], C)  # B*nW, Ws*Ws, C
-    
+    x = x.view(
+        B,
+        pad_H // window_size[0],
+        window_size[0],
+        pad_W // window_size[1],
+        window_size[1],
+        C,
+    )
+    x = x.permute(0, 1, 3, 2, 4, 5).reshape(
+        B * num_windows, window_size[0] * window_size[1], C
+    )  # B*nW, Ws*Ws, C
+
     if land_mask is not None:
         # Partition the land mask
         land_mask = land_mask.repeat(B, 1, 1)
         land_mask = land_mask.view(
-            B, pad_H // window_size[0], window_size[0], pad_W // window_size[1], window_size[1]
+            B,
+            pad_H // window_size[0],
+            window_size[0],
+            pad_W // window_size[1],
+            window_size[1],
         )
-        land_mask = land_mask.permute(0, 1, 3, 2, 4).reshape(B*num_windows, window_size[0] * window_size[1])
+        land_mask = land_mask.permute(0, 1, 3, 2, 4).reshape(
+            B * num_windows, window_size[0] * window_size[1]
+        )
 
     # multi-head attention
     if logit_scale is not None and qkv_bias is not None:
@@ -308,7 +330,9 @@ def shifted_window_attention(
         length = qkv_bias.numel() // 3
         qkv_bias[length : 2 * length].zero_()
     qkv = F.linear(x, qkv_weight, qkv_bias)
-    qkv = qkv.reshape(x.size(0), x.size(1), 3, num_heads, C // num_heads).permute(2, 0, 3, 1, 4)
+    qkv = qkv.reshape(x.size(0), x.size(1), 3, num_heads, C // num_heads).permute(
+        2, 0, 3, 1, 4
+    )
     q, k, v = qkv[0], qkv[1], qkv[2]
     if logit_scale is not None:
         # cosine attention
@@ -327,18 +351,37 @@ def shifted_window_attention(
     if sum(shift_size) > 0:
         # generate attention mask
         attn_mask = x.new_zeros((pad_H, pad_W))
-        h_slices = ((0, -window_size[0]), (-window_size[0], -shift_size[0]), (-shift_size[0], None))
-        w_slices = ((0, -window_size[1]), (-window_size[1], -shift_size[1]), (-shift_size[1], None))
+        h_slices = (
+            (0, -window_size[0]),
+            (-window_size[0], -shift_size[0]),
+            (-shift_size[0], None),
+        )
+        w_slices = (
+            (0, -window_size[1]),
+            (-window_size[1], -shift_size[1]),
+            (-shift_size[1], None),
+        )
         count = 0
         for h in h_slices:
             for w in w_slices:
                 attn_mask[h[0] : h[1], w[0] : w[1]] = count
                 count += 1
-        attn_mask = attn_mask.view(pad_H // window_size[0], window_size[0], pad_W // window_size[1], window_size[1])
-        attn_mask = attn_mask.permute(0, 2, 1, 3).reshape(num_windows, window_size[0] * window_size[1])
+        attn_mask = attn_mask.view(
+            pad_H // window_size[0],
+            window_size[0],
+            pad_W // window_size[1],
+            window_size[1],
+        )
+        attn_mask = attn_mask.permute(0, 2, 1, 3).reshape(
+            num_windows, window_size[0] * window_size[1]
+        )
         attn_mask = attn_mask.unsqueeze(1) - attn_mask.unsqueeze(2)
-        attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
-        attn = attn.view(x.size(0) // num_windows, num_windows, num_heads, x.size(1), x.size(1))
+        attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(
+            attn_mask == 0, float(0.0)
+        )
+        attn = attn.view(
+            x.size(0) // num_windows, num_windows, num_heads, x.size(1), x.size(1)
+        )
         attn = attn + attn_mask.unsqueeze(1).unsqueeze(0)
         attn = attn.view(-1, num_heads, x.size(1), x.size(1))
 
@@ -350,7 +393,14 @@ def shifted_window_attention(
     x = F.dropout(x, p=dropout, training=training)
 
     # reverse windows
-    x = x.view(B, pad_H // window_size[0], pad_W // window_size[1], window_size[0], window_size[1], C)
+    x = x.view(
+        B,
+        pad_H // window_size[0],
+        pad_W // window_size[1],
+        window_size[0],
+        window_size[1],
+        C,
+    )
     x = x.permute(0, 1, 3, 2, 4, 5).reshape(B, pad_H, pad_W, C)
 
     # reverse cyclic shift
@@ -472,7 +522,7 @@ class ShiftedWindowAttentionV2(ShiftedWindowAttention):
             land_mask=self.land_mask,
             training=self.training,
         )
-        
+
 
 class SwinTransformerBlock(nn.Module):
     """
@@ -514,11 +564,17 @@ class SwinTransformerBlock(nn.Module):
             num_heads,
             attention_dropout=attention_dropout,
             dropout=dropout,
-            land_mask=land_mask
+            land_mask=land_mask,
         )
         self.stochastic_depth = StochasticDepth(stochastic_depth_prob, "row")
         self.norm2 = norm_layer(dim)
-        self.mlp = MLP(dim, [int(dim * mlp_ratio), dim], activation_layer=nn.GELU, inplace=None, dropout=dropout)
+        self.mlp = MLP(
+            dim,
+            [int(dim * mlp_ratio), dim],
+            activation_layer=nn.GELU,
+            inplace=None,
+            dropout=dropout,
+        )
 
         for m in self.mlp.modules():
             if isinstance(m, nn.Linear):
@@ -611,7 +667,7 @@ class SwinTransformerEncoder(nn.Module):
         depths: List[int],
         num_heads: List[int],
         window_size: List[int],
-        lat: Tensor, 
+        lat: Tensor,
         lon: Tensor,
         land_mask: Tensor,
         block: DictConfig,
@@ -626,15 +682,18 @@ class SwinTransformerEncoder(nn.Module):
 
         if norm_layer is None:
             norm_layer = partial(nn.LayerNorm, eps=1e-5)
-            
+
         # split image into non-overlapping patches
         self.patchify = nn.Conv2d(
-                    in_channels, embed_dim, kernel_size=(patch_size[0], patch_size[1]), stride=(patch_size[0], patch_size[1])
-                )
+            in_channels,
+            embed_dim,
+            kernel_size=(patch_size[0], patch_size[1]),
+            stride=(patch_size[0], patch_size[1]),
+        )
         self.norm1 = nn.Sequential(
-                Permute([0, 2, 3, 1]),
-                norm_layer(embed_dim),
-            )
+            Permute([0, 2, 3, 1]),
+            norm_layer(embed_dim),
+        )
 
         layers: List[nn.Module] = []
 
@@ -648,13 +707,20 @@ class SwinTransformerEncoder(nn.Module):
                 land_mask = _patch_merging_mask(land_mask)
             for i_layer in range(depths[i_stage]):
                 # adjust stochastic depth probability based on the depth of the stage block
-                sd_prob = stochastic_depth_prob * float(stage_block_id) / (total_stage_blocks - 1)
+                sd_prob = (
+                    stochastic_depth_prob
+                    * float(stage_block_id)
+                    / (total_stage_blocks - 1)
+                )
                 stage.append(
-                    instantiate(block,
+                    instantiate(
+                        block,
                         dim,
                         num_heads[i_stage],
                         window_size=window_size,
-                        shift_size=[0 if i_layer % 2 == 0 else w // 2 for w in window_size],
+                        shift_size=[
+                            0 if i_layer % 2 == 0 else w // 2 for w in window_size
+                        ],
                         land_mask=land_mask,
                         mlp_ratio=mlp_ratio,
                         dropout=dropout,
@@ -677,10 +743,10 @@ class SwinTransformerEncoder(nn.Module):
                 nn.init.trunc_normal_(m.weight, std=0.02)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
-                    
+
         self.lat = lat
         self.lon = lon
-    
+
     def _fourier_pos_encoding(self) -> Tensor:
         """
         Args
@@ -703,9 +769,7 @@ class SwinTransformerEncoder(nn.Module):
         )
 
         modes = (
-            torch.arange(self.embed_dim // 4, device=self.lat.device).view(
-                1, -1, 1, 1
-            )
+            torch.arange(self.embed_dim // 4, device=self.lat.device).view(1, -1, 1, 1)
             + 1.0
         )
         pos_encoding = torch.cat(
@@ -722,19 +786,19 @@ class SwinTransformerEncoder(nn.Module):
 
     def forward(self, x):
         x = self.patchify(x)
-        x = x + self._fourier_pos_encoding() # Absolute fourier positional encoding
+        x = x + self._fourier_pos_encoding()  # Absolute fourier positional encoding
         x = self.norm1(x)
         outs = []
-        for layer in self.features:        
+        for layer in self.features:
             x = layer(x.cuda())
-            
-            if not isinstance(layer, PatchMerging) and not isinstance(layer, PatchMergingV2):
-                out = (
-                    x.permute(0, 3, 1, 2)
-                    .contiguous()
-                )
+
+            if not isinstance(layer, PatchMerging) and not isinstance(
+                layer, PatchMergingV2
+            ):
+                out = x.permute(0, 3, 1, 2).contiguous()
                 outs.append(out)
         return outs
+
 
 class SwinTransformer(BaseModel):
     def __init__(
@@ -753,16 +817,16 @@ class SwinTransformer(BaseModel):
         depths,
         num_heads,
         window_size,
-        lat, 
+        lat,
         lon,
         land_mask,
-        mlp_ratio = 4.0,
-        dropout = 0.0,
-        attention_dropout = 0.0,
-        stochastic_depth_prob = 0.1,
-        norm_layer = None,
-        n_layers: Sequence = (1, 1, 1, 1), # Decoder params
-        dilation: list = (1, 1, 1, 1), # Decoder params
+        mlp_ratio=4.0,
+        dropout=0.0,
+        attention_dropout=0.0,
+        stochastic_depth_prob=0.1,
+        norm_layer=None,
+        n_layers: Sequence = (1, 1, 1, 1),  # Decoder params
+        dilation: list = (1, 1, 1, 1),  # Decoder params
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
@@ -793,7 +857,7 @@ class SwinTransformer(BaseModel):
             dropout,
             attention_dropout,
             stochastic_depth_prob,
-            norm_layer
+            norm_layer,
         )
 
         ch_width_reversed = self.ch_width[::-1]
@@ -829,7 +893,10 @@ class SwinTransformer(BaseModel):
         )
         decoder_layers.append(
             instantiate(
-                up_sampling_block, upsampling=patch_size[0], in_channels=b, out_channels=b
+                up_sampling_block,
+                upsampling=patch_size[0],
+                in_channels=b,
+                out_channels=b,
             )
         )
         decoder_layers.append(torch.nn.Conv2d(b, output_channels, last_kernel_size))

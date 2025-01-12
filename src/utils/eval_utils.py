@@ -10,7 +10,16 @@ from .data_utils import *
 
 
 def generate_model_rollout(
-    N_eval, test_data, model, hist, N_out, N_extra, initial_input=None, Nb=0, region="global", train=False
+    N_eval,
+    test_data,
+    model,
+    hist,
+    N_out,
+    N_extra,
+    initial_input=None,
+    Nb=0,
+    region="global",
+    train=False,
 ):
 
     N_test = test_data.size
@@ -33,7 +42,10 @@ def generate_model_rollout(
     if train:
         return model_pred
     else:
-        return model_pred * test_data.norm_vals["s_out"] + test_data.norm_vals["m_out"], outs
+        return (
+            model_pred * test_data.norm_vals["s_out"] + test_data.norm_vals["m_out"],
+            outs,
+        )
 
 
 def compute_corrs(N_eval, test_data, model_pred, wet):

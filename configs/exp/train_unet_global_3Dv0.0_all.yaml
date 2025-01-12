@@ -15,7 +15,7 @@ wandb:
 experiment: train_3D
 output_dir: ${join_path:${hydra:sweep.dir},${hydra:sweep.subdir}}
 data_overlay: ''
-wet_file: 3D_wet_OM4_v0.0.pt 
+wet_file: 3D_wet_OM4_v0.0.pt
 surface_wet_file: surface_wet_OM4_v0.0.pt
 data_zarr: 3D_data_OM4_v0.0
 data_means_zarr: 3D_data_OM4_v0.0_means

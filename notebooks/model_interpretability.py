@@ -251,7 +251,7 @@ print("Calculating mask tensors")
 #         wet, wet_nan = get_wet_mask(inputs)
 #         wet_stacked.append(wet)
 #         wet_nan_stacked.append(wet_nan)
-    
+
 #     wet_3D = torch.stack(wet_stacked)
 #     wet_nan_3D = np.stack(wet_nan_stacked)
 
@@ -291,6 +291,7 @@ import torch.utils.data as data
 from scipy.ndimage import gaussian_filter
 from einops import rearrange
 import os
+
 
 class data_CNN_Disk(torch.utils.data.Dataset):
 
@@ -390,10 +391,12 @@ class data_CNN_Disk(torch.utils.data.Dataset):
             idx = slice(idx, idx + 1, 1)
 
         rolling_idx = self.rolling_indices.isel(window_dim=idx)
-        x_index = xr.Variable(
-            ["window_dim", "time"], rolling_idx
+        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
+        print(
+            "Out: ",
+            (self.ind_start + x_index.isel(time=slice(self.hist + 1, None))).values,
+            end=" ",
         )
-        print("Out: ", (self.ind_start + x_index.isel(time=slice(self.hist + 1, None))).values, end=' ')
         data_in = self.inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
@@ -434,8 +437,6 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         items = (torch.from_numpy(data_in).float(), torch.from_numpy(label).float())
 
         return items
-    
-
 
 
 import xarray as xr
@@ -460,16 +461,20 @@ elif args.depth_mode == "all":
     data_std = xr.open_zarr(
         os.path.join("/pscratch/sd/s/suryad/data", args.data_stds_zarr)
     )
-    
+
     ### Smoothening
     if args.smooth:
         for var in outputs_str:
-            if 'uo' in var or 'vo' in var:
+            if "uo" in var or "vo" in var:
                 window = window_size
                 print(f"Smoothing {var} with window size {window}")
-                data[var] = data[var].rolling(time=window, min_periods=1, center=False).mean().compute()
-                
-                
+                data[var] = (
+                    data[var]
+                    .rolling(time=window, min_periods=1, center=False)
+                    .mean()
+                    .compute()
+                )
+
 
 train_data = data_CNN_Disk_steps(
     data,
@@ -571,9 +576,11 @@ print("Computing area tensor")
 # dx = grids["dxu"].to_numpy()
 # dy = grids["dyu"].to_numpy()
 
-grids = xr.open_dataset(os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
+grids = xr.open_dataset(
+    os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)
+).rename({"xu_ocean": "x", "yu_ocean": "y"})
 area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
-    
+
 
 pred_model_path = Path("/pscratch/sd/s/suryad/Ocean_Emulator/Preds") / full_model_name
 if not os.path.isdir(pred_model_path):
@@ -598,10 +605,10 @@ JUPYTER_MODE = False
 
 def send_data_to_cpu():
     test_data.set_device(device="cpu")
-    
-    
-past_inputs_str = ["past_"+s for s in inputs_str]
-current_inputs_str = ["cur_"+s for s in inputs_str]
+
+
+past_inputs_str = ["past_" + s for s in inputs_str]
+current_inputs_str = ["cur_" + s for s in inputs_str]
 extra_in_str
 all_str = past_inputs_str + current_inputs_str + extra_in_str
 all_outputs_str = past_inputs_str + current_inputs_str
@@ -614,13 +621,14 @@ import matplotlib.pyplot as plt
 # Clear cache
 torch.cuda.empty_cache()
 
-device="cuda"
+device = "cuda"
 
 model = model.to(device=device)
 model.wet = model.wet.to(device=device)
 
 import torch
 import torch.nn as nn
+
 
 class WrappedModel(nn.Module):
     def __init__(self, model):
@@ -638,14 +646,15 @@ class WrappedModel(nn.Module):
 
         return total_prediction
 
-wrapped_model = WrappedModel(model)
 
+wrapped_model = WrappedModel(model)
 
 
 # Prepare input tensor
 input_state = train_data[0]
 input_tensor = input_state[0].unsqueeze(0).to(device=device)  # Shape: [1, 81, H, W]
 print(f"Input tensor shape: {input_tensor.shape}")
+
 
 def generate_background_tensor(num_samples=8):
     """Generates a background tensor with the specified number of samples."""
@@ -658,11 +667,13 @@ def generate_background_tensor(num_samples=8):
     background_tensor = torch.cat(background_samples, dim=0)
     return background_tensor
 
+
 def compute_shap_values(input_tensor, background_tensor):
     """Computes SHAP values for the input tensor using the given background tensor."""
     explainer = shap.DeepExplainer(wrapped_model, background_tensor)
     shap_values = explainer.shap_values(input_tensor, check_additivity=False)
     return shap_values
+
 
 # Parameters
 num_iterations = 20  # Number of iterations to average the SHAP values
@@ -671,19 +682,22 @@ num_samples_per_iteration = 8  # Background tensor size for each iteration
 # Initialize storage for aggregated SHAP values
 shap_values_sum = None
 import time
+
 start = time.time()
 for iteration in range(num_iterations):
-    print(f"Iteration {iteration + 1}/{num_iterations}: Generating background and computing SHAP values...")
-    
+    print(
+        f"Iteration {iteration + 1}/{num_iterations}: Generating background and computing SHAP values..."
+    )
+
     # Clear GPU cache
     torch.cuda.empty_cache()
-    
+
     # Generate background tensor
     background_tensor = generate_background_tensor(num_samples_per_iteration)
-    
+
     # Compute SHAP values
     shap_values = compute_shap_values(input_tensor, background_tensor)
-    
+
     # Accumulate the SHAP values for averaging
     if shap_values_sum is None:
         shap_values_sum = shap_values
@@ -716,7 +730,9 @@ shap_values_sum_spatial = shap_values_abs.sum(axis=(1, 2))  # Shape: (82, 78)
 shap_values_total = shap_values_sum_spatial.sum(axis=1)  # Shape: (82,)
 
 # Rank the input channels
-channel_indices = np.arange(1, shap_values_total.shape[0] + 1)  # Channels numbered from 1 to 82
+channel_indices = np.arange(
+    1, shap_values_total.shape[0] + 1
+)  # Channels numbered from 1 to 82
 sorted_indices = np.argsort(-shap_values_total)  # Negative sign for descending order
 ranked_channels = channel_indices[sorted_indices]
 ranked_importance = shap_values_total[sorted_indices]
@@ -729,14 +745,13 @@ positions = np.arange(len(ranked_channels))
 
 plt.figure(figsize=(max(12, len(labels) * 0.2), 6))
 plt.bar(positions, ranked_importance, tick_label=labels)
-plt.xlabel('Input Channel')
-plt.ylabel('Total SHAP Value')
-plt.title('Input Channel Importance Ranking using SHAP')
+plt.xlabel("Input Channel")
+plt.ylabel("Total SHAP Value")
+plt.title("Input Channel Importance Ranking using SHAP")
 plt.xticks(rotation=90, fontsize=8)
 plt.tight_layout()
-plt.savefig("shap_ranking"+suffix)
+plt.savefig("shap_ranking" + suffix)
 plt.close()
-
 
 
 import numpy as np
@@ -755,10 +770,12 @@ shap_values_sum_spatial = shap_values_abs.sum(axis=(1, 2))  # Shape: (82, 78)
 output_var_names = all_outputs_str  # Corrected from 'all_outputs_str'
 
 # Verify lengths
-assert len(output_var_names) == shap_values_sum_spatial.shape[1], "Mismatch in number of output variables"
+assert (
+    len(output_var_names) == shap_values_sum_spatial.shape[1]
+), "Mismatch in number of output variables"
 
 # Prepare x-axis positions and labels
-num_inputs = shap_values_sum_spatial.shape[0]   # 82 input channels
+num_inputs = shap_values_sum_spatial.shape[0]  # 82 input channels
 positions = np.arange(num_inputs)
 labels = all_str  # Ensure 'all_str' is defined
 
@@ -776,21 +793,21 @@ axes = axes.flatten()
 for output_idx in range(num_outputs):
     ax = axes[output_idx]
     shap_values_per_output = shap_values_sum_spatial[:, output_idx]
-    
+
     # Plot the SHAP values
     ax.bar(positions, shap_values_per_output, tick_label=labels)
     ax.set_title(output_var_names[output_idx], fontsize=10)
-    ax.set_ylabel('SHAP Value', fontsize=8)
-    ax.tick_params(axis='y', labelsize=6)
-    
+    ax.set_ylabel("SHAP Value", fontsize=8)
+    ax.tick_params(axis="y", labelsize=6)
+
     # Adjust x-axis labels
     # ax.set_xticks(positions)
     ax.set_xticklabels(labels, rotation=90, fontsize=8)
-    
+
 # Remove any unused subplots
 for idx in range(num_outputs, len(axes)):
     fig.delaxes(axes[idx])
 
 plt.tight_layout()
-plt.savefig("shap_ranking_per_feature"+suffix)
+plt.savefig("shap_ranking_per_feature" + suffix)
 plt.close()

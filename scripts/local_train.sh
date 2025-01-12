@@ -35,7 +35,7 @@ export BASE_OE_DIR=$PWD
 # ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swin_global_3D_all_CM4" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1
 
 # Hist 1 CM4 no fast
-# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swin_global_3D_all_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swin_global_3D_all_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all
 
 # Hist 1 CM4 no fast v2
-# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swinv2_global_3D_all_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp/modules/blocks@swin.block=swin_blockv2 exp/modules/blocks@swin.downsample_layer=patch_mergev2 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all 
+# ./.python-perlmutter submitit_hydra.py $comp testing=true exp=train_swin_global_3D_all_CM4 name="$(date +%F)-local_train_swinv2_global_3D_all_CM4_nofast" region=global_3D batch_size=4 scheduler=True rand_seed=10 hist=1 exp/modules/blocks@swin.block=swin_blockv2 exp/modules/blocks@swin.downsample_layer=patch_mergev2 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all

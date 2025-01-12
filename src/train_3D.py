@@ -22,7 +22,17 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
-from utils.train_utils import decomposed_mse, decomposed_mse_diff_weighted, decomposed_mse_cos_weighted, decomposed_mse_scaled, decomposed_mse_mae, SmoothedValue, MetricLogger, extract_wet, extract_surface_wet
+from utils.train_utils import (
+    decomposed_mse,
+    decomposed_mse_diff_weighted,
+    decomposed_mse_cos_weighted,
+    decomposed_mse_scaled,
+    decomposed_mse_mae,
+    SmoothedValue,
+    MetricLogger,
+    extract_wet,
+    extract_surface_wet,
+)
 from utils.dist_utils import (
     set_seed,
     init_distributed_mode,
@@ -65,7 +75,9 @@ class Trainer:
         self.inputs = INPT_VARS[args.exp_num_in]
         self.extra_in = EXTRA_VARS[args.exp_num_extra]
         self.outputs = OUT_VARS[args.exp_num_out]
-        self.CH_3D_IDX, self.DP_3D_IDX, self.VAR_SET, self.DEPTH_SET = get_eval_maps(args.exp_num_out)
+        self.CH_3D_IDX, self.DP_3D_IDX, self.VAR_SET, self.DEPTH_SET = get_eval_maps(
+            args.exp_num_out
+        )
         levels = args.exp_num_in.split("_")[-1]
         if "all" in levels:
             self.levels = 19
@@ -108,7 +120,9 @@ class Trainer:
 
         assert type(args.data_stride) == list or OmegaConf.is_list(args.data_stride)
         assert type(args.steps) == list or OmegaConf.is_list(args.steps)
-        assert type(args.step_transition) == list or OmegaConf.is_list(args.step_transition)
+        assert type(args.step_transition) == list or OmegaConf.is_list(
+            args.step_transition
+        )
         assert len(args.step_transition) == len(args.steps) - 1
         max_steps = str(args.steps[-1])
         self.str_video = (
@@ -138,18 +152,23 @@ class Trainer:
         self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
         self.data_mean = xr.open_zarr(os.path.join(self.data_dir, self.data_means_zarr))
         self.data_std = xr.open_zarr(os.path.join(self.data_dir, self.data_stds_zarr))
-        
+
         ## TEMP SMOOTHING FIX HERE
         if args.smooth:
             start = time.time()
             for var in self.outputs:
-                if 'uo' in var or 'vo' in var:
+                if "uo" in var or "vo" in var:
                     window = 10
                     print(f"Smoothing {var} with window size {window}")
-                    self.data[var] = self.data[var].rolling(time=window, min_periods=1, center=False).mean().compute()
-            
+                    self.data[var] = (
+                        self.data[var]
+                        .rolling(time=window, min_periods=1, center=False)
+                        .mean()
+                        .compute()
+                    )
+
             print(f"Smoothing took minutes: {(time.time() - start) / 60}")
-                    
+
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, self.outputs, args.hist)
         self.surface_wet = extract_surface_wet(wet_zarr)
@@ -157,10 +176,20 @@ class Trainer:
         # Model
         print("Getting model " + args.network)
         if "swin" == args.network:
-            lat = torch.tensor(self.data.lat.values).to(dtype=torch.float32).unsqueeze(0).cuda()
-            lon = torch.tensor(self.data.lon.values).to(dtype=torch.float32).unsqueeze(0).cuda()
+            lat = (
+                torch.tensor(self.data.lat.values)
+                .to(dtype=torch.float32)
+                .unsqueeze(0)
+                .cuda()
+            )
+            lon = (
+                torch.tensor(self.data.lon.values)
+                .to(dtype=torch.float32)
+                .unsqueeze(0)
+                .cuda()
+            )
             mask = ~torch.tensor(self.data.wetmask.isel(lev=0).values).cuda()
-            
+
             model = instantiate(
                 args.swin,
                 in_channels=self.num_in,
@@ -201,13 +230,15 @@ class Trainer:
 
         # Summary
         i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 2
-        
-        logging.info(summary(
-            model,
-            input_data=[i],
-            col_names=["kernel_size", "output_size", "num_params"],
-            depth=10,
-        ))
+
+        logging.info(
+            summary(
+                model,
+                input_data=[i],
+                col_names=["kernel_size", "output_size", "num_params"],
+                depth=10,
+            )
+        )
 
         i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 8
         logging.info(summary(model, input_data=[i], col_names=[], depth=10))
@@ -222,7 +253,7 @@ class Trainer:
             print("Using decomposed mse loss")
             self.loss = decomposed_mse
         elif args.loss == "mse_diff_weighted":
-            assert args.hist == 1 # TEMP
+            assert args.hist == 1  # TEMP
             print("Using decomposed mse loss with weighted diff")
             self.loss = decomposed_mse_diff_weighted
         elif args.loss == "mse_cos_weighted":
@@ -232,8 +263,15 @@ class Trainer:
             self.loss = partial(decomposed_mse_cos_weighted, cos=area_weights)
         elif args.loss == "mse_residual_scaled":
             print("Using decomposed mse loss with scaled residuals")
-            scaling_residuals = xr.open_zarr(os.path.join(self.data_dir, self.scaling_residuals_file))
-            scale = torch.from_numpy(( self.data_std[self.outputs] / scaling_residuals[self.outputs] ).compute().to_array().to_numpy()).to(device="cuda")
+            scaling_residuals = xr.open_zarr(
+                os.path.join(self.data_dir, self.scaling_residuals_file)
+            )
+            scale = torch.from_numpy(
+                (self.data_std[self.outputs] / scaling_residuals[self.outputs])
+                .compute()
+                .to_array()
+                .to_numpy()
+            ).to(device="cuda")
             scale = torch.concat([scale] * (args.hist + 1), dim=0)
             self.loss = partial(decomposed_mse_scaled, scaling=scale)
         elif args.loss == "mse_mae":
@@ -274,7 +312,9 @@ class Trainer:
                         **args.wandb,
                     )
             elif is_main_process():
-                warnings.warn("This checkpoint had wandb enabled, but wandb is not enabled now!")
+                warnings.warn(
+                    "This checkpoint had wandb enabled, but wandb is not enabled now!"
+                )
         else:
             if args.finetune:
                 self.load_checkpoint(args.resume_ckpt_path, finetune=True)
@@ -316,8 +356,8 @@ class Trainer:
         self.data_stride = args.data_stride
         self.N_samples = args.N_samples
         self.batch_size = args.batch_size
-        self.num_workers=args.num_workers
-        self.pin_mem=args.pin_mem
+        self.num_workers = args.num_workers
+        self.pin_mem = args.pin_mem
 
         self.init_validation_stores()
 
@@ -326,12 +366,14 @@ class Trainer:
         N = 72 * 2 // 4 * num_gpus  # 72 x 5 days ~ 1 year
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
+        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename(
+            {"xu_ocean": "x", "yu_ocean": "y"}
+        )
         self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         num_vars = len(self.VAR_SET)
-        self.surface_indices = [i * self.levels for i in range(num_vars-1)] + [-1]
+        self.surface_indices = [i * self.levels for i in range(num_vars - 1)] + [-1]
         surface_indices_str = [self.inputs[i] for i in self.surface_indices]
 
         self.val_data_set = []
@@ -433,22 +475,25 @@ class Trainer:
                     cur_step_idx += 1
                     cur_step = self.steps[cur_step_idx]
                     print(f"Transitioning to step {cur_step}")
-                train_data = [ data_CNN_Disk_steps(
-                            self.data,
-                            self.inputs,
-                            self.extra_in,
-                            self.outputs,
-                            self.wet,
-                            self.data_mean,
-                            self.data_std,
-                            self.N_samples,
-                            self.lag,
-                            self.interval,
-                            self.hist,
-                            cur_step,
-                            stride,
-                            device="cuda",
-                            ) for stride in self.data_stride ]
+                train_data = [
+                    data_CNN_Disk_steps(
+                        self.data,
+                        self.inputs,
+                        self.extra_in,
+                        self.outputs,
+                        self.wet,
+                        self.data_mean,
+                        self.data_std,
+                        self.N_samples,
+                        self.lag,
+                        self.interval,
+                        self.hist,
+                        cur_step,
+                        stride,
+                        device="cuda",
+                    )
+                    for stride in self.data_stride
+                ]
                 train_data = ConcatDataset(train_data)
 
                 print("Instantiating torch loaders")
@@ -518,7 +563,7 @@ class Trainer:
             loss = torch.mean(loss_per_channel)
             loss.backward()
             loss_value = loss.item()
-            
+
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
@@ -592,10 +637,10 @@ class Trainer:
             self.hist,
             self.N_out,
             self.N_extra,
-            initial_input=None, 
-            Nb=0, 
-            region=self.region, 
-            train=True
+            initial_input=None,
+            Nb=0,
+            region=self.region,
+            train=True,
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)
@@ -614,12 +659,14 @@ class Trainer:
             + self.val_data_set[rank].norm_vals["m_out"]
         )
         targets_unnormalized = (
-            targets_transposed * self.val_data_set[rank].norm_vals["s_out"] 
+            targets_transposed * self.val_data_set[rank].norm_vals["s_out"]
             + self.val_data_set[rank].norm_vals["m_out"]
         )
         # Surface level evaluation
         surface_preds = model_pred_unnormalized[:, :, :, self.surface_indices]
-        if self.VAR_SET == set(["uo", "vo", "thetao", "so", "zos"]): # TODO: Need surface eval func fixes. Hardcoded indices.
+        if self.VAR_SET == set(
+            ["uo", "vo", "thetao", "so", "zos"]
+        ):  # TODO: Need surface eval func fixes. Hardcoded indices.
             (
                 KE_corr,
                 KE_rmse,
@@ -643,7 +690,9 @@ class Trainer:
                 self.N_local,
             )
         else:
-            KE_corr = KE_rmse = temp_corr = temp_rmse = saline_corr = saline_rmse = zos_corr = zos_rmse = u_corr = u_rmse = v_corr = v_rmse = 0
+            KE_corr = KE_rmse = temp_corr = temp_rmse = saline_corr = saline_rmse = (
+                zos_corr
+            ) = zos_rmse = u_corr = u_rmse = v_corr = v_rmse = 0
 
         all_reduce_mean(loss_value)
 
@@ -678,7 +727,7 @@ class Trainer:
                         ).item()
                     }
                 )
-                
+
             # Plot prediction and target
             for i, var in enumerate(self.outputs):
                 fig = plt.figure(figsize=(10, 5))
@@ -693,11 +742,11 @@ class Trainer:
                     model_pred_unnormalized[:, :, :, i].mean(axis=(1, 2)),
                     label="Prediction",
                 )
-                if 'thetao' in var:
+                if "thetao" in var:
                     plt.ylim(min - 0.25, max + 0.25)
-                elif 'so' in var:
+                elif "so" in var:
                     plt.ylim(min - 0.2, max + 0.2)
-                elif 'KE' in var:
+                elif "KE" in var:
                     plt.ylim(min - 0.5, max + 0.5)
                 plt.title(var)
                 plt.legend()
@@ -752,7 +801,7 @@ class Trainer:
             self.start_epoch = checkpoint["epoch"] + 1
             self.wandb_id = checkpoint["wandb_id"]
             self.wandb_name = checkpoint["wandb_name"]
-        
+
             print("Start Epoch:", self.start_epoch)
             print("Wandb id:", self.wandb_id)
             print("Wandb name:", self.wandb_name)

@@ -8,7 +8,7 @@ defaults:
 _target_: models.swin.SwinTransformer
 _recursive_: false
 # Swin Encoder
-patch_size: 
+patch_size:
   - 2
   - 2
 window_size:
@@ -31,7 +31,7 @@ attention_dropout: 0.0
 stochastic_depth_prob: 0.2
 norm_layer: null # Default is LayerNorm
 # ConvNext Decoder
-dilation: 
+dilation:
   - 1
   - 2
   - 4

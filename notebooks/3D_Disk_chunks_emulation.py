@@ -311,6 +311,7 @@ from scipy.ndimage import gaussian_filter
 from einops import rearrange
 import os
 
+
 class data_CNN_Disk(torch.utils.data.Dataset):
 
     def __init__(
@@ -409,10 +410,12 @@ class data_CNN_Disk(torch.utils.data.Dataset):
             idx = slice(idx, idx + 1, 1)
 
         rolling_idx = self.rolling_indices.isel(window_dim=idx)
-        x_index = xr.Variable(
-            ["window_dim", "time"], rolling_idx
+        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
+        print(
+            "Out: ",
+            (self.ind_start + x_index.isel(time=slice(self.hist + 1, None))).values,
+            end=" ",
         )
-        print("Out: ", (self.ind_start + x_index.isel(time=slice(self.hist + 1, None))).values, end=' ')
         data_in = self.inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
@@ -453,32 +456,37 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         items = (torch.from_numpy(data_in).float(), torch.from_numpy(label).float())
 
         return items
-    
-    
+
+
 import xarray as xr
 
 assert args.depth_mode == "surface" or args.depth_mode == "all"
 
 data = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data_zarr))
-if args.data_zarr== "3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_netzerohfds_nojump3xcc":
+if (
+    args.data_zarr
+    == "3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_netzerohfds_nojump3xcc"
+):
     print("Updating climate forced runs!")
-    data['hfds'] = data['hfds'] + .017462726 
-    data['hfds_anomalies'] = data['hfds_anomalies'] + .017462726 
-    data['hfds'] = data['hfds'] + np.reshape(np.arange(data.time.size)* (0.0136986301-4.01369026e-04),(-1,1,1))
-    data['hfds_anomalies'] = data['hfds_anomalies'] + np.reshape(np.arange(data.time.size)* (0.0136986301-4.01369026e-04),(-1,1,1))
+    data["hfds"] = data["hfds"] + 0.017462726
+    data["hfds_anomalies"] = data["hfds_anomalies"] + 0.017462726
+    data["hfds"] = data["hfds"] + np.reshape(
+        np.arange(data.time.size) * (0.0136986301 - 4.01369026e-04), (-1, 1, 1)
+    )
+    data["hfds_anomalies"] = data["hfds_anomalies"] + np.reshape(
+        np.arange(data.time.size) * (0.0136986301 - 4.01369026e-04), (-1, 1, 1)
+    )
 
 repeats = 4
 data = xr.concat([data] * repeats, dim="time")
-data['time'] = np.arange(data.time.size)
+data["time"] = np.arange(data.time.size)
 data
 
 
 data_mean = xr.open_zarr(
     os.path.join("/pscratch/sd/s/suryad/data", args.data_means_zarr)
 )
-data_std = xr.open_zarr(
-    os.path.join("/pscratch/sd/s/suryad/data", args.data_stds_zarr)
-)
+data_std = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data_stds_zarr))
 train_data = data_CNN_Disk_steps(
     data,
     inputs_str,
@@ -550,7 +558,9 @@ test_data.norm_vals = {
 
 # Getting area tensor
 print("Computing area tensor")
-grids = xr.open_dataset(os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)).rename({"xu_ocean": "x", "yu_ocean": "y"})
+grids = xr.open_dataset(
+    os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)
+).rename({"xu_ocean": "x", "yu_ocean": "y"})
 
 area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 pred_model_path = Path("/pscratch/sd/s/suryad/Ocean_Emulator/Preds") / full_model_name
@@ -572,10 +582,11 @@ pred_names = args.pred_names if args.pred_names else []
 pred_paths = args.pred_paths if args.pred_paths else []
 
 JUPYTER_MODE = False
-    
-    
+
+
 out_mean = torch.tensor(test_data.out_mean.to_array().to_numpy()).to(device="cuda")
 out_std = torch.tensor(test_data.out_std.to_array().to_numpy()).to(device="cuda")
+
 
 ### Generate
 def generate_pred_lateral():
@@ -591,14 +602,16 @@ def generate_pred_lateral():
         #         torch.load(model_path, map_location=torch.device("cuda"))
         #     )
         pred_path = pred_model_path / (
-                        "Pred_lateral_Fast_Data_025_"
-                        + post_pred_name
-                        + "_rand_seed_"
-                        + str(rand_ind + 1)
-                        + ".zarr"
-                    )
+            "Pred_lateral_Fast_Data_025_"
+            + post_pred_name
+            + "_rand_seed_"
+            + str(rand_ind + 1)
+            + ".zarr"
+        )
         save_factor = args.save_factor
-        print(f"Using save_factor {save_factor} to produce {N_test // save_factor} steps each iteration")
+        print(
+            f"Using save_factor {save_factor} to produce {N_test // save_factor} steps each iteration"
+        )
         outs = None
         if not os.path.isdir(pred_path):
             start = 0
@@ -608,12 +621,15 @@ def generate_pred_lateral():
             pred = xr.open_zarr(pred_path)
             start = pred.time.size
             print(f"Restarting save from {start} for Pred path {pred_path}")
-            last_pred_numpy = pred.isel(time=slice(-2,None)).to_array().to_numpy().squeeze()
+            last_pred_numpy = (
+                pred.isel(time=slice(-2, None)).to_array().to_numpy().squeeze()
+            )
             last_pred = torch.tensor(last_pred_numpy).to(device="cuda")
             assert last_pred.shape[:3] == torch.Size([2, 180, 360])
             last_pred = (last_pred - out_mean) / out_std
-            initial_input = torch.swapaxes(torch.swapaxes(last_pred, 3, 2), 2, 1).reshape(-1, 180, 360)
-            
+            initial_input = torch.swapaxes(
+                torch.swapaxes(last_pred, 3, 2), 2, 1
+            ).reshape(-1, 180, 360)
 
         for i in range(start, N_test, N_test // save_factor):
             start_time = time.time()
@@ -633,7 +649,7 @@ def generate_pred_lateral():
                 long_rollout=True,
                 device="cuda",
             )
-            
+
             test_data.norm_vals = {
                 "s_out": std_out,
                 "s_in": std_in,
@@ -642,7 +658,7 @@ def generate_pred_lateral():
             }
             if outs is not None:
                 initial_input = outs[-1]
-                
+
             model_pred, outs = generate_model_rollout(
                 N_test // save_factor,
                 test_data,
@@ -664,12 +680,17 @@ def generate_pred_lateral():
             else:
                 da.to_zarr(pred_path, mode="a", append_dim="time")
             print("Saved: ", i, " to ", i + N_test // save_factor)
-            print(f"Time taken for generating {N_test // save_factor} predictions: {time.time() - start_time} seconds")
+            print(
+                f"Time taken for generating {N_test // save_factor} predictions: {time.time() - start_time} seconds"
+            )
 
 
-import time 
+import time
+
 start_time = time.time()
 if args.run_gen_pred:
     generate_pred_lateral()
-    
-print(f"Time taken for generating {N_test} predictions: {time.time() - start_time} seconds")
+
+print(
+    f"Time taken for generating {N_test} predictions: {time.time() - start_time} seconds"
+)

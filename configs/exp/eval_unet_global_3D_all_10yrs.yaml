@@ -55,8 +55,8 @@ train_region: null
 region: null # "global_21"
 depth_mode: null
 N_samples:  730
-N_val:  140 
-N_test: 600 
+N_val:  140
+N_test: 600
 interval: 1
 hist: 0
 lag: 1

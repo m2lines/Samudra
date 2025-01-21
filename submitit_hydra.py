@@ -149,7 +149,7 @@ if __name__ == "__main__":
             command_list.insert(1, f"--qos={args.qos}")
         else:
             command_list.insert(1, "--qos=regular")
-        command_list.insert(1, "--account=m4331")
+        command_list.insert(1, "--account=m4874")
         command_list.insert(1, "--constraint=gpu&hbm80g")
 
         return command_list

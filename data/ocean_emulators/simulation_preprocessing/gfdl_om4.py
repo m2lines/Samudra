@@ -1,10 +1,12 @@
-import xarray as xr
 import fsspec
 import numpy as np
-from xgcm import Grid
+import xarray as xr
 from ocean_emulators.dataset_validation import ds_processed_validate
 from ocean_emulators.utils import apply_mask
 from xarray_schema import SchemaError
+from xgcm import Grid
+
+from .interpolate import interpolate_to_cell_centers
 
 
 # load supergrid and extract the angles
@@ -27,65 +29,96 @@ def convert_super_grid(ds_super_grid: xr.Dataset):
     return angle_h, lon_h, lat_h, lon_b, lat_b
 
 
-def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
+def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None):
     """OM4 specific preprocessing"""
-    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={})
-    # add vertical info
-    dz = xr.DataArray(
-        [
-            5,
-            10,
-            15,
-            20,
-            30,
-            50,
-            70,
-            100,
-            150,
-            200,
-            250,
-            300,
-            400,
-            500,
-            600,
-            800,
-            1000,
-            1000,
-            1000,
-        ],
-        dims=["lev"],
-    )
+    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs)
+
+    if "z_i" in ds.coords:
+        ds = ds.rename({"z_i": "ilev", "z_l": "lev"})
+        dz = xr.DataArray(
+            ds.ilev.diff("ilev").values,
+            dims=["lev"],
+        ).astype("int64")
+        ilev = ds["ilev"]
+    else:
+        # add vertical info
+        dz = xr.DataArray(
+            [
+                5,
+                10,
+                15,
+                20,
+                30,
+                50,
+                70,
+                100,
+                150,
+                200,
+                250,
+                300,
+                400,
+                500,
+                600,
+                800,
+                1000,
+                1000,
+                1000,
+            ],
+            dims=["lev"],
+        )
+        ilev = xr.DataArray(
+            [
+                0,
+                5,
+                15,
+                30,
+                50,
+                80,
+                130,
+                200,
+                300,
+                450,
+                650,
+                900,
+                1200,
+                1600,
+                2100,
+                2700,
+                3500,
+                4500,
+                5500,
+                6500,
+            ],
+            dims=["ilev"],
+        )
+
     ds = ds.assign_coords(dz=dz)
 
-    # interpolate all velocities from outer to center grid position
+    # trim excess padding
+    if ds["xq"].size == ds["xh"].size + 1:
+        ds = ds.isel(xq=slice(1, None))
+    if ds["yq"].size == ds["yh"].size + 1:
+        ds = ds.isel(yq=slice(1, None))
+
     grid = Grid(
         ds,
         coords={
-            "X": {"center": "xh", "outer": "xq"},
-            "Y": {"center": "yh", "outer": "yq"},
+            "X": {"center": "xh", "right": "xq"},
+            "Y": {"center": "yh", "right": "yq"},
         },
-        boundary={"X": None, "Y": "extend"},
-        # periodicity is already 'built in with the outer coords'.
-        # NOTE: This would not be sufficient to interpolate tracer points back!
-        # For the velocity we need to extend, not pad otherwise the QC plots in the rotation will not work!
+        boundary="extend",
+        periodic=["xh", "xq"],
     )
-    ds_interpolated = xr.Dataset()
-    for var in ds.data_vars:
-        da = ds[var]
-        if set(["xh", "yh"]).issubset(da.dims):
-            ds_interpolated[var] = da
-        else:
-            # fill the velocities with 0 before interpolation to avoid mismatches in nans
-            ds_interpolated[var] = grid.interp_like(da.fillna(0), ds.thetao)
+    ds_interpolated = interpolate_to_cell_centers(ds, ds.thetao, grid)
 
     # remove the same areas as for the tracers again
     tracer_wetmask = ~np.isnan(ds_interpolated.thetao.isel(time=0)).drop_vars("time")
     ds = apply_mask(ds_interpolated, tracer_wetmask)
-    ds = ds.assign_coords(wetmask=tracer_wetmask)
-    ds
+    ds = ds.assign_coords(ilev=ilev, wetmask=tracer_wetmask)
 
-    with fsspec.open(nc_grid_path) as f:
-        ds_grid = xr.open_dataset(f)
+    with fs.open(nc_grid_path) as f:
+        ds_grid = xr.open_dataset(f).load()
+
     ds_grid = ds_grid.drop_vars("time")
     ds_grid = ds_grid.set_coords([v for v in ds_grid.data_vars])
     # ds_grid
@@ -100,6 +133,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
         "time",
         "xh",
         "lat",
+        "ilev",
         "lev",
         "yh",
         "areacello",
@@ -109,7 +143,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     drop_coords = [co for co in ds.coords.keys() if co not in required_coords]
     ds = ds.drop(drop_coords)
 
-    with fsspec.open(nc_mosaic_path) as f:
+    with fs.open(nc_mosaic_path) as f:
         ds_super_grid = xr.open_dataset(f).load()
 
     a, lon, lat, lon_b, lat_b = convert_super_grid(ds_super_grid)
@@ -122,11 +156,13 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
 
     ds = ds.assign_coords(lon_b=lon_b, lat_b=lat_b, angle=a, lon=lon, lat=lat)
     ds = ds.rename({"xh": "x", "yh": "y", "xh_b": "x_b", "yh_b": "y_b"})
-    ds = ds.drop_vars(["time_bnds"])
+    if "time_bnds" in ds.data_vars:
+        ds = ds.drop_vars(["time_bnds"])
+    ds = ds.astype(np.float32)
     # higher precision for the area
     ds = ds.assign_coords(areacello=ds.areacello.astype("float64"))
     try:
         ds_processed_validate(ds)
-    except SchemaError:
-        print("Failed validation with {e}")
+    except SchemaError as err:
+        print(f"Failed validation with error: {str(err)}")
     return ds

@@ -1,8 +1,8 @@
+import cartopy.crs as ccrs
 import matplotlib
 import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-from xarrayutils.plotting import linear_piecewise_scale
 import xarray as xr
+from xarrayutils.plotting import linear_piecewise_scale
 
 
 def qc_plots(ds: xr.Dataset):
@@ -72,11 +72,11 @@ def rotated_vectors_qc_plots(u, v, u_rotated, v_rotated):
         nrows=2,
         subplot_kw=dict(projection=ccrs.NorthPolarStereo(), facecolor="gray"),
     )
-    u.isel(**roi).plot(ax=axarr.flat[0], **kwargs)
-    v.isel(**roi).plot(ax=axarr.flat[1], **kwargs)
+    u.isel(**roi, missing_dims="warn").plot(ax=axarr.flat[0], **kwargs)
+    v.isel(**roi, missing_dims="warn").plot(ax=axarr.flat[1], **kwargs)
 
-    u_rotated.isel(**roi).plot(ax=axarr.flat[2], **kwargs)
-    v_rotated.isel(**roi).plot(ax=axarr.flat[3], **kwargs)
+    u_rotated.isel(**roi, missing_dims="warn").plot(ax=axarr.flat[2], **kwargs)
+    v_rotated.isel(**roi, missing_dims="warn").plot(ax=axarr.flat[3], **kwargs)
 
     for title, ax in zip(["u", "v", "u rotated", "v rotated"], axarr.flat):
         ax.set_title(title)
@@ -93,22 +93,22 @@ def rotated_vectors_qc_plots(u, v, u_rotated, v_rotated):
         ax.plot(right_flipped, ls="--")
 
     ax = axarr.flat[0]
-    fold_and_compare(ax, u.isel(**roi).load())
+    fold_and_compare(ax, u.isel(**roi, missing_dims="warn").load())
     ax.set_ylabel("u")
     ax.set_title("Before rotation: \n should be mirrored")
 
     ax = axarr.flat[1]
-    fold_and_compare(ax, v.isel(**roi).load())
+    fold_and_compare(ax, v.isel(**roi, missing_dims="warn").load())
     ax.set_ylabel("v")
     ax.set_title("Before rotation: \n should be mirrored")
 
     ax = axarr.flat[2]
-    fold_and_compare(ax, u_rotated.isel(**roi).load())
+    fold_and_compare(ax, u_rotated.isel(**roi, missing_dims="warn").load())
     ax.set_ylabel("u")
     ax.set_title("After rotation: \n should be aligned")
 
     ax = axarr.flat[3]
-    fold_and_compare(ax, v_rotated.isel(**roi).load())
+    fold_and_compare(ax, v_rotated.isel(**roi, missing_dims="warn").load())
     ax.set_ylabel("v")
     ax.set_title("After rotation: \n should be aligned")
 

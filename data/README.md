@@ -85,6 +85,7 @@ prediction_data_test(ds_prediction, ds_truth)
 | input_id | Cloud | Greene |
 | --- | --- | --- |
 | `'OM4_5daily'` | `'https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
+| `"CM4_5daily"`| `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation/ocean_5daily.zarr/"`| |
 | `"10_year_CM4_ocean_5daily"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_5daily.zarr"`| |
 | `"10_year_CM4_ice_5daily"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ice_5daily.zarr"` | |
 | `"10_year_CM4_ocean_6hourly"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_6hourly.zarr"` | |

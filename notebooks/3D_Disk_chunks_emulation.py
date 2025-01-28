@@ -41,7 +41,7 @@ import os
 # All Levels - Hist = 1, HFDS Anom, 100 year emulation, 1975, NetZeroHf
 # with initialize_config_dir(
 #     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+#     config_dir="/mnt/lustre/nyu/sd5313/Ocean_Emulator/configs",
 # ):
 #     args = compose(
 #         config_name="exp/eval_unet_global_3D_all_hfds_anoms",
@@ -52,7 +52,7 @@ import os
 #             "network={0}_ConvNextUNetTrain3Dv021Eval3DhfdsanomsNetZeroHf1975Epochs70Epoch55Years100_10repeat_2002".format(
 #                 str("2024-09-25")[:10]
 #             ),
-#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/from_greene/hist1_hfds_anom_1975/convnextunet_epoch_55_steps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt]",
+#             "ckpt_path=[/mnt/lustre/nyu/sd5313/Ocean_Emulator/train_3D/from_greene/hist1_hfds_anom_1975/convnextunet_epoch_55_steps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt]",
 #             "hist=1",
 #             "unet.ch_width=[157,200,250,300,400]",
 #             "run_gen_pred=True",
@@ -78,7 +78,7 @@ import os
 # All Levels - Hist = 1, HFDS Anom, 100 year emulation, 1975, TempOnly, NetZeroHf
 with initialize_config_dir(
     version_base=None,
-    config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+    config_dir="/mnt/lustre/nyu/sd5313/Ocean_Emulator/configs",
 ):
     args = compose(
         config_name="exp/eval_unet_global_3D_all_hfds_anoms",
@@ -89,7 +89,7 @@ with initialize_config_dir(
             "network={0}_ConvNextUNetTrain3Dv021Eval3DhfdsanomsNetZeroHfTempOnly1975Epochs70Epoch55Years100_10repeat_2002".format(
                 str("2024-09-25")[:10]
             ),
-            "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-09-09-convnextunet_v021_hist1_hfds_anom_1975_nofast/nofast/saved_nets/convnextunet_epoch_55_beststeps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt]",
+            "ckpt_path=[/mnt/lustre/nyu/sd5313/Ocean_Emulator/train_3D/2024-09-09-convnextunet_v021_hist1_hfds_anom_1975_nofast/nofast/saved_nets/convnextunet_epoch_55_beststeps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt]",
             "hist=1",
             "unet.ch_width=[157,200,250,300,400]",
             "run_gen_pred=True",
@@ -116,7 +116,7 @@ with initialize_config_dir(
 # All Levels - Hist = 1, HFDS Anom, 100 year emulation, 1975, NetZeroHf
 # with initialize_config_dir(
 #     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+#     config_dir="/mnt/lustre/nyu/sd5313/Ocean_Emulator/configs",
 # ):
 #     args = compose(
 #         config_name="exp/eval_unet_global_3D_all_hfds_anoms",
@@ -127,7 +127,7 @@ with initialize_config_dir(
 #             "network={0}_ConvNextUNetTrain3Dv021Eval3DhfdsanomsNetZeroHf1975Epochs70Epoch55Years100_10repeat_1998".format(
 #                 str("2024-09-12")[:10]
 #             ),
-#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/from_greene/hist1_hfds_anom_1975/convnextunet_epoch_55_steps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt]",
+#             "ckpt_path=[/mnt/lustre/nyu/sd5313/Ocean_Emulator/train_3D/from_greene/hist1_hfds_anom_1975/convnextunet_epoch_55_steps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt]",
 #             "hist=1",
 #             "unet.ch_width=[157,200,250,300,400]",
 #             "run_gen_pred=True",
@@ -153,7 +153,7 @@ with initialize_config_dir(
 # All Levels - Hist = 1, HFDS Anom, 100 year emulation, 1975, TempOnly, NetZeroHf
 # with initialize_config_dir(
 #     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+#     config_dir="/mnt/lustre/nyu/sd5313/Ocean_Emulator/configs",
 # ):
 #     args = compose(
 #         config_name="exp/eval_unet_global_3D_all_hfds_anoms",
@@ -164,7 +164,7 @@ with initialize_config_dir(
 #             "network={0}_ConvNextUNetTrain3Dv021Eval3DhfdsanomsNetZeroHfTempOnly1975Epochs70Epoch55Years100_10repeat_1998".format(
 #                 str(datetime.now())[:10]
 #             ),
-#             "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-09-09-convnextunet_v021_hist1_hfds_anom_1975_nofast/nofast/saved_nets/convnextunet_epoch_55_beststeps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt]",
+#             "ckpt_path=[/mnt/lustre/nyu/sd5313/Ocean_Emulator/train_3D/2024-09-09-convnextunet_v021_hist1_hfds_anom_1975_nofast/nofast/saved_nets/convnextunet_epoch_55_beststeps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt]",
 #             "hist=1",
 #             "unet.ch_width=[157,200,250,300,400]",
 #             "run_gen_pred=True",
@@ -297,7 +297,7 @@ else:
 
 
 print("Calculating mask tensors")
-wet_zarr = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.wet_file))
+wet_zarr = xr.open_zarr(os.path.join("/mnt/home/sd5313/data/Ocean", args.wet_file))
 wet = extract_wet(wet_zarr, outputs_str, args.hist)
 print("Wet resolution:", wet.shape)
 print("e_test: ", e_test)
@@ -462,7 +462,7 @@ import xarray as xr
 
 assert args.depth_mode == "surface" or args.depth_mode == "all"
 
-data = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data_zarr))
+data = xr.open_zarr(os.path.join("/mnt/home/sd5313/data/Ocean", args.data_zarr))
 if (
     args.data_zarr
     == "3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_netzerohfds_nojump3xcc"
@@ -484,9 +484,9 @@ data
 
 
 data_mean = xr.open_zarr(
-    os.path.join("/pscratch/sd/s/suryad/data", args.data_means_zarr)
+    os.path.join("/mnt/home/sd5313/data/Ocean", args.data_means_zarr)
 )
-data_std = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data_stds_zarr))
+data_std = xr.open_zarr(os.path.join("/mnt/home/sd5313/data/Ocean", args.data_stds_zarr))
 train_data = data_CNN_Disk_steps(
     data,
     inputs_str,
@@ -559,11 +559,11 @@ test_data.norm_vals = {
 # Getting area tensor
 print("Computing area tensor")
 grids = xr.open_dataset(
-    os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)
+    os.path.join("/mnt/home/sd5313/data/Ocean", args.grid_file)
 ).rename({"xu_ocean": "x", "yu_ocean": "y"})
 
 area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
-pred_model_path = Path("/pscratch/sd/s/suryad/Ocean_Emulator/Preds") / full_model_name
+pred_model_path = Path("/mnt/lustre/nyu/sd5313/Ocean_Emulator/Preds") / full_model_name
 if not os.path.isdir(pred_model_path):
     os.makedirs(pred_model_path)
 

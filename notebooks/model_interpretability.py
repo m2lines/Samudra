@@ -27,7 +27,7 @@ import os
 # All Levels - v0.2.1, Hist = 1, hfds_anoms, No Fast ins/outs
 with initialize_config_dir(
     version_base=None,
-    config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+    config_dir="/mnt/lustre/nyu/sd5313/Ocean_Emulator/configs",
 ):
     args = compose(
         config_name="exp/eval_unet_global_3D_all_hfds_anoms",
@@ -38,7 +38,7 @@ with initialize_config_dir(
             "network={0}_ConvNextUNetTrain3Dv021Eval3DhfdsanomsNofastinoutEpochs70Epoch55_4144".format(
                 str(datetime.now())[:10]
             ),
-            "ckpt_path=[/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/from_greene/nofastvars_all/convnextunet_epoch_55_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
+            "ckpt_path=[/mnt/lustre/nyu/sd5313/Ocean_Emulator/train_3D/from_greene/nofastvars_all/convnextunet_epoch_55_steps_4_global_3D_all_N_train_4000_Lateral_Data_025_no_smooth.pt]",
             "hist=1",
             "unet.ch_width=[157,200,250,300,400]",
             "run_gen_pred=True",
@@ -60,7 +60,7 @@ with initialize_config_dir(
 # All Levels - v0.2.1, Hist = 1, hfds_cuminteg, No Fast ins/outs
 # with initialize_config_dir(
 #     version_base=None,
-#     config_dir="/pscratch/sd/s/suryad/Ocean_Emulator/configs",
+#     config_dir="/mnt/lustre/nyu/sd5313/Ocean_Emulator/configs",
 # ):
 #     args = compose(
 #         config_name="exp/eval_unet_global_3D_all_hfds_cuminteg_1975",
@@ -71,7 +71,7 @@ with initialize_config_dir(
 #             "network={0}_ConvNextUNetTrain3Dv021Eval3DhfdscumintegNsamples1850NofastinoutEpochs70Epoch55".format(
 #                 str(datetime.now())[:10]
 #             ),
-#             "ckpt_path=['/pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2024-10-23-convnextunet_v021_hist1_1975_onlyseasonalizedcuminteg/batch_size=4,epochs=70,exp_num_in=3D_noFast_all,exp_num_out=3D_noFast_all,hist=1,rand_seed=15,region=global_3D,scheduler=True,unet.ch_width=[157,200,250,300,400],wandb.mode=online/saved_nets/convnextunet_epoch_55_beststeps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt']",
+#             "ckpt_path=['/mnt/lustre/nyu/sd5313/Ocean_Emulator/train_3D/2024-10-23-convnextunet_v021_hist1_1975_onlyseasonalizedcuminteg/batch_size=4,epochs=70,exp_num_in=3D_noFast_all,exp_num_out=3D_noFast_all,hist=1,rand_seed=15,region=global_3D,scheduler=True,unet.ch_width=[157,200,250,300,400],wandb.mode=online/saved_nets/convnextunet_epoch_55_beststeps_4_global_3D_all_N_train_2850_Lateral_Data_025_no_smooth.pt']",
 #             "hist=1",
 #             "unet.ch_width=[157,200,250,300,400]",
 #             "run_gen_pred=True",
@@ -201,7 +201,7 @@ else:
 
 print("Calculating mask tensors")
 
-# ds = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.raw_data_zarr))
+# ds = xr.open_zarr(os.path.join("/mnt/home/sd5313/data/Ocean", args.raw_data_zarr))
 # ds = ds.drop(["tauuo", "tauvo", "hfds"])
 # lev_map = {str(lev).replace('.', '_'): i for i, lev in enumerate(ds["lev"].values)}
 
@@ -221,7 +221,7 @@ print("Calculating mask tensors")
 
 # if args.depth_mode == "surface":
 #     inputs, extra_in, outputs = gen_3D_data(
-#         os.path.join("/pscratch/sd/s/suryad/data", args.raw_data_zarr),
+#         os.path.join("/mnt/home/sd5313/data/Ocean", args.raw_data_zarr),
 #         inputs_str,
 #         extra_in_str,
 #         outputs_str,
@@ -276,7 +276,7 @@ print("Calculating mask tensors")
 
 # wet = torch.concat([wet] * (args.hist + 1), dim=0)
 
-wet_zarr = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.wet_file))
+wet_zarr = xr.open_zarr(os.path.join("/mnt/home/sd5313/data/Ocean", args.wet_file))
 wet = extract_wet(wet_zarr, outputs_str, args.hist)
 print("Wet resolution:", wet.shape)
 # time_vec = inputs[0].time.data
@@ -444,22 +444,22 @@ import xarray as xr
 assert args.depth_mode == "surface" or args.depth_mode == "all"
 
 if args.depth_mode == "surface":
-    wet = torch.load(os.path.join("/pscratch/sd/s/suryad/data", args.surface_wet_file))
+    wet = torch.load(os.path.join("/mnt/home/sd5313/data/Ocean", args.surface_wet_file))
     wet_bool = np.array(wet.cpu()).astype(bool)
-    data = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data_zarr))
+    data = xr.open_zarr(os.path.join("/mnt/home/sd5313/data/Ocean", args.data_zarr))
     data_mean = xr.open_zarr(
-        os.path.join("/pscratch/sd/s/suryad/data", args.data_means_zarr)
+        os.path.join("/mnt/home/sd5313/data/Ocean", args.data_means_zarr)
     )
     data_std = xr.open_zarr(
-        os.path.join("/pscratch/sd/s/suryad/data", args.data_stds_zarr)
+        os.path.join("/mnt/home/sd5313/data/Ocean", args.data_stds_zarr)
     )
 elif args.depth_mode == "all":
-    data = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data_zarr))
+    data = xr.open_zarr(os.path.join("/mnt/home/sd5313/data/Ocean", args.data_zarr))
     data_mean = xr.open_zarr(
-        os.path.join("/pscratch/sd/s/suryad/data", args.data_means_zarr)
+        os.path.join("/mnt/home/sd5313/data/Ocean", args.data_means_zarr)
     )
     data_std = xr.open_zarr(
-        os.path.join("/pscratch/sd/s/suryad/data", args.data_stds_zarr)
+        os.path.join("/mnt/home/sd5313/data/Ocean", args.data_stds_zarr)
     )
 
     ### Smoothening
@@ -569,7 +569,7 @@ test_data.norm_vals = {
 # Getting area tensor
 print("Computing area tensor")
 # grids = xr.open_dataset(
-#     os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)
+#     os.path.join("/mnt/home/sd5313/data/Ocean", args.grid_file)
 # ).rename({"dx": "dxu", "dy": "dyu"})
 
 # area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
@@ -577,12 +577,12 @@ print("Computing area tensor")
 # dy = grids["dyu"].to_numpy()
 
 grids = xr.open_dataset(
-    os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)
+    os.path.join("/mnt/home/sd5313/data/Ocean", args.grid_file)
 ).rename({"xu_ocean": "x", "yu_ocean": "y"})
 area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
 
 
-pred_model_path = Path("/pscratch/sd/s/suryad/Ocean_Emulator/Preds") / full_model_name
+pred_model_path = Path("/mnt/lustre/nyu/sd5313/Ocean_Emulator/Preds") / full_model_name
 if not os.path.isdir(pred_model_path):
     os.makedirs(pred_model_path)
 

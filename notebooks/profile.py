@@ -145,105 +145,110 @@ ds_prediction_temp['x']  = ds_prediction_temp.x.assign_attrs(long_name='longitud
 ds_prediction_temp['thetao'] = ds_prediction_temp['thetao'].assign_attrs(long_name = r'$\theta_O$', units = r"${^oC}$")
 
 
-# color_1 = '#DE3A41'
-# color_2 = '#277DC7'
+# Time slice 
+ds_groundtruth = ds_groundtruth.sel(time=slice("1990-01-01", "1999-12-31"))
+ds_prediction_all = ds_prediction_all.sel(time=slice("1990-01-01", "1999-12-31"))
+ds_prediction_temp = ds_prediction_temp.sel(time=slice("1990-01-01", "1999-12-31"))
 
-# clist = ["#D7191C","#DE7400","#00BD8E","#3300EA"]
-# color_2 = '#ff807a'
-# color_1 = '#1e8685'
+color_1 = '#DE3A41'
+color_2 = '#277DC7'
 
-# # Saving depth profiles
-# # OM4
-# da_temp = ds_groundtruth['thetao']
-# section_mask = np.isnan(da_temp).all('x').isel(time=0)
-# da_temp_int_x = da_temp.weighted(ds_prediction_temp['areacello']).mean('x').mean('time')
-# temp_pred = da_temp_int_x.where(~section_mask)
-# temp_pred = temp_pred.rename(r'$\theta_O$').assign_attrs(units=r'\degree C')
-# temp_pred['y'] = temp_pred.y.assign_attrs(long_name='latitude', units=r'$\degree$')
-# temp_pred['lev'] = temp_pred.lev.assign_attrs(long_name='depth', units='m')
-# om4_temp_profile = temp_pred.compute()
-# # om4_temp_profile.to_zarr("../Figures/om4_temp_profile", mode="w", safe_chunks=False)
-# # del om4_temp_profile
+clist = ["#D7191C","#DE7400","#00BD8E","#3300EA"]
+color_2 = '#ff807a'
+color_1 = '#1e8685'
 
-# # Thermo
-# da_temp = ds_prediction_temp['thetao']
-# section_mask = np.isnan(da_temp).all('x').isel(time=0)
-# da_temp_int_x = da_temp.weighted(ds_prediction_temp['areacello']).mean('x').mean('time')
-# temp_pred = da_temp_int_x.where(~section_mask)
-# temp_pred = temp_pred.rename(r'$\theta_O$').assign_attrs(units=r'\degree C')
-# temp_pred['y'] = temp_pred.y.assign_attrs(long_name='latitude', units=r'$\degree$')
-# temp_pred['lev'] = temp_pred.lev.assign_attrs(long_name='depth', units='m')
-# thermo_temp_profile = temp_pred.compute()#.chunk({'y': 10, 'lev': 10}) 
-# # thermo_temp_profile.to_zarr("../Figures/thermo_temp_profile", mode="w", safe_chunks=False)
-# # del thermo_temp_profile
+# Saving depth profiles
+# OM4
+da_temp = ds_groundtruth['thetao']
+section_mask = np.isnan(da_temp).all('x').isel(time=0)
+da_temp_int_x = da_temp.weighted(ds_prediction_temp['areacello']).mean('x').mean('time')
+temp_pred = da_temp_int_x.where(~section_mask)
+temp_pred = temp_pred.rename(r'$\theta_O$').assign_attrs(units=r'\degree C')
+temp_pred['y'] = temp_pred.y.assign_attrs(long_name='latitude', units=r'$\degree$')
+temp_pred['lev'] = temp_pred.lev.assign_attrs(long_name='depth', units='m')
+om4_temp_profile = temp_pred.compute()
+# om4_temp_profile.to_zarr("../Figures/om4_temp_profile", mode="w", safe_chunks=False)
+# del om4_temp_profile
+
+# Thermo
+da_temp = ds_prediction_temp['thetao']
+section_mask = np.isnan(da_temp).all('x').isel(time=0)
+da_temp_int_x = da_temp.weighted(ds_prediction_temp['areacello']).mean('x').mean('time')
+temp_pred = da_temp_int_x.where(~section_mask)
+temp_pred = temp_pred.rename(r'$\theta_O$').assign_attrs(units=r'\degree C')
+temp_pred['y'] = temp_pred.y.assign_attrs(long_name='latitude', units=r'$\degree$')
+temp_pred['lev'] = temp_pred.lev.assign_attrs(long_name='depth', units='m')
+thermo_temp_profile = temp_pred.compute()#.chunk({'y': 10, 'lev': 10}) 
+# thermo_temp_profile.to_zarr("../Figures/thermo_temp_profile", mode="w", safe_chunks=False)
+# del thermo_temp_profile
 
 
-# # # Thermo+Dynamic 
-# da_temp = ds_prediction_all['thetao']
-# section_mask = np.isnan(da_temp).all('x').isel(time=0)
-# da_temp_int_x = da_temp.weighted(ds_prediction_temp['areacello']).mean('x').mean('time')
-# temp_pred = da_temp_int_x.where(~section_mask)
-# temp_pred = temp_pred.rename(r'$\theta_O$').assign_attrs(units=r'\degree C')
-# temp_pred['y'] = temp_pred.y.assign_attrs(long_name='latitude', units=r'$\degree$')
-# temp_pred['lev'] = temp_pred.lev.assign_attrs(long_name='depth', units='m')
-# thermodynamic_temp_profile = temp_pred.compute()#.chunk({'y': 10, 'lev': 10}) 
-# # thermodynamic_temp_profile.to_zarr("../Figures/thermodynamic_temp_profile", mode="w", safe_chunks=False)
-# # del thermodynamic_temp_profile
+# # Thermo+Dynamic 
+da_temp = ds_prediction_all['thetao']
+section_mask = np.isnan(da_temp).all('x').isel(time=0)
+da_temp_int_x = da_temp.weighted(ds_prediction_temp['areacello']).mean('x').mean('time')
+temp_pred = da_temp_int_x.where(~section_mask)
+temp_pred = temp_pred.rename(r'$\theta_O$').assign_attrs(units=r'\degree C')
+temp_pred['y'] = temp_pred.y.assign_attrs(long_name='latitude', units=r'$\degree$')
+temp_pred['lev'] = temp_pred.lev.assign_attrs(long_name='depth', units='m')
+thermodynamic_temp_profile = temp_pred.compute()#.chunk({'y': 10, 'lev': 10}) 
+# thermodynamic_temp_profile.to_zarr("../Figures/thermodynamic_temp_profile", mode="w", safe_chunks=False)
+# del thermodynamic_temp_profile
 
-# import cmocean as cm
-# import matplotlib.pyplot as plt
-# new_cmap = cm.cm.balance 
-# new_cmap.set_bad('grey', .6)
-# plt.rcParams.update({'font.size': 14})
-# fig, ax = plt.subplots(1, 3, figsize=(16, 3), gridspec_kw={'width_ratios': [1, 1, 1], 
-#                                     'height_ratios': [1],
-#                                     'wspace': 0.02, 'hspace': 0.5})
-# vmin, vmax = -0.5, 0.5
+import cmocean as cm
+import matplotlib.pyplot as plt
+new_cmap = cm.cm.balance 
+new_cmap.set_bad('grey', .6)
+plt.rcParams.update({'font.size': 14})
+fig, ax = plt.subplots(1, 3, figsize=(16, 3), gridspec_kw={'width_ratios': [1, 1, 1], 
+                                    'height_ratios': [1],
+                                    'wspace': 0.02, 'hspace': 0.5})
+vmin, vmax = -0.5, 0.5
 
-# i = 0
+i = 0
 
-# im = (thermo_temp_profile-om4_temp_profile).plot(ax=ax[i], cmap=new_cmap, vmin=vmin, vmax=vmax, add_colorbar=False)
-# ax[i].invert_yaxis()
-# ax[i].set_title(f"Thermo - OM4", fontsize=14)
-# linear_piecewise_scale(1000, 5, ax=ax[i])
-# ax[i].axhline(1000, color='0.5', ls='--')
+im = (thermo_temp_profile-om4_temp_profile).plot(ax=ax[i], cmap=new_cmap, vmin=vmin, vmax=vmax, add_colorbar=False)
+ax[i].invert_yaxis()
+ax[i].set_title(f"Thermo - OM4", fontsize=14)
+linear_piecewise_scale(1000, 5, ax=ax[i])
+ax[i].axhline(1000, color='0.5', ls='--')
+ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
+
+i=i+1
+im = (thermodynamic_temp_profile-om4_temp_profile).plot(ax=ax[i], cmap=new_cmap, vmin=vmin, vmax=vmax, add_colorbar=False)
+ax[i].invert_yaxis()
+ax[i].set_title(f"Thermo+Dynamic - OM4", fontsize=14)
+linear_piecewise_scale(1000, 5, ax=ax[i])
+ax[i].axhline(1000, color='0.5', ls='--')
 # ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
+ax[i].set_yticks([])
+ax[i].set_ylabel("")
 
-# i=i+1
-# im = (thermodynamic_temp_profile-om4_temp_profile).plot(ax=ax[i], cmap=new_cmap, vmin=vmin, vmax=vmax, add_colorbar=False)
-# ax[i].invert_yaxis()
-# ax[i].set_title(f"Thermo+Dynamic - OM4", fontsize=14)
-# linear_piecewise_scale(1000, 5, ax=ax[i])
-# ax[i].axhline(1000, color='0.5', ls='--')
-# # ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
-# ax[i].set_yticks([])
-# ax[i].set_ylabel("")
+i=i+1
+im = (thermo_temp_profile-thermodynamic_temp_profile).plot(ax=ax[i], cmap=new_cmap, vmin=vmin, vmax=vmax, add_colorbar=False)
+ax[i].invert_yaxis()
+ax[i].set_title(f"Thermo - Thermo+Dynamic ", fontsize=14)
+linear_piecewise_scale(1000, 5, ax=ax[i])
+ax[i].axhline(1000, color='0.5', ls='--')
+# ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
+ax[i].set_yticks([])
+ax[i].set_ylabel("")
+cbar = fig.colorbar(im, ax=ax[:], orientation='vertical', fraction=0.02, pad=0.02)
+cbar.set_label(r"$\theta_O$ [$\degree C$]")
 
-# i=i+1
-# im = (thermo_temp_profile-thermodynamic_temp_profile).plot(ax=ax[i], cmap=new_cmap, vmin=vmin, vmax=vmax, add_colorbar=False)
-# ax[i].invert_yaxis()
-# ax[i].set_title(f"Thermo - Thermo+Dynamic ", fontsize=14)
-# linear_piecewise_scale(1000, 5, ax=ax[i])
-# ax[i].axhline(1000, color='0.5', ls='--')
-# # ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
-# ax[i].set_yticks([])
-# ax[i].set_ylabel("")
-# cbar = fig.colorbar(im, ax=ax[:], orientation='vertical', fraction=0.02, pad=0.02)
-# cbar.set_label(r"$\theta_O$ [$\degree C$]")
-
-# plt.savefig(os.path.join(output_path, "Temperature_Diff_Global_Profile_Long"), bbox_inches='tight', dpi=600)
-# # plt.show()
-# plt.close()
+plt.savefig(os.path.join(output_path, "Temperature_Diff_Global_Profile_Long_10yr"), bbox_inches='tight', dpi=600)
+# plt.show()
+plt.close()
 
 
 
-var = 'thetao'
-data = ds_groundtruth
-import numpy as np
+# var = 'thetao'
+# data = ds_groundtruth
+# import numpy as np
 # mae = np.abs((ds_prediction_temp[var] - data[var]).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev', 'time']))
 # cor = ((ds_prediction_temp[var]*data[var]).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']) / np.sqrt((ds_prediction_temp[var]**2).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']) * (data[var]**2).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']))).mean()
 # print(f"Thermo - \nMAE : {mae.compute()}\nCOR : {cor.compute()}")
 
-mae = np.abs((ds_prediction_all[var] - data[var]).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev', 'time']))
-cor = ((ds_prediction_all[var]*data[var]).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']) / np.sqrt((ds_prediction_all[var]**2).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']) * (data[var]**2).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']))).mean()
-print(f"Thermo+Dynamic - \nMAE : {mae.compute()}\nCOR : {cor.compute()}")
+# mae = np.abs((ds_prediction_all[var] - data[var]).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev', 'time']))
+# cor = ((ds_prediction_all[var]*data[var]).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']) / np.sqrt((ds_prediction_all[var]**2).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']) * (data[var]**2).weighted(data['areacello']*data['dz']).mean(['x', 'y', 'lev']))).mean()
+# print(f"Thermo+Dynamic - \nMAE : {mae.compute()}\nCOR : {cor.compute()}")

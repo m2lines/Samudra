@@ -1,0 +1,15 @@
+WARNING: Could not find any nv files on this host!
+Traceback (most recent call last):
+  File "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/notebooks/osn_data_upload.py", line 58, in <module>
+    ds = post_processor(ds, ds_groundtruth, ['thetao', 'so', 'zos'])
+  File "/scratch/sd5313/M2Lines/emulator/Ocean_Emulator/notebooks/osn_data_upload.py", line 39, in post_processor
+    ds_out = ds_out.assign_coords({co: ds_truth[co] for co in ds_truth.coords})
+  File "/ext3/miniconda3/envs/emulator/lib/python3.10/site-packages/xarray/core/common.py", line 615, in assign_coords
+    data.coords.update(results)
+  File "/ext3/miniconda3/envs/emulator/lib/python3.10/site-packages/xarray/core/coordinates.py", line 172, in update
+    self._update_coords(coords, indexes)
+  File "/ext3/miniconda3/envs/emulator/lib/python3.10/site-packages/xarray/core/coordinates.py", line 305, in _update_coords
+    dims = calculate_dimensions(variables)
+  File "/ext3/miniconda3/envs/emulator/lib/python3.10/site-packages/xarray/core/variable.py", line 3282, in calculate_dimensions
+    raise ValueError(
+ValueError: conflicting sizes for dimension 'time': length 4745 on 'time' and length 29094 on {'time': 'thetao', 'y': 'thetao', 'x': 'thetao', 'lev': 'thetao', 'y_b': 'lon_b', 'x_b': 'lon_b'}

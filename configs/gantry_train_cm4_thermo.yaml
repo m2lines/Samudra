@@ -32,7 +32,7 @@ training:
   resume_ckpt_path: null
 
 data:
-  wet_file: /wetmask/CM4_5daily_v0.4.0_wetmask
+  wet_file: /wetmask
   data_zarr: /climate-default/2024-11-12-cm4-piControl-ocean-200yr-dataset/data.zarr
   data_means: /statsdata/centering.nc
   data_stds: /statsdata/scaling-full-field.nc

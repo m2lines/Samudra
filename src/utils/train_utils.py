@@ -248,7 +248,7 @@ def extract_wet(wet_zarr, outputs, hist):
             depth_ind.append(ind)
     depths = [DEPTH_LEVELS[int(depth_i)] for depth_i in depth_ind]
     wet = wet_zarr.sel(lev=depths)
-    wet = torch.from_numpy(wet.to_numpy().squeeze())
+    wet = torch.from_numpy(wet.to_array().to_numpy().squeeze())
     wet = torch.concat([wet] * (hist + 1), dim=0)
     print(wet.shape)
     return wet

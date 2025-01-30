@@ -25,7 +25,7 @@ gantry run \
     --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
     --dataset-secret google-credentials:/tmp/google_application_credentials.json \
     --dataset jamesd/2025-01-20-cm4-ocean-piControl-200yr-dataset-stats:/statsdata \
-    --dataset suryad/CM4_5daily_v0.4.0_wetmask:/climate-default \
+    --dataset suryad/CM4_5daily_v0.4.0_wetmask:/statsdata \
     --gpus $N_GPUS \
     --shared-memory 400GiB \
     --weka climate-default:/climate-default \

@@ -186,6 +186,7 @@ class Trainer:
                 print(wet_zarr.to_array()[0].values)
                 print(masks_bool)
                 print(masks)
+        self.area = torch.from_numpy(wet_zarr['areacello'].to_numpy()).to(device="cpu")
         self.surface_wet = extract_surface_wet(wet_zarr)
 
         # Model
@@ -354,8 +355,6 @@ class Trainer:
         num_gpus = get_world_size()
         N = 72 * 2 // 4 * num_gpus  # 72 x 5 days ~ 1 year
         self.N_local = N // num_gpus
-
-        self.area = torch.from_numpy(self.data['areacello'].to_numpy()).to(device="cpu")
 
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         num_vars = len(self.VAR_SET)

@@ -145,13 +145,7 @@ if __name__ == "__main__":
             command_list.insert(1, f"--cpus-per-task={args.cpus_per_task}")
         if args.array is not None:
             command_list.insert(1, f"--array={args.array}")
-        if args.qos is not None:
-            command_list.insert(1, f"--qos={args.qos}")
-        else:
-            command_list.insert(1, "--qos=regular")
-        command_list.insert(1, "--account=m4874")
-        command_list.insert(1, "--constraint=gpu&hbm80g")
-
+            
         return command_list
 
     submitit_slurm.SlurmExecutor._make_submission_command = _make_submission_command

@@ -239,9 +239,8 @@ def decomposed_mse_cos_weighted(pred, out, cos):
 
 
 def extract_wet(wet_zarr, outputs, hist):
-    depth_ind = [var_depth_i.split("_")[-1] if var_depth_i != "zos" else "0" for var_depth_i in OUT_VARS["3D_noFast_all"]]
     depth_ind = []
-    for var_depth_i in depth_ind:
+    for var_depth_i in outputs:
         ind = var_depth_i.split("_")[-1]
         if ind == "zos":
             depth_ind.append("0")

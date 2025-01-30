@@ -74,46 +74,46 @@ def is_main_process():
     return get_rank() == 0
 
 
-def init_distributed_mode(args):
-    assert args.distributed
+def init_distributed_mode(cfg):
+    assert cfg.distributed
 
     if "RANK" in os.environ:
-        args.rank = int(os.environ["RANK"])
-        args.gpu = int(os.environ["LOCAL_RANK"])
-        args.world_size = int(os.environ["WORLD_SIZE"])
-        args.dist_url = "env://"
-        args.gpu = args.rank % torch.cuda.device_count()
+        cfg.rank = int(os.environ["RANK"])
+        cfg.gpu = int(os.environ["LOCAL_RANK"])
+        cfg.world_size = int(os.environ["WORLD_SIZE"])
+        cfg.dist_url = "env://"
+        cfg.gpu = cfg.rank % torch.cuda.device_count()
     elif "SLURM_PROCID" in os.environ:
-        args.rank = int(os.environ["SLURM_PROCID"])
-        args.gpu = args.rank % torch.cuda.device_count()
-        args.world_size = int(os.environ["SLURM_NNODES"]) * int(
+        cfg.rank = int(os.environ["SLURM_PROCID"])
+        cfg.gpu = cfg.rank % torch.cuda.device_count()
+        cfg.world_size = int(os.environ["SLURM_NNODES"]) * int(
             os.environ["SLURM_TASKS_PER_NODE"][0]
         )
         if "MASTER_ADDR" not in os.environ:
-            args.dist_url = "tcp://localhost:40000"  # Local execution
+            cfg.dist_url = "tcp://localhost:40000"  # Local execution
         else:
-            args.dist_url = None  # Slurm execution
+            cfg.dist_url = None  # Slurm execution
 
-    torch.cuda.set_device(args.gpu)
-    args.dist_backend = "nccl"
+    torch.cuda.set_device(cfg.gpu)
+    cfg.dist_backend = "nccl"
     log.info(
         "| distributed init (rank {}), gpu {}, world_size {}".format(
-            args.rank, args.gpu, args.world_size
+            cfg.rank, cfg.gpu, cfg.world_size
         )
     )
 
     if not dist.is_initialized():
         dist.init_process_group(
-            backend=args.dist_backend,
-            init_method=args.dist_url,
-            world_size=args.world_size,
-            rank=args.rank,
+            backend=cfg.dist_backend,
+            init_method=cfg.dist_url,
+            world_size=cfg.world_size,
+            rank=cfg.rank,
         )
         torch.distributed.barrier()
-        suppress_prints(args.rank == 0)
+        suppress_prints(cfg.rank == 0)
     else:
         torch.distributed.barrier()
-    suppress_logging(args.rank == 0)
+    suppress_logging(cfg.rank == 0)
 
 
 def all_reduce_mean(x):

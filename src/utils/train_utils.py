@@ -253,3 +253,9 @@ def extract_wet(wet_zarr, outputs, hist):
 
 def extract_surface_wet(wet_zarr):
     return torch.from_numpy(wet_zarr.isel(lev=0).to_array().to_numpy().squeeze())
+
+def pairwise(iterable):
+    # pairwise('ABCDEFG') --> AB BC CD DE EF FG
+    a, b = tee(iterable)
+    next(b, None)
+    return zip(a, b)

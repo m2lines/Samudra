@@ -1,0 +1,150 @@
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict, Any, Literal
+from pathlib import Path
+import yaml
+from datetime import datetime
+from dacite import from_dict, Config as DaciteConfig
+
+@dataclass
+class WandBConfig:
+    mode: str = "disabled"  # online, disabled
+    project: str = "3D_ocean_emu_CM4"
+    entity: str = "suryadheeshjith"
+    group: Optional[str] = None
+    tags: Optional[List[str]] = None
+    notes: Optional[str] = None
+
+@dataclass
+class TrainingConfig:
+    device: str = "cuda"
+    distributed: bool = True
+    disk_mode: bool = True
+    num_workers: int = 4
+    pin_mem: bool = True
+    save_freq: int = 5
+    epochs: int = 70
+    batch_size: int = 32
+    learning_rate: float = 2e-4
+    scheduler: bool = False
+    loss: str = "mse"
+    network: str = "convnextunet"
+    exp_num_in: str = "3D_all"
+    exp_num_extra: str = "3D_all"
+    exp_num_out: str = "3D_all"
+    lam: float = 0.05
+    Nb: int = 0
+    lateral: bool = False
+    finetune: bool = False
+    dist_url: Optional[str] = None
+    world_size: Optional[int] = None
+    rank: Optional[int] = None
+    gpu: Optional[int] = None
+    dist_backend: Optional[str] = None
+    resume_ckpt_path: Optional[str] = None
+
+@dataclass
+class DataConfig:
+    wet_file: str = "CM4_5daily_v0.4.0_wetmask"
+    data_zarr: str = "CM4_5daily_v0.4.0"
+    data_means: str = "CM4_5daily_v0.4.0_means"
+    data_stds: str = "CM4_5daily_v0.4.0_stds"
+    scaling_residuals_file: Optional[str] = None
+    region: str = "global_1"
+    depth_mode: str = "all"
+    smooth: bool = False
+    N_samples: int = 13800
+    N_val: int = 140
+    N_test: int = 600
+    data_stride: List[int] = field(default_factory=lambda: [1])
+    steps: List[int] = field(default_factory=lambda: [4])
+    step_transition: List[int] = field(default_factory=lambda: [])
+    interval: int = 1
+    hist: int = 0
+    lag: int = 1
+    data_percent: float = 1.0
+    
+@dataclass
+class BlockConfig:
+    block_type: str = "conv_next_block"  # conv_next_block, conv_block
+    kernel_size: int = 3
+    activation: str = "capped_gelu"  # relu, gelu, capped_gelu
+    upscale_factor: int = 4
+    norm: str = "batch"  # batch, instance, layer
+
+@dataclass
+class UNetConfig:
+    # Core architecture
+    ch_width: List[int] = field(default_factory=lambda: [80, 24, 45, 90, 180])
+    n_out: int = 77
+    dilation: List[int] = field(default_factory=lambda: [1, 2, 4, 8])
+    n_layers: List[int] = field(default_factory=lambda: [1, 1, 1, 1])
+    
+    # Block configurations
+    core_block: BlockConfig = field(default_factory=BlockConfig)
+    down_sampling_block: str = "avg_pool"  # avg_pool, max_pool
+    up_sampling_block: str = "bilinear_upsample"  # bilinear_upsample, transposed_conv
+    
+    # Other settings
+    pred_residuals: bool = False
+    last_kernel_size: int = 3
+    pad: str = "circular"
+    wet: Optional[Any] = None  # Will be set during training
+    hist: int = 0  # Will be set during training
+
+@dataclass
+class Config:
+    wandb: WandBConfig
+    training: TrainingConfig
+    data: DataConfig
+    unet: UNetConfig
+    name: str = "train"
+    sub_name: str = "cm4_samudra_thermo"
+    
+    rand_seed: int = 1
+    base_output_dir: str = "train_3D"
+    debug: bool = False
+    
+    def __post_init__(self):
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        self.output_dir = Path(self.base_output_dir) / f"{timestamp}-{self.name}-{self.sub_name}"
+        self.nets_dir = self.output_dir / "saved_nets"
+        if self.debug:
+            self.data_dir = Path("/vast/sd5313/data/m2lines/3D_ocean_data/")
+        else:
+            self.data_dir = Path("/")
+    
+    @classmethod
+    def from_yaml(cls, yaml_path: str) -> 'Config':
+        """Load config from YAML with strict validation using dacite"""
+        with open(yaml_path, 'r') as f:
+            config_dict = yaml.safe_load(f)
+        
+        return from_dict(
+            data_class=cls,
+            data=config_dict,
+            config=DaciteConfig(
+                strict=True,
+                check_types=True,
+                cast=[Path]
+            )
+        )
+    
+    def save_yaml(self, save_path: str):
+        """Save config to YAML file"""
+        config_dict = {
+            'wandb': self.wandb.__dict__,
+            'training': self.training.__dict__,
+            'data': self.data.__dict__,
+            'unet': {
+                **self.unet.__dict__,
+                'core_block': self.unet.core_block.__dict__
+            },
+            'name': self.name,
+            'sub_name': self.sub_name,
+            'rand_seed': self.rand_seed,
+            'base_output_dir': self.base_output_dir,
+            'debug': self.debug
+        }
+        
+        with open(save_path, 'w') as f:
+            yaml.dump(config_dict, f, default_flow_style=False) 

@@ -3,7 +3,7 @@
 set -e
 
 JOB_NAME="samudra-train"  # recommended but not required to change this
-# CONFIG_PATH=configs/exp/train_unet_global_3D_all_CM4.yaml  # relative to the root of the repository
+CONFIG_PATH=configs/gantry_train_cm4_thermo.yaml  # relative to the root of the repository
  # since we use a service account API key for wandb, we use the beaker username to set the wandb username
 BEAKER_USERNAME=suryad
 N_GPUS=8
@@ -21,7 +21,7 @@ gantry run \
     --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
     --dataset-secret google-credentials:/tmp/google_application_credentials.json \
     --dataset jamesd/2025-01-20-cm4-ocean-piControl-200yr-dataset-stats:/statsdata \
-    --dataset suryad/CM4_5daily_v0.4.0_wetmask:/CM4_5daily_v0.4.0_wetmask \
+    --dataset suryad/CM4_5daily_v0.4.0_wetmask:/wetmask \
     --gpus $N_GPUS \
     --shared-memory 400GiB \
     --weka climate-default:/climate-default \
@@ -29,4 +29,7 @@ gantry run \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
     --install "pip install -r requirements.txt" \
-    -- python submitit_hydra.py wandb.mode=online exp=train_unet_global_3D_all_CM4 name="$(date +%F)-convnextunet_CM4_hist1" region=global_3D batch_size=4 scheduler=True rand_seed=15 unet.ch_width=[157,200,250,300,400] hist=1 epochs=120 exp_num_in=3D_noFast_all exp_num_out=3D_noFast_all lr=1e-4
+    -- torchrun --nproc_per_node $N_GPUS src/train_3D.py --config $CONFIG_PATH
+
+
+# debug:  torchrun src/train_3D.py --config configs/train_cm4_thermo.yaml

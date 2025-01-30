@@ -1,3 +1,4 @@
+import argparse
 import os
 import copy
 import wandb
@@ -6,8 +7,6 @@ import time
 import datetime
 import json
 from pathlib import Path
-from omegaconf import OmegaConf
-from hydra.utils import instantiate
 from functools import partial
 import logging
 
@@ -22,6 +21,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
+from config import Config
 from utils.train_utils import (
     decomposed_mse,
     decomposed_mse_diff_weighted,
@@ -50,35 +50,36 @@ from utils.data_utils import (
 import xarray as xr
 import dask
 
+from models.unet import UNet
 
 class Trainer:
-    def __init__(self, args) -> None:
+    def __init__(self, cfg) -> None:
 
         # Distributed mode
-        init_distributed_mode(args)
+        init_distributed_mode(cfg.training)
         dask.config.set(scheduler="synchronous")
 
-        if not args.disk_mode:
-            assert args.num_workers == 0 and args.pin_mem == False
+        if not cfg.training.disk_mode:
+            assert cfg.training.num_workers == 0 and cfg.training.pin_mem == False
         else:
-            args.num_workers = torch.cuda.device_count() * args.num_workers
-            args.pin_mem = True
+            cfg.training.num_workers = torch.cuda.device_count() * cfg.training.num_workers
+            cfg.training.pin_mem = True
 
         # Set seeds
-        set_seed(args.rand_seed)
+        set_seed(cfg.rand_seed)
 
         # Check dirs
-        if not os.path.exists(args.nets_dir):
-            os.makedirs(args.nets_dir, exist_ok=True)
+        if not os.path.exists(cfg.nets_dir):
+            os.makedirs(cfg.nets_dir, exist_ok=True)
 
         # Getting input, extra input and output
-        self.inputs = INPT_VARS[args.exp_num_in]
-        self.extra_in = EXTRA_VARS[args.exp_num_extra]
-        self.outputs = OUT_VARS[args.exp_num_out]
+        self.inputs = INPT_VARS[cfg.training.exp_num_in]
+        self.extra_in = EXTRA_VARS[cfg.training.exp_num_extra]
+        self.outputs = OUT_VARS[cfg.training.exp_num_out]
         self.CH_3D_IDX, self.DP_3D_IDX, self.VAR_SET, self.DEPTH_SET = get_eval_maps(
-            args.exp_num_out
+            cfg.training.exp_num_out
         )
-        levels = args.exp_num_in.split("_")[-1]
+        levels = cfg.training.exp_num_in.split("_")[-1]
         if "all" in levels:
             self.levels = 19
         elif "2D" in levels:
@@ -95,13 +96,13 @@ class Trainer:
         print("outputs: " + self.str_out)
         print("levels: " + str(self.levels))
 
-        s_train = args.lag * args.hist
-        e_train = s_train + args.N_samples * args.interval
-        e_test = e_train + args.interval * args.N_val
+        s_train = cfg.data.lag * cfg.data.hist
+        e_train = s_train + cfg.data.N_samples * cfg.data.interval
+        e_test = e_train + cfg.data.interval * cfg.data.N_val
 
         self.N_atm = len(self.extra_in)
         self.N_in = len(self.inputs)
-        if args.lateral:
+        if cfg.training.lateral:
             self.N_extra = (
                 self.N_atm + self.N_in
             )  # Number of atmosphere variables + Lateral boundary variables
@@ -109,52 +110,49 @@ class Trainer:
             self.N_extra = self.N_atm  # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
-        self.num_in = int((args.hist + 1) * self.N_in + self.N_extra)
-        self.num_out = int((args.hist + 1) * len(self.outputs))
+        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
+        self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
 
         print("Number of inputs: ", self.num_in)
         print("Number of outputs: ", self.num_out)
 
-        assert args.region == "global_3D"
-        self.region = args.region
+        assert cfg.data.region == "global_3D"
+        self.region = cfg.data.region
 
-        assert type(args.data_stride) == list or OmegaConf.is_list(args.data_stride)
-        assert type(args.steps) == list or OmegaConf.is_list(args.steps)
-        assert type(args.step_transition) == list or OmegaConf.is_list(
-            args.step_transition
-        )
-        assert len(args.step_transition) == len(args.steps) - 1
-        max_steps = str(args.steps[-1])
+        assert isinstance(cfg.data.data_stride, list)
+        assert isinstance(cfg.data.steps, list)
+        assert isinstance(cfg.data.step_transition, list)
+        assert len(cfg.data.step_transition) == len(cfg.data.steps) - 1
+        max_steps = str(cfg.data.steps[-1])
         self.str_video = (
             "steps_"
             + max_steps
             + "_"
-            + args.region
+            + cfg.data.region
             + "_"
-            + args.depth_mode
+            + cfg.data.depth_mode
             + "_"
             + "N_train_"
-            + str(args.N_samples)
+            + str(cfg.data.N_samples)
             + "_Lateral_Data_025_no_smooth"
         )
 
         # Dataloaders
         print("Loading data")
-        assert args.depth_mode == "surface" or args.depth_mode == "all"
-        self.data_dir = args.data_dir
-        self.wet_file = args.wet_file
-        self.data_zarr = args.data_zarr
-        self.data_means_zarr = args.data_means_zarr
-        self.data_stds_zarr = args.data_stds_zarr
-        self.scaling_residuals_file = args.scaling_residuals_file
-        self.grid_file = args.grid_file
+        assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
+        self.data_dir = cfg.data_dir
+        self.wet_file = cfg.data.wet_file
+        self.data_zarr = cfg.data.data_zarr
+        self.data_means = cfg.data.data_means
+        self.data_stds = cfg.data.data_stds
+        self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
-        self.data_mean = xr.open_zarr(os.path.join(self.data_dir, self.data_means_zarr))
-        self.data_std = xr.open_zarr(os.path.join(self.data_dir, self.data_stds_zarr))
+        self.data_mean = xr.open_dataset(os.path.join(self.data_dir, self.data_means))
+        self.data_std = xr.open_dataset(os.path.join(self.data_dir, self.data_stds))
 
         ## TEMP SMOOTHING FIX HERE
-        if args.smooth:
+        if cfg.data.smooth:
             start = time.time()
             for var in self.outputs:
                 if "uo" in var or "vo" in var:
@@ -170,54 +168,28 @@ class Trainer:
             print(f"Smoothing took minutes: {(time.time() - start) / 60}")
 
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
-        self.wet = extract_wet(wet_zarr, self.outputs, args.hist)
+        self.wet = extract_wet(wet_zarr, self.outputs, cfg.data.hist)
+        assert (self.wet.values == xr.concat([self.data['mask_0'], self.data['mask_1'], self.data['mask_2'], self.data['mask_3'], self.data['mask_4'], self.data['mask_5'], self.data['mask_6'], self.data['mask_7'], self.data['mask_8'], self.data['mask_9'], self.data['mask_10'], self.data['mask_11'], self.data['mask_12'], self.data['mask_13'], self.data['mask_14'], self.data['mask_15'], self.data['mask_16'], self.data['mask_17'], self.data['mask_18']], dim='level').to_numpy()).all()
         self.surface_wet = extract_surface_wet(wet_zarr)
 
         # Model
-        print("Getting model " + args.network)
-        if "swin" == args.network:
-            lat = (
-                torch.tensor(self.data.lat.values)
-                .to(dtype=torch.float32)
-                .unsqueeze(0)
-                .cuda()
-            )
-            lon = (
-                torch.tensor(self.data.lon.values)
-                .to(dtype=torch.float32)
-                .unsqueeze(0)
-                .cuda()
-            )
-            mask = ~torch.tensor(self.data.wetmask.isel(lev=0).values).cuda()
-
-            model = instantiate(
-                args.swin,
-                in_channels=self.num_in,
-                output_channels=self.num_out,
-                wet=self.wet.cuda(),
-                hist=args.hist,
-                lat=lat,
-                lon=lon,
-                land_mask=mask,
-            )
-        elif "convnextunet" == args.network or "adamunet" == args.network:
-            if args.unet.ch_width[0] != self.num_in:
+        print("Getting model " + cfg.training.network)
+        if "convnextunet" == cfg.training.network or "adamunet" == cfg.training.network:
+            if cfg.unet.ch_width[0] != self.num_in:
                 print(
                     "NOTE: Changing input channels to match data {}->{}".format(
-                        args.unet.ch_width[0], self.num_in
+                        cfg.unet.ch_width[0], self.num_in
                     )
                 )
-                args.unet.ch_width[0] = self.num_in
-            if args.unet.n_out != self.num_out:
+                cfg.unet.ch_width[0] = self.num_in
+            if cfg.unet.n_out != self.num_out:
                 print(
                     "NOTE: Changing output channels to match data {}->{}".format(
-                        args.unet.n_out, self.num_out
+                        cfg.unet.n_out, self.num_out
                     )
                 )
-                args.unet.n_out = self.num_out
-            model = instantiate(
-                args.unet, n_out=self.num_out, wet=self.wet.cuda(), hist=args.hist
-            )
+                cfg.unet.n_out = self.num_out
+            model = UNet(cfg.unet, wet=self.wet.to(cfg.training.device)).to(cfg.training.device)
         else:
             raise NotImplementedError
 
@@ -226,7 +198,7 @@ class Trainer:
         print("Number of parameters: ", params)
         # summary(model)
 
-        model = model.to(args.device)
+        model = model.to(cfg.training.device)
 
         # Summary
         i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 2
@@ -244,24 +216,24 @@ class Trainer:
         logging.info(summary(model, input_data=[i], col_names=[], depth=10))
 
         self.model = model
-        self.nets_dir = args.nets_dir
-        self.network = args.network
-        self.device = args.device
+        self.nets_dir = cfg.nets_dir
+        self.network = cfg.training.network
+        self.device = cfg.training.device
 
         # Loss function
-        if args.loss == "mse":
+        if cfg.training.loss == "mse":
             print("Using decomposed mse loss")
             self.loss = decomposed_mse
-        elif args.loss == "mse_diff_weighted":
-            assert args.hist == 1  # TEMP
+        elif cfg.training.loss == "mse_diff_weighted":
+            assert cfg.data.hist == 1  # TEMP
             print("Using decomposed mse loss with weighted diff")
             self.loss = decomposed_mse_diff_weighted
-        elif args.loss == "mse_cos_weighted":
+        elif cfg.training.loss == "mse_cos_weighted":
             print("Using decomposed mse loss with weighted cos")
             area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device="cuda")
             self.loss = partial(decomposed_mse_cos_weighted, cos=area_weights)
-        elif args.loss == "mse_residual_scaled":
+        elif cfg.training.loss == "mse_residual_scaled":
             print("Using decomposed mse loss with scaled residuals")
             scaling_residuals = xr.open_zarr(
                 os.path.join(self.data_dir, self.scaling_residuals_file)
@@ -272,92 +244,93 @@ class Trainer:
                 .to_array()
                 .to_numpy()
             ).to(device="cuda")
-            scale = torch.concat([scale] * (args.hist + 1), dim=0)
+            scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
             self.loss = partial(decomposed_mse_scaled, scaling=scale)
-        elif args.loss == "mse_mae":
+        elif cfg.training.loss == "mse_mae":
             print("Using decomposed mse loss with mae")
             self.loss = decomposed_mse_mae
         else:
             raise NotImplementedError
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.training.learning_rate)
 
         # Scheduler
         self.scheduler = None
-        if args.scheduler:
-            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-                self.optimizer, args.T
+        if cfg.training.scheduler:
+            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer, 
+                T_max=cfg.training.epochs
             )
 
         # Wandb and Loading Checkpoint
-        self.wandb = args.wandb.mode == "online"
-        if args.resume_ckpt_path is not None and not args.finetune:
-            self.load_checkpoint(args.resume_ckpt_path)
+        self.wandb = cfg.wandb.mode == "online"
+        if cfg.training.resume_ckpt_path is not None and not cfg.training.finetune:
+            self.load_checkpoint(cfg.training.resume_ckpt_path)
             if self.is_wandb_enabled():
                 try:
                     wandb.init(
-                        config=OmegaConf.to_container(args, resolve=True),
+                        config=cfg.__dict__,
                         name=self.wandb_name,
-                        dir=args.experiment_dir,
+                        dir=cfg.output_dir,
                         resume="must",
                         id=self.wandb_id,
-                        **args.wandb,
+                        **cfg.wandb.__dict__,
                     )
                 except:
                     wandb.init(
-                        config=OmegaConf.to_container(args, resolve=True),
+                        config=cfg.__dict__,
                         name=self.wandb_name,
-                        dir=args.experiment_dir,
-                        **args.wandb,
+                        dir=cfg.output_dir,
+                        **cfg.wandb.__dict__,
                     )
             elif is_main_process():
                 warnings.warn(
                     "This checkpoint had wandb enabled, but wandb is not enabled now!"
                 )
         else:
-            if args.finetune:
-                self.load_checkpoint(args.resume_ckpt_path, finetune=True)
+            if cfg.training.finetune:
+                self.load_checkpoint(cfg.training.resume_ckpt_path, finetune=True)
             self.start_epoch = 1
             self.wandb_id = None
             self.wandb_name = (
-                args.name + "//" + args.sub_name
-                if hasattr(args, "sub_name")
-                else ".LOCAL" + "//" + args.name
+                cfg.name + "//" + cfg.sub_name
+                if hasattr(cfg, "sub_name")
+                else ".LOCAL" + "//" + cfg.name
             )
             if self.is_wandb_enabled():
                 wandb.init(
-                    config=OmegaConf.to_container(args, resolve=True),
+                    config=cfg.__dict__,
                     name=self.wandb_name,
-                    dir=args.experiment_dir,
-                    **args.wandb,
+                    dir=cfg.output_dir,
+                    **cfg.wandb.__dict__,
                 )
                 self.wandb_id = wandb.run.id
 
         # DDP Model
         self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
         self.model = nn.parallel.DistributedDataParallel(
-            self.model, device_ids=[args.gpu]
+            self.model, device_ids=[cfg.training.gpu]
         )
 
         # Training
-        self.epochs = args.epochs
-        self.hist = args.hist
-        self.steps = args.steps
-        self.step_transition = args.step_transition
-        self.save_freq = args.save_freq
-        self.output_dir = args.output_dir
-        self.network = args.network
-        self.testing = args.testing
-        self.N_val = args.N_val
-        self.lag = args.lag
-        self.interval = args.interval
+        self.epochs = cfg.training.epochs
+        self.hist = cfg.data.hist
+        self.steps = cfg.data.steps
+        self.step_transition = cfg.data.step_transition
+        self.save_freq = cfg.training.save_freq
+        self.output_dir = cfg.output_dir
+        self.network = cfg.training.network
+        self.debug = cfg.debug
+        self.N_val = cfg.data.N_val
+        self.lag = cfg.data.lag
+        self.interval = cfg.data.interval
         self.e_train = e_train
-        self.data_stride = args.data_stride
-        self.N_samples = args.N_samples
-        self.batch_size = args.batch_size
-        self.num_workers = args.num_workers
-        self.pin_mem = args.pin_mem
+        self.data_stride = cfg.data.data_stride
+        self.N_samples = cfg.data.N_samples
+        self.batch_size = cfg.training.batch_size
+        self.num_workers = cfg.training.num_workers
+        self.pin_mem = cfg.training.pin_mem
 
         self.init_validation_stores()
 
@@ -366,10 +339,7 @@ class Trainer:
         N = 72 * 2 // 4 * num_gpus  # 72 x 5 days ~ 1 year
         self.N_local = N // num_gpus
 
-        grids = xr.open_dataset(os.path.join(self.data_dir, self.grid_file)).rename(
-            {"xu_ocean": "x", "yu_ocean": "y"}
-        )
-        self.area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
+        self.area = torch.from_numpy(self.data['areacello'].to_numpy()).to(device="cpu")
 
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         num_vars = len(self.VAR_SET)
@@ -553,7 +523,7 @@ class Trainer:
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
-            if self.testing and (data_iter_step + 1) % 5 == 0:
+            if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
             self.optimizer.zero_grad()
@@ -814,7 +784,26 @@ class Trainer:
         if self.is_wandb_enabled():
             wandb.finish()
 
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, required=True, help='Path to config YAML file')
+    args = parser.parse_args()
+    
+    # Load config from YAML
+    cfg = Config.from_yaml(args.config)
 
-def main(args):
-    trainer = Trainer(args)
+    # Save config to output directory for reproducibility
+    cfg.output_dir.mkdir(parents=True, exist_ok=True)
+    cfg.nets_dir.mkdir(exist_ok=True)
+    cfg.save_yaml(cfg.output_dir / 'config.yaml')
+    
+    # Use config in training
+    print(f"Training UNet model for {cfg.training.epochs} epochs")
+    print(f"Output directory: {cfg.output_dir}")
+    
+    trainer = Trainer(cfg)
     trainer.run()
+
+if __name__ == "__main__":
+    main()

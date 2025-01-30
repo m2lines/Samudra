@@ -152,14 +152,6 @@ def compute_fft_2D(dx, dy, u):
 
     return abs(uiso2)
 
-
-def pairwise(iterable):
-    # pairwise('ABCDEFG') --> AB BC CD DE EF FG
-    a, b = tee(iterable)
-    next(b, None)
-    return zip(a, b)
-
-
 def compute_laplacian(T, dx, Nb, wet_lap):
     #     h = 1/dx[Nb:-Nb,Nb:-Nb]**2
     lap = (

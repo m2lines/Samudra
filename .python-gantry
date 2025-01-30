@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -e
+
+JOB_NAME="samudra-train"  # recommended but not required to change this
+# CONFIG_PATH=configs/exp/train_unet_global_3D_all_CM4.yaml  # relative to the root of the repository
+ # since we use a service account API key for wandb, we use the beaker username to set the wandb username
+BEAKER_USERNAME=suryad
+N_GPUS=8
+
+gantry run \
+    --name $JOB_NAME \
+    --description 'Run Samudra training' \
+    --workspace ai2/ace \
+    --priority normal \
+    --preemptible \
+    --cluster ai2/saturn-cirrascale \
+    --cluster ai2/jupiter-cirrascale-2 \
+    --cluster ai2/ceres-cirrascale \
+    --env WANDB_USERNAME=$BEAKER_USERNAME \
+    --env WANDB_NAME=$JOB_NAME \
+    --env WANDB_JOB_TYPE=training \
+    --env WANDB_RUN_GROUP= \
+    --env GOOGLE_APPLICATION_CREDENTIALS=/tmp/google_application_credentials.json \
+    --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
+    --dataset-secret google-credentials:/tmp/google_application_credentials.json \
+    --dataset jamesd/2025-01-20-cm4-ocean-piControl-200yr-dataset-stats:/statsdata \
+    --gpus $N_GPUS \
+    --shared-memory 400GiB \
+    --weka climate-default:/climate-default \
+    --budget ai2/climate \
+    --beaker-image 'ai2/pytorch1.11.0-cuda11.3-python3.9' \
+    --venv 'base' \
+    --install "pip install -r requirements.txt" \
+    -- torchrun --nproc_per_node $N_GPUS -m src.test

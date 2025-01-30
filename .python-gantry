@@ -10,7 +10,7 @@ N_GPUS=8
 
 gantry run \
     --name $JOB_NAME \
-    --description 'Run Samudra training' \
+    --description 'Testing Gantry' \
     --workspace ai2/ace \
     --priority normal \
     --preemptible \

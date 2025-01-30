@@ -21,6 +21,9 @@ from torchinfo import summary
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+import sys
+sys.path.append('src/')
+
 from constants import INPT_VARS, EXTRA_VARS, OUT_VARS, DEPTH_LEVELS, get_eval_maps
 from utils.train_utils import (
     decomposed_mse,

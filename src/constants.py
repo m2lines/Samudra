@@ -2,26 +2,27 @@ import numpy as np
 import torch
 
 # Experiment inputs and outputs
+
 DEPTH_LEVELS = [
-    "2_5",
-    "10_0",
-    "22_5",
-    "40_0",
-    "65_0",
-    "105_0",
-    "165_0",
-    "250_0",
-    "375_0",
-    "550_0",
-    "775_0",
-    "1050_0",
-    "1400_0",
-    "1850_0",
-    "2400_0",
-    "3100_0",
-    "4000_0",
-    "5000_0",
-    "6000_0",
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18"
 ]
 
 INPT_VARS = {
@@ -39,32 +40,32 @@ INPT_VARS = {
     "12": ["tau_u", "tau_v", "t_ref"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
     "2D": [
-        k + DEPTH_LEVELS[0] for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        k + DEPTH_LEVELS[0] for k in ["uo_", "vo_", "thetao_", "so_"]
     ]
     + ["zos"],
     "3D_5": [
         k + str(j)
-        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for k in ["uo_", "vo_", "thetao_", "so_"]
         for j in DEPTH_LEVELS[:5]
     ]
     + ["zos"],
     "3D_all": [
         k + str(j)
-        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for k in ["uo_", "vo_", "thetao_", "so_"]
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
     "3D_noFast_all": [
-        k + str(j) for k in ["thetao_lev_", "so_lev_"] for j in DEPTH_LEVELS
+        k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_LEVELS
     ]
     + ["zos"],
-    "3D_TS_all": [k + str(j) for k in ["thetao_lev_", "so_lev_"] for j in DEPTH_LEVELS],
-    "3D_onlyTemp_all": [k + str(j) for k in ["thetao_lev_"] for j in DEPTH_LEVELS],
+    "3D_TS_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_LEVELS],
+    "3D_onlyTemp_all": [k + str(j) for k in ["thetao_"] for j in DEPTH_LEVELS],
     "3D_SST_all": [
         k + str(j)
-        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for k in ["uo_", "vo_", "thetao_", "so_"]
         for j in DEPTH_LEVELS
-        if not (k == "thetao_lev_" and j == DEPTH_LEVELS[0])
+        if not (k == "thetao_" and j == DEPTH_LEVELS[0])
     ]
     + ["zos"],
 }
@@ -84,7 +85,7 @@ EXTRA_VARS = {
     "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
     "3D": ["tauuo", "tauvo", "hfds"],
     "2D": ["tauuo", "tauvo", "hfds"],
-    "3D_noFast_all": [k + str(j) for k in ["uo_lev_", "vo_lev_"] for j in DEPTH_LEVELS]
+    "3D_noFast_all": [k + str(j) for k in ["uo_", "vo_"] for j in DEPTH_LEVELS]
     + ["tauuo", "tauvo", "hfds"],
     "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
@@ -109,40 +110,40 @@ OUT_VARS = {
     "6": ["u", "v", "T"],
     "3D": ["uo", "vo", "thetao", "so", "zos"],
     "2D": [
-        k + DEPTH_LEVELS[0] for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        k + DEPTH_LEVELS[0] for k in ["uo_", "vo_", "thetao_", "so_"]
     ]
     + ["zos"],
     "3D_5": [
         k + str(j)
-        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for k in ["uo_", "vo_", "thetao_", "so_"]
         for j in DEPTH_LEVELS[:5]
     ]
     + ["zos"],
     "3D_noFast_5": [
-        k + str(j) for k in ["thetao_lev_", "so_lev_"] for j in DEPTH_LEVELS[:5]
+        k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_LEVELS[:5]
     ]
     + ["zos"],
     "3D_all": [
         k + str(j)
-        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for k in ["uo_", "vo_", "thetao_", "so_"]
         for j in DEPTH_LEVELS
     ]
     + ["zos"],
     "3D_noFast_all": [
-        k + str(j) for k in ["thetao_lev_", "so_lev_"] for j in DEPTH_LEVELS
+        k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_LEVELS
     ]
     + ["zos"],
-    "3D_onlyTemp_all": [k + str(j) for k in ["thetao_lev_"] for j in DEPTH_LEVELS],
+    "3D_onlyTemp_all": [k + str(j) for k in ["thetao_"] for j in DEPTH_LEVELS],
     "3D_onlyFast_all": [
-        k + str(j) for k in ["uo_lev_", "vo_lev_"] for j in DEPTH_LEVELS
+        k + str(j) for k in ["uo_", "vo_"] for j in DEPTH_LEVELS
     ]
     + ["zos"],
-    "3D_TS_all": [k + str(j) for k in ["thetao_lev_", "so_lev_"] for j in DEPTH_LEVELS],
+    "3D_TS_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_LEVELS],
     "3D_SST_all": [
         k + str(j)
-        for k in ["uo_lev_", "vo_lev_", "thetao_lev_", "so_lev_"]
+        for k in ["uo_", "vo_", "thetao_", "so_"]
         for j in DEPTH_LEVELS
-        if not (k == "thetao_lev_" and j == DEPTH_LEVELS[0])
+        if not (k == "thetao_" and j == DEPTH_LEVELS[0])
     ]
     + ["zos"],
 }
@@ -155,7 +156,7 @@ def get_eval_maps(exp_num):
     VAR_SET = list(dict.fromkeys(([out.split("_")[0] for out in OUT_VARS[exp_num]])))
     # assert VAR_SET[-3] == 'thetao' and VAR_SET[-2] == 'so' and VAR_SET[-1] == 'zos'
     DEPTH_SET = list(
-        dict.fromkeys(([out.split("lev_")[-1] for out in OUT_VARS[exp_num]]))
+        dict.fromkeys(([out.split("")[-1] for out in OUT_VARS[exp_num]]))
     )
     assert DEPTH_SET[0] == DEPTH_LEVELS[0]
     for kt in VAR_SET:
@@ -171,7 +172,7 @@ def get_eval_maps(exp_num):
         for i, k in enumerate(OUT_VARS[exp_num]):
             if k == "zos":
                 continue
-            elif d == k.split("lev_")[-1]:
+            elif d == k.split("")[-1]:
                 DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
         DP_3D_IDX[d] = DP_3D_IDX[d].to(torch.int32)
     if "zos" in VAR_SET:

@@ -24,7 +24,6 @@ from utils.eval_utils import (
     gen_value_range,
     compute_mean_single,
 )
-from utils.climate_utils import compute_laplacian_wet
 
 import numpy as np
 import torch
@@ -189,10 +188,10 @@ with initialize_config_dir(
 
 print("Done")
 
-inputs_str = INPT_VARS[args.exp_num_in]
-extra_in_str = EXTRA_VARS[args.exp_num_extra]
-outputs_str = OUT_VARS[args.exp_num_out]
-levels = args.exp_num_in.split("_")[-1]
+inputs_str = INPT_VARS[args.training.exp_num_in]
+extra_in_str = EXTRA_VARS[args.training.exp_num_extra]
+outputs_str = OUT_VARS[args.training.exp_num_out]
+levels = args.training.exp_num_in.split("_")[-1]
 if "all" in levels:
     levels = 19
 elif "2D" in levels:
@@ -211,7 +210,7 @@ print("levels: " + str(levels))
 
 N_atm = len(extra_in_str)  # Number of atmosphere variables
 N_in = len(inputs_str)
-if args.lateral:
+if args.training.lateral:
     N_extra = (
         N_atm + N_in
     )  # Number of atmosphere variables + Lateral boundary variables
@@ -219,15 +218,15 @@ else:
     N_extra = N_atm  # Number of atmosphere variables
 N_out = len(outputs_str)
 
-num_in = int((args.hist + 1) * N_in + N_extra)
-num_out = int((args.hist + 1) * len(outputs_str))
+num_in = int((args.data.hist + 1) * N_in + N_extra)
+num_out = int((args.data.hist + 1) * len(outputs_str))
 
 print("Number of inputs: ", num_in)  # 3 (ocean speeds + ocean temp)(t) +
 # 3 (atm wind stresses + atm temp)(t) +
 # 3 (boundary ocean speeds + boundary ocean temp)(t) -> 3 (ocean speeds + ocean temp)(t+1)
 print("Number of outputs: ", num_out)  # 3
 
-if "swin" in args.network.lower():
+if "swin" in args.training.network.lower():
     pass
     # model = instantiate(
     #     args.swin,
@@ -235,9 +234,9 @@ if "swin" in args.network.lower():
     #     output_channels=num_out,
     #     pretrain_img_size=[180, 360],
     #     wet=wet.cuda(),
-    #     hist=args.hist,
+    #     hist=args.data.hist,
     # )
-elif "convnext" in args.network.lower():
+elif "convnext" in args.training.network.lower():
     if args.unet.ch_width[0] != num_in:
         print(
             "Changing ch_width to match number of inputs {0} -> {1}".format(
@@ -249,44 +248,44 @@ elif "convnext" in args.network.lower():
 # Post-fix strings
 str_train = (
     "steps_"
-    + str(args.steps)
+    + str(args.data.steps)
     + "_"
     + args.train_region
     + "_"
-    + args.depth_mode
+    + args.data.depth_mode
     + "_N_train_4000"
     + "_Lateral_Data_025_no_smooth"
 )
 str_save = (
     "steps_"
-    + str(args.steps)
+    + str(args.data.steps)
     + "_"
     + args.train_region
     + "_"
-    + args.region
+    + args.data.region
     + "_"
-    + args.depth_mode
+    + args.data.depth_mode
     + "+N_samples_"
-    + str(args.N_samples)
+    + str(args.data.N_samples)
 )
 post_model_name = (
     "Train_"
     + args.train_region
     + "_Test_"
-    + args.region
+    + args.data.region
     + "_"
-    + args.depth_mode
+    + args.data.depth_mode
     + "_N_train_"
-    + str(args.N_samples)
+    + str(args.data.N_samples)
     + "_Lateral_Data_025_no_smooth"
 )
 post_pred_name = (
-    args.region + "_" + args.depth_mode + "_N_samples_" + str(args.N_samples)
+    args.data.region + "_" + args.data.depth_mode + "_N_samples_" + str(args.data.N_samples)
 )
 
 # Getting start and end indices of train and test
 s_train, e_train, e_test = get_train_test_ranges(
-    args.N_samples, args.N_val, args.lag, args.hist, args.interval
+    args.data.N_samples, args.data.N_val, args.data.lag, args.data.hist, args.data.interval
 )
 dataset_name = args.dataset_name
 
@@ -297,8 +296,8 @@ else:
 
 
 print("Calculating mask tensors")
-wet_zarr = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.wet_file))
-wet = extract_wet(wet_zarr, outputs_str, args.hist)
+wet_zarr = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data.wet_file))
+wet = extract_wet(wet_zarr, outputs_str, args.data.hist)
 print("Wet resolution:", wet.shape)
 print("e_test: ", e_test)
 
@@ -460,11 +459,11 @@ class data_CNN_Disk(torch.utils.data.Dataset):
 
 import xarray as xr
 
-assert args.depth_mode == "surface" or args.depth_mode == "all"
+assert args.data.depth_mode == "surface" or args.data.depth_mode == "all"
 
-data = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data_zarr))
+data = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data.data_zarr))
 if (
-    args.data_zarr
+    args.data.data_zarr
     == "3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_10repeat_netzerohfds_nojump3xcc"
 ):
     print("Updating climate forced runs!")
@@ -484,9 +483,9 @@ data
 
 
 data_mean = xr.open_zarr(
-    os.path.join("/pscratch/sd/s/suryad/data", args.data_means_zarr)
+    os.path.join("/pscratch/sd/s/suryad/data", args.data.data_means_zarr)
 )
-data_std = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data_stds_zarr))
+data_std = xr.open_zarr(os.path.join("/pscratch/sd/s/suryad/data", args.data.data_stds_zarr))
 train_data = data_CNN_Disk_steps(
     data,
     inputs_str,
@@ -495,11 +494,11 @@ train_data = data_CNN_Disk_steps(
     wet,
     data_mean,
     data_std,
-    args.N_samples,
-    args.lag,
-    args.interval,
-    args.hist,
-    args.steps,
+    args.data.N_samples,
+    args.data.lag,
+    args.data.interval,
+    args.data.hist,
+    args.data.steps,
     device="cuda",
 )
 
@@ -512,9 +511,9 @@ test_data = data_CNN_Disk(
     data_mean,
     data_std,
     data.time.size,
-    args.lag,
-    args.interval,
-    args.hist,
+    args.data.lag,
+    args.data.interval,
+    args.data.hist,
     e_test,
     long_rollout=True,
     device="cuda",
@@ -522,24 +521,24 @@ test_data = data_CNN_Disk(
 # test_data[0]
 
 # Model
-print("Loading model " + args.network)
-if "swin" in args.network.lower():
+print("Loading model " + args.training.network)
+if "swin" in args.training.network.lower():
     model = instantiate(
         args.swin,
         in_channels=num_in,
         output_channels=num_out,
         pretrain_img_size=[180, 360],
         wet=wet.cuda(),
-        hist=args.hist,
+        hist=args.data.hist,
     )
-elif "unet" in args.network.lower():
-    model = instantiate(args.unet, n_out=num_out, wet=wet.cuda(), hist=args.hist)
+elif "unet" in args.training.network.lower():
+    model = instantiate(args.unet, n_out=num_out, wet=wet.cuda(), hist=args.data.hist)
 
 full_model_path = args.ckpt_path
-full_model_name = args.network + "_" + post_model_name
+full_model_name = args.training.network + "_" + post_model_name
 output_channels = model.output_channels
 
-model = model.to(args.device)
+model = model.to(args.training.device)
 ckpt_path = args.ckpt_path
 model = model
 
@@ -559,7 +558,7 @@ test_data.norm_vals = {
 # Getting area tensor
 print("Computing area tensor")
 grids = xr.open_dataset(
-    os.path.join("/pscratch/sd/s/suryad/data", args.grid_file)
+    os.path.join("/pscratch/sd/s/suryad/data", args.data.grid_file)
 ).rename({"xu_ocean": "x", "yu_ocean": "y"})
 
 area = torch.from_numpy(grids["area_C"].to_numpy()).to(device="cpu")
@@ -567,17 +566,17 @@ pred_model_path = Path("/pscratch/sd/s/suryad/Ocean_Emulator/Preds") / full_mode
 if not os.path.isdir(pred_model_path):
     os.makedirs(pred_model_path)
 
-Nb = args.Nb
-hist = args.hist
-lag = args.lag
-N_test = args.N_test
-N_samples = args.N_samples
+Nb = args.training.Nb
+hist = args.data.hist
+lag = args.data.lag
+N_test = args.data.N_test
+N_samples = args.data.N_samples
 output_dir = args.output_dir
-region = args.region
-steps = args.steps
+region = args.data.region
+steps = args.data.steps
 network = args.model_name_replace
 
-pred_region = args.region
+pred_region = args.data.region
 pred_names = args.pred_names if args.pred_names else []
 pred_paths = args.pred_paths if args.pred_paths else []
 
@@ -641,10 +640,10 @@ def generate_pred_lateral():
                 wet,
                 data_mean,
                 data_std,
-                args.N_test,
-                args.lag,
-                args.interval,
-                args.hist,
+                args.data.N_test,
+                args.data.lag,
+                args.data.interval,
+                args.data.hist,
                 e_test + i,
                 long_rollout=True,
                 device="cuda",

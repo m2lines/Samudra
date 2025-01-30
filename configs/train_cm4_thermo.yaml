@@ -1,0 +1,72 @@
+name: train
+sub_name: cm4_samudra_thermo
+rand_seed: 1
+base_output_dir: train_3D
+debug: true
+
+wandb:
+  mode: disabled
+  project: 3D_ocean_emu_CM4
+  entity: suryadheeshjith
+
+training:
+  device: cuda
+  distributed: true
+  disk_mode: true
+  num_workers: 4
+  pin_mem: true
+  save_freq: 5
+  epochs: 120
+  batch_size: 4
+  learning_rate: 0.0002
+  scheduler: true
+  loss: mse
+  network: convnextunet
+  exp_num_in: 3D_noFast_all
+  exp_num_extra: 3D_all
+  exp_num_out: 3D_noFast_all
+  lam: 0.05
+  Nb: 0
+  lateral: false
+  finetune: false 
+  resume_ckpt_path: null
+
+data:
+  wet_file: CM4_5daily_v0.4.0_wetmask
+  data_zarr: CM4_5daily_v0.4.0
+  data_means_zarr: CM4_5daily_v0.4.0_means
+  data_stds_zarr: CM4_5daily_v0.4.0_stds
+  grid_file: Grid_New.nc
+  scaling_residuals_file: null
+  region: global_3D
+  depth_mode: all
+  smooth: false
+  N_samples: 13800
+  N_val: 140
+  N_test: 600
+  data_stride: [1]
+  steps: [4]
+  step_transition: []
+  interval: 1
+  hist: 1
+  lag: 1
+  data_percent: 1.0
+
+unet:
+  ch_width: [157, 200, 250, 300, 400]
+  n_out: 77
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: "circular"
+  
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 4
+    norm: "batch"
+    
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "bilinear_upsample"

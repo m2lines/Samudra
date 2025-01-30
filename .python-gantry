@@ -17,10 +17,6 @@ gantry run \
     --cluster ai2/saturn-cirrascale \
     --cluster ai2/jupiter-cirrascale-2 \
     --cluster ai2/ceres-cirrascale \
-    --env WANDB_USERNAME=$BEAKER_USERNAME \
-    --env WANDB_NAME=$JOB_NAME \
-    --env WANDB_JOB_TYPE=training \
-    --env WANDB_RUN_GROUP= \
     --env GOOGLE_APPLICATION_CREDENTIALS=/tmp/google_application_credentials.json \
     --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
     --dataset-secret google-credentials:/tmp/google_application_credentials.json \
@@ -33,4 +29,4 @@ gantry run \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
     --install "pip install -r requirements.txt" \
-    -- torchrun --nproc_per_node $N_GPUS -m src.test
+    -- python submitit_hydra.py

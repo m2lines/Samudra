@@ -237,8 +237,8 @@ def decomposed_mse_cos_weighted(pred, out, cos):
     return mse_channels
 
 
-def extract_wet(wet_zarr, outputs, hist):
-    depths = [var.split("lev_")[-1].replace("_", ".") for var in outputs]
+def extract_wet(wet_zarr, hist):
+    depths = [depth_str.replace("_", ".") for depth_str in DEPTH_LEVELS]
     if "zos" in depths:
         zos_index = depths.index("zos")
         depths[zos_index] = str(wet_zarr.lev.values[0])

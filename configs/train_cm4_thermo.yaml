@@ -10,8 +10,8 @@ wandb:
   entity: suryadheeshjith
 
 training:
-  device: cuda
-  distributed: true
+  device: cpu
+  distributed: false
   disk_mode: true
   num_workers: 4
   pin_mem: true
@@ -34,9 +34,8 @@ training:
 data:
   wet_file: CM4_5daily_v0.4.0_wetmask
   data_zarr: CM4_5daily_v0.4.0
-  data_means_zarr: CM4_5daily_v0.4.0_means
-  data_stds_zarr: CM4_5daily_v0.4.0_stds
-  grid_file: Grid_New.nc
+  data_means: CM4_5daily_v0.4.0_means.zarr
+  data_stds: CM4_5daily_v0.4.0_stds.zarr
   scaling_residuals_file: null
   region: global_3D
   depth_mode: all

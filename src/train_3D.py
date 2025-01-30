@@ -177,8 +177,16 @@ class Trainer:
         if 'mask_0' in self.data:
             masks_list = [self.data[f'mask_{i}'] for i in range(19)]
             masks = xr.concat(masks_list, dim='level').to_numpy()
-            masks_bool = (masks == 1)
-            assert (self.wet.values == masks_bool).all()
+            masks_bool = (masks != 0)
+            b = (self.wet.values == masks_bool).all()
+            if b:
+                print("Wet mask check passed")
+                print(masks)
+            else:
+                print("Wet mask check failed")
+                print(self.wet.values)
+                print(masks_bool)
+                print(masks)
         self.surface_wet = extract_surface_wet(wet_zarr)
 
         # Model

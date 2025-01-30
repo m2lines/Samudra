@@ -200,3 +200,48 @@ def get_eval_maps(exp_num):
     DP_3D_IDX[DEPTH_I_LEVELS[0]] = DP_3D_IDX[DEPTH_I_LEVELS[0]].to(torch.int32)
     return CH_3D_IDX, DP_3D_IDX, VAR_SET, DEPTH_SET
 
+
+
+# Region boundaries
+REGIONS = {
+    "Kuroshio": {"lat": [15, 41], "lon": [-215, -185]},
+    "Kuroshio_Ext": {"lat": [5, 50], "lon": [-250, -175]},
+    "Gulf_Stream": {"lat": [25, 50], "lon": [-70, -35]},
+    "Gulf_Stream_Ext": {"lat": [27, 50], "lon": [-82, -35]},
+    "Gulf_Stream_Ext2": {"lat": [26, 50.65], "lon": [-82, -50.25]},
+    "Gulf_Stream_Ext3": {"lat": [26, 50.65], "lon": [-82, -34.25]},
+    "Tropics": {"lat": [-5, 25], "lon": [-95, -65]},
+    "Tropics_Ext": {"lat": [-5, 25], "lon": [-115, -45]},
+    "South_America": {"lat": [-60, -30], "lon": [-70, -35]},
+    "Africa": {"lat": [-50, -20], "lon": [5, 45]},
+    "Africa_Ext": {"lat": [-55, -15], "lon": [-5, 55]},
+    "Quiescent": {"lat": [-42.5, -17.5], "lon": [-155, -120]},
+    "Quiescent_Ext": {"lat": [-55, -10], "lon": [-170, -110]},
+    "Pacific": {"lat": [-35, 35], "lon": [-230, -80]},
+    "Indian": {"lat": [-30, 28], "lon": [30, 79]},
+}
+
+GLOBAL_COMBINED_STATS = {
+    "s_in": np.array(
+        [
+            1.19912029e-01,
+            8.75121945e-02,
+            1.11957607e01,
+            9.65926101e-05,
+            7.35161570e-05,
+            2.04991480e01,
+        ]
+    ),
+    "s_out": np.array([0.11991318, 0.08751262, 11.19576553]),
+    "m_in": np.array(
+        [
+            -1.52130831e-03,
+            4.28648579e-03,
+            8.86227188e00,
+            7.05813917e-06,
+            2.61937937e-07,
+            2.78227831e02,
+        ]
+    ),
+    "m_out": np.array([-1.52113173e-03, 4.28606825e-03, 8.86225711e00]),
+}

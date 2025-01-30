@@ -238,15 +238,18 @@ def decomposed_mse_cos_weighted(pred, out, cos):
     return mse_channels
 
 
-def extract_wet(wet_zarr, hist):
-    depths = [depth_str.replace("_", ".") for depth_str in DEPTH_LEVELS]
-    if "zos" in depths:
-        zos_index = depths.index("zos")
-        depths[zos_index] = str(wet_zarr.lev.values[0])
-        assert depths[zos_index] == "2.5"
-    depths = [float(depth) for depth in depths]
+def extract_wet(wet_zarr, outputs, hist):
+    depth_ind = [var_depth_i.split("_")[-1] if var_depth_i != "zos" else "0" for var_depth_i in OUT_VARS["3D_noFast_all"]]
+    depth_ind = []
+    for var_depth_i in depth_ind:
+        ind = var_depth_i.split("_")[-1]
+        if ind == "zos":
+            depth_ind.append("0")
+        else:
+            depth_ind.append(ind)
+    depths = [DEPTH_LEVELS[int(depth_i)] for depth_i in depth_ind]
     wet = wet_zarr.sel(lev=depths)
-    wet = torch.from_numpy(wet.to_array().to_numpy().squeeze())
+    wet = torch.from_numpy(wet.to_numpy().squeeze())
     wet = torch.concat([wet] * (hist + 1), dim=0)
     print(wet.shape)
     return wet

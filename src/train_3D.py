@@ -173,15 +173,14 @@ class Trainer:
             print(f"Smoothing took minutes: {(time.time() - start) / 60}")
 
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
-        self.wet = extract_wet(wet_zarr, cfg.data.hist)
+        self.wet = extract_wet(wet_zarr, self.outputs, cfg.data.hist)
         if 'mask_0' in self.data:
             masks_list = [self.data[f'mask_{i}'] for i in range(19)]
             masks = xr.concat(masks_list, dim='level').to_numpy()
-            masks_bool = (masks != 0)
-            b = (self.wet.values == masks_bool).all()
+            masks_bool = (masks == 1)
+            b = (self.wet.to_array()[0].values == masks_bool).all()
             if b:
                 print("Wet mask check passed")
-                print(masks)
             else:
                 print("Wet mask check failed")
                 print(self.wet.values)

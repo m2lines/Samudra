@@ -75,8 +75,9 @@ def is_main_process():
 
 
 def init_distributed_mode(cfg):
-    assert cfg.distributed
-
+    # assert cfg.distributed
+    if not cfg.distributed:
+        return
     if "RANK" in os.environ:
         cfg.rank = int(os.environ["RANK"])
         cfg.gpu = int(os.environ["LOCAL_RANK"])

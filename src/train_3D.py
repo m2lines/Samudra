@@ -169,7 +169,8 @@ class Trainer:
 
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, cfg.data.hist)
-        assert (self.wet.values == xr.concat([self.data['mask_0'], self.data['mask_1'], self.data['mask_2'], self.data['mask_3'], self.data['mask_4'], self.data['mask_5'], self.data['mask_6'], self.data['mask_7'], self.data['mask_8'], self.data['mask_9'], self.data['mask_10'], self.data['mask_11'], self.data['mask_12'], self.data['mask_13'], self.data['mask_14'], self.data['mask_15'], self.data['mask_16'], self.data['mask_17'], self.data['mask_18']], dim='level').to_numpy()).all()
+        if 'mask_0' in self.data:
+            assert (self.wet.values == xr.concat([self.data['mask_0'], self.data['mask_1'], self.data['mask_2'], self.data['mask_3'], self.data['mask_4'], self.data['mask_5'], self.data['mask_6'], self.data['mask_7'], self.data['mask_8'], self.data['mask_9'], self.data['mask_10'], self.data['mask_11'], self.data['mask_12'], self.data['mask_13'], self.data['mask_14'], self.data['mask_15'], self.data['mask_16'], self.data['mask_17'], self.data['mask_18']], dim='level').to_numpy()).all()
         self.surface_wet = extract_surface_wet(wet_zarr)
 
         # Model

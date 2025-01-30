@@ -14,9 +14,10 @@ from pathlib import Path
 import torch.distributed as dist
 import wandb
 import logging
+from itertools import tee
 
 from .dist_utils import is_dist_avail_and_initialized, all_reduce_mean
-
+from constants import DEPTH_LEVELS
 log = logging.getLogger(__name__)
 
 

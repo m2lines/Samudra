@@ -12,7 +12,7 @@ gantry run \
     --name $JOB_NAME \
     --description 'Testing Gantry' \
     --workspace ai2/ace \
-    --priority normal \
+    --priority high \
     --preemptible \
     --cluster ai2/saturn-cirrascale \
     --cluster ai2/jupiter-cirrascale-2 \

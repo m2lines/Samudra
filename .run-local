@@ -1,0 +1,10 @@
+#!/bin/bash
+
+set -e
+CONFIG_PATH=configs/train_cm4_thermo.yaml
+
+# Create a temporary config file with updated cluster_data_dir
+TMP_CONFIG_PATH=/tmp/config_temp.yaml
+sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $TMP_CONFIG_PATH
+
+torchrun src/train_3D.py --config $TMP_CONFIG_PATH 

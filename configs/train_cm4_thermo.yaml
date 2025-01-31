@@ -4,7 +4,7 @@ rand_seed: 1
 base_output_dir: train_3D
 debug: true
 gantry: false
-cluster_data_dir: /mnt/home/sd5313/data
+cluster_data_dir: null # This is set in the run-local script
 
 wandb:
   mode: disabled
@@ -35,7 +35,7 @@ training:
 
 data:
   wet_file: CM4_5daily_v0.4.0_wetmask
-  data_path: /mnt/home/sd5313/data/2024-11-12-cm4-piControl-ocean-200yr-monthly/015*.nc
+  data_path: 2024-11-12-cm4-piControl-ocean-200yr-monthly/015*.nc
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
   data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
   scaling_residuals_file: null

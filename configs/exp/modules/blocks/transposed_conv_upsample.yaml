@@ -1,8 +1,0 @@
-defaults:
-  - /exp/modules/activations@activation: capped_gelu
-
-_target_: models.modules.blocks.TransposedConvUpsample
-_recursive_: true
-in_channels: 3
-out_channels: 1
-upsampling: 2

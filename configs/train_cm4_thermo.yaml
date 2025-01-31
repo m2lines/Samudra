@@ -10,8 +10,8 @@ wandb:
   entity: suryadheeshjith
 
 training:
-  device: cpu
-  distributed: false
+  device: cuda
+  distributed: true
   disk_mode: true
   num_workers: 4
   pin_mem: true

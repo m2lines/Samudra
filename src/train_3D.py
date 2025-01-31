@@ -54,6 +54,15 @@ from models.unet import UNet
 
 class Trainer:
     def __init__(self, cfg) -> None:
+        # Set up logging
+        logging.basicConfig(
+            level=logging.INFO if is_main_process() else logging.WARNING,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(cfg.output_dir / 'training.log'),
+                logging.StreamHandler()
+            ]
+        )
 
         # Distributed mode
         init_distributed_mode(cfg.training)
@@ -96,10 +105,10 @@ class Trainer:
         self.str_ext = "".join([i + "_" for i in self.extra_in])
         self.str_out = "".join([i + "_" for i in self.outputs])
 
-        print("inputs: " + self.str_in)
-        print("extra inputs: " + self.str_ext)
-        print("outputs: " + self.str_out)
-        print("levels: " + str(self.levels))
+        logging.info(f"inputs: {self.str_in}")
+        logging.info(f"extra inputs: {self.str_ext}")
+        logging.info(f"outputs: {self.str_out}")
+        logging.info(f"levels: {self.levels}")
 
         s_train = cfg.data.lag * cfg.data.hist
         e_train = s_train + cfg.data.N_samples * cfg.data.interval
@@ -118,8 +127,8 @@ class Trainer:
         self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
         self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
 
-        print("Number of inputs: ", self.num_in)
-        print("Number of outputs: ", self.num_out)
+        logging.info(f"Number of inputs: {self.num_in}")
+        logging.info(f"Number of outputs: {self.num_out}")
 
         assert cfg.data.region == "global_3D"
         self.region = cfg.data.region
@@ -143,7 +152,7 @@ class Trainer:
         )
 
         # Dataloaders
-        print("Loading data")
+        logging.info(f"Loading data")
         assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
         self.data_dir = cfg.data_dir
         self.wet_file = cfg.data.wet_file
@@ -162,7 +171,7 @@ class Trainer:
             for var in self.outputs:
                 if "uo" in var or "vo" in var:
                     window = 10
-                    print(f"Smoothing {var} with window size {window}")
+                    logging.info(f"Smoothing {var} with window size {window}")
                     self.data[var] = (
                         self.data[var]
                         .rolling(time=window, min_periods=1, center=False)
@@ -170,7 +179,7 @@ class Trainer:
                         .compute()
                     )
 
-            print(f"Smoothing took minutes: {(time.time() - start) / 60}")
+            logging.info(f"Smoothing took minutes: {(time.time() - start) / 60}")
 
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, self.outputs, cfg.data.hist)
@@ -180,30 +189,26 @@ class Trainer:
             masks_bool = (masks == 1)
             b = (wet_zarr.to_array()[0].values == masks_bool).all()
             if b:
-                print("Wet mask check passed")
+                logging.info("Wet mask check passed")
             else:
-                print("Wet mask check failed")
-                print(wet_zarr.to_array()[0].values)
-                print(masks_bool)
-                print(masks)
+                logging.warning("Wet mask check failed")
+                logging.warning(f"Wet zarr values: {wet_zarr.to_array()[0].values}")
+                logging.warning(f"Masks bool: {masks_bool}")
+                logging.warning(f"Masks: {masks}")
         self.area = torch.from_numpy(wet_zarr['areacello'].to_numpy()).to(device="cpu")
         self.surface_wet = extract_surface_wet(wet_zarr)
 
         # Model
-        print("Getting model " + cfg.training.network)
+        logging.info(f"Getting model {cfg.training.network}")
         if "convnextunet" == cfg.training.network or "adamunet" == cfg.training.network:
             if cfg.unet.ch_width[0] != self.num_in:
-                print(
-                    "NOTE: Changing input channels to match data {}->{}".format(
-                        cfg.unet.ch_width[0], self.num_in
-                    )
+                logging.info(
+                    f"NOTE: Changing input channels to match data {cfg.unet.ch_width[0]}->{self.num_in}"
                 )
                 cfg.unet.ch_width[0] = self.num_in
             if cfg.unet.n_out != self.num_out:
-                print(
-                    "NOTE: Changing output channels to match data {}->{}".format(
-                        cfg.unet.n_out, self.num_out
-                    )
+                logging.info(
+                    f"NOTE: Changing output channels to match data {cfg.unet.n_out}->{self.num_out}"
                 )
                 cfg.unet.n_out = self.num_out
             model = UNet(cfg.unet, wet=self.wet.to(cfg.training.device)).to(cfg.training.device)
@@ -212,7 +217,7 @@ class Trainer:
 
         model_parameters = filter(lambda p: p.requires_grad, model.parameters())
         params = sum([np.prod(p.size()) for p in model_parameters])
-        print("Number of parameters: ", params)
+        logging.info(f"Number of parameters: {params}")
         # summary(model)
 
         model = model.to(cfg.training.device)
@@ -239,19 +244,19 @@ class Trainer:
 
         # Loss function
         if cfg.training.loss == "mse":
-            print("Using decomposed mse loss")
+            logging.info("Using decomposed mse loss")
             self.loss = decomposed_mse
         elif cfg.training.loss == "mse_diff_weighted":
             assert cfg.data.hist == 1  # TEMP
-            print("Using decomposed mse loss with weighted diff")
+            logging.info("Using decomposed mse loss with weighted diff")
             self.loss = decomposed_mse_diff_weighted
         elif cfg.training.loss == "mse_cos_weighted":
-            print("Using decomposed mse loss with weighted cos")
+            logging.info("Using decomposed mse loss with weighted cos")
             area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device="cuda")
             self.loss = partial(decomposed_mse_cos_weighted, cos=area_weights)
         elif cfg.training.loss == "mse_residual_scaled":
-            print("Using decomposed mse loss with scaled residuals")
+            logging.info("Using decomposed mse loss with scaled residuals")
             scaling_residuals = xr.open_zarr(
                 os.path.join(self.data_dir, self.scaling_residuals_file)
             )
@@ -264,7 +269,7 @@ class Trainer:
             scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
             self.loss = partial(decomposed_mse_scaled, scaling=scale)
         elif cfg.training.loss == "mse_mae":
-            print("Using decomposed mse loss with mae")
+            logging.info("Using decomposed mse loss with mae")
             self.loss = decomposed_mse_mae
         else:
             raise NotImplementedError
@@ -455,11 +460,11 @@ class Trainer:
                     if cur_step is None:
                         cur_step = self.steps[-1]
                         cur_step_idx = len(self.steps) - 1
-                    print(f"Starting training at step {cur_step}")
+                    logging.info(f"Starting training at step {cur_step}")
                 elif epoch in self.step_transition:
                     cur_step_idx += 1
                     cur_step = self.steps[cur_step_idx]
-                    print(f"Transitioning to step {cur_step}")
+                    logging.info(f"Transitioning to step {cur_step}")
                 train_data = [
                     data_CNN_Disk_steps(
                         self.data,
@@ -481,7 +486,7 @@ class Trainer:
                 ]
                 train_data = ConcatDataset(train_data)
 
-                print("Instantiating torch loaders")
+                logging.info("Instantiating torch loaders")
 
                 self.train_sampler = torch.utils.data.distributed.DistributedSampler(
                     train_data, shuffle=True
@@ -513,19 +518,19 @@ class Trainer:
                 ) as f:
                     f.write(json.dumps(log_stats) + "\n")
 
-                print("Achieved Validation Loss = {:5.3f}".format(v_loss))
+                logging.info(f"Achieved Validation Loss = {v_loss:.3f}")
                 if v_loss < best_loss:
                     best_loss = v_loss
-                    print("Saving best model at epoch {0}".format(epoch))
+                    logging.info(f"Saving best model at epoch {epoch}")
                     self.save_checkpoint(epoch, best=True)
 
                 elif (epoch) % self.save_freq == 0:
-                    print("Saving model at epoch {0}".format(epoch))
+                    logging.info(f"Saving model at epoch {epoch}")
                     self.save_checkpoint(epoch)
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print("Training time {}".format(total_time_str))
+        logging.info(f"Training time {total_time_str}")
         self.finish()
 
     def train_one_epoch(self, epoch):
@@ -555,7 +560,8 @@ class Trainer:
             self.optimizer.step()
             if self.scheduler is not None:
                 # self.scheduler.step()
-                self.scheduler.step(epoch - 1 + data_iter_step / iters)
+                # self.scheduler.step(epoch - 1 + data_iter_step / iters)
+                self.scheduler.step()
             torch.cuda.synchronize()
             torch.cuda.empty_cache()
 
@@ -607,7 +613,7 @@ class Trainer:
                     )
 
         metric_logger.synchronize_between_processes()
-        print("Averaged train stats:", metric_logger)
+        logging.info("Averaged train stats: " + str(metric_logger))
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
     @torch.no_grad()
@@ -776,7 +782,7 @@ class Trainer:
         )
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
-        print("Loaded checkpoint from", checkpoint_path)
+        logging.info(f"Loaded checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path)
         if finetune:
             self.model.load_state_dict(checkpoint["model"])
@@ -787,10 +793,10 @@ class Trainer:
             self.wandb_id = checkpoint["wandb_id"]
             self.wandb_name = checkpoint["wandb_name"]
 
-            print("Start Epoch:", self.start_epoch)
-            print("Wandb id:", self.wandb_id)
-            print("Wandb name:", self.wandb_name)
-            print("Optimizer LR:", self.optimizer.param_groups[-1]["lr"])
+            logging.info(f"Start Epoch: {self.start_epoch}")
+            logging.info(f"Wandb id: {self.wandb_id}")
+            logging.info(f"Wandb name: {self.wandb_name}")
+            logging.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
 
     def is_wandb_enabled(self):
         return self.wandb and is_main_process()

@@ -10,13 +10,6 @@ from functools import partial
 import logging
 import traceback
 import warnings
-import traceback
-
-def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
-    return f'{filename}:{lineno}: {category.__name__}: {message}\n'
-
-warnings.formatwarning = warning_on_one_line
-
 
 import torch
 import torch.nn as nn
@@ -833,24 +826,7 @@ class Trainer:
         if self.is_wandb_enabled():
             wandb.finish()
 
-def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, required=True, help='Path to config YAML file')
-    args = parser.parse_args()
-    
-    # Load config from YAML
-    cfg = Config.from_yaml(args.config)
-    
-    # Check dirs
-    if not os.path.exists(cfg.nets_dir):
-        os.makedirs(cfg.nets_dir, exist_ok=True)
-    
-    if not os.path.exists(cfg.output_dir):
-        os.makedirs(cfg.output_dir, exist_ok=True)
-
-    cfg.save_yaml(cfg.output_dir / 'config.yaml')
-    
+def handle_logging(cfg):
     # Set up logging
     if cfg.debug:
         level = logging.DEBUG
@@ -870,6 +846,44 @@ def main():
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
     error_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     logging.getLogger().addHandler(error_handler)
+
+def handle_warnings():
+    def warning_handler(message, category, filename, lineno, file=None, line=None):
+        print('\n=== Warning Details ===')
+        print(f'Message: {message}')
+        print(f'Category: {category}')
+        print(f'File: {filename}')
+        print(f'Line: {lineno}')
+        print('\nFull stack trace:')
+        stack = traceback.extract_stack()[:-1]  # Remove current frame
+        for frame in stack:
+            print(f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}')
+            if frame.line:
+                print(f'    {frame.line}')
+        print('=====================\n')
+
+    warnings.showwarning = warning_handler
+
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, required=True, help='Path to config YAML file')
+    args = parser.parse_args()
+    
+    # Load config from YAML
+    cfg = Config.from_yaml(args.config)
+    
+    # Check dirs
+    if not os.path.exists(cfg.nets_dir):
+        os.makedirs(cfg.nets_dir, exist_ok=True)
+    
+    if not os.path.exists(cfg.output_dir):
+        os.makedirs(cfg.output_dir, exist_ok=True)
+
+    cfg.save_yaml(cfg.output_dir / 'config.yaml')
+    
+    handle_logging(cfg)
+    handle_warnings()
     
     trainer = Trainer(cfg)
     

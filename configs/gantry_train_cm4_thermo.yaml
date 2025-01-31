@@ -1,7 +1,7 @@
 name: train
 sub_name: cm4_samudra_thermo
 rand_seed: 1
-base_output_dir: train_3D
+base_output_dir: /results
 debug: true
 
 wandb:

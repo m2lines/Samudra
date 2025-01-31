@@ -54,16 +54,7 @@ from models.unet import UNet
 
 class Trainer:
     def __init__(self, cfg) -> None:
-        # Set up logging
-        logging.basicConfig(
-            level=logging.INFO if is_main_process() else logging.WARNING,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(cfg.output_dir / 'training.log'),
-                logging.StreamHandler()
-            ]
-        )
-
+        
         # Distributed mode
         init_distributed_mode(cfg.training)
         dask.config.set(scheduler="synchronous")
@@ -85,6 +76,16 @@ class Trainer:
             os.makedirs(cfg.output_dir, exist_ok=True)
     
         cfg.save_yaml(cfg.output_dir / 'config.yaml')
+        
+        # Set up logging
+        logging.basicConfig(
+            level=logging.INFO if is_main_process() else logging.WARNING,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(cfg.output_dir / 'training.log'),
+                logging.StreamHandler()
+            ]
+        )
 
         # Getting input, extra input and output
         self.inputs = INPT_VARS[cfg.training.exp_num_in]

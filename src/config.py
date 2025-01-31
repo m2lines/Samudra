@@ -103,13 +103,15 @@ class Config:
     rand_seed: int = 1
     base_output_dir: str = "train_3D"
     debug: bool = False
+    gantry: bool = False
+    cluster_data_dir: Optional[str] = None
     
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")
         self.output_dir = Path(self.base_output_dir) / f"{timestamp}-{self.name}-{self.sub_name}"
         self.nets_dir = self.output_dir / "saved_nets"
-        if self.debug:
-            self.data_dir = Path("/vast/sd5313/data/m2lines/3D_ocean_data/")
+        if self.gantry:
+            self.data_dir = Path(self.cluster_data_dir)
         else:
             self.data_dir = Path("/")
     
@@ -143,7 +145,9 @@ class Config:
             'sub_name': self.sub_name,
             'rand_seed': self.rand_seed,
             'base_output_dir': self.base_output_dir,
-            'debug': self.debug
+            'debug': self.debug,
+            'gantry': self.gantry,
+            'cluster_data_dir': self.cluster_data_dir
         }
         
         with open(save_path, 'w') as f:

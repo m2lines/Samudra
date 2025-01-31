@@ -19,7 +19,7 @@ training:
   pin_mem: true
   save_freq: 5
   epochs: 120
-  batch_size: 4
+  batch_size: 2 # 4
   learning_rate: 0.0002
   scheduler: false
   loss: mse

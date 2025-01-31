@@ -9,7 +9,7 @@ class TransposedConvUpsample(torch.nn.Module):
         in_channels: int = 3,
         out_channels: int = 1,
         upsampling: int = 2,
-        activation: torch.nn.Module = torch.nn.ReLU,
+        activation: torch.nn.Module = CappedGELU,
     ):
         super().__init__()
         upsampler = []
@@ -25,7 +25,7 @@ class TransposedConvUpsample(torch.nn.Module):
         )
 
         if activation is not None:
-            upsampler.append(activation)
+            upsampler.append(activation())
         self.upsampler = torch.nn.Sequential(*upsampler)
 
     def forward(self, x):
@@ -98,7 +98,7 @@ class ConvBlock(CoreBlock):
             torch.nn.Conv2d(in_channels, out_channels, kernel_size, dilation=dilation)
         )
         layers.append(torch.nn.BatchNorm2d(out_channels))
-        layers.append(activation)
+        layers.append(activation())
         for _ in range(n_layers - 1):
             layers.append(
                 torch.nn.Conv2d(
@@ -106,7 +106,7 @@ class ConvBlock(CoreBlock):
                 )
             )
             layers.append(torch.nn.BatchNorm2d(out_channels))
-            layers.append(activation)
+            layers.append(activation())
 
         self.layers = nn.ModuleList(layers)
         # self.layers = nn.ModuleList(layer)
@@ -179,7 +179,7 @@ class ConvNeXtBlock(CoreBlock):
         else:
             raise NotImplementedError
         if activation is not None:
-            convblock.append(activation)
+            convblock.append(activation())
         convblock.append(
             torch.nn.Conv2d(
                 in_channels=int(in_channels * upscale_factor),
@@ -199,7 +199,7 @@ class ConvNeXtBlock(CoreBlock):
         else:
             raise NotImplementedError
         if activation is not None:
-            convblock.append(activation)
+            convblock.append(activation())
         # Linear postprocessing
         convblock.append(
             torch.nn.Conv2d(

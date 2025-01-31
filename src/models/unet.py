@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from models.base import BaseModel
 from utils.train_utils import pairwise
-from models.modules.blocks import CoreBlock, ConvBlock, ConvNeXtBlock, BilinearUpsample, TransposedConvUpsample
+from models.modules.blocks import CoreBlock, BilinearUpsample, TransposedConvUpsample
 from models.modules.factory import create_block, create_downsample, create_upsample, get_activation_cl
 
 
@@ -18,10 +18,10 @@ class UNet(BaseModel):
             last_kernel_size = config.last_kernel_size, 
             pad = config.pad
         )
-        
-        # Create activation
+
+        # Get activation class
         activation = get_activation_cl(config.core_block.activation)
-        
+
         # Create local copies of config lists that will be reversed
         ch_width = config.ch_width.copy()
         dilation = config.dilation.copy()

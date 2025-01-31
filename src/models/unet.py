@@ -36,7 +36,7 @@ class UNet(BaseModel):
                     config.core_block.block_type,
                     in_channels=a,
                     out_channels=b,
-                    kernel_size=config.core_block.kernel_size
+                    kernel_size=config.core_block.kernel_size,
                     dilation=dilation[i],
                     n_layers=n_layers[i],
                     activation=activation,

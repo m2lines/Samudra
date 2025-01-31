@@ -2,7 +2,6 @@ import argparse
 import os
 import copy
 import wandb
-import warnings
 import time
 import datetime
 import json
@@ -10,6 +9,15 @@ from pathlib import Path
 from functools import partial
 import logging
 import traceback
+import warnings
+import traceback
+
+def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
+    return f'{filename}:{lineno}: {category.__name__}: {message}\n'
+
+warnings.formatwarning = warning_on_one_line
+
+
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -55,22 +63,13 @@ from models.unet import UNet
 class Trainer:
     def __init__(self, cfg) -> None:
         
-        # Device selection
-        if cfg.training.device == "cuda":
-            if not torch.cuda.is_available():
-                cfg.training.device = "cpu"
-                cfg.training.distributed = False
-            else:
-                # Set specific GPU device if specified
-                if hasattr(cfg.training, 'gpu') and cfg.training.gpu is not None:
-                    torch.cuda.set_device(cfg.training.gpu)
-                    
+        if not torch.cuda.is_available():
+            cfg.training.device = "cpu"
+            cfg.training.distributed = False
+            logging.info("No GPU available, using CPU")
+        
         self.device = torch.device(cfg.training.device)
         
-        # Distributed mode
-        init_distributed_mode(cfg.training)
-        dask.config.set(scheduler="synchronous")
-
         # Adjust workers and memory pinning based on device
         if self.device.type == "cpu":
             cfg.training.num_workers = 0  # Disable multi-processing on CPU
@@ -78,6 +77,10 @@ class Trainer:
         elif cfg.training.disk_mode:
             cfg.training.num_workers = torch.cuda.device_count() * cfg.training.num_workers
             cfg.training.pin_mem = True
+        
+        # Distributed mode
+        init_distributed_mode(cfg.training)
+        dask.config.set(scheduler="synchronous")
 
         # Set seeds
         set_seed(cfg.rand_seed)
@@ -182,18 +185,18 @@ class Trainer:
 
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, self.outputs, cfg.data.hist)
-        if 'mask_0' in self.data:
-            masks_list = [self.data[f'mask_{i}'].isel(time=0) for i in range(19)]
-            masks = xr.concat(masks_list, dim='level').to_numpy()
-            masks_bool = (masks == 1)
-            b = (wet_zarr.to_array()[0].values == masks_bool.squeeze()).all()
-            if b:
-                logging.info("Wet mask check passed")
-            else:
-                logging.warning("Wet mask check failed")
-                logging.warning(f"Wet zarr values: {wet_zarr.to_array()[0].values}")
-                logging.warning(f"Masks bool: {masks_bool}")
-                logging.warning(f"Masks: {masks}")
+        # if 'mask_0' in self.data:
+        #     masks_list = [self.data[f'mask_{i}'].isel(time=0) for i in range(19)]
+        #     masks = xr.concat(masks_list, dim='level').to_numpy()
+        #     masks_bool = (masks == 1)
+        #     b = (wet_zarr.to_array()[0].values == masks_bool.squeeze()).all()
+        #     if b:
+        #         logging.info("Wet mask check passed")
+        #     else:
+        #         logging.warning("Wet mask check failed")
+        #         logging.warning(f"Wet zarr values: {wet_zarr.to_array()[0].values}")
+        #         logging.warning(f"Masks bool: {masks_bool}")
+        #         logging.warning(f"Masks: {masks}")
         self.area = torch.from_numpy(wet_zarr['areacello'].to_numpy()).to(device="cpu")
         self.surface_wet = extract_surface_wet(wet_zarr)
 
@@ -496,9 +499,13 @@ class Trainer:
 
                 logging.info("Instantiating torch loaders")
 
-                self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-                    train_data, shuffle=True
-                )
+                if self.device.type == "cuda":
+                    self.train_sampler = torch.utils.data.distributed.DistributedSampler(
+                        train_data, shuffle=True
+                    )
+                else:
+                    self.train_sampler = torch.utils.data.RandomSampler(train_data)
+                    
                 self.train_loader = torch.utils.data.DataLoader(
                     train_data,
                     batch_size=self.batch_size,
@@ -507,7 +514,8 @@ class Trainer:
                     pin_memory=self.pin_mem,
                     drop_last=True,
                 )
-            self.train_sampler.set_epoch(epoch)
+            if self.device.type == "cuda":
+                self.train_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
             val_stats = self.validate()
@@ -555,7 +563,8 @@ class Trainer:
                 break
 
             self.optimizer.zero_grad()
-            data = [d.cuda() for d in data]
+            
+            data = [d.to(self.device) for d in data]
 
             loss_per_channel = self.model(data, loss_fn=self.loss)
             loss = torch.mean(loss_per_channel)
@@ -803,7 +812,8 @@ class Trainer:
             self.model.load_state_dict(checkpoint["model"])
         else:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
-            self.scheduler.load_state_dict(checkpoint["scheduler"])
+            if self.scheduler:
+                self.scheduler.load_state_dict(checkpoint["scheduler"])
             self.start_epoch = checkpoint["epoch"] + 1
             self.wandb_id = checkpoint["wandb_id"]
             self.wandb_name = checkpoint["wandb_name"]

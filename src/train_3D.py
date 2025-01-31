@@ -641,7 +641,7 @@ class Trainer:
         model_pred = generate_model_rollout(
             self.N_local,
             self.val_data_set[rank],
-            self.model.module,
+            self.model.module if self.device.type == "cuda" else self.model,
             self.hist,
             self.N_out,
             self.N_extra,
@@ -649,6 +649,7 @@ class Trainer:
             Nb=0,
             region=self.region,
             train=True,
+            device=self.device.type
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)
@@ -782,7 +783,7 @@ class Trainer:
 
     def save_checkpoint(self, epoch, best=False):
         checkpoint = {
-            "model": self.model.module.state_dict(),
+            "model": self.model.module.state_dict() if self.device.type == "cuda" else self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "epoch": epoch,
             "wandb_id": self.wandb_id,

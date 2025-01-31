@@ -20,6 +20,7 @@ def generate_model_rollout(
     Nb=0,
     region="global",
     train=False,
+    device="cuda"
 ):
 
     N_test = test_data.size
@@ -28,7 +29,7 @@ def generate_model_rollout(
     model_pred = np.zeros((N_eval, *test_data[0][0].shape[2:], N_out))
 
     with torch.no_grad():
-        outs = model.inference(test_data, initial_input, num_steps=N_eval // (hist + 1))
+        outs = model.inference(test_data, initial_input, num_steps=N_eval // (hist + 1), device=device)
     for i in range(N_eval // (hist + 1)):
         pred_temp = outs[i]
         pred_temp = torch.nan_to_num(pred_temp)

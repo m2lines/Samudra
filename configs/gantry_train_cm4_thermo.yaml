@@ -3,6 +3,8 @@ sub_name: cm4_samudra_thermo
 rand_seed: 1
 base_output_dir: /results
 debug: false
+gantry: true
+cluster_data_dir: None
 
 wandb:
   mode: online

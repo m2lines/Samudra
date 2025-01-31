@@ -7,7 +7,7 @@ gantry: false
 cluster_data_dir: null # This is set in the run-local script
 
 wandb:
-  mode: disabled
+  mode: online
   project: 3D_ocean_emu_CM4
   entity: suryadheeshjith
 

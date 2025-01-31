@@ -87,7 +87,7 @@ class ConvBlock(CoreBlock):
         kernel_size: int = 3,
         dilation: int = 1,
         n_layers: int = 1,
-        activation: torch.nn.Module = torch.nn.ReLU,
+        activation: torch.nn.Module = CappedGELU,
         pad="circular",
     ):
 
@@ -139,7 +139,7 @@ class ConvNeXtBlock(CoreBlock):
         kernel_size: int = 3,
         dilation: int = 1,
         n_layers: int = 1,
-        activation: torch.nn.Module = torch.nn.ReLU,
+        activation: torch.nn.Module = CappedGELU,
         pad="circular",
         upscale_factor: int = 4,
         norm="batch",

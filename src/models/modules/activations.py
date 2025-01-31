@@ -23,7 +23,7 @@ class CappedLeakyReLU(torch.nn.Module):
     Implements a ReLU with capped maximum value.
     """
 
-    def __init__(self, cap_value=1.0, **kwargs):
+    def __init__(self, cap_value=10.0, **kwargs):
         """
         :param cap_value: float: value at which to clip activation
         :param kwargs: passed to torch.nn.LeadyReLU
@@ -44,7 +44,7 @@ class CappedGELU(torch.nn.Module):
     Implements a ReLU with capped maximum value.
     """
 
-    def __init__(self, cap_value=1.0, **kwargs):
+    def __init__(self, cap_value=10.0, **kwargs):
         """
         :param cap_value: float: value at which to clip activation
         :param kwargs: passed to torch.nn.LeadyReLU

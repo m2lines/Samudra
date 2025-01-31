@@ -52,6 +52,7 @@ import xarray as xr
 import dask
 
 from models.unet import UNet
+from utils.wandb_utils import WandBLogger
 
 class Trainer:
     def __init__(self, cfg) -> None:
@@ -271,49 +272,29 @@ class Trainer:
                 T_max=cfg.training.epochs
             )
 
-        # Wandb and Loading Checkpoint
-        self.wandb = cfg.wandb.mode == "online"
-        if cfg.training.resume_ckpt_path is not None and not cfg.training.finetune:
-            self.load_checkpoint(cfg.training.resume_ckpt_path)
-            if self.is_wandb_enabled():
-                try:
-                    wandb.init(
-                        config=cfg.__dict__,
-                        name=self.wandb_name,
-                        dir=cfg.output_dir,
-                        resume="must",
-                        id=self.wandb_id,
-                        **cfg.wandb.__dict__,
-                    )
-                except:
-                    wandb.init(
-                        config=cfg.__dict__,
-                        name=self.wandb_name,
-                        dir=cfg.output_dir,
-                        **cfg.wandb.__dict__,
-                    )
-            elif is_main_process():
-                warnings.warn(
-                    "This checkpoint had wandb enabled, but wandb is not enabled now!"
-                )
-        else:
+        # Initialize WandB
+        self.wandb_logger = WandBLogger.get_instance()
+        self.wandb_logger.configure(cfg.wandb.mode == "online", is_main_process())
+        
+        # Set up wandb run
+        self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
+            cfg.training.resume_ckpt_path,
+            cfg,
+            finetune=cfg.training.finetune
+        )
+
+        if cfg.training.resume_ckpt_path is not None:
             if cfg.training.finetune:
                 self.load_checkpoint(cfg.training.resume_ckpt_path, finetune=True)
+                self.start_epoch = 1
+            else:
+                self.load_checkpoint(cfg.training.resume_ckpt_path)
+                if not self.wandb_logger.enabled and is_main_process():
+                    warnings.warn(
+                        "This checkpoint had wandb enabled, but wandb is not enabled now!"
+                    )
+        else:
             self.start_epoch = 1
-            self.wandb_id = None
-            self.wandb_name = (
-                cfg.name + "//" + cfg.sub_name
-                if hasattr(cfg, "sub_name")
-                else ".LOCAL" + "//" + cfg.name
-            )
-            if self.is_wandb_enabled():
-                wandb.init(
-                    config=cfg.__dict__,
-                    name=self.wandb_name,
-                    dir=cfg.output_dir,
-                    **cfg.wandb.__dict__,
-                )
-                self.wandb_id = wandb.run.id
 
         # Modify DDP setup based on device
         if self.device.type == "cuda":
@@ -435,8 +416,7 @@ class Trainer:
 
     def run(self) -> None:
         best_loss = torch.tensor(1e8)
-        if self.is_wandb_enabled():
-            wandb.watch(self.model, log="all")
+        self.wandb_logger.watch(self.model, log="all")
 
         start_time = time.time()
         for epoch in range(self.start_epoch, self.epochs + 1):
@@ -576,41 +556,17 @@ class Trainer:
 
             loss_value_reduce = all_reduce_mean(loss_value)
 
-            if self.is_wandb_enabled():
-                wandb.log(
-                    {
-                        "train/epoch": epoch,
-                        "train/total_train_loss_per_batch": loss_value_reduce,
-                        "train/lr_per_batch": lr,
-                    }
-                )
-                # Loss per channel
-                for i, var in enumerate(self.outputs):
-                    wandb.log({"train/per_channel/" + var: loss_per_channel[i]})
-
-                # Loss per depth
-                for d in self.DEPTH_SET:
-                    wandb.log(
-                        {
-                            "train/depth/depth_"
-                            + str(d)
-                            + "_loss": torch.mean(
-                                loss_per_channel[self.DP_3D_IDX[d]]
-                            ).item()
-                        }
-                    )
-
-                # Loss per input variable
-                for k in self.VAR_SET:
-                    wandb.log(
-                        {
-                            "train/per_var/"
-                            + k
-                            + "_loss": torch.mean(
-                                loss_per_channel[self.CH_3D_IDX[k]]
-                            ).item()
-                        }
-                    )
+            self.wandb_logger.log_training_metrics(
+                epoch=epoch,
+                loss_value=loss_value_reduce,
+                lr=lr,
+                loss_per_channel=loss_per_channel,
+                outputs=self.outputs,
+                depth_indices=self.DP_3D_IDX,
+                var_indices=self.CH_3D_IDX,
+                depth_set=self.DEPTH_SET,
+                var_set=self.VAR_SET
+            )
 
         metric_logger.synchronize_between_processes()
         logging.info("Averaged train stats: " + str(metric_logger))
@@ -693,80 +649,36 @@ class Trainer:
 
         all_reduce_mean(loss_value)
 
-        if self.is_wandb_enabled():
-            wandb.log({"eval/total_eval_loss_per_batch": loss_value})
-            # Loss per channel
-            for i, var in enumerate(self.outputs):
-                wandb.log({"eval/per_channel/" + var: loss_per_channel[i].item()})
+        surface_metrics = {
+            "KE_corr": KE_corr,
+            "KE_rmse": KE_rmse,
+            "temp_corr": temp_corr,
+            "temp_rmse": temp_rmse,
+            "saline_corr": saline_corr,
+            "saline_rmse": saline_rmse,
+            "zos_corr": zos_corr,
+            "zos_rmse": zos_rmse,
+            "u_corr": u_corr,
+            "u_rmse": u_rmse,
+            "v_corr": v_corr,
+            "v_rmse": v_rmse,
+        }
+        
+        self.wandb_logger.log_validation_metrics(
+            loss_value=loss_value.item(),
+            loss_per_channel=loss_per_channel,
+            outputs=self.outputs,
+            surface_metrics=surface_metrics,
+            predictions=predictions,
+            targets=targets,
+            targets_unnormalized=targets_unnormalized,
+            model_pred_unnormalized=model_pred_unnormalized,
+            depth_indices=self.DP_3D_IDX,
+            var_indices=self.CH_3D_IDX,
+            depth_set=self.DEPTH_SET,
+            var_set=self.VAR_SET
+        )
 
-            # Loss per depth
-            for d in self.DEPTH_SET:
-                wandb.log(
-                    {
-                        "eval/depth/depth_"
-                        + str(d)
-                        + "_loss": torch.mean(
-                            loss_per_channel[self.DP_3D_IDX[d]]
-                        ).item()
-                    }
-                )
-
-            # Loss per input variable
-            for k in self.VAR_SET:
-                if k == "zos":
-                    continue
-                wandb.log(
-                    {
-                        "eval/per_var/"
-                        + k
-                        + "_loss": torch.mean(
-                            loss_per_channel[self.CH_3D_IDX[k]]
-                        ).item()
-                    }
-                )
-
-            # Plot prediction and target
-            for i, var in enumerate(self.outputs):
-                fig = plt.figure(figsize=(10, 5))
-                plt.plot(
-                    range(targets.shape[0]),
-                    targets_unnormalized[:, :, :, i].mean(axis=(1, 2)),
-                    label="Target",
-                )
-                min, max = plt.ylim()
-                plt.plot(
-                    range(predictions.shape[0]),
-                    model_pred_unnormalized[:, :, :, i].mean(axis=(1, 2)),
-                    label="Prediction",
-                )
-                if "thetao" in var:
-                    plt.ylim(min - 0.25, max + 0.25)
-                elif "so" in var:
-                    plt.ylim(min - 0.2, max + 0.2)
-                elif "KE" in var:
-                    plt.ylim(min - 0.5, max + 0.5)
-                plt.title(var)
-                plt.legend()
-                wandb.log({f"eval/plots/{var}": wandb.Image(fig)})
-                plt.close()
-
-        if self.is_wandb_enabled():
-            wandb.log(
-                {
-                    "eval/surface/KE_corr": KE_corr,
-                    "eval/surface/KE_rmse": KE_rmse,
-                    "eval/surface/temp_corr": temp_corr,
-                    "eval/surface/temp_rmse": temp_rmse,
-                    "eval/surface/saline_corr": saline_corr,
-                    "eval/surface/saline_rmse": saline_rmse,
-                    "eval/surface/zos_corr": zos_corr,
-                    "eval/surface/zos_rmse": zos_rmse,
-                    "eval/surface/u_corr": u_corr,
-                    "eval/surface/u_rmse": u_rmse,
-                    "eval/surface/v_corr": v_corr,
-                    "eval/surface/v_rmse": v_rmse,
-                }
-            )
         return {"loss": loss_value.item()}
 
     def save_checkpoint(self, epoch, best=False):
@@ -807,13 +719,12 @@ class Trainer:
 
     def is_wandb_enabled(self):
         if self.device.type == "cuda":
-            return self.wandb and is_main_process()
+            return self.wandb_logger.enabled and is_main_process()
         else:
-            return self.wandb
+            return self.wandb_logger.enabled
 
     def finish(self):
-        if self.is_wandb_enabled():
-            wandb.finish()
+        self.wandb_logger.finish()
 
 def handle_logging(cfg):
     # Set up logging

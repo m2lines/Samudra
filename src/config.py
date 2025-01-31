@@ -108,7 +108,8 @@ class Config:
     
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")
-        self.output_dir = Path(self.base_output_dir) / f"{timestamp}-{self.name}-{self.sub_name}"
+        self.name = f"{timestamp}-{self.name}"
+        self.output_dir = Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
         self.nets_dir = self.output_dir / "saved_nets"
         if self.gantry:
             self.data_dir = Path("/")

@@ -120,7 +120,11 @@ def init_distributed_mode(cfg):
 def all_reduce_mean(x):
     world_size = get_world_size()
     if world_size > 1:
-        x_reduce = torch.tensor(x).cuda()
+        # Convert to tensor using recommended approach
+        if torch.is_tensor(x):
+            x_reduce = x.clone().detach().cuda()
+        else:
+            x_reduce = torch.FloatTensor([x]).cuda()
         dist.all_reduce(x_reduce)
         x_reduce /= world_size
         return x_reduce.item()

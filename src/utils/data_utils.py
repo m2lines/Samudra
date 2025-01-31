@@ -59,7 +59,6 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         rolling_indices = (
             indices.rolling(time=len(data.time) - total_steps, center=False)
             .construct("window_dim")
-            .astype(int)
         )
         rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
             time=slice(len(data.time) - total_steps - 1, None)
@@ -67,6 +66,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         self.rolling_indices = rolling_indices.isel(
             window_dim=slice(0, None, self.hist + 1)
         )  # Skip indices based on history
+        self.rolling_indices = self.rolling_indices.astype(int)
 
         if long_rollout:
             window0 = self.rolling_indices.isel(window_dim=0)

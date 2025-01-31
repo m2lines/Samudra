@@ -178,18 +178,6 @@ class Trainer:
 
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, self.outputs, cfg.data.hist)
-        # if 'mask_0' in self.data:
-        #     masks_list = [self.data[f'mask_{i}'].isel(time=0) for i in range(19)]
-        #     masks = xr.concat(masks_list, dim='level').to_numpy()
-        #     masks_bool = (masks == 1)
-        #     b = (wet_zarr.to_array()[0].values == masks_bool.squeeze()).all()
-        #     if b:
-        #         logging.info("Wet mask check passed")
-        #     else:
-        #         logging.warning("Wet mask check failed")
-        #         logging.warning(f"Wet zarr values: {wet_zarr.to_array()[0].values}")
-        #         logging.warning(f"Masks bool: {masks_bool}")
-        #         logging.warning(f"Masks: {masks}")
         self.area = torch.from_numpy(wet_zarr['areacello'].to_numpy()).to(device="cpu")
         self.surface_wet = extract_surface_wet(wet_zarr)
 

@@ -55,50 +55,32 @@ from models.unet import UNet
 class Trainer:
     def __init__(self, cfg) -> None:
         
+        # Device selection
+        if cfg.training.device == "cuda":
+            if not torch.cuda.is_available():
+                cfg.training.device = "cpu"
+                cfg.training.distributed = False
+            else:
+                # Set specific GPU device if specified
+                if hasattr(cfg.training, 'gpu') and cfg.training.gpu is not None:
+                    torch.cuda.set_device(cfg.training.gpu)
+                    
+        self.device = torch.device(cfg.training.device)
+        
         # Distributed mode
         init_distributed_mode(cfg.training)
         dask.config.set(scheduler="synchronous")
 
-        if not cfg.training.disk_mode:
-            assert cfg.training.num_workers == 0 and cfg.training.pin_mem == False
-        else:
+        # Adjust workers and memory pinning based on device
+        if self.device.type == "cpu":
+            cfg.training.num_workers = 0  # Disable multi-processing on CPU
+            cfg.training.pin_mem = False
+        elif cfg.training.disk_mode:
             cfg.training.num_workers = torch.cuda.device_count() * cfg.training.num_workers
             cfg.training.pin_mem = True
 
         # Set seeds
         set_seed(cfg.rand_seed)
-
-        # Check dirs
-        if not os.path.exists(cfg.nets_dir):
-            os.makedirs(cfg.nets_dir, exist_ok=True)
-        
-        if not os.path.exists(cfg.output_dir):
-            os.makedirs(cfg.output_dir, exist_ok=True)
-    
-        cfg.save_yaml(cfg.output_dir / 'config.yaml')
-        
-        # Set up logging
-        if is_main_process():
-            if cfg.debug:
-                level = logging.DEBUG
-            else:
-                level = logging.INFO
-        else:
-            level = logging.WARNING
-        logging.basicConfig(
-            level=level,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(cfg.output_dir / 'training.log'),
-                logging.StreamHandler()
-            ]
-        )
-
-        # Add separate error log file handler
-        error_handler = logging.FileHandler(cfg.output_dir / 'error.log')
-        error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
-        error_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-        logging.getLogger().addHandler(error_handler)
 
         # Getting input, extra input and output
         self.inputs = INPT_VARS[cfg.training.exp_num_in]
@@ -228,7 +210,7 @@ class Trainer:
                     f"NOTE: Changing output channels to match data {cfg.unet.n_out}->{self.num_out}"
                 )
                 cfg.unet.n_out = self.num_out
-            model = UNet(cfg.unet, wet=self.wet.to(cfg.training.device)).to(cfg.training.device)
+            model = UNet(cfg.unet, wet=self.wet.to(self.device)).to(self.device)
         else:
             raise NotImplementedError
 
@@ -237,27 +219,30 @@ class Trainer:
         logging.info(f"Number of parameters: {params}")
         # summary(model)
 
-        model = model.to(cfg.training.device)
-
-        # Summary
-        i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 2
-
+        # Model summary with proper device tensors
+        input_tensor = torch.zeros(1, self.num_in, 180, 360, device=self.device)
         logging.info(
             summary(
                 model,
-                input_data=[i],
+                input_data=[[input_tensor] * 2],
                 col_names=["kernel_size", "output_size", "num_params"],
                 depth=10,
             )
         )
 
-        i = [torch.zeros(1, self.num_in, 180, 360).cuda()] * 8
-        logging.info(summary(model, input_data=[i], col_names=[], depth=10))
+        input_tensor = torch.zeros(1, self.num_in, 180, 360, device=self.device)
+        logging.info(
+            summary(
+                model,
+                input_data=[[input_tensor] * 8],
+                col_names=[],
+                depth=10
+            )
+        )
 
         self.model = model
         self.nets_dir = cfg.nets_dir
         self.network = cfg.training.network
-        self.device = cfg.training.device
 
         # Loss function
         if cfg.training.loss == "mse":
@@ -346,11 +331,12 @@ class Trainer:
                 )
                 self.wandb_id = wandb.run.id
 
-        # DDP Model
-        self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
-        self.model = nn.parallel.DistributedDataParallel(
-            self.model, device_ids=[cfg.training.gpu]
-        )
+        # Modify DDP setup based on device
+        if self.device.type == "cuda":
+            self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
+            self.model = nn.parallel.DistributedDataParallel(
+                self.model, device_ids=[cfg.training.gpu]
+            )
 
         # Training
         self.epochs = cfg.training.epochs
@@ -374,9 +360,14 @@ class Trainer:
         self.init_validation_stores()
 
     def init_validation_stores(self):
-        num_gpus = get_world_size()
-        N = 72 * 2 // 4 * num_gpus  # 72 x 5 days ~ 1 year
-        self.N_local = N // num_gpus
+        # Determine number of processes based on device
+        if self.device.type == "cuda":
+            num_splits = get_world_size()
+        else:
+            num_splits = 1
+            
+        N = 72 * 2 // 4 * num_splits  # 72 x 5 days ~ 1 year
+        self.N_local = N // num_splits
 
         self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
         num_vars = len(self.VAR_SET)
@@ -386,7 +377,7 @@ class Trainer:
         self.val_data_set = []
         self.target_set = []
         self.surface_targets_set = []
-        for i in range(num_gpus):
+        for i in range(num_splits):
             val_data = data_CNN_Disk(
                 self.data,
                 self.inputs,
@@ -579,8 +570,10 @@ class Trainer:
                 # self.scheduler.step()
                 # self.scheduler.step(epoch - 1 + data_iter_step / iters)
                 self.scheduler.step()
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
+            # Only synchronize if using CUDA
+            if self.device.type == "cuda":
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
 
             metric_logger.update(loss=loss_value)
 
@@ -636,7 +629,12 @@ class Trainer:
     @torch.no_grad()
     def validate(self):
         self.model.eval()
-        rank = get_rank()
+        
+        # Determine rank based on device
+        if self.device.type == "cuda":
+            rank = get_rank()
+        else:
+            rank = 0
 
         model_pred = generate_model_rollout(
             self.N_local,
@@ -816,7 +814,10 @@ class Trainer:
             logging.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
 
     def is_wandb_enabled(self):
-        return self.wandb and is_main_process()
+        if self.device.type == "cuda":
+            return self.wandb and is_main_process()
+        else:
+            return self.wandb
 
     def finish(self):
         if self.is_wandb_enabled():
@@ -831,12 +832,42 @@ def main():
     # Load config from YAML
     cfg = Config.from_yaml(args.config)
     
-    trainer = Trainer(cfg)
-    trainer.run()
+    # Check dirs
+    if not os.path.exists(cfg.nets_dir):
+        os.makedirs(cfg.nets_dir, exist_ok=True)
+    
+    if not os.path.exists(cfg.output_dir):
+        os.makedirs(cfg.output_dir, exist_ok=True)
 
-if __name__ == "__main__":
+    cfg.save_yaml(cfg.output_dir / 'config.yaml')
+    
+    # Set up logging
+    if cfg.debug:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    logging.basicConfig(
+        level=level,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(cfg.output_dir / 'training.log'),
+            logging.StreamHandler()
+        ]
+    )
+
+    # Add separate error log file handler
+    error_handler = logging.FileHandler(cfg.output_dir / 'error.log')
+    error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
+    error_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logging.getLogger().addHandler(error_handler)
+    
+    trainer = Trainer(cfg)
+    
     try:
-        main()
+        trainer.run()
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         logging.error(traceback.format_exc())
+
+if __name__ == "__main__":
+    main()

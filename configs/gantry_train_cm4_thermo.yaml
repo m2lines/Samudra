@@ -2,10 +2,10 @@ name: train
 sub_name: cm4_samudra_thermo
 rand_seed: 1
 base_output_dir: /results
-debug: true
+debug: false
 
 wandb:
-  mode: disabled
+  mode: online
   project: 3D_ocean_emu_CM4
   entity: suryadheeshjith
 
@@ -18,7 +18,7 @@ training:
   save_freq: 5
   epochs: 120
   batch_size: 4
-  learning_rate: 0.0002
+  learning_rate: 0.0001
   scheduler: true
   loss: mse
   network: convnextunet

@@ -45,9 +45,9 @@ class TrainingConfig:
 @dataclass
 class DataConfig:
     wet_file: str = "CM4_5daily_v0.4.0_wetmask"
-    data_zarr: str = "CM4_5daily_v0.4.0"
-    data_means: str = "CM4_5daily_v0.4.0_means"
-    data_stds: str = "CM4_5daily_v0.4.0_stds"
+    data_path: str = "CM4_5daily_v0.4.0"
+    data_means_path: str = "CM4_5daily_v0.4.0_means"
+    data_stds_path: str = "CM4_5daily_v0.4.0_stds"
     scaling_residuals_file: Optional[str] = None
     region: str = "global_1"
     depth_mode: str = "all"
@@ -111,9 +111,9 @@ class Config:
         self.output_dir = Path(self.base_output_dir) / f"{timestamp}-{self.name}-{self.sub_name}"
         self.nets_dir = self.output_dir / "saved_nets"
         if self.gantry:
-            self.data_dir = Path(self.cluster_data_dir)
-        else:
             self.data_dir = Path("/")
+        else:
+            self.data_dir = Path(self.cluster_data_dir)
     
     @classmethod
     def from_yaml(cls, yaml_path: str) -> 'Config':

@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from functools import partial
 import logging
-
+import traceback
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
@@ -78,14 +78,27 @@ class Trainer:
         cfg.save_yaml(cfg.output_dir / 'config.yaml')
         
         # Set up logging
+        if is_main_process():
+            if cfg.debug:
+                level = logging.DEBUG
+            else:
+                level = logging.INFO
+        else:
+            level = logging.WARNING
         logging.basicConfig(
-            level=logging.INFO if is_main_process() else logging.WARNING,
+            level=level,
             format='%(asctime)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.FileHandler(cfg.output_dir / 'training.log'),
                 logging.StreamHandler()
             ]
         )
+
+        # Add separate error log file handler
+        error_handler = logging.FileHandler(cfg.output_dir / 'error.log')
+        error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
+        error_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logging.getLogger().addHandler(error_handler)
 
         # Getting input, extra input and output
         self.inputs = INPT_VARS[cfg.training.exp_num_in]
@@ -157,14 +170,17 @@ class Trainer:
         assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
         self.data_dir = cfg.data_dir
         self.wet_file = cfg.data.wet_file
-        self.data_zarr = cfg.data.data_zarr
-        self.data_means = cfg.data.data_means
-        self.data_stds = cfg.data.data_stds
+        self.data_path = cfg.data.data_path
+        self.data_means_path = cfg.data.data_means_path
+        self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_zarr))
-        self.data_mean = xr.open_dataset(os.path.join(self.data_dir, self.data_means))
-        self.data_std = xr.open_dataset(os.path.join(self.data_dir, self.data_stds))
+        if '*' in self.data_path:
+            self.data = xr.open_mfdataset(os.path.join(self.data_dir, self.data_path), engine="netcdf4", chunks={"time": 1, "lat": 180, "lon": 360})
+        else:
+            self.data = xr.open_dataset(os.path.join(self.data_dir, self.data_path))
+        self.data_mean = xr.open_dataset(os.path.join(self.data_dir, self.data_means_path))
+        self.data_std = xr.open_dataset(os.path.join(self.data_dir, self.data_stds_path))
 
         ## TEMP SMOOTHING FIX HERE
         if cfg.data.smooth:
@@ -185,10 +201,10 @@ class Trainer:
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, self.outputs, cfg.data.hist)
         if 'mask_0' in self.data:
-            masks_list = [self.data[f'mask_{i}'] for i in range(19)]
+            masks_list = [self.data[f'mask_{i}'].isel(time=0) for i in range(19)]
             masks = xr.concat(masks_list, dim='level').to_numpy()
             masks_bool = (masks == 1)
-            b = (wet_zarr.to_array()[0].values == masks_bool).all()
+            b = (wet_zarr.to_array()[0].values == masks_bool.squeeze()).all()
             if b:
                 logging.info("Wet mask check passed")
             else:
@@ -819,4 +835,8 @@ def main():
     trainer.run()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        logging.error(traceback.format_exc())

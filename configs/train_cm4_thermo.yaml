@@ -4,7 +4,7 @@ rand_seed: 1
 base_output_dir: train_3D
 debug: true
 gantry: false
-cluster_data_dir: /vast/sd5313/data/m2lines/3D_ocean_data/
+cluster_data_dir: /mnt/home/sd5313/data
 
 wandb:
   mode: disabled
@@ -35,15 +35,15 @@ training:
 
 data:
   wet_file: CM4_5daily_v0.4.0_wetmask
-  data_zarr: CM4_5daily_v0.4.0
-  data_means: CM4_5daily_v0.4.0_means.zarr
-  data_stds: CM4_5daily_v0.4.0_stds.zarr
+  data_path: /mnt/home/sd5313/data/2024-11-12-cm4-piControl-ocean-200yr-monthly/015*.nc
+  data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
+  data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
   scaling_residuals_file: null
   region: global_3D
   depth_mode: all
   smooth: false
-  N_samples: 13800
-  N_val: 140
+  N_samples: 400
+  N_val: 500
   N_test: 600
   data_stride: [1]
   steps: [4]

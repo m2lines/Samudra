@@ -4,7 +4,7 @@ import numpy as np
 from models.base import BaseModel
 from utils.train_utils import pairwise
 from models.modules.blocks import CoreBlock, ConvBlock, ConvNeXtBlock, BilinearUpsample, TransposedConvUpsample
-from models.modules.factory import create_block, create_downsample, create_upsample, create_activation
+from models.modules.factory import create_block, create_downsample, create_upsample, get_activation_cl
 
 
 class UNet(BaseModel):
@@ -20,7 +20,7 @@ class UNet(BaseModel):
         )
         
         # Create activation
-        activation = create_activation(config.core_block.activation)
+        activation = get_activation_cl(config.core_block.activation)
         
         # Create local copies of config lists that will be reversed
         ch_width = config.ch_width.copy()
@@ -36,12 +36,13 @@ class UNet(BaseModel):
                     config.core_block.block_type,
                     in_channels=a,
                     out_channels=b,
+                    kernel_size=config.core_block.kernel_size
                     dilation=dilation[i],
                     n_layers=n_layers[i],
                     activation=activation,
                     pad=config.pad,
+                    upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
-                    kernel_size=config.core_block.kernel_size
                 )
             )
             # Down sampling block
@@ -53,12 +54,13 @@ class UNet(BaseModel):
                 config.core_block.block_type,
                 in_channels=b,
                 out_channels=b,
+                kernel_size=config.core_block.kernel_size,
                 dilation=dilation[i],
                 n_layers=n_layers[i],
                 activation=activation,
                 pad=config.pad,
+                upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
-                kernel_size=config.core_block.kernel_size
             )
         )
         
@@ -77,12 +79,13 @@ class UNet(BaseModel):
                     config.core_block.block_type,
                     in_channels=a,
                     out_channels=b,
+                    kernel_size=config.core_block.kernel_size,
                     dilation=dilation[i],
                     n_layers=n_layers[i],
                     activation=activation,
                     pad=config.pad,
+                    upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
-                    kernel_size=config.core_block.kernel_size
                 )
             )
             layers.append(create_upsample(config.up_sampling_block, in_channels=b, out_channels=b))
@@ -93,12 +96,13 @@ class UNet(BaseModel):
                 config.core_block.block_type,
                 in_channels=b,
                 out_channels=b,
+                kernel_size=config.core_block.kernel_size,
                 dilation=dilation[i],
                 n_layers=n_layers[i],
                 activation=activation,
                 pad=config.pad,
-                norm=config.core_block.norm,
-                kernel_size=config.core_block.kernel_size
+                upscale_factor=config.core_block.upscale_factor,
+                norm=config.core_block.norm
             )
         )
         

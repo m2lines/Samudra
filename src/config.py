@@ -31,9 +31,6 @@ class TrainingConfig:
     exp_num_in: str = "3D_all"
     exp_num_extra: str = "3D_all"
     exp_num_out: str = "3D_all"
-    lam: float = 0.05
-    Nb: int = 0
-    lateral: bool = False
     finetune: bool = False
     dist_url: Optional[str] = None
     world_size: Optional[int] = None
@@ -43,23 +40,28 @@ class TrainingConfig:
     resume_ckpt_path: Optional[str] = None
 
 @dataclass
+class TimeConfig:
+    start_time: str
+    end_time: str
+
+@dataclass
 class DataConfig:
     wet_file: str = "CM4_5daily_v0.4.0_wetmask"
     data_path: str = "CM4_5daily_v0.4.0"
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
     scaling_residuals_file: Optional[str] = None
-    region: str = "global_1"
     depth_mode: str = "all"
-    smooth: bool = False
-    N_samples: int = 13800
-    N_val: int = 140
-    N_test: int = 600
     data_stride: List[int] = field(default_factory=lambda: [1])
     steps: List[int] = field(default_factory=lambda: [4])
     step_transition: List[int] = field(default_factory=lambda: [])
     hist: int = 0
     data_percent: float = 1.0
+    time_delta: int = 5
+    train: TimeConfig = field(default_factory=lambda: TimeConfig("151-01-06", "306-01-01"))
+    val: TimeConfig = field(default_factory=lambda: TimeConfig("306-01-01", "311-01-01"))
+    inference: List[TimeConfig] = field(default_factory=list)
+    inference_epochs: List[int] = field(default_factory=list)
     
 @dataclass
 class BlockConfig:

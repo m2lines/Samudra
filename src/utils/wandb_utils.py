@@ -107,7 +107,6 @@ class WandBLogger:
                              loss_value: float, 
                              loss_per_channel: torch.Tensor,
                              outputs: list,
-                             surface_metrics: Dict[str, float] = None,
                              predictions=None,
                              targets=None,
                              targets_unnormalized=None,
@@ -144,11 +143,6 @@ class WandBLogger:
                     torch.mean(loss_per_channel[var_indices[k]]).item()
                 })
 
-        # Surface metrics
-        if surface_metrics:
-            for metric_name, value in surface_metrics.items():
-                self.log({f"eval/surface/{metric_name}": value})
-
         # Plot predictions vs targets
         if all(x is not None for x in [predictions, targets, targets_unnormalized, model_pred_unnormalized]):
             for i, var in enumerate(outputs):
@@ -177,6 +171,20 @@ class WandBLogger:
                 plt.legend()
                 self.log({f"eval/plots/{var}": wandb.Image(fig)})
                 plt.close()
+    
+    def log_inference_metrics(self, 
+                             loss_value: float, 
+                             loss_per_channel: torch.Tensor,
+                             outputs: list,
+                             predictions=None,
+                             targets=None,
+                             targets_unnormalized=None,
+                             model_pred_unnormalized=None,
+                             depth_indices: Dict = None,
+                             var_indices: Dict = None,
+                             depth_set: set = None,
+                             var_set: set = None):
+        pass
 
     def setup_run(self, checkpoint_path: str, cfg: Any, finetune: bool = False):
         """Set up a wandb run, either resuming from checkpoint or creating new

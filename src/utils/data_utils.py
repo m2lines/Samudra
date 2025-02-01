@@ -6,6 +6,38 @@ import torch.utils.data as data
 from scipy.ndimage import gaussian_filter
 from einops import rearrange
 import os
+import cftime
+from datetime import timedelta
+
+
+
+def get_time_slice(time_config, initial_cond=False, time_delta=5, hist=1):
+    start_time_str = time_config.start_time
+    start_year, start_month, start_day = start_time_str.split("-")
+    start_time = cftime.DatetimeNoLeap(int(start_year), int(start_month), int(start_day), 0, 0, 0)
+    
+    end_time_str = time_config.end_time
+    end_year, end_month, end_day = end_time_str.split("-")
+    end_time = cftime.DatetimeNoLeap(int(end_year), int(end_month), int(end_day), 0, 0, 0)
+    num_steps = (end_time - start_time).days // time_delta + 1
+
+    if initial_cond:
+        start_time = start_time - timedelta(days=time_delta * (hist + 1)) # Prepending initial condition
+
+    return slice(start_time, end_time), num_steps
+
+
+def get_wet_mask(inputs, device="cpu"):
+    wet = xr.zeros_like(inputs[0][0])
+    # inputs[0][0,12,12] = np.nan
+    for data in inputs:
+        wet += np.isnan(data[0])
+
+    wet_nan = xr.where(wet != 0, np.nan, 1).to_numpy()
+    wet = np.isnan(xr.where(wet == 0, np.nan, 0))
+    wet = np.nan_to_num(wet.to_numpy())
+    wet = torch.from_numpy(wet).type(torch.float32).to(device=device)
+    return wet, wet_nan
 
 
 class data_CNN_Disk(torch.utils.data.Dataset):
@@ -19,20 +51,16 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         wet,
         data_mean,
         data_std,
-        n_samples,
         hist,
-        ind_start,
         long_rollout,
         device="cuda",
     ):
         super().__init__()
         self.device = device
 
-        self.size = n_samples
+        self.size = data.time.size
         self.hist = hist
-        self.ind_start = ind_start
 
-        data = data.isel(time=slice(self.ind_start, None))
         self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
         self.inputs_no_extra = data[inputs_str]
@@ -43,18 +71,19 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         # HIST=0 ; 0->[0, 1]; 1->[1, 2]; 2->[2, 3]; 3->[3, 4]
         # HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]]; 2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
         # HIST=2 ; 0->[[0, 1, 2], [3, 4, 5]]; 1->[[3, 4, 5], [6, 7, 8]]; 2->[[6, 7, 8], [9, 10, 11]]; 3->[[9, 10, 11], [12, 13, 14]]
+        time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
-            np.arange(data.time.size),
+            time_indices,
             dims=["time"],
-            coords={"time": data.time},
+            coords={"time": time_indices},
         )
         total_steps = 2 * self.hist + 1
         rolling_indices = (
-            indices.rolling(time=len(data.time) - total_steps, center=False)
+            indices.rolling(time=len(time_indices) - total_steps, center=False)
             .construct("window_dim")
         )
         rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
-            time=slice(len(data.time) - total_steps - 1, None)
+            time=slice(len(time_indices) - total_steps - 1, None)
         )  # Remove first few null indices
         self.rolling_indices = rolling_indices.isel(
             window_dim=slice(0, None, self.hist + 1)
@@ -64,9 +93,9 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         if long_rollout:
             window0 = self.rolling_indices.isel(window_dim=0)
             print(
-                "Long rollout will begin with input and produce output from time index {0} and {1} respectively".format(
-                    window0.isel(time=0).values + ind_start,
-                    window0.isel(time=self.hist + 1).values + ind_start,
+                "Long rollout will use input at time {0} and produce output at {1}".format(
+                    data.time.values[0],
+                    data.time.values[self.hist + 1],
                 )
             )
 
@@ -152,7 +181,6 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         wet,
         data_mean,
         data_std,
-        n_samples,
         hist,
         steps,
         stride=1,
@@ -161,7 +189,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         super().__init__()
         self.device = device
 
-        self.size = n_samples
+        self.size = data.time.size
         self.hist = hist
         self.steps = steps
         self.stride = stride
@@ -277,22 +305,3 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
             outputs.append(torch.from_numpy(label).float())
 
         return outputs
-
-def get_train_test_ranges(N_samples, N_val, hist):
-    s_train = hist  # 0=0
-    e_train = s_train + N_samples  # 0 + 4000 = 4000
-    e_test = e_train + N_val  # 4000 + 300 = 4300
-    return s_train, e_train, e_test
-
-
-def get_wet_mask(inputs, device="cpu"):
-    wet = xr.zeros_like(inputs[0][0])
-    # inputs[0][0,12,12] = np.nan
-    for data in inputs:
-        wet += np.isnan(data[0])
-
-    wet_nan = xr.where(wet != 0, np.nan, 1).to_numpy()
-    wet = np.isnan(xr.where(wet == 0, np.nan, 0))
-    wet = np.nan_to_num(wet.to_numpy())
-    wet = torch.from_numpy(wet).type(torch.float32).to(device=device)
-    return wet, wet_nan

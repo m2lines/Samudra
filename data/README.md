@@ -1,6 +1,36 @@
 # ocean_emulators
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/m2lines/ocean_emulators/main.svg)](https://results.pre-commit.ci/latest/github/m2lines/ocean_emulators/main)
 
+
+## Preprocessing
+
+This repository is currently being used to preprocess ocean datasets. 
+
+### Preprocessing steps
+
+1. Interpolation of variables at the cell boundaries to the cell centers
+2. Coarsening time-resolution of input data to 5-day simple average
+3. Rotation of velocities and wind stresses so that the variables indicate purely zonal (east-west) and meridional (north-south) flow, respectively.
+4. Spatial filtering with 18 x 18 gaussian kernel
+5. Horizontal regridding of native 0.25 degree data to 1 degree data
+
+### Preprocessing files
+These files live on the OSN pod:
+- Data: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation/ocean_5daily.zarr
+- Gaussian Grid: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-01-sample-raw-CM4-data/gaussian_grid_180_by_360.nc
+- Mosaic File: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-11-static-data/ocean_hgrid.nc
+- Static Data File: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-11-static-data/ocean_static_no_mask_table.nc
+
+### Possible issues
+
+1. Rotation of wind stresses (not done in this repo)
+2. Filtering across the Tripolar fold - https://github.com/m2lines/ocean_emulators/issues/69
+3. Setting threshold for land/ocean/sea-ice?
+4. Double check that interpolation of velocities are done correctly - Specifically, lon and lat are being used and not xh and yh.
+5. Vertical regridding - Handling partial grid cells
+6. Discontinuity with rotation before filtering  - https://github.com/m2lines/ocean_emulators/issues/69
+
+
 ## Data flow diagram
 ```mermaid
 flowchart TD

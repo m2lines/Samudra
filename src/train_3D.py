@@ -103,9 +103,9 @@ class Trainer:
         logging.info(f"outputs: {self.str_out}")
         logging.info(f"levels: {self.levels}")
 
-        s_train = cfg.data.lag * cfg.data.hist
-        e_train = s_train + cfg.data.N_samples * cfg.data.interval
-        e_test = e_train + cfg.data.interval * cfg.data.N_val
+        s_train = cfg.data.hist
+        e_train = s_train + cfg.data.N_samples
+        e_test = e_train + cfg.data.N_val
 
         self.N_atm = len(self.extra_in)
         self.N_in = len(self.inputs)
@@ -313,8 +313,6 @@ class Trainer:
         self.network = cfg.training.network
         self.debug = cfg.debug
         self.N_val = cfg.data.N_val
-        self.lag = cfg.data.lag
-        self.interval = cfg.data.interval
         self.e_train = e_train
         self.data_stride = cfg.data.data_stride
         self.N_samples = cfg.data.N_samples
@@ -352,8 +350,6 @@ class Trainer:
                 self.data_mean,
                 self.data_std,
                 self.N_val,
-                self.lag,
-                self.interval,
                 self.hist,
                 self.e_train + i * self.N_local,
                 long_rollout=True,
@@ -389,8 +385,6 @@ class Trainer:
                 self.data_mean,
                 self.data_std,
                 self.N_val,
-                self.lag,
-                self.interval,
                 self.hist,
                 self.e_train + i * self.N_local,
                 long_rollout=False,
@@ -447,8 +441,6 @@ class Trainer:
                         self.data_mean,
                         self.data_std,
                         self.N_samples,
-                        self.lag,
-                        self.interval,
                         self.hist,
                         cur_step,
                         stride,

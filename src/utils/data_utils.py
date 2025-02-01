@@ -20,8 +20,6 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         data_mean,
         data_std,
         n_samples,
-        lag,
-        interval,
         hist,
         ind_start,
         long_rollout,
@@ -31,13 +29,8 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         self.device = device
 
         self.size = n_samples
-        self.lag = lag
-        self.interval = interval
         self.hist = hist
         self.ind_start = ind_start
-
-        assert self.interval == 1
-        assert self.lag == 1
 
         data = data.isel(time=slice(self.ind_start, None))
         self.inputs = data[inputs_str + extra_in_str]
@@ -160,8 +153,6 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         data_mean,
         data_std,
         n_samples,
-        lag,
-        interval,
         hist,
         steps,
         stride=1,
@@ -171,14 +162,9 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.device = device
 
         self.size = n_samples
-        self.lag = lag
-        self.interval = interval
         self.hist = hist
         self.steps = steps
         self.stride = stride
-
-        assert self.interval == 1
-        assert self.lag == 1
 
         self.inputs = data[inputs_str + extra_in_str]
         self.outputs = data[outputs_str]
@@ -235,7 +221,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
             start = idx + step * (self.hist + 1) * self.stride
             end = start + 1
             idx_slice = slice(
-                start, end, self.interval
+                start, end
             )  # Create a slice for similar indexing as in data_CNN_Disk
             rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
             if prev_rolling_idx is not None:
@@ -292,10 +278,10 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
 
         return outputs
 
-def get_train_test_ranges(N_samples, N_val, lag, hist, interval):
-    s_train = lag * hist  # 1*0=0
-    e_train = s_train + N_samples * interval  # 0 + 4000*1 = 4000
-    e_test = e_train + interval * N_val  # 4000 + 1*300 = 4300
+def get_train_test_ranges(N_samples, N_val, hist):
+    s_train = hist  # 0=0
+    e_train = s_train + N_samples  # 0 + 4000 = 4000
+    e_test = e_train + N_val  # 4000 + 300 = 4300
     return s_train, e_train, e_test
 
 

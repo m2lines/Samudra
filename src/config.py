@@ -58,9 +58,7 @@ class DataConfig:
     data_stride: List[int] = field(default_factory=lambda: [1])
     steps: List[int] = field(default_factory=lambda: [4])
     step_transition: List[int] = field(default_factory=lambda: [])
-    interval: int = 1
     hist: int = 0
-    lag: int = 1
     data_percent: float = 1.0
     
 @dataclass

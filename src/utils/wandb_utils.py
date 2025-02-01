@@ -103,7 +103,7 @@ class WandBLogger:
                     torch.mean(loss_per_channel[var_indices[k]]).item()
                 })
 
-    def log_validation_metrics(self, 
+    def log_inference_metrics(self, 
                              loss_value: float, 
                              loss_per_channel: torch.Tensor,
                              outputs: list,
@@ -172,19 +172,6 @@ class WandBLogger:
                 self.log({f"eval/plots/{var}": wandb.Image(fig)})
                 plt.close()
     
-    def log_inference_metrics(self, 
-                             loss_value: float, 
-                             loss_per_channel: torch.Tensor,
-                             outputs: list,
-                             predictions=None,
-                             targets=None,
-                             targets_unnormalized=None,
-                             model_pred_unnormalized=None,
-                             depth_indices: Dict = None,
-                             var_indices: Dict = None,
-                             depth_set: set = None,
-                             var_set: set = None):
-        pass
 
     def setup_run(self, checkpoint_path: str, cfg: Any, finetune: bool = False):
         """Set up a wandb run, either resuming from checkpoint or creating new

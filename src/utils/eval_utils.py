@@ -17,8 +17,6 @@ def generate_model_rollout(
     N_out,
     N_extra,
     initial_input=None,
-    Nb=0,
-    region="global",
     train=False,
     device="cuda"
 ):

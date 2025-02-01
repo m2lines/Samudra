@@ -46,6 +46,7 @@ from utils.eval_utils import generate_model_rollout, get_corr_rmse
 from utils.data_utils import (
     data_CNN_Disk,
     data_CNN_Disk_steps,
+    get_time_slice
 )
 
 import xarray as xr
@@ -103,18 +104,9 @@ class Trainer:
         logging.info(f"outputs: {self.str_out}")
         logging.info(f"levels: {self.levels}")
 
-        s_train = cfg.data.hist
-        e_train = s_train + cfg.data.N_samples
-        e_test = e_train + cfg.data.N_val
-
         self.N_atm = len(self.extra_in)
         self.N_in = len(self.inputs)
-        if cfg.training.lateral:
-            self.N_extra = (
-                self.N_atm + self.N_in
-            )  # Number of atmosphere variables + Lateral boundary variables
-        else:
-            self.N_extra = self.N_atm  # Number of atmosphere variables
+        self.N_extra = self.N_atm  # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
         self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
@@ -122,9 +114,6 @@ class Trainer:
 
         logging.info(f"Number of inputs: {self.num_in}")
         logging.info(f"Number of outputs: {self.num_out}")
-
-        assert cfg.data.region == "global_3D"
-        self.region = cfg.data.region
 
         assert isinstance(cfg.data.data_stride, list)
         assert isinstance(cfg.data.steps, list)
@@ -135,12 +124,7 @@ class Trainer:
             "steps_"
             + max_steps
             + "_"
-            + cfg.data.region
-            + "_"
             + cfg.data.depth_mode
-            + "_"
-            + "N_train_"
-            + str(cfg.data.N_samples)
             + "_Lateral_Data_025_no_smooth"
         )
 
@@ -160,22 +144,6 @@ class Trainer:
             self.data = xr.open_dataset(os.path.join(self.data_dir, self.data_path))
         self.data_mean = xr.open_dataset(os.path.join(self.data_dir, self.data_means_path))
         self.data_std = xr.open_dataset(os.path.join(self.data_dir, self.data_stds_path))
-
-        ## TEMP SMOOTHING FIX HERE
-        if cfg.data.smooth:
-            start = time.time()
-            for var in self.outputs:
-                if "uo" in var or "vo" in var:
-                    window = 10
-                    logging.info(f"Smoothing {var} with window size {window}")
-                    self.data[var] = (
-                        self.data[var]
-                        .rolling(time=window, min_periods=1, center=False)
-                        .mean()
-                        .compute()
-                    )
-
-            logging.info(f"Smoothing took minutes: {(time.time() - start) / 60}")
 
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet(wet_zarr, self.outputs, cfg.data.hist)
@@ -205,25 +173,25 @@ class Trainer:
         # summary(model)
 
         # Model summary with proper device tensors
-        input_tensor = torch.zeros(1, self.num_in, 180, 360, device=self.device)
-        logging.info(
-            summary(
-                model,
-                input_data=[[input_tensor] * 2],
-                col_names=["kernel_size", "output_size", "num_params"],
-                depth=10,
-            )
-        )
+        # input_tensor = torch.zeros(1, self.num_in, 180, 360, device=self.device)
+        # logging.info(
+        #     summary(
+        #         model,
+        #         input_data=[[input_tensor] * 2],
+        #         col_names=["kernel_size", "output_size", "num_params"],
+        #         depth=10,
+        #     )
+        # )
 
-        input_tensor = torch.zeros(1, self.num_in, 180, 360, device=self.device)
-        logging.info(
-            summary(
-                model,
-                input_data=[[input_tensor] * 8],
-                col_names=[],
-                depth=10
-            )
-        )
+        # input_tensor = torch.zeros(1, self.num_in, 180, 360, device=self.device)
+        # logging.info(
+        #     summary(
+        #         model,
+        #         input_data=[[input_tensor] * 8],
+        #         col_names=[],
+        #         depth=10
+        #     )
+        # )
 
         self.model = model
         self.nets_dir = cfg.nets_dir
@@ -312,104 +280,75 @@ class Trainer:
         self.output_dir = cfg.output_dir
         self.network = cfg.training.network
         self.debug = cfg.debug
-        self.N_val = cfg.data.N_val
-        self.e_train = e_train
         self.data_stride = cfg.data.data_stride
-        self.N_samples = cfg.data.N_samples
         self.batch_size = cfg.training.batch_size
         self.num_workers = cfg.training.num_workers
         self.pin_mem = cfg.training.pin_mem
+        self.train_times = cfg.data.train
+        self.val_times = cfg.data.val
+        self.inference_times = cfg.data.inference
+        self.inference_epochs = cfg.data.inference_epochs
+        self.time_delta = cfg.data.time_delta
+        
+        self.init_validation_store()
+        self.init_inference_stores()
 
-        self.init_validation_stores()
-
-    def init_validation_stores(self):
+    def init_inference_stores(self):
         # Determine number of processes based on device
         if self.device.type == "cuda":
             num_splits = get_world_size()
+            logging.info(f"Number of processes: {num_splits}, preferably use 8")
         else:
             num_splits = 1
-            
-        N = 72 * 2 // 4 * num_splits  # 72 x 5 days ~ 1 year
-        self.N_local = N // num_splits
-
-        self.surface_wet_bool = np.array(self.surface_wet.cpu()).astype(bool)
-        num_vars = len(self.VAR_SET)
-        self.surface_indices = [i * self.levels for i in range(num_vars - 1)] + [-1]
-        surface_indices_str = [self.inputs[i] for i in self.surface_indices]
-
-        self.val_data_set = []
-        self.target_set = []
-        self.surface_targets_set = []
+        
+        self.inference_data_loader_set = []
+        self.inference_target_set = []
+        self.num_steps_inf_set = []
         for i in range(num_splits):
-            val_data = data_CNN_Disk(
-                self.data,
+            time_slice_with_initial_condition, num_steps = get_time_slice(self.inference_times[i], initial_cond=True, time_delta=self.time_delta, hist=self.hist)
+            time_slice_target, _ = get_time_slice(self.inference_times[i], initial_cond=False, time_delta=self.time_delta, hist=self.hist)
+            inference_data = self.data.sel(time=time_slice_with_initial_condition)
+            inference_data_loader = data_CNN_Disk(
+                inference_data,
                 self.inputs,
                 self.extra_in,
                 self.outputs,
                 self.wet,
                 self.data_mean,
                 self.data_std,
-                self.N_val,
                 self.hist,
-                self.e_train + i * self.N_local,
                 long_rollout=True,
                 device="cuda",
             )
 
-            mean_in = val_data.in_mean.to_array().to_numpy().reshape(-1)
-            std_in = val_data.in_std.to_array().to_numpy().reshape(-1)
-            mean_out = val_data.out_mean.to_array().to_numpy().reshape(-1)
-            std_out = val_data.out_std.to_array().to_numpy().reshape(-1)
+            mean_in = inference_data_loader.in_mean.to_array().to_numpy().reshape(-1)
+            std_in = inference_data_loader.in_std.to_array().to_numpy().reshape(-1)
+            mean_out = inference_data_loader.out_mean.to_array().to_numpy().reshape(-1)
+            std_out = inference_data_loader.out_std.to_array().to_numpy().reshape(-1)
 
-            val_data.norm_vals = {
+            inference_data_loader.norm_vals = {
                 "s_out": std_out,
                 "s_in": std_in,
                 "m_out": mean_out,
                 "m_in": mean_in,
             }
 
-            self.val_data_set.append(val_data)
-            self.target_set.append(
-                val_data[: (self.N_local) // (self.hist + 1)][1]
-                .reshape((self.N_local, -1, *self.surface_wet.shape))
-                .numpy()
-            )
+            inference_target = inference_data_loader[:][1].reshape((num_steps, -1, *self.surface_wet.shape)).numpy()
+            
+            # Check if the inference target is correct
+            if i == 0:
+                inf_data = self.data[self.outputs].sel(time=time_slice_target).to_array().transpose("time", "variable", "lat", "lon") 
+                inf_data = (inf_data - inference_data_loader.out_mean.to_array().to_numpy().reshape([1, -1, 1, 1])) / inference_data_loader.out_std.to_array().to_numpy().reshape([1, -1, 1, 1])
+                inf_data = inf_data.fillna(0)
+                assert np.equal(inference_target, inf_data.to_numpy()).all()
 
-            # Surface Data
-            surface_targets = data_CNN_Disk(
-                self.data,
-                surface_indices_str,
-                self.extra_in,
-                surface_indices_str,
-                self.wet[0],
-                self.data_mean,
-                self.data_std,
-                self.N_val,
-                self.hist,
-                self.e_train + i * self.N_local,
-                long_rollout=False,
-                device="cuda",
-            )
-            mean_in = surface_targets.in_mean.to_array().to_numpy().reshape(-1)
-            std_in = surface_targets.in_std.to_array().to_numpy().reshape(-1)
-            mean_out = surface_targets.out_mean.to_array().to_numpy().reshape(-1)
-            std_out = surface_targets.out_std.to_array().to_numpy().reshape(-1)
-
-            surface_targets.norm_vals = {
-                "s_out": std_out,
-                "s_in": std_in,
-                "m_out": mean_out,
-                "m_in": mean_in,
-            }
-            self.surface_targets_norm_vals = surface_targets.norm_vals
-            self.surface_targets_set.append(
-                surface_targets[: (self.N_local) // (self.hist + 1)][1]
-                .reshape((self.N_local, -1, *self.surface_wet.shape))
-                .numpy()
-            )
-
+            self.inference_data_loader_set.append(inference_data_loader)
+            self.inference_target_set.append(inference_target)
+            self.num_steps_inf_set.append(num_steps)
+        
     def run(self) -> None:
-        best_loss = torch.tensor(1e8)
+        best_val_loss = torch.tensor(1e8)
+        best_inf_loss = torch.tensor(1e8)
         self.wandb_logger.watch(self.model, log="all")
 
         start_time = time.time()
@@ -433,14 +372,13 @@ class Trainer:
                     logging.info(f"Transitioning to step {cur_step}")
                 train_data = [
                     data_CNN_Disk_steps(
-                        self.data,
+                        self.data.sel(time=get_time_slice(self.train_times, initial_cond=False, time_delta=self.time_delta, hist=self.hist)[0]),
                         self.inputs,
                         self.extra_in,
                         self.outputs,
                         self.wet,
                         self.data_mean,
                         self.data_std,
-                        self.N_samples,
                         self.hist,
                         cur_step,
                         stride,
@@ -471,13 +409,20 @@ class Trainer:
                 self.train_sampler.set_epoch(epoch)
 
             train_stats = self.train_one_epoch(epoch)
-            val_stats = self.validate()
-
+            val_stats = self.validate_one_epoch()
             v_loss = val_stats["loss"]
+            
+            if epoch in self.inference_epochs:
+                inf_stats = self.inference_one_epoch()
+                i_loss = inf_stats["loss"]
+            else:
+                inf_stats = {}
+                i_loss = None
 
             log_stats = {
                 **{f"train_{k}": v for k, v in train_stats.items()},
                 **{f"eval_{k}": v for k, v in val_stats.items()},
+                **{f"inf_{k}": v for k, v in inf_stats.items()},
                 "epoch": epoch,
             }
 
@@ -488,11 +433,29 @@ class Trainer:
                     f.write(json.dumps(log_stats) + "\n")
 
                 logging.info(f"Achieved Validation Loss = {v_loss:.3f}")
-                if v_loss < best_loss:
-                    best_loss = v_loss
-                    logging.info(f"Saving best model at epoch {epoch}")
-                    self.save_checkpoint(epoch, best=True)
+                save_best_val = False
+                
+                # Check for best validation loss
+                if v_loss < best_val_loss:
+                    best_val_loss = v_loss
+                    logging.info(f"New best validation loss achieved at epoch {epoch}")
+                    save_best_val = True  # Wait to save until we check inference loss
+                
+                # Check for best inference loss if available
+                if i_loss is not None:
+                    logging.info(f"Achieved Inference Loss = {i_loss:.3f}")
+                    if i_loss < best_inf_loss:
+                        best_inf_loss = i_loss
+                        logging.info(f"New best inference loss achieved at epoch {epoch}")
+                        logging.info("Saving best inference model")
+                        self.save_checkpoint(epoch, best=True, best_type="inference")
+                
+                # Save best validation checkpoint if needed
+                if save_best_val:
+                    logging.info("Saving best validation model")
+                    self.save_checkpoint(epoch, best=True, best_type="validation")
 
+                # Regular checkpoint saving
                 elif (epoch) % self.save_freq == 0:
                     logging.info(f"Saving model at epoch {epoch}")
                     self.save_checkpoint(epoch)
@@ -565,7 +528,69 @@ class Trainer:
         return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
     @torch.no_grad()
-    def validate(self):
+    def validate_one_epoch(self):
+        self.model.eval()
+        
+        # Determine rank based on device
+        if self.device.type == "cuda":
+            rank = get_rank()
+        else:
+            rank = 0
+
+        if rank == 0:
+            model_pred = generate_model_rollout(
+                self.num_steps_val,
+                self.validation_data_loader,
+                self.model.module if self.device.type == "cuda" else self.model,
+                self.hist,
+                self.N_out,
+                self.N_extra,
+                initial_input=None,
+                train=True,
+                device=self.device.type
+            )
+
+            predictions = model_pred.transpose(0, 3, 1, 2)
+            targets = self.validation_target
+            targets_transposed = targets.transpose(0, 2, 3, 1)
+
+            predictions = torch.from_numpy(predictions)
+            targets = torch.from_numpy(targets)
+
+            full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
+            loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
+            loss_value = torch.mean(loss_per_channel)
+
+            model_pred_unnormalized = (
+                model_pred * self.validation_data_loader.norm_vals["s_out"]
+                + self.validation_data_loader.norm_vals["m_out"]
+            )
+            targets_unnormalized = (
+                targets_transposed * self.validation_data_loader.norm_vals["s_out"]
+                + self.validation_data_loader.norm_vals["m_out"]
+            )
+            
+            self.wandb_logger.log_validation_metrics(
+                loss_value=loss_value.item(),
+                loss_per_channel=loss_per_channel,
+                outputs=self.outputs,
+                predictions=predictions,
+                targets=targets,
+                targets_unnormalized=targets_unnormalized,
+                model_pred_unnormalized=model_pred_unnormalized,
+                depth_indices=self.DP_3D_IDX,
+                var_indices=self.CH_3D_IDX,
+                depth_set=self.DEPTH_SET,
+                var_set=self.VAR_SET
+            )
+
+    
+            return {"loss": loss_value.item()}
+        else:
+            return {"loss": 0.0}
+    
+    @torch.no_grad()
+    def inference_one_epoch(self):
         self.model.eval()
         
         # Determine rank based on device
@@ -575,21 +600,19 @@ class Trainer:
             rank = 0
 
         model_pred = generate_model_rollout(
-            self.N_local,
-            self.val_data_set[rank],
+            self.num_steps_inf_set[rank],
+            self.inference_data_loader_set[rank],
             self.model.module if self.device.type == "cuda" else self.model,
             self.hist,
             self.N_out,
             self.N_extra,
             initial_input=None,
-            Nb=0,
-            region=self.region,
             train=True,
             device=self.device.type
         )
 
         predictions = model_pred.transpose(0, 3, 1, 2)
-        targets = self.target_set[rank]
+        targets = self.inference_target_set[rank]
         targets_transposed = targets.transpose(0, 2, 3, 1)
 
         predictions = torch.from_numpy(predictions)
@@ -600,80 +623,35 @@ class Trainer:
         loss_value = torch.mean(loss_per_channel)
 
         model_pred_unnormalized = (
-            model_pred * self.val_data_set[rank].norm_vals["s_out"]
-            + self.val_data_set[rank].norm_vals["m_out"]
+            model_pred * self.inference_data_loader_set[rank].norm_vals["s_out"]
+            + self.inference_data_loader_set[rank].norm_vals["m_out"]
         )
         targets_unnormalized = (
-            targets_transposed * self.val_data_set[rank].norm_vals["s_out"]
-            + self.val_data_set[rank].norm_vals["m_out"]
+            targets_transposed * self.inference_data_loader_set[rank].norm_vals["s_out"]
+            + self.inference_data_loader_set[rank].norm_vals["m_out"]
         )
-        # Surface level evaluation
-        surface_preds = model_pred_unnormalized[:, :, :, self.surface_indices]
-        if self.VAR_SET == set(
-            ["uo", "vo", "thetao", "so", "zos"]
-        ):  # TODO: Need surface eval func fixes. Hardcoded indices.
-            (
-                KE_corr,
-                KE_rmse,
-                temp_corr,
-                temp_rmse,
-                saline_corr,
-                saline_rmse,
-                zos_corr,
-                zos_rmse,
-                u_corr,
-                u_rmse,
-                v_corr,
-                v_rmse,
-            ) = get_corr_rmse(
-                self.surface_targets_set[rank],
-                self.surface_targets_norm_vals,
-                surface_preds,
-                self.area,
-                self.surface_wet_bool,
-                0,
-                self.N_local,
-            )
-        else:
-            KE_corr = KE_rmse = temp_corr = temp_rmse = saline_corr = saline_rmse = (
-                zos_corr
-            ) = zos_rmse = u_corr = u_rmse = v_corr = v_rmse = 0
-
-        all_reduce_mean(loss_value)
-
-        surface_metrics = {
-            "KE_corr": KE_corr,
-            "KE_rmse": KE_rmse,
-            "temp_corr": temp_corr,
-            "temp_rmse": temp_rmse,
-            "saline_corr": saline_corr,
-            "saline_rmse": saline_rmse,
-            "zos_corr": zos_corr,
-            "zos_rmse": zos_rmse,
-            "u_corr": u_corr,
-            "u_rmse": u_rmse,
-            "v_corr": v_corr,
-            "v_rmse": v_rmse,
-        }
         
-        self.wandb_logger.log_validation_metrics(
-            loss_value=loss_value.item(),
-            loss_per_channel=loss_per_channel,
-            outputs=self.outputs,
-            surface_metrics=surface_metrics,
-            predictions=predictions,
-            targets=targets,
-            targets_unnormalized=targets_unnormalized,
-            model_pred_unnormalized=model_pred_unnormalized,
-            depth_indices=self.DP_3D_IDX,
-            var_indices=self.CH_3D_IDX,
-            depth_set=self.DEPTH_SET,
-            var_set=self.VAR_SET
-        )
+        loss_value = all_reduce_mean(loss_value)
+        loss_per_channel = all_reduce_mean(loss_per_channel)
+        
+        self.wandb_logger.log_inference_metrics(
+                loss_value=loss_value.item(),
+                loss_per_channel=loss_per_channel,
+                outputs=self.outputs,
+                predictions=predictions,
+                targets=targets,
+                targets_unnormalized=targets_unnormalized,
+                model_pred_unnormalized=model_pred_unnormalized,
+                depth_indices=self.DP_3D_IDX,
+                var_indices=self.CH_3D_IDX,
+                depth_set=self.DEPTH_SET,
+                var_set=self.VAR_SET
+            )  
+        
 
         return {"loss": loss_value.item()}
 
-    def save_checkpoint(self, epoch, best=False):
+    def save_checkpoint(self, epoch, best=False, best_type=None):
         checkpoint = {
             "model": self.model.module.state_dict() if self.device.type == "cuda" else self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
@@ -683,13 +661,18 @@ class Trainer:
         }
         if self.scheduler:
             checkpoint["scheduler"] = self.scheduler.state_dict()
-        torch.save(
-            checkpoint,
-            Path(self.nets_dir)
-            / "{0}_epoch_{1}_{2}.pt".format(
-                self.network, epoch, ("best" if best else "") + self.str_video
-            ),
+        
+        # Determine filename suffix based on checkpoint type
+        if best:
+            suffix = f"best_{best_type}" if best_type else "best"
+        else:
+            suffix = ""
+        
+        save_path = Path(self.nets_dir) / "{0}_epoch_{1}_{2}.pt".format(
+            self.network, epoch, (suffix + "_" if suffix else "") + self.str_video
         )
+        
+        torch.save(checkpoint, save_path)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
         logging.info(f"Loaded checkpoint from {checkpoint_path}")
@@ -741,18 +724,18 @@ def handle_logging(cfg):
 
 def handle_warnings():
     def warning_handler(message, category, filename, lineno, file=None, line=None):
-        print('\n=== Warning Details ===')
-        print(f'Message: {message}')
-        print(f'Category: {category}')
-        print(f'File: {filename}')
-        print(f'Line: {lineno}')
-        print('\nFull stack trace:')
+        logging.info('\n=== Warning Details ===')
+        logging.info(f'Message: {message}')
+        logging.info(f'Category: {category}')
+        logging.info(f'File: {filename}')
+        logging.info(f'Line: {lineno}')
+        logging.info('\nFull stack trace:')
         stack = traceback.extract_stack()[:-1]  # Remove current frame
         for frame in stack:
-            print(f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}')
+            logging.info(f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}')
             if frame.line:
-                print(f'    {frame.line}')
-        print('=====================\n')
+                logging.info(f'    {frame.line}')
+        logging.info('=====================\n')
 
     warnings.showwarning = warning_handler
 

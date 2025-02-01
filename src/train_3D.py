@@ -289,8 +289,8 @@ class Trainer:
         self.inference_times = cfg.data.inference
         self.inference_epochs = cfg.data.inference_epochs
         self.time_delta = cfg.data.time_delta
+        self.num_batches_seen = 0
         
-        self.init_validation_store()
         self.init_inference_stores()
 
     def init_inference_stores(self):
@@ -345,69 +345,24 @@ class Trainer:
             self.inference_data_loader_set.append(inference_data_loader)
             self.inference_target_set.append(inference_target)
             self.num_steps_inf_set.append(num_steps)
-        
+
     def run(self) -> None:
         best_val_loss = torch.tensor(1e8)
         best_inf_loss = torch.tensor(1e8)
         self.wandb_logger.watch(self.model, log="all")
+        cur_step_idx = None
 
         start_time = time.time()
         for epoch in range(self.start_epoch, self.epochs + 1):
             # Iterative step training
             if epoch == self.start_epoch or epoch in self.step_transition:
-                if epoch == self.start_epoch:
-                    cur_step = None
-                    for i, epoch_to_transition in enumerate(self.step_transition):
-                        if epoch <= epoch_to_transition:
-                            cur_step = self.steps[i]
-                            cur_step_idx = i
-                            break
-                    if cur_step is None:
-                        cur_step = self.steps[-1]
-                        cur_step_idx = len(self.steps) - 1
-                    logging.info(f"Starting training at step {cur_step}")
-                elif epoch in self.step_transition:
-                    cur_step_idx += 1
-                    cur_step = self.steps[cur_step_idx]
-                    logging.info(f"Transitioning to step {cur_step}")
-                train_data = [
-                    data_CNN_Disk_steps(
-                        self.data.sel(time=get_time_slice(self.train_times, initial_cond=False, time_delta=self.time_delta, hist=self.hist)[0]),
-                        self.inputs,
-                        self.extra_in,
-                        self.outputs,
-                        self.wet,
-                        self.data_mean,
-                        self.data_std,
-                        self.hist,
-                        cur_step,
-                        stride,
-                        device="cuda",
-                    )
-                    for stride in self.data_stride
-                ]
-                train_data = ConcatDataset(train_data)
+                cur_step, cur_step_idx = self.get_current_step(epoch)
+                self.init_data_loaders(cur_step)
 
-                logging.info("Instantiating torch loaders")
-
-                if self.device.type == "cuda":
-                    self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-                        train_data, shuffle=True
-                    )
-                else:
-                    self.train_sampler = torch.utils.data.RandomSampler(train_data)
-                    
-                self.train_loader = torch.utils.data.DataLoader(
-                    train_data,
-                    batch_size=self.batch_size,
-                    sampler=self.train_sampler,
-                    num_workers=self.num_workers,
-                    pin_memory=self.pin_mem,
-                    drop_last=True,
-                )
             if self.device.type == "cuda":
                 self.train_sampler.set_epoch(epoch)
-
+                self.val_sampler.set_epoch(epoch)
+                
             train_stats = self.train_one_epoch(epoch)
             val_stats = self.validate_one_epoch()
             v_loss = val_stats["loss"]
@@ -531,63 +486,26 @@ class Trainer:
     def validate_one_epoch(self):
         self.model.eval()
         
-        # Determine rank based on device
-        if self.device.type == "cuda":
-            rank = get_rank()
-        else:
-            rank = 0
-
-        if rank == 0:
-            model_pred = generate_model_rollout(
-                self.num_steps_val,
-                self.validation_data_loader,
-                self.model.module if self.device.type == "cuda" else self.model,
-                self.hist,
-                self.N_out,
-                self.N_extra,
-                initial_input=None,
-                train=True,
-                device=self.device.type
-            )
-
-            predictions = model_pred.transpose(0, 3, 1, 2)
-            targets = self.validation_target
-            targets_transposed = targets.transpose(0, 2, 3, 1)
-
-            predictions = torch.from_numpy(predictions)
-            targets = torch.from_numpy(targets)
-
-            full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
-            loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
-            loss_value = torch.mean(loss_per_channel)
-
-            model_pred_unnormalized = (
-                model_pred * self.validation_data_loader.norm_vals["s_out"]
-                + self.validation_data_loader.norm_vals["m_out"]
-            )
-            targets_unnormalized = (
-                targets_transposed * self.validation_data_loader.norm_vals["s_out"]
-                + self.validation_data_loader.norm_vals["m_out"]
-            )
+        metric_logger = MetricLogger(delimiter="  ")
+        header = "Epoch: [{}]".format(epoch)
+        iters = len(self.val_loader)
+        
+        for data_iter_step, data in enumerate(
+            metric_logger.log_every(self.val_loader, 1, header)
+        ):
+            if self.debug and (data_iter_step + 1) % 5 == 0:
+                break
             
-            self.wandb_logger.log_validation_metrics(
-                loss_value=loss_value.item(),
-                loss_per_channel=loss_per_channel,
-                outputs=self.outputs,
-                predictions=predictions,
-                targets=targets,
-                targets_unnormalized=targets_unnormalized,
-                model_pred_unnormalized=model_pred_unnormalized,
-                depth_indices=self.DP_3D_IDX,
-                var_indices=self.CH_3D_IDX,
-                depth_set=self.DEPTH_SET,
-                var_set=self.VAR_SET
-            )
-
-    
-            return {"loss": loss_value.item()}
-        else:
-            return {"loss": 0.0}
+            data = [d.to(self.device) for d in data]
+            loss_per_channel = self.model(data, loss_fn=self.loss)
+            loss = torch.mean(loss_per_channel)
+            loss_value = loss.item()
+            
+            metric_logger.update(loss=loss_value)
+            
+        metric_logger.synchronize_between_processes()
+        logging.info("Averaged train stats: " + str(metric_logger))
+        return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
     
     @torch.no_grad()
     def inference_one_epoch(self):
@@ -650,6 +568,105 @@ class Trainer:
         
 
         return {"loss": loss_value.item()}
+
+    def get_current_step(self, epoch):
+        """Determine the current step based on the epoch and transition points.
+        
+        Args:
+            epoch (int): Current epoch number
+            
+        Returns:
+            tuple: (current_step, current_step_idx)
+        """
+        if epoch == self.start_epoch:
+            # Find initial step based on start epoch
+            cur_step = None
+            cur_step_idx = None
+            for i, epoch_to_transition in enumerate(self.step_transition):
+                if epoch <= epoch_to_transition:
+                    cur_step = self.steps[i]
+                    cur_step_idx = i
+                    break
+            if cur_step is None:
+                cur_step = self.steps[-1]
+                cur_step_idx = len(self.steps) - 1
+            logging.info(f"Starting training at step {cur_step}")
+        else:
+            # Transition to next step
+            cur_step_idx = next(i for i, e in enumerate(self.step_transition) if e == epoch)
+            cur_step_idx += 1
+            cur_step = self.steps[cur_step_idx]
+            logging.info(f"Transitioning to step {cur_step}")
+            
+        return cur_step, cur_step_idx
+
+    def init_data_loaders(self, cur_step):
+        """Initialize training and validation data loaders.
+        
+        Args:
+            cur_step (int): Current training step size
+        """
+        train_data = [
+            data_CNN_Disk_steps(
+                self.data.sel(time=get_time_slice(self.train_times, initial_cond=False, time_delta=self.time_delta, hist=self.hist)[0]),
+                self.inputs,
+                self.extra_in,
+                self.outputs,
+                self.wet,
+                self.data_mean,
+                self.data_std,
+                self.hist,
+                cur_step,
+                stride,
+                device="cuda",
+            )
+            for stride in self.data_stride
+        ]
+        train_data = ConcatDataset(train_data)
+        
+        # TODO: data_CNN_Disk currently does not support strides
+        val_data = data_CNN_Disk(
+                self.data.sel(time=get_time_slice(self.val_times, initial_cond=False, time_delta=self.time_delta, hist=self.hist)[0]),
+                self.inputs,
+                self.extra_in,
+                self.outputs,
+                self.wet,
+                self.data_mean,
+                self.data_std,
+                self.hist,
+                long_rollout=False,
+                device="cuda",
+        )
+
+        logging.info("Instantiating torch loaders")
+
+        if self.device.type == "cuda":
+            self.train_sampler = torch.utils.data.distributed.DistributedSampler(
+                train_data, shuffle=True
+            )
+            self.val_sampler = torch.utils.data.distributed.DistributedSampler(
+                val_data, shuffle=False
+            )
+        else:
+            self.train_sampler = torch.utils.data.RandomSampler(train_data)
+            self.val_sampler = torch.utils.data.RandomSampler(val_data)
+            
+        self.train_loader = torch.utils.data.DataLoader(
+            train_data,
+            batch_size=self.batch_size,
+            sampler=self.train_sampler,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_mem,
+            drop_last=True,
+        )
+        self.val_loader = torch.utils.data.DataLoader(
+            val_data,
+            batch_size=self.batch_size,
+            sampler=self.val_sampler,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_mem,
+            drop_last=False,
+        )
 
     def save_checkpoint(self, epoch, best=False, best_type=None):
         checkpoint = {

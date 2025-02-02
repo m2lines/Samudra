@@ -1,11 +1,16 @@
-from typing import Dict, Any, Type
+from typing import Type
+
 import torch.nn as nn
+
+from models.modules.activations import CappedGELU, ReLU
 from models.modules.blocks import (
-    ConvBlock, ConvNeXtBlock, 
-    BilinearUpsample, TransposedConvUpsample,
-    AvgPool, MaxPool
+    AvgPool,
+    BilinearUpsample,
+    ConvBlock,
+    ConvNeXtBlock,
+    MaxPool,
+    TransposedConvUpsample,
 )
-from models.modules.activations import ReLU, CappedGELU
 
 BLOCK_REGISTRY = {
     "conv_block": ConvBlock,
@@ -27,20 +32,24 @@ ACTIVATION_REGISTRY = {
     "capped_gelu": CappedGELU,
 }
 
+
 def create_block(block_type: str, **kwargs) -> nn.Module:
     if block_type not in BLOCK_REGISTRY:
         raise ValueError(f"Unknown block type: {block_type}")
     return BLOCK_REGISTRY[block_type](**kwargs)
+
 
 def create_downsample(block_type: str, **kwargs) -> nn.Module:
     if block_type not in DOWNSAMPLE_REGISTRY:
         raise ValueError(f"Unknown downsample type: {block_type}")
     return DOWNSAMPLE_REGISTRY[block_type](**kwargs)
 
+
 def create_upsample(block_type: str, **kwargs) -> nn.Module:
     if block_type not in UPSAMPLE_REGISTRY:
         raise ValueError(f"Unknown upsample type: {block_type}")
     return UPSAMPLE_REGISTRY[block_type](**kwargs)
+
 
 def get_activation_cl(activation_type: str) -> Type[nn.Module]:
     if activation_type not in ACTIVATION_REGISTRY:

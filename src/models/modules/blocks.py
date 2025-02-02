@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from .activations import CappedGELU
+
+from models.modules.activations import CappedGELU
+
 
 class TransposedConvUpsample(torch.nn.Module):
     def __init__(
@@ -74,12 +75,11 @@ class CoreBlock(torch.nn.Module):
         self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
         self.pad = pad
 
-    def forward(self):
+    def forward(self, fts: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError()
 
 
 class ConvBlock(CoreBlock):
-
     def __init__(
         self,
         in_channels: int = 300,
@@ -90,7 +90,6 @@ class ConvBlock(CoreBlock):
         activation: torch.nn.Module = CappedGELU,
         pad="circular",
     ):
-
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
 
         layers = []
@@ -111,16 +110,16 @@ class ConvBlock(CoreBlock):
         self.layers = nn.ModuleList(layers)
         # self.layers = nn.ModuleList(layer)
 
-    def forward(self, fts):
-        for l in self.layers:
-            if isinstance(l, nn.Conv2d):
+    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+        for layer in self.layers:
+            if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
                     fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
                 )
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            fts = l(fts)
+            fts = layer(fts)
         return fts
 
 
@@ -128,7 +127,8 @@ class ConvNeXtBlock(CoreBlock):
     """
     A convolution block as reported in https://github.com/CognitiveModeling/dlwp-hpx/blob/main/src/dlwp-hpx/dlwp/model/modules/blocks.py.
 
-    This is a modified version of the actual ConvNextblock which is used in the HealPix paper. Use of dilations here.
+    This is a modified version of the actual ConvNextblock which is used in the HealPix
+    paper. Use of dilations here.
 
     """
 
@@ -211,17 +211,16 @@ class ConvNeXtBlock(CoreBlock):
         )
         self.convblock = torch.nn.Sequential(*convblock)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)
-        for l in self.convblock:
-            if isinstance(l, nn.Conv2d) and l.kernel_size[0] != 1:
+        for layer in self.convblock:
+            if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
                 x = torch.nn.functional.pad(
                     x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
                 )
                 x = torch.nn.functional.pad(
                     x, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            x = l(x)
+            x = layer(x)
         return skip + x
-

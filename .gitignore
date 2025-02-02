@@ -5,7 +5,6 @@ jobs
 saved_nets
 Preds
 old_files
-data
 videos
 wandb
 .LOCAL

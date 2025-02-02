@@ -1,6 +1,6 @@
 import torch
 
-# from huggingface_hub import PyTorchModelHubMixin
+from utils.device import get_device
 
 
 # class BaseModel(torch.nn.Module, PyTorchModelHubMixin):
@@ -30,19 +30,20 @@ class BaseModel(torch.nn.Module):
         output_only_last=False,
         loss_fn=None,
     ) -> torch.Tensor:
-        outputs = []
+        outputs: list[torch.Tensor] = []
         loss = None
         N, C, H, W = inputs[0].shape
 
         for step in range(len(inputs) // 2):
             if step == 0:
-                input_tensor = inputs[
-                    0
-                ]  # For HIST=1, [0->[0in, 1in], 1->[2out, 3out], 2->[2in, 3in], 3->[4out, 5out]
+                """
+                For HIST=1, [0->[0in, 1in], 1->[2out, 3out],
+                            2->[2in, 3in], 3->[4out, 5out]]
+                """
+                input_tensor = inputs[0]
             else:
-                inputs_0 = outputs[
-                    -1
-                ]  # Last output corresponds to input at current time step
+                # Last output corresponds to input at current time step
+                inputs_0 = outputs[-1]
                 input_tensor = torch.cat(
                     [
                         inputs_0,
@@ -55,7 +56,8 @@ class BaseModel(torch.nn.Module):
 
             assert (
                 input_tensor.shape[1] == self.input_channels
-            ), f"Input shape is {input_tensor.shape[1]} but should be {self.input_channels}"
+            ), f"Input shape is {input_tensor.shape[1]} but should\
+                be {self.input_channels}"
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
                 reshaped = (
@@ -71,7 +73,8 @@ class BaseModel(torch.nn.Module):
             if loss_fn is not None:
                 assert (
                     reshaped.shape == inputs[2 * step + 1].shape
-                ), f"Output shape is {reshaped.shape} but should be {inputs[2 * step + 1].shape}"
+                ), f"Output shape is {reshaped.shape} but should\
+                        be {inputs[2 * step + 1].shape}"
                 if loss is None:
                     loss = loss_fn(
                         reshaped,
@@ -101,14 +104,16 @@ class BaseModel(torch.nn.Module):
         initial_input=None,
         num_steps=None,
         output_only_last=False,
-        device="cuda",
     ) -> torch.Tensor:
-        outputs = []
+        outputs: list[torch.Tensor] = []
         for step in range(num_steps):
             if step == 0:
-                input_tensor = inputs[0][0].to(
-                    device=device
-                )  # inputs[0][0] is the input at step 0. For HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]]; 2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
+                """
+                inputs[0][0] is the input at step 0.
+                For HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]];
+                            2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
+                """
+                input_tensor = inputs[0][0].to(device=get_device())
 
                 if initial_input is not None:
                     input_tensor[:, : self.output_channels] = initial_input
@@ -122,7 +127,7 @@ class BaseModel(torch.nn.Module):
                         inputs[step][0][
                             :, self.output_channels :
                         ].to(  # boundary conditions
-                            device=device
+                            device=get_device()
                         ),
                     ],
                     dim=1,
@@ -130,17 +135,16 @@ class BaseModel(torch.nn.Module):
 
             assert (
                 input_tensor.shape[1] == self.input_channels
-            ), f"Input shape is {input_tensor.shape[1]} but should be {self.input_channels}"
+            ), f"Input shape is {input_tensor.shape[1]} but \
+                should be {self.input_channels}"
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
                 reshaped = input_tensor[
                     0,
                     : self.output_channels,
                 ].to(  # Residuals on last state in input
-                    device=device
-                ) + decodings.squeeze(
-                    0
-                )
+                    device=get_device()
+                ) + decodings.squeeze(0)
             else:
                 reshaped = decodings.squeeze(0)
 

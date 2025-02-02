@@ -1,22 +1,28 @@
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
+
 from models.base import BaseModel
-from utils.train_utils import pairwise
-from models.modules.blocks import CoreBlock, BilinearUpsample, TransposedConvUpsample
-from models.modules.factory import create_block, create_downsample, create_upsample, get_activation_cl
+from models.modules.blocks import BilinearUpsample, CoreBlock, TransposedConvUpsample
+from models.modules.factory import (
+    create_block,
+    create_downsample,
+    create_upsample,
+    get_activation_cl,
+)
+from utils.train import pairwise
 
 
 class UNet(BaseModel):
     def __init__(self, config, wet):
         super().__init__(
-            ch_width = config.ch_width, 
-            n_out = config.n_out, 
-            wet = wet,
-            hist = config.hist, 
-            pred_residuals = config.pred_residuals, 
-            last_kernel_size = config.last_kernel_size, 
-            pad = config.pad
+            ch_width=config.ch_width,
+            n_out=config.n_out,
+            wet=wet,
+            hist=config.hist,
+            pred_residuals=config.pred_residuals,
+            last_kernel_size=config.last_kernel_size,
+            pad=config.pad,
         )
 
         # Get activation class
@@ -26,7 +32,7 @@ class UNet(BaseModel):
         ch_width = config.ch_width.copy()
         dilation = config.dilation.copy()
         n_layers = config.n_layers.copy()
-        
+
         # going down
         layers = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
@@ -47,7 +53,7 @@ class UNet(BaseModel):
             )
             # Down sampling block
             layers.append(create_downsample(config.down_sampling_block))
-            
+
         # Middle block
         layers.append(
             create_block(
@@ -63,15 +69,17 @@ class UNet(BaseModel):
                 norm=config.core_block.norm,
             )
         )
-        
+
         # First upsampling
-        layers.append(create_upsample(config.up_sampling_block, in_channels=b, out_channels=b))
-        
+        layers.append(
+            create_upsample(config.up_sampling_block, in_channels=b, out_channels=b)
+        )
+
         # Reverse for upsampling path
         ch_width.reverse()
         dilation.reverse()
         n_layers.reverse()
-        
+
         # going up
         for i, (a, b) in enumerate(pairwise(ch_width[:-1])):
             layers.append(
@@ -88,8 +96,10 @@ class UNet(BaseModel):
                     norm=config.core_block.norm,
                 )
             )
-            layers.append(create_upsample(config.up_sampling_block, in_channels=b, out_channels=b))
-            
+            layers.append(
+                create_upsample(config.up_sampling_block, in_channels=b, out_channels=b)
+            )
+
         # Final conv block
         layers.append(
             create_block(
@@ -102,38 +112,38 @@ class UNet(BaseModel):
                 activation=activation,
                 pad=config.pad,
                 upscale_factor=config.core_block.upscale_factor,
-                norm=config.core_block.norm
+                norm=config.core_block.norm,
             )
         )
-        
+
         # Final output conv
         layers.append(nn.Conv2d(b, config.n_out, config.last_kernel_size))
-        
+
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(config.ch_width) - 1)
 
     def forward_once(self, fts):
-        temp = []
+        temp: list[torch.Tensor] = []
         for i in range(self.num_steps):
-            temp.append(None)
+            temp.append(torch.zeros_like(fts))
         count = 0
-        for l in self.layers:
+        for layer in self.layers:
             crop = fts.shape[2:]
-            if isinstance(l, nn.Conv2d):
+            if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
                     fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
                 )
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            fts = l(fts)
+            fts = layer(fts)
             if count < self.num_steps:
-                if isinstance(l, CoreBlock):
+                if isinstance(layer, CoreBlock):
                     temp[count] = fts
                     count += 1
             elif count >= self.num_steps:
-                if isinstance(l, BilinearUpsample) or isinstance(
-                    l, TransposedConvUpsample
+                if isinstance(layer, BilinearUpsample) or isinstance(
+                    layer, TransposedConvUpsample
                 ):
                     crop = np.array(fts.shape[2:])
                     shape = np.array(

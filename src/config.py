@@ -1,9 +1,12 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Literal
-from pathlib import Path
-import yaml
 from datetime import datetime
-from dacite import from_dict, Config as DaciteConfig
+from pathlib import Path
+from typing import Any, List, Optional
+
+import yaml
+from dacite import Config as DaciteConfig
+from dacite import from_dict
+
 
 @dataclass
 class WandBConfig:
@@ -14,9 +17,9 @@ class WandBConfig:
     tags: Optional[List[str]] = None
     notes: Optional[str] = None
 
+
 @dataclass
 class TrainingConfig:
-    device: str = "cuda"
     distributed: bool = True
     disk_mode: bool = True
     num_workers: int = 4
@@ -39,10 +42,12 @@ class TrainingConfig:
     dist_backend: Optional[str] = None
     resume_ckpt_path: Optional[str] = None
 
+
 @dataclass
 class TimeConfig:
     start_time: str
     end_time: str
+
 
 @dataclass
 class DataConfig:
@@ -58,11 +63,16 @@ class DataConfig:
     hist: int = 0
     data_percent: float = 1.0
     time_delta: int = 5
-    train: TimeConfig = field(default_factory=lambda: TimeConfig("151-01-06", "306-01-01"))
-    val: TimeConfig = field(default_factory=lambda: TimeConfig("306-01-01", "311-01-01"))
+    train: TimeConfig = field(
+        default_factory=lambda: TimeConfig("151-01-06", "306-01-01")
+    )
+    val: TimeConfig = field(
+        default_factory=lambda: TimeConfig("306-01-01", "311-01-01")
+    )
     inference: List[TimeConfig] = field(default_factory=list)
     inference_epochs: List[int] = field(default_factory=list)
-    
+
+
 @dataclass
 class BlockConfig:
     block_type: str = "conv_next_block"  # conv_next_block, conv_block
@@ -71,6 +81,7 @@ class BlockConfig:
     upscale_factor: int = 4
     norm: str = "batch"  # batch, instance, layer
 
+
 @dataclass
 class UNetConfig:
     # Core architecture
@@ -78,18 +89,19 @@ class UNetConfig:
     n_out: int = 77
     dilation: List[int] = field(default_factory=lambda: [1, 2, 4, 8])
     n_layers: List[int] = field(default_factory=lambda: [1, 1, 1, 1])
-    
+
     # Block configurations
     core_block: BlockConfig = field(default_factory=BlockConfig)
     down_sampling_block: str = "avg_pool"  # avg_pool, max_pool
     up_sampling_block: str = "bilinear_upsample"  # bilinear_upsample, transposed_conv
-    
+
     # Other settings
     pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
     wet: Optional[Any] = None  # Will be set during training
     hist: int = 0  # Will be set during training
+
 
 @dataclass
 class Config:
@@ -99,13 +111,13 @@ class Config:
     unet: UNetConfig
     name: str = "train"
     sub_name: str = "cm4_samudra_thermo"
-    
+
     rand_seed: int = 1
     base_output_dir: str = "train_3D"
     debug: bool = False
     gantry: bool = False
-    cluster_data_dir: Optional[str] = None
-    
+    cluster_data_dir: str = "/"
+
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")
         self.name = f"{timestamp}-{self.name}"
@@ -115,41 +127,34 @@ class Config:
             self.data_dir = Path("/")
         else:
             self.data_dir = Path(self.cluster_data_dir)
-    
+
     @classmethod
-    def from_yaml(cls, yaml_path: str) -> 'Config':
-        """Load config from YAML with strict validation using dacite"""
-        with open(yaml_path, 'r') as f:
+    def from_yaml(cls, yaml_path: str) -> "Config":
+        """Load config from YAML with strict validation using dacite."""
+        with open(yaml_path, "r") as f:
             config_dict = yaml.safe_load(f)
-        
+
         return from_dict(
             data_class=cls,
             data=config_dict,
-            config=DaciteConfig(
-                strict=True,
-                check_types=True,
-                cast=[Path]
-            )
+            config=DaciteConfig(strict=True, check_types=True, cast=[Path]),
         )
-    
+
     def save_yaml(self, save_path: str):
-        """Save config to YAML file"""
+        """Save config to YAML file."""
         config_dict = {
-            'wandb': self.wandb.__dict__,
-            'training': self.training.__dict__,
-            'data': self.data.__dict__,
-            'unet': {
-                **self.unet.__dict__,
-                'core_block': self.unet.core_block.__dict__
-            },
-            'name': self.name,
-            'sub_name': self.sub_name,
-            'rand_seed': self.rand_seed,
-            'base_output_dir': self.base_output_dir,
-            'debug': self.debug,
-            'gantry': self.gantry,
-            'cluster_data_dir': self.cluster_data_dir
+            "wandb": self.wandb.__dict__,
+            "training": self.training.__dict__,
+            "data": self.data.__dict__,
+            "unet": {**self.unet.__dict__, "core_block": self.unet.core_block.__dict__},
+            "name": self.name,
+            "sub_name": self.sub_name,
+            "rand_seed": self.rand_seed,
+            "base_output_dir": self.base_output_dir,
+            "debug": self.debug,
+            "gantry": self.gantry,
+            "cluster_data_dir": self.cluster_data_dir,
         }
-        
-        with open(save_path, 'w') as f:
-            yaml.dump(config_dict, f, default_flow_style=False) 
+
+        with open(save_path, "w") as f:
+            yaml.dump(config_dict, f, default_flow_style=False)

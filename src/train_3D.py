@@ -363,7 +363,7 @@ class Trainer:
             val_stats = self.validate_one_epoch(epoch)
             end_epoch_val_time = time.time()
 
-            if epoch in self.inference_epochs:
+            if -1 in self.inference_epochs or epoch in self.inference_epochs:
                 inf_stats = self.inference_one_epoch()
                 end_epoch_inf_time = time.time()
             else:

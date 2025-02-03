@@ -31,7 +31,7 @@ training:
 
 data:
   wet_file: CM4_5daily_v0.4.0_wetmask
-  data_path: 2024-11-12-cm4-piControl-ocean-200yr-monthly/*.nc
+  data_path: 2024-11-12-cm4-piControl-ocean-200yr-monthly/015*.nc
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
   data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
   scaling_residuals_file: null

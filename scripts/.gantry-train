@@ -4,6 +4,8 @@ set -e
 
 JOB_NAME="samudra-train"  # recommended but not required to change this
 CONFIG_PATH=configs/gantry_train_cm4_thermo.yaml  # relative to the root of the repository
+
+echo 'Using config file:' $CONFIG_PATH
  # since we use a service account API key for wandb, we use the beaker username to set the wandb username
 BEAKER_USERNAME=$(beaker account whoami --format=json | jq -r '.[0].name')
 N_GPUS=8

@@ -1,5 +1,7 @@
-import numpy as np
+from typing import Dict, Optional
+
 import torch
+import xarray as xr
 
 # Experiment inputs and outputs
 DEPTH_LEVELS = [
@@ -148,77 +150,95 @@ OUT_VARS = {
 }
 
 
-def get_eval_maps(exp_num):
-    # VAR_3D_IDX maps the input variables to their indices in the input tensor
-    # DP_3D_IDX maps the depth levels to their indices in the input tensor
-    VAR_3D_IDX = {}
-    VAR_SET = list(dict.fromkeys(([out.split("_")[0] for out in OUT_VARS[exp_num]])))
-    # assert VAR_SET[-3] == 'thetao' and VAR_SET[-2] == 'so' and VAR_SET[-1] == 'zos'
-    DEPTH_SET = DEPTH_I_LEVELS
-    for kt in VAR_SET:
-        VAR_3D_IDX[kt] = torch.tensor([])
-        for i, k in enumerate(OUT_VARS[exp_num]):
-            if kt in k:
-                VAR_3D_IDX[kt] = torch.cat([VAR_3D_IDX[kt], torch.tensor([i])])
-        VAR_3D_IDX[kt] = VAR_3D_IDX[kt].to(torch.int32)
-
-    DP_3D_IDX = {}
-    for d in DEPTH_SET:
-        DP_3D_IDX[d] = torch.tensor([])
-        for i, k in enumerate(OUT_VARS[exp_num]):
-            if k == "zos":
-                continue
-            elif d == k.split("_")[-1]:
-                DP_3D_IDX[d] = torch.cat([DP_3D_IDX[d], torch.tensor([i])])
-        DP_3D_IDX[d] = DP_3D_IDX[d].to(torch.int32)
-    if "zos" in VAR_SET:
-        DP_3D_IDX[DEPTH_I_LEVELS[0]] = torch.cat(
-            [DP_3D_IDX[DEPTH_I_LEVELS[0]], torch.tensor([len(OUT_VARS[exp_num]) - 1])]
-        )  # zos
-    DP_3D_IDX[DEPTH_I_LEVELS[0]] = DP_3D_IDX[DEPTH_I_LEVELS[0]].to(torch.int32)
-    return VAR_3D_IDX, DP_3D_IDX, VAR_SET, DEPTH_SET
+def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
+    metadata = {}
+    for var in data.variables:
+        try:
+            metadata[var] = {
+                "long_name": data[var].long_name,
+                "units": data[var].units,
+            }
+        except AttributeError:
+            print(f"{var} has no long_name or units attribute")
+            metadata[var] = {
+                "long_name": "Unknown",
+                "units": "Unknown",
+            }
+    return metadata
 
 
-# Region boundaries
-REGIONS = {
-    "Kuroshio": {"lat": [15, 41], "lon": [-215, -185]},
-    "Kuroshio_Ext": {"lat": [5, 50], "lon": [-250, -175]},
-    "Gulf_Stream": {"lat": [25, 50], "lon": [-70, -35]},
-    "Gulf_Stream_Ext": {"lat": [27, 50], "lon": [-82, -35]},
-    "Gulf_Stream_Ext2": {"lat": [26, 50.65], "lon": [-82, -50.25]},
-    "Gulf_Stream_Ext3": {"lat": [26, 50.65], "lon": [-82, -34.25]},
-    "Tropics": {"lat": [-5, 25], "lon": [-95, -65]},
-    "Tropics_Ext": {"lat": [-5, 25], "lon": [-115, -45]},
-    "South_America": {"lat": [-60, -30], "lon": [-70, -35]},
-    "Africa": {"lat": [-50, -20], "lon": [5, 45]},
-    "Africa_Ext": {"lat": [-55, -15], "lon": [-5, 55]},
-    "Quiescent": {"lat": [-42.5, -17.5], "lon": [-155, -120]},
-    "Quiescent_Ext": {"lat": [-55, -10], "lon": [-170, -110]},
-    "Pacific": {"lat": [-35, 35], "lon": [-230, -80]},
-    "Indian": {"lat": [-30, 28], "lon": [30, 79]},
-}
+class TensorMap:
+    _instance: Optional["TensorMap"] = None
 
-GLOBAL_COMBINED_STATS = {
-    "s_in": np.array(
-        [
-            1.19912029e-01,
-            8.75121945e-02,
-            1.11957607e01,
-            9.65926101e-05,
-            7.35161570e-05,
-            2.04991480e01,
-        ]
-    ),
-    "s_out": np.array([0.11991318, 0.08751262, 11.19576553]),
-    "m_in": np.array(
-        [
-            -1.52130831e-03,
-            4.28648579e-03,
-            8.86227188e00,
-            7.05813917e-06,
-            2.61937937e-07,
-            2.78227831e02,
-        ]
-    ),
-    "m_out": np.array([-1.52113173e-03, 4.28606825e-03, 8.86225711e00]),
-}
+    def __new__(cls, *args, **kwargs) -> "TensorMap":
+        # Prevent direct instantiation
+        raise TypeError(
+            "TensorMap cannot be instantiated directly. Use init_instance() instead."
+        )
+
+    @classmethod
+    def get_instance(cls) -> "TensorMap":
+        if cls._instance is None:
+            raise ValueError("TensorMap not initialized")
+        return cls._instance
+
+    @classmethod
+    def init_instance(cls, exp_num: str) -> "TensorMap":
+        if cls._instance is not None:
+            raise ValueError("TensorMap already initialized")
+
+        instance = super().__new__(cls)
+        instance._initialize(exp_num)
+        cls._instance = instance
+        return cls._instance
+
+    def _initialize(self, exp_num: str):
+        """
+        Maps input variables / depth levels to their indices in the input tensor.
+
+        VAR_3D_IDX maps the input variables to their indices in the input tensor
+        DP_3D_IDX maps the depth levels to their indices in the input tensor
+        """
+        self.exp_num = exp_num
+        self.VAR_3D_IDX: Dict[str, torch.Tensor] = {}
+        self.DP_3D_IDX: Dict[str, torch.Tensor] = {}
+        self.VAR_SET = list(
+            dict.fromkeys(([out.split("_")[0] for out in OUT_VARS[exp_num]]))
+        )
+        self.DEPTH_SET = DEPTH_I_LEVELS
+        self.outputs = OUT_VARS[exp_num]
+
+        self._populate_var_3d_idx()
+        self._populate_dp_3d_idx()
+
+    def _populate_var_3d_idx(self):
+        for kt in self.VAR_SET:
+            self.VAR_3D_IDX[kt] = torch.tensor([])
+            for i, k in enumerate(self.outputs):
+                if kt in k:
+                    self.VAR_3D_IDX[kt] = torch.cat(
+                        [self.VAR_3D_IDX[kt], torch.tensor([i])]
+                    )
+            self.VAR_3D_IDX[kt] = self.VAR_3D_IDX[kt].to(torch.int32)
+
+    def _populate_dp_3d_idx(self):
+        for d in self.DEPTH_SET:
+            self.DP_3D_IDX[d] = torch.tensor([])
+            for i, k in enumerate(self.outputs):
+                if k == "zos":
+                    continue
+                elif d == k.split("_")[-1]:
+                    self.DP_3D_IDX[d] = torch.cat(
+                        [self.DP_3D_IDX[d], torch.tensor([i])]
+                    )
+            self.DP_3D_IDX[d] = self.DP_3D_IDX[d].to(torch.int32)
+        if "zos" in self.VAR_SET:
+            self.DP_3D_IDX[self.DEPTH_SET[-1]] = torch.cat(
+                [
+                    self.DP_3D_IDX[self.DEPTH_SET[-1]],
+                    torch.tensor([len(self.outputs) - 1]),
+                ]
+            )  # zos
+        self.DP_3D_IDX[self.DEPTH_SET[0]] = self.DP_3D_IDX[self.DEPTH_SET[0]].to(
+            torch.int32
+        )

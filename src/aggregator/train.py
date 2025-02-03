@@ -1,26 +1,38 @@
-# Adapted from https://github.com/ai2cm/ace/tree/main/fme/fme/ace/aggregator
+"""
+* This file includes code from ACE (https://github.com/ai2cm/ace).
+
+* Licensed under the Apache License, Version 2.0
+*
+* Modified by Surya Dheeshjith
+"""
 
 from typing import Dict
 
 import torch
 
 from aggregator.loss import LossAggregator
-from utils.device import get_device
+from stepper import TrainOutput
 from utils.distributed import all_reduce_mean
 
 
 class TrainAggregator:
     """Aggregates train statistics for an epoch."""
 
-    def __init__(self, num_output_channels: int):
+    def __init__(self):
         self._n_batches = 0
-        self._loss = torch.tensor(0.0, device=get_device())
-        self._loss_per_channel = torch.zeros(num_output_channels, device=get_device())
+        self._loss = torch.nan
+        self._loss_per_channel = torch.nan
 
     @torch.no_grad()
-    def log_loss(self, loss: torch.Tensor, loss_per_channel: torch.Tensor):
-        self._loss += loss
-        self._loss_per_channel += loss_per_channel
+    def record_batch(self, batch: TrainOutput):
+        if torch.isnan(self._loss):
+            self._loss = batch.loss
+        else:
+            self._loss += batch.loss
+        if torch.isnan(self._loss_per_channel):
+            self._loss_per_channel = batch.loss_per_channel
+        else:
+            self._loss_per_channel += batch.loss_per_channel
         self._n_batches += 1
 
     @torch.no_grad()

@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 
+from utils.data import Normalize
+
 
 def generate_model_rollout(
     N_eval, test_data, model, hist, N_out, N_extra, initial_input=None, train=False
@@ -28,6 +30,6 @@ def generate_model_rollout(
         return model_pred
     else:
         return (
-            model_pred * test_data.norm_vals["s_out"] + test_data.norm_vals["m_out"],
+            Normalize.get_instance().unnormalize_numpy_outputs(model_pred),
             outs,
         )

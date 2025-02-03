@@ -1,6 +1,9 @@
+# TODO:
+# - resubmit jobs / preempted job safety
+# - better stepper module and a cleaner model module
+# - cleaner dataset modules
 import argparse
 import datetime
-import json
 import logging
 import os
 import time
@@ -18,11 +21,13 @@ from torch.utils.data import ConcatDataset
 
 from aggregator import Aggregator, LossAggregator
 from config import Config
-from constants import EXTRA_VARS, INPT_VARS, OUT_VARS
+from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import data_CNN_Disk, data_CNN_Disk_steps
+from models.base import get_model_summary
 from models.rollout import generate_model_rollout
 from models.unet import UNet
-from utils.data import extract_wet_mask, get_time_slice
+from stepper import Stepper, TrainOutput, ValOutput
+from utils.data import Normalize, extract_wet_mask, get_time_slice
 from utils.device import get_device, using_gpu
 from utils.distributed import (
     all_reduce_mean,
@@ -98,6 +103,8 @@ class Trainer:
         self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
         self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
 
+        self.tensor_map = TensorMap.init_instance(cfg.training.exp_num_out)
+
         logging.info(f"Number of inputs: {self.num_in}")
         logging.info(f"Number of outputs: {self.num_out}")
 
@@ -139,6 +146,7 @@ class Trainer:
             os.path.join(self.data_dir, self.data_stds_path)
         )
 
+        self.metadata = construct_metadata(self.data)
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet_mask(wet_zarr, self.outputs, cfg.data.hist)
 
@@ -161,31 +169,7 @@ class Trainer:
         else:
             raise NotImplementedError
 
-        model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-        params = sum([np.prod(p.size()) for p in model_parameters])
-        logging.info(f"Number of parameters: {params}")
-        # summary(model)
-
-        # Model summary with proper device tensors
-        # input_tensor = torch.zeros(1, self.num_in, 180, 360, device=self.device)
-        # logging.info(
-        #     summary(
-        #         model,
-        #         input_data=[[input_tensor] * 2],
-        #         col_names=["kernel_size", "output_size", "num_params"],
-        #         depth=10,
-        #     )
-        # )
-
-        # input_tensor = torch.zeros(1, self.num_in, 180, 360, device=self.device)
-        # logging.info(
-        #     summary(
-        #         model,
-        #         input_data=[[input_tensor] * 8],
-        #         col_names=[],
-        #         depth=10
-        #     )
-        # )
+        get_model_summary(model, self.num_in)
 
         self.model = model
         self.nets_dir = cfg.nets_dir
@@ -194,16 +178,16 @@ class Trainer:
         # Loss function
         if cfg.training.loss == "mse":
             logging.info("Using decomposed mse loss")
-            self.loss = decomposed_mse
+            self.loss_fn = decomposed_mse
         elif cfg.training.loss == "mse_diff_weighted":
             assert cfg.data.hist == 1  # TEMP
             logging.info("Using decomposed mse loss with weighted diff")
-            self.loss = decomposed_mse_diff_weighted
+            self.loss_fn = decomposed_mse_diff_weighted
         elif cfg.training.loss == "mse_cos_weighted":
             logging.info("Using decomposed mse loss with weighted cos")
             area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device=self.device)
-            self.loss = partial(decomposed_mse_cos_weighted, cos=area_weights)
+            self.loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
         elif cfg.training.loss == "mse_residual_scaled":
             logging.info("Using decomposed mse loss with scaled residuals")
             scaling_residuals = xr.open_zarr(
@@ -216,10 +200,10 @@ class Trainer:
                 .to_numpy()
             ).to(device=self.device)
             scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
-            self.loss = partial(decomposed_mse_scaled, scaling=scale)
+            self.loss_fn = partial(decomposed_mse_scaled, scaling=scale)
         elif cfg.training.loss == "mse_mae":
             logging.info("Using decomposed mse loss with mae")
-            self.loss = decomposed_mse_mae
+            self.loss_fn = decomposed_mse_mae
         else:
             raise NotImplementedError
 
@@ -284,7 +268,16 @@ class Trainer:
         self.inference_epochs = cfg.data.inference_epochs
         self.time_delta = cfg.data.time_delta
         self.num_batches_seen = 0
-        self.loss_aggregator = LossAggregator.init_instance(cfg.training.exp_num_out)
+
+        assert self.tensor_map is not None
+        self.loss_aggregator = LossAggregator.init_instance()
+        self.normalize = Normalize.init_instance(
+            self.data_mean,
+            self.data_std,
+            self.inputs,
+            self.extra_in,
+            self.outputs,
+        )
 
         self.init_inference_stores()
 
@@ -319,23 +312,9 @@ class Trainer:
                 self.extra_in,
                 self.outputs,
                 self.wet,
-                self.data_mean,
-                self.data_std,
                 self.hist,
                 long_rollout=True,
             )
-
-            mean_in = inference_data_loader.in_mean.to_array().to_numpy().reshape(-1)
-            std_in = inference_data_loader.in_std.to_array().to_numpy().reshape(-1)
-            mean_out = inference_data_loader.out_mean.to_array().to_numpy().reshape(-1)
-            std_out = inference_data_loader.out_std.to_array().to_numpy().reshape(-1)
-
-            inference_data_loader.norm_vals = {
-                "s_out": std_out,
-                "s_in": std_in,
-                "m_out": mean_out,
-                "m_in": mean_in,
-            }
 
             inference_target = (
                 inference_data_loader[:][1]
@@ -351,15 +330,7 @@ class Trainer:
                     .to_array()
                     .transpose("time", "variable", "lat", "lon")
                 )
-                inf_data = (
-                    inf_data
-                    - inference_data_loader.out_mean.to_array()
-                    .to_numpy()
-                    .reshape([1, -1, 1, 1])
-                ) / inference_data_loader.out_std.to_array().to_numpy().reshape(
-                    [1, -1, 1, 1]
-                )
-                inf_data = inf_data.fillna(0)
+                inf_data = self.normalize.normalize_numpy_outputs(inf_data)
                 assert np.equal(inference_target, inf_data.to_numpy()).all()
 
             self.inference_data_loader_set.append(inference_data_loader)
@@ -397,8 +368,8 @@ class Trainer:
                 end_epoch_inf_time = None
 
             train_loss = train_stats["train/mean/loss"]
-            v_loss = val_stats["loss"]
-            inf_loss = inf_stats.get("loss", None)
+            v_loss = val_stats["val/mean/loss"]
+            inf_loss = inf_stats.get("inference/mean/loss", None)
 
             logging.info(f"Achieved Train Loss = {train_loss:.3f}")
             logging.info(f"Achieved Validation Loss = {v_loss:.3f}")
@@ -426,11 +397,6 @@ class Trainer:
                 )
 
             if is_main_process():
-                with open(
-                    Path(self.output_dir) / "log.txt", mode="a", encoding="utf-8"
-                ) as f:
-                    f.write(json.dumps(log_stats) + "\n")
-
                 self.wandb_logger.log(log_stats, step=self.num_batches_seen)
 
         total_time = time.time() - start_time
@@ -440,7 +406,7 @@ class Trainer:
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
-        train_aggregator = Aggregator.get_train_aggregator(self.num_out)
+        train_aggregator = Aggregator.get_train_aggregator()
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = "Training Epoch: [{}]".format(epoch)
@@ -452,14 +418,10 @@ class Trainer:
                 break
 
             self.optimizer.zero_grad()
-
             data = [d.to(self.device) for d in data]
-
-            loss_per_channel = self.model(data, loss_fn=self.loss)
-            loss = torch.mean(loss_per_channel)
-            loss.backward()
-
-            train_aggregator.log_loss(loss, loss_per_channel)
+            TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
+            TO.loss.backward()
+            train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
 
@@ -484,8 +446,8 @@ class Trainer:
 
             with torch.no_grad():
                 # Reduce losses
-                loss_value_reduce = all_reduce_mean(loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(loss_per_channel)
+                loss_value_reduce = all_reduce_mean(TO.loss.detach())
+                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel)
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
@@ -511,9 +473,7 @@ class Trainer:
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
-        model = self.model.module if using_gpu() else self.model
-
-        val_aggregator = Aggregator.get_validation_aggregator(self.num_out)
+        val_aggregator = Aggregator.get_validation_aggregator(self.metadata, self.hist)
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
 
@@ -524,14 +484,11 @@ class Trainer:
                 break
 
             data = [d.to(self.device) for d in data]
-            outs = model.forward_once(data[0].squeeze(1))
-            loss_per_channel = self.loss(outs, data[1].squeeze(1))
-            loss = torch.mean(loss_per_channel)
+            VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
+            val_aggregator.record_batch(VO)
+            metric_logger.update(loss=VO.loss)
 
-            val_aggregator.log_loss(loss, loss_per_channel)
-            metric_logger.update(loss=loss)
-
-        return val_aggregator.get_logs()
+        return val_aggregator.get_logs(label="val")
 
     @torch.no_grad()
     def inference_one_epoch(self):
@@ -633,8 +590,6 @@ class Trainer:
                 self.extra_in,
                 self.outputs,
                 self.wet,
-                self.data_mean,
-                self.data_std,
                 self.hist,
                 cur_step,
                 stride,
@@ -657,8 +612,6 @@ class Trainer:
             self.extra_in,
             self.outputs,
             self.wet,
-            self.data_mean,
-            self.data_std,
             self.hist,
             long_rollout=False,
         )

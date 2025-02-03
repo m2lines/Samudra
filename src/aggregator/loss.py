@@ -2,7 +2,7 @@ from typing import Dict, Optional
 
 import torch
 
-from constants import OUT_VARS, get_eval_maps
+from constants import TensorMap
 
 
 class LossAggregator:
@@ -22,28 +22,26 @@ class LossAggregator:
         return cls._instance
 
     @classmethod
-    def init_instance(cls, exp_num_out: str) -> "LossAggregator":
+    def init_instance(cls, loss_scale: Dict[str, float] = {}) -> "LossAggregator":
         if cls._instance is not None:
             raise ValueError("LossAggregator already initialized")
 
         instance = super().__new__(cls)
-        instance._initialize(exp_num_out)
+        instance._initialize(loss_scale)
         cls._instance = instance
         return cls._instance
 
-    def _initialize(self, exp_num_out: str):
-        self.VAR_3D_IDX, self.DP_3D_IDX, self.VAR_SET, self.DEPTH_SET = get_eval_maps(
-            exp_num_out
-        )
-        self.outputs = OUT_VARS[exp_num_out]
+    def _initialize(self, loss_scale: Dict[str, float]):
+        self.tensor_map = TensorMap.get_instance()
+        self.loss_scale = loss_scale
 
     def get_depth_loss_dict(
         self, label: str, loss_per_channel: torch.Tensor
     ) -> Dict[str, torch.Tensor]:
         metrics = {}
-        for depth in self.DEPTH_SET:
+        for depth in self.tensor_map.DEPTH_SET:
             metrics[f"{label}/loss/depth/depth_{depth}_loss"] = loss_per_channel[
-                self.DP_3D_IDX[depth]
+                self.tensor_map.DP_3D_IDX[depth]
             ].mean()
         return metrics
 
@@ -51,9 +49,9 @@ class LossAggregator:
         self, label: str, loss_per_channel: torch.Tensor
     ) -> Dict[str, torch.Tensor]:
         metrics = {}
-        for variable in self.VAR_SET:
+        for variable in self.tensor_map.VAR_SET:
             metrics[f"{label}/loss/variable/{variable}_loss"] = loss_per_channel[
-                self.VAR_3D_IDX[variable]
+                self.tensor_map.VAR_3D_IDX[variable]
             ].mean()
         return metrics
 
@@ -61,6 +59,6 @@ class LossAggregator:
         self, label: str, loss_per_channel: torch.Tensor
     ) -> Dict[str, torch.Tensor]:
         metrics = {}
-        for i, channel in enumerate(self.outputs):
+        for i, channel in enumerate(self.tensor_map.outputs):
             metrics[f"{label}/loss/channel/{channel}_loss"] = loss_per_channel[i]
         return metrics

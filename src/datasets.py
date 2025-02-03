@@ -3,6 +3,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 
+from utils.data import Normalize
 from utils.device import get_device
 
 
@@ -27,8 +28,6 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         extra_in_str,
         outputs_str,
         wet,
-        data_mean,
-        data_std,
         hist,
         long_rollout,
     ):
@@ -42,6 +41,8 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         self.outputs = data[outputs_str]
         self.inputs_no_extra = data[inputs_str]
         self.extras = data[extra_in_str]
+
+        self.normalize = Normalize.get_instance()
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -70,15 +71,6 @@ class data_CNN_Disk(torch.utils.data.Dataset):
                 )
             )
 
-        self.in_mean = data_mean[inputs_str + extra_in_str]
-        self.in_std = data_std[inputs_str + extra_in_str]
-        self.out_mean = data_mean[outputs_str]
-        self.out_std = data_std[outputs_str]
-        self.inputs_no_extra_mean = data_mean[inputs_str]
-        self.inputs_no_extra_std = data_std[inputs_str]
-        self.extras_mean = data_mean[extra_in_str]
-        self.extras_std = data_std[extra_in_str]
-
         self.wet = wet
 
     def __len__(self):
@@ -100,9 +92,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         data_in = self.inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in = (
-            (data_in - self.inputs_no_extra_mean) / self.inputs_no_extra_std
-        ).fillna(0)
+        data_in = self.normalize.normalize_inputs(data_in)
         data_in = (
             data_in.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -113,9 +103,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
-        data_in_boundary = (
-            (data_in_boundary - self.extras_mean) / self.extras_std
-        ).fillna(0)
+        data_in_boundary = self.normalize.normalize_boundary(data_in_boundary)
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -124,7 +112,7 @@ class data_CNN_Disk(torch.utils.data.Dataset):
         data_in = np.concatenate((data_in, data_in_boundary), axis=1)
 
         label = self.outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
-        label = ((label - self.out_mean) / self.out_std).fillna(0)
+        label = self.normalize.normalize_outputs(label)
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -148,8 +136,6 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         extra_in_str,
         outputs_str,
         wet,
-        data_mean,
-        data_std,
         hist,
         steps,
         stride=1,
@@ -167,6 +153,8 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
         self.inputs_no_extra = data[inputs_str]
         self.extras = data[extra_in_str]
 
+        self.normalize = Normalize.get_instance()
+
         # This class will be used only for training
         total_steps = 2 * self.hist + 2
 
@@ -182,16 +170,6 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
 
         # Construct rolling indices
         self.rolling_indices = indices_da + stride * window_dim
-
-        self.inputs_no_extra_mean = data_mean[inputs_str]
-        self.inputs_no_extra_std = data_std[inputs_str]
-        self.extras_mean = data_mean[extra_in_str]
-        self.extras_std = data_std[extra_in_str]
-        self.in_mean = data_mean[inputs_str + extra_in_str]
-        self.in_std = data_std[inputs_str + extra_in_str]
-
-        self.out_mean = data_mean[outputs_str]
-        self.out_std = data_std[outputs_str]
 
         self.wet = wet
 
@@ -230,9 +208,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
             data_in = self.inputs_no_extra.isel(time=x_index).isel(
                 time=slice(None, self.hist + 1)
             )
-            data_in = (
-                (data_in - self.inputs_no_extra_mean) / self.inputs_no_extra_std
-            ).fillna(0)
+            data_in = self.normalize.normalize_inputs(data_in)
             data_in = (
                 data_in.to_array()
                 .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -244,9 +220,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
                     window_dim (time variable) lat lon",
             )
             data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
-            data_in_boundary = (
-                (data_in_boundary - self.extras_mean) / self.extras_std
-            ).fillna(0)
+            data_in_boundary = self.normalize.normalize_boundary(data_in_boundary)
             data_in_boundary = (
                 data_in_boundary.to_array()
                 .transpose("window_dim", "variable", "lat", "lon")
@@ -257,7 +231,7 @@ class data_CNN_Disk_steps(torch.utils.data.Dataset):
             label = self.outputs.isel(time=x_index).isel(
                 time=slice(self.hist + 1, None)
             )
-            label = ((label - self.out_mean) / self.out_std).fillna(0)
+            label = self.normalize.normalize_outputs(label)
             label = (
                 label.to_array()
                 .transpose("window_dim", "time", "variable", "lat", "lon")

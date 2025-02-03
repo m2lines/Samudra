@@ -3,8 +3,8 @@ import logging
 from typing import Any, Dict, Optional
 
 import matplotlib.pyplot as plt
+import numpy as np
 import torch
-
 import wandb
 
 
@@ -144,6 +144,20 @@ class WandBLogger:
         if self._enabled:
             wandb.log(metrics, step=step, **kwargs)  # type: ignore[attr-defined]
 
+    def Image(self, data, *args, **kwargs):
+        if isinstance(data, np.ndarray):
+            data = scale_image(data)
+        return wandb.Image(data, *args, **kwargs)
+
+    def Video(self, *args, **kwargs):
+        return wandb.Video(*args, **kwargs)
+
+    def Table(self, *args, **kwargs):
+        return wandb.Table(*args, **kwargs)
+
+    def Histogram(self, *args, **kwargs):
+        return wandb.Histogram(*args, **kwargs)
+
     def log_inference_metrics(
         self,
         loss_value: float,
@@ -231,3 +245,18 @@ class WandBLogger:
                 plt.legend()
                 self.log({f"eval/plots/{var}": wandb.Image(fig)}, step=step)  # type: ignore[attr-defined]
                 plt.close()
+
+
+def scale_image(image_data):
+    """
+    Given an array of scalar data, rescale the data to the range [0, 255].
+    """
+    data_min = np.nanmin(image_data)
+    data_max = np.nanmax(image_data)
+
+    image_data = 255 * (image_data - data_min) / (data_max - data_min)
+    image_data = np.minimum(image_data, 255)
+    image_data = np.maximum(image_data, 0)
+    image_data[np.isnan(image_data)] = 0
+
+    return image_data

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# Assumes you have activated the emulator conda environment
 set -e
 CONFIG_PATH=configs/train_cm4_thermo.yaml
 

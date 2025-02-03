@@ -65,7 +65,7 @@ data:
       end_time: 291-01-06
     - start_time: 291-01-06
       end_time: 311-01-06
-  inference_epochs: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+  inference_epochs: [-1] # -1 indicates inference at all epochs
 
 unet:
   ch_width: [157, 200, 250, 300, 400]

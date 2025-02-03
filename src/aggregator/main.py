@@ -1,12 +1,6 @@
-"""
-* This file includes code from ACE (https://github.com/ai2cm/ace).
-
-* Licensed under the Apache License, Version 2.0
-*
-* Modified by Surya Dheeshjith
-"""
-
 from typing import Dict
+
+import torch
 
 from aggregator.inference import InferenceAggregator
 from aggregator.train import TrainAggregator
@@ -22,8 +16,9 @@ class Aggregator:
     def get_validation_aggregator(
         metadata: Dict[str, Dict[str, str]],
         hist: int,
+        area_weights: torch.Tensor,
     ) -> ValidateAggregator:
-        return ValidateAggregator(metadata, hist)
+        return ValidateAggregator(metadata, hist, area_weights)
 
     @staticmethod
     def get_inference_aggregator() -> InferenceAggregator:

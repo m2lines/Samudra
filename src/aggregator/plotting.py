@@ -1,11 +1,3 @@
-"""
-* This file includes code from ACE (https://github.com/ai2cm/ace).
-
-* Licensed under the Apache License, Version 2.0
-*
-* Modified by Surya Dheeshjith
-"""
-
 import gc
 from typing import List, Optional, Tuple, Union
 

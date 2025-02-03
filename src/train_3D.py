@@ -149,6 +149,9 @@ class Trainer:
         self.metadata = construct_metadata(self.data)
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet_mask(wet_zarr, self.outputs, cfg.data.hist)
+        areacello = wet_zarr.areacello.to_numpy()
+        self.area_weights = areacello / areacello.sum()
+        self.area_weights = torch.from_numpy(self.area_weights).to(self.device)
 
         # Model
         logging.info(f"Getting model {cfg.training.network}")
@@ -473,7 +476,9 @@ class Trainer:
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
-        val_aggregator = Aggregator.get_validation_aggregator(self.metadata, self.hist)
+        val_aggregator = Aggregator.get_validation_aggregator(
+            self.metadata, self.hist, self.area_weights
+        )
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
 

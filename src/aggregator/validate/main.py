@@ -1,11 +1,3 @@
-"""
-* This file includes code from ACE (https://github.com/ai2cm/ace).
-
-* Licensed under the Apache License, Version 2.0
-*
-* Modified by Surya Dheeshjith
-"""
-
 from typing import Dict
 
 import torch
@@ -14,6 +6,7 @@ from einops import rearrange
 from aggregator.loss import LossAggregator
 from aggregator.train import TrainAggregator
 from aggregator.validate.map import MapAggregator
+from aggregator.validate.reduced import MeanAggregator
 from aggregator.validate.snapshot import SnapshotAggregator
 from stepper import ValOutput
 from utils.data import Normalize, convert_tensor_out_to_dict
@@ -22,12 +15,15 @@ from utils.data import Normalize, convert_tensor_out_to_dict
 class ValidateAggregator(TrainAggregator):
     """Aggregates Validation Statistics."""
 
-    def __init__(self, metadata: Dict[str, Dict[str, str]], hist: int):
+    def __init__(
+        self, metadata: Dict[str, Dict[str, str]], hist: int, area_weights: torch.Tensor
+    ):
         super().__init__()
 
         val_aggregators = {
             "snapshot": SnapshotAggregator(metadata, hist),
             "mean_map": MapAggregator(metadata, hist),
+            "reduced": MeanAggregator(area_weights, hist),
         }
         self._aggregators = val_aggregators
         self.normalize = Normalize.get_instance()

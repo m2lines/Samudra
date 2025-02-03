@@ -1,11 +1,3 @@
-"""
-* This file includes code from ACE (https://github.com/ai2cm/ace).
-
-* Licensed under the Apache License, Version 2.0
-*
-* Modified by Surya Dheeshjith
-"""
-
 from typing import Dict
 
 import torch
@@ -20,8 +12,8 @@ class TrainAggregator:
 
     def __init__(self):
         self._n_batches = 0
-        self._loss = torch.nan
-        self._loss_per_channel = torch.nan
+        self._loss = torch.tensor(torch.nan)
+        self._loss_per_channel = torch.tensor(torch.nan)
 
     @torch.no_grad()
     def record_batch(self, batch: TrainOutput):
@@ -29,7 +21,7 @@ class TrainAggregator:
             self._loss = batch.loss
         else:
             self._loss += batch.loss
-        if torch.isnan(self._loss_per_channel):
+        if torch.isnan(self._loss_per_channel).all():
             self._loss_per_channel = batch.loss_per_channel
         else:
             self._loss_per_channel += batch.loss_per_channel

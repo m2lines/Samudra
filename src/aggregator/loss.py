@@ -6,6 +6,13 @@ from constants import TensorMap
 
 
 class LossAggregator:
+    """
+    Aggregates loss metrics for different depths and variables.
+
+    Note that this aggregator is a singleton in contrast to other aggregators
+    that are initialized every epoch.
+    """
+
     _instance: Optional["LossAggregator"] = None
 
     def __new__(cls, *args, **kwargs) -> "LossAggregator":

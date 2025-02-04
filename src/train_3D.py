@@ -748,7 +748,7 @@ def main():
 
     overrides = {}
     if args.subname != "":
-        overrides["subname"] = args.subname
+        overrides["sub_name"] = args.subname
 
     # Load config from YAML
     cfg = Config.from_yaml(args.config, overrides)

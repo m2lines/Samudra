@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Optional
 
 import torch
@@ -159,7 +160,7 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
                 "units": data[var].units,
             }
         except AttributeError:
-            print(f"{var} has no long_name or units attribute")
+            logging.info(f"{var} has no long_name or units attribute")
             metadata[var] = {
                 "long_name": "Unknown",
                 "units": "Unknown",

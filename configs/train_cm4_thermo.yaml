@@ -1,5 +1,5 @@
 name: train
-sub_name: cm4_samudra_thermo
+sub_name: local_cm4_samudra_thermo
 rand_seed: 1
 base_output_dir: .LOCAL
 debug: true
@@ -7,7 +7,7 @@ gantry: false
 cluster_data_dir: null
 
 wandb:
-  mode: online
+  mode: disabled
   project: 3D_ocean_emu_CM4
   entity: suryadheeshjith
 
@@ -49,8 +49,8 @@ data:
     start_time: 153-01-01
     end_time: 154-01-01
   inference:
-    - start_time: 152-01-06
-      end_time: 153-01-06
+    - start_time: 153-01-06
+      end_time: 155-01-06
     - start_time: 153-01-06
       end_time: 155-01-06
     - start_time: 156-01-06
@@ -65,7 +65,7 @@ data:
       end_time: 161-01-06
     - start_time: 161-01-06
       end_time: 162-01-06
-  inference_epochs: [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+  inference_epochs: [-1]
 
 unet:
   ch_width: [157, 200, 250, 300, 400]

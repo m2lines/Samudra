@@ -25,6 +25,22 @@ def extract_wet_mask(wet_zarr, outputs, hist):
 
 
 def get_time_slice(time_config, initial_cond=False, time_delta=5, hist=1):
+    """
+    Get the time slice and number of rollout steps for the given time configuration.
+
+    The slice includes both the start and end times. There is option to include
+    the initial condition but num_steps does not include the initial condition.
+
+    Args:
+        time_config: Time configuration
+        initial_cond: Whether to include the initial condition
+        time_delta: Time delta in days
+        hist: Number of rollout steps
+
+    Returns:
+        slice: Time slice
+        num_steps: Number of rollout steps (not including initial condition)
+    """
     start_time_str = time_config.start_time
     start_year, start_month, start_day = start_time_str.split("-")
     start_time = cftime.DatetimeNoLeap(
@@ -37,6 +53,10 @@ def get_time_slice(time_config, initial_cond=False, time_delta=5, hist=1):
         int(end_year), int(end_month), int(end_day), 0, 0, 0
     )
     num_steps = (end_time - start_time).days // time_delta + 1
+
+    # Might have extra remaining days, so we remove them
+    mod = num_steps % (hist + 1)
+    num_steps = num_steps - mod
 
     if initial_cond:
         start_time = start_time - timedelta(

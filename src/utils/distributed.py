@@ -39,10 +39,15 @@ def suppress_prints(is_master):
 
 
 def suppress_logging(is_master):
+    """Suppress logging for non-master processes."""
     if not is_master:
-        loggers = [logging.getLogger(name) for name in logging.root.manager.loggerDict]
-        for logger in loggers:
-            logger.setLevel(logging.WARN)
+        # Get root logger
+        root = logging.getLogger()
+        root.setLevel(logging.WARNING)
+
+        # Also suppress any existing handlers on the root logger
+        for handler in root.handlers:
+            handler.setLevel(logging.WARNING)
 
 
 def is_dist_avail_and_initialized():
@@ -70,58 +75,53 @@ def is_main_process():
 
 
 def init_distributed_mode(cfg):
-    # assert cfg.distributed
     if not cfg.distributed:
         return
+
     if "RANK" in os.environ:
         cfg.rank = int(os.environ["RANK"])
         cfg.gpu = int(os.environ["LOCAL_RANK"])
         cfg.world_size = int(os.environ["WORLD_SIZE"])
         cfg.dist_url = "env://"
-        cfg.gpu = cfg.rank % torch.cuda.device_count()
     elif "SLURM_PROCID" in os.environ:
         cfg.rank = int(os.environ["SLURM_PROCID"])
+        tasks_per_node = int(os.environ["SLURM_NTASKS_PER_NODE"])
+        n_nodes = int(os.environ["SLURM_NNODES"])
+        cfg.world_size = tasks_per_node * n_nodes
         cfg.gpu = cfg.rank % torch.cuda.device_count()
-        cfg.world_size = int(os.environ["SLURM_NNODES"]) * int(
-            os.environ["SLURM_TASKS_PER_NODE"][0]
-        )
-        if "MASTER_ADDR" not in os.environ:
-            cfg.dist_url = "tcp://localhost:40000"  # Local execution
+
+        if "MASTER_ADDR" in os.environ and "MASTER_PORT" in os.environ:
+            cfg.dist_url = "env://"
         else:
-            cfg.dist_url = None  # Slurm execution
+            cfg.dist_url = "tcp://localhost:40000"
 
-    torch.cuda.set_device(cfg.gpu)
     cfg.dist_backend = "nccl"
-    logging.info(
-        "| distributed init (rank {}), gpu {}, world_size {}".format(
-            cfg.rank, cfg.gpu, cfg.world_size
-        )
+    torch.distributed.init_process_group(
+        backend=cfg.dist_backend,
+        init_method=cfg.dist_url,
+        world_size=cfg.world_size,
+        rank=cfg.rank,
     )
-
-    if not dist.is_initialized():
-        dist.init_process_group(
-            backend=cfg.dist_backend,
-            init_method=cfg.dist_url,
-            world_size=cfg.world_size,
-            rank=cfg.rank,
-        )
-        torch.distributed.barrier()
-        suppress_prints(cfg.rank == 0)
-    else:
-        torch.distributed.barrier()
+    torch.cuda.set_device(cfg.gpu)
+    logging.info(
+        f"| distributed init (rank {cfg.rank}), gpu {cfg.gpu}, "
+        f"world_size {cfg.world_size}, dist_url {cfg.dist_url}"
+    )
+    torch.distributed.barrier()
+    suppress_prints(cfg.rank == 0)
     suppress_logging(cfg.rank == 0)
 
 
 def all_reduce_mean(x):
     world_size = get_world_size()
+    cpu_flag = False
     if world_size > 1:
-        # Convert to tensor using recommended approach
-        if torch.is_tensor(x):
-            x_reduce = x.clone().detach().cuda()
-        else:
-            x_reduce = torch.FloatTensor([x]).cuda()
-        dist.all_reduce(x_reduce)
-        x_reduce /= world_size
-        return x_reduce.item()
-    else:
-        return x
+        if x.device.type == "cpu":
+            x = x.cuda()
+            cpu_flag = True
+        dist.all_reduce(x)
+        x /= world_size
+    if cpu_flag:
+        x = x.cpu()
+
+    return x

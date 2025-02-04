@@ -158,13 +158,13 @@ class Trainer:
         if "convnextunet" == cfg.training.network or "adamunet" == cfg.training.network:
             if cfg.unet.ch_width[0] != self.num_in:
                 logging.info(
-                    f"NOTE: Changing input channels to match data"
+                    f"NOTE: Changing input channels to match data "
                     f"{cfg.unet.ch_width[0]}->{self.num_in}"
                 )
                 cfg.unet.ch_width[0] = self.num_in
             if cfg.unet.n_out != self.num_out:
                 logging.info(
-                    f"NOTE: Changing output channels to match data"
+                    f"NOTE: Changing output channels to match data "
                     f"{cfg.unet.n_out}->{self.num_out}"
                 )
                 cfg.unet.n_out = self.num_out
@@ -345,13 +345,12 @@ class Trainer:
         self.best_val_loss = torch.tensor(1e8)
         self.best_inf_loss = torch.tensor(1e8)
         self.wandb_logger.watch(self.model, log="all")
-        cur_step_idx = None
 
         start_time = time.time()
         for epoch in range(self.start_epoch, self.epochs + 1):
             # Iterative step training
             if epoch == self.start_epoch or epoch in self.step_transition:
-                cur_step, cur_step_idx = self.get_current_step(epoch)
+                cur_step = self.get_current_step(epoch)
                 self.init_data_loaders(cur_step)
 
             if using_gpu():
@@ -574,7 +573,7 @@ class Trainer:
             cur_step = self.steps[cur_step_idx]
             logging.info(f"Transitioning to step {cur_step}")
 
-        return cur_step, cur_step_idx
+        return cur_step
 
     def init_data_loaders(self, cur_step):
         """Initialize training and validation data loaders.

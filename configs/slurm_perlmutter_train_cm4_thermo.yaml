@@ -4,7 +4,7 @@ rand_seed: 1
 base_output_dir: train_3D
 debug: false
 gantry: false
-cluster_data_dir: null
+cluster_data_dir: /pscratch/sd/s/suryad/data
 
 wandb:
   mode: online
@@ -44,28 +44,28 @@ data:
   time_delta: 5
   train:
     start_time: 151-01-06
-    end_time: 306-01-01
+    end_time: 153-01-01
   val:
-    start_time: 306-01-01
-    end_time: 311-01-01
+    start_time: 153-01-01
+    end_time: 154-01-01
   inference:
-    - start_time: 151-01-06
-      end_time: 171-01-06
-    - start_time: 171-01-06
-      end_time: 191-01-06
-    - start_time: 191-01-06
-      end_time: 211-01-06
-    - start_time: 211-01-06
-      end_time: 231-01-06
-    - start_time: 231-01-06
-      end_time: 251-01-06
-    - start_time: 251-01-06
-      end_time: 271-01-06
-    - start_time: 271-01-06
-      end_time: 291-01-06
-    - start_time: 291-01-06
-      end_time: 311-01-06
-  inference_epochs: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
+    - start_time: 152-01-06
+      end_time: 154-01-06
+    - start_time: 153-01-06
+      end_time: 155-01-06
+    - start_time: 156-01-06
+      end_time: 158-01-06
+    - start_time: 157-01-06
+      end_time: 159-01-06
+    - start_time: 158-01-06
+      end_time: 160-01-06
+    - start_time: 159-01-06
+      end_time: 161-01-06
+    - start_time: 160-01-06
+      end_time: 162-01-06
+    - start_time: 161-01-06
+      end_time: 163-01-06
+  inference_epochs: [-1]
 
 unet:
   ch_width: [157, 200, 250, 300, 400]

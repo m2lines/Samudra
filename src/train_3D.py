@@ -334,7 +334,8 @@ class Trainer:
                     .transpose("time", "variable", "lat", "lon")
                 )
                 inf_data = self.normalize.normalize_numpy_outputs(inf_data)
-                assert np.equal(inference_target, inf_data.to_numpy()).all()
+                inf_data = inf_data.to_numpy()[:num_steps]
+                assert np.equal(inference_target, inf_data).all()
 
             self.inference_data_loader_set.append(inference_data_loader)
             self.inference_target_set.append(inference_target)
@@ -450,7 +451,7 @@ class Trainer:
             with torch.no_grad():
                 # Reduce losses
                 loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel)
+                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
@@ -603,23 +604,27 @@ class Trainer:
         ]
         train_data = ConcatDataset(train_data)
 
-        # TODO: data_CNN_Disk currently does not support strides
-        val_data = data_CNN_Disk(
-            self.data.sel(
-                time=get_time_slice(
-                    self.val_times,
-                    initial_cond=False,
-                    time_delta=self.time_delta,
-                    hist=self.hist,
-                )[0]
-            ),
-            self.inputs,
-            self.extra_in,
-            self.outputs,
-            self.wet,
-            self.hist,
-            long_rollout=False,
-        )
+        val_data = [
+            data_CNN_Disk_steps(
+                self.data.sel(
+                    time=get_time_slice(
+                        self.val_times,
+                        initial_cond=False,
+                        time_delta=self.time_delta,
+                        hist=self.hist,
+                    )[0]
+                ),
+                self.inputs,
+                self.extra_in,
+                self.outputs,
+                self.wet,
+                self.hist,
+                1,  # current_step set to 1 for validation
+                stride,
+            )
+            for stride in self.data_stride
+        ]
+        val_data = ConcatDataset(val_data)
 
         logging.info("Instantiating torch loaders")
 

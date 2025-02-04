@@ -48,13 +48,12 @@ class Stepper:
     def validate_step(
         model: torch.nn.Module, batch: torch.Tensor, loss_fn: Callable
     ) -> ValOutput:
+        assert len(batch) == 2  # Assert we are using one step of input and output
         model = model.module if using_gpu() else model
-        outs = model.forward_once(batch[0].squeeze(1))
-        loss_per_channel = loss_fn(outs, batch[1].squeeze(1))
+        outs = model.forward_once(batch[0])
+        loss_per_channel = loss_fn(outs, batch[1])
         loss = torch.mean(loss_per_channel)
-        return ValOutput(
-            loss, loss_per_channel, batch[0].squeeze(1), batch[1].squeeze(1), outs
-        )
+        return ValOutput(loss, loss_per_channel, batch[0], batch[1], outs)
 
     @staticmethod
     @torch.no_grad()

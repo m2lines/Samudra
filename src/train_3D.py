@@ -741,10 +741,17 @@ def main():
     parser.add_argument(
         "--config", type=str, required=True, help="Path to config YAML file"
     )
+    parser.add_argument(
+        "--subname", type=str, required=False, help="Subname for the run", default=""
+    )
     args = parser.parse_args()
 
+    overrides = {}
+    if args.subname != "":
+        overrides["subname"] = args.subname
+
     # Load config from YAML
-    cfg = Config.from_yaml(args.config)
+    cfg = Config.from_yaml(args.config, overrides)
 
     # Check dirs
     if not os.path.exists(cfg.nets_dir):

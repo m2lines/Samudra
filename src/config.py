@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 from dacite import Config as DaciteConfig
@@ -129,10 +129,13 @@ class Config:
             self.data_dir = Path(self.cluster_data_dir)
 
     @classmethod
-    def from_yaml(cls, yaml_path: str) -> "Config":
+    def from_yaml(cls, yaml_path: str, overrides: Optional[Dict[str, Any]] = None) -> "Config":
         """Load config from YAML with strict validation using dacite."""
         with open(yaml_path, "r") as f:
             config_dict = yaml.safe_load(f)
+
+        if overrides:
+            config_dict.update(overrides)
 
         return from_dict(
             data_class=cls,

@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Assumes you have activated the emulator conda environment
+# Assumes you have activated the emulator conda environment and
+# set the CLUSTER_NAME and OCEAN_DATA_DIR environment variables
 set -e
 CONFIG_PATH=configs/train_cm4_thermo.yaml
 

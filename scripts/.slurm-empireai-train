@@ -1,14 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-train
+#SBATCH --job-name=samudra-train-8GPUS-1Node
 #SBATCH --output=train_3D/logs/slurm-%j.out
 #SBATCH --error=train_3D/logs/slurm-%j.err
-#SBATCH --constraint=gpu&hbm80g
-#SBATCH --account=m4874
-#SBATCH --qos=debug
+#SBATCH --partition=nyu
 #SBATCH --mem=110G
-#SBATCH --nodes=2
-#SBATCH --ntasks-per-node=2
-#SBATCH --cpus-per-task=32
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=8
+#SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-task=1
 #SBATCH --gpu-bind=none     # This ensures all GPUs are visible to all tasks
 #SBATCH --time=00:20:00
@@ -16,7 +14,7 @@
 set -e
 
 # Load conda environment
-module load conda
+source /mnt/lustre/nyu/sd5313/conda/env.sh
 conda activate emulator
 
 # Set master node information
@@ -33,5 +31,5 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 # Run the training script
 srun --cpu-bind=cores \
      python src/train_3D.py \
-     --config configs/slurm_perlmutter_train_cm4_thermo.yaml \
+     --config configs/slurm_empireai_train_cm4_thermo.yaml \
      --subname %j

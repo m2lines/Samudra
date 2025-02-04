@@ -32,4 +32,4 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 srun --cpu-bind=cores \
      python src/train_3D.py \
      --config configs/slurm_empireai_train_cm4_thermo.yaml \
-     --subname %j
+     --subname $SLURM_JOB_NAME

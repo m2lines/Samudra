@@ -1,3 +1,4 @@
+# TODO: Remove this file once standalone inference is implemented
 import numpy as np
 import torch
 

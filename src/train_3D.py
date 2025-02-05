@@ -23,15 +23,12 @@ from aggregator import Aggregator, LossAggregator
 from config import Config
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import data_CNN_Disk, data_CNN_Disk_steps
-from models.base import get_model_summary
-from models.rollout import generate_model_rollout
 from models.unet import UNet
 from stepper import Stepper, TrainOutput, ValOutput
 from utils.data import Normalize, extract_wet_mask, get_time_slice
 from utils.device import get_device, using_gpu
 from utils.distributed import (
     all_reduce_mean,
-    get_rank,
     get_world_size,
     init_distributed_mode,
     is_main_process,
@@ -45,6 +42,7 @@ from utils.loss import (
     decomposed_mse_mae,
     decomposed_mse_scaled,
 )
+from utils.model import get_model_summary
 from utils.wandb import WandBLogger
 
 
@@ -364,7 +362,7 @@ class Trainer:
             end_epoch_val_time = time.time()
 
             if -1 in self.inference_epochs or epoch in self.inference_epochs:
-                inf_stats = self.inference_one_epoch()
+                inf_stats = self.inference_one_epoch(epoch)
                 end_epoch_inf_time = time.time()
             else:
                 inf_stats = {}
@@ -496,51 +494,22 @@ class Trainer:
         return val_aggregator.get_logs(label="val")
 
     @torch.no_grad()
-    def inference_one_epoch(self):
+    def inference_one_epoch(self, epoch):
         self.model.eval()
 
-        # Determine rank based on device
-        if using_gpu():
-            rank = get_rank()
-        else:
-            rank = 0
+        inf_aggregator = Aggregator.get_inference_aggregator()
 
-        model_pred = generate_model_rollout(
-            self.num_steps_inf_set[rank],
-            self.inference_data_loader_set[rank],
-            self.model.module if using_gpu() else self.model,
-            self.hist,
-            self.N_out,
-            self.N_extra,
-            initial_input=None,
-            train=True,
-        )
-
-        predictions = model_pred.transpose(0, 3, 1, 2)
-        targets = self.inference_target_set[rank]
-        # targets_transposed = targets.transpose(0, 2, 3, 1)
-
-        predictions = torch.from_numpy(predictions)
-        targets = torch.from_numpy(targets)
-
-        full_mse = nn.functional.mse_loss(predictions, targets, reduction="none")
-        loss_per_channel = torch.mean(full_mse, dim=(0, 2, 3))
-        loss_value = torch.mean(loss_per_channel)
-
-        # model_pred_unnormalized = (
-        #     model_pred * self.inference_data_loader_set[rank].norm_vals["s_out"]
-        #     + self.inference_data_loader_set[rank].norm_vals["m_out"]
-        # )
-        # targets_unnormalized = (
-        #     targets_transposed *
-        #  self.inference_data_loader_set[rank].norm_vals["s_out"]
-        #     + self.inference_data_loader_set[rank].norm_vals["m_out"]
-        # )
-
-        loss_value = all_reduce_mean(loss_value)
-        loss_per_channel = all_reduce_mean(loss_per_channel)
-
-        return {"loss": loss_value.item()}
+        with torch.no_grad():
+            Stepper.inline_inference(
+                self.model.module if using_gpu() else self.model,
+                self.inference_data_loader_set[0],
+                self.inference_target_set[0],
+                self.num_steps_inf_set[0],
+                self.hist,
+                inf_aggregator,
+            )
+        logs = inf_aggregator.get_summary_logs()
+        return {f"inference/{k}": v for k, v in logs.items()}
 
     def get_current_step(self, epoch):
         """Determine the current step based on the epoch and transition points.

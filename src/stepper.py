@@ -1,7 +1,10 @@
 from typing import Callable
 
+import numpy as np
 import torch
 
+from aggregator.inference import InferenceAggregator
+from datasets import Data_CNN_Disk
 from utils.device import using_gpu
 
 
@@ -27,8 +30,13 @@ class ValOutput(TrainOutput):
 
 
 class InfOutput:
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+        model_pred: np.ndarray,
+        target_data: np.ndarray,
+    ):
+        self.model_pred = model_pred
+        self.target_data = target_data
 
 
 class Stepper:
@@ -57,5 +65,26 @@ class Stepper:
 
     @staticmethod
     @torch.no_grad()
-    def inference_step(batch: torch.Tensor) -> InfOutput:
-        return InfOutput()
+    def inline_inference(
+        model: torch.nn.Module,
+        data_loader: Data_CNN_Disk,
+        target_data: torch.Tensor,
+        n_steps: int,
+        hist: int,
+        inf_aggregator: InferenceAggregator,
+    ) -> None:
+        model_pred = np.zeros((n_steps, *data_loader[0][0].shape[1:]))
+
+        with torch.no_grad():
+            outs = model.inference(
+                data_loader,
+                initial_input=None,
+                num_steps=n_steps,
+            )
+
+        for i in range(n_steps):
+            pred_temp = outs[i]
+            model_pred[i * (hist + 1) : (i + 1) * (hist + 1)] = pred_temp.cpu()
+
+        assert model_pred.shape == target_data.shape
+        inf_aggregator.record_batch(InfOutput(model_pred, target_data.cpu().numpy()))

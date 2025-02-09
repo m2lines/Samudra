@@ -83,6 +83,11 @@ class BlockConfig:
 
 
 @dataclass
+class CorrectorConfig:
+    non_negative_corrector_names: Optional[List[str]] = None
+
+
+@dataclass
 class UNetConfig:
     # Core architecture
     ch_width: List[int] = field(default_factory=lambda: [80, 24, 45, 90, 180])
@@ -92,6 +97,7 @@ class UNetConfig:
 
     # Block configurations
     core_block: BlockConfig = field(default_factory=BlockConfig)
+    corrector: CorrectorConfig = field(default_factory=CorrectorConfig)
     down_sampling_block: str = "avg_pool"  # avg_pool, max_pool
     up_sampling_block: str = "bilinear_upsample"  # bilinear_upsample, transposed_conv
 
@@ -129,7 +135,9 @@ class Config:
             self.data_dir = Path(self.cluster_data_dir)
 
     @classmethod
-    def from_yaml(cls, yaml_path: str, overrides: Optional[Dict[str, Any]] = None) -> "Config":
+    def from_yaml(
+        cls, yaml_path: str, overrides: Optional[Dict[str, Any]] = None
+    ) -> "Config":
         """Load config from YAML with strict validation using dacite."""
         with open(yaml_path, "r") as f:
             config_dict = yaml.safe_load(f)
@@ -149,7 +157,11 @@ class Config:
             "wandb": self.wandb.__dict__,
             "training": self.training.__dict__,
             "data": self.data.__dict__,
-            "unet": {**self.unet.__dict__, "core_block": self.unet.core_block.__dict__},
+            "unet": {
+                **self.unet.__dict__,
+                "core_block": self.unet.core_block.__dict__,
+                "corrector": self.unet.corrector.__dict__,
+            },
             "name": self.name,
             "sub_name": self.sub_name,
             "rand_seed": self.rand_seed,

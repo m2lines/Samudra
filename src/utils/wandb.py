@@ -260,3 +260,19 @@ def scale_image(image_data):
     image_data[np.isnan(image_data)] = 0
 
     return image_data
+
+
+def get_record_to_wandb(label: str = ""):
+    wandb = WandBLogger.get_instance()
+    step = 0
+
+    def record_logs(logs):
+        nonlocal step
+        for j, log in enumerate(logs):
+            if len(log) > 0:
+                if label != "":
+                    log = {f"{label}/{k}": v for k, v in log.items()}
+                wandb.log(log, step=step + j)
+        step += len(logs)
+
+    return record_logs

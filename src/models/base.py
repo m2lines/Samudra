@@ -1,14 +1,18 @@
 # TODO: Need to return step-wise losses for logging
 
+import logging
+from typing import Union
+
 import torch
 
+from datasets import InferenceDataset, TrainData
 from utils.device import get_device
 
 
 class BaseModel(torch.nn.Module):
     def __init__(
         self, ch_width, n_out, wet, hist, pred_residuals, last_kernel_size, pad
-    ):
+    ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
         self.N_in = ch_width[0]
@@ -27,41 +31,22 @@ class BaseModel(torch.nn.Module):
 
     def forward(
         self,
-        inputs,
-        output_only_last=False,
+        train_data: TrainData,
         loss_fn=None,
-    ) -> torch.Tensor:
+    ) -> Union[torch.Tensor, list[torch.Tensor]]:
         outputs: list[torch.Tensor] = []
-        loss = None
-        N, C, H, W = inputs[0].shape
-
-        for step in range(len(inputs) // 2):
+        loss = torch.tensor(torch.nan)
+        for step in range(len(train_data)):
             if step == 0:
-                """
-                For HIST=1, [0->[0in, 1in], 1->[2out, 3out],
-                            2->[2in, 3in], 3->[4out, 5out]]
-                """
-                input_tensor = inputs[0]
+                input_tensor = train_data.get_initial_input()
             else:
-                # Last output corresponds to input at current time step
-                inputs_0 = outputs[-1]
-                input_tensor = torch.cat(
-                    [
-                        inputs_0,
-                        inputs[2 * step][
-                            :, self.output_channels :
-                        ],  # boundary conditions
-                    ],
-                    dim=1,
+                input_tensor = train_data.merge_prognostic_and_boundary(
+                    prognostic=outputs[-1], step=step
                 )
 
-            assert (
-                input_tensor.shape[1] == self.input_channels
-            ), f"Input shape is {input_tensor.shape[1]} but should\
-                be {self.input_channels}"
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
-                reshaped = (
+                pred = (
                     input_tensor[
                         :,
                         : self.output_channels,
@@ -69,93 +54,61 @@ class BaseModel(torch.nn.Module):
                     + decodings
                 )  # Residual prediction
             else:
-                reshaped = decodings  # Absolute prediction
+                pred = decodings  # Absolute prediction
 
             if loss_fn is not None:
-                assert (
-                    reshaped.shape == inputs[2 * step + 1].shape
-                ), f"Output shape is {reshaped.shape} but should\
-                        be {inputs[2 * step + 1].shape}"
-                if loss is None:
+                if torch.isnan(loss).all():
                     loss = loss_fn(
-                        reshaped,
-                        inputs[2 * step + 1],
+                        pred,
+                        train_data.get_label(step),
                     )
                 else:
                     loss += loss_fn(
-                        reshaped,
-                        inputs[2 * step + 1],
+                        pred,
+                        train_data.get_label(step),
                     )
 
-            outputs.append(reshaped)
+            outputs.append(pred)
 
         if loss_fn is None:
-            if output_only_last:
-                res = outputs[-1]
-            else:
-                res = outputs
-            return res
-
+            return outputs
         else:
             return loss
 
-    # TODO: Remove this function once we fix standalone inference
     def inference(
         self,
-        inputs,
-        initial_input=None,
+        dataset: InferenceDataset,
+        initial_prognostic=None,
         num_steps=None,
-        output_only_last=False,
-        aggregator=None,
-    ):
+    ) -> list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         for step in range(num_steps):
+            logging.info(f"Inference: Rollout step {step} of {num_steps - 1}.")
             if step == 0:
-                """
-                inputs[0][0] is the input at step 0.
-                For HIST=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]];
-                            2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
-                """
-                input_tensor = inputs[0][0].to(device=get_device())
-
-                if initial_input is not None:
-                    input_tensor[:, : self.output_channels] = initial_input
-            else:
-                inputs_0 = outputs[-1].unsqueeze(
-                    0
-                )  # Last output corresponds to input at current time step
-                input_tensor = torch.cat(
-                    [
-                        inputs_0,
-                        inputs[step][0][
-                            :, self.output_channels :
-                        ].to(  # boundary conditions
-                            device=get_device()
-                        ),
-                    ],
-                    dim=1,
+                input_tensor = dataset.get_initial_input(initial_prognostic).to(
+                    device=get_device()
                 )
 
-            assert (
-                input_tensor.shape[1] == self.input_channels
-            ), f"Input shape is {input_tensor.shape[1]} but \
-                should be {self.input_channels}"
+            else:
+                input_tensor = dataset.merge_prognostic_and_boundary(
+                    prognostic=outputs[-1],
+                    step=step,
+                )
+
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
-                reshaped = input_tensor[
-                    0,
-                    : self.output_channels,
-                ].to(  # Residuals on last state in input
-                    device=get_device()
-                ) + decodings.squeeze(0)
+                pred = (
+                    input_tensor[
+                        0,
+                        : self.output_channels,
+                    ].to(  # Residuals on last state in input
+                        device=get_device()
+                    )
+                    + decodings
+                )
             else:
-                reshaped = decodings.squeeze(0)
+                pred = decodings
 
-            outputs.append(reshaped)
+            outputs.append(pred)
 
-        if output_only_last:
-            res = outputs[-1]
-        else:
-            res = outputs
-
-        return res
+        return outputs

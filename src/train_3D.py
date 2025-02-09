@@ -11,18 +11,25 @@ import traceback
 import warnings
 from functools import partial
 from pathlib import Path
+from typing import Union
 
 import dask
 import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
-from torch.utils.data import ConcatDataset
+from torch.utils.data import (
+    ConcatDataset,
+    DataLoader,
+    Dataset,
+    DistributedSampler,
+    RandomSampler,
+)
 
 from aggregator import Aggregator, LossAggregator
 from config import Config
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
-from datasets import data_CNN_Disk, data_CNN_Disk_steps
+from datasets import InferenceDataset, InferenceDatasets, TrainDataset
 from models.unet import UNet
 from stepper import Stepper, TrainOutput, ValOutput
 from utils.data import Normalize, extract_wet_mask, get_time_slice
@@ -43,6 +50,7 @@ from utils.loss import (
     decomposed_mse_scaled,
 )
 from utils.model import get_model_summary
+from utils.train import collate_inference_data, collate_train_data
 from utils.wandb import WandBLogger
 
 
@@ -136,12 +144,12 @@ class Trainer:
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            self.data = xr.open_dataset(os.path.join(self.data_dir, self.data_path))
+            self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_path))
         self.data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path)
+            os.path.join(self.data_dir, self.data_means_path), engine="netcdf4"
         )
         self.data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path)
+            os.path.join(self.data_dir, self.data_stds_path), engine="netcdf4"
         )
 
         self.metadata = construct_metadata(self.data)
@@ -282,6 +290,16 @@ class Trainer:
 
         self.init_inference_stores()
 
+        # Add type annotations for samplers
+        self.train_sampler: Union[DistributedSampler, RandomSampler]
+        self.val_sampler: Union[DistributedSampler, RandomSampler]
+        self.inference_sampler: Union[DistributedSampler, RandomSampler]
+
+        # Add type annotations for loaders
+        self.train_loader: DataLoader
+        self.val_loader: DataLoader
+        self.inference_loader: DataLoader
+
     def init_inference_stores(self):
         # Determine number of processes based on device
         if using_gpu():
@@ -290,24 +308,17 @@ class Trainer:
         else:
             num_splits = 1
 
-        self.inference_data_loader_set = []
-        self.inference_target_set = []
-        self.num_steps_inf_set = []
+        # Create datasets
+        inference_datasets = []
+        num_steps_inf_set = []
         for i in range(num_splits):
-            time_slice_with_initial_condition, num_steps = get_time_slice(
+            time_slice_with_initial_condition, num_time_steps = get_time_slice(
                 self.inference_times[i],
-                initial_cond=True,
-                time_delta=self.time_delta,
-                hist=self.hist,
-            )
-            time_slice_target, _ = get_time_slice(
-                self.inference_times[i],
-                initial_cond=False,
                 time_delta=self.time_delta,
                 hist=self.hist,
             )
             inference_data = self.data.sel(time=time_slice_with_initial_condition)
-            inference_data_loader = data_CNN_Disk(
+            inference_dataset = InferenceDataset(
                 inference_data,
                 self.inputs,
                 self.extra_in,
@@ -317,27 +328,30 @@ class Trainer:
                 long_rollout=True,
             )
 
-            inference_target = (
-                inference_data_loader[:][1]
-                .reshape((num_steps, -1, *self.wet.shape[1:]))
-                .numpy()
+            inference_datasets.append(inference_dataset)
+            num_steps_inf_set.append(num_time_steps)
+
+        inference_data_combined: Dataset = InferenceDatasets(
+            inference_datasets, num_steps_inf_set
+        )
+
+        if using_gpu():
+            self.inference_sampler = DistributedSampler(
+                inference_data_combined, shuffle=True
             )
+        else:
+            self.inference_sampler = RandomSampler(inference_data_combined)
 
-            # Check if the inference target is correct
-            if i == 0:
-                inf_data = (
-                    self.data[self.outputs]
-                    .sel(time=time_slice_target)
-                    .to_array()
-                    .transpose("time", "variable", "lat", "lon")
-                )
-                inf_data = self.normalize.normalize_numpy_outputs(inf_data)
-                inf_data = inf_data.to_numpy()[:num_steps]
-                assert np.equal(inference_target, inf_data).all()
-
-            self.inference_data_loader_set.append(inference_data_loader)
-            self.inference_target_set.append(inference_target)
-            self.num_steps_inf_set.append(num_steps)
+        # Create data loaders
+        self.inference_loader = DataLoader(
+            inference_data_combined,
+            batch_size=1,
+            sampler=self.inference_sampler,
+            num_workers=self.num_workers,
+            pin_memory=False,
+            drop_last=False,
+            collate_fn=collate_inference_data,
+        )
 
     def run(self) -> None:
         self.best_val_loss = torch.tensor(1e8)
@@ -351,8 +365,9 @@ class Trainer:
                 cur_step = self.get_current_step(epoch)
                 self.init_data_loaders(cur_step)
 
-            if using_gpu():
+            if isinstance(self.train_sampler, DistributedSampler):
                 self.train_sampler.set_epoch(epoch)
+            if isinstance(self.val_sampler, DistributedSampler):
                 self.val_sampler.set_epoch(epoch)
 
             start_epoch_train_time = time.time()
@@ -370,7 +385,7 @@ class Trainer:
 
             train_loss = train_stats["train/mean/loss"]
             v_loss = val_stats["val/mean/loss"]
-            inf_loss = inf_stats.get("inference/mean/loss", None)
+            inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
 
             logging.info(f"Achieved Train Loss = {train_loss:.3f}")
             logging.info(f"Achieved Validation Loss = {v_loss:.3f}")
@@ -411,7 +426,7 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = "Training Epoch: [{}]".format(epoch)
-
+        # iters = len(self.train_loader)
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
@@ -419,7 +434,7 @@ class Trainer:
                 break
 
             self.optimizer.zero_grad()
-            data = [d.to(self.device) for d in data]
+            data.to(self.device)
             TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
             TO.loss.backward()
             train_aggregator.record_batch(TO)
@@ -430,10 +445,6 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             self.optimizer.step()
-            if self.scheduler is not None:
-                # self.scheduler.step()
-                # self.scheduler.step(epoch - 1 + data_iter_step / iters)
-                self.scheduler.step()
             # Only synchronize if using CUDA
             if using_gpu():
                 torch.cuda.synchronize()
@@ -468,6 +479,9 @@ class Trainer:
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
+        if self.scheduler is not None:
+            self.scheduler.step()
+
         return train_aggregator.get_logs()
 
     @torch.no_grad()
@@ -475,7 +489,7 @@ class Trainer:
         self.model.eval()
 
         val_aggregator = Aggregator.get_validation_aggregator(
-            self.metadata, self.hist, self.area_weights
+            self.metadata, self.hist, self.area_weights, self.num_out
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
@@ -486,7 +500,7 @@ class Trainer:
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
-            data = [d.to(self.device) for d in data]
+            data.to(self.device)
             VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
             val_aggregator.record_batch(VO)
             metric_logger.update(loss=VO.loss)
@@ -497,15 +511,20 @@ class Trainer:
     def inference_one_epoch(self, epoch):
         self.model.eval()
 
-        inf_aggregator = Aggregator.get_inference_aggregator()
+        for data_iter_step, (inference_dataset, num_steps) in enumerate(
+            self.inference_loader
+        ):
+            inf_aggregator = Aggregator.get_inference_aggregator(
+                num_steps,
+                self.metadata,
+                self.hist,
+                self.area_weights,
+                self.num_out,
+            )
 
-        with torch.no_grad():
             Stepper.inline_inference(
                 self.model.module if using_gpu() else self.model,
-                self.inference_data_loader_set[0],
-                self.inference_target_set[0],
-                self.num_steps_inf_set[0],
-                self.hist,
+                inference_dataset,
                 inf_aggregator,
             )
         logs = inf_aggregator.get_summary_logs()
@@ -544,84 +563,85 @@ class Trainer:
 
         return cur_step
 
-    def init_data_loaders(self, cur_step):
+    def init_data_loaders(self, cur_step: int) -> None:
         """Initialize training and validation data loaders.
 
         Args:
-            cur_step (int): Current training step size
+            cur_step: Current training step size
         """
-        train_data = [
-            data_CNN_Disk_steps(
-                self.data.sel(
-                    time=get_time_slice(
-                        self.train_times,
-                        initial_cond=False,
-                        time_delta=self.time_delta,
-                        hist=self.hist,
-                    )[0]
-                ),
-                self.inputs,
-                self.extra_in,
-                self.outputs,
-                self.wet,
-                self.hist,
-                cur_step,
-                stride,
-            )
-            for stride in self.data_stride
-        ]
-        train_data = ConcatDataset(train_data)
+        # Create datasets
+        train_data: Dataset = ConcatDataset(
+            [
+                TrainDataset(
+                    self.data.sel(
+                        time=get_time_slice(
+                            self.train_times,
+                            time_delta=self.time_delta,
+                            hist=self.hist,
+                        )[0]
+                    ),
+                    self.inputs,
+                    self.extra_in,
+                    self.outputs,
+                    self.wet,
+                    self.hist,
+                    cur_step,
+                    stride,
+                )
+                for stride in self.data_stride
+            ]
+        )
 
-        val_data = [
-            data_CNN_Disk_steps(
-                self.data.sel(
-                    time=get_time_slice(
-                        self.val_times,
-                        initial_cond=False,
-                        time_delta=self.time_delta,
-                        hist=self.hist,
-                    )[0]
-                ),
-                self.inputs,
-                self.extra_in,
-                self.outputs,
-                self.wet,
-                self.hist,
-                1,  # current_step set to 1 for validation
-                stride,
-            )
-            for stride in self.data_stride
-        ]
-        val_data = ConcatDataset(val_data)
+        val_data: Dataset = ConcatDataset(
+            [
+                TrainDataset(
+                    self.data.sel(
+                        time=get_time_slice(
+                            self.val_times,
+                            time_delta=self.time_delta,
+                            hist=self.hist,
+                        )[0]
+                    ),
+                    self.inputs,
+                    self.extra_in,
+                    self.outputs,
+                    self.wet,
+                    self.hist,
+                    1,  # current_step set to 1 for validation
+                    stride,
+                )
+                for stride in self.data_stride
+            ]
+        )
 
         logging.info("Instantiating torch loaders")
 
         if using_gpu():
-            self.train_sampler = torch.utils.data.distributed.DistributedSampler(
-                train_data, shuffle=True
-            )
-            self.val_sampler = torch.utils.data.distributed.DistributedSampler(
-                val_data, shuffle=False
-            )
+            self.train_sampler = DistributedSampler(train_data, shuffle=True)
+            self.val_sampler = DistributedSampler(val_data, shuffle=False)
         else:
-            self.train_sampler = torch.utils.data.RandomSampler(train_data)
-            self.val_sampler = torch.utils.data.RandomSampler(val_data)
+            self.train_sampler = RandomSampler(train_data)
+            self.val_sampler = RandomSampler(val_data)
 
-        self.train_loader = torch.utils.data.DataLoader(
+        # Create data loaders
+        self.train_loader = DataLoader(
             train_data,
             batch_size=self.batch_size,
             sampler=self.train_sampler,
             num_workers=self.num_workers,
             pin_memory=self.pin_mem,
             drop_last=True,
+            collate_fn=collate_train_data,
         )
-        self.val_loader = torch.utils.data.DataLoader(
+
+        self.val_loader = DataLoader(
             val_data,
             batch_size=self.batch_size,
             sampler=self.val_sampler,
             num_workers=self.num_workers,
             pin_memory=self.pin_mem,
             drop_last=False,
+            collate_fn=collate_train_data,
         )
 
     def save_checkpoint(self, epoch, v_loss, inf_loss):

@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 
 from models.base import BaseModel
+from models.corrector import Corrector
 from models.modules.blocks import BilinearUpsample, CoreBlock, TransposedConvUpsample
 from models.modules.factory import (
     create_block,
@@ -120,6 +121,7 @@ class UNet(BaseModel):
         layers.append(nn.Conv2d(b, config.n_out, config.last_kernel_size))
 
         self.layers = nn.ModuleList(layers)
+        self.corrector = Corrector(config.corrector)
         self.num_steps = int(len(config.ch_width) - 1)
 
     def forward_once(self, fts):
@@ -159,4 +161,5 @@ class UNet(BaseModel):
                     fts = nn.functional.pad(fts, pads)
                     fts += temp[int(2 * self.num_steps - count - 1)]
                     count += 1
+        fts = self.corrector(fts)
         return torch.mul(fts, self.wet)

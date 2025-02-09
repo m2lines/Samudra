@@ -83,5 +83,9 @@ unet:
     upscale_factor: 4
     norm: "batch"
 
+  corrector:
+    non_negative_corrector_names:
+      - "so"
+
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

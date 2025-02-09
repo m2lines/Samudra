@@ -7,7 +7,7 @@ gantry: false
 cluster_data_dir: null
 
 wandb:
-  mode: online
+  mode: disabled
   project: 3D_ocean_emu_CM4
   entity: suryadheeshjith
 
@@ -82,6 +82,10 @@ unet:
     activation: "capped_gelu"
     upscale_factor: 4
     norm: "batch"
+
+  corrector:
+    non_negative_corrector_names:
+      - "so"
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

@@ -4,6 +4,7 @@
 # - cleaner dataset modules
 import argparse
 import datetime
+import gc
 import logging
 import os
 import time
@@ -432,6 +433,9 @@ class Trainer:
         ):
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
+
+            if using_gpu():
+                gc.collect()
 
             self.optimizer.zero_grad()
             data.to(self.device)

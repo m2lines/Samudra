@@ -1,14 +1,13 @@
 import dataclasses
-from typing import Dict, List, Literal, Mapping, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import matplotlib.pyplot as plt
 import torch
+import wandb
 import xarray as xr
-from fme.core.dataset.data_typing import VariableMetadata
-from fme.core.distributed import Distributed
-from fme.core.gridded_ops import GriddedOperations
-from fme.core.typing_ import TensorDict, TensorMapping
-from fme.core.wandb import Image, WandB
+
+from aggregator.metrics import area_weighted_mean_bias, area_weighted_rmse
+from utils.distributed import all_reduce_mean
 
 from ..plotting import get_cmap_limits, plot_imshow
 
@@ -18,16 +17,17 @@ class _TargetGenPair:
     name: str
     target: torch.Tensor
     gen: torch.Tensor
-    ops: GriddedOperations
+    area_weights: torch.Tensor
 
     def bias(self):
         return self.gen - self.target
 
     def rmse(self) -> float:
         ret = float(
-            self.ops.area_weighted_rmse(
-                predicted=self.gen,
-                truth=self.target,
+            area_weighted_rmse(
+                gen=self.gen,
+                target=self.target,
+                area_weights=self.area_weights,
             )
             .cpu()
             .numpy()
@@ -36,16 +36,17 @@ class _TargetGenPair:
 
     def weighted_mean_bias(self) -> float:
         return float(
-            self.ops.area_weighted_mean_bias(
-                predicted=self.gen,
-                truth=self.target,
+            area_weighted_mean_bias(
+                gen=self.gen,
+                target=self.target,
+                area_weights=self.area_weights,
             )
             .cpu()
             .numpy()
         )
 
 
-def get_gen_shape(gen_data: TensorMapping):
+def get_gen_shape(gen_data: Dict[str, torch.Tensor]):
     for name in gen_data:
         return gen_data[name].shape
 
@@ -58,40 +59,40 @@ class TimeMeanAggregator:
 
     def __init__(
         self,
-        gridded_operations: GriddedOperations,
+        area_weights: torch.Tensor,
         target: Literal["norm", "denorm"] = "denorm",
-        variable_metadata: Optional[Mapping[str, VariableMetadata]] = None,
+        metadata: Optional[Dict[str, Dict[str, str]]] = None,
         reference_means: Optional[xr.Dataset] = None,
     ):
         """
         Args:
-            gridded_operations: Computes gridded operations.
+            area_weights: Tensor of shape [n_lat, n_lon] representing the area weights.
             target: Whether to compute metrics on the normalized or denormalized data,
                 defaults to "denorm".
-            variable_metadata: Mapping of variable names their metadata that will
+            metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
             reference_means: Dataset containing reference time-mean values
                 for bias computation.
         """
-        self._ops = gridded_operations
         self._target = target
-        if variable_metadata is None:
-            self._variable_metadata: Mapping[str, VariableMetadata] = {}
+        if metadata is None:
+            self._metadata: Dict[str, Dict[str, str]] = {}
         else:
-            self._variable_metadata = variable_metadata
+            self._metadata = metadata
         # Dictionaries of tensors of shape [n_lat, n_lon] represnting time means
-        self._data: Optional[TensorDict] = None
+        self._data: Optional[Dict[str, torch.Tensor]] = None
         self._n_timesteps = 0
         self._n_samples: Optional[int] = None
         self._reference_means = reference_means
         self._reference_validated = False
+        self._area_weights = area_weights
 
     @staticmethod
     def _add_or_initialize_time_mean(
-        maybe_dict: Optional[TensorDict],
-        new_data: TensorMapping,
+        maybe_dict: Optional[Dict[str, torch.Tensor]],
+        new_data: Dict[str, torch.Tensor],
         ignore_initial: bool = False,
-    ) -> TensorDict:
+    ) -> Dict[str, torch.Tensor]:
         sample_dim = 0
         time_dim = 1
         if ignore_initial:
@@ -99,7 +100,7 @@ class TimeMeanAggregator:
         else:
             time_slice = slice(0, None)
         if maybe_dict is None:
-            d: TensorDict = {
+            d: Dict[str, torch.Tensor] = {
                 name: tensor[:, time_slice].sum(dim=time_dim).sum(dim=sample_dim)
                 for name, tensor in new_data.items()
             }
@@ -112,10 +113,15 @@ class TimeMeanAggregator:
     @torch.no_grad()
     def record_batch(
         self,
-        data: TensorMapping,
+        data: Dict[str, torch.Tensor],
         i_time_start: int = 0,
     ):
         ignore_initial = i_time_start == 0
+        if ignore_initial:
+            raise Exception(
+                "This is wrong! Make sure this isnt called while recording "
+                "initial prognostic"
+            )
         self._data = self._add_or_initialize_time_mean(self._data, data, ignore_initial)
         if self._n_samples is None:
             self._n_samples = data[list(data)[0]].size(0)
@@ -128,25 +134,23 @@ class TimeMeanAggregator:
                 self.get_logs(label="")
             self._reference_validated = True
 
-    def get_data(self) -> TensorDict:
+    def get_data(self) -> Dict[str, torch.Tensor]:
         if self._n_timesteps == 0 or self._data is None:
             raise ValueError("No data recorded.")
 
         ret = {}
-        dist = Distributed.get_instance()
         names = sorted(list(self._data.keys()))  # sort for rank-consistent order
         for name in names:
             value = self._data[name]
-            gen = dist.reduce_mean(value / self._n_timesteps / self._n_samples)
+            gen = all_reduce_mean(value / self._n_timesteps / self._n_samples)
             ret[name] = gen
         return ret
 
     @torch.no_grad()
-    def get_logs(self, label: str) -> Dict[str, Union[float, Image]]:
-        logs: Dict[str, Union[float, Image]] = {}
+    def get_logs(self, label: str) -> Dict[str, Union[float, wandb.Image]]:
+        logs: Dict[str, Union[float, wandb.Image]] = {}
         data = self.get_data()
         gen_map_key = "gen_map"
-        wandb = WandB.get_instance()
         for name, pred in data.items():
             vmin_pred, vmax_pred = get_cmap_limits(pred.cpu().numpy())
             prediction_image = wandb.Image(
@@ -166,11 +170,11 @@ class TimeMeanAggregator:
                         self._reference_means[name].values, device=pred.device
                     ),
                     gen=pred,
-                    ops=self._ops,
+                    area_weights=self._area_weights,
                 )
                 bias_map = pair.bias().cpu().numpy()
                 vmin_bias, vmax_bias = get_cmap_limits(bias_map, diverging=True)
-                bias_fig = plot_imshow(
+                bias_fig: plt.Figure = plot_imshow(
                     bias_map, vmin=vmin_bias, vmax=vmax_bias, cmap="RdBu_r"
                 )
                 bias_image = wandb.Image(
@@ -186,36 +190,14 @@ class TimeMeanAggregator:
         return logs
 
     def _get_caption(self, key: str, name: str, vmin: float, vmax: float) -> str:
-        if name in self._variable_metadata:
-            caption_name = self._variable_metadata[name].long_name
-            units = self._variable_metadata[name].units
+        if name in self._metadata:
+            caption_name = self._metadata[name]["long_name"]
+            units = self._metadata[name]["units"]
         else:
             caption_name, units = name, "unknown_units"
         caption = self._image_captions[key].format(name=caption_name, units=units)
         caption += f" vmin={vmin:.4g}, vmax={vmax:.4g}."
         return caption
-
-    def get_dataset(self) -> xr.Dataset:
-        dims = ("lat", "lon")
-        data = {}
-        for name, pred in self.get_data().items():
-            if name in self._variable_metadata:
-                long_name = self._variable_metadata[name].long_name
-                units = self._variable_metadata[name].units
-            else:
-                long_name = name
-                units = "unknown_units"
-            gen_metadata = VariableMetadata(long_name=long_name, units=units)._asdict()
-            data.update(
-                {
-                    f"gen_map-{name}": xr.DataArray(
-                        pred.cpu(),
-                        dims=dims,
-                        attrs=gen_metadata,
-                    ),
-                }
-            )
-        return xr.Dataset(data)
 
 
 class TimeMeanEvaluatorAggregator:
@@ -232,53 +214,49 @@ class TimeMeanEvaluatorAggregator:
 
     def __init__(
         self,
-        ops: GriddedOperations,
-        horizontal_dims: List[str],
+        area_weights: torch.Tensor,
         target: Literal["norm", "denorm"] = "denorm",
-        variable_metadata: Optional[Mapping[str, VariableMetadata]] = None,
+        metadata: Optional[Dict[str, Dict[str, str]]] = None,
         reference_means: Optional[xr.Dataset] = None,
         channel_mean_names: Optional[List[str]] = None,
     ):
         """
         Args:
-            ops: Computes gridded operations.
-            horizontal_dims: Names of the horizontal dimensions.
+            area_weights: Tensor of shape [n_lat, n_lon] representing the area weights.
             target: Whether to compute metrics on the normalized or denormalized data,
                 defaults to "denorm".
-            variable_metadata: Mapping of variable names their metadata that will
+            metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
             reference_means: Dataset containing reference time-mean values
                 for bias computation.
             channel_mean_names: Names of variables whose RMSE will be averaged. If
                 not provided, all available variables will be used.
         """
-        self._ops = ops
-        self._horizontal_dims = horizontal_dims
         self._target = target
-        self._dist = Distributed.get_instance()
-        if variable_metadata is None:
-            self._variable_metadata: Mapping[str, VariableMetadata] = {}
+        if metadata is None:
+            self._metadata: Dict[str, Dict[str, str]] = {}
         else:
-            self._variable_metadata = variable_metadata
+            self._metadata = metadata
+        self._area_weights = area_weights
         # Dictionaries of tensors of shape [n_lat, n_lon] represnting time means
         self._target_agg = TimeMeanAggregator(
-            gridded_operations=ops, target=target, variable_metadata=variable_metadata
+            target=target, metadata=metadata, area_weights=self._area_weights
         )
         self._gen_agg = TimeMeanAggregator(
-            gridded_operations=ops,
             target=target,
-            variable_metadata=variable_metadata,
+            metadata=metadata,
             reference_means=reference_means,
+            area_weights=self._area_weights,
         )
         self._channel_mean_names = channel_mean_names
 
     @torch.no_grad()
     def record_batch(
         self,
-        target_data: TensorMapping,
-        gen_data: TensorMapping,
-        target_data_norm: TensorMapping,
-        gen_data_norm: TensorMapping,
+        target_data: Dict[str, torch.Tensor],
+        gen_data: Dict[str, torch.Tensor],
+        target_data_norm: Dict[str, torch.Tensor],
+        gen_data_norm: Dict[str, torch.Tensor],
         i_time_start: int = 0,
     ):
         if self._target == "norm":
@@ -298,18 +276,19 @@ class TimeMeanEvaluatorAggregator:
                     gen=gen_data[name],
                     target=target_data[name],
                     name=name,
-                    ops=self._ops,
+                    area_weights=self._area_weights,
                 )
             )
         return ret
 
     @torch.no_grad()
-    def get_logs(self, label: str) -> Dict[str, Union[float, torch.Tensor, Image]]:
+    def get_logs(
+        self, label: str
+    ) -> Dict[str, Union[float, torch.Tensor, wandb.Image]]:
         logs = self._gen_agg.get_logs("")
         preds = self._get_target_gen_pairs()
         bias_map_key = "bias_map"
         rmse_all_channels = {}
-        wandb = WandB.get_instance()
         for pred in preds:
             bias_data = pred.bias().cpu().numpy()
             vmin_bias, vmax_bias = get_cmap_limits(bias_data, diverging=True)
@@ -347,41 +326,11 @@ class TimeMeanEvaluatorAggregator:
         return logs
 
     def _get_caption(self, key: str, name: str, vmin: float, vmax: float) -> str:
-        if name in self._variable_metadata:
-            caption_name = self._variable_metadata[name].long_name
-            units = self._variable_metadata[name].units
+        if name in self._metadata:
+            caption_name = self._metadata[name]["long_name"]
+            units = self._metadata[name]["units"]
         else:
             caption_name, units = name, "unknown_units"
         caption = self._image_captions[key].format(name=caption_name, units=units)
         caption += f" vmin={vmin:.4g}, vmax={vmax:.4g}."
         return caption
-
-    def get_dataset(self) -> xr.Dataset:
-        data = {}
-        preds = self._get_target_gen_pairs()
-        for pred in preds:
-            if pred.name in self._variable_metadata:
-                long_name = self._variable_metadata[pred.name].long_name
-                units = self._variable_metadata[pred.name].units
-            else:
-                long_name = pred.name
-                units = "unknown_units"
-            gen_metadata = VariableMetadata(long_name=long_name, units=units)._asdict()
-            bias_metadata = self._variable_metadata.get(
-                pred.name, VariableMetadata(long_name=long_name, units=units)
-            )._asdict()
-            data.update(
-                {
-                    f"bias_map-{pred.name}": xr.DataArray(
-                        pred.bias().cpu(),
-                        dims=self._horizontal_dims,
-                        attrs=bias_metadata,
-                    ),
-                    f"gen_map-{pred.name}": xr.DataArray(
-                        pred.gen.cpu(),
-                        dims=self._horizontal_dims,
-                        attrs=gen_metadata,
-                    ),
-                }
-            )
-        return xr.Dataset(data)

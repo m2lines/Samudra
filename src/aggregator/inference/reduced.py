@@ -1,16 +1,21 @@
 import dataclasses
 from collections import defaultdict
-from typing import Dict, List, Literal, Mapping, Optional, Protocol
+from functools import partial
+from typing import Dict, List, Literal, Optional, Protocol
 
 import numpy as np
 import torch
-import xarray as xr
-from fme.core.dataset.data_typing import VariableMetadata
-from fme.core.device import get_device
-from fme.core.distributed import Distributed
-from fme.core.gridded_ops import GriddedOperations
-from fme.core.typing_ import TensorMapping
-from fme.core.wandb import Table, WandB
+import wandb
+
+from aggregator.metrics import (
+    area_weighted_gradient_magnitude_percent_diff,
+    area_weighted_mean,
+    area_weighted_mean_bias,
+    area_weighted_rmse,
+    area_weighted_std,
+)
+from utils.device import get_device
+from utils.distributed import all_reduce_mean
 
 
 @dataclasses.dataclass
@@ -22,11 +27,8 @@ class _SeriesData:
     def get_wandb_key(self) -> str:
         return f"{self.metric_name}/{self.var_name}"
 
-    def get_xarray_key(self) -> str:
-        return f"{self.metric_name}-{self.var_name}"
 
-
-def get_gen_shape(gen_data: TensorMapping):
+def get_gen_shape(gen_data: Dict[str, torch.Tensor]):
     for name in gen_data:
         return gen_data[name].shape
 
@@ -67,8 +69,8 @@ class AreaWeightedFunction(Protocol):
 
     def __call__(
         self,
-        truth: torch.Tensor,
-        predicted: torch.Tensor,
+        target: torch.Tensor,
+        gen: torch.Tensor,
     ) -> torch.Tensor: ...
 
 
@@ -93,13 +95,13 @@ def compute_metric_on(
     """
 
     def metric_wrapper(
-        truth: torch.Tensor,
-        predicted: torch.Tensor,
+        target: torch.Tensor,
+        gen: torch.Tensor,
     ) -> torch.Tensor:
         if source == "gen":
-            return metric(predicted)
+            return metric(gen)
         elif source == "target":
-            return metric(truth)
+            return metric(target)
 
     return metric_wrapper
 
@@ -137,7 +139,9 @@ class AreaWeightedReducedMetric:
                 "target and gen must have the same shape, got "
                 f"{target.shape} and {gen.shape}"
             )
-        new_value = self._compute_metric(truth=target, predicted=gen).mean(dim=0)
+        new_value = (
+            self._compute_metric(target=target, gen=gen).mean(dim=0).to(self._device)
+        )
         if self._total is None:
             self._total = torch.zeros(
                 [self._n_timesteps], dtype=new_value.dtype, device=self._device
@@ -156,25 +160,24 @@ class AreaWeightedReducedMetric:
 class MeanAggregator:
     def __init__(
         self,
-        gridded_operations: GriddedOperations,
         target: Literal["norm", "denorm"],
         n_timesteps: int,
-        variable_metadata: Optional[Mapping[str, VariableMetadata]] = None,
+        area_weights: torch.Tensor,
+        metadata: Optional[Dict[str, Dict[str, str]]] = None,
     ):
-        self._gridded_operations = gridded_operations
         self._variable_metrics: Optional[Dict[str, Dict[str, MeanMetric]]] = None
         self._shape_x = None
         self._shape_y = None
         self._target = target
         self._n_timesteps = n_timesteps
+        self._area_weights = area_weights
 
-        self._dist = Distributed.get_instance()
-        if variable_metadata is None:
-            self._variable_metadata: Mapping[str, VariableMetadata] = {}
+        if metadata is None:
+            self._metadata: Dict[str, Dict[str, str]] = {}
         else:
-            self._variable_metadata = variable_metadata
+            self._metadata = metadata
 
-    def _get_variable_metrics(self, gen_data: TensorMapping):
+    def _get_variable_metrics(self, gen_data: Dict[str, torch.Tensor]):
         if self._variable_metrics is None:
             self._variable_metrics = {}
 
@@ -182,7 +185,9 @@ class MeanAggregator:
             self._variable_metrics["weighted_rmse"] = defaultdict(
                 lambda: AreaWeightedReducedMetric(
                     device=device,
-                    compute_metric=self._gridded_operations.area_weighted_rmse,
+                    compute_metric=partial(
+                        area_weighted_rmse, area_weights=self._area_weights
+                    ),
                     n_timesteps=self._n_timesteps,
                 )
             )
@@ -190,7 +195,10 @@ class MeanAggregator:
                 self._variable_metrics["weighted_grad_mag_percent_diff"] = defaultdict(
                     lambda: AreaWeightedReducedMetric(
                         device=device,
-                        compute_metric=self._gridded_operations.area_weighted_gradient_magnitude_percent_diff,  # noqa: E501
+                        compute_metric=partial(
+                            area_weighted_gradient_magnitude_percent_diff,
+                            area_weights=self._area_weights,
+                        ),  # noqa: E501
                         n_timesteps=self._n_timesteps,
                     )
                 )
@@ -200,7 +208,7 @@ class MeanAggregator:
                     compute_metric=compute_metric_on(
                         source="gen",
                         metric=lambda tensor: (
-                            self._gridded_operations.area_weighted_mean(tensor)
+                            area_weighted_mean(tensor, area_weights=self._area_weights)
                         ),
                     ),
                     n_timesteps=self._n_timesteps,
@@ -212,7 +220,7 @@ class MeanAggregator:
                     compute_metric=compute_metric_on(
                         source="target",
                         metric=lambda tensor: (
-                            self._gridded_operations.area_weighted_mean(tensor)
+                            area_weighted_mean(tensor, area_weights=self._area_weights)
                         ),
                     ),
                     n_timesteps=self._n_timesteps,
@@ -221,7 +229,9 @@ class MeanAggregator:
             self._variable_metrics["weighted_bias"] = defaultdict(
                 lambda: AreaWeightedReducedMetric(
                     device=device,
-                    compute_metric=self._gridded_operations.area_weighted_mean_bias,
+                    compute_metric=partial(
+                        area_weighted_mean_bias, area_weights=self._area_weights
+                    ),
                     n_timesteps=self._n_timesteps,
                 )
             )
@@ -231,8 +241,8 @@ class MeanAggregator:
                     compute_metric=compute_metric_on(
                         source="gen",
                         metric=(
-                            lambda tensor: self._gridded_operations.area_weighted_std(
-                                tensor
+                            lambda tensor: area_weighted_std(
+                                tensor, area_weights=self._area_weights
                             )
                         ),
                     ),
@@ -244,10 +254,10 @@ class MeanAggregator:
     @torch.no_grad()
     def record_batch(
         self,
-        target_data: TensorMapping,
-        gen_data: TensorMapping,
-        target_data_norm: TensorMapping,
-        gen_data_norm: TensorMapping,
+        target_data: Dict[str, torch.Tensor],
+        gen_data: Dict[str, torch.Tensor],
+        target_data_norm: Dict[str, torch.Tensor],
+        gen_data_norm: Dict[str, torch.Tensor],
         i_time_start: int = 0,
     ):
         if self._target == "norm":
@@ -276,7 +286,7 @@ class MeanAggregator:
                 datum = _SeriesData(
                     metric_name=metric,
                     var_name=key,
-                    data=self._dist.reduce_mean(arr).cpu().numpy(),
+                    data=all_reduce_mean(arr).cpu().numpy(),
                 )
                 data.append(datum)
         return data
@@ -300,30 +310,8 @@ class MeanAggregator:
         logs[f"{label}/series"] = table
         return logs
 
-    @torch.no_grad()
-    def get_dataset(self) -> xr.Dataset:
-        """
-        Returns a dataset representation of the logs.
-        """
-        data_vars = {}
-        for datum in self._get_series_data():
-            metadata = self._variable_metadata.get(
-                datum.var_name, VariableMetadata("unknown_units", datum.var_name)
-            )
-            data_vars[datum.get_xarray_key()] = xr.DataArray(
-                datum.data, dims=["forecast_step"], attrs=metadata._asdict()
-            )
 
-        if len(data_vars.values()) > 0:
-            n_forecast_steps = len(next(iter(data_vars.values())))
-            coords = {"forecast_step": np.arange(n_forecast_steps)}
-        else:
-            coords = {"forecast_step": np.arange(0)}
-
-        return xr.Dataset(data_vars=data_vars, coords=coords)
-
-
-def data_to_table(data: Dict[str, np.ndarray], init_step: int = 0) -> Table:
+def data_to_table(data: Dict[str, np.ndarray], init_step: int = 0) -> wandb.Table:
     """
     Convert a dictionary of 1-dimensional timeseries data to a wandb Table.
 
@@ -332,7 +320,6 @@ def data_to_table(data: Dict[str, np.ndarray], init_step: int = 0) -> Table:
         init_step: initial step corresponding to the first row's "forecast_step"
     """
     keys = sorted(list(data.keys()))
-    wandb = WandB.get_instance()
     table = wandb.Table(columns=["forecast_step"] + keys)
     if len(keys) > 0:
         for i in range(len(data[keys[0]])):
@@ -369,7 +356,7 @@ class AreaWeightedSingleTargetReducedMetric:
             tensor: batch data. Should have shape [batch, time, height, width].
             i_time_start: The index of the first timestep in the batch.
         """
-        new_value = self._compute_metric(tensor).mean(dim=0)
+        new_value = self._compute_metric(tensor).mean(dim=0).to(self._device)
         if self._total is None:
             self._total = torch.zeros(
                 [self._n_timesteps], dtype=new_value.dtype, device=self._device
@@ -388,25 +375,23 @@ class AreaWeightedSingleTargetReducedMetric:
 class SingleTargetMeanAggregator:
     def __init__(
         self,
-        gridded_operations: GriddedOperations,
         n_timesteps: int,
-        variable_metadata: Optional[Mapping[str, VariableMetadata]] = None,
+        area_weights: torch.Tensor,
+        metadata: Optional[Dict[str, Dict[str, str]]] = None,
     ):
-        self._ops = gridded_operations
         self._variable_metrics: Optional[
             Dict[str, Dict[str, SingleTargetMeanMetric]]
         ] = None
         self._shape_x = None
         self._shape_y = None
         self._n_timesteps = n_timesteps
-
-        self._dist = Distributed.get_instance()
-        if variable_metadata is None:
-            self._variable_metadata: Mapping[str, VariableMetadata] = {}
+        self._area_weights = area_weights
+        if metadata is None:
+            self._metadata: Dict[str, Dict[str, str]] = {}
         else:
-            self._variable_metadata = variable_metadata
+            self._metadata = metadata
 
-    def _get_variable_metrics(self, gen_data: TensorMapping):
+    def _get_variable_metrics(self, gen_data: Dict[str, torch.Tensor]):
         if self._variable_metrics is None:
             self._variable_metrics = {
                 "weighted_mean_gen": {},
@@ -417,14 +402,14 @@ class SingleTargetMeanAggregator:
             self._variable_metrics["weighted_mean_gen"] = defaultdict(
                 lambda: AreaWeightedSingleTargetReducedMetric(
                     device=device,
-                    compute_metric=lambda x: self._ops.area_weighted_mean(x),
+                    compute_metric=lambda x: area_weighted_mean(x, self._area_weights),
                     n_timesteps=self._n_timesteps,
                 )
             )
             self._variable_metrics["weighted_std_gen"] = defaultdict(
                 lambda: AreaWeightedSingleTargetReducedMetric(
                     device=device,
-                    compute_metric=lambda x: self._ops.area_weighted_std(x),
+                    compute_metric=lambda x: area_weighted_std(x, self._area_weights),
                     n_timesteps=self._n_timesteps,
                 )
             )
@@ -434,7 +419,7 @@ class SingleTargetMeanAggregator:
     @torch.no_grad()
     def record_batch(
         self,
-        data: TensorMapping,
+        data: Dict[str, torch.Tensor],
         i_time_start: int = 0,
     ):
         variable_metrics = self._get_variable_metrics(data)
@@ -459,7 +444,7 @@ class SingleTargetMeanAggregator:
                 datum = _SeriesData(
                     metric_name=metric,
                     var_name=key,
-                    data=self._dist.reduce_mean(arr).cpu().numpy(),
+                    data=all_reduce_mean(arr).cpu().numpy(),
                 )
                 data.append(datum)
         return data
@@ -482,21 +467,3 @@ class SingleTargetMeanAggregator:
         table = data_to_table(series_data, init_step)
         logs[f"{label}/series"] = table
         return logs
-
-    @torch.no_grad()
-    def get_dataset(self) -> xr.Dataset:
-        """
-        Returns a dataset representation of the logs.
-        """
-        data_vars = {}
-        for datum in self._get_series_data():
-            metadata = self._variable_metadata.get(
-                datum.var_name, VariableMetadata("unknown_units", datum.var_name)
-            )
-            data_vars[datum.get_xarray_key()] = xr.DataArray(
-                datum.data, dims=["forecast_step"], attrs=metadata._asdict()
-            )
-
-        n_forecast_steps = len(next(iter(data_vars.values())))
-        coords = {"forecast_step": np.arange(n_forecast_steps)}
-        return xr.Dataset(data_vars=data_vars, coords=coords)

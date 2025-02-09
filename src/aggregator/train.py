@@ -3,8 +3,8 @@ from typing import Dict
 import torch
 
 from aggregator.loss import LossAggregator
-from stepper import TrainOutput
 from utils.distributed import all_reduce_mean
+from utils.model import TrainOutput
 
 
 class TrainAggregator:

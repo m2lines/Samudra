@@ -50,21 +50,21 @@ data:
     end_time: 311-01-01
   inference:
     - start_time: 151-01-06
-      end_time: 171-01-06
+      end_time: 171-01-11
     - start_time: 171-01-06
-      end_time: 191-01-06
+      end_time: 191-01-11
     - start_time: 191-01-06
-      end_time: 211-01-06
+      end_time: 211-01-11
     - start_time: 211-01-06
-      end_time: 231-01-06
+      end_time: 231-01-11
     - start_time: 231-01-06
-      end_time: 251-01-06
+      end_time: 251-01-11
     - start_time: 251-01-06
-      end_time: 271-01-06
+      end_time: 271-01-11
     - start_time: 271-01-06
-      end_time: 291-01-06
+      end_time: 291-01-11
     - start_time: 291-01-06
-      end_time: 311-01-06
+      end_time: 311-01-11
   inference_epochs: [-1] # -1 indicates inference at all epochs
 
 unet:

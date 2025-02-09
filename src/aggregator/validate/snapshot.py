@@ -38,7 +38,7 @@ class SnapshotAggregator:
     @torch.no_grad()
     def record_batch(
         self,
-        loss: float,
+        loss: torch.Tensor,
         target_data,
         gen_data,
         input_data,

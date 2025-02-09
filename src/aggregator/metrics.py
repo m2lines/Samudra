@@ -23,6 +23,7 @@ def weighted_mean(
     if weights is None:
         return tensor.mean(dim=dim, keepdim=keepdim)
 
+    weights = weights.to(tensor.device)
     return (tensor * weights).sum(dim=dim, keepdim=keepdim) / weights.expand(
         tensor.shape
     ).sum(dim=dim, keepdim=keepdim)
@@ -35,6 +36,18 @@ def area_weighted_mean(
     keepdim: bool = False,
 ) -> torch.Tensor:
     return weighted_mean(data, area_weights, dim=dim, keepdim=keepdim)
+
+
+def area_weighted_std(
+    data: torch.Tensor,
+    area_weights: torch.Tensor,
+    keepdim: bool = False,
+):
+    return area_weighted_mean(
+        (data - area_weighted_mean(data, area_weights, keepdim=True)) ** 2,
+        area_weights,
+        keepdim=keepdim,
+    ).sqrt()
 
 
 def area_weighted_rmse(

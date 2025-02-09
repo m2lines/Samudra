@@ -2,7 +2,7 @@
 
 set -e
 
-JOB_NAME="samudra-train"  # recommended but not required to change this
+JOB_NAME="samudra-train-cm4-thermo"  # recommended but not required to change this
 CONFIG_PATH=configs/gantry_train_cm4_thermo.yaml  # relative to the root of the repository
 
 echo 'Using config file:' $CONFIG_PATH
@@ -12,7 +12,7 @@ N_GPUS=8
 
 gantry run \
     --name $JOB_NAME \
-    --description 'Testing Gantry' \
+    --description 'Training Samudra with CM4 Thermo' \
     --workspace ai2/ace \
     --priority high \
     --cluster ai2/saturn-cirrascale \

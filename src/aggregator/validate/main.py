@@ -1,22 +1,25 @@
 from typing import Dict
 
 import torch
-from einops import rearrange
 
 from aggregator.loss import LossAggregator
 from aggregator.train import TrainAggregator
 from aggregator.validate.map import MapAggregator
 from aggregator.validate.reduced import MeanAggregator
 from aggregator.validate.snapshot import SnapshotAggregator
-from stepper import ValOutput
-from utils.data import Normalize, convert_tensor_out_to_dict
+from utils.data import Normalize, get_norm_unnorm_dicts
+from utils.model import ValOutput
 
 
 class ValidateAggregator(TrainAggregator):
     """Aggregates Validation Statistics."""
 
     def __init__(
-        self, metadata: Dict[str, Dict[str, str]], hist: int, area_weights: torch.Tensor
+        self,
+        metadata: Dict[str, Dict[str, str]],
+        hist: int,
+        area_weights: torch.Tensor,
+        output_channels: int,
     ):
         super().__init__()
 
@@ -29,6 +32,7 @@ class ValidateAggregator(TrainAggregator):
         self.normalize = Normalize.get_instance()
         self._loss_scaling = LossAggregator.get_instance().loss_scale
         self.hist = hist
+        self.output_channels = output_channels
 
     @torch.no_grad()
     def record_batch(self, batch: ValOutput):
@@ -39,16 +43,24 @@ class ValidateAggregator(TrainAggregator):
         if len(batch.gen_data) == 0:
             raise ValueError("No data in gen_data")
 
-        target_data_dict, target_data_unnorm_dict = self.get_norm_unnorm_dicts(
-            batch.target_data
+        target_data_dict, target_data_unnorm_dict = get_norm_unnorm_dicts(
+            batch.target_data,
+            input_type="target",
+            output_channels=self.output_channels,
+            hist=self.hist,
         )
 
-        gen_data_dict, gen_data_unnorm_dict = self.get_norm_unnorm_dicts(batch.gen_data)
-        num_output_channels = len(target_data_dict.keys())
-        input_data_dict, input_data_unnorm_dict = self.get_norm_unnorm_dicts(
+        gen_data_dict, gen_data_unnorm_dict = get_norm_unnorm_dicts(
+            batch.gen_data,
+            input_type="gen",
+            output_channels=self.output_channels,
+            hist=self.hist,
+        )
+        input_data_dict, input_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.input_data,
             input_type="input",
-            num_output_channels=num_output_channels,
+            output_channels=self.output_channels,
+            hist=self.hist,
         )
 
         for agg in self._aggregators.values():
@@ -61,27 +73,6 @@ class ValidateAggregator(TrainAggregator):
                 gen_data_norm=gen_data_dict,
                 input_data_norm=input_data_dict,
             )
-
-    @torch.no_grad()
-    def get_norm_unnorm_dicts(
-        self,
-        data: torch.Tensor,
-        input_type: str = "target",
-        num_output_channels: int = 0,
-    ):
-        # Remove boundary data if input
-        if input_type == "input":
-            data = data[:, : num_output_channels * (self.hist + 1)]
-
-        # Separate history from channels
-        data_ = rearrange(data, "n (hi c) h w -> n hi c h w", hi=self.hist + 1)
-        # Get normalized dict
-        data_dict = convert_tensor_out_to_dict(data_)
-        # Unnormalize
-        data_unnorm = self.normalize.unnormalize_tensor_outputs(data_)
-        # Get unnormalized dict
-        data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
-        return data_dict, data_unnorm_dict
 
     @torch.no_grad()
     def get_logs(self, label: str):

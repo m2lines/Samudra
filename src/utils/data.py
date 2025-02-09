@@ -1,10 +1,10 @@
-from datetime import timedelta
 from typing import Dict, Optional
 
 import cftime
 import numpy as np
 import torch
 import xarray as xr
+from einops import rearrange
 
 from constants import DEPTH_LEVELS, TensorMap
 
@@ -24,7 +24,7 @@ def extract_wet_mask(wet_zarr, outputs, hist):
     return wet
 
 
-def get_time_slice(time_config, initial_cond=False, time_delta=5, hist=1):
+def get_time_slice(time_config, time_delta=5, hist=1):
     """
     Get the time slice and number of rollout steps for the given time configuration.
 
@@ -53,16 +53,9 @@ def get_time_slice(time_config, initial_cond=False, time_delta=5, hist=1):
         int(end_year), int(end_month), int(end_day), 0, 0, 0
     )
     num_steps = (end_time - start_time).days // time_delta + 1
-
     # Might have extra remaining days, so we remove them
     mod = num_steps % (hist + 1)
     num_steps = num_steps - mod
-
-    if initial_cond:
-        start_time = start_time - timedelta(
-            days=time_delta * (hist + 1)
-        )  # Prepending initial condition
-
     return slice(start_time, end_time), num_steps
 
 
@@ -74,6 +67,28 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tens
     for i, var in enumerate(tensor_map.outputs):
         out_dict[var] = tensor_out[:, :, i]
     return out_dict
+
+
+def get_norm_unnorm_dicts(
+    data: torch.Tensor,
+    input_type: str = "target",
+    output_channels: int = 0,
+    hist: int = 1,
+):
+    normalize = Normalize.get_instance()
+    # Remove boundary data if input
+    if input_type == "input":
+        data = data[:, :output_channels]
+
+    # Separate history from channels
+    data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
+    # Get normalized dict
+    data_dict = convert_tensor_out_to_dict(data_reshaped)
+    # Unnormalize
+    data_unnorm = normalize.unnormalize_tensor_outputs(data_reshaped)
+    # Get unnormalized dict
+    data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
+    return data_dict, data_unnorm_dict
 
 
 # TODO: Repetitive code. Refactor
@@ -175,7 +190,7 @@ class Normalize:
         tensor_std = self._to_tensor(self._inputs_std_np, data.device)
         norm = (data - tensor_mean) / tensor_std
         if fill_nan:
-            norm = norm.fillna(fill_value)
+            norm = norm.nan_to_num(nan=fill_value)
         return norm
 
     def normalize_tensor_outputs(
@@ -186,7 +201,7 @@ class Normalize:
         tensor_std = self._to_tensor(self._outputs_std_np, data.device)
         norm = (data - tensor_mean) / tensor_std
         if fill_nan:
-            norm = norm.fillna(fill_value)
+            norm = norm.nan_to_num(nan=fill_value)
         return norm
 
     def unnormalize_tensor_outputs(self, data: torch.Tensor) -> torch.Tensor:

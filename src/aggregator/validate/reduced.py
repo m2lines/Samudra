@@ -1,6 +1,7 @@
 from functools import partial
 from typing import Callable, Dict, Optional
 
+import numpy as np
 import torch
 
 from aggregator.metrics import (
@@ -53,14 +54,10 @@ class MeanAggregator:
     metrics across batches and processors.
     """
 
-    def __init__(
-        self,
-        area_weights: torch.Tensor,
-        hist: int,
-    ):
+    def __init__(self, area_weights: torch.Tensor, target_time: int):
         self._n_batches = 0
         self._variable_metrics: Optional[Dict] = None
-        self._target_time = hist
+        self._target_time = target_time
         self._area_weights = area_weights
 
     def _get_variable_metrics(self, gen_data):
@@ -103,21 +100,23 @@ class MeanAggregator:
     @torch.no_grad()
     def record_batch(
         self,
-        loss: float,
         target_data,
         gen_data,
-        input_data,
         target_data_norm,
         gen_data_norm,
-        input_data_norm,
+        input_data: Dict[str, torch.Tensor] = {},
+        input_data_norm: Dict[str, torch.Tensor] = {},
+        loss: torch.Tensor = torch.tensor(np.nan),
+        i_time_start: int = 0,
     ):
         variable_metrics = self._get_variable_metrics(gen_data)
         time_dim = 1
         time_len = gen_data[list(gen_data.keys())[0]].shape[time_dim]
-        if self._target_time >= 0 and time_len > self._target_time:
+        target_time = self._target_time - i_time_start
+        if target_time >= 0 and time_len > target_time:
             for name in gen_data.keys():
-                target = target_data[name].select(dim=time_dim, index=self._target_time)
-                gen = gen_data[name].select(dim=time_dim, index=self._target_time)
+                target = target_data[name].select(dim=time_dim, index=target_time)
+                gen = gen_data[name].select(dim=time_dim, index=target_time)
                 for metric in variable_metrics:
                     variable_metrics[metric][name].record(
                         target=target,

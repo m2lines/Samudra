@@ -2,8 +2,8 @@
 
 set -e
 
-JOB_NAME="samudra-train-cm4-thermo-scheduler"  # recommended but not required to change this
-CONFIG_PATH=configs/gantry_train_cm4_thermo.yaml  # relative to the root of the repository
+JOB_NAME="samudra-train-cm4-thermodynamic-scheduler"  # recommended but not required to change this
+CONFIG_PATH=configs/gantry_train_cm4_thermodynamic.yaml  # relative to the root of the repository
 
 echo 'Using config file:' $CONFIG_PATH
  # since we use a service account API key for wandb, we use the beaker username to set the wandb username
@@ -24,7 +24,7 @@ gantry run \
     --dataset jamesd/2025-01-20-cm4-ocean-piControl-200yr-dataset-stats:/statsdata \
     --dataset suryad/CM4_5daily_v0.4.0_wetmask:/wetmask \
     --gpus $N_GPUS \
-    --shared-memory 400GiB \
+    --shared-memory 500GiB \
     --weka climate-default:/climate-default \
     --budget ai2/climate \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \

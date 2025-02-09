@@ -4,7 +4,7 @@ rand_seed: 1
 base_output_dir: /results
 debug: false
 gantry: true
-cluster_data_dir: null
+cluster_data_dir: /
 
 wandb:
   mode: online

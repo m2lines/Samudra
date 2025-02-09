@@ -20,7 +20,7 @@ training:
   epochs: 120
   batch_size: 4
   learning_rate: 0.0002
-  scheduler: false
+  scheduler: true
   loss: mse
   network: convnextunet
   exp_num_in: 3D_all

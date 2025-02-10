@@ -80,10 +80,13 @@ class BaseModel(torch.nn.Module):
         dataset: InferenceDataset,
         initial_prognostic=None,
         num_steps=None,
+        epoch=None,
     ) -> list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         for step in range(num_steps):
-            logging.info(f"Inference: Rollout step {step} of {num_steps - 1}.")
+            logging.info(
+                f"Inference [epoch {epoch}]: Rollout step {step} of {num_steps - 1}."
+            )
             if step == 0:
                 input_tensor = dataset.get_initial_input(initial_prognostic).to(
                     device=get_device()

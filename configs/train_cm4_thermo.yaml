@@ -49,7 +49,7 @@ distributed:
 experiment:
   name: train
   sub_name: local_cm4_samudra_thermo
-  rand_seed: 1
+  rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
   cluster_data_dir: null
@@ -71,7 +71,7 @@ data:
   depth_mode: all
   time_delta: 5
   num_workers: 4
-  hist: 1
+  hist: 0
 
 
 unet:

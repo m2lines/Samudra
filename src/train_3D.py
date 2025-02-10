@@ -535,6 +535,7 @@ class Trainer:
                 self.model.module if using_gpu() else self.model,
                 inference_dataset,
                 inf_aggregator,
+                epoch,
             )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

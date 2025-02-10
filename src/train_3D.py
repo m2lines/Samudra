@@ -156,6 +156,7 @@ class Trainer:
         self.metadata = construct_metadata(self.data)
         wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
         self.wet = extract_wet_mask(wet_zarr, self.outputs, cfg.data.hist)
+        wet_without_hist = extract_wet_mask(wet_zarr, self.outputs, 0)
         areacello = wet_zarr.areacello.to_numpy()
         self.area_weights = areacello / areacello.sum()
         self.area_weights = torch.from_numpy(self.area_weights).to(self.device)
@@ -166,6 +167,7 @@ class Trainer:
             self.inputs,
             self.extra_in,
             self.outputs,
+            wet_without_hist,
         )
 
         # Model

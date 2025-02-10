@@ -115,13 +115,16 @@ class Normalize:
         inputs_str: str,
         extra_in_str: str,
         outputs_str: str,
+        wet_mask: torch.Tensor,
     ) -> "Normalize":
         """Initialize the singleton instance with normalization parameters."""
         if cls._instance is not None:
             raise ValueError("Normalize already initialized")
 
         instance = super().__new__(cls)
-        instance._initialize(data_mean, data_std, inputs_str, extra_in_str, outputs_str)
+        instance._initialize(
+            data_mean, data_std, inputs_str, extra_in_str, outputs_str, wet_mask
+        )
         cls._instance = instance
         return cls._instance
 
@@ -132,6 +135,7 @@ class Normalize:
         inputs_str: str,
         extra_in_str: str,
         outputs_str: str,
+        wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
         self.inputs_mean = data_mean[inputs_str]
@@ -140,12 +144,14 @@ class Normalize:
         self.extras_std = data_std[extra_in_str]
         self.outputs_mean = data_mean[outputs_str]
         self.outputs_std = data_std[outputs_str]
+        self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access
         self._inputs_mean_np = self.inputs_mean.to_array().to_numpy().reshape(-1)
         self._inputs_std_np = self.inputs_std.to_array().to_numpy().reshape(-1)
         self._outputs_mean_np = self.outputs_mean.to_array().to_numpy().reshape(-1)
         self._outputs_std_np = self.outputs_std.to_array().to_numpy().reshape(-1)
+        self._wet_mask_np = self.wet_mask.numpy()
 
     def _to_tensor(self, array: np.ndarray, device: torch.device) -> torch.Tensor:
         """Convert numpy array to tensor on specified device."""
@@ -155,7 +161,7 @@ class Normalize:
         self, data: xr.Dataset, fill_nan=True, fill_value=0.0
     ) -> xr.Dataset:
         """Normalize input dataset."""
-        norm = ((data - self.inputs_mean) / self.inputs_std).fillna(0)
+        norm = (data - self.inputs_mean) / self.inputs_std
         if fill_nan:
             norm = norm.fillna(fill_value)
         return norm
@@ -164,7 +170,7 @@ class Normalize:
         self, data: xr.Dataset, fill_nan=True, fill_value=0.0
     ) -> xr.Dataset:
         """Normalize boundary conditions."""
-        norm = ((data - self.extras_mean) / self.extras_std).fillna(0)
+        norm = (data - self.extras_mean) / self.extras_std
         if fill_nan:
             norm = norm.fillna(fill_value)
         return norm
@@ -173,14 +179,16 @@ class Normalize:
         self, data: xr.Dataset, fill_nan=True, fill_value=0.0
     ) -> xr.Dataset:
         """Normalize output dataset."""
-        norm = ((data - self.outputs_mean) / self.outputs_std).fillna(0)
+        norm = (data - self.outputs_mean) / self.outputs_std
         if fill_nan:
             norm = norm.fillna(fill_value)
         return norm
 
     def unnormalize_outputs(self, data: xr.Dataset) -> xr.Dataset:
         """Unnormalize output dataset."""
-        return data * self.outputs_std + self.outputs_mean
+        data_unnorm = data * self.outputs_std + self.outputs_mean
+        data_unnorm = data_unnorm * xr.DataArray(self._wet_mask_np)
+        return data_unnorm
 
     def normalize_tensor_inputs(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
@@ -230,6 +238,7 @@ class Normalize:
             raise ValueError(f"Invalid data shape: {data.shape}")
 
         unnorm = data * tensor_std + tensor_mean
+        unnorm = unnorm * self.wet_mask.to(data.device)
         return unnorm
 
     def normalize_numpy_inputs(
@@ -257,4 +266,6 @@ class Normalize:
 
     def unnormalize_numpy_outputs(self, data: np.ndarray) -> np.ndarray:
         """Unnormalize output numpy array."""
-        return data * self._outputs_std_np + self._outputs_mean_np
+        data_unnorm = data * self._outputs_std_np + self._outputs_mean_np
+        data_unnorm = data_unnorm * self._wet_mask_np
+        return data_unnorm

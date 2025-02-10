@@ -193,3 +193,54 @@ class TrainConfig:
 
         with open(save_path, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False)
+
+
+@dataclass
+class EvalConfig:
+    # Basic parameters
+    debug: bool = False
+    disk_mode: bool = True
+
+    # Config components
+    inference: TimeConfig = field(
+        default_factory=lambda: TimeConfig("311-01-01", "351-01-01")
+    )
+    experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
+    data: DataConfig = field(default_factory=DataConfig)
+    unet: UNetConfig = field(default_factory=UNetConfig)
+
+    @classmethod
+    def from_yaml(
+        cls, yaml_path: str, overrides: Optional[Dict[str, Any]] = None
+    ) -> "EvalConfig":
+        """Load config from YAML with strict validation using dacite."""
+        with open(yaml_path, "r") as f:
+            config_dict = yaml.safe_load(f)
+
+        # Handle sub_name override if provided
+        if overrides and "sub_name" in overrides.keys():
+            config_dict["experiment"]["sub_name"] = overrides["sub_name"]
+
+        return from_dict(
+            data_class=cls,
+            data=config_dict,
+            config=DaciteConfig(strict=True, check_types=True, cast=[Path]),
+        )
+
+    def save_yaml(self, save_path: str):
+        """Save config to YAML file."""
+        config_dict = {
+            "debug": self.debug,
+            "disk_mode": self.disk_mode,
+            "inference": self.inference.__dict__,
+            "experiment": self.experiment.__dict__,
+            "data": self.data.__dict__,
+            "unet": {
+                **self.unet.__dict__,
+                "core_block": self.unet.core_block.__dict__,
+                "corrector": self.unet.corrector.__dict__,
+            },
+        }
+
+        with open(save_path, "w") as f:
+            yaml.dump(config_dict, f, default_flow_style=False)

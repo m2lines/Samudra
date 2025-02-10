@@ -4,8 +4,8 @@ pin_mem: true
 save_freq: 5
 epochs: 120
 batch_size: 2 # 4
-learning_rate: 0.0002
-scheduler: true
+learning_rate: 0.0001
+scheduler: false
 loss: mse
 finetune: false
 resume_ckpt_path: null
@@ -54,7 +54,7 @@ experiment:
   gantry: false
   cluster_data_dir: null
   wandb:
-    mode: online
+    mode: disabled
     project: 3D_ocean_emu_CM4
     entity: suryadheeshjith
   network: convnextunet

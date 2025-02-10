@@ -60,7 +60,7 @@ class Stepper:
         for i in range(num_model_steps):
             logging.info(
                 f"Inference [epoch {epoch}]: processing output window {i} of "
-                "{num_model_steps - 1}."
+                f"{num_model_steps - 1}."
             )
             IO = InfOutput(
                 prediction=outs[i].cpu(),

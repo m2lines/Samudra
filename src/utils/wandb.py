@@ -69,7 +69,7 @@ class WandBLogger:
                 self.init(
                     config=cfg.__dict__,
                     name=wandb_name,
-                    dir=cfg.output_dir,
+                    dir=cfg.experiment.output_dir,
                     resume="must",
                     id=wandb_id,
                     **cfg.wandb.__dict__,
@@ -79,7 +79,7 @@ class WandBLogger:
                 self.init(
                     config=cfg.__dict__,
                     name=wandb_name,
-                    dir=cfg.output_dir,
+                    dir=cfg.experiment.output_dir,
                     **cfg.wandb.__dict__,
                 )
 
@@ -95,16 +95,16 @@ class WandBLogger:
             tuple: (None, generated_name) for new run
         """
         wandb_name = (
-            cfg.name + "//" + cfg.sub_name
-            if hasattr(cfg, "sub_name")
-            else ".LOCAL" + "//" + cfg.name
+            cfg.experiment.name + "//" + cfg.experiment.sub_name
+            if hasattr(cfg.experiment, "sub_name")
+            else ".LOCAL" + "//" + cfg.experiment.name
         )
 
         if self._enabled:
             self.init(
                 config=cfg.__dict__,
                 name=wandb_name,
-                dir=cfg.output_dir,
+                dir=cfg.experiment.output_dir,
                 **cfg.wandb.__dict__,
             )
 

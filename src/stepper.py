@@ -1,5 +1,5 @@
 import logging
-from typing import Callable
+from typing import Callable, Dict
 
 import torch
 
@@ -38,11 +38,12 @@ class Stepper:
 
     @staticmethod
     @torch.no_grad()
-    def inline_inference(
+    def inference(
         model: torch.nn.Module,
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
+        record_every: int = 10,
     ) -> None:
         record_logs = get_record_to_wandb(label="inference")
         logging.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
@@ -58,9 +59,10 @@ class Stepper:
             epoch=epoch,
         )
 
+        all_logs: list[Dict[str, float | int | str]] = []
         for i in range(num_model_steps):
             logging.info(
-                f"Inference [epoch {epoch}]: processing output window {i} of "
+                f"Inference [epoch {epoch}]: recording output window {i} of "
                 f"{num_model_steps - 1}."
             )
             IO = InfOutput(
@@ -69,4 +71,12 @@ class Stepper:
                 time=dataset.inputs.time[i],
             )  # time-dependent aggs dont work, time is incorrect as well
             logs = inf_aggregator.record_batch(IO)
-            record_logs(logs)
+            all_logs = all_logs + logs
+            if (i + 1) % record_every == 0:
+                logging.info(f"Inference [epoch {epoch}]: wandb logging...")
+                record_logs(all_logs)
+                all_logs = []
+
+        if len(all_logs) > 0:
+            logging.info(f"Inference [epoch {epoch}]: wandb logging...")
+            record_logs(all_logs)

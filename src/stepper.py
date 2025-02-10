@@ -42,9 +42,10 @@ class Stepper:
         model: torch.nn.Module,
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
+        epoch: int,
     ) -> None:
         record_logs = get_record_to_wandb(label="inference")
-        logging.info(f"Inference: processing initial prognostic.")
+        logging.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
         logs = inf_aggregator.record_initial_prognostic(
             initial_prognostic=dataset.initial_prognostic,
         )
@@ -58,7 +59,8 @@ class Stepper:
 
         for i in range(num_model_steps):
             logging.info(
-                f"Inference: processing output window {i} of {num_model_steps - 1}."
+                f"Inference [epoch {epoch}]: processing output window {i} of "
+                "{num_model_steps - 1}."
             )
             IO = InfOutput(
                 prediction=outs[i].cpu(),

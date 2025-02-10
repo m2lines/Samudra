@@ -1,5 +1,5 @@
 name: train
-sub_name: cm4_samudra_thermo
+sub_name: cm4_samudra_thermodynamic
 rand_seed: 1
 base_output_dir: /results
 debug: false

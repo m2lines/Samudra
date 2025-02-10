@@ -19,13 +19,13 @@ def handle_logging(cfg):
         level=level,
         format="%(asctime)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler(cfg.output_dir / "training.log"),
+            logging.FileHandler(cfg.experiment.output_dir / "training.log"),
             logging.StreamHandler(),
         ],
     )
 
     # Add separate error log file handler
-    error_handler = logging.FileHandler(cfg.output_dir / "error.log")
+    error_handler = logging.FileHandler(cfg.experiment.output_dir / "error.log")
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
     error_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")

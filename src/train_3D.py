@@ -28,7 +28,7 @@ from torch.utils.data import (
 )
 
 from aggregator import Aggregator, LossAggregator
-from config import Config
+from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset, InferenceDatasets, TrainDataset
 from models.unet import UNet
@@ -59,33 +59,31 @@ class Trainer:
     def __init__(self, cfg) -> None:
         if not using_gpu():
             logging.info("No GPU available, using CPU")
-            cfg.training.distributed = False
+            cfg.distributed.enabled = False
 
         self.device = get_device()
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
-            cfg.training.num_workers = 0  # Disable multi-processing on CPU
-            cfg.training.pin_mem = False
-        elif cfg.training.disk_mode:
-            cfg.training.num_workers = (
-                torch.cuda.device_count() * cfg.training.num_workers
-            )
-            cfg.training.pin_mem = True
+            cfg.data.num_workers = 0  # Disable multi-processing on CPU
+            cfg.pin_mem = False
+        elif cfg.disk_mode:
+            cfg.data.num_workers = torch.cuda.device_count() * cfg.data.num_workers
+            cfg.pin_mem = True
 
         # Distributed mode
-        init_distributed_mode(cfg.training)
+        init_distributed_mode(cfg.distributed)
         dask.config.set(scheduler="synchronous")
 
         # Set seeds
-        set_seed(cfg.rand_seed)
+        set_seed(cfg.experiment.rand_seed)
 
         # Getting input, extra input and output
-        self.inputs = INPT_VARS[cfg.training.exp_num_in]
-        self.extra_in = EXTRA_VARS[cfg.training.exp_num_extra]
-        self.outputs = OUT_VARS[cfg.training.exp_num_out]
+        self.inputs = INPT_VARS[cfg.experiment.exp_num_in]
+        self.extra_in = EXTRA_VARS[cfg.experiment.exp_num_extra]
+        self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
 
-        levels = cfg.training.exp_num_in.split("_")[-1]
+        levels = cfg.experiment.exp_num_in.split("_")[-1]
         if "all" in levels:
             self.levels = 19
         elif "2D" in levels:
@@ -110,16 +108,16 @@ class Trainer:
         self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
         self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
 
-        self.tensor_map = TensorMap.init_instance(cfg.training.exp_num_out)
+        self.tensor_map = TensorMap.init_instance(cfg.experiment.exp_num_out)
 
         logging.info(f"Number of inputs: {self.num_in}")
         logging.info(f"Number of outputs: {self.num_out}")
 
-        assert isinstance(cfg.data.data_stride, list)
-        assert isinstance(cfg.data.steps, list)
-        assert isinstance(cfg.data.step_transition, list)
-        assert len(cfg.data.step_transition) == len(cfg.data.steps) - 1
-        max_steps = str(cfg.data.steps[-1])
+        assert isinstance(cfg.data_stride, list)
+        assert isinstance(cfg.steps, list)
+        assert isinstance(cfg.step_transition, list)
+        assert len(cfg.step_transition) == len(cfg.steps) - 1
+        max_steps = str(cfg.steps[-1])
         self.str_video = (
             "steps_"
             + max_steps
@@ -131,7 +129,7 @@ class Trainer:
         # Dataloaders
         logging.info(f"Loading data")
         assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
-        self.data_dir = cfg.data_dir
+        self.data_dir = cfg.experiment.data_dir
         self.wet_file = cfg.data.wet_file
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
@@ -171,8 +169,8 @@ class Trainer:
         )
 
         # Model
-        logging.info(f"Getting model {cfg.training.network}")
-        if "convnextunet" == cfg.training.network or "adamunet" == cfg.training.network:
+        logging.info(f"Getting model {cfg.experiment.network}")
+        if "convnextunet" == cfg.experiment.network:
             if cfg.unet.ch_width[0] != self.num_in:
                 logging.info(
                     f"NOTE: Changing input channels to match data "
@@ -194,23 +192,23 @@ class Trainer:
         get_model_summary(model, self.num_in)
 
         self.model = model
-        self.nets_dir = cfg.nets_dir
-        self.network = cfg.training.network
+        self.nets_dir = cfg.experiment.nets_dir
+        self.network = cfg.experiment.network
 
         # Loss function
-        if cfg.training.loss == "mse":
+        if cfg.loss == "mse":
             logging.info("Using decomposed mse loss")
             self.loss_fn = decomposed_mse
-        elif cfg.training.loss == "mse_diff_weighted":
+        elif cfg.loss == "mse_diff_weighted":
             assert cfg.data.hist == 1  # TEMP
             logging.info("Using decomposed mse loss with weighted diff")
             self.loss_fn = decomposed_mse_diff_weighted
-        elif cfg.training.loss == "mse_cos_weighted":
+        elif cfg.loss == "mse_cos_weighted":
             logging.info("Using decomposed mse loss with weighted cos")
             area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device=self.device)
             self.loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
-        elif cfg.training.loss == "mse_residual_scaled":
+        elif cfg.loss == "mse_residual_scaled":
             logging.info("Using decomposed mse loss with scaled residuals")
             scaling_residuals = xr.open_zarr(
                 os.path.join(self.data_dir, self.scaling_residuals_file)
@@ -223,39 +221,39 @@ class Trainer:
             ).to(device=self.device)
             scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
             self.loss_fn = partial(decomposed_mse_scaled, scaling=scale)
-        elif cfg.training.loss == "mse_mae":
+        elif cfg.loss == "mse_mae":
             logging.info("Using decomposed mse loss with mae")
             self.loss_fn = decomposed_mse_mae
         else:
             raise NotImplementedError
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=cfg.training.learning_rate
-        )
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
 
         # Scheduler
         self.scheduler = None
-        if cfg.training.scheduler:
+        if cfg.scheduler:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer, T_max=cfg.training.epochs
+                self.optimizer, T_max=cfg.epochs
             )
 
         # Initialize WandB
         self.wandb_logger = WandBLogger.init_instance()
-        self.wandb_logger.configure(cfg.wandb.mode == "online", is_main_process())
+        self.wandb_logger.configure(
+            cfg.experiment.wandb.mode == "online", is_main_process()
+        )
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
-            cfg.training.resume_ckpt_path, cfg, finetune=cfg.training.finetune
+            cfg.resume_ckpt_path, cfg, finetune=cfg.finetune
         )
 
-        if cfg.training.resume_ckpt_path is not None:
-            if cfg.training.finetune:
-                self.load_checkpoint(cfg.training.resume_ckpt_path, finetune=True)
+        if cfg.resume_ckpt_path is not None:
+            if cfg.finetune:
+                self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
                 self.start_epoch = 1
             else:
-                self.load_checkpoint(cfg.training.resume_ckpt_path)
+                self.load_checkpoint(cfg.resume_ckpt_path)
                 if not self.wandb_logger.enabled and is_main_process():
                     warnings.warn(
                         "This checkpoint had wandb enabled, \
@@ -268,26 +266,26 @@ class Trainer:
         if using_gpu():
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
             self.model = nn.parallel.DistributedDataParallel(
-                self.model, device_ids=[cfg.training.gpu]
+                self.model, device_ids=[cfg.distributed.gpu]
             )
 
         # Training
-        self.epochs = cfg.training.epochs
+        self.epochs = cfg.epochs
         self.hist = cfg.data.hist
-        self.steps = cfg.data.steps
-        self.step_transition = cfg.data.step_transition
-        self.save_freq = cfg.training.save_freq
-        self.output_dir = cfg.output_dir
-        self.network = cfg.training.network
+        self.steps = cfg.steps
+        self.step_transition = cfg.step_transition
+        self.save_freq = cfg.save_freq
+        self.output_dir = cfg.experiment.output_dir
+        self.network = cfg.experiment.network
         self.debug = cfg.debug
-        self.data_stride = cfg.data.data_stride
-        self.batch_size = cfg.training.batch_size
-        self.num_workers = cfg.training.num_workers
-        self.pin_mem = cfg.training.pin_mem
-        self.train_times = cfg.data.train
-        self.val_times = cfg.data.val
-        self.inference_times = cfg.data.inference
-        self.inference_epochs = cfg.data.inference_epochs
+        self.data_stride = cfg.data_stride
+        self.batch_size = cfg.batch_size
+        self.num_workers = cfg.data.num_workers
+        self.pin_mem = cfg.pin_mem
+        self.train_times = cfg.train
+        self.val_times = cfg.val
+        self.inference_times = cfg.inference
+        self.inference_epochs = cfg.inference_epochs
         self.time_delta = cfg.data.time_delta
         self.num_batches_seen = 0
 
@@ -749,16 +747,16 @@ def main():
         overrides["sub_name"] = args.subname
 
     # Load config from YAML
-    cfg = Config.from_yaml(args.config, overrides)
+    cfg = TrainConfig.from_yaml(args.config, overrides)
 
     # Check dirs
-    if not os.path.exists(cfg.nets_dir):
-        os.makedirs(cfg.nets_dir, exist_ok=True)
+    if not os.path.exists(cfg.experiment.nets_dir):
+        os.makedirs(cfg.experiment.nets_dir, exist_ok=True)
 
-    if not os.path.exists(cfg.output_dir):
-        os.makedirs(cfg.output_dir, exist_ok=True)
+    if not os.path.exists(cfg.experiment.output_dir):
+        os.makedirs(cfg.experiment.output_dir, exist_ok=True)
 
-    cfg.save_yaml(cfg.output_dir / "config.yaml")
+    cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
     handle_logging(cfg)
     handle_warnings()

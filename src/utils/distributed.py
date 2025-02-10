@@ -75,7 +75,7 @@ def is_main_process():
 
 
 def init_distributed_mode(cfg):
-    if not cfg.distributed:
+    if not cfg.enabled:
         return
 
     if "RANK" in os.environ:

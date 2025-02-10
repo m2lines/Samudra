@@ -2,7 +2,7 @@
 
 set -e
 
-JOB_NAME="samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector"  # recommended but not required to change this
+JOB_NAME="samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector-FusedAdam-lr0.0001"  # recommended but not required to change this
 CONFIG_PATH=configs/gantry_train_cm4_thermodynamic.yaml  # relative to the root of the repository
 
 echo 'Using config file:' $CONFIG_PATH

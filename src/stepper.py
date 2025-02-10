@@ -55,6 +55,7 @@ class Stepper:
             dataset,
             initial_prognostic=None,
             num_steps=num_model_steps,  # Here we consider history
+            epoch=epoch,
         )
 
         for i in range(num_model_steps):

@@ -1,2 +1,0 @@
-_target_: models.modules.activations.CappedLeakyReLU
-cap_value: 10

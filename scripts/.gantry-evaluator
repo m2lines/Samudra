@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -e
+
+JOB_NAME="samudra-evaluator"  # recommended but not required to change this
+CONFIG_PATH=configs/gantry_eval_cm4_thermodynamic.yaml  # relative to the root of the repository
+EXISTING_RESULTS_DATASET="01J4MT10JPQ8MFA41F2AXGFYJ9"  # this contains the checkpoint to use for inference
+
+echo 'Using config file:' $CONFIG_PATH
+ # since we use a service account API key for wandb, we use the beaker username to set the wandb username
+BEAKER_USERNAME=$(beaker account whoami --format=json | jq -r '.[0].name')
+N_GPUS=1
+
+gantry run \
+    --name $JOB_NAME \
+    --description 'Evaluating Samudra with CM4' \
+    --workspace ai2/ace \
+    --priority normal \
+    --cluster ai2/saturn-cirrascale \
+    --cluster ai2/jupiter-cirrascale-2 \
+    --cluster ai2/ceres-cirrascale \
+    --env GOOGLE_APPLICATION_CREDENTIALS=/tmp/google_application_credentials.json \
+    --env-secret WANDB_API_KEY=wandb-api-key-suryad \
+    --dataset-secret google-credentials:/tmp/google_application_credentials.json \
+    --dataset jamesd/2025-01-20-cm4-ocean-piControl-200yr-dataset-stats:/statsdata \
+    --dataset suryad/CM4_5daily_v0.4.0_wetmask:/wetmask \
+    --dataset $EXISTING_RESULTS_DATASET:training_checkpoints/best_inference_ckpt.tar:/ckpt.tar \
+    --gpus $N_GPUS \
+    --shared-memory 200GiB \
+    --weka climate-default:/climate-default \
+    --budget ai2/climate \
+    --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
+    --venv 'base' \
+    --install "pip install -r requirements.txt" \
+    -- python src/evaluator.py --config $CONFIG_PATH --subname $JOB_NAME

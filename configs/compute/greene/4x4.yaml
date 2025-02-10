@@ -1,3 +1,0 @@
-# @package compute
-nodes: 4
-gpus_per_node: 4

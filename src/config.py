@@ -149,8 +149,9 @@ class TrainConfig:
         with open(yaml_path, "r") as f:
             config_dict = yaml.safe_load(f)
 
-        if overrides:
-            config_dict.update(overrides)
+        # TODO: This is a hack to allow for overrides of the sub_name
+        if overrides and "sub_name" in overrides.keys():
+            config_dict["experiment"]["sub_name"] = overrides["sub_name"]
 
         return from_dict(
             data_class=cls,

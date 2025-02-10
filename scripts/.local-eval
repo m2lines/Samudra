@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Assumes you have activated the emulator conda environment and
+# set the CLUSTER_NAME and OCEAN_DATA_DIR environment variables
+set -e
+CONFIG_PATH=configs/eval_cm4_thermo.yaml
+
+echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR
+echo 'Using config file:' $CONFIG_PATH
+
+# Create a temporary config file with updated cluster_data_dir
+TMP_CONFIG_PATH=/tmp/config_temp.yaml
+sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $TMP_CONFIG_PATH
+
+python3 src/eval.py --config $TMP_CONFIG_PATH

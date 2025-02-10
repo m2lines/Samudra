@@ -1,11 +1,11 @@
 __pycache__
 .DS_Store
 .ipynb_checkpoints
+download-beaker.sh
 jobs
 saved_nets
 Preds
 old_files
-data
 videos
 wandb
 .LOCAL

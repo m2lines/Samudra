@@ -1,7 +1,6 @@
 # https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html
 
 import torch
-import pytest
 
 
 def load_model_weights(path):

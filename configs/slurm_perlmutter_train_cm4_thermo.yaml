@@ -1,0 +1,87 @@
+name: train
+sub_name: cm4_samudra_thermo
+rand_seed: 1
+base_output_dir: train_3D
+debug: true
+gantry: false
+cluster_data_dir: /pscratch/sd/s/suryad/data
+
+wandb:
+  mode: online
+  project: 3D_ocean_emu_CM4
+  entity: suryadheeshjith
+
+training:
+  distributed: true
+  disk_mode: true
+  num_workers: 4
+  pin_mem: true
+  save_freq: 5
+  epochs: 120
+  batch_size: 4
+  learning_rate: 0.0002
+  scheduler: true
+  loss: mse
+  network: convnextunet
+  exp_num_in: 3D_noFast_all
+  exp_num_extra: 3D_all
+  exp_num_out: 3D_noFast_all
+  finetune: false
+  resume_ckpt_path: null
+
+data:
+  wet_file: CM4_5daily_v0.4.0_wetmask
+  data_path: cm4_piControl_ocean_200yr_full.zarr
+  data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
+  data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
+  scaling_residuals_file: null
+  depth_mode: all
+  data_stride: [1]
+  steps: [4]
+  step_transition: []
+  hist: 1
+  data_percent: 1.0
+  time_delta: 5
+  train:
+    start_time: 151-01-06
+    end_time: 156-01-06
+  val:
+    start_time: 306-01-01
+    end_time: 311-01-01
+  inference:
+    - start_time: 151-01-06
+      end_time: 171-01-11
+    - start_time: 171-01-06
+      end_time: 191-01-11
+    - start_time: 191-01-06
+      end_time: 211-01-11
+    - start_time: 211-01-06
+      end_time: 231-01-11
+    - start_time: 231-01-06
+      end_time: 251-01-11
+    - start_time: 251-01-06
+      end_time: 271-01-11
+    - start_time: 271-01-06
+      end_time: 291-01-11
+    - start_time: 291-01-06
+      end_time: 311-01-11
+  inference_epochs: [-1]
+
+unet:
+  ch_width: [157, 200, 250, 300, 400]
+  n_out: 77
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: "circular"
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 4
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "bilinear_upsample"

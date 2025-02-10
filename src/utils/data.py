@@ -199,6 +199,13 @@ class Normalize:
         """Normalize output tensor."""
         tensor_mean = self._to_tensor(self._outputs_mean_np, data.device)
         tensor_std = self._to_tensor(self._outputs_std_np, data.device)
+        if data.ndim == 4:
+            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, -1, 1, 1])
+        elif data.ndim == 5:
+            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
+
         norm = (data - tensor_mean) / tensor_std
         if fill_nan:
             norm = norm.nan_to_num(nan=fill_value)
@@ -210,7 +217,9 @@ class Normalize:
         tensor_std = self._to_tensor(self._outputs_std_np, data.device)
 
         if data.ndim == 4:
-            assert data.shape[1] == self._outputs_mean_np.shape[0]
+            assert (
+                data.shape[1] == self._outputs_mean_np.shape[0]
+            ), f"{data.shape[1]} != {self._outputs_mean_np.shape[0]}"
             tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
             tensor_std = tensor_std.reshape([1, -1, 1, 1])
         elif data.ndim == 5:

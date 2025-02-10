@@ -15,12 +15,12 @@ from utils.train import pairwise
 
 
 class UNet(BaseModel):
-    def __init__(self, config, wet):
+    def __init__(self, config, hist, wet):
         super().__init__(
             ch_width=config.ch_width,
             n_out=config.n_out,
             wet=wet,
-            hist=config.hist,
+            hist=hist,
             pred_residuals=config.pred_residuals,
             last_kernel_size=config.last_kernel_size,
             pad=config.pad,
@@ -121,7 +121,7 @@ class UNet(BaseModel):
         layers.append(nn.Conv2d(b, config.n_out, config.last_kernel_size))
 
         self.layers = nn.ModuleList(layers)
-        self.corrector = Corrector(config.corrector)
+        self.corrector = Corrector(config.corrector, hist)
         self.num_steps = int(len(config.ch_width) - 1)
 
     def forward_once(self, fts):

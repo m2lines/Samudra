@@ -160,6 +160,14 @@ class Trainer:
         self.area_weights = areacello / areacello.sum()
         self.area_weights = torch.from_numpy(self.area_weights).to(self.device)
 
+        self.normalize = Normalize.init_instance(
+            self.data_mean,
+            self.data_std,
+            self.inputs,
+            self.extra_in,
+            self.outputs,
+        )
+
         # Model
         logging.info(f"Getting model {cfg.training.network}")
         if "convnextunet" == cfg.training.network or "adamunet" == cfg.training.network:
@@ -175,7 +183,9 @@ class Trainer:
                     f"{cfg.unet.n_out}->{self.num_out}"
                 )
                 cfg.unet.n_out = self.num_out
-            model = UNet(cfg.unet, wet=self.wet.to(self.device)).to(self.device)
+            model = UNet(cfg.unet, hist=cfg.data.hist, wet=self.wet.to(self.device)).to(
+                self.device
+            )
         else:
             raise NotImplementedError
 
@@ -281,13 +291,6 @@ class Trainer:
 
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
-        self.normalize = Normalize.init_instance(
-            self.data_mean,
-            self.data_std,
-            self.inputs,
-            self.extra_in,
-            self.outputs,
-        )
 
         self.init_inference_stores()
 

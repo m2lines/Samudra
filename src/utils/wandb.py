@@ -72,7 +72,7 @@ class WandBLogger:
                     dir=cfg.experiment.output_dir,
                     resume="must",
                     id=wandb_id,
-                    **cfg.wandb.__dict__,
+                    **cfg.experiment.wandb.__dict__,
                 )
             except Exception:
                 # If resume fails, start new run
@@ -80,7 +80,7 @@ class WandBLogger:
                     config=cfg.__dict__,
                     name=wandb_name,
                     dir=cfg.experiment.output_dir,
-                    **cfg.wandb.__dict__,
+                    **cfg.experiment.wandb.__dict__,
                 )
 
         return wandb_id, wandb_name
@@ -105,7 +105,7 @@ class WandBLogger:
                 config=cfg.__dict__,
                 name=wandb_name,
                 dir=cfg.experiment.output_dir,
-                **cfg.wandb.__dict__,
+                **cfg.experiment.wandb.__dict__,
             )
 
             wandb_id = self.run.id if self.run else None

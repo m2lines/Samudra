@@ -27,7 +27,7 @@ class Aggregator:
         )
 
     @staticmethod
-    def get_inference_aggregator(
+    def get_inline_inference_aggregator(
         n_timesteps: int,
         metadata: Dict[str, Dict[str, str]],
         hist: int,
@@ -42,4 +42,22 @@ class Aggregator:
             output_channels=output_channels,
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
+        )
+
+    @staticmethod
+    def get_standalone_inference_aggregator(
+        n_timesteps: int,
+        metadata: Dict[str, Dict[str, str]],
+        hist: int,
+        area_weights: torch.Tensor,
+        output_channels: int,
+    ) -> InferenceEvaluatorAggregator:
+        return InferenceEvaluatorAggregator(
+            n_timesteps=n_timesteps,
+            metadata=metadata,
+            hist=hist,
+            area_weights=area_weights,
+            output_channels=output_channels,
+            log_global_mean_time_series=True,
+            log_global_mean_norm_time_series=True,
         )

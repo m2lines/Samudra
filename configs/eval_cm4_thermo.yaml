@@ -2,7 +2,9 @@ debug: true
 disk_mode: true
 inference:
   start_time: 311-01-01
-  end_time: 351-01-01
+  end_time: 312-01-01 # 351-01-01
+ckpt_path: /pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL/2025-02-09-train-local_cm4_samudra_thermo/saved_nets/convnextunet_epoch_3_best_validation_steps_4_all_Lateral_Data_025_no_smooth.pt
+record_every: 10
 
 experiment:
   name: eval
@@ -12,7 +14,7 @@ experiment:
   gantry: false
   cluster_data_dir: /pscratch/sd/s/suryad/data # temporary for notebook testing
   wandb:
-    mode: disabled
+    mode: online
     project: 3D_ocean_emu_CM4
     entity: suryadheeshjith
   network: convnextunet

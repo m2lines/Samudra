@@ -200,7 +200,8 @@ class EvalConfig:
     # Basic parameters
     debug: bool = False
     disk_mode: bool = True
-
+    ckpt_path: str = ""
+    record_every: int = 10
     # Config components
     inference: TimeConfig = field(
         default_factory=lambda: TimeConfig("311-01-01", "351-01-01")
@@ -232,6 +233,8 @@ class EvalConfig:
         config_dict = {
             "debug": self.debug,
             "disk_mode": self.disk_mode,
+            "ckpt_path": self.ckpt_path,
+            "record_every": self.record_every,
             "inference": self.inference.__dict__,
             "experiment": self.experiment.__dict__,
             "data": self.data.__dict__,

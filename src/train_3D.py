@@ -525,7 +525,7 @@ class Trainer:
         for data_iter_step, (inference_dataset, num_steps) in enumerate(
             self.inference_loader
         ):
-            inf_aggregator = Aggregator.get_inference_aggregator(
+            inf_aggregator = Aggregator.get_inline_inference_aggregator(
                 num_steps,
                 self.metadata,
                 self.hist,
@@ -533,7 +533,7 @@ class Trainer:
                 self.num_out,
             )
 
-            Stepper.inline_inference(
+            Stepper.inference(
                 self.model.module if using_gpu() else self.model,
                 inference_dataset,
                 inf_aggregator,

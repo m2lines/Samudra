@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -86,12 +86,8 @@ class InferenceDataset(torch.utils.data.Dataset):
     def inference_target(self, step: int):
         return self.__getitem__(step)[1]
 
-    def get_initial_input(self, initial_prognostic: Optional[torch.Tensor] = None):
+    def get_initial_input(self):
         data = self.__getitem__(0)[0]
-        if initial_prognostic is not None:
-            data[:, : self.output_channels] = (
-                initial_prognostic  # Replace prognostic if provided
-            )
         return data
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):

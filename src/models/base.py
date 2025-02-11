@@ -79,23 +79,28 @@ class BaseModel(torch.nn.Module):
         self,
         dataset: InferenceDataset,
         initial_prognostic=None,
+        steps_completed=0,
         num_steps=None,
         epoch=None,
     ) -> list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         for step in range(num_steps):
             logging.info(
-                f"Inference [epoch {epoch}]: Rollout step {step} of {num_steps - 1}."
+                f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
+                f"of {steps_completed + num_steps - 1}."
             )
-            if step == 0:
-                input_tensor = dataset.get_initial_input(initial_prognostic).to(
-                    device=get_device()
-                )
+            if step == 0 and steps_completed == 0:
+                input_tensor = dataset.get_initial_input().to(device=get_device())
 
+            elif step == 0 and steps_completed > 0:
+                input_tensor = dataset.merge_prognostic_and_boundary(
+                    prognostic=initial_prognostic,
+                    step=steps_completed,
+                )
             else:
                 input_tensor = dataset.merge_prognostic_and_boundary(
                     prognostic=outputs[-1],
-                    step=step,
+                    step=steps_completed + step,
                 )
 
             decodings = self.forward_once(input_tensor)

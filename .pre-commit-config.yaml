@@ -26,3 +26,7 @@ repos:
         .+/conf.py |
         .+/conftest.py
         )$
+- repo: https://github.com/tox-dev/pyproject-fmt
+  rev: "v2.5.0"
+  hooks:
+    - id: pyproject-fmt

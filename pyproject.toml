@@ -1,22 +1,27 @@
 [build-system]
-requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+requires = [ "setuptools", "wheel" ]
+
 [project]
-name = "Ocean Emulators"
+name = "ocean-emulators"
 description = "Train and evaluate ocean model emulators"
 readme = "README.md"
+keywords = [ "climate", "emulation", "machine learning", "ocean" ]
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
-license = {file = "LICENSE"}
-keywords = ["ocean", "climate", "machine learning", "emulation"]
 classifiers = [
-    "Intended Audience :: Science/Research",
-    "Development Status :: 4 - Beta",
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dynamic = ["dependencies", "optional-dependencies", "version"]
+dynamic = [ "dependencies", "optional-dependencies", "version" ]
 
 [tool.setuptools.dynamic]
 dependencies = { file = "requirements.txt" }
@@ -24,21 +29,15 @@ dependencies = { file = "requirements.txt" }
 [tool.setuptools.packages]
 find = {}
 
+[tool.ruff]
+lint.select = [ "D", "E", "F", "I", "W" ]
+lint.ignore = [ "D1", "D200", "D205", "D212", "E203", "E402", "F541", "W293" ]
+lint.per-file-ignores."*/__init__.py" = [ "F401" ]
+lint.per-file-ignores."scripts/*" = [ "D" ]
+lint.per-file-ignores."test_*.py" = [ "D" ]
+lint.isort.split-on-trailing-comma = false
+lint.pydocstyle.convention = "google"
+
 [tool.mypy]
 ignore_missing_imports = true
 check_untyped_defs = true
-
-[tool.ruff.lint]
-select = ["D", "E", "F", "I", "W"]
-ignore = ["D1", "D200", "D205", "D212", "E203", "W293", "F541", "E402"]
-
-[tool.ruff.lint.per-file-ignores]
-"*/__init__.py" = ["F401"]
-"scripts/*" = ["D"]
-"test_*.py" = ["D"]
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-
-[tool.ruff.lint.isort]
-split-on-trailing-comma = false

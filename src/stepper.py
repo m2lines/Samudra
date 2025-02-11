@@ -43,6 +43,7 @@ class Stepper:
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
+        num_model_steps_forward: int = 200,
         record_every: int = 10,
     ) -> None:
         record_logs = get_record_to_wandb(label="inference")
@@ -52,31 +53,60 @@ class Stepper:
         )
         record_logs(logs)
         num_model_steps = len(dataset)
-        outs = model.inference(
-            dataset,
-            initial_prognostic=None,
-            num_steps=num_model_steps,  # Here we consider history
-            epoch=epoch,
-        )
+        num_steps_list = []
 
-        all_logs: list[Dict[str, float | int | str]] = []
-        for i in range(num_model_steps):
+        # If num_model_steps_forward is -1, then we are doing a full forward pass
+        if num_model_steps_forward == -1:
+            num_steps_list = [num_model_steps]
+        else:
+            # Windows of partial forward passes
+            num_loops = num_model_steps // num_model_steps_forward
+            if num_loops > 0:
+                num_steps_list = [num_model_steps_forward] * num_loops
+                last_model_steps_forward = num_model_steps % num_model_steps_forward
+                if last_model_steps_forward > 0:
+                    num_steps_list = num_steps_list + [last_model_steps_forward]
+            else:
+                num_steps_list = [num_model_steps]
+
+        num_loops = len(num_steps_list)
+        initial_prognostic = None
+        step = 0
+        for loop, num_steps in enumerate(num_steps_list):
             logging.info(
-                f"Inference [epoch {epoch}]: recording output window {i} of "
-                f"{num_model_steps - 1}."
+                f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
+                f"Stepping {num_steps} steps forward."
             )
-            IO = InfOutput(
-                prediction=outs[i].cpu(),
-                target=dataset.inference_target(i),  # TODO: Pack with input
-                time=dataset.inputs.time[i],
-            )  # time-dependent aggs dont work, time is incorrect as well
-            logs = inf_aggregator.record_batch(IO)
-            all_logs = all_logs + logs
-            if (i + 1) % record_every == 0:
+            outs = model.inference(
+                dataset,
+                initial_prognostic=initial_prognostic,
+                steps_completed=step,
+                num_steps=num_steps,
+                epoch=epoch,
+            )
+            # Setting initial prognostic for next loop
+            initial_prognostic = outs[-1].clone()
+
+            all_logs: list[Dict[str, float | int | str]] = []
+            for i in range(num_steps):
+                logging.info(
+                    f"Inference [epoch {epoch}]: recording output window {i + step} of "
+                    f"{num_model_steps - 1}."
+                )
+                IO = InfOutput(
+                    prediction=outs[i].cpu(),
+                    target=dataset.inference_target(step + i),  # TODO: Pack with input
+                    time=dataset.inputs.time[step + i],
+                )  # time-dependent aggs dont work, time is incorrect as well
+                logs = inf_aggregator.record_batch(IO)
+                all_logs.extend(logs)
+                if (i + 1) % record_every == 0:
+                    logging.info(f"Inference [epoch {epoch}]: wandb logging...")
+                    record_logs(all_logs)
+                    all_logs = []
+
+            if len(all_logs) > 0:
                 logging.info(f"Inference [epoch {epoch}]: wandb logging...")
                 record_logs(all_logs)
-                all_logs = []
 
-        if len(all_logs) > 0:
-            logging.info(f"Inference [epoch {epoch}]: wandb logging...")
-            record_logs(all_logs)
+            step += num_steps

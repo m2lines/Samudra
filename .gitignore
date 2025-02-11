@@ -26,3 +26,6 @@ profile-logs/
 *.mp4
 *.gif
 output.log
+.idea
+*.egg-info/
+.venv/

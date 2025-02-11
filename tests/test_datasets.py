@@ -1,5 +1,7 @@
 """Test core Datasets and DataLoaders."""
 
+from typing import Tuple
+
 import numpy as np
 import pytest
 from torch.utils.data import DataLoader

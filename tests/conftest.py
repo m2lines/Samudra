@@ -21,7 +21,7 @@ def model2_path(request):
     return request.config.getoption("--model2")
 
 
-# Used to automatically filter out CPU- or GPU- only tests.
+# Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
 @pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)])
 def device(request):
     return torch.device(request.param)

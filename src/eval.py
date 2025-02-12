@@ -13,7 +13,12 @@ from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_meta
 from datasets import InferenceDataset
 from models.unet import UNet
 from stepper import Stepper
-from utils.data import Normalize, extract_wet_mask, get_time_slice
+from utils.data import (
+    Normalize,
+    extract_wet_mask,
+    get_time_slice,
+    spherical_area_weights,
+)
 from utils.device import get_device, using_gpu
 from utils.distributed import is_main_process, set_seed
 from utils.logging import handle_logging, handle_warnings
@@ -40,6 +45,9 @@ class Eval:
         self.inputs = INPT_VARS[cfg.experiment.exp_num_in]
         self.extra_in = EXTRA_VARS[cfg.experiment.exp_num_extra]
         self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
+
+        assert self.inputs == self.outputs, "Input and output "
+        "variables must be the same"
 
         levels = cfg.experiment.exp_num_in.split("_")[-1]
         if "all" in levels:
@@ -75,7 +83,6 @@ class Eval:
         logging.info(f"Loading data")
         assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
         self.data_dir = cfg.experiment.data_dir
-        self.wet_file = cfg.data.wet_file
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
         self.data_stds_path = cfg.data.data_stds_path
@@ -97,12 +104,12 @@ class Eval:
         )
 
         self.metadata = construct_metadata(self.data)
-        wet_zarr = xr.open_zarr(os.path.join(self.data_dir, self.wet_file))
-        self.wet = extract_wet_mask(wet_zarr, self.outputs, cfg.data.hist)
-        wet_without_hist = extract_wet_mask(wet_zarr, self.outputs, 0)
-        areacello = wet_zarr.areacello.to_numpy()
-        self.area_weights = areacello / areacello.sum()
-        self.area_weights = torch.from_numpy(self.area_weights).to(self.device)
+        self.wet, self.wet_surface = extract_wet_mask(
+            self.data, self.outputs, cfg.data.hist
+        )
+        wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
+        self.area_weights = spherical_area_weights(self.data)
+        self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
             self.data_mean,
@@ -181,6 +188,7 @@ class Eval:
             self.extra_in,
             self.outputs,
             self.wet,
+            self.wet_surface,
             self.hist,
             long_rollout=True,
         )

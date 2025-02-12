@@ -5,6 +5,8 @@ import torch
 import xarray as xr
 
 # Experiment inputs and outputs
+# Assumption that all 3D variables are appended with depth_i_levels
+# and all 2D variables do not have any digits / underscores in their names
 DEPTH_LEVELS = [
     2.5,
     10.0,
@@ -49,6 +51,28 @@ DEPTH_I_LEVELS = [
     "18",
 ]
 
+MASK_VARS = [
+    "mask_0",
+    "mask_1",
+    "mask_2",
+    "mask_3",
+    "mask_4",
+    "mask_5",
+    "mask_6",
+    "mask_7",
+    "mask_8",
+    "mask_9",
+    "mask_10",
+    "mask_11",
+    "mask_12",
+    "mask_13",
+    "mask_14",
+    "mask_15",
+    "mask_16",
+    "mask_17",
+    "mask_18",
+]
+
 INPT_VARS = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "ur", "vr"],
@@ -72,6 +96,8 @@ INPT_VARS = {
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
     + ["zos"],
+    "3D_tos_all": ["tos", "zos"]
+    + [k + str(j) for k in ["so_", "thetao_", "uo_", "vo_"] for j in DEPTH_I_LEVELS],
     "3D_noFast_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
     + ["zos"],
     "3D_TS_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS],
@@ -104,6 +130,8 @@ EXTRA_VARS = {
     + ["tauuo", "tauvo", "hfds"],
     "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
+    "3D_mask_all": ["hfds", "tauuo", "tauvo"]
+    + [k + str(j) for k in ["mask_"] for j in DEPTH_I_LEVELS],
     "3D_all_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
     "3D_all_hfds_anom_cuminteg": [
         "tauuo",
@@ -135,6 +163,8 @@ OUT_VARS = {
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
     + ["zos"],
+    "3D_tos_all": ["tos", "zos"]
+    + [k + str(j) for k in ["so_", "thetao_", "uo_", "vo_"] for j in DEPTH_I_LEVELS],
     "3D_noFast_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
     + ["zos"],
     "3D_onlyTemp_all": [k + str(j) for k in ["thetao_"] for j in DEPTH_I_LEVELS],
@@ -203,6 +233,17 @@ class TensorMap:
         self.exp_num = exp_num
         self.VAR_3D_IDX: Dict[str, torch.Tensor] = {}
         self.DP_3D_IDX: Dict[str, torch.Tensor] = {}
+
+        self.VAR_SET_2D = []
+        self.VAR_SET_3D = []
+        for out in OUT_VARS[exp_num]:
+            var_split = out.split("_")
+            if len(var_split) == 1:
+                self.VAR_SET_2D.append(var_split[0])
+            else:
+                self.VAR_SET_3D.append(var_split[0])
+
+        # Consistent order of variables
         self.VAR_SET = list(
             dict.fromkeys(([out.split("_")[0] for out in OUT_VARS[exp_num]]))
         )
@@ -226,20 +267,18 @@ class TensorMap:
         for d in self.DEPTH_SET:
             self.DP_3D_IDX[d] = torch.tensor([])
             for i, k in enumerate(self.outputs):
-                if k == "zos":
+                k_split = k.split("_")
+                if len(k_split) == 1:
                     continue
-                elif d == k.split("_")[-1]:
+                elif d == k_split[-1]:
                     self.DP_3D_IDX[d] = torch.cat(
                         [self.DP_3D_IDX[d], torch.tensor([i])]
                     )
             self.DP_3D_IDX[d] = self.DP_3D_IDX[d].to(torch.int32)
-        if "zos" in self.VAR_SET:
-            self.DP_3D_IDX[self.DEPTH_SET[-1]] = torch.cat(
-                [
-                    self.DP_3D_IDX[self.DEPTH_SET[-1]],
-                    torch.tensor([len(self.outputs) - 1]),
-                ]
-            )  # zos
-        self.DP_3D_IDX[self.DEPTH_SET[0]] = self.DP_3D_IDX[self.DEPTH_SET[0]].to(
-            torch.int32
+
+        self.DP_3D_IDX[self.DEPTH_SET[0]] = torch.cat(
+            [
+                self.DP_3D_IDX[self.DEPTH_SET[0]],
+                torch.tensor([self.VAR_3D_IDX[var_2D] for var_2D in self.VAR_SET_2D]),
+            ]
         )

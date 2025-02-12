@@ -317,11 +317,9 @@ class TrainDataset(torch.utils.data.Dataset):
         # Normalize
         logging.info("Normalizing inputs")
         self.normalize = Normalize.get_instance()
-        self.inputs_no_extra = self.normalize.normalize_inputs(
-            self.inputs_no_extra
-        ).compute()
-        self.extras = self.normalize.normalize_boundary(self.extras).compute()
-        self.outputs = self.normalize.normalize_outputs(self.outputs).compute()
+        self.inputs_no_extra = self.normalize.normalize_inputs(self.inputs_no_extra)
+        self.extras = self.normalize.normalize_boundary(self.extras)
+        self.outputs = self.normalize.normalize_outputs(self.outputs)
 
     def __len__(self):
         return self.size

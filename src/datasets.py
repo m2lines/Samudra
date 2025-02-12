@@ -73,6 +73,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             )
 
         self.wet = wet
+        self.wet_2D = wet[0]
         self.size = len(self.rolling_indices)
 
     def __len__(self):
@@ -145,6 +146,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         data_in = torch.from_numpy(data_in).float()
+        data_in = data_in * self.wet
         return data_in
 
     def _get_boundary(self, x_index):
@@ -162,6 +164,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             .to_numpy()
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
+        data_in_boundary = data_in_boundary * self.wet_2D
         return data_in_boundary
 
     def _get_label(self, x_index):
@@ -177,6 +180,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         label = torch.from_numpy(label).float()
+        label = label * self.wet
         return label
 
 
@@ -293,6 +297,7 @@ class TrainDataset(torch.utils.data.Dataset):
         self.rolling_indices = indices_da + stride * window_dim
 
         self.wet = wet
+        self.wet_2D = wet[0]
 
         self.size = (
             data.time.size
@@ -364,6 +369,7 @@ class TrainDataset(torch.utils.data.Dataset):
                 window_dim (time variable) lat lon",
         )
         data_in = torch.from_numpy(data_in).float()
+        data_in = data_in * self.wet
         return data_in
 
     def _get_boundary(self, x_index):
@@ -381,6 +387,7 @@ class TrainDataset(torch.utils.data.Dataset):
             .to_numpy()
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
+        data_in_boundary = data_in_boundary * self.wet_2D
         return data_in_boundary
 
     def _get_label(self, x_index):
@@ -397,4 +404,5 @@ class TrainDataset(torch.utils.data.Dataset):
                 window_dim (time variable) lat lon",
         ).squeeze()
         label = torch.from_numpy(label).float()
+        label = label * self.wet
         return label

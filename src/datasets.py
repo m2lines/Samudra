@@ -7,7 +7,7 @@ import xarray as xr
 from einops import rearrange
 
 from utils.data import Normalize
-from utils.device import get_device
+from utils.device import get_device, using_gpu
 
 
 class InferenceDataset(torch.utils.data.Dataset):
@@ -73,9 +73,13 @@ class InferenceDataset(torch.utils.data.Dataset):
                 )
             )
 
-        self.wet = wet
-        self.wet_surface = wet_surface
+        self.wet = wet.bool()
+        self.wet_surface = wet_surface.bool()
         self.size = len(self.rolling_indices)
+
+        if using_gpu():
+            self.wet = self.wet.pin_memory()
+            self.wet_surface = self.wet_surface.pin_memory()
 
     def __len__(self):
         return self.size
@@ -147,7 +151,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         data_in = torch.from_numpy(data_in).float()
-        data_in = data_in * self.wet
+        data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
     def _get_boundary(self, x_index):
@@ -165,7 +169,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             .to_numpy()
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
-        data_in_boundary = data_in_boundary * self.wet_surface
+        data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
     def _get_label(self, x_index):
@@ -181,7 +185,8 @@ class InferenceDataset(torch.utils.data.Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         label = torch.from_numpy(label).float()
-        label = label * self.wet
+        # label = label * self.wet
+        label = torch.where(self.wet, label, 0.0)
         return label
 
 
@@ -280,8 +285,6 @@ class TrainDataset(torch.utils.data.Dataset):
         self.inputs_no_extra = data[inputs_str]
         self.extras = data[extra_in_str]
 
-        self.normalize = Normalize.get_instance()
-
         # This class will be used only for training
         total_steps = 2 * self.hist + 2
 
@@ -298,14 +301,27 @@ class TrainDataset(torch.utils.data.Dataset):
         # Construct rolling indices
         self.rolling_indices = indices_da + stride * window_dim
 
-        self.wet = wet
-        self.wet_surface = wet_surface
+        self.wet = wet.bool()
+        self.wet_surface = wet_surface.bool()
 
         self.size = (
             data.time.size
             - self.steps * (self.hist + 1) * self.stride
             - self.hist * self.stride
         )
+
+        if using_gpu():
+            self.wet = self.wet.pin_memory()
+            self.wet_surface = self.wet_surface.pin_memory()
+
+        # Normalize
+        logging.info("Normalizing inputs")
+        self.normalize = Normalize.get_instance()
+        self.inputs_no_extra = self.normalize.normalize_inputs(
+            self.inputs_no_extra
+        ).compute()
+        self.extras = self.normalize.normalize_boundary(self.extras).compute()
+        self.outputs = self.normalize.normalize_outputs(self.outputs).compute()
 
     def __len__(self):
         return self.size
@@ -359,7 +375,6 @@ class TrainDataset(torch.utils.data.Dataset):
         data_in = self.inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in = self.normalize.normalize_inputs(data_in)
         data_in = (
             data_in.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -371,7 +386,7 @@ class TrainDataset(torch.utils.data.Dataset):
                 window_dim (time variable) lat lon",
         )
         data_in = torch.from_numpy(data_in).float()
-        data_in = data_in * self.wet
+        data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
     def _get_boundary(self, x_index):
@@ -382,19 +397,17 @@ class TrainDataset(torch.utils.data.Dataset):
         the input.
         """
         data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
-        data_in_boundary = self.normalize.normalize_boundary(data_in_boundary)
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
             .to_numpy()
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
-        data_in_boundary = data_in_boundary * self.wet_surface
+        data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
     def _get_label(self, x_index):
         label = self.outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
-        label = self.normalize.normalize_outputs(label)
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -406,5 +419,5 @@ class TrainDataset(torch.utils.data.Dataset):
                 window_dim (time variable) lat lon",
         ).squeeze()
         label = torch.from_numpy(label).float()
-        label = label * self.wet
+        label = torch.where(self.wet, label, 0.0)
         return label

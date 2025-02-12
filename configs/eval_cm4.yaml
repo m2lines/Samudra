@@ -3,13 +3,13 @@ disk_mode: true
 inference:
   start_time: 311-01-01
   end_time: 351-01-01
-ckpt_path: /pscratch/sd/s/suryad/Ocean_Emulator/temp/2025-02-09-train-samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector/saved_nets/convnextunet_epoch_45_best_inference_steps_4_all_Lateral_Data_025_no_smooth.pt
+ckpt_path: /pscratch/sd/s/suryad/Ocean_Emulator/temp/2025-02-09-train-samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector/saved_nets/convnextunet_epoch_67_best_inference_steps_4_all_Lateral_Data_025_no_smooth.pt
 num_model_steps_forward: 20
 record_every: 10
 
 experiment:
   name: eval
-  sub_name: local_cm4_samudra_thermo
+  sub_name: local_cm4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false

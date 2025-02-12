@@ -12,11 +12,11 @@ from constants import DEPTH_LEVELS, TensorMap
 def extract_wet_mask(wet_zarr, outputs, hist):
     depth_ind = []
     for var_depth_i in outputs:
-        ind = var_depth_i.split("_")[-1]
-        if ind == "zos":
+        var_split = var_depth_i.split("_")
+        if len(var_split) == 1:
             depth_ind.append("0")
         else:
-            depth_ind.append(ind)
+            depth_ind.append(var_split[-1])
     depths = [DEPTH_LEVELS[int(depth_i)] for depth_i in depth_ind]
     wet = wet_zarr.sel(lev=depths)
     wet = torch.from_numpy(wet.to_array().to_numpy().squeeze())
@@ -225,9 +225,7 @@ class Normalize:
         tensor_std = self._to_tensor(self._outputs_std_np, data.device)
 
         if data.ndim == 4:
-            assert (
-                data.shape[1] == self._outputs_mean_np.shape[0]
-            ), f"{data.shape[1]} != {self._outputs_mean_np.shape[0]}"
+            assert data.shape[1] == self._outputs_mean_np.shape[0]
             tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
             tensor_std = tensor_std.reshape([1, -1, 1, 1])
         elif data.ndim == 5:

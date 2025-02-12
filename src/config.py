@@ -26,7 +26,6 @@ class TimeConfig:
 
 @dataclass
 class DataConfig:
-    wet_file: str = "CM4_5daily_v0.4.0_wetmask"
     data_path: str = "CM4_5daily_v0.4.0"
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"

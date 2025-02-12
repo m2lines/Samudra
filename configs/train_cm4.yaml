@@ -48,7 +48,7 @@ distributed:
 
 experiment:
   name: train
-  sub_name: local_cm4_samudra_thermo
+  sub_name: local_cm4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
@@ -62,7 +62,6 @@ experiment:
   exp_num_extra: 3D_mask_all
   exp_num_out: 3D_tos_all
 data:
-  wet_file: CM4_5daily_v0.4.0_wetmask
   data_path: cm4_piControl_ocean_200yr_full.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
   data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc

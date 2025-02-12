@@ -51,6 +51,28 @@ DEPTH_I_LEVELS = [
     "18",
 ]
 
+MASK_VARS = [
+    "mask_0",
+    "mask_1",
+    "mask_2",
+    "mask_3",
+    "mask_4",
+    "mask_5",
+    "mask_6",
+    "mask_7",
+    "mask_8",
+    "mask_9",
+    "mask_10",
+    "mask_11",
+    "mask_12",
+    "mask_13",
+    "mask_14",
+    "mask_15",
+    "mask_16",
+    "mask_17",
+    "mask_18",
+]
+
 INPT_VARS = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "ur", "vr"],

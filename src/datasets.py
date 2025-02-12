@@ -40,11 +40,10 @@ class InferenceDataset(torch.utils.data.Dataset):
 
         self.hist = hist
 
-        self.inputs = data[inputs_str + extra_in_str]
-        self.outputs = data[outputs_str]
+        self._outputs = data[outputs_str]
         self.output_channels = (hist + 1) * len(outputs_str)
-        self.inputs_no_extra = data[inputs_str]
-        self.extras = data[extra_in_str]
+        self._inputs_no_extra = data[inputs_str]
+        self._extras = data[extra_in_str]
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -96,6 +95,10 @@ class InferenceDataset(torch.utils.data.Dataset):
         data = self.__getitem__(0)[0]
         return data
 
+    # TODO: This is a placeholder for now
+    def get_input_time(self, step: int):
+        return self._inputs_no_extra.time[step]
+
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         x_index = self._get_x_index(step)
         boundary = self._get_boundary(x_index).to(prognostic.device)
@@ -135,7 +138,7 @@ class InferenceDataset(torch.utils.data.Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
-        data_in = self.inputs_no_extra.isel(time=x_index).isel(
+        data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
         data_in = Normalize.get_instance().normalize_inputs(
@@ -161,7 +164,7 @@ class InferenceDataset(torch.utils.data.Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary = self._extras.isel(time=x_index).isel(time=self.hist)
         data_in_boundary = Normalize.get_instance().normalize_boundary(data_in_boundary)
         data_in_boundary = (
             data_in_boundary.to_array()
@@ -173,7 +176,7 @@ class InferenceDataset(torch.utils.data.Dataset):
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label = self.outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
+        label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = Normalize.get_instance().normalize_outputs(label)
         label = (
             label.to_array()
@@ -279,11 +282,10 @@ class TrainDataset(torch.utils.data.Dataset):
         self.steps = steps
         self.stride = stride
 
-        self.inputs = data[inputs_str + extra_in_str]
-        self.outputs = data[outputs_str]
+        self._outputs = data[outputs_str]
         self.output_channels = (hist + 1) * len(outputs_str)
-        self.inputs_no_extra = data[inputs_str]
-        self.extras = data[extra_in_str]
+        self._inputs_no_extra = data[inputs_str]
+        self._extras = data[extra_in_str]
 
         # This class will be used only for training
         total_steps = 2 * self.hist + 2
@@ -317,9 +319,9 @@ class TrainDataset(torch.utils.data.Dataset):
         # Normalize
         logging.info("Normalizing inputs")
         self.normalize = Normalize.get_instance()
-        self.inputs_no_extra = self.normalize.normalize_inputs(self.inputs_no_extra)
-        self.extras = self.normalize.normalize_boundary(self.extras)
-        self.outputs = self.normalize.normalize_outputs(self.outputs)
+        self._inputs_no_extra = self.normalize.normalize_inputs(self._inputs_no_extra)
+        self._extras = self.normalize.normalize_boundary(self._extras)
+        self._outputs = self.normalize.normalize_outputs(self._outputs)
 
     def __len__(self):
         return self.size
@@ -370,7 +372,7 @@ class TrainDataset(torch.utils.data.Dataset):
         return x_index
 
     def _get_input(self, x_index):
-        data_in = self.inputs_no_extra.isel(time=x_index).isel(
+        data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
         data_in = (
@@ -394,7 +396,7 @@ class TrainDataset(torch.utils.data.Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self.extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary = self._extras.isel(time=x_index).isel(time=self.hist)
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -405,7 +407,7 @@ class TrainDataset(torch.utils.data.Dataset):
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label = self.outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
+        label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")

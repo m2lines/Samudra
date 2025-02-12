@@ -13,7 +13,7 @@ pytest -m "not manual and not cuda"
 # all manual tests
 pytest -m manual
 # just the model weights test
-pytest -k "model and weights"
+pytest -k "model and weights" --model1 <path/to/model1.pt> --model2 <path/to/model2.pt>
 ```
 
 </details>
@@ -47,15 +47,16 @@ To exclude manual tests, run:
 pytest -m "not manual"
 ```
 
-Usually, if a test is marked `manual`, it means that it should be run alone. To run a specific subsets of tests —
-or even a single test — at a time, please do the following:
+Usually, if a test is marked `manual`, it means that it should be run alone. Further, manual tests often need to be run
+with specific arguments. To run a specific subsets of tests — or even a single test — at a time with arguments, please
+do the following:
 ```bash
 # single test
-pytest -k "models_have_same_weights"
+pytest -k "models_have_same_weights" --model1 <path/to/model1.pt> --model2 <path/to/model2.pt>
 # test that match "model" and are manual
-pytest -k "models" -m manual
+pytest -k "models" -m manual --model1 <path/to/model1.pt> --model2 <path/to/model2.pt>
 # all model weights tests
-pytest -l "models and weights"
+pytest -l "models and weights" --model1 <path/to/model1.pt> --model2 <path/to/model2.pt>
 ```
 
 **To run the same tests that are run in CI, please run the following:**

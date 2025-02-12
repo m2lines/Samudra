@@ -6,22 +6,38 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from constants import DEPTH_LEVELS, TensorMap
+from constants import MASK_VARS, TensorMap
 
 
-def extract_wet_mask(wet_zarr, outputs, hist):
+def extract_wet_mask(data, outputs, hist):
+    wet_mask = data[MASK_VARS]
+    if "time" in wet_mask.dims:
+        wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
+        wet_surface_mask_np = wet_mask[MASK_VARS[0]].isel(time=0).to_numpy()
+    else:
+        wet_mask_np = wet_mask.to_array().to_numpy()
+        wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
+
     depth_ind = []
     for var_depth_i in outputs:
-        ind = var_depth_i.split("_")[-1]
-        if ind == "zos":
-            depth_ind.append("0")
+        var_split = var_depth_i.split("_")
+        if len(var_split) == 1:
+            depth_ind.append(0)
         else:
-            depth_ind.append(ind)
-    depths = [DEPTH_LEVELS[int(depth_i)] for depth_i in depth_ind]
-    wet = wet_zarr.sel(lev=depths)
-    wet = torch.from_numpy(wet.to_array().to_numpy().squeeze())
-    wet = torch.concat([wet] * (hist + 1), dim=0)
-    return wet
+            depth_ind.append(int(var_split[-1]))
+
+    wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
+    wet_surface = torch.from_numpy(wet_surface_mask_np)
+    wet_inp = torch.concat([wet_inp] * (hist + 1), dim=0)
+    return wet_inp, wet_surface
+
+
+def spherical_area_weights(data) -> torch.Tensor:
+    num_lon = data.lon.size
+    lats = torch.from_numpy(data.lat.to_numpy())
+    weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
+    weights /= weights.sum()
+    return weights
 
 
 def get_time_slice(time_config, time_delta=5, hist=1):
@@ -225,9 +241,7 @@ class Normalize:
         tensor_std = self._to_tensor(self._outputs_std_np, data.device)
 
         if data.ndim == 4:
-            assert (
-                data.shape[1] == self._outputs_mean_np.shape[0]
-            ), f"{data.shape[1]} != {self._outputs_mean_np.shape[0]}"
+            assert data.shape[1] == self._outputs_mean_np.shape[0]
             tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
             tensor_std = tensor_std.reshape([1, -1, 1, 1])
         elif data.ndim == 5:

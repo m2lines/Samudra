@@ -46,6 +46,9 @@ class Eval:
         self.extra_in = EXTRA_VARS[cfg.experiment.exp_num_extra]
         self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
 
+        assert self.inputs == self.outputs, "Input and output "
+        "variables must be the same"
+
         levels = cfg.experiment.exp_num_in.split("_")[-1]
         if "all" in levels:
             self.levels = 19

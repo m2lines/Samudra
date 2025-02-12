@@ -3,7 +3,7 @@
 set -e
 
 JOB_NAME="samudra-train-cm4-thermodynamic-maskstos"  # recommended but not required to change this
-CONFIG_PATH=configs/gantry_train_cm4_thermodynamic.yaml  # relative to the root of the repository
+CONFIG_PATH=configs/gantry_train_cm4.yaml  # relative to the root of the repository
 
 echo 'Using config file:' $CONFIG_PATH
  # since we use a service account API key for wandb, we use the beaker username to set the wandb username
@@ -30,6 +30,3 @@ gantry run \
     --venv 'base' \
     --install "pip install -r requirements.txt" \
     -- torchrun --nproc_per_node $N_GPUS src/train_3D.py --config $CONFIG_PATH --subname $JOB_NAME
-
-
-# debug:  torchrun src/train_3D.py --config configs/train_cm4_thermo.yaml

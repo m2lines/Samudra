@@ -4,7 +4,7 @@
 set -e
 
 JOB_NAME="samudra-evaluator"  # recommended but not required to change this
-CONFIG_PATH=configs/gantry_eval_cm4_thermodynamic.yaml  # relative to the root of the repository
+CONFIG_PATH=configs/gantry_eval_cm4.yaml  # relative to the root of the repository
 EXISTING_RESULTS_DATASET="01J4MT10JPQ8MFA41F2AXGFYJ9"  # this contains the checkpoint to use for inference
 
 echo 'Using config file:' $CONFIG_PATH

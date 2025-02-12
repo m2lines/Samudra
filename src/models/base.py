@@ -18,7 +18,7 @@ class BaseModel(torch.nn.Module):
         self.N_in = ch_width[0]
         self.N_out = ch_width[-1]
         self.ch_width = ch_width
-        self.wet = wet
+        self.wet = wet.bool()
         self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad = pad
         self.pred_residuals = pred_residuals

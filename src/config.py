@@ -81,7 +81,7 @@ class DistributedConfig:
 @dataclass
 class ExperimentConfig:
     name: str = "train"
-    sub_name: str = "cm4_samudra_thermo"
+    sub_name: str = "cm4_samudra"
     rand_seed: int = 1
     base_output_dir: str = "train_3D"
     gantry: bool = False

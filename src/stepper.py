@@ -96,7 +96,7 @@ class Stepper:
                 IO = InfOutput(
                     prediction=outs[i].cpu(),
                     target=dataset.inference_target(step + i),  # TODO: Pack with input
-                    time=dataset.inputs.time[step + i],
+                    time=dataset.get_input_time(step + i),
                 )  # time-dependent aggs dont work, time is incorrect as well
                 logs = inf_aggregator.record_batch(IO)
                 all_logs.extend(logs)

@@ -3,7 +3,7 @@ disk_mode: true
 inference:
   start_time: 311-01-01
   end_time: 351-01-01
-ckpt_path: /pscratch/sd/s/suryad/Ocean_Emulator/temp/convnextunet_epoch_36_best_inference_steps_4_all_Lateral_Data_025_no_smooth.pt
+ckpt_path: /pscratch/sd/s/suryad/Ocean_Emulator/temp/2025-02-09-train-samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector/saved_nets/convnextunet_epoch_45_best_inference_steps_4_all_Lateral_Data_025_no_smooth.pt
 num_model_steps_forward: 20
 record_every: 10
 
@@ -25,7 +25,6 @@ experiment:
   exp_num_out: 3D_all
 
 data:
-  wet_file: CM4_5daily_v0.4.0_wetmask
   data_path: cm4_piControl_ocean_200yr_full.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
   data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc

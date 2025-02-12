@@ -31,6 +31,7 @@ class InferenceDataset(torch.utils.data.Dataset):
         extra_in_str,
         outputs_str,
         wet,
+        wet_surface,
         hist,
         long_rollout,
     ):
@@ -73,7 +74,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             )
 
         self.wet = wet
-        self.wet_2D = wet[0]
+        self.wet_surface = wet_surface
         self.size = len(self.rolling_indices)
 
     def __len__(self):
@@ -164,7 +165,7 @@ class InferenceDataset(torch.utils.data.Dataset):
             .to_numpy()
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
-        data_in_boundary = data_in_boundary * self.wet_2D
+        data_in_boundary = data_in_boundary * self.wet_surface
         return data_in_boundary
 
     def _get_label(self, x_index):
@@ -261,6 +262,7 @@ class TrainDataset(torch.utils.data.Dataset):
         extra_in_str,
         outputs_str,
         wet,
+        wet_surface,
         hist,
         steps,
         stride=1,
@@ -297,7 +299,7 @@ class TrainDataset(torch.utils.data.Dataset):
         self.rolling_indices = indices_da + stride * window_dim
 
         self.wet = wet
-        self.wet_2D = wet[0]
+        self.wet_surface = wet_surface
 
         self.size = (
             data.time.size
@@ -387,7 +389,7 @@ class TrainDataset(torch.utils.data.Dataset):
             .to_numpy()
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
-        data_in_boundary = data_in_boundary * self.wet_2D
+        data_in_boundary = data_in_boundary * self.wet_surface
         return data_in_boundary
 
     def _get_label(self, x_index):

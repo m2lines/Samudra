@@ -1,9 +1,10 @@
 debug: true
+save_zarr: true
 disk_mode: true
 inference:
   start_time: 311-01-01
   end_time: 351-01-01
-ckpt_path: /pscratch/sd/s/suryad/Ocean_Emulator/temp/2025-02-09-train-samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector/saved_nets/convnextunet_epoch_45_best_inference_steps_4_all_Lateral_Data_025_no_smooth.pt
+ckpt_path: /this/path/does/not/exist # Fill in script
 num_model_steps_forward: 20
 record_every: 10
 

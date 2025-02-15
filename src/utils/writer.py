@@ -36,7 +36,7 @@ class ZarrWriter:
             raise ValueError("No tensor to write")
 
         coords = {k: v for k, v in self.coords.items()}
-        # TODO: Replace by actual time so I dont need to fix this upstream
+        # TODO: Replace by actual time so I dont need to fix this downstream
         coords["time"] = range(self.acc_tensor.shape[0])
         ds = xr.Dataset(
             data_vars={

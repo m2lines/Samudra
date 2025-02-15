@@ -95,12 +95,18 @@ class Eval:
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_path))
+            self.data = xr.open_zarr(
+                os.path.join(self.data_dir, self.data_path), chunks={}
+            )
         self.data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path), engine="netcdf4"
+            os.path.join(self.data_dir, self.data_means_path),
+            engine="netcdf4",
+            chunks={},
         )
         self.data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path), engine="netcdf4"
+            os.path.join(self.data_dir, self.data_stds_path),
+            engine="netcdf4",
+            chunks={},
         )
 
         self.metadata = construct_metadata(self.data)
@@ -172,7 +178,7 @@ class Eval:
         self.time_delta = cfg.data.time_delta
         self.record_every = cfg.record_every
         self.num_model_steps_forward = cfg.num_model_steps_forward
-
+        self.save_zarr = cfg.save_zarr
         self.init_inference_store()
 
     def init_inference_store(self):
@@ -195,7 +201,7 @@ class Eval:
 
     def run(self) -> None:
         start_time = time.time()
-        inf_stats = self.inference_one_epoch(0)
+        inf_stats = self.standalone_inference()
         time_elapsed = time.time() - start_time
 
         log_stats = {
@@ -212,7 +218,7 @@ class Eval:
         self.finish()
 
     @torch.no_grad()
-    def inference_one_epoch(self, epoch):
+    def standalone_inference(self):
         self.model.eval()
         inf_aggregator = Aggregator.get_standalone_inference_aggregator(
             self.num_time_steps,
@@ -226,9 +232,11 @@ class Eval:
             self.model,
             self.inference_dataset,
             inf_aggregator,
-            epoch,
+            0,
+            self.output_dir,
             self.num_model_steps_forward,
             self.record_every,
+            self.save_zarr,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}
@@ -241,11 +249,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--subname", type=str, required=False)
+    parser.add_argument("--ckpt_path", type=str, required=True)
+    parser.add_argument("--save_zarr", default=False, action="store_true")
     args = parser.parse_args()
 
     overrides = {}
     if args.subname != "":
         overrides["sub_name"] = args.subname
+    if args.ckpt_path != "":
+        overrides["ckpt_path"] = args.ckpt_path
+    if args.save_zarr:
+        overrides["save_zarr"] = args.save_zarr
 
     # Load config from YAML
     cfg = EvalConfig.from_yaml(args.config, overrides)

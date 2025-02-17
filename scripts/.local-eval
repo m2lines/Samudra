@@ -12,4 +12,8 @@ echo 'Using config file:' $CONFIG_PATH
 TMP_CONFIG_PATH=/tmp/config_temp.yaml
 sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $TMP_CONFIG_PATH
 
-python3 src/eval.py --config $TMP_CONFIG_PATH --subname "thermodynamic-scheduler-batchsize3-socorrector-epoch67/120-infchmean0.065068"
+python3 src/eval.py \
+    --config $TMP_CONFIG_PATH \
+    --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2025-02-10-train-samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector-FusedAdam-lr0.0001/saved_nets/convnextunet_epoch_120_steps_4_all_Lateral_Data_025_no_smooth.pt \
+    --subname "thermodynamic-batchsize3-so-corrector-FusedAdam-lr0.0001-epoch120_120-infchmean0.088686" \
+    --save_zarr

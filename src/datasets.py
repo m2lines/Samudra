@@ -95,7 +95,7 @@ class InferenceDataset(torch.utils.data.Dataset):
         data = self.__getitem__(0)[0]
         return data
 
-    # TODO: This is a placeholder for now
+    # TODO: This is a placeholder for now since time returned is incorrect
     def get_input_time(self, step: int):
         return self._inputs_no_extra.time[step]
 
@@ -191,6 +191,9 @@ class InferenceDataset(torch.utils.data.Dataset):
         # label = label * self.wet
         label = torch.where(self.wet, label, 0.0)
         return label
+
+    def get_coords_dict(self):
+        return {co: self._inputs_no_extra[co] for co in self._inputs_no_extra.coords}
 
 
 class InferenceDatasets(torch.utils.data.Dataset):

@@ -114,14 +114,8 @@ def init_distributed_mode(cfg):
 
 def all_reduce_mean(x):
     world_size = get_world_size()
-    cpu_flag = False
     if world_size > 1:
-        if x.device.type == "cpu":
-            x = x.cuda()
-            cpu_flag = True
         dist.all_reduce(x)
         x /= world_size
-    if cpu_flag:
-        x = x.cpu()
 
     return x

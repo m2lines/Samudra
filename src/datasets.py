@@ -184,6 +184,9 @@ class InferenceDataset(torch.utils.data.Dataset):
         label = label * self.wet
         return label
 
+    def get_coords_dict(self):
+        return {co: self.inputs[co] for co in self.inputs.coords}
+
 
 class InferenceDatasets(torch.utils.data.Dataset):
     def __init__(self, datasets: List[InferenceDataset], lengths: List[int]):

@@ -4,7 +4,6 @@
 # - cleaner dataset modules
 import argparse
 import datetime
-import gc
 import logging
 import os
 import time
@@ -243,11 +242,10 @@ class Trainer:
             raise NotImplementedError
 
         # Optimizer
-        # self.optimizer = torch.optim.Adam(self.model.parameters(),
-        #                   lr=cfg.learning_rate)
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(), lr=cfg.learning_rate, fused=True
-        )
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+        # self.optimizer = torch.optim.AdamW(
+        #     self.model.parameters(), lr=cfg.learning_rate, fused=True
+        # )
 
         # Scheduler
         self.scheduler = None
@@ -457,9 +455,6 @@ class Trainer:
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
-            if using_gpu():
-                gc.collect()
-
             self.optimizer.zero_grad()
             data.to(self.device)
             TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
@@ -472,10 +467,6 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             self.optimizer.step()
-            # Only synchronize if using CUDA
-            if using_gpu():
-                torch.cuda.synchronize()
-                torch.cuda.empty_cache()
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]

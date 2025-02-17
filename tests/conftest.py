@@ -1,4 +1,5 @@
 import pytest
+import torch
 
 
 def pytest_addoption(parser):
@@ -18,3 +19,9 @@ def model1_path(request):
 @pytest.fixture
 def model2_path(request):
     return request.config.getoption("--model2")
+
+
+# Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
+@pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)])
+def device(request):
+    return torch.device(request.param)

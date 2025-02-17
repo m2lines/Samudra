@@ -1,5 +1,6 @@
 # https://docs.pytest.org/en/7.1.x/explanation/goodpractices.html
 
+import pytest
 import torch
 
 
@@ -18,6 +19,9 @@ def compare_model_weights(model1_state_dict, model2_state_dict):
     return are_equal
 
 
+# How to pass options to this test:
+# https://docs.pytest.org/en/stable/example/simple.html#pass-different-values-to-a-test-function-depending-on-command-line-options
+@pytest.mark.manual
 def test_models_have_same_weights(model1_path, model2_path):
     torch.cuda.empty_cache()
     model1_state_dict = load_model_weights(model1_path)

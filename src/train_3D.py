@@ -151,12 +151,19 @@ class Trainer:
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_path))
+            self.data = xr.open_zarr(
+                os.path.join(self.data_dir, self.data_path),
+                chunks={},
+            )
         self.data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path), engine="netcdf4"
+            os.path.join(self.data_dir, self.data_means_path),
+            engine="netcdf4",
+            chunks={},
         )
         self.data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path), engine="netcdf4"
+            os.path.join(self.data_dir, self.data_stds_path),
+            engine="netcdf4",
+            chunks={},
         )
 
         self.metadata = construct_metadata(self.data)
@@ -543,10 +550,11 @@ class Trainer:
             )
 
             Stepper.inference(
-                self.model.module if using_gpu() else self.model,
-                inference_dataset,
-                inf_aggregator,
-                epoch,
+                model=self.model.module if using_gpu() else self.model,
+                dataset=inference_dataset,
+                inf_aggregator=inf_aggregator,
+                epoch=epoch,
+                num_model_steps_forward=num_steps,
             )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

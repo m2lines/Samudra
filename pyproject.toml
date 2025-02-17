@@ -23,6 +23,11 @@ classifiers = [
 ]
 dynamic = [ "dependencies", "optional-dependencies", "version" ]
 
+[dependency-groups]
+dev = [
+  "pytest>=8.3.4",
+]
+
 [tool.setuptools.dynamic]
 dependencies = { file = "requirements.txt" }
 
@@ -37,6 +42,12 @@ lint.per-file-ignores."scripts/*" = [ "D" ]
 lint.per-file-ignores."test_*.py" = [ "D" ]
 lint.isort.split-on-trailing-comma = false
 lint.pydocstyle.convention = "google"
+
+[tool.pytest.ini_options]
+markers = [
+  "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
+  "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
+]
 
 [tool.mypy]
 ignore_missing_imports = true

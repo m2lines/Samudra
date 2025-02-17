@@ -4,7 +4,6 @@
 # - cleaner dataset modules
 import argparse
 import datetime
-import gc
 import logging
 import os
 import time
@@ -151,12 +150,19 @@ class Trainer:
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            self.data = xr.open_zarr(os.path.join(self.data_dir, self.data_path))
+            self.data = xr.open_zarr(
+                os.path.join(self.data_dir, self.data_path),
+                chunks={},
+            )
         self.data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path), engine="netcdf4"
+            os.path.join(self.data_dir, self.data_means_path),
+            engine="netcdf4",
+            chunks={},
         )
         self.data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path), engine="netcdf4"
+            os.path.join(self.data_dir, self.data_stds_path),
+            engine="netcdf4",
+            chunks={},
         )
 
         self.metadata = construct_metadata(self.data)
@@ -236,11 +242,10 @@ class Trainer:
             raise NotImplementedError
 
         # Optimizer
-        # self.optimizer = torch.optim.Adam(self.model.parameters(),
-        #                   lr=cfg.learning_rate)
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(), lr=cfg.learning_rate, fused=True
-        )
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+        # self.optimizer = torch.optim.AdamW(
+        #     self.model.parameters(), lr=cfg.learning_rate, fused=True
+        # )
 
         # Scheduler
         self.scheduler = None
@@ -450,9 +455,6 @@ class Trainer:
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
-            if using_gpu():
-                gc.collect()
-
             self.optimizer.zero_grad()
             data.to(self.device)
             TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
@@ -465,10 +467,6 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             self.optimizer.step()
-            # Only synchronize if using CUDA
-            if using_gpu():
-                torch.cuda.synchronize()
-                torch.cuda.empty_cache()
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -543,10 +541,11 @@ class Trainer:
             )
 
             Stepper.inference(
-                self.model.module if using_gpu() else self.model,
-                inference_dataset,
-                inf_aggregator,
-                epoch,
+                model=self.model.module if using_gpu() else self.model,
+                dataset=inference_dataset,
+                inf_aggregator=inf_aggregator,
+                epoch=epoch,
+                num_model_steps_forward=num_steps,
             )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}
@@ -758,7 +757,7 @@ def main():
     args = parser.parse_args()
 
     overrides = {}
-    if args.subname != "":
+    if args.subname:
         overrides["sub_name"] = args.subname
 
     # Load config from YAML

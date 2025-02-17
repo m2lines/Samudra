@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 import torch
 
@@ -44,13 +44,17 @@ class Stepper:
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
-        output_dir: str,
-        model_path: str,
+        output_dir: Optional[str] = None,
+        model_path: Optional[str] = None,
         num_model_steps_forward: int = 200,
         record_every: int = 10,
         save_zarr: bool = False,
     ) -> None:
         if save_zarr:
+            if output_dir is None or model_path is None:
+                raise ValueError(
+                    "output_dir and model_path must be provided if save_zarr is True"
+                )
             coords = dataset.get_coords_dict()
             writer = ZarrWriter(
                 output_dir,
@@ -108,9 +112,11 @@ class Stepper:
                     f"{num_model_steps - 1}."
                 )
                 IO = InfOutput(
-                    prediction=outs[i].cpu(),
-                    target=dataset.inference_target(step + i),  # TODO: Pack with input
-                    time=dataset.inputs.time[step + i],
+                    prediction=outs[i],
+                    target=dataset.inference_target(step + i).to(
+                        outs[i].device
+                    ),  # TODO: Pack with input
+                    time=dataset.get_input_time(step + i),
                 )  # time-dependent aggs dont work, time is incorrect as well
                 if writer:
                     writer.record_batch(IO)

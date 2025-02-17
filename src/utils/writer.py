@@ -33,9 +33,9 @@ class ZarrWriter:
         pred_tensor = rearrange(pred_tensor, "(n c) h w -> n c h w", n=self.hist + 1)
         pred_tensor = self.normalize.unnormalize_tensor_outputs(pred_tensor)
         if self.acc_tensor is None:
-            self.acc_tensor = pred_tensor.cpu()
+            self.acc_tensor = pred_tensor
         else:
-            self.acc_tensor = torch.cat([self.acc_tensor, pred_tensor.cpu()], dim=0)
+            self.acc_tensor = torch.cat([self.acc_tensor, pred_tensor], dim=0)
 
     def write(self):
         # Write to zarr
@@ -47,7 +47,7 @@ class ZarrWriter:
         coords["time"] = range(self.acc_tensor.shape[0])
         ds = xr.Dataset(
             data_vars={
-                var: (["time", "lat", "lon"], self.acc_tensor[:, i, :, :].numpy())
+                var: (["time", "lat", "lon"], self.acc_tensor[:, i, :, :].cpu().numpy())
                 for i, var in enumerate(self.tensor_map.outputs)
             },
             coords=coords,

@@ -112,8 +112,10 @@ class Stepper:
                     f"{num_model_steps - 1}."
                 )
                 IO = InfOutput(
-                    prediction=outs[i].cpu(),
-                    target=dataset.inference_target(step + i),  # TODO: Pack with input
+                    prediction=outs[i],
+                    target=dataset.inference_target(step + i).to(
+                        outs[i].device
+                    ),  # TODO: Pack with input
                     time=dataset.get_input_time(step + i),
                 )  # time-dependent aggs dont work, time is incorrect as well
                 if writer:

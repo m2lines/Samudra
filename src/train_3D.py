@@ -766,7 +766,7 @@ def main():
     args = parser.parse_args()
 
     overrides = {}
-    if args.subname != "":
+    if args.subname:
         overrides["sub_name"] = args.subname
 
     # Load config from YAML

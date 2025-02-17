@@ -11,11 +11,18 @@ from utils.model import InfOutput
 
 
 class ZarrWriter:
-    def __init__(self, output_dir: str, coords: Dict[str, xr.DataArray], hist: int):
+    def __init__(
+        self,
+        output_dir: str,
+        coords: Dict[str, xr.DataArray],
+        hist: int,
+        model_path: str,
+    ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
         self.hist = hist
         self.acc_tensor = None
         self.coords = coords
+        self.model_path = model_path
 
         self.normalize = Normalize.get_instance()
         self.tensor_map = TensorMap.get_instance()
@@ -45,11 +52,16 @@ class ZarrWriter:
             },
             coords=coords,
         )
-
+        ds.attrs["model_path"] = str(self.model_path)
+        ds = ds.chunk({"time": 1, "lat": 180, "lon": 360})
         if os.path.exists(self.pred_path):
             ds.to_zarr(self.pred_path, mode="a", append_dim="time")
         else:
-            ds.to_zarr(self.pred_path, mode="w")
+            ds.to_zarr(
+                self.pred_path,
+                mode="w",
+                encoding={var: {"compressor": None} for var in ds.data_vars},
+            )
 
         # Reset
         self.acc_tensor = None

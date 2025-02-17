@@ -45,13 +45,19 @@ class Stepper:
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
         output_dir: str,
+        model_path: str,
         num_model_steps_forward: int = 200,
         record_every: int = 10,
         save_zarr: bool = False,
     ) -> None:
         if save_zarr:
             coords = dataset.get_coords_dict()
-            writer = ZarrWriter(output_dir, coords=coords, hist=inf_aggregator.hist)
+            writer = ZarrWriter(
+                output_dir,
+                coords=coords,
+                hist=inf_aggregator.hist,
+                model_path=model_path,
+            )
         else:
             writer = None
         record_logs = get_record_to_wandb(label="inference")

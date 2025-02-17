@@ -179,6 +179,7 @@ class Eval:
         self.record_every = cfg.record_every
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
+        self.model_path = cfg.ckpt_path
         self.init_inference_store()
 
     def init_inference_store(self):
@@ -229,14 +230,15 @@ class Eval:
         )
 
         Stepper.inference(
-            self.model,
-            self.inference_dataset,
-            inf_aggregator,
-            0,
-            self.output_dir,
-            self.num_model_steps_forward,
-            self.record_every,
-            self.save_zarr,
+            model=self.model,
+            dataset=self.inference_dataset,
+            inf_aggregator=inf_aggregator,
+            epoch=0,
+            output_dir=self.output_dir,
+            model_path=self.model_path,
+            num_model_steps_forward=self.num_model_steps_forward,
+            record_every=self.record_every,
+            save_zarr=self.save_zarr,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

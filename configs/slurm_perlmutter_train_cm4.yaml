@@ -3,9 +3,9 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 120
-batch_size: 2 # 4
+batch_size: 3
 learning_rate: 0.0001
-scheduler: false
+scheduler: true
 loss: mse
 finetune: false
 resume_ckpt_path: null
@@ -13,26 +13,26 @@ inference_epochs: [-1]
 data_percent: 1.0
 train:
   start_time: 151-01-06
-  end_time: 154-01-01
+  end_time: 306-01-01
 val:
   start_time: 306-01-01
-  end_time: 307-01-01
+  end_time: 311-01-01
 inference:
   - start_time: 151-01-06
-    end_time: 153-01-11
-  - start_time: 153-01-06
-    end_time: 155-01-11
-  - start_time: 155-01-06
-    end_time: 157-01-11
-  - start_time: 157-01-06
-    end_time: 159-01-11
-  - start_time: 159-01-06
-    end_time: 161-01-11
-  - start_time: 161-01-06
-    end_time: 163-01-11
-  - start_time: 163-01-06
-    end_time: 165-01-11
-  - start_time: 309-01-06
+    end_time: 171-01-11
+  - start_time: 171-01-06
+    end_time: 191-01-11
+  - start_time: 191-01-06
+    end_time: 211-01-11
+  - start_time: 211-01-06
+    end_time: 231-01-11
+  - start_time: 231-01-06
+    end_time: 251-01-11
+  - start_time: 251-01-06
+    end_time: 271-01-11
+  - start_time: 271-01-06
+    end_time: 291-01-11
+  - start_time: 291-01-06
     end_time: 311-01-11
 data_stride: [1]
 steps: [4]
@@ -48,19 +48,21 @@ distributed:
 
 experiment:
   name: train
-  sub_name: local_cm4_samudra
-  rand_seed: 15
-  base_output_dir: .LOCAL
+  sub_name: cm4_samudra
+  rand_seed: 5
+  base_output_dir: train_3D
   gantry: false
-  cluster_data_dir: null
+  cluster_data_dir: /pscratch/sd/s/suryad/data
   wandb:
-    mode: disabled
-    project: 3D_ocean_emu_CM4
-    entity: suryadheeshjith
+    mode: online
+    project: ocean-emulator
+    entity: ai2cm
+    group: samudra-train-2in2out
   network: convnextunet
   exp_num_in: 3D_tos_all
   exp_num_extra: 3D_mask_all
   exp_num_out: 3D_tos_all
+
 data:
   data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
@@ -69,7 +71,7 @@ data:
   depth_mode: all
   time_delta: 5
   num_workers: 4
-  hist: 0
+  hist: 1
 
 
 unet:

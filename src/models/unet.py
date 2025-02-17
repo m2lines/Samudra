@@ -162,4 +162,4 @@ class UNet(BaseModel):
                     fts += temp[int(2 * self.num_steps - count - 1)]
                     count += 1
         fts = self.corrector(fts)
-        return torch.mul(fts, self.wet)
+        return torch.where(self.wet, fts, 0.0)

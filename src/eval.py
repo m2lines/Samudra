@@ -256,9 +256,10 @@ def main():
     args = parser.parse_args()
 
     overrides = {}
-    if args.subname != "":
+    if args.subname:
         overrides["sub_name"] = args.subname
-    if args.ckpt_path != "":
+    if args.ckpt_path:
+        print(args.ckpt_path)
         overrides["ckpt_path"] = args.ckpt_path
     if args.save_zarr:
         overrides["save_zarr"] = args.save_zarr

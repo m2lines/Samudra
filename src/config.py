@@ -198,6 +198,7 @@ class TrainConfig:
 class EvalConfig:
     # Basic parameters
     debug: bool = False
+    save_zarr: bool = False
     disk_mode: bool = True
     ckpt_path: str = ""
     num_model_steps_forward: int = 200
@@ -219,8 +220,13 @@ class EvalConfig:
             config_dict = yaml.safe_load(f)
 
         # Handle sub_name override if provided
-        if overrides and "sub_name" in overrides.keys():
-            config_dict["experiment"]["sub_name"] = overrides["sub_name"]
+        if overrides:
+            if "sub_name" in overrides.keys():
+                config_dict["experiment"]["sub_name"] = overrides["sub_name"]
+            if "ckpt_path" in overrides.keys():
+                config_dict["ckpt_path"] = overrides["ckpt_path"]
+            if "save_zarr" in overrides.keys():
+                config_dict["save_zarr"] = overrides["save_zarr"]
 
         return from_dict(
             data_class=cls,
@@ -232,6 +238,7 @@ class EvalConfig:
         """Save config to YAML file."""
         config_dict = {
             "debug": self.debug,
+            "save_zarr": self.save_zarr,
             "disk_mode": self.disk_mode,
             "ckpt_path": self.ckpt_path,
             "num_model_steps_forward": self.num_model_steps_forward,

@@ -8,6 +8,7 @@ from datasets import InferenceDataset, TrainData
 from utils.device import using_gpu
 from utils.model import InfOutput, TrainOutput, ValOutput
 from utils.wandb import get_record_to_wandb
+from utils.writer import ZarrWriter
 
 
 class Stepper:
@@ -43,9 +44,22 @@ class Stepper:
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
+        output_dir: str,
+        model_path: str,
         num_model_steps_forward: int = 200,
         record_every: int = 10,
+        save_zarr: bool = False,
     ) -> None:
+        if save_zarr:
+            coords = dataset.get_coords_dict()
+            writer = ZarrWriter(
+                output_dir,
+                coords=coords,
+                hist=inf_aggregator.hist,
+                model_path=model_path,
+            )
+        else:
+            writer = None
         record_logs = get_record_to_wandb(label="inference")
         logging.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
         logs = inf_aggregator.record_initial_prognostic(
@@ -98,15 +112,21 @@ class Stepper:
                     target=dataset.inference_target(step + i),  # TODO: Pack with input
                     time=dataset.inputs.time[step + i],
                 )  # time-dependent aggs dont work, time is incorrect as well
+                if writer:
+                    writer.record_batch(IO)
                 logs = inf_aggregator.record_batch(IO)
                 all_logs.extend(logs)
                 if (i + 1) % record_every == 0:
                     logging.info(f"Inference [epoch {epoch}]: wandb logging...")
                     record_logs(all_logs)
+                    if writer:
+                        writer.write()
                     all_logs = []
 
             if len(all_logs) > 0:
                 logging.info(f"Inference [epoch {epoch}]: wandb logging...")
                 record_logs(all_logs)
+                if writer:
+                    writer.write()
 
             step += num_steps

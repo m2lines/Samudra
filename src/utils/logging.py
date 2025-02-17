@@ -19,7 +19,7 @@ def handle_logging(cfg):
         level=level,
         format="%(asctime)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler(cfg.experiment.output_dir / "training.log"),
+            logging.FileHandler(cfg.experiment.output_dir / "experiment.log"),
             logging.StreamHandler(),
         ],
     )

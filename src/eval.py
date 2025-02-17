@@ -251,7 +251,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--subname", type=str, required=False)
-    parser.add_argument("--ckpt_path", type=str, required=True)
+    parser.add_argument("--ckpt_path", type=str, required=False)
     parser.add_argument("--save_zarr", default=False, action="store_true")
     args = parser.parse_args()
 

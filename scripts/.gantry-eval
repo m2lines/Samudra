@@ -5,7 +5,7 @@ set -e
 
 JOB_NAME="samudra-evaluator"  # recommended but not required to change this
 CONFIG_PATH=configs/gantry_eval_cm4.yaml  # relative to the root of the repository
-EXISTING_RESULTS_DATASET="01J4MT10JPQ8MFA41F2AXGFYJ9"  # this contains the checkpoint to use for inference
+EXISTING_RESULTS_DATASET="01JKQ5N43JD12SQ6NC0VW14PPY"  # this contains the checkpoint to use for inference
 
 echo 'Using config file:' $CONFIG_PATH
  # since we use a service account API key for wandb, we use the beaker username to set the wandb username
@@ -24,7 +24,7 @@ gantry run \
     --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
     --dataset-secret google-credentials:/tmp/google_application_credentials.json \
     --dataset jamesd/2025-01-20-cm4-ocean-piControl-200yr-dataset-stats:/statsdata \
-    --dataset $EXISTING_RESULTS_DATASET:training_checkpoints/best_inference_ckpt.tar:/ckpt.tar \
+    --dataset $EXISTING_RESULTS_DATASET:2025-02-09-train-samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector/saved_nets/convnextunet_epoch_117_best_inference_steps_4_all_Lateral_Data_025_no_smooth.pt:/ckpt.pt \
     --gpus $N_GPUS \
     --shared-memory 200GiB \
     --weka climate-default:/climate-default \

@@ -14,6 +14,6 @@ sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $T
 
 python3 src/eval.py \
     --config $TMP_CONFIG_PATH \
-    --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2025-02-10-train-samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector-FusedAdam-lr0.0001/saved_nets/convnextunet_epoch_120_steps_4_all_Lateral_Data_025_no_smooth.pt \
-    --subname "thermodynamic-batchsize3-so-corrector-FusedAdam-lr0.0001-epoch120_120-infchmean0.088686" \
+    --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2025-02-09-train-samudra-train-cm4-thermodynamic-scheduler-batchsize3-so-corrector/saved_nets/convnextunet_epoch_120_steps_4_all_Lateral_Data_025_no_smooth.pt \
+    --subname "thermodynamic-scheduler-batchsize3-so-corrector-epoch120_120" \
     --save_zarr

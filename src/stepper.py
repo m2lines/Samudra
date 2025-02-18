@@ -5,7 +5,7 @@ import torch
 
 from aggregator import InferenceEvaluatorAggregator
 from datasets import InferenceDataset, TrainData
-from utils.device import using_gpu
+from utils.device import get_device, using_gpu
 from utils.model import InfOutput, TrainOutput, ValOutput
 from utils.wandb import get_record_to_wandb
 from utils.writer import ZarrWriter
@@ -67,7 +67,7 @@ class Stepper:
         record_logs = get_record_to_wandb(label="inference")
         logging.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
         logs = inf_aggregator.record_initial_prognostic(
-            initial_prognostic=dataset.initial_prognostic,
+            initial_prognostic=dataset.initial_prognostic.to(get_device()),
         )
         record_logs(logs)
         num_model_steps = len(dataset)

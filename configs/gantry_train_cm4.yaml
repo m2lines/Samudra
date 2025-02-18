@@ -3,9 +3,9 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 120
-batch_size: 3
-learning_rate: 0.0002
-scheduler: true
+batch_size: 4
+learning_rate: 0.0001
+scheduler: false
 loss: mse
 finetune: false
 resume_ckpt_path: null
@@ -94,7 +94,7 @@ unet:
   corrector:
     non_negative_corrector_names:
       - "so"
-    ocean_heat_corrector: true
+    ocean_heat_corrector: false
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

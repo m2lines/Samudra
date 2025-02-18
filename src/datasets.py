@@ -164,12 +164,19 @@ class InferenceDataset(torch.utils.data.Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary = self._extras.isel(time=x_index).isel(
+            time=slice(None, self.hist + 1)
+        )
         data_in_boundary = Normalize.get_instance().normalize_boundary(data_in_boundary)
         data_in_boundary = (
             data_in_boundary.to_array()
-            .transpose("window_dim", "variable", "lat", "lon")
+            .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
+        )
+        data_in_boundary = rearrange(
+            data_in_boundary,
+            "window_dim time variable lat lon -> \
+                window_dim (time variable) lat lon",
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
@@ -399,11 +406,18 @@ class TrainDataset(torch.utils.data.Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary = self._extras.isel(time=x_index).isel(
+            time=slice(None, self.hist + 1)
+        )
         data_in_boundary = (
             data_in_boundary.to_array()
-            .transpose("window_dim", "variable", "lat", "lon")
+            .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
+        )
+        data_in_boundary = rearrange(
+            data_in_boundary,
+            "window_dim time variable lat lon -> \
+                window_dim (time variable) lat lon",
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)

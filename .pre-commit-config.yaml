@@ -6,6 +6,7 @@ repos:
       args: ["--fix", "--config", "pyproject.toml"]
       exclude: ^notebooks/
     - id: ruff-format
+      exclude: ^notebooks/
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

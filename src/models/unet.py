@@ -15,7 +15,7 @@ from utils.train import pairwise
 
 
 class UNet(BaseModel):
-    def __init__(self, config, hist, wet):
+    def __init__(self, config, hist, wet, area_weights):
         super().__init__(
             ch_width=config.ch_width,
             n_out=config.n_out,
@@ -24,6 +24,7 @@ class UNet(BaseModel):
             pred_residuals=config.pred_residuals,
             last_kernel_size=config.last_kernel_size,
             pad=config.pad,
+            area_weights=area_weights,
         )
 
         # Get activation class
@@ -121,10 +122,11 @@ class UNet(BaseModel):
         layers.append(nn.Conv2d(b, config.n_out, config.last_kernel_size))
 
         self.layers = nn.ModuleList(layers)
-        self.corrector = Corrector(config.corrector, hist)
+        self.corrector = Corrector(config.corrector, hist, area_weights)
         self.num_steps = int(len(config.ch_width) - 1)
 
     def forward_once(self, fts):
+        fts_input = fts.clone()
         temp: list[torch.Tensor] = []
         for i in range(self.num_steps):
             temp.append(torch.zeros_like(fts))
@@ -161,5 +163,5 @@ class UNet(BaseModel):
                     fts = nn.functional.pad(fts, pads)
                     fts += temp[int(2 * self.num_steps - count - 1)]
                     count += 1
-        fts = self.corrector(fts)
+        fts = self.corrector(fts_input, fts)
         return torch.where(self.wet, fts, 0.0)

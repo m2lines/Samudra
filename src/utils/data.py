@@ -7,6 +7,7 @@ import xarray as xr
 from einops import rearrange
 
 from constants import MASK_VARS, TensorMap
+from utils.device import using_gpu
 
 
 def extract_wet_mask(data, outputs, hist):
@@ -167,11 +168,26 @@ class Normalize:
         self._inputs_std_np = self.inputs_std.to_array().to_numpy().reshape(-1)
         self._outputs_mean_np = self.outputs_mean.to_array().to_numpy().reshape(-1)
         self._outputs_std_np = self.outputs_std.to_array().to_numpy().reshape(-1)
+        self._extras_mean_np = self.extras_mean.to_array().to_numpy().reshape(-1)
+        self._extras_std_np = self.extras_std.to_array().to_numpy().reshape(-1)
         self._wet_mask_np = self.wet_mask.numpy()
 
-    def _to_tensor(self, array: np.ndarray, device: torch.device) -> torch.Tensor:
-        """Convert numpy array to tensor on specified device."""
-        return torch.from_numpy(array).to(device)
+        # Pre-compute tensors for faster access
+        self._inputs_mean_tensor = torch.from_numpy(self._inputs_mean_np)
+        self._inputs_std_tensor = torch.from_numpy(self._inputs_std_np)
+        self._outputs_mean_tensor = torch.from_numpy(self._outputs_mean_np)
+        self._outputs_std_tensor = torch.from_numpy(self._outputs_std_np)
+        self._extras_mean_tensor = torch.from_numpy(self._extras_mean_np)
+        self._extras_std_tensor = torch.from_numpy(self._extras_std_np)
+
+        if using_gpu():
+            self.wet_mask = self.wet_mask.cuda()
+            self._inputs_mean_tensor = self._inputs_mean_tensor.cuda()
+            self._inputs_std_tensor = self._inputs_std_tensor.cuda()
+            self._outputs_mean_tensor = self._outputs_mean_tensor.cuda()
+            self._outputs_std_tensor = self._outputs_std_tensor.cuda()
+            self._extras_mean_tensor = self._extras_mean_tensor.cuda()
+            self._extras_std_tensor = self._extras_std_tensor.cuda()
 
     def normalize_inputs(
         self, data: xr.Dataset, fill_nan=True, fill_value=0.0
@@ -210,19 +226,66 @@ class Normalize:
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
     ) -> torch.Tensor:
         """Normalize input tensor."""
-        tensor_mean = self._to_tensor(self._inputs_mean_np, data.device)
-        tensor_std = self._to_tensor(self._inputs_std_np, data.device)
+        tensor_mean = self._inputs_mean_tensor
+        tensor_std = self._inputs_std_tensor
+        if data.ndim == 4:
+            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, -1, 1, 1])
+        elif data.ndim == 5:
+            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
+
         norm = (data - tensor_mean) / tensor_std
         if fill_nan:
             norm = norm.nan_to_num(nan=fill_value)
         return norm
 
+    def unnormalize_tensor_inputs(self, data: torch.Tensor) -> torch.Tensor:
+        """Unnormalize input tensor."""
+        tensor_mean = self._inputs_mean_tensor
+        tensor_std = self._inputs_std_tensor
+
+        if data.ndim == 4:
+            assert data.shape[1] == self._inputs_mean_np.shape[0]
+            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, -1, 1, 1])
+        elif data.ndim == 5:
+            assert data.shape[2] == self._inputs_mean_np.shape[0]
+            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
+        else:
+            raise ValueError(f"Invalid data shape: {data.shape}")
+
+        unnorm = data * tensor_std + tensor_mean
+        unnorm = unnorm * self.wet_mask
+
+        return unnorm
+
+    def unnormalize_tensor_boundary(self, data: torch.Tensor) -> torch.Tensor:
+        """Unnormalize boundary tensor."""
+        tensor_mean = self._extras_mean_tensor
+        tensor_std = self._extras_std_tensor
+
+        if data.ndim == 4:
+            assert data.shape[1] == self._extras_mean_np.shape[0]
+            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, -1, 1, 1])
+        elif data.ndim == 5:
+            assert data.shape[2] == self._extras_mean_np.shape[0]
+            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
+        else:
+            raise ValueError(f"Invalid data shape: {data.shape}")
+
+        unnorm = data * tensor_std + tensor_mean
+        return unnorm
+
     def normalize_tensor_outputs(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
     ) -> torch.Tensor:
         """Normalize output tensor."""
-        tensor_mean = self._to_tensor(self._outputs_mean_np, data.device)
-        tensor_std = self._to_tensor(self._outputs_std_np, data.device)
+        tensor_mean = self._outputs_mean_tensor
+        tensor_std = self._outputs_std_tensor
         if data.ndim == 4:
             tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
             tensor_std = tensor_std.reshape([1, -1, 1, 1])
@@ -237,8 +300,8 @@ class Normalize:
 
     def unnormalize_tensor_outputs(self, data: torch.Tensor) -> torch.Tensor:
         """Unnormalize output tensor."""
-        tensor_mean = self._to_tensor(self._outputs_mean_np, data.device)
-        tensor_std = self._to_tensor(self._outputs_std_np, data.device)
+        tensor_mean = self._outputs_mean_tensor
+        tensor_std = self._outputs_std_tensor
 
         if data.ndim == 4:
             assert data.shape[1] == self._outputs_mean_np.shape[0]
@@ -252,7 +315,7 @@ class Normalize:
             raise ValueError(f"Invalid data shape: {data.shape}")
 
         unnorm = data * tensor_std + tensor_mean
-        unnorm = unnorm * self.wet_mask.to(data.device)
+        unnorm = unnorm * self.wet_mask
         return unnorm
 
     def normalize_numpy_inputs(

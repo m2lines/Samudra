@@ -29,6 +29,30 @@ DEPTH_LEVELS = [
     6000.0,
 ]
 
+# Not sure why the data has conflicting depth
+# thickness and depth levels
+DEPTH_THICKNESS = [
+    5.0,
+    10.0,
+    15.0,
+    20.0,
+    30.0,
+    50.0,
+    70.0,
+    100.0,
+    150.0,
+    200.0,
+    250.0,
+    300.0,
+    400.0,
+    500.0,
+    600.0,
+    800.0,
+    1000.0,
+    1000.0,
+    1000.0,
+]
+
 DEPTH_I_LEVELS = [
     "0",
     "1",
@@ -73,7 +97,7 @@ MASK_VARS = [
     "mask_18",
 ]
 
-INPT_VARS = {
+INPT_VARS: Dict[str, list[str]] = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "ur", "vr"],
     "3": ["um", "vm", "Tm"],
@@ -110,7 +134,7 @@ INPT_VARS = {
     ]
     + ["zos"],
 }
-EXTRA_VARS = {
+EXTRA_VARS: Dict[str, list[str]] = {
     "1": ["ur", "vr"],
     "2": ["ur", "vr", "Tm"],
     "3": ["Tm"],
@@ -144,7 +168,7 @@ EXTRA_VARS = {
     "3D_all_SAT_tos": ["tauuo", "tauvo", "DSWRFtoa", "air_temperature_at_two_meters"],
     "3D_all_SAT": ["tauuo", "tauvo", "air_temperature_at_two_meters"],
 }
-OUT_VARS = {
+OUT_VARS: Dict[str, list[str]] = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "Tm"],
     "3": ["ur", "vr"],
@@ -214,71 +238,96 @@ class TensorMap:
         return cls._instance
 
     @classmethod
-    def init_instance(cls, exp_num: str) -> "TensorMap":
+    def init_instance(cls, exp_num: str, exp_num_extra: str) -> "TensorMap":
         if cls._instance is not None:
             raise ValueError("TensorMap already initialized")
 
         instance = super().__new__(cls)
-        instance._initialize(exp_num)
+        instance._initialize(exp_num, exp_num_extra)
         cls._instance = instance
         return cls._instance
 
-    def _initialize(self, exp_num: str):
+    def _initialize(self, exp_num: str, exp_num_extra: str):
         """
-        Maps input variables / depth levels to their indices in the input tensor.
+        Maps input variables / depth levels to their indices in the output tensor.
+        Also maps the boundary variables to their indices in the input tensor.
 
-        VAR_3D_IDX maps the input variables to their indices in the input tensor
-        DP_3D_IDX maps the depth levels to their indices in the input tensor
+        OUT_VAR_3D_IDX maps the output variables to their indices in the output tensor
+        OUT_DP_3D_IDX maps the depth levels to their indices in the output tensor
         """
         self.exp_num = exp_num
-        self.VAR_3D_IDX: Dict[str, torch.Tensor] = {}
-        self.DP_3D_IDX: Dict[str, torch.Tensor] = {}
+        self.exp_num_extra = exp_num_extra
+        self.OUT_VAR_3D_IDX: Dict[str, torch.Tensor] = {}
+        self.OUT_DP_3D_IDX: Dict[str, torch.Tensor] = {}
+        self.INPT_BOUNDARY_IDX: Dict[str, torch.Tensor] = {}
 
-        self.VAR_SET_2D = []
-        self.VAR_SET_3D = []
+        self.OUT_VAR_SET_2D: list[str] = []
+        self.OUT_VAR_SET_3D: list[str] = []
         for out in OUT_VARS[exp_num]:
             var_split = out.split("_")
             if len(var_split) == 1:
-                self.VAR_SET_2D.append(var_split[0])
+                self.OUT_VAR_SET_2D.append(var_split[0])
             else:
-                self.VAR_SET_3D.append(var_split[0])
+                self.OUT_VAR_SET_3D.append(var_split[0])
 
         # Consistent order of variables
         self.VAR_SET = list(
             dict.fromkeys(([out.split("_")[0] for out in OUT_VARS[exp_num]]))
         )
-        self.DEPTH_SET = DEPTH_I_LEVELS
-        self.outputs = OUT_VARS[exp_num]
+        self.DEPTH_SET: list[str] = DEPTH_I_LEVELS
+        self.outputs: list[str] = OUT_VARS[exp_num]
+        self.extra: list[str] = EXTRA_VARS[exp_num_extra]
+
+        self.dz = torch.tensor(DEPTH_THICKNESS)
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()
+        self._populate_boundary_idx()
 
     def _populate_var_3d_idx(self):
+        """
+        Populates the indices of the output variables in the output tensor.
+        """
         for kt in self.VAR_SET:
-            self.VAR_3D_IDX[kt] = torch.tensor([])
+            self.OUT_VAR_3D_IDX[kt] = torch.tensor([])
             for i, k in enumerate(self.outputs):
                 if kt in k:
-                    self.VAR_3D_IDX[kt] = torch.cat(
-                        [self.VAR_3D_IDX[kt], torch.tensor([i])]
+                    self.OUT_VAR_3D_IDX[kt] = torch.cat(
+                        [self.OUT_VAR_3D_IDX[kt], torch.tensor([i])]
                     )
-            self.VAR_3D_IDX[kt] = self.VAR_3D_IDX[kt].to(torch.int32)
+            self.OUT_VAR_3D_IDX[kt] = self.OUT_VAR_3D_IDX[kt].to(torch.int32)
 
     def _populate_dp_3d_idx(self):
+        """
+        Populates the indices of the depth levels in the output tensor.
+        """
         for d in self.DEPTH_SET:
-            self.DP_3D_IDX[d] = torch.tensor([])
+            self.OUT_DP_3D_IDX[d] = torch.tensor([])
             for i, k in enumerate(self.outputs):
                 k_split = k.split("_")
                 if len(k_split) == 1:
                     continue
                 elif d == k_split[-1]:
-                    self.DP_3D_IDX[d] = torch.cat(
-                        [self.DP_3D_IDX[d], torch.tensor([i])]
+                    self.OUT_DP_3D_IDX[d] = torch.cat(
+                        [self.OUT_DP_3D_IDX[d], torch.tensor([i])]
                     )
-            self.DP_3D_IDX[d] = self.DP_3D_IDX[d].to(torch.int32)
+            self.OUT_DP_3D_IDX[d] = self.OUT_DP_3D_IDX[d].to(torch.int32)
 
-        self.DP_3D_IDX[self.DEPTH_SET[0]] = torch.cat(
+        self.OUT_DP_3D_IDX[self.DEPTH_SET[0]] = torch.cat(
             [
-                self.DP_3D_IDX[self.DEPTH_SET[0]],
-                torch.tensor([self.VAR_3D_IDX[var_2D] for var_2D in self.VAR_SET_2D]),
+                self.OUT_DP_3D_IDX[self.DEPTH_SET[0]],
+                torch.tensor(
+                    [self.OUT_VAR_3D_IDX[var_2D] for var_2D in self.OUT_VAR_SET_2D]
+                ),
             ]
         )
+
+    def _populate_boundary_idx(self):
+        """
+        Populates the indices of the boundary variables in the input tensor.
+
+        We assume the indices INPT_BOUNDARY_IDX will be used after the boundary
+        condition is extracted from the input tensor
+        """
+        for i, k in enumerate(self.extra):
+            self.INPT_BOUNDARY_IDX[k] = torch.tensor([i])

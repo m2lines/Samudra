@@ -11,7 +11,15 @@ from utils.device import get_device
 
 class BaseModel(torch.nn.Module):
     def __init__(
-        self, ch_width, n_out, wet, hist, pred_residuals, last_kernel_size, pad
+        self,
+        ch_width,
+        n_out,
+        wet,
+        hist,
+        pred_residuals,
+        last_kernel_size,
+        pad,
+        area_weights,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -25,6 +33,7 @@ class BaseModel(torch.nn.Module):
         self.hist = hist
         self.input_channels = ch_width[0]
         self.output_channels = n_out
+        self.area_weights = area_weights
 
     def forward_once(self, fts):
         raise NotImplementedError()

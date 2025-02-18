@@ -48,7 +48,7 @@ class LossAggregator:
         metrics = {}
         for depth in self.tensor_map.DEPTH_SET:
             metrics[f"{label}/loss/depth/depth_{depth}_loss"] = loss_per_channel[
-                self.tensor_map.DP_3D_IDX[depth]
+                self.tensor_map.OUT_DP_3D_IDX[depth]
             ].mean()
         return metrics
 
@@ -58,7 +58,7 @@ class LossAggregator:
         metrics = {}
         for variable in self.tensor_map.VAR_SET:
             metrics[f"{label}/loss/variable/{variable}_loss"] = loss_per_channel[
-                self.tensor_map.VAR_3D_IDX[variable]
+                self.tensor_map.OUT_VAR_3D_IDX[variable]
             ].mean()
         return metrics
 

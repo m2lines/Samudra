@@ -11,6 +11,7 @@ finetune: false
 resume_ckpt_path: null
 inference_epochs: [-1]
 data_percent: 1.0
+validate_using_ema: true
 train:
   start_time: 151-01-06
   end_time: 154-01-01

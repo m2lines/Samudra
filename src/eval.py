@@ -71,10 +71,12 @@ class Eval:
         self.N_extra = self.N_atm  # Number of atmosphere variables
         self.N_out = len(self.outputs)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
-        self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
+        self.num_in = int((cfg.data.hist + 1) * (self.N_in + self.N_extra))
+        self.num_out = int((cfg.data.hist + 1) * self.N_out)
 
-        self.tensor_map = TensorMap.init_instance(cfg.experiment.exp_num_out)
+        self.tensor_map = TensorMap.init_instance(
+            cfg.experiment.exp_num_out, cfg.experiment.exp_num_extra
+        )
 
         logging.info(f"Number of inputs: {self.num_in}")
         logging.info(f"Number of outputs: {self.num_out}")
@@ -141,9 +143,12 @@ class Eval:
                     f"{cfg.unet.n_out}->{self.num_out}"
                 )
                 cfg.unet.n_out = self.num_out
-            model = UNet(cfg.unet, hist=cfg.data.hist, wet=self.wet.to(self.device)).to(
-                self.device
-            )
+            model = UNet(
+                cfg.unet,
+                hist=cfg.data.hist,
+                wet=self.wet.to(self.device),
+                area_weights=self.area_weights,
+            ).to(self.device)
         else:
             raise NotImplementedError
 

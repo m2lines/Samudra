@@ -50,7 +50,7 @@ class EMATracker:
     def __init__(
         self,
         model: HasNamedParameters,
-        decay: float = 0.9999,
+        decay: float = 0.999,
         faster_decay_at_start: bool = True,
     ):
         """

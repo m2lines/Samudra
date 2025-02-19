@@ -84,6 +84,16 @@ def test_train__data_shape(train_loader_pair: LoaderPair):
         assert y.shape == (cfg.steps[0], batch_size, output_var_dim, 180, 360)
 
 
+def test_train__data_is_not_zeros(train_loader_pair):
+    cfg, loader = train_loader_pair
+
+    for sample in loader:
+        X, y = extract_sample_arrays(sample, cfg.steps[0])
+        assert np.count_nonzero(np.zeros(X.shape)) == 0, "Sanity check: Zero is zero."
+        assert np.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
+        assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
+
+
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
 #  Changing the "hist" parameter breaks this test.
 def test_val__loads_correct_number_of_samples(val_loader_pair):

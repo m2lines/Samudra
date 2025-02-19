@@ -46,6 +46,7 @@ def extract_sample_arrays(td: TrainData, steps: int) -> Tuple[np.ndarray, np.nda
 
 
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
+#  Changing the "hist" parameter breaks this test.
 def test_train__loads_correct_number_of_samples(train_loader_pair):
     cfg, loader = train_loader_pair
     n_samples = 6
@@ -59,9 +60,12 @@ def test_train__data_shape(train_loader_pair):
 
     exp = cfg.experiment
     batch_size = cfg.batch_size
+    hist = cfg.data.hist + 1
 
-    input_var_dim = len(INPT_VARS[exp.exp_num_in]) + len(EXTRA_VARS[exp.exp_num_extra])
-    output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out])
+    input_var_dim = len(INPT_VARS[exp.exp_num_in]) * hist + len(
+        EXTRA_VARS[exp.exp_num_extra]
+    )
+    output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
 
     for sample in loader:
         X, y = extract_sample_arrays(sample, cfg.steps[0])
@@ -70,6 +74,7 @@ def test_train__data_shape(train_loader_pair):
 
 
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
+#  Changing the "hist" parameter breaks this test.
 def test_val__loads_correct_number_of_samples(val_loader_pair):
     cfg, loader = val_loader_pair
     n_samples = 2
@@ -83,9 +88,12 @@ def test_val__data_shape(val_loader_pair):
 
     exp = cfg.experiment
     batch_size = cfg.batch_size
+    hist = cfg.data.hist + 1
 
-    input_var_dim = len(INPT_VARS[exp.exp_num_in]) + len(EXTRA_VARS[exp.exp_num_extra])
-    output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out])
+    input_var_dim = len(INPT_VARS[exp.exp_num_in]) * hist + len(
+        EXTRA_VARS[exp.exp_num_extra]
+    )
+    output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
 
     for sample in loader:
         X, y = extract_sample_arrays(sample, 1)

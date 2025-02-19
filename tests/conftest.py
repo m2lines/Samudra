@@ -11,8 +11,6 @@ import xarray as xr
 import constants as c
 from config import TrainConfig
 
-PROJ_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
-
 
 class DataSource(TypedDict):
     """In-memory `xarray.Dataset`s needed for tests."""
@@ -104,7 +102,9 @@ def data_source() -> DataSource:
 
 # TODO(alxmrs): Consider yielding multiple test configs.
 @pytest.fixture(scope="session")
-def train_config(data_source: DataSource) -> Generator[TrainConfig, Any, None]:
+def train_config(
+    data_source: DataSource, pytestconfig: pytest.Config
+) -> Generator[TrainConfig, Any, None]:
     with tempfile.TemporaryDirectory() as tmpdir:
 
         def _make_path(name_with_ext: str) -> str:
@@ -116,7 +116,7 @@ def train_config(data_source: DataSource) -> Generator[TrainConfig, Any, None]:
         data_source["stds"].to_netcdf(_make_path("stds.netcdf"))
 
         # Open default training script; modify it so it uses the temporary directory.
-        default_config = os.path.join(PROJ_ROOT, "configs", "train_cm4.test.yaml")
+        default_config = pytestconfig.rootpath / "configs" / "train_cm4.test.yaml"
         trainer = TrainConfig.from_yaml(default_config)
         data_config = dataclasses.replace(
             trainer.data,

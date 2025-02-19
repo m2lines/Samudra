@@ -54,19 +54,19 @@ def test_train__loads_correct_number_of_samples(train_loader_pair):
     ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
 
 
-# TODO(alxmrs): What does the "2" dimension represent? Where is it in the config?
 def test_train__data_shape(train_loader_pair):
     cfg, loader = train_loader_pair
 
     exp = cfg.experiment
+    batch_size = cfg.batch_size
 
     input_var_dim = len(INPT_VARS[exp.exp_num_in]) + len(EXTRA_VARS[exp.exp_num_extra])
     output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out])
 
     for sample in loader:
         X, y = extract_sample_arrays(sample, cfg.steps[0])
-        assert X.shape == (cfg.steps[0], 2, input_var_dim, 180, 360)
-        assert y.shape == (cfg.steps[0], 2, output_var_dim, 180, 360)
+        assert X.shape == (cfg.steps[0], batch_size, input_var_dim, 180, 360)
+        assert y.shape == (cfg.steps[0], batch_size, output_var_dim, 180, 360)
 
 
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
@@ -78,16 +78,16 @@ def test_val__loads_correct_number_of_samples(val_loader_pair):
     ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
 
 
-# TODO(alxmrs): What does the "2" dimension represent? Where is it in the config?
 def test_val__data_shape(val_loader_pair):
     cfg, loader = val_loader_pair
 
     exp = cfg.experiment
+    batch_size = cfg.batch_size
 
     input_var_dim = len(INPT_VARS[exp.exp_num_in]) + len(EXTRA_VARS[exp.exp_num_extra])
     output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out])
 
     for sample in loader:
         X, y = extract_sample_arrays(sample, 1)
-        assert X.shape == (1, 2, input_var_dim, 180, 360)
-        assert y.shape == (1, 2, output_var_dim, 180, 360)
+        assert X.shape == (1, batch_size, input_var_dim, 180, 360)
+        assert y.shape == (1, batch_size, output_var_dim, 180, 360)

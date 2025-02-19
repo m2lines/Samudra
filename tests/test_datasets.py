@@ -41,15 +41,25 @@ def val_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     cfg, trainer = trainer_pair
     return cfg, trainer.val_loader
 
-
 @pytest.fixture
 def inference_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     cfg, trainer = trainer_pair
     return cfg, trainer.inference_loader
 
 
-def extract_sample_arrays(td: TrainData, steps: int) -> tuple[np.ndarray, np.ndarray]:
+@pytest.fixture(params=["train", "val", "inference"])
+def loader_pair(request, train_loader_pair, val_loader_pair, inference_loader_pair) -> LoaderPair:
+    if request.param == "train":
+        return train_loader_pair
+    elif request.param == "val":
+        return val_loader_pair
+    else:
+        return inference_loader_pair
+
+
+def extract_sample_arrays(td: TrainData) -> Tuple[np.ndarray, np.ndarray]:
     """Extract underlying X, y pairs from TrainData object."""
+    steps = len(td.td_dict.keys())
     x_arrays = [td.get_input(s).numpy(force=True) for s in range(steps)]
     y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
 
@@ -79,19 +89,9 @@ def test_train__data_shape(train_loader_pair: LoaderPair):
     output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
 
     for sample in loader:
-        X, y = extract_sample_arrays(sample, cfg.steps[0])
+        X, y = extract_sample_arrays(sample)
         assert X.shape == (cfg.steps[0], batch_size, input_var_dim, 180, 360)
         assert y.shape == (cfg.steps[0], batch_size, output_var_dim, 180, 360)
-
-
-def test_train__data_is_not_zeros(train_loader_pair):
-    cfg, loader = train_loader_pair
-
-    for sample in loader:
-        X, y = extract_sample_arrays(sample, cfg.steps[0])
-        assert np.count_nonzero(np.zeros(X.shape)) == 0, "Sanity check: Zero is zero."
-        assert np.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
-        assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
 
 
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
@@ -117,7 +117,7 @@ def test_val__data_shape(val_loader_pair: LoaderPair):
     output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
 
     for sample in loader:
-        X, y = extract_sample_arrays(sample, 1)
+        X, y = extract_sample_arrays(sample)
         assert X.shape == (1, batch_size, input_var_dim, 180, 360)
         assert y.shape == (1, batch_size, output_var_dim, 180, 360)
 
@@ -147,3 +147,13 @@ def test_inference__data_shape(inference_loader_pair: LoaderPair):
         for X, y in inference_dataset:
             assert X.shape == (batch_size, input_var_dim, 180, 360)
             assert y.shape == (batch_size, output_var_dim, 180, 360)
+
+
+def test__data_is_not_zeros(loader_pair: LoaderPair):
+    cfg, loader = loader_pair
+
+    for sample in loader:
+        X, y = extract_sample_arrays(sample)
+        assert np.count_nonzero(np.zeros(X.shape)) == 0, "Sanity check: Zero is zero."
+        assert np.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
+        assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"

@@ -36,7 +36,7 @@ distributed:
 
 experiment:
   name: train
-  sub_name: local_cm4_samudra
+  sub_name: test_cm4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
@@ -44,15 +44,15 @@ experiment:
   wandb:
     mode: disabled
     project: 3D_ocean_emu_CM4
-    entity: suryadheeshjith
+    entity: testrobot
   network: convnextunet
   exp_num_in: '3D_5'
   exp_num_extra: '3D_5'
   exp_num_out: '3D_5'
 data:
-  data_path: cm4_piControl_ocean_200yr_full.zarr
-  data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
-  data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
+  data_path: fake/data/path/cm4_piControl_ocean_200yr_full.zarr
+  data_means_path: fake/data/path/cm4-piControl-ocean-200yr-dataset-stats/centering.nc
+  data_stds_path: fake/data/path/piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
   scaling_residuals_file: null
   depth_mode: all
   time_delta: 5
@@ -61,10 +61,10 @@ data:
 
 
 unet:
-  ch_width: [157, 200, 250, 300, 400]
-  n_out: 77
-  dilation: [1, 2, 4, 8]
-  n_layers: [1, 1, 1, 1]
+  ch_width: [2, 3]
+  n_out: 4
+  dilation: [1, 2]
+  n_layers: [1, 1]
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
@@ -73,7 +73,7 @@ unet:
     block_type: "conv_next_block"
     kernel_size: 3
     activation: "capped_gelu"
-    upscale_factor: 4
+    upscale_factor: 2
     norm: "batch"
 
   corrector:

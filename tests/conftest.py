@@ -53,43 +53,49 @@ def data_source() -> DataSource:
     )
 
     coords = {
-        "lon": xr.DataArray(np.arange(0.5, 360, 1), dims=["lon"]),
-        "lat": xr.DataArray(np.arange(-89.24, 90, 1), dims=["lat"]),
-        "time": xr.DataArray(summer_of_love, dims=["time"]),
+        "lon": xr.DataArray(np.arange(0.5, 360, 1), dims=["lon"]),  # Float[360]
+        "lat": xr.DataArray(np.arange(-89.24, 90, 1), dims=["lat"]),  # Float[180]
+        "time": xr.DataArray(summer_of_love, dims=["time"]),  # DatetimeNoLeap[54]
     }
 
     normal = np.random.normal(
-        size=(lat := len(coords["lat"]), lon := len(coords["lon"]))
-    )
+        size=(len(coords["lat"]), len(coords["lon"]))
+    )  # Float[180, 360]
 
-    ds: xr.Dataset = xr.Dataset(
-        {
-            # 2D variables
-            var: xr.DataArray(
-                np.random.random([len(summer_of_love), lat, lon]),
-                dims=["time", "lat", "lon"],
-            )
-            for var in ["hfds", "tauuo", "tauvo", "zos"]
-        }
-        | {
-            # 3D variables
-            f"{var}_{lev}": xr.DataArray(
-                np.random.random([len(summer_of_love), lat, lon]),
-                dims=["time", "lat", "lon"],
-            )
-            for var in ["so", "thetao", "uo", "vo"]
-            for lev in c.DEPTH_I_LEVELS
-        }
-        | {
-            # Masks -- make a binary circle mask.
-            f"mask_{lev}": xr.DataArray(
-                np.where(normal > 0.5**lev, 1, 0),
-                dims=["lat", "lon"],
-            )
-            for lev in range(len(c.DEPTH_I_LEVELS))
-        },
-        coords=coords,
+    # A grid of alternating lat/lng coordinate values across time.
+    # The zero axis (time) switches between a "lat" grid and a "lon" grid:
+    # Each "lat" col is a gradient 90° to -89° from top to bottom; all cols are equal.
+    # Each "lon" row is a gradient from 0.5° to 360° from left to right; rows are equal.
+    # This alternating grid of lat/lng values should help us validate data during tests.
+    latlng_grid = np.stack(
+        np.meshgrid(coords["lat"][::-1], coords["lon"], indexing="ij"),
+        axis=0,
     )
+    alternating_latlng_grid = np.repeat(
+        latlng_grid, len(summer_of_love) // 2, axis=0
+    )  # Float[54, 180, 360]
+
+    # TODO(alxmrs): Idea -- make cell values complex numbers, where the
+    #  complex-conjugate is associated with the data variable.
+    vars_2d = {
+        var: xr.DataArray(alternating_latlng_grid, dims=["time", "lat", "lon"])
+        for var in ["hfds", "tauuo", "tauvo", "zos"]
+    }
+    vars_3d = {
+        f"{var}_{lev}": xr.DataArray(
+            alternating_latlng_grid, dims=["time", "lat", "lon"]
+        )
+        for var in ["so", "thetao", "uo", "vo"]
+        for lev in c.DEPTH_I_LEVELS
+    }
+    # Mask with a binary circle.
+    masks = {
+        f"mask_{lev}": xr.DataArray(
+            np.where(normal > 0.5**lev, 1, 0), dims=["lat", "lon"]
+        )
+        for lev in range(len(c.DEPTH_I_LEVELS))
+    }
+    ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
     return {"data": ds, "means": ds.mean("time"), "stds": ds.std("time")}
 

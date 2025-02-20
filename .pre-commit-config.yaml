@@ -24,8 +24,7 @@ repos:
       args: ["--config", "pyproject.toml"]
       exclude: |
         (?x)^(
-        .+/conf.py |
-        .+/conftest.py
+        .+/conf.py
         )$
 - repo: https://github.com/tox-dev/pyproject-fmt
   rev: "v2.5.0"

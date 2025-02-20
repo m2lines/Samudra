@@ -48,8 +48,6 @@ def device(request):
 @pytest.fixture(scope="session")
 def data_source() -> DataSource:
     """Returns in-memory `xarray.Dataset`s for tests."""
-    out = {}
-
     summer_of_love = xr.cftime_range(
         "1969-08-10", "1969-10-01", freq="D", calendar="noleap"
     )
@@ -64,7 +62,7 @@ def data_source() -> DataSource:
         size=(lat := len(coords["lat"]), lon := len(coords["lon"]))
     )
 
-    ds = xr.Dataset(
+    ds: xr.Dataset = xr.Dataset(
         {
             # 2D variables
             var: xr.DataArray(
@@ -93,11 +91,7 @@ def data_source() -> DataSource:
         coords=coords,
     )
 
-    out["data"] = ds
-    out["means"] = ds.mean("time")
-    out["stds"] = ds.std("time")
-
-    return out
+    return {"data": ds, "means": ds.mean("time"), "stds": ds.std("time")}
 
 
 # TODO(alxmrs): Consider yielding multiple test configs.

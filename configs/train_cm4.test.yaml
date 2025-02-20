@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: false
 save_freq: 5
 epochs: 120
-batch_size: 2 # 4
+batch_size: 1
 learning_rate: 0.0001
 scheduler: false
 loss: mse
@@ -15,15 +15,15 @@ inference_epochs: [-1]
 data_percent: 1.0
 train:
   start_time: '1969-08-15'
-  end_time: '1969-08-30'
+  end_time: '1969-08-20'
 val:
-  start_time: '1969-09-01'
-  end_time: '1969-09-05'
+  start_time: '1969-09-04'
+  end_time: '1969-09-09'
 inference:
   - start_time: '1969-09-06'
-    end_time: '1969-09-12'
+    end_time: '1969-09-14'
 data_stride: [1]
-steps: [4]
+steps: [1]
 step_transition: []
 
 distributed:
@@ -50,9 +50,9 @@ experiment:
   exp_num_extra: '3D_5'
   exp_num_out: '3D_5'
 data:
-  data_path: fake/data/path/cm4_piControl_ocean_200yr_full.zarr
-  data_means_path: fake/data/path/cm4-piControl-ocean-200yr-dataset-stats/centering.nc
-  data_stds_path: fake/data/path/piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
+  data_path: fake/path/to/data
+  data_means_path: fake/path/to/means
+  data_stds_path: fake/path/to/stds
   scaling_residuals_file: null
   depth_mode: all
   time_delta: 5

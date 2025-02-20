@@ -1,6 +1,137 @@
 # Contributing Guide
 
-TODO(#54): _Full contribution guide to come._
+Everyone can contribute to Ocean Emulator, and we value everyone's contributions. There are several ways to contribute,
+including:
+
+* Reporting bugs or feature requests in our [issue tracker](https://github.com/suryadheeshjith/Ocean_Emulator/issues).
+* Contributing to our [code base](https://github.com/suryadheeshjith/Ocean_Emulator).
+* Writing or editing documentation. (Yes, typo fixes are welcome!)
+
+This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/pages/code-of-conduct/).
+
+## Contribute code with pull requests
+
+<details>
+<summary><strong>TL;DR</strong></summary>
+
+```shell
+git clone git@github.com:suryadheeshjith/Ocean_Emulator.git
+cd Ocean_Emulator
+uv sync --dev
+source .venv/bin/activate
+uvx pre-commit install
+
+# dev
+uvx pytest -m "not manual and not cuda"
+
+# sync
+git pull origin master --rebase
+git push --force-with-lease
+```
+
+</details>
+
+1. (If you're not a core maintainer), please fork the repository by clicking the **Fork**
+   button on [the repository page](https://github.com/suryadheeshjith/Ocean_Emulator).
+
+2. Clone the repository (via [`ssh` recommended](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)!) and change into the root directory.
+   ```shell
+   # if you're using a fork, make sure to clone your fork's repo
+   git clone https://github.com/suryadheeshjith/Ocean_Emulator.git
+   # preferred method, but requires setting up an ssh key with Github.
+   git clone git@github.com:suryadheeshjith/Ocean_Emulator.git
+   # or, using the Github CLI
+   gh repo clone suryadheeshjith/Ocean_Emulator
+
+   # then, change directory
+   cd Ocean_Emulator
+   ```
+
+3. Install developer dependencies using [`uv`](https://docs.astral.sh/uv/getting-started/):
+   ```shell
+   uv sync --dev
+   ```
+   Then, activate the environment that `uv` created:
+   ```shell
+   source .venv/bin/activate
+   ```
+
+4. (If forked) Add the original repository as an upstream remote, so you can sync your changes.
+   ```shell
+   git remote add upstream git@github.com:suryadheeshjith/Ocean_Emulator.git
+   ```
+
+5. Check out feature branches where you will develop from:
+   ```shell
+   git checkout -b name-of-change
+   ```
+
+6. Perform project lifecycle routines as needed during development:
+   ```shell
+   # run tests
+   uvx pytest -m "not manual and not cuda"
+   ```
+
+   For more details on how to run specific tests, please see the next section.
+
+   **Recommended**: For convenience, we've collected lint checks as a [pre-commit](https://pre-commit.com/)
+   hook.
+
+   To install the pre-commit hook (which will run before every commit), call:
+   ```shell
+   uvx pre-commit install
+   ```
+
+   To run all checks manually, you can run:
+   ```shell
+   # run against staged files
+   uvx pre-commit run
+   # run against all files in the project
+   uvx pre-commit run --all-files
+   ```
+
+   If you want to commit _without_ running pre-commit checks, you're always free to use the `--no-verify` flag:
+   ```shell
+   git commit --no-verfiy -m "WIP"
+   ```
+
+   Sometimes, you may want to skip _just one check_, but run the rest of the pre-commit. You can accomplish this by
+   setting an [environment variable](https://pre-commit.com/#temporarily-disabling-hooks):
+   ```shell
+   export SKIP=ruff
+   uvx pre-commit run
+   ```
+
+   It's totally ok to make lots of small commits as you develop your feature! Please, make sure to
+   write [commit messages](https://cbea.ms/git-commit/) along the way.
+
+7. Before submitting a pull request, please sync with the main repo via rebase:
+   ```shell
+   git pull origin master --rebase
+   # if working in a fork
+   git pull upstream master --rebase
+   ```
+
+   If the rebase requires that you force push to your remote feature branch, [we recommend using `--force-with-lease`](https://stackoverflow.com/questions/52823692/git-push-force-with-lease-vs-force):
+   ```shell
+   git push --force-with-lease
+   ```
+
+8. Finally, when you're ready to submit a pull request — say, when all checks have passed — push your change on your
+   development branch so you can create a pull request:
+   ```shell
+   git push -u origin name-of-change
+   ```
+
+9. Before you make the final merge, please make sure your commits are tidy and well-named. To do this, you can either
+   use the **Squash and merge** button to commit (the default), or merge commits after you've cleaned up the commit
+   history. For this, we recommend performing an [interactive rebase](https://about.gitlab.com/blog/2020/11/23/keep-git-history-clean-with-interactive-rebase/):
+   ```shell
+   git rebase -i <starting-commit>
+   ```
+
+10. Celebrating submitting your patch to Ocean Emulator — well done!
+
 
 ## How to run tests
 

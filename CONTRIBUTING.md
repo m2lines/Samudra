@@ -24,7 +24,10 @@ uvx pre-commit install
 # dev
 uvx pytest -m "not manual and not cuda"
 
-# sync
+# push new remote branch to make a PR
+git push -u origin <feature-branch>
+
+# sync branch
 git pull origin master --rebase
 git push --force-with-lease
 ```

@@ -37,6 +37,13 @@ def val_loader_pair(trainer_pair):
     return cfg, trainer.val_loader
 
 
+@pytest.fixture
+def inference_loader_pair(trainer_pair):
+    cfg, trainer = trainer_pair
+
+    return cfg, trainer.inference_loader
+
+
 def extract_sample_arrays(td: TrainData, steps: int) -> Tuple[np.ndarray, np.ndarray]:
     """Extract underlying X, y pairs from TrainData object."""
     x_arrays = [td.get_input(s).numpy(force=True) for s in range(steps)]
@@ -99,3 +106,30 @@ def test_val__data_shape(val_loader_pair):
         X, y = extract_sample_arrays(sample, 1)
         assert X.shape == (1, batch_size, input_var_dim, 180, 360)
         assert y.shape == (1, batch_size, output_var_dim, 180, 360)
+
+
+def test_inference__loads_correct_number_of_samples(inference_loader_pair):
+    cfg, loader = inference_loader_pair
+    n_samples = 1
+    assert (
+        len(list(loader)) == n_samples
+    ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
+
+
+def test_inference__data_shape(inference_loader_pair):
+    cfg, loader = inference_loader_pair
+
+    exp = cfg.experiment
+    batch_size = cfg.batch_size
+    hist = cfg.data.hist + 1
+
+    input_var_dim = len(INPT_VARS[exp.exp_num_in]) * hist + len(
+        EXTRA_VARS[exp.exp_num_extra]
+    )
+    output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
+
+    for sample in loader:
+        inference_dataset, n = sample
+        for X, y in inference_dataset:
+            assert X.shape == (batch_size, input_var_dim, 180, 360)
+            assert y.shape == (batch_size, output_var_dim, 180, 360)

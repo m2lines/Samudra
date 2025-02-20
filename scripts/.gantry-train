@@ -7,7 +7,7 @@ CONFIG_PATH=configs/gantry_train_cm4.yaml  # relative to the root of the reposit
 
 echo 'Using config file:' $CONFIG_PATH
  # since we use a service account API key for wandb, we use the beaker username to set the wandb username
-BEAKER_USERNAME=$(beaker account whoami --format=json | jq -r '.[0].name')
+BEAKER_USERNAME=suryad
 N_GPUS=8
 
 gantry run \

@@ -49,13 +49,13 @@ def device(request):
 def data_source() -> DataSource:
     """Returns in-memory `xarray.Dataset`s for tests."""
     summer_of_love = xr.cftime_range(
-        "1969-08-10", "1969-12-31", freq="5D", calendar="noleap"
+        "1969-08-05", "1969-12-31", freq="5D", calendar="noleap"
     )
 
     coords = {
         "lon": xr.DataArray(np.arange(0.5, 360, 1), dims=["lon"]),  # Float[360]
         "lat": xr.DataArray(np.arange(-89.24, 90, 1), dims=["lat"]),  # Float[180]
-        "time": xr.DataArray(summer_of_love, dims=["time"]),  # DatetimeNoLeap[54]
+        "time": xr.DataArray(summer_of_love, dims=["time"]),  # CFTimeIndex[30]
     }
 
     normal = np.random.normal(
@@ -73,7 +73,7 @@ def data_source() -> DataSource:
     )
     alternating_latlng_grid = np.repeat(
         latlng_grid, len(summer_of_love) // 2, axis=0
-    )  # Float[54, 180, 360]
+    )  # Float[30, 180, 360]
 
     # TODO(alxmrs): Idea -- make cell values complex numbers, where the
     #  complex-conjugate is associated with the data variable.

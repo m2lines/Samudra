@@ -48,16 +48,14 @@ def inference_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     return cfg, trainer.inference_loader
 
 
-@pytest.fixture(params=["train", "val", "inference"])
-def loader_pair(
-    request, train_loader_pair, val_loader_pair, inference_loader_pair
-) -> LoaderPair:
+# The Inference loader is not included here because it doesn't store data
+# in a `TrainData` object.
+@pytest.fixture(params=["train", "val"])
+def td_loader_pair(request, train_loader_pair, val_loader_pair) -> LoaderPair:
     if request.param == "train":
         return train_loader_pair
-    elif request.param == "val":
-        return val_loader_pair
     else:
-        return inference_loader_pair
+        return val_loader_pair
 
 
 def extract_sample_arrays(td: TrainData) -> Tuple[np.ndarray, np.ndarray]:
@@ -152,11 +150,28 @@ def test_inference__data_shape(inference_loader_pair: LoaderPair):
             assert y.shape == (batch_size, output_var_dim, 180, 360)
 
 
-def test__data_is_not_zeros(loader_pair: LoaderPair):
-    cfg, loader = loader_pair
+def test__data_is_not_zeros(td_loader_pair: LoaderPair):
+    cfg, loader = td_loader_pair
 
     for sample in loader:
         X, y = extract_sample_arrays(sample)
         assert np.count_nonzero(np.zeros(X.shape)) == 0, "Sanity check: Zero is zero."
         assert np.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
         assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
+
+
+def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
+    cfg, loader = inference_loader_pair
+
+    for sample in loader:
+        dataset, n = sample
+        for X, y in dataset:
+            assert (
+                np.count_nonzero(np.zeros(X.shape)) == 0
+            ), "Sanity check: Zero is zero."
+            assert (
+                np.count_nonzero(X.numpy()) != 0
+            ), "Input data should not be a zeros matrix!"
+            assert (
+                np.count_nonzero(y.numpy()) != 0
+            ), "Label data should not be a zeros matrix!"

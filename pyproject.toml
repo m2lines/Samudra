@@ -48,6 +48,9 @@ markers = [
   "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
   "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
 ]
+pythonpath = [
+  "src",
+]
 
 [tool.mypy]
 ignore_missing_imports = true

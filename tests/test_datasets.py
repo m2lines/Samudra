@@ -1,7 +1,5 @@
 """Test core Datasets and DataLoaders."""
 
-from typing import Tuple
-
 import numpy as np
 import pytest
 from torch.utils.data import DataLoader
@@ -58,7 +56,7 @@ def td_loader_pair(request, train_loader_pair, val_loader_pair) -> LoaderPair:
         return val_loader_pair
 
 
-def extract_sample_arrays(td: TrainData) -> Tuple[np.ndarray, np.ndarray]:
+def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     """Extract underlying X, y pairs from TrainData object."""
     steps = len(td.td_dict.keys())
     x_arrays = [td.get_input(s).numpy(force=True) for s in range(steps)]

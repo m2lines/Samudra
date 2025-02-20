@@ -270,3 +270,9 @@ def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
             assert (
                 np.count_nonzero(y.numpy()) != 0
             ), "Label data should not be a zeros matrix!"
+
+
+def test_profile__train_loader(train_loader_pair, profile):
+    cfg, loader = train_loader_pair
+    for sample in loader:
+        _ = sample

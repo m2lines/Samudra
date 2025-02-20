@@ -1,4 +1,6 @@
+import cProfile
 import dataclasses
+import datetime
 import os
 import tempfile
 from typing import Any, Generator
@@ -228,6 +230,23 @@ def model2_path(request):
 )
 def backend(request) -> TrainBackendConfig:
     return request.param
+
+
+# Add this fixture for automatic performance profiling.
+# Note: Due to the finalizer order logic, please add this fixture last.
+#  See https://docs.pytest.org/en/stable/how-to/fixtures.html#note-on-finalizer-order
+@pytest.fixture
+def profile(request, pytestconfig):
+    profiler = cProfile.Profile()
+    os.makedirs(pytestconfig.rootpath / "prof", exist_ok=True)
+
+    profiler.enable()
+    yield
+    profiler.disable()
+
+    testname = request.node.name
+    iteration = datetime.datetime.now().strftime("%Y-%m-%d-%H_%M")
+    profiler.dump_stats(pytestconfig.rootpath / "prof" / f"{testname}.{iteration}.prof")
 
 
 @pytest.fixture(scope="session")

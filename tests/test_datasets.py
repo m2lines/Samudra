@@ -1,7 +1,5 @@
 """Test core Datasets and DataLoaders."""
 
-from typing import Tuple
-
 import numpy as np
 import pytest
 from torch.utils.data import DataLoader
@@ -15,7 +13,7 @@ from train_3D import Trainer
 # these fixtures allow us to isolate data loader tests from their setup.
 
 TrainPair = tuple[TrainConfig, Trainer]
-LoaderPair = Tuple[TrainConfig, DataLoader]
+LoaderPair = tuple[TrainConfig, DataLoader]
 
 
 # This micro-fixture is cached by pytest. Thus, we don't have to change
@@ -48,7 +46,7 @@ def inference_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     return cfg, trainer.inference_loader
 
 
-def extract_sample_arrays(td: TrainData, steps: int) -> Tuple[np.ndarray, np.ndarray]:
+def extract_sample_arrays(td: TrainData, steps: int) -> tuple[np.ndarray, np.ndarray]:
     """Extract underlying X, y pairs from TrainData object."""
     x_arrays = [td.get_input(s).numpy(force=True) for s in range(steps)]
     y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]

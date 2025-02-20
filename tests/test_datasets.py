@@ -56,7 +56,7 @@ def extract_sample_arrays(td: TrainData, steps: int) -> Tuple[np.ndarray, np.nda
 #  Changing the "hist" parameter breaks this test.
 def test_train__loads_correct_number_of_samples(train_loader_pair):
     cfg, loader = train_loader_pair
-    n_samples = 5
+    n_samples = 13
     assert (
         len(list(loader)) == n_samples
     ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."

@@ -41,6 +41,7 @@ def val_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     cfg, trainer = trainer_pair
     return cfg, trainer.val_loader
 
+
 @pytest.fixture
 def inference_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     cfg, trainer = trainer_pair
@@ -48,7 +49,9 @@ def inference_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
 
 
 @pytest.fixture(params=["train", "val", "inference"])
-def loader_pair(request, train_loader_pair, val_loader_pair, inference_loader_pair) -> LoaderPair:
+def loader_pair(
+    request, train_loader_pair, val_loader_pair, inference_loader_pair
+) -> LoaderPair:
     if request.param == "train":
         return train_loader_pair
     elif request.param == "val":

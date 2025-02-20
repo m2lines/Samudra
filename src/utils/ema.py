@@ -32,8 +32,6 @@ from typing import Iterable, Iterator, List, Protocol, Tuple
 import torch
 from torch import nn
 
-from .wandb import WandBLogger
-
 
 class HasNamedParameters(Protocol):
     def named_parameters(
@@ -52,7 +50,7 @@ class EMATracker:
     def __init__(
         self,
         model: HasNamedParameters,
-        decay: float = 0.99,
+        decay: float = 0.999,
         faster_decay_at_start: bool = True,
     ):
         """
@@ -99,13 +97,9 @@ class EMATracker:
         """
         decay = self.decay
 
-        wandb_logger = WandBLogger.get_instance()
-        wandb_logger.log({"ema_decay": self.decay}, step=None)  # type: ignore
-        wandb_logger.log({"ema_num_updates": self.num_updates}, step=None)  # type: ignore
-
         self.num_updates += 1
         if self._faster_decay_at_start:
-            decay = min(self.decay, (1 + self.num_updates) / (120 + self.num_updates))
+            decay = min(self.decay, (1 + self.num_updates) / (10 + self.num_updates))
 
         with torch.no_grad():
             module_parameters = dict(model.named_parameters())

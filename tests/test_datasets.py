@@ -4,7 +4,9 @@ from typing import Tuple
 
 import numpy as np
 import pytest
+from torch.utils.data import DataLoader
 
+from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS
 from datasets import TrainData
 from train_3D import Trainer
@@ -12,11 +14,14 @@ from train_3D import Trainer
 # Note: Refactoring data loaders is planned for the near-term. Ideally,
 # these fixtures allow us to isolate data loader tests from their setup.
 
+TrainPair = tuple[TrainConfig, Trainer]
+LoaderPair = Tuple[TrainConfig, DataLoader]
+
 
 # This micro-fixture is cached by pytest. Thus, we don't have to change
 # the factory methods that throw errors during double initialization.
 @pytest.fixture(scope="session")
-def trainer_pair(train_config):
+def trainer_pair(train_config: TrainConfig) -> TrainPair:
     trainer = Trainer(train_config)
 
     # cur_step will set the number of pairs in the input/output sample
@@ -26,21 +31,20 @@ def trainer_pair(train_config):
 
 
 @pytest.fixture
-def train_loader_pair(trainer_pair):
+def train_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     cfg, trainer = trainer_pair
     return cfg, trainer.train_loader
 
 
 @pytest.fixture
-def val_loader_pair(trainer_pair):
+def val_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     cfg, trainer = trainer_pair
     return cfg, trainer.val_loader
 
 
 @pytest.fixture
-def inference_loader_pair(trainer_pair):
+def inference_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     cfg, trainer = trainer_pair
-
     return cfg, trainer.inference_loader
 
 
@@ -54,7 +58,7 @@ def extract_sample_arrays(td: TrainData, steps: int) -> Tuple[np.ndarray, np.nda
 
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
 #  Changing the "hist" parameter breaks this test.
-def test_train__loads_correct_number_of_samples(train_loader_pair):
+def test_train__loads_correct_number_of_samples(train_loader_pair: LoaderPair):
     cfg, loader = train_loader_pair
     n_samples = 13
     assert (
@@ -62,7 +66,7 @@ def test_train__loads_correct_number_of_samples(train_loader_pair):
     ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
 
 
-def test_train__data_shape(train_loader_pair):
+def test_train__data_shape(train_loader_pair: LoaderPair):
     cfg, loader = train_loader_pair
 
     exp = cfg.experiment
@@ -90,7 +94,7 @@ def test_val__loads_correct_number_of_samples(val_loader_pair):
     ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
 
 
-def test_val__data_shape(val_loader_pair):
+def test_val__data_shape(val_loader_pair: LoaderPair):
     cfg, loader = val_loader_pair
 
     exp = cfg.experiment
@@ -108,7 +112,7 @@ def test_val__data_shape(val_loader_pair):
         assert y.shape == (1, batch_size, output_var_dim, 180, 360)
 
 
-def test_inference__loads_correct_number_of_samples(inference_loader_pair):
+def test_inference__loads_correct_number_of_samples(inference_loader_pair: LoaderPair):
     cfg, loader = inference_loader_pair
     n_samples = 1
     assert (
@@ -116,7 +120,7 @@ def test_inference__loads_correct_number_of_samples(inference_loader_pair):
     ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
 
 
-def test_inference__data_shape(inference_loader_pair):
+def test_inference__data_shape(inference_loader_pair: LoaderPair):
     cfg, loader = inference_loader_pair
 
     exp = cfg.experiment

@@ -49,7 +49,7 @@ def device(request):
 def data_source() -> DataSource:
     """Returns in-memory `xarray.Dataset`s for tests."""
     summer_of_love = xr.cftime_range(
-        "1969-08-10", "1969-10-01", freq="D", calendar="noleap"
+        "1969-08-10", "1969-12-31", freq="5D", calendar="noleap"
     )
 
     coords = {

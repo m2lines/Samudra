@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+
 import wandb
 
 
@@ -147,16 +148,16 @@ class WandBLogger:
     def Image(self, data, *args, **kwargs):
         if isinstance(data, np.ndarray):
             data = scale_image(data)
-        return wandb.Image(data, *args, **kwargs)
+        return wandb.Image(data, *args, **kwargs)  # type: ignore[attr-defined]
 
     def Video(self, *args, **kwargs):
-        return wandb.Video(*args, **kwargs)
+        return wandb.Video(*args, **kwargs)  # type: ignore[attr-defined]
 
     def Table(self, *args, **kwargs):
-        return wandb.Table(*args, **kwargs)
+        return wandb.Table(*args, **kwargs)  # type: ignore[attr-defined]
 
     def Histogram(self, *args, **kwargs):
-        return wandb.Histogram(*args, **kwargs)
+        return wandb.Histogram(*args, **kwargs)  # type: ignore[attr-defined]
 
     def log_inference_metrics(
         self,

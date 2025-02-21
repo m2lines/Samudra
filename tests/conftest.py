@@ -121,15 +121,13 @@ def data_source() -> DataSource:
 
 
 def parse_encoded_float(encoded: np.float64) -> GridPoint:
-    """Decode floats encoding scheme into constituent parts.
-
-    AAAAGGGG.TTTDD --> GridPoint(
-      lat=AA.AA,
-      lng=GGG.G,
-      days_since_start=TTT,
-      data_var_index=DD
-    )
-    """
+    """Decode floats encoding scheme into constituent parts."""
+    # AAAAGGGG.TTTDD --> GridPoint(
+    #     lat=AA.AA,
+    #     lng=GGG.G,
+    #     days_since_start=TTT,
+    #     data_var_index=DD
+    # )
     location = np.floor(encoded)
     time_and_idx = encoded - location
 

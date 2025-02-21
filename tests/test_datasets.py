@@ -273,10 +273,22 @@ def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
 
 
 @pytest.mark.manual
-def test_profile__train_loader(train_loader_pair, benchmark):
-    cfg, loader = train_loader_pair
+def test_profile__loader(td_loader_pair: LoaderPair, benchmark):
+    cfg, loader = td_loader_pair
 
     @benchmark
     def bench():
         for sample in loader:
             _ = sample
+
+
+@pytest.mark.manual
+def test_profile__inference_loader(inference_loader_pair: LoaderPair, benchmark):
+    cfg, loader = inference_loader_pair
+
+    @benchmark
+    def bench():
+        for sample in loader:
+            dataset, n = sample
+            for X, y in dataset:
+                _, _ = X, y

@@ -66,7 +66,7 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
 
 
-def test_test_util__parse_float():
+def test_test_util__parse_encoded_float():
     #       AAAAGGGG.TTTDD
     test1 = 27760145.03000
     assert parse_encoded_float(test1) == dict(

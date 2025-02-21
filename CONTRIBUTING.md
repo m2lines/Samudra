@@ -28,7 +28,7 @@ uvx pytest -m "not manual and not cuda"
 git push -u origin <feature-branch>
 
 # sync branch
-git pull origin master --rebase
+git pull origin main --rebase
 git push --force-with-lease
 ```
 
@@ -110,9 +110,9 @@ git push --force-with-lease
 
 7. Before submitting a pull request, please sync with the main repo via rebase:
    ```shell
-   git pull origin master --rebase
+   git pull origin main --rebase
    # if working in a fork
-   git pull upstream master --rebase
+   git pull upstream main --rebase
    ```
 
    If the rebase requires that you force push to your remote feature branch, [we recommend using `--force-with-lease`](https://stackoverflow.com/questions/52823692/git-push-force-with-lease-vs-force):

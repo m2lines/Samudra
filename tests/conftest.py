@@ -20,6 +20,13 @@ class DataSource(TypedDict):
     stds: xr.Dataset
 
 
+class GridPoint(TypedDict):
+    lat: float
+    lng: float
+    days_since_start: int
+    data_var_index: int
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--model1", action="store", help="Path to the first model .pt file"
@@ -83,9 +90,9 @@ def data_source() -> DataSource:
     # A floating point digit-encoded grid.
     # ------------------------------------
     # Each number in this array is an interpretable float with the following scheme:
-    # AAAAGGGG.TTT[DD]
-    # - A := Latitude (originally a float with 2 decimal digits).
-    # - G := Longitude ""
+    # AAAAGGGG.TTTDD
+    # - A := Latitude, which ranges from 90.00 <--> -90.00
+    # - G := Longitude, which ranges from 000.0 <--> 360.0
     # - T := Time (the number of days since the start time).
     # - D := (optional) A int representing the index of the current data variable.
     interpretable_grid = rolled_out_grid + days_reshaped / 1000  # Float[30, 180, 360]
@@ -111,6 +118,38 @@ def data_source() -> DataSource:
     ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
     return {"data": ds, "means": ds.mean("time"), "stds": ds.std("time")}
+
+
+def parse_float(encoded: np.float64) -> GridPoint:
+    """Decode floats encoding scheme (AAAAGGGG.TTTDD) into constituent parts."""
+    location = np.floor(encoded)
+    time_and_idx = encoded - location
+
+    # divmod is equivalent to (a // b, a % b). This is used
+    # to separate the first 4 digits and the last 4 digits.
+    lat_digits, lng_digits = divmod(int(location), 10_000)
+
+    time_digits = time_and_idx * 1_000
+    days_since_start = int(time_digits)
+
+    var_idx_digits = (time_digits - days_since_start) * 100
+    data_var_index = round(var_idx_digits)
+
+    # Latitude ranges from 90.00 to -90.00
+    # so we move the decimal from AAAA to AA.AA
+    # by dividing by 100.
+    lat = float(lat_digits / 100)
+    # Longitude ranges from 000.0 to 360.0
+    # so we move the decimal from GGGG to GGG.G
+    # by dividing by 10.
+    lng = float(lng_digits / 10)
+
+    return GridPoint(
+        lat=lat,
+        lng=lng,
+        days_since_start=days_since_start,
+        data_var_index=data_var_index,
+    )
 
 
 # TODO(alxmrs): Consider yielding multiple test configs.

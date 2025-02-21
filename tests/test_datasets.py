@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from conftest import parse_float
 from torch.utils.data import DataLoader
 
 from config import TrainConfig
@@ -63,6 +64,26 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
 
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
+
+
+def test_test_util__parse_float():
+    #       AAAAGGGG.TTTDD
+    test1 = 27760145.03000
+    assert parse_float(test1) == dict(
+        lat=27.76,
+        lng=14.5,
+        days_since_start=30,
+        data_var_index=0,
+    )
+
+    #       AAAAGGGG.TTTDD
+    test2 = 27760145.03020
+    assert parse_float(test2) == dict(
+        lat=27.76,
+        lng=14.5,
+        days_since_start=30,
+        data_var_index=20,
+    )
 
 
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?

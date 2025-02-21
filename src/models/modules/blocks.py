@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from models.modules.activations import CappedGELU
 
@@ -64,6 +65,23 @@ class MaxPool(torch.nn.Module):
 
     def forward(self, x):
         return self.maxpool(x)
+
+
+class LayerNorm(nn.Module):
+    r"""
+    LayerNorm that supports data formats with shape
+    (batch_size, height, width, channels).
+    """
+
+    def __init__(self, normalized_shape, eps=1e-6):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(normalized_shape))
+        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.eps = eps
+        self.normalized_shape = (normalized_shape,)
+
+    def forward(self, x):
+        return F.layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
 
 
 class CoreBlock(torch.nn.Module):
@@ -174,6 +192,8 @@ class ConvNeXtBlock(CoreBlock):
         # Instance Norm
         elif norm == "instance":
             convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
+        elif norm == "layer":
+            convblock.append(LayerNorm(in_channels * upscale_factor))
         elif norm == "nonorm":
             pass
         else:
@@ -194,6 +214,9 @@ class ConvNeXtBlock(CoreBlock):
         # Instance Norm
         elif norm == "instance":
             convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
+        # LayerNorm
+        elif norm == "layer":
+            convblock.append(LayerNorm(in_channels * upscale_factor))
         elif norm == "nonorm":
             pass
         else:
@@ -210,6 +233,7 @@ class ConvNeXtBlock(CoreBlock):
             )
         )
         self.convblock = torch.nn.Sequential(*convblock)
+        self.norm = norm
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # return self.skip_module(x) + self.convblock(x)
@@ -222,5 +246,10 @@ class ConvNeXtBlock(CoreBlock):
                 x = torch.nn.functional.pad(
                     x, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            x = layer(x)
+            if isinstance(layer, LayerNorm):
+                x = x.permute(0, 2, 3, 1)
+                x = layer(x)
+                x = x.permute(0, 3, 1, 2)
+            else:
+                x = layer(x)
         return skip + x

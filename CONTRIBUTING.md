@@ -252,6 +252,9 @@ useful, for example, for white-box performance optimization. To collect a `cProf
 uv run pytest --benchmark-only --benchmark-cprofile="tottime_per" --benchmark-cprofile-dump
 ```
 
+(Please consult [these docs](https://pytest-benchmark.readthedocs.io/en/latest/usage.html#:~:text=%2D%2Dbenchmark%2Dcprofile%3DCOLUMN)
+to see all available values for the `--benchmark-cprofile` flag.)
+
 This will generate a `.prof` file located in the `` directory (by default). You can visualize this trace with `snakeviz`
 like so:
 

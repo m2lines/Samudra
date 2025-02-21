@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+from conftest import parse_encoded_float
 from torch.utils.data import DataLoader
 
 from config import TrainConfig
@@ -46,12 +47,43 @@ def inference_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
     return cfg, trainer.inference_loader
 
 
-def extract_sample_arrays(td: TrainData, steps: int) -> tuple[np.ndarray, np.ndarray]:
+# The Inference loader is not included here because it doesn't store data
+# in a `TrainData` object.
+@pytest.fixture(params=["train", "val"])
+def td_loader_pair(request, train_loader_pair, val_loader_pair) -> LoaderPair:
+    if request.param == "train":
+        return train_loader_pair
+    else:
+        return val_loader_pair
+
+
+def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     """Extract underlying X, y pairs from TrainData object."""
+    steps = len(td)
     x_arrays = [td.get_input(s).numpy(force=True) for s in range(steps)]
     y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
 
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
+
+
+def test_test_util__parse_encoded_float():
+    #       AAAAGGGG.TTTDD
+    test1 = 27760145.03000
+    assert parse_encoded_float(test1) == dict(
+        lat=27.76,
+        lng=14.5,
+        days_since_start=30,
+        data_var_index=0,
+    )
+
+    #       AAAAGGGG.TTTDD
+    test2 = 27760145.03020
+    assert parse_encoded_float(test2) == dict(
+        lat=27.76,
+        lng=14.5,
+        days_since_start=30,
+        data_var_index=20,
+    )
 
 
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
@@ -77,7 +109,7 @@ def test_train__data_shape(train_loader_pair: LoaderPair):
     output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
 
     for sample in loader:
-        X, y = extract_sample_arrays(sample, cfg.steps[0])
+        X, y = extract_sample_arrays(sample)
         assert X.shape == (cfg.steps[0], batch_size, input_var_dim, 180, 360)
         assert y.shape == (cfg.steps[0], batch_size, output_var_dim, 180, 360)
 
@@ -105,7 +137,7 @@ def test_val__data_shape(val_loader_pair: LoaderPair):
     output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
 
     for sample in loader:
-        X, y = extract_sample_arrays(sample, 1)
+        X, y = extract_sample_arrays(sample)
         assert X.shape == (1, batch_size, input_var_dim, 180, 360)
         assert y.shape == (1, batch_size, output_var_dim, 180, 360)
 
@@ -135,3 +167,30 @@ def test_inference__data_shape(inference_loader_pair: LoaderPair):
         for X, y in inference_dataset:
             assert X.shape == (batch_size, input_var_dim, 180, 360)
             assert y.shape == (batch_size, output_var_dim, 180, 360)
+
+
+def test__data_is_not_zeros(td_loader_pair: LoaderPair):
+    cfg, loader = td_loader_pair
+
+    for sample in loader:
+        X, y = extract_sample_arrays(sample)
+        assert np.count_nonzero(np.zeros(X.shape)) == 0, "Sanity check: Zero is zero."
+        assert np.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
+        assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
+
+
+def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
+    cfg, loader = inference_loader_pair
+
+    for sample in loader:
+        dataset, n = sample
+        for X, y in dataset:
+            assert (
+                np.count_nonzero(np.zeros(X.shape)) == 0
+            ), "Sanity check: Zero is zero."
+            assert (
+                np.count_nonzero(X.numpy()) != 0
+            ), "Input data should not be a zeros matrix!"
+            assert (
+                np.count_nonzero(y.numpy()) != 0
+            ), "Label data should not be a zeros matrix!"

@@ -319,6 +319,7 @@ class Trainer:
         self.inference_epochs = cfg.inference_epochs
         self.time_delta = cfg.data.time_delta
         self.num_batches_seen = 0
+        self.log_train_every_n_batches = cfg.log_train_every_n_batches
 
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
@@ -463,6 +464,8 @@ class Trainer:
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = "Training Epoch: [{}]".format(epoch)
         # iters = len(self.train_loader)
+        n_samples_seen_since_logging = 0
+        current_time = time.time()
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
@@ -477,6 +480,7 @@ class Trainer:
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
+            n_samples_seen_since_logging += self.batch_size
 
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
@@ -489,10 +493,21 @@ class Trainer:
                 else self.scheduler.get_last_lr()[0]
             )
 
-            with torch.no_grad():
-                # Reduce losses
-                loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
+            if (
+                self.log_train_every_n_batches > 0
+                and self.num_batches_seen % self.log_train_every_n_batches == 0
+            ):
+                with torch.no_grad():
+                    # Reduce losses
+                    loss_value_reduce = all_reduce_mean(TO.loss.detach())
+                    loss_per_channel_reduce = all_reduce_mean(
+                        TO.loss_per_channel.detach()
+                    )
+                duration = time.time() - current_time
+                current_time = time.time()
+                samples_per_second = n_samples_seen_since_logging / duration
+                n_samples_seen_since_logging = 0
+
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
@@ -506,10 +521,13 @@ class Trainer:
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
                 }
+                metrics["training_samples_per_second_on_rank_0"] = samples_per_second
 
-            self.wandb_logger.log(metrics, step=self.num_batches_seen)
+                self.wandb_logger.log(metrics, step=self.num_batches_seen)
+                metric_logger.update(loss=loss_value_reduce.item())
+            else:
+                metric_logger.update(loss=TO.loss.item())
 
-            metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
         if self.scheduler is not None:

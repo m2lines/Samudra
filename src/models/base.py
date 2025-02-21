@@ -1,6 +1,5 @@
 # TODO: Need to return step-wise losses for logging
 
-import logging
 from typing import Union
 
 import torch
@@ -94,10 +93,10 @@ class BaseModel(torch.nn.Module):
     ) -> list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         for step in range(num_steps):
-            logging.info(
-                f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
-                f"of {steps_completed + num_steps - 1}."
-            )
+            # logging.info(
+            #     f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
+            #     f"of {steps_completed + num_steps - 1}."
+            # )
             if step == 0 and steps_completed == 0:
                 input_tensor = dataset.get_initial_input().to(device=get_device())
 

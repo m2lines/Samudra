@@ -121,6 +121,7 @@ class TrainConfig:
     resume_ckpt_path: Optional[str] = None
     debug: bool = False
     validate_using_ema: bool = True
+    log_train_every_n_batches: int = 200
 
     # Data parameters at root level
     data_percent: float = 1.0
@@ -175,6 +176,7 @@ class TrainConfig:
             "finetune": self.finetune,
             "resume_ckpt_path": self.resume_ckpt_path,
             "validate_using_ema": self.validate_using_ema,
+            "log_train_every_n_batches": self.log_train_every_n_batches,
             "data_percent": self.data_percent,
             "data_stride": self.data_stride,
             "steps": self.steps,

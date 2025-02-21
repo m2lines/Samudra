@@ -12,6 +12,7 @@ resume_ckpt_path: null
 inference_epochs: [-1]
 data_percent: 1.0
 validate_using_ema: true
+log_train_every_n_batches: 200
 train:
   start_time: 151-01-06
   end_time: 154-01-01

@@ -247,9 +247,9 @@ class ConvNeXtBlock(CoreBlock):
                     x, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
             if isinstance(layer, LayerNorm):
-                x = x.permute(0, 2, 3, 1)
+                x = x.permute(0, 2, 3, 1).contiguous()
                 x = layer(x)
-                x = x.permute(0, 3, 1, 2)
+                x = x.permute(0, 3, 1, 2).contiguous()
             else:
                 x = layer(x)
         return skip + x

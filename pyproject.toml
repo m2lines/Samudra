@@ -27,7 +27,7 @@ dynamic = [ "dependencies", "optional-dependencies", "version" ]
 dev = [
   "hypothesis[numpy]>=6.127.2",
   "pytest>=8.3.4",
-  "pytest-benchmark>=5.1",
+  "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",
   "snakeviz>=2.2.2",
 ]

@@ -62,31 +62,44 @@ def data_source() -> DataSource:
         size=(len(coords["lat"]), len(coords["lon"]))
     )  # Float[180, 360]
 
-    # A grid of alternating lat/lng coordinate values across time.
-    # The zero axis (time) switches between a "lat" grid and a "lon" grid:
-    # Each "lat" col is a gradient 90° to -89° from top to bottom; all cols are equal.
-    # Each "lon" row is a gradient from 0.5° to 360° from left to right; rows are equal.
-    # This alternating grid of lat/lng values should help us validate data during tests.
+    # Create array of relative times (number of days since start).
+    timedeltas = [date - summer_of_love[0] for date in summer_of_love]
+    days_from_start = np.array(
+        [delta.total_seconds() / (24 * 3600) for delta in timedeltas]
+    )
+    days_reshaped = days_from_start[:, np.newaxis, np.newaxis]  # Float[30, 1, 1]
+
     latlng_grid = np.stack(
         np.meshgrid(coords["lat"][::-1], coords["lon"], indexing="ij"),
         axis=0,
     )
-    alternating_latlng_grid = np.repeat(
-        latlng_grid, len(summer_of_love) // 2, axis=0
-    )  # Float[30, 180, 360]
+    latlng_grid_3sf = np.around(latlng_grid, decimals=2)
 
-    # TODO(alxmrs): Idea -- make cell values complex numbers, where the
-    #  complex-conjugate is associated with the data variable.
+    template_grid = latlng_grid_3sf[0, :, :] * 1_000_000 + latlng_grid_3sf[1, :, :] * 10
+    rolled_out_grid = np.repeat(
+        template_grid[np.newaxis, :, :], len(summer_of_love), axis=0
+    )
+
+    # A floating point digit-encoded grid.
+    # ------------------------------------
+    # Each number in this array is an interpretable float with the following scheme:
+    # AAAAGGGG.TTT[DD]
+    # - A := Latitude (originally a float with 2 decimal digits).
+    # - G := Longitude ""
+    # - T := Time (the number of days since the start time).
+    # - D := (optional) A int representing the index of the current data variable.
+    interpretable_grid = rolled_out_grid + days_reshaped / 1000  # Float[30, 180, 360]
+
     vars_2d = {
-        var: xr.DataArray(alternating_latlng_grid, dims=["time", "lat", "lon"])
-        for var in ["hfds", "tauuo", "tauvo", "zos"]
+        var: xr.DataArray(interpretable_grid, dims=["time", "lat", "lon"])
+        + float(i) / 100_000
+        for i, var in enumerate(["hfds", "tauuo", "tauvo", "zos"])
     }
     vars_3d = {
-        f"{var}_{lev}": xr.DataArray(
-            alternating_latlng_grid, dims=["time", "lat", "lon"]
-        )
-        for var in ["so", "thetao", "uo", "vo"]
-        for lev in c.DEPTH_I_LEVELS
+        f"{var}_{lev}": xr.DataArray(interpretable_grid, dims=["time", "lat", "lon"])
+        + float(i + j + len(vars_2d)) / 100_000
+        for i, var in enumerate(["so", "thetao", "uo", "vo"])
+        for j, lev in enumerate(c.DEPTH_I_LEVELS)
     }
     # Mask with a binary circle.
     masks = {

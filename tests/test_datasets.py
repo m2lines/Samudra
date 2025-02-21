@@ -59,7 +59,7 @@ def td_loader_pair(request, train_loader_pair, val_loader_pair) -> LoaderPair:
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     """Extract underlying X, y pairs from TrainData object."""
-    steps = len(td.td_dict.keys())
+    steps = len(td)
     x_arrays = [td.get_input(s).numpy(force=True) for s in range(steps)]
     y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
 

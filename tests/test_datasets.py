@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from conftest import parse_float
+from conftest import parse_encoded_float
 from torch.utils.data import DataLoader
 
 from config import TrainConfig
@@ -69,7 +69,7 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
 def test_test_util__parse_float():
     #       AAAAGGGG.TTTDD
     test1 = 27760145.03000
-    assert parse_float(test1) == dict(
+    assert parse_encoded_float(test1) == dict(
         lat=27.76,
         lng=14.5,
         days_since_start=30,
@@ -78,7 +78,7 @@ def test_test_util__parse_float():
 
     #       AAAAGGGG.TTTDD
     test2 = 27760145.03020
-    assert parse_float(test2) == dict(
+    assert parse_encoded_float(test2) == dict(
         lat=27.76,
         lng=14.5,
         days_since_start=30,

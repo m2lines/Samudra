@@ -2,17 +2,19 @@
 # Based on this example: https://github.com/benchmark-action/github-action-benchmark/blob/master/.github/workflows/pytest.yml
 name: Benchmark CPU
 
+# Do not run this workflow on pull request since this workflow has permission to modify contents.
 on:
   push:
     branches:
       - master
 
 permissions:
-  contents: write
-  deployments: write
+  contents: write  # Allow updating content on GitHub pages
+  deployments: write  # Allow to deploy to GitHub pages
 
 jobs:
   benchmark:
+    name: Performance regression check
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -26,9 +28,10 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Run benchmark
+      - name: Run benchmarks
         run: uv run pytest --benchmark-only --benchmark-json output.json
 
+      # gh-pages branch is automatically updated with extracted benchmark data.
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         with:

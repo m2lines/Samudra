@@ -273,7 +273,7 @@ def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
 
 
 @pytest.mark.manual
-def test_profile__loader(td_loader_pair: LoaderPair, benchmark):
+def test_profile__loader__1gb(td_loader_pair: LoaderPair, benchmark):
     cfg, loader = td_loader_pair
 
     @benchmark
@@ -283,7 +283,7 @@ def test_profile__loader(td_loader_pair: LoaderPair, benchmark):
 
 
 @pytest.mark.manual
-def test_profile__inference_loader(inference_loader_pair: LoaderPair, benchmark):
+def test_profile__inference_loader__1gb(inference_loader_pair: LoaderPair, benchmark):
     cfg, loader = inference_loader_pair
 
     @benchmark

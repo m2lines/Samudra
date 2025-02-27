@@ -20,11 +20,38 @@ class DataSource(TypedDict):
     stds: xr.Dataset
 
 
-class GridPoint(TypedDict):
+@dataclasses.dataclass
+class GridPoint:
     lat: float
     lng: float
     days_since_start: int
     data_var_index: int
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, GridPoint):
+            return False
+        return (
+            np.isclose(self["lat"], other["lat"], atol=1e-2)
+            and np.isclose(self["lng"], other["lng"], atol=1e-2)
+            and np.isclose(
+                self["days_since_start"], other["days_since_start"], atol=1e-2
+            )
+            and np.isclose(self["data_var_index"], other["data_var_index"], atol=1e-2)
+        )
+
+    # make subscriptable
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
+
+
+def encode_float(grid_point: GridPoint) -> float:
+    """Encode a grid point into a float."""
+    return (
+        grid_point["lat"] * 1_000_000
+        + grid_point["lng"] * 10
+        + grid_point["days_since_start"] / 1000
+        + grid_point["data_var_index"] / 100_000
+    )
 
 
 def pytest_addoption(parser):

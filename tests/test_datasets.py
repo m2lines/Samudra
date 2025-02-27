@@ -86,6 +86,100 @@ def test_test_util__parse_encoded_float():
     )
 
 
+def test_encode_decode_float():
+    # import logging
+    import xarray as xr
+
+    summer_of_love = xr.cftime_range(
+        "1969-08-05", "1969-12-31", freq="5D", calendar="noleap"
+    )
+
+    coords = {
+        "lon": xr.DataArray(np.arange(0.5, 360, 1), dims=["lon"]),  # Float[360]
+        "lat": xr.DataArray(np.arange(-89.24, 90, 1), dims=["lat"]),  # Float[180]
+        "time": xr.DataArray(summer_of_love, dims=["time"]),  # CFTimeIndex[30]
+    }
+
+    # normal = np.random.normal(
+    #     size=(len(coords["lat"]), len(coords["lon"]))
+    # )  # Float[180, 360]
+
+    # Create array of relative times (number of days since start).
+    timedeltas = [date - summer_of_love[0] for date in summer_of_love]
+    days_from_start = np.array(
+        [delta.total_seconds() / (24 * 3600) for delta in timedeltas]
+    )
+    days_reshaped = days_from_start[:, np.newaxis, np.newaxis]  # Float[30, 1, 1]
+
+    latlng_grid = np.stack(
+        np.meshgrid(coords["lat"][::-1], coords["lon"], indexing="ij"),
+        axis=0,
+    )
+    latlng_grid_3sf = np.around(latlng_grid, decimals=2)
+
+    template_grid = latlng_grid_3sf[0, :, :] * 1_000_000 + latlng_grid_3sf[1, :, :] * 10
+    rolled_out_grid = np.repeat(
+        template_grid[np.newaxis, :, :], len(summer_of_love), axis=0
+    )
+
+    # A floating point digit-encoded grid.
+    # ------------------------------------
+    # Each number in this array is an interpretable float with the following scheme:
+    # AAAAGGGG.TTTDD
+    # - A := Latitude, which ranges from 90.00 <--> -90.00
+    # - G := Longitude, which ranges from 000.0 <--> 360.0
+    # - T := Time (the number of days since the start time).
+    # - D := (optional) A int representing the index of the current data variable.
+    interpretable_grid = rolled_out_grid + days_reshaped / 1000  # Float[30, 180, 360]
+
+    vars_2d = {
+        var: xr.DataArray(interpretable_grid, dims=["time", "lat", "lon"])
+        + float(i) / 100_000
+        for i, var in enumerate(["hfds", "tauuo", "tauvo", "zos"])
+    }
+    # vars_3d = {
+    #     f"{var}_{lev}": xr.DataArray(interpretable_grid, dims=["time", "lat", "lon"])
+    #     + float(i + j + len(vars_2d)) / 100_000
+    #     for i, var in enumerate(["so", "thetao", "uo", "vo"])
+    #     for j, lev in enumerate(c.DEPTH_I_LEVELS)
+    # }
+    # # Mask with a binary circle.
+    # masks = {
+    #     f"mask_{lev}": xr.DataArray(
+    #         np.where(normal > 0.5**lev, 1, 0), dims=["lat", "lon"]
+    #     )
+    #     for lev in range(len(c.DEPTH_I_LEVELS))
+    # }
+    ds = xr.Dataset(vars_2d, coords=coords)
+    np_vals = ds.to_array().to_numpy().flatten()
+    s = set()
+    for v in np_vals:
+        if v in s:
+            raise ValueError(f"Duplicate encoded float: {v}")
+        s.add(v)
+
+    s = set()
+    from conftest import GridPoint, encode_float
+
+    for days in range(0, 100, 5):
+        for var in range(0, 10):
+            for lat in np.arange(-89.24, 90, 1):
+                for lng in np.arange(0.5, 360, 1):
+                    org_dict = GridPoint(
+                        lat=lat,
+                        lng=lng,
+                        days_since_start=days,
+                        data_var_index=var,
+                    )
+                    encoded_float = encode_float(org_dict)
+                    decoded_dict = parse_encoded_float(encoded_float)
+                    # logging.info(f"Encoded float: {encoded_float}")
+                    assert org_dict == decoded_dict
+                    if encoded_float in s:
+                        raise ValueError(f"Duplicate encoded float: {encoded_float}")
+                    s.add(encoded_float)
+
+
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
 #  Changing the "hist" parameter breaks this test.
 def test_train__loads_correct_number_of_samples(train_loader_pair: LoaderPair):

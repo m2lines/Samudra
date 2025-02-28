@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 from dacite import Config as DaciteConfig
@@ -24,11 +24,18 @@ class TimeConfig:
     end_time: str
 
 
+DataEngine = Literal["netcdf4", "zarr"]  # see from xarray.backends.api T_Engine
+
+
 @dataclass
 class DataConfig:
-    data_path: str = "CM4_5daily_v0.4.0"
+    data_root: str = "/"  # a URL or filesystem path the following paths are relative to
+    data_values_path: str = "CM4_5daily_v0.4.0"
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
+    engine: DataEngine = (
+        "netcdf4"  # xarray engine used (currently) for all of the above
+    )
     scaling_residuals_file: Optional[str] = None
     depth_mode: str = "all"
     time_delta: int = 5
@@ -84,8 +91,6 @@ class ExperimentConfig:
     sub_name: str = "cm4_samudra"
     rand_seed: int = 1
     base_output_dir: str = "train_3D"
-    gantry: bool = False
-    cluster_data_dir: str = "/"
     wandb: WandBConfig = field(default_factory=WandBConfig)
 
     # Model configuration
@@ -99,10 +104,6 @@ class ExperimentConfig:
         self.name = f"{timestamp}-{self.name}"
         self.output_dir = Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
         self.nets_dir = self.output_dir / "saved_nets"
-        if self.gantry:
-            self.data_dir = Path("/")
-        else:
-            self.data_dir = Path(self.cluster_data_dir)
 
 
 @dataclass

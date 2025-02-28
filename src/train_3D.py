@@ -60,7 +60,7 @@ from utils.wandb import WandBLogger
 
 
 class Trainer:
-    def __init__(self, cfg) -> None:
+    def __init__(self, cfg: TrainConfig) -> None:
         if not using_gpu():
             logging.info("No GPU available, using CPU")
             cfg.distributed.enabled = False
@@ -137,31 +137,32 @@ class Trainer:
         # Dataloaders
         logging.info(f"Loading data")
         assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
-        self.data_dir = cfg.experiment.data_dir
-        self.data_path = cfg.data.data_path
+        self.data_root = cfg.data.data_root
+        self.data_values_path = cfg.data.data_values_path
         self.data_means_path = cfg.data.data_means_path
         self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        if "*" in self.data_path:
+        if "*" in self.data_values_path:
             self.data = xr.open_mfdataset(
-                os.path.join(self.data_dir, self.data_path),
+                os.path.join(self.data_root, self.data_values_path),
                 engine="netcdf4",
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            self.data = xr.open_zarr(
-                os.path.join(self.data_dir, self.data_path),
+            self.data = xr.open_dataset(
+                os.path.join(self.data_root, self.data_values_path),
+                engine=cfg.data.engine,
                 chunks={},
             )
         self.data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path),
-            engine="netcdf4",
+            os.path.join(self.data_root, self.data_means_path),
+            engine=cfg.data.engine,
             chunks={},
         )
         self.data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path),
-            engine="netcdf4",
+            os.path.join(self.data_root, self.data_stds_path),
+            engine=cfg.data.engine,
             chunks={},
         )
 
@@ -224,8 +225,9 @@ class Trainer:
             self.loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
         elif cfg.loss == "mse_residual_scaled":
             logging.info("Using decomposed mse loss with scaled residuals")
-            scaling_residuals = xr.open_zarr(
-                os.path.join(self.data_dir, self.scaling_residuals_file)
+            scaling_residuals = xr.open_dataset(
+                os.path.join(self.data_root, self.scaling_residuals_file),
+                engine=cfg.data.engine,
             )
             scale = torch.from_numpy(
                 (self.data_std[self.outputs] / scaling_residuals[self.outputs])

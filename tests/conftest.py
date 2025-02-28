@@ -1,17 +1,21 @@
 import dataclasses
 import os
 import tempfile
-from typing import Any, Generator, TypedDict
+from typing import Any, Generator
 
+import cftime
 import numpy as np
 import pytest
 import xarray as xr
+from numpy.typing import NDArray
+from typing_extensions import Self
 
 import constants as c
 from config import TrainBackendConfig, TrainConfig
 
 
-class DataSource(TypedDict):
+@dataclasses.dataclass
+class DataSource:
     """In-memory `xarray.Dataset`s needed for tests."""
 
     data: xr.Dataset
@@ -19,11 +23,160 @@ class DataSource(TypedDict):
     stds: xr.Dataset
 
 
-class GridPoint(TypedDict):
-    lat: float
-    lng: float
-    days_since_start: int
-    data_var_index: int
+def _trunc(arr: NDArray[np.floating], decimals: int) -> NDArray[np.floating]:
+    factor = 10**decimals
+    return np.trunc(arr * factor) / factor
+
+
+@dataclasses.dataclass
+class DataSourceDims:
+    """Dimension metadata to produce interpretable `xarray.DataArray`s.
+
+    Each float in the `xarray.DataArray` has the following scheme:
+    AAAAGGGG.TTTDD
+    - A := Latitude, which ranges from 90.00 <--> -90.00
+    - G := Longitude, which ranges from 000.0 <--> 360.0
+    - T := Time (the number of days since the start time).
+    - D := (optional) A int representing the index of the current data variable.
+    """
+
+    lat: NDArray[np.float64] = np.arange(-89.24, 90, 1, dtype=np.float64)
+    lng: NDArray[np.float64] = np.arange(0.5, 360, 1, dtype=np.float64)
+    days_since_start: NDArray[np.int32] = np.array([0, 5, 10])
+    start_day: cftime.datetime = cftime.DatetimeNoLeap.strptime(
+        "1969-08-05", "%Y-%m-%d", "noleap"
+    )
+
+    def __post_init__(self):
+        self.lat = _trunc(self.lat.astype(np.float64), 2) % 100
+        self.lng = _trunc(self.lng.astype(np.float64), 1) % 1000
+        self.days_since_start = self.days_since_start.astype(np.int32)
+        if np.any(self.days_since_start < 0):
+            raise ValueError("days_since_start must be non-negative.")
+        if np.any(self.days_since_start > 999):
+            raise ValueError("days_since_start must be less than three digits.")
+
+    def __eq__(self, other) -> bool:
+        return (
+            np.array_equal(self.lat, other.lat)
+            and np.array_equal(self.lng, other.lng)
+            and np.array_equal(self.days_since_start, other.days_since_start)
+            and self.start_day == other.start_day
+        )
+
+    def parse_cftime_range(self, time_range: xr.CFTimeIndex) -> None:
+        self.start_day = time_range[0]
+        timedeltas = [date - self.start_day for date in time_range]
+        self.days_since_start = np.array(
+            [delta.total_seconds() / (24 * 3600) for delta in timedeltas],
+            dtype=np.int32,
+        )
+
+    def to_coords(self) -> dict[str, xr.DataArray]:
+        time = np.array(
+            [
+                self.start_day + cftime._cftime.timedelta(days=int(d))
+                for d in self.days_since_start
+            ]
+        )
+
+        coords = {
+            "lon": xr.DataArray(self.lng, dims=["lon"]),
+            "lat": xr.DataArray(self.lat, dims=["lat"]),
+            "time": xr.DataArray(time, dims=["time"]),
+        }
+        return coords
+
+    def encode(self, data_var_index: int = 0) -> xr.DataArray:
+        """Encodes source data dimensions into an array of interpretable `np.float64`s.
+
+        Arguments:
+            data_var_index: int - The index of the data variable. Default is 0.
+
+        Returns:
+            An xarray.DataArray of np.float64 numbers with the above encoding scheme.
+        """
+        days_reshaped = self.days_since_start[:, np.newaxis, np.newaxis].astype(
+            np.int32
+        )  # Float[D, 1, 1]
+
+        latlng_grid = np.stack(
+            np.meshgrid(self.lat[::-1], self.lng, indexing="ij"),
+            axis=0,
+        )
+        latlng_grid_3sf = np.around(latlng_grid, decimals=2)
+
+        template_grid = (
+            latlng_grid_3sf[0, :, :] * 1_000_000.0 + latlng_grid_3sf[1, :, :] * 10.0
+        )
+        rolled_out_grid = np.repeat(
+            template_grid[np.newaxis, :, :], days_reshaped.shape[0], axis=0
+        )
+
+        interpretable_grid = rolled_out_grid + (days_reshaped / 1000)
+        data_index_digits = float(data_var_index) / 100_000
+        return xr.DataArray(
+            interpretable_grid + data_index_digits,
+            dims=["time", "lat", "lon"],
+            attrs={
+                "start_day": self.start_day.toordinal(),
+                "start_day_cal": self.start_day.calendar,
+            },
+        )
+
+    @classmethod
+    def decode(cls, da: xr.DataArray) -> tuple[Self, int]:
+        """Parse array of encoded floats into its constituent parts.
+
+        AAAAGGGG.TTTDD --> (
+            DataSourceDims(
+                lat=AA.AA,
+                lng=GGG.G,
+                days_since_start=TTT
+            ),
+            data_var_index=DD
+        )
+
+        Arguments:
+            da: DataArray with encoded floats. See `encode_data_source`.
+
+        Returns:
+            (DataSourceDims, int) - Parsed coordinates and data_var index.
+        """
+        encoded = da.to_numpy()
+        assert len(encoded.shape) == 3
+
+        scalar = encoded.flat[0]
+        tim_dim = encoded[:, 0, 0]
+        lat_dim = encoded[0, :, 0][::-1]
+        lng_dim = encoded[0, 0, :]
+
+        # Signs are either +1 or -1. If the value is 0, default to +1.
+        tim_sign = np.sign(tim_dim)
+        tim_sign = np.where(tim_sign == 0, 1, tim_sign)
+        lat_sign = np.sign(lat_dim)
+        lat_sign = np.where(lat_sign == 0, 1, lat_sign)
+        lng_sign = np.sign(lng_dim)
+        lng_sign = np.where(lng_sign == 0, 1, lng_sign)
+
+        days_since_start = ((tim_dim * 1000) % (tim_sign * 1000)).astype(np.int32)
+        lat = (lat_dim // (lat_sign * 10_000)) / 100
+        lng = lng_dim / 10 % (lng_sign * 1000)
+        # we need both np.round and _trunc because changing magnitude
+        # of very small floating point values (especially, odd numbers)
+        # leads to repeated decimal values.
+        data_var_index = int(np.round(_trunc(scalar, decimals=6) * 100_000) % 100)
+
+        data_source = cls(
+            lat=lat,
+            lng=lng,
+            days_since_start=days_since_start,
+            start_day=cftime.datetime.fromordinal(
+                da.attrs.get("start_day"), da.attrs.get("start_day_cal")
+            ),
+        )
+
+        return data_source, data_var_index
 
 
 def pytest_addoption(parser):
@@ -62,53 +215,17 @@ def data_source() -> DataSource:
     summer_of_love = xr.cftime_range(
         "1969-08-05", "1969-12-31", freq="5D", calendar="noleap"
     )
+    dims = DataSourceDims()
+    dims.parse_cftime_range(summer_of_love)
 
-    coords = {
-        "lon": xr.DataArray(np.arange(0.5, 360, 1), dims=["lon"]),  # Float[360]
-        "lat": xr.DataArray(np.arange(-89.24, 90, 1), dims=["lat"]),  # Float[180]
-        "time": xr.DataArray(summer_of_love, dims=["time"]),  # CFTimeIndex[30]
-    }
-
-    normal = np.random.normal(
-        size=(len(coords["lat"]), len(coords["lon"]))
-    )  # Float[180, 360]
-
-    # Create array of relative times (number of days since start).
-    timedeltas = [date - summer_of_love[0] for date in summer_of_love]
-    days_from_start = np.array(
-        [delta.total_seconds() / (24 * 3600) for delta in timedeltas]
-    )
-    days_reshaped = days_from_start[:, np.newaxis, np.newaxis]  # Float[30, 1, 1]
-
-    latlng_grid = np.stack(
-        np.meshgrid(coords["lat"][::-1], coords["lon"], indexing="ij"),
-        axis=0,
-    )
-    latlng_grid_3sf = np.around(latlng_grid, decimals=2)
-
-    template_grid = latlng_grid_3sf[0, :, :] * 1_000_000 + latlng_grid_3sf[1, :, :] * 10
-    rolled_out_grid = np.repeat(
-        template_grid[np.newaxis, :, :], len(summer_of_love), axis=0
-    )
-
-    # A floating point digit-encoded grid.
-    # ------------------------------------
-    # Each number in this array is an interpretable float with the following scheme:
-    # AAAAGGGG.TTTDD
-    # - A := Latitude, which ranges from 90.00 <--> -90.00
-    # - G := Longitude, which ranges from 000.0 <--> 360.0
-    # - T := Time (the number of days since the start time).
-    # - D := (optional) A int representing the index of the current data variable.
-    interpretable_grid = rolled_out_grid + days_reshaped / 1000  # Float[30, 180, 360]
+    coords = dims.to_coords()
+    normal = np.random.normal(size=(len(coords["lat"]), len(coords["lon"])))
 
     vars_2d = {
-        var: xr.DataArray(interpretable_grid, dims=["time", "lat", "lon"])
-        + float(i) / 100_000
-        for i, var in enumerate(["hfds", "tauuo", "tauvo", "zos"])
+        var: dims.encode(i) for i, var in enumerate(["hfds", "tauuo", "tauvo", "zos"])
     }
     vars_3d = {
-        f"{var}_{lev}": xr.DataArray(interpretable_grid, dims=["time", "lat", "lon"])
-        + float(i + j + len(vars_2d)) / 100_000
+        f"{var}_{lev}": dims.encode(len(vars_2d) + i + j * 10)
         for i, var in enumerate(["so", "thetao", "uo", "vo"])
         for j, lev in enumerate(c.DEPTH_I_LEVELS)
     }
@@ -121,45 +238,7 @@ def data_source() -> DataSource:
     }
     ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
-    return {"data": ds, "means": ds.mean("time"), "stds": ds.std("time")}
-
-
-def parse_encoded_float(encoded: np.float64) -> GridPoint:
-    """Decode floats encoding scheme into constituent parts."""
-    # AAAAGGGG.TTTDD --> GridPoint(
-    #     lat=AA.AA,
-    #     lng=GGG.G,
-    #     days_since_start=TTT,
-    #     data_var_index=DD
-    # )
-    location = np.floor(encoded)
-    time_and_idx = encoded - location
-
-    # divmod is equivalent to (a // b, a % b). This is used
-    # to separate the first 4 digits and the last 4 digits.
-    lat_digits, lng_digits = divmod(int(location), 10_000)
-
-    time_digits = time_and_idx * 1_000
-    days_since_start = int(time_digits)
-
-    var_idx_digits = (time_digits - days_since_start) * 100
-    data_var_index = round(var_idx_digits)
-
-    # Latitude ranges from 90.00 to -90.00
-    # so we move the decimal from AAAA to AA.AA
-    # by dividing by 100.
-    lat = float(lat_digits / 100)
-    # Longitude ranges from 000.0 to 360.0
-    # so we move the decimal from GGGG to GGG.G
-    # by dividing by 10.
-    lng = float(lng_digits / 10)
-
-    return GridPoint(
-        lat=lat,
-        lng=lng,
-        days_since_start=days_since_start,
-        data_var_index=data_var_index,
-    )
+    return DataSource(data=ds, means=ds.mean("time"), stds=ds.std("time"))
 
 
 @pytest.fixture(scope="session")
@@ -172,9 +251,9 @@ def train_config(
             return os.path.join(tmpdir, name_with_ext)
 
         # Write test data to a temporary directory.
-        data_source["data"].to_zarr(_make_path("data.zarr"))
-        data_source["means"].to_netcdf(_make_path("means.netcdf"))
-        data_source["stds"].to_netcdf(_make_path("stds.netcdf"))
+        data_source.data.to_zarr(_make_path("data.zarr"))
+        data_source.means.to_netcdf(_make_path("means.netcdf"))
+        data_source.stds.to_netcdf(_make_path("stds.netcdf"))
 
         # Open default training script; modify it so it uses the temporary directory.
         default_config = pytestconfig.rootpath / "configs" / "train_cm4.test.yaml"

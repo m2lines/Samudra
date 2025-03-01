@@ -109,7 +109,6 @@ def compute_anomalies(
     """
     Compute the anomalies of a data variable.
     """
-    logging.info(f"Computing anomalies for {var}")
     climatology = data[var].groupby("time.dayofyear").mean("time").compute()
     # Remove the seasonal cycle (climatology) from the detrended data
     day_of_year = data[var]["time"].dt.dayofyear
@@ -153,12 +152,15 @@ def validate_data(
             data = data.rename({var_str: var + "_" + str(lev_in_depth_idx)})
             data_mean = data_mean.rename({var_str: var + "_" + str(lev_in_depth_idx)})
             data_std = data_std.rename({var_str: var + "_" + str(lev_in_depth_idx)})
+            logging.info(f"Converted {var_str} to {var + '_' + str(lev_in_depth_idx)}")
 
-    # OM4 data has lat, lon, lat_b, lon_b, dayofyear as coordinates
+    # OM4 data has coordinates we don't need
     # We drop them and rename x, y dimensions to lon, lat
     if "lat" not in data.dims:
-        data = data.drop_vars(["lat", "lon", "lat_b", "lon_b", "dayofyear"])
-        data = data.rename({"x": "lon", "y": "lat"})
+        # Drop unnecessary coordinates and rename dimensions
+        data = data.drop_vars(
+            ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
+        ).rename({"x": "lon", "y": "lat"})
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()
@@ -166,6 +168,7 @@ def validate_data(
         if var.endswith("_anomalies"):
             base_var = var.replace("_anomalies", "")
             if var not in data.variables and base_var in data.variables:
+                logging.info(f"Computing anomalies for {base_var}")
                 data, data_mean, data_std = compute_anomalies(
                     data, data_mean, data_std, base_var
                 )

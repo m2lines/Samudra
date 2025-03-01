@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-maskstos-perlmutter
+#SBATCH --job-name=samudra-om4-thermodynamic-seed15
 #SBATCH --output=train_3D/logs/slurm-%j.out
 #SBATCH --error=train_3D/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g
 #SBATCH --account=m4874
 #SBATCH --qos=regular
 #SBATCH --mem=110G
-#SBATCH --nodes=4
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-task=1
@@ -33,5 +33,5 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 # Run the training script
 srun --cpu-bind=cores \
      python src/train_3D.py \
-     --config configs/slurm_perlmutter_train_cm4.yaml \
+     --config configs/slurm_perlmutter_train_samudra_om4_thermodynamic.yaml \
      --subname $SLURM_JOB_NAME

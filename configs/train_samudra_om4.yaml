@@ -1,4 +1,4 @@
-debug: true
+debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
@@ -46,7 +46,7 @@ experiment:
   gantry: false
   cluster_data_dir: null
   wandb:
-    mode: disabled
+    mode: online
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4

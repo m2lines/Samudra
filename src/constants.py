@@ -264,16 +264,16 @@ class TensorMap:
         return cls._instance
 
     @classmethod
-    def init_instance(cls, exp_num: str) -> "TensorMap":
+    def init_instance(cls, exp_num: str, exp_num_extra: str) -> "TensorMap":
         if cls._instance is not None:
             raise ValueError("TensorMap already initialized")
 
         instance = super().__new__(cls)
-        instance._initialize(exp_num)
+        instance._initialize(exp_num, exp_num_extra)
         cls._instance = instance
         return cls._instance
 
-    def _initialize(self, exp_num: str):
+    def _initialize(self, exp_num: str, exp_num_extra: str):
         """
         Maps input variables / depth levels to their indices in the input tensor.
 
@@ -299,6 +299,7 @@ class TensorMap:
         )
         self.DEPTH_SET = DEPTH_I_LEVELS
         self.outputs = OUT_VARS[exp_num]
+        self.extras = EXTRA_VARS[exp_num_extra]
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()

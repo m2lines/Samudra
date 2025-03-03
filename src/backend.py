@@ -3,6 +3,7 @@ import logging
 import torch
 
 from config import DistributedConfig, EvalBackendConfig, TrainBackendConfig
+from utils.device import set_device
 from utils.distributed import init_distributed_mode
 
 
@@ -38,6 +39,8 @@ def init_train_backend(
             dist_cfg = None
         case _:
             raise ValueError(f"Invalid backend: {backend}")
+
+    set_device(device)
 
     return device, dist_cfg
 

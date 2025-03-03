@@ -80,8 +80,9 @@ class Trainer:
         self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
 
         # TODO: The codebase currently contains code that depends on this
-        assert self.inputs == self.outputs, "Input and output "
-        "variables must be the same"
+        assert (
+            self.inputs == self.outputs
+        ), "Input and output variables must be the same"
 
         levels = cfg.experiment.exp_num_in.split("_")[-1]
         if "all" in levels:
@@ -349,7 +350,7 @@ class Trainer:
             inference_datasets, num_steps_inf_set
         )
 
-        if using_gpu():
+        if self.distributed is not None:
             self.inference_sampler = DistributedSampler(
                 inference_data_combined, shuffle=True
             )
@@ -634,7 +635,7 @@ class Trainer:
 
         logging.info("Instantiating torch loaders")
 
-        if using_gpu():
+        if self.distributed is not None:
             self.train_sampler = DistributedSampler(train_data, shuffle=True)
             self.val_sampler = DistributedSampler(val_data, shuffle=False)
         else:

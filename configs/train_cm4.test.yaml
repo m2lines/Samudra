@@ -25,7 +25,7 @@ inference:
 data_stride: [1]
 steps: [1]
 step_transition: []
-backend: cpu
+backend: auto
 
 experiment:
   name: train

@@ -168,6 +168,8 @@ And to exclude all cuda-marked tests, run:
 pytest -m "not cuda"
 ```
 
+Note that for now you can't run both cuda and non-cuda tests together, see [#87](https://github.com/suryadheeshjith/Ocean_Emulator/issues/87).
+
 "manual" tests are not run in continuous integration (CI), but are useful checks during the development process. For
 example, evaluating if two model weights are equal is marked `manual`. All manual tests can be run like so:
 

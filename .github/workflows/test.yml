@@ -10,7 +10,7 @@ on:
       - main
 
 jobs:
-  pre-commit:
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code

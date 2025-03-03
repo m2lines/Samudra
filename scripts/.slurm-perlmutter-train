@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-om4-thermo-seed15
+#SBATCH --job-name=samudra-cm4-with-om4-configs-thermodynamic-seed15
 #SBATCH --output=train_3D/logs/slurm-%j.out
 #SBATCH --error=train_3D/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g
@@ -11,7 +11,7 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-task=1
 #SBATCH --gpu-bind=none     # This ensures all GPUs are visible to all tasks
-#SBATCH --time=24:00:00
+#SBATCH --time=38:00:00
 
 set -e
 
@@ -33,5 +33,5 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 # Run the training script
 srun --cpu-bind=cores \
      python src/train_3D.py \
-     --config configs/slurm_perlmutter_train_samudra_om4.yaml \
+     --config configs/slurm_perlmutter_train_cm4_with_om4configs.yaml \
      --subname $SLURM_JOB_NAME

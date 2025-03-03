@@ -5,12 +5,13 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
+from torch.utils.data import Dataset
 
 from utils.data import Normalize
 from utils.device import get_device, using_gpu
 
 
-class InferenceDataset(torch.utils.data.Dataset):
+class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 
     It creates rolling indices to keep track of histories/past states.
@@ -196,7 +197,7 @@ class InferenceDataset(torch.utils.data.Dataset):
         return {co: self._inputs_no_extra[co] for co in self._inputs_no_extra.coords}
 
 
-class InferenceDatasets(torch.utils.data.Dataset):
+class InferenceDatasets(Dataset):
     def __init__(self, datasets: List[InferenceDataset], lengths: List[int]):
         self.datasets = datasets
         self.lengths = lengths
@@ -246,7 +247,7 @@ class TrainData:
             )
 
 
-class TrainDataset(torch.utils.data.Dataset):
+class TrainDataset(Dataset):
     """
     This class is used for training and validation.
 

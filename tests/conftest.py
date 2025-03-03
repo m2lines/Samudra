@@ -5,7 +5,6 @@ from typing import Any, Generator, TypedDict
 
 import numpy as np
 import pytest
-import torch
 import xarray as xr
 
 import constants as c
@@ -47,9 +46,13 @@ def model2_path(request):
 
 
 # Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
-@pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)])
-def device(request):
-    return torch.device(request.param)
+# TODO(jder): At the moment, we can't use this because Trainer can only be
+# inited once per process. Once that is we should accept it in `train_config` below.
+@pytest.fixture(
+    params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
+)
+def backend(request):
+    return request.param
 
 
 @pytest.fixture(scope="session")

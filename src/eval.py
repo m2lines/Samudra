@@ -12,6 +12,7 @@ from config import EvalConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset
 from models.unet import UNet
+from src.backend import init_eval_backend
 from stepper import Stepper
 from utils.data import (
     Normalize,
@@ -27,16 +28,14 @@ from utils.wandb import WandBLogger
 
 
 class Eval:
-    def __init__(self, cfg) -> None:
-        self.device = get_device()
+    def __init__(self, cfg: EvalConfig) -> None:
+        self.device = init_eval_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
-        if not using_gpu():
+        if self.device.type == "cpu":
             cfg.data.num_workers = 0  # Disable multi-processing on CPU
-            cfg.pin_mem = False
         elif cfg.disk_mode:
             cfg.data.num_workers = torch.cuda.device_count() * cfg.data.num_workers
-            cfg.pin_mem = True
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)

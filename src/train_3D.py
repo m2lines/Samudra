@@ -168,7 +168,7 @@ class Trainer:
                 chunks={},
             )
         if self.data_stds_path.endswith(".nc"):
-            data_std = xr.open_zardewdr(
+            data_std = xr.open_dataset(
                 os.path.join(self.data_dir, self.data_stds_path),
                 engine="netcdf4",
                 chunks={},

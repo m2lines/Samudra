@@ -56,14 +56,14 @@ experiment:
     project: 3D_ocean_emu_CM4
     entity: suryadheeshjith
   network: convnextunet
-  exp_num_in: 3D_tos_all
-  exp_num_extra: 3D_mask_all
-  exp_num_out: 3D_tos_all
+  exp_num_in: 3D_all
+  exp_num_extra: 3D_all_hfds_anom
+  exp_num_out: 3D_all
 data:
-  data_root: s3://emulators/sd5313/
-  data_values_path: OM4_train_data
-  data_means_path: OM4_train_data_means
-  data_stds_path: OM4_train_data_stds
+  data_root: s3://emulators/sd5313/Samudra
+  data_values_path: OM4
+  data_means_path: OM4_means
+  data_stds_path: OM4_stds
   engine: zarr
   scaling_residuals_file: null
   depth_mode: all

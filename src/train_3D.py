@@ -289,7 +289,7 @@ class Trainer:
             self.start_epoch = 1
 
         # Modify DDP setup based on device
-        if using_gpu():
+        if self.dist:
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
             self.model = nn.parallel.DistributedDataParallel(
                 self.model, device_ids=[cfg.distributed.gpu]

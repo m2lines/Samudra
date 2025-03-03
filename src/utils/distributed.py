@@ -97,7 +97,8 @@ def init_distributed_mode() -> DistributedConfig:
             cfg.dist_url = "tcp://localhost:40000"
     else:
         raise RuntimeError(
-            "Distributed mode requires SLURM or RANK environment variables."
+            "Distributed mode requires SLURM or RANK environment variables;"
+            " did you mean to use `torchrun`?"
         )
 
     cfg.dist_backend = "nccl"

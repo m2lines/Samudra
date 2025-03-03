@@ -40,6 +40,8 @@ def init_train_backend(
         case _:
             raise ValueError(f"Invalid backend: {backend}")
 
+    # We set this globally so we don't need to hand the device around.
+    # See https://github.com/suryadheeshjith/Ocean_Emulator/issues/87.
     set_device(device)
 
     return device, dist_cfg

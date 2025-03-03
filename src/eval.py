@@ -20,7 +20,7 @@ from utils.data import (
     get_time_slice,
     spherical_area_weights,
 )
-from utils.device import get_device, using_gpu
+from utils.device import using_gpu
 from utils.distributed import is_main_process, set_seed
 from utils.logging import handle_logging, handle_warnings
 from utils.model import get_model_summary
@@ -32,7 +32,7 @@ class Eval:
         self.device = init_eval_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
-        if self.device.type == "cpu":
+        if not using_gpu():
             cfg.data.num_workers = 0  # Disable multi-processing on CPU
         elif cfg.disk_mode:
             cfg.data.num_workers = torch.cuda.device_count() * cfg.data.num_workers

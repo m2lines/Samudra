@@ -25,14 +25,7 @@ inference:
 data_stride: [1]
 steps: [1]
 step_transition: []
-
-distributed:
-  enabled: true
-  dist_url: null
-  world_size: null
-  rank: null
-  gpu: null
-  dist_backend: null
+backend: auto
 
 experiment:
   name: train

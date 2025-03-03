@@ -49,7 +49,7 @@ distributed:
 experiment:
   name: train
   sub_name: cm4_samudra
-  rand_seed: 5
+  rand_seed: 15
   base_output_dir: train_3D
   gantry: false
   cluster_data_dir: /pscratch/sd/s/suryad/data

@@ -7,10 +7,12 @@ import yaml
 from dacite import Config as DaciteConfig
 from dacite import from_dict
 
+WandBMode = Literal["online", "disabled"]
+
 
 @dataclass
 class WandBConfig:
-    mode: str = "disabled"  # online, disabled
+    mode: WandBMode = "disabled"  # online, disabled
     project: str = "3D_ocean_emu_CM4"
     entity: str = "suryadheeshjith"
     group: Optional[str] = None

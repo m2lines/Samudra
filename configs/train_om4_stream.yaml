@@ -12,49 +12,35 @@ resume_ckpt_path: null
 inference_epochs: [-1]
 data_percent: 1.0
 train:
-  start_time: 151-01-06
-  end_time: 154-01-01
+  start_time: "1975-01-03"
+  end_time: "2013-10-05"
 val:
-  start_time: 306-01-01
-  end_time: 307-01-01
+  start_time: "2013-10-05"
+  end_time: "2014-10-05"
 inference:
-  - start_time: 151-01-06
-    end_time: 153-01-11
-  - start_time: 153-01-06
-    end_time: 155-01-11
-  - start_time: 155-01-06
-    end_time: 157-01-11
-  - start_time: 157-01-06
-    end_time: 159-01-11
-  - start_time: 159-01-06
-    end_time: 161-01-11
-  - start_time: 161-01-06
-    end_time: 163-01-11
-  - start_time: 163-01-06
-    end_time: 165-01-11
-  - start_time: 309-01-06
-    end_time: 311-01-11
+  - start_time: "1975-01-03"
+    end_time: "1985-01-03"
+  - start_time: "1985-01-03"
+    end_time: "1995-01-03"
+  - start_time: "1995-01-03"
+    end_time: "2005-01-03"
+  - start_time: "2004-10-05"
+    end_time: "2014-10-05"
 data_stride: [1]
 steps: [4]
 step_transition: []
-
-distributed:
-  enabled: false
-  dist_url: null
-  world_size: null
-  rank: null
-  gpu: null
-  dist_backend: null
+backend: auto
 
 experiment:
   name: train
-  sub_name: local_om4_samudra
+  sub_name: jder_test_om4
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
-    mode: disabled
-    project: 3D_ocean_emu_CM4
-    entity: suryadheeshjith
+    mode: online
+    project: ocean-emulators
+    entity: m2lines
+    group: samudra-train-om4
   network: convnextunet
   exp_num_in: 3D_all
   exp_num_extra: 3D_all_hfds_anom
@@ -68,7 +54,7 @@ data:
   scaling_residuals_file: null
   depth_mode: all
   time_delta: 5
-  num_workers: 4
+  num_workers: 0
   hist: 0
 
 

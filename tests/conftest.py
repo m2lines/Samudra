@@ -32,7 +32,7 @@ def _trunc(arr: NDArray[np.floating], decimals: int) -> NDArray[np.floating]:
 class DataSourceDims:
     """Dimension metadata to produce interpretable `xarray.DataArray`s.
 
-    Each float in the `xarray.DataArray` has the following scheme:
+    Each float in the encoded `xarray.DataArray` has the following scheme:
     AAAAGGGG.TTTDD
     - A := Latitude, which ranges from 90.00 <--> -90.00
     - G := Longitude, which ranges from 000.0 <--> 360.0

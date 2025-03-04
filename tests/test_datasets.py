@@ -9,7 +9,7 @@ from conftest import DataSourceDims
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
-from numpy._typing import NDArray
+from numpy.typing import NDArray
 from torch.utils.data import DataLoader
 
 from config import TrainConfig

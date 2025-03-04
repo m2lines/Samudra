@@ -1,12 +1,12 @@
 # Performance benchmarks with pytest
-# Based on this example: https://github.com/benchmark-action/github-action-benchmark/blob/master/.github/workflows/pytest.yml
+# Based on this example: https://github.com/benchmark-action/github-action-benchmark/tree/master/examples/pytest
 name: Benchmark CPU
 
 # Do not run this workflow on pull request since this workflow has permission to modify contents.
 on:
   push:
     branches:
-      - master
+      - main
 
 permissions:
   contents: write  # Allow updating content on GitHub pages

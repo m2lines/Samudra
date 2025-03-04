@@ -30,3 +30,4 @@ output.log
 *.egg-info/
 .venv/
 .benchmarks/
+.hypothesis/

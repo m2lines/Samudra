@@ -35,8 +35,8 @@ class DataSourceDims:
     Each float in the encoded `xarray.DataArray` has the following scheme:
     (s)AAAAGGGG.TTTDDD
     - s := Sign (+/-) of the Latitude. All other values are non-negative.
-    - A := Latitude, which ranges from 90.00 <--> -90.00
-    - G := Longitude, which ranges from 000.0 <--> 360.0
+    - A := Latitude, which ranges from 90.00 <--> -90.00 (only decimals=2).
+    - G := Longitude, which ranges from 000.0 <--> 360.0 (only decimals=1).
     - T := Time, the number of days since the start time.
     - D := A int representing the index of the current data variable.
     """
@@ -54,14 +54,16 @@ class DataSourceDims:
         # of the lat array.
         lat_sgn = np.sign(self.lat)
         lat_sgn = np.where(lat_sgn == 0, 1, lat_sgn)  # change np.sign(0) to +1, not 0.
-        self.lat = _trunc(self.lat.astype(np.float64), 2) % (lat_sgn * 100)
+        self.lat = _trunc(self.lat.astype(np.float64), 2)
         if np.any(self.lat < -90.0) or np.any(self.lat > 90.0):
             raise ValueError("lat values must be between -90 and 90.")
+        self.lat %= lat_sgn * 100
 
         # All other values in the encoding must be non-negative.
-        self.lng = _trunc(self.lng.astype(np.float64), 1) % 1000
+        self.lng = _trunc(self.lng.astype(np.float64), 1)
         if np.any(self.lng < 0.0) or np.any(self.lng > 360.0):
             raise ValueError("lng values must be between 0 and 360 degrees.")
+        self.lng %= 1000
 
         self.days_since_start = self.days_since_start.astype(np.int32)
         if np.any(self.days_since_start < 0) or np.any(self.days_since_start > 999):

@@ -27,6 +27,7 @@ from torch.utils.data import (
 )
 
 from aggregator import Aggregator, LossAggregator
+from backend import init_train_backend
 from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset, InferenceDatasets, TrainDataset
@@ -38,14 +39,8 @@ from utils.data import (
     get_time_slice,
     spherical_area_weights,
 )
-from utils.device import get_device, using_gpu
-from utils.distributed import (
-    all_reduce_mean,
-    get_world_size,
-    init_distributed_mode,
-    is_main_process,
-    set_seed,
-)
+from utils.device import using_gpu
+from utils.distributed import all_reduce_mean, get_world_size, is_main_process, set_seed
 from utils.logging import MetricLogger, SmoothedValue, handle_logging, handle_warnings
 from utils.loss import (
     decomposed_mse,
@@ -60,12 +55,10 @@ from utils.wandb import WandBLogger
 
 
 class Trainer:
-    def __init__(self, cfg) -> None:
-        if not using_gpu():
-            logging.info("No GPU available, using CPU")
-            cfg.distributed.enabled = False
+    model: UNet | nn.parallel.DistributedDataParallel
 
-        self.device = get_device()
+    def __init__(self, cfg: TrainConfig) -> None:
+        self.device, self.distributed = init_train_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
@@ -76,7 +69,6 @@ class Trainer:
             cfg.pin_mem = True
 
         # Distributed mode
-        init_distributed_mode(cfg.distributed)
         dask.config.set(scheduler="synchronous")
 
         # Set seeds
@@ -88,8 +80,9 @@ class Trainer:
         self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
 
         # TODO: The codebase currently contains code that depends on this
-        assert self.inputs == self.outputs, "Input and output "
-        "variables must be the same"
+        assert (
+            self.inputs == self.outputs
+        ), "Input and output variables must be the same"
 
         levels = cfg.experiment.exp_num_in.split("_")[-1]
         if "all" in levels:
@@ -280,10 +273,10 @@ class Trainer:
             self.start_epoch = 1
 
         # Modify DDP setup based on device
-        if using_gpu():
-            self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
+        if self.distributed is not None:
             self.model = nn.parallel.DistributedDataParallel(
-                self.model, device_ids=[cfg.distributed.gpu]
+                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
+                device_ids=[self.distributed.gpu],
             )
 
         # Training
@@ -357,7 +350,7 @@ class Trainer:
             inference_datasets, num_steps_inf_set
         )
 
-        if using_gpu():
+        if self.distributed is not None:
             self.inference_sampler = DistributedSampler(
                 inference_data_combined, shuffle=True
             )
@@ -541,7 +534,11 @@ class Trainer:
             )
 
             Stepper.inference(
-                model=self.model.module if using_gpu() else self.model,
+                # TODO(jder): we need the underlying model so we can use forward_once;
+                # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
+                model=self.model.module
+                if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+                else self.model,
                 dataset=inference_dataset,
                 inf_aggregator=inf_aggregator,
                 epoch=epoch,
@@ -638,7 +635,7 @@ class Trainer:
 
         logging.info("Instantiating torch loaders")
 
-        if using_gpu():
+        if self.distributed is not None:
             self.train_sampler = DistributedSampler(train_data, shuffle=True)
             self.val_sampler = DistributedSampler(val_data, shuffle=False)
         else:
@@ -736,10 +733,7 @@ class Trainer:
             logging.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
 
     def is_wandb_enabled(self):
-        if using_gpu():
-            return self.wandb_logger.enabled and is_main_process()
-        else:
-            return self.wandb_logger.enabled
+        return self.wandb_logger.enabled and is_main_process()
 
     def finish(self):
         self.wandb_logger.finish()

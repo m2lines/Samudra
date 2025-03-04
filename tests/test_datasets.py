@@ -82,22 +82,17 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     ).map(tuple)
 
 
-# Note(alxmrs): Full round trip corner cases are not possible today
-# (2025-03-03) due to floating point rounding woes. In the future,
-# there may be merit to an encoding scheme made of mangled complex
-# numbers. Not worth pursuing right now...
-@pytest.mark.manual
 @given(
-    data_var_index=st.integers(min_value=0, max_value=99),
+    data_var_index=st.integers(min_value=0, max_value=999),
     lat=arrays(
         dtype=np.float64,
         shape=vector_of(50),
-        elements=st.floats(-99.99, 99.99, allow_nan=False, allow_infinity=False),
+        elements=st.floats(-90.0, 90.0, allow_nan=False, allow_infinity=False),
     ),
     lng=arrays(
         dtype=np.float64,
         shape=vector_of(50),
-        elements=st.floats(-999.9, 999.9, allow_nan=False, allow_infinity=False),
+        elements=st.floats(0, 360.0, allow_nan=False, allow_infinity=False),
     ),
     days_since_start=arrays(
         dtype=np.int32,
@@ -116,9 +111,9 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     calendar="noleap",
 )
 @example(
-    data_var_index=99,
-    lat=np.array([99.99]),
-    lng=np.array([999.9]),
+    data_var_index=999,
+    lat=np.array([90.00]),
+    lng=np.array([360.0]),
     days_since_start=np.array([999]),
     start_day=datetime.datetime(2000, 5, 1, 12),
     calendar="noleap",
@@ -139,7 +134,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     start_day=datetime.datetime(2000, 5, 1, 12),
     calendar="noleap",
 )
-@settings(deadline=500)
+@settings(deadline=350)
 def test_test_util__data_source_roundtrip(
     data_var_index: int,
     lat: NDArray[np.floating],
@@ -157,11 +152,15 @@ def test_test_util__data_source_roundtrip(
         days_since_start=days_since_start,
         start_day=start_day_cf,
     )
+    print("")
+    print(dims_uncoded.lat[0], dims_uncoded.lng[0], dims_uncoded.days_since_start[0])
     # intermediate representation: `xarray.DataArray`
     da = dims_uncoded.encode(data_var_index)
+    print(da.to_numpy().flat[0])
 
     # end
     dims_decoded, decoded_var_index = DataSourceDims.decode(da)
+    print(dims_decoded.lat[0], dims_decoded.lng[0], dims_decoded.days_since_start[0])
 
     assert dims_decoded == dims_uncoded
     assert decoded_var_index == data_var_index

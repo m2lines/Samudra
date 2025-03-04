@@ -2,8 +2,8 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 4
-batch_size: 4
+epochs: 2
+batch_size: 2
 learning_rate: 0.0001
 scheduler: false
 loss: mse
@@ -13,7 +13,7 @@ inference_epochs: [-1]
 data_percent: 1.0
 train:
   start_time: "1975-01-03"
-  end_time: "1975-02-05"
+  end_time: "1975-03-05"
 val:
   start_time: "1975-10-05"
   end_time: "1975-11-05"

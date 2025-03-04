@@ -32,6 +32,9 @@ jobs:
       - name: Run benchmarks
         run: uv run --locked pytest -m "not cuda" --benchmark-only --benchmark-json output.json
 
+      - name: Stash
+        run: git stash
+
       # gh-pages branch is automatically updated with extracted benchmark data.
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1

@@ -46,6 +46,7 @@ class InferenceDataset(Dataset):
         self._inputs_no_extra = data[inputs_str]
         self._extras = data[extra_in_str]
 
+        logging.info("data.time is {0}".format(data.time))
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
             time_indices,
@@ -53,6 +54,9 @@ class InferenceDataset(Dataset):
             coords={"time": time_indices},
         )
         total_steps = 2 * self.hist + 1
+        logging.info(
+            "time_indices: {0}, total_steps: {1}".format(time_indices, total_steps)
+        )
         rolling_indices = indices.rolling(
             time=len(time_indices) - total_steps, center=False
         ).construct("window_dim")

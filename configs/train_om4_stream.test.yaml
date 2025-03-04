@@ -2,8 +2,8 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 120
-batch_size: 2 # 4
+epochs: 4
+batch_size: 4
 learning_rate: 0.0001
 scheduler: false
 loss: mse
@@ -13,21 +13,15 @@ inference_epochs: [-1]
 data_percent: 1.0
 train:
   start_time: "1975-01-03"
-  end_time: "2013-10-05"
+  end_time: "1975-02-05"
 val:
-  start_time: "2013-10-05"
-  end_time: "2014-10-05"
+  start_time: "1975-10-05"
+  end_time: "1975-11-05"
 inference:
-  - start_time: "1975-01-03"
-    end_time: "1985-01-03"
-  - start_time: "1985-01-03"
-    end_time: "1995-01-03"
-  - start_time: "1995-01-03"
-    end_time: "2005-01-03"
-  - start_time: "2004-10-05"
-    end_time: "2014-10-05"
+  - start_time: "1975-11-05"
+    end_time: "1975-12-05"
 data_stride: [1]
-steps: [4]
+steps: [1]
 step_transition: []
 backend: auto
 
@@ -46,7 +40,7 @@ experiment:
   exp_num_extra: 3D_all_hfds_anom
   exp_num_out: 3D_all
 data:
-  data_root: s3://emulators/sd5313/Samudra
+  data_root: simplecache::s3://emulators/sd5313/Samudra #TODO: Swap to public version
   data_values_path: OM4
   data_means_path: OM4_means
   data_stds_path: OM4_stds
@@ -59,10 +53,10 @@ data:
 
 
 unet:
-  ch_width: [157, 200, 250, 300, 400]
-  n_out: 77
-  dilation: [1, 2, 4, 8]
-  n_layers: [1, 1, 1, 1]
+  ch_width: [2, 3]
+  n_out: 4
+  dilation: [1, 2]
+  n_layers: [1, 1]
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
@@ -71,7 +65,7 @@ unet:
     block_type: "conv_next_block"
     kernel_size: 3
     activation: "capped_gelu"
-    upscale_factor: 4
+    upscale_factor: 2
     norm: "batch"
 
   corrector:

@@ -24,7 +24,7 @@ class InferenceEvaluatorAggregator:
         hist: int,
         area_weights: torch.Tensor,
         output_channels: int,
-        record_step_20: bool = True,
+        record_step_20: bool = False,
         log_global_mean_time_series: bool = True,
         log_global_mean_norm_time_series: bool = True,
         time_mean_reference_data: Optional[xr.Dataset] = None,

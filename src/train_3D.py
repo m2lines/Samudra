@@ -335,6 +335,9 @@ class Trainer:
         inference_datasets = []
         num_steps_inf_set = []
         for i in range(num_splits):
+            logging.info(
+                f"Creating inference dataset {i} with times {self.inference_times[i]}, time delta {self.time_delta}, and hist {self.hist}"
+            )
             num_time_steps = get_inference_steps(
                 self.inference_times[i],
                 time_delta=self.time_delta,

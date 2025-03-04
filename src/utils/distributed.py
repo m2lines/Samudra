@@ -9,6 +9,8 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
+from config import DistributedConfig
+
 
 def set_seed(seed):
     np.random.seed(seed)
@@ -74,9 +76,8 @@ def is_main_process():
     return get_rank() == 0
 
 
-def init_distributed_mode(cfg):
-    if not cfg.enabled:
-        return
+def init_distributed_mode() -> DistributedConfig:
+    cfg = DistributedConfig()
 
     if "RANK" in os.environ:
         cfg.rank = int(os.environ["RANK"])
@@ -94,6 +95,11 @@ def init_distributed_mode(cfg):
             cfg.dist_url = "env://"
         else:
             cfg.dist_url = "tcp://localhost:40000"
+    else:
+        raise RuntimeError(
+            "Distributed mode requires SLURM or RANK environment variables;"
+            " did you mean to use `torchrun`?"
+        )
 
     cfg.dist_backend = "nccl"
     torch.distributed.init_process_group(
@@ -110,6 +116,8 @@ def init_distributed_mode(cfg):
     torch.distributed.barrier()
     suppress_prints(cfg.rank == 0)
     suppress_logging(cfg.rank == 0)
+
+    return cfg
 
 
 def all_reduce_mean(x):

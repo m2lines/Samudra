@@ -5,11 +5,10 @@ from typing import Any, Generator, TypedDict
 
 import numpy as np
 import pytest
-import torch
 import xarray as xr
 
 import constants as c
-from config import TrainConfig
+from config import TrainBackendConfig, TrainConfig
 
 
 class DataSource(TypedDict):
@@ -47,9 +46,14 @@ def model2_path(request):
 
 
 # Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
-@pytest.fixture(params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)])
-def device(request):
-    return torch.device(request.param)
+# TODO(jder): Note that due to singletons, we can't use both cuda and non-cuda
+# tests in the same test run. You should run the tests separately.
+# See https://github.com/suryadheeshjith/Ocean_Emulator/issues/87
+@pytest.fixture(
+    params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
+)
+def backend(request) -> TrainBackendConfig:
+    return request.param
 
 
 @pytest.fixture(scope="session")
@@ -158,10 +162,9 @@ def parse_encoded_float(encoded: np.float64) -> GridPoint:
     )
 
 
-# TODO(alxmrs): Consider yielding multiple test configs.
 @pytest.fixture(scope="session")
 def train_config(
-    data_source: DataSource, pytestconfig: pytest.Config
+    data_source: DataSource, pytestconfig: pytest.Config, backend: TrainBackendConfig
 ) -> Generator[TrainConfig, Any, None]:
     with tempfile.TemporaryDirectory() as tmpdir:
 
@@ -190,6 +193,7 @@ def train_config(
             trainer,
             data=data_config,
             experiment=experiment_config,
+            backend=backend,
         )
 
         # After contextmanager closes, all test data will be automatically cleaned up.

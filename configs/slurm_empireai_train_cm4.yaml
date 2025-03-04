@@ -5,6 +5,7 @@ base_output_dir: train_3D
 debug: false
 gantry: false
 cluster_data_dir: /mnt/home/sd5313/data/
+backend: auto
 
 wandb:
   mode: online

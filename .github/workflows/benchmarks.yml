@@ -30,7 +30,7 @@ jobs:
           python-version: "3.10"
 
       - name: Run benchmarks
-        run: uv run --locked pytest -m "not cuda" --benchmark-only --benchmark-json output.json
+        run: uv run --frozen pytest -m "not cuda" --benchmark-only --benchmark-json output.json
 
       - name: Stash
         run: git stash

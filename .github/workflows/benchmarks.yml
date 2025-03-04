@@ -1,0 +1,48 @@
+# Performance benchmarks with pytest
+# Based on this example: https://github.com/benchmark-action/github-action-benchmark/tree/master/examples/pytest
+name: Benchmark CPU
+
+# Do not run this workflow on pull request since this workflow has permission to modify contents.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Allow updating content on GitHub pages
+  deployments: write  # Allow to deploy to GitHub pages
+
+jobs:
+  benchmark:
+    name: Performance regression check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Run benchmarks
+        run: uv run pytest --benchmark-only --benchmark-json output.json
+
+      # gh-pages branch is automatically updated with extracted benchmark data.
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Python Benchmark with pytest-benchmark
+          tool: 'pytest'
+          output-file-path: output.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          # Show alert with commit comment on detecting possible performance regression
+          alert-threshold: '200%'
+          comment-on-alert: true
+          fail-on-alert: true
+          alert-comment-cc-users: '@alxmrs'

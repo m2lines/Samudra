@@ -691,8 +691,10 @@ class Trainer:
 
     def _save_checkpoint(self, epoch, best=False, best_type=None):
         checkpoint = {
+            # TODO(jder): we need the underlying model so we can use forward_once;
+            # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
             "model": self.model.module.state_dict()
-            if using_gpu()
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
             else self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "epoch": epoch,

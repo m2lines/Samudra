@@ -30,7 +30,7 @@ jobs:
           python-version: "3.10"
 
       - name: Run benchmarks
-        run: uv run pytest --benchmark-only --benchmark-json output.json
+        run: uv run pytest -m "not cuda" --benchmark-only --benchmark-json output.json
 
       # gh-pages branch is automatically updated with extracted benchmark data.
       - name: Store benchmark result

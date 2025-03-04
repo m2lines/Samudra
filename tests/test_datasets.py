@@ -152,15 +152,11 @@ def test_test_util__data_source_roundtrip(
         days_since_start=days_since_start,
         start_day=start_day_cf,
     )
-    print("")
-    print(dims_uncoded.lat[0], dims_uncoded.lng[0], dims_uncoded.days_since_start[0])
     # intermediate representation: `xarray.DataArray`
     da = dims_uncoded.encode(data_var_index)
-    print(da.to_numpy().flat[0])
 
     # end
     dims_decoded, decoded_var_index = DataSourceDims.decode(da)
-    print(dims_decoded.lat[0], dims_decoded.lng[0], dims_decoded.days_since_start[0])
 
     assert dims_decoded == dims_uncoded
     assert decoded_var_index == data_var_index

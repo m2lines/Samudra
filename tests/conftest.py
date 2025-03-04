@@ -53,7 +53,7 @@ class DataSourceDims:
         # So, to ensure that we can have negative latitudes, we parse the sign value
         # of the lat array.
         lat_sgn = np.sign(self.lat)
-        lat_sgn = np.where(lat_sgn == 0, 1, lat_sgn)
+        lat_sgn = np.where(lat_sgn == 0, 1, lat_sgn)  # change np.sign(0) to +1, not 0.
         self.lat = _trunc(self.lat.astype(np.float64), 2) % (lat_sgn * 100)
         if np.any(self.lat < -90.0) or np.any(self.lat > 90.0):
             raise ValueError("lat values must be between -90 and 90.")
@@ -68,6 +68,9 @@ class DataSourceDims:
             raise ValueError("days_since_start must be between 0 and 999.")
 
     def __eq__(self, other) -> bool:
+        # lat and lng values will often have floating point rounding errors.
+        # So, we declare arrays as equal within a generous tolerance.
+        # We can use exact equality with days_since_start since they are ints.
         return (
             np.allclose(self.lat, other.lat, rtol=0.1)
             and np.allclose(self.lng, other.lng, rtol=0.1)
@@ -159,7 +162,9 @@ class DataSourceDims:
             (DataSourceDims, int) - Parsed dims and data_var index.
         """
         encoded = da.to_numpy()
-        assert len(encoded.shape) == 3
+        assert (
+            len(encoded.shape) == 3
+        ), "DataArray must have (time, lat, lng) dimensions."
 
         scalar = encoded.flat[0]
         tim_dim = encoded[:, 0, 0]

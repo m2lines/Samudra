@@ -22,7 +22,9 @@ source .venv/bin/activate
 uvx pre-commit install
 
 # dev
-uvx pytest -m "not manual and not cuda"
+uv run pytest -m "not manual and not cuda"
+uv run pytest --benchmark-only --benchmark-autosave
+uv run pytest-benchmark compare 0001 0002
 
 # push new remote branch to make a PR
 git push -u origin <feature-branch>
@@ -107,6 +109,23 @@ git push --force-with-lease
 
    It's totally ok to make lots of small commits as you develop your feature! Please, make sure to
    write [commit messages](https://cbea.ms/git-commit/) along the way.
+
+   Sometimes, you may change code that changes the project's performance characteristics. To measure the code's current
+   local performance, you can run:
+
+   ```shell
+   uv run pytest --benchmark-only --benchmark-autosave
+   ```
+
+   This will output stats on all our current benchmarks performance in your terminal. To compare this performance to
+   previous changes, run:
+   ```shell
+   uv run pytest-benchmark compare <id1> <id2>
+   # For example, comparing change 1 to change 2:
+   uv run pytest-benchmark compare 0001 0002
+   ```
+
+   Please see the _Benchmarks & Profiling_ section below for more details.
 
 7. Before submitting a pull request, please sync with the main repo via rebase:
    ```shell
@@ -199,4 +218,46 @@ pytest -l "models and weights" --model1 <path/to/model1.pt> --model2 <path/to/mo
 
 ```bash
 pytest -m "not manual and not cuda"
+```
+
+## Benchmarking & Profiling
+
+We use `pytest-benchmark` to measure performance regressions in this project. Our intentions are to cultivate a culture
+of writing performant programs. To this end, we offer users the following tools:
+
+To run local benchmarks and save their status locally (associated with the current commit), execute:
+
+```shell
+uv run pytest --benchmark-only --benchmark-autosave
+```
+
+To compare benchmark run 0001 to 0002, you can run:
+
+```shell
+uv run pytest-benchmark compare 0001 0002
+```
+
+Please check your local `.benchmarks/` directory to see other benchmarks runs for comparison.
+
+To generate a histogram plot of several local benchmark runs, you may use the `--histogram=FILENAME-PREFIX` flag:
+
+```shell
+uv run pytest-benchmark compare 'Darwin-CPython-3.10-64bit/*' --histogram
+```
+
+Instead of merely benchmarking performance, sometimes you may want to inspect the details of how benchmarks run. This is
+useful, for example, for white-box performance optimization. To collect a `cProfile` trace for each benchmark, run:
+
+```shell
+uv run pytest --benchmark-only --benchmark-cprofile="tottime_per" --benchmark-cprofile-dump
+```
+
+(Please consult [these docs](https://pytest-benchmark.readthedocs.io/en/latest/usage.html#:~:text=%2D%2Dbenchmark%2Dcprofile%3DCOLUMN)
+to see all available values for the `--benchmark-cprofile` flag.)
+
+This will generate a `.prof` file located in the `` directory (by default). You can visualize this trace with `snakeviz`
+like so:
+
+```shell
+uvx snakeviz <benchmark_path>.prof
 ```

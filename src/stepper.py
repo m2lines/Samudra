@@ -5,7 +5,7 @@ import torch
 
 from aggregator import InferenceEvaluatorAggregator
 from datasets import InferenceDataset, TrainData
-from src.models.base import BaseModel
+from models.base import BaseModel
 from utils.model import InfOutput, TrainOutput, ValOutput
 from utils.wandb import get_record_to_wandb
 from utils.writer import ZarrWriter

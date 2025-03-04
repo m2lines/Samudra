@@ -9,7 +9,7 @@ import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from src.config import DistributedConfig
+from config import DistributedConfig
 
 
 def set_seed(seed):

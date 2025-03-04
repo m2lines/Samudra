@@ -8,8 +8,7 @@ import pytest
 import xarray as xr
 
 import constants as c
-from config import TrainConfig
-from src.config import TrainBackendConfig
+from config import TrainBackendConfig, TrainConfig
 
 
 class DataSource(TypedDict):

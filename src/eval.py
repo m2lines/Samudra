@@ -8,11 +8,11 @@ import torch
 import xarray as xr
 
 from aggregator import Aggregator
+from backend import init_eval_backend
 from config import EvalConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset
 from models.unet import UNet
-from src.backend import init_eval_backend
 from stepper import Stepper
 from utils.data import (
     Normalize,

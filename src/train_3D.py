@@ -27,11 +27,11 @@ from torch.utils.data import (
 )
 
 from aggregator import Aggregator, LossAggregator
+from backend import init_train_backend
 from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset, InferenceDatasets, TrainDataset
 from models.unet import UNet
-from src.backend import init_train_backend
 from stepper import Stepper, TrainOutput, ValOutput
 from utils.data import (
     Normalize,

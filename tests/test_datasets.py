@@ -139,7 +139,7 @@ def test_test_util__data_source_roundtrip(
     data_var_index: int,
     lat: NDArray[np.floating],
     lng: NDArray[np.floating],
-    days_since_start: NDArray[np.integer],
+    days_since_start: NDArray[np.int32],
     start_day: datetime.datetime,
     calendar: str,
 ) -> None:

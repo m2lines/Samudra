@@ -1,8 +1,15 @@
 """Test core Datasets and DataLoaders."""
 
+import datetime
+
+import cftime
 import numpy as np
 import pytest
-from conftest import parse_encoded_float
+from conftest import DataSourceDims
+from hypothesis import example, given, settings
+from hypothesis import strategies as st
+from hypothesis.extra.numpy import arrays
+from numpy.typing import NDArray
 from torch.utils.data import DataLoader
 
 from config import TrainConfig
@@ -66,24 +73,93 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
 
 
-def test_test_util__parse_encoded_float():
-    #       AAAAGGGG.TTTDD
-    test1 = 27760145.03000
-    assert parse_encoded_float(test1) == dict(
-        lat=27.76,
-        lng=14.5,
-        days_since_start=30,
-        data_var_index=0,
-    )
+def vector_of(max_vec_size: int, min_vec_size=1):
+    """A hypothesis helper: generates vector array shapes."""
+    return st.lists(
+        st.integers(min_value=min_vec_size, max_value=max_vec_size),
+        min_size=1,
+        max_size=1,
+    ).map(tuple)
 
-    #       AAAAGGGG.TTTDD
-    test2 = 27760145.03020
-    assert parse_encoded_float(test2) == dict(
-        lat=27.76,
-        lng=14.5,
-        days_since_start=30,
-        data_var_index=20,
+
+@given(
+    data_var_index=st.integers(min_value=0, max_value=999),
+    lat=arrays(
+        dtype=np.float64,
+        shape=vector_of(50),
+        elements=st.floats(-90.0, 90.0, allow_nan=False, allow_infinity=False),
+    ),
+    lng=arrays(
+        dtype=np.float64,
+        shape=vector_of(50),
+        elements=st.floats(0, 360.0, allow_nan=False, allow_infinity=False),
+    ),
+    days_since_start=arrays(
+        dtype=np.int32,
+        shape=vector_of(50),
+        elements=st.integers(min_value=0, max_value=999),
+    ),
+    start_day=st.datetimes(),
+    calendar=st.sampled_from(["noleap", "standard"]),
+)
+@example(
+    data_var_index=0,
+    lat=np.array([-90.0, 0.0, 90.0]),
+    lng=np.array([0.0, 180.0]),
+    days_since_start=np.array([5, 10, 15, 20, 25]),
+    start_day=datetime.datetime(2020, 1, 1),
+    calendar="noleap",
+)
+@example(
+    data_var_index=999,
+    lat=np.array([90.00]),
+    lng=np.array([360.0]),
+    days_since_start=np.array([999]),
+    start_day=datetime.datetime(2000, 5, 1, 12),
+    calendar="noleap",
+)
+@example(
+    data_var_index=7,
+    lat=np.array([0.0]),
+    lng=np.array([0.0]),
+    days_since_start=np.array([0], dtype=np.int32),
+    start_day=datetime.datetime(2000, 5, 1, 12),
+    calendar="noleap",
+)
+@example(
+    lat=np.array([32.87]),
+    lng=np.array([0.0]),
+    data_var_index=0,
+    days_since_start=np.array([0], dtype=np.int32),
+    start_day=datetime.datetime(2000, 5, 1, 12),
+    calendar="noleap",
+)
+@settings(deadline=1000)
+def test_test_util__data_source_roundtrip(
+    data_var_index: int,
+    lat: NDArray[np.floating],
+    lng: NDArray[np.floating],
+    days_since_start: NDArray[np.integer],
+    start_day: datetime.datetime,
+    calendar: str,
+) -> None:
+    start_day_cf = cftime.datetime.fromordinal(start_day.toordinal(), calendar=calendar)
+
+    # start
+    dims_uncoded = DataSourceDims(
+        lat=lat,
+        lng=lng,
+        days_since_start=days_since_start,
+        start_day=start_day_cf,
     )
+    # intermediate representation: `xarray.DataArray`
+    da = dims_uncoded.encode(data_var_index)
+
+    # end
+    dims_decoded, decoded_var_index = DataSourceDims.decode(da)
+
+    assert dims_decoded == dims_uncoded
+    assert decoded_var_index == data_var_index
 
 
 # TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?

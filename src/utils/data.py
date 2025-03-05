@@ -5,11 +5,19 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
+from jaxtyping import Bool, Float
 
-from constants import MASK_VARS, TensorMap
+import config
+from constants import MASK_VARS, ExtraVars, InputVars, OutputVars, TensorMap
 
 
-def extract_wet_mask(data, outputs, hist):
+# TODO(alxmrs): Add docstring that defines what "wet" is.
+def extract_wet_mask(
+    data: xr.Dataset, outputs: OutputVars, hist: int
+) -> tuple[
+    Bool[torch.Tensor, "input_vars lat=180 lon=360"],
+    Bool[torch.Tensor, "lat=180 lon=360"],
+]:
     wet_mask = data[MASK_VARS]
     if "time" in wet_mask.dims:
         wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
@@ -32,7 +40,7 @@ def extract_wet_mask(data, outputs, hist):
     return wet_inp, wet_surface
 
 
-def spherical_area_weights(data) -> torch.Tensor:
+def spherical_area_weights(data: xr.Dataset) -> Float[torch.Tensor, "lat=180 lon=360"]:
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())
     weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
@@ -40,7 +48,9 @@ def spherical_area_weights(data) -> torch.Tensor:
     return weights
 
 
-def get_time_slice(time_config, time_delta=5, hist=1):
+def get_time_slice(
+    time_config: config.TimeConfig, time_delta: int = 5, hist: int = 1
+) -> tuple[slice, int]:
     """
     Get the time slice and number of rollout steps for the given time configuration.
 
@@ -128,9 +138,9 @@ class Normalize:
         cls,
         data_mean: xr.Dataset,
         data_std: xr.Dataset,
-        inputs_str: str,
-        extra_in_str: str,
-        outputs_str: str,
+        inputs_str: InputVars,
+        extra_in_str: ExtraVars,
+        outputs_str: OutputVars,
         wet_mask: torch.Tensor,
     ) -> "Normalize":
         """Initialize the singleton instance with normalization parameters."""
@@ -148,9 +158,9 @@ class Normalize:
         self,
         data_mean: xr.Dataset,
         data_std: xr.Dataset,
-        inputs_str: str,
-        extra_in_str: str,
-        outputs_str: str,
+        inputs_str: InputVars,
+        extra_in_str: ExtraVars,
+        outputs_str: OutputVars,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""

@@ -5,8 +5,10 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
+from jaxtyping import Float
 from torch.utils.data import Dataset
 
+from constants import ExtraVars, InputVars, OutputVars
 from utils.data import Normalize
 from utils.device import get_device, using_gpu
 
@@ -228,12 +230,8 @@ class TrainData:
     def get_label(self, step: int):
         return self.td_dict[step][1]
 
-    def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
-        input, _ = self.td_dict[step]
-        input[:, : self.output_channels] = prognostic
-        return input
-
-    def __getitem__(self, step: int):
+    def __getitem__(self, step: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """Converts index (step) into (data, label) tuple."""
         return self.td_dict[step]
 
     def __len__(self):
@@ -269,30 +267,30 @@ class TrainDataset(Dataset):
 
     def __init__(
         self,
-        data,
-        inputs_str,
-        extra_in_str,
-        outputs_str,
-        wet,
-        wet_surface,
-        hist,
-        steps,
-        stride=1,
+        data: xr.Dataset,
+        inputs_str: InputVars,
+        extra_in_str: ExtraVars,
+        outputs_str: OutputVars,
+        wet: torch.Tensor,
+        wet_surface: torch.Tensor,
+        hist: int,
+        steps: int,
+        stride: int = 1,
     ):
         super().__init__()
         self.device = get_device()
 
-        self.hist = hist
-        self.steps = steps
-        self.stride = stride
+        self.hist: int = hist
+        self.steps: int = steps
+        self.stride: int = stride
 
-        self._outputs = data[outputs_str]
-        self.output_channels = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra = data[inputs_str]
-        self._extras = data[extra_in_str]
+        self._outputs: xr.Dataset = data[outputs_str]
+        self.num_output_channels: int = (hist + 1) * len(outputs_str)
+        self._inputs_no_extra: xr.Dataset = data[inputs_str]
+        self._extras: xr.Dataset = data[extra_in_str]
 
         # This class will be used only for training
-        total_steps = 2 * self.hist + 2
+        total_steps: int = 2 * self.hist + 2
 
         # Calculate the number of windows
         num_windows = data.time.size - (total_steps - 1) * self.stride
@@ -305,12 +303,14 @@ class TrainDataset(Dataset):
         window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
 
         # Construct rolling indices
-        self.rolling_indices = indices_da + stride * window_dim
+        self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
+            indices_da + stride * window_dim
+        )
 
         self.wet = wet.bool()
         self.wet_surface = wet_surface.bool()
 
-        self.size = (
+        self.size: int = (
             data.time.size
             - self.steps * (self.hist + 1) * self.stride
             - self.hist * self.stride
@@ -327,32 +327,42 @@ class TrainDataset(Dataset):
         self._extras = self.normalize.normalize_boundary(self._extras)
         self._outputs = self.normalize.normalize_outputs(self._outputs)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.size
 
     def __getitem__(self, idx):
-        TD = TrainData(self.output_channels)
+        TD = TrainData(self.num_output_channels)
         prev_rolling_idx = None
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
-            data_in = self._get_input(x_index)
-            data_in_boundary = self._get_boundary(x_index)
-            data_in = torch.cat((data_in, data_in_boundary), dim=1).squeeze()
+            data_in: Float[torch.Tensor, "batch input_var lat=180 lon=360"] = (
+                self._get_input(x_index)
+            )
+            data_in_boundary: Float[torch.Tensor, "batch extra_var lat=180 lon=360"] = (
+                self._get_boundary(x_index)
+            )
+            data_combined: Float[torch.Tensor, "total_vars lat=180 lon=360"] = (
+                torch.cat((data_in, data_in_boundary), dim=1).squeeze()
+            )
 
-            label = self._get_label(x_index)
+            label: Float[torch.Tensor, "input_var lat=180 lon=360"] = self._get_label(
+                x_index
+            )
 
             TD.insert(
-                input=data_in,
+                input=data_combined,
                 label=label,
             )
 
         return TD
 
-    def _get_x_index(self, idx, step, prev_rolling_idx):
+    def _get_x_index(
+        self, idx, step, prev_rolling_idx
+    ) -> Float[xr.Variable, "window_dim time"]:
         assert isinstance(idx, int)
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")
-        elif idx >= len(self):
+        if idx >= len(self):
             raise IndexError("Index out of range")
 
         start = idx + step * (self.hist + 1) * self.stride
@@ -375,7 +385,9 @@ class TrainDataset(Dataset):
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index
 
-    def _get_input(self, x_index):
+    def _get_input(
+        self, x_index
+    ) -> Float[torch.Tensor, "batch input_var lat=180 lon=360"]:
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
@@ -393,7 +405,9 @@ class TrainDataset(Dataset):
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
-    def _get_boundary(self, x_index):
+    def _get_boundary(
+        self, x_index
+    ) -> Float[torch.Tensor, "batch extra_var lat=180 lon=360"]:
         """
         This function returns the boundary condition for the current time step.
 
@@ -410,7 +424,7 @@ class TrainDataset(Dataset):
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
-    def _get_label(self, x_index):
+    def _get_label(self, x_index) -> Float[torch.Tensor, "input_var lat=180 lon=360"]:
         label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = (
             label.to_array()
@@ -424,4 +438,4 @@ class TrainDataset(Dataset):
         ).squeeze()
         label = torch.from_numpy(label).float()
         label = torch.where(self.wet, label, 0.0)
-        return label
+        return label  # Float[Array, "var lat=180 lon=360"]

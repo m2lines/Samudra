@@ -29,7 +29,7 @@ backend: auto
 
 experiment:
   base_name: train
-  sub_name: jder_test_fake_data
+  sub_name: test
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

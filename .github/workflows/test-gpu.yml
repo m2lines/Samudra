@@ -24,10 +24,10 @@ jobs:
           service_account_key: ${{ secrets.GCP_SA_KEY }}
           runner_service_account: ${{ secrets.GCP_RUNNER_SA_EMAIL }}
           image_project: deeplearning-platform-release
-          # It is easiest if this cuda version (cu124) matches the matrix below.
+          # It is easiest if this cuda version (cu121) matches the matrix below.
           # (We could relax this since installing torch below pulls in the right version of cuda
           # libraries, but then you have a mismatch between the cuda toolkit and those libraries, which seems possibly bad.)
-          image: common-cu124-v20250205-ubuntu-2004-py310-conda
+          image: pytorch-2-2-cu121-v20250205-ubuntu-2204-py310-conda
           machine_zone: "us-central1-a"
           machine_type: "g2-standard-8"
           disk_size: "200"
@@ -36,13 +36,15 @@ jobs:
 
   test:
     runs-on: ${{ needs.create-runner.outputs.label }}
+    env:
+      CUDA_VERSION: 12.1
     needs: create-runner
     steps:
       - name: Install nvidia drivers
         run: |
           sudo /opt/deeplearning/install-driver.sh
-          if test -d /usr/local/cuda-${{ matrix.cuda-version}}/bin ; then
-            echo /usr/local/cuda-${{ matrix.cuda-version}}/bin >> $GITHUB_PATH
+          if test -d /usr/local/cuda-$CUDA_VERSION/bin ; then
+            echo /usr/local/cuda-$CUDA_VERSION/bin >> $GITHUB_PATH
           else
             # bail
             echo "Correct CUDA version not installed"

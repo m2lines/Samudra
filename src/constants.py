@@ -73,6 +73,7 @@ MASK_VARS = [
     "mask_18",
 ]
 
+InputVars = list[str]
 INPT_VARS = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "ur", "vr"],
@@ -110,6 +111,7 @@ INPT_VARS = {
     ]
     + ["zos"],
 }
+ExtraVars = list[str]
 EXTRA_VARS = {
     "1": ["ur", "vr"],
     "2": ["ur", "vr", "Tm"],
@@ -144,6 +146,7 @@ EXTRA_VARS = {
     "3D_all_SAT_tos": ["tauuo", "tauvo", "DSWRFtoa", "air_temperature_at_two_meters"],
     "3D_all_SAT": ["tauuo", "tauvo", "air_temperature_at_two_meters"],
 }
+OutputVars = list[str]
 OUT_VARS = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "Tm"],
@@ -198,6 +201,7 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
     return metadata
 
 
+# TODO(#95): See if this can be removed and replaced.
 class TensorMap:
     _instance: Optional["TensorMap"] = None
 

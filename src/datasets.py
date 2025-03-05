@@ -9,18 +9,18 @@ from jaxtyping import Float
 from torch.utils.data import Dataset
 
 from constants import (
-    BatchedExtra,
-    BatchedInput,
+    BatchExtra,
+    BatchInput,
     ExtraVars,
     InputVars,
-    LabelTensor,
+    Label,
     OutputVars,
-    TotalInputTensor,
+    TotalInput,
 )
 from utils.data import Normalize
 from utils.device import get_device, using_gpu
 
-Example = tuple[TotalInputTensor, LabelTensor]
+Example = tuple[TotalInput, Label]
 
 
 class InferenceDataset(Dataset):
@@ -227,17 +227,17 @@ class TrainData:
         self.output_channels = output_channels
         self.steps = 0
 
-    def insert(self, input_: TotalInputTensor, label: LabelTensor):
+    def insert(self, input_: TotalInput, label: Label):
         self.td_dict[self.steps] = (input_, label)
         self.steps += 1
 
-    def get_initial_input(self) -> TotalInputTensor:
+    def get_initial_input(self) -> TotalInput:
         return self.td_dict[0][0]
 
-    def get_input(self, step: int) -> TotalInputTensor:
+    def get_input(self, step: int) -> TotalInput:
         return self.td_dict[step][0]
 
-    def get_label(self, step: int) -> LabelTensor:
+    def get_label(self, step: int) -> Label:
         return self.td_dict[step][1]
 
     def __getitem__(self, step: int) -> Example:
@@ -346,14 +346,14 @@ class TrainDataset(Dataset):
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
 
-            data_in: BatchedInput = self._get_input(x_index)
-            data_in_boundary: BatchedExtra = self._get_boundary(x_index)
+            data_in: BatchInput = self._get_input(x_index)
+            data_in_boundary: BatchExtra = self._get_boundary(x_index)
 
-            data_combined: TotalInputTensor = torch.cat(
+            data_combined: TotalInput = torch.cat(
                 (data_in, data_in_boundary), dim=1
             ).squeeze()
 
-            label: LabelTensor = self._get_label(x_index)
+            label: Label = self._get_label(x_index)
 
             TD.insert(
                 input_=data_combined,
@@ -391,7 +391,7 @@ class TrainDataset(Dataset):
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index
 
-    def _get_input(self, x_index) -> BatchedInput:
+    def _get_input(self, x_index) -> BatchInput:
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
@@ -409,7 +409,7 @@ class TrainDataset(Dataset):
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
-    def _get_boundary(self, x_index) -> BatchedExtra:
+    def _get_boundary(self, x_index) -> BatchExtra:
         """
         This function returns the boundary condition for the current time step.
 
@@ -426,7 +426,7 @@ class TrainDataset(Dataset):
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
-    def _get_label(self, x_index) -> LabelTensor:
+    def _get_label(self, x_index) -> Label:
         label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = (
             label.to_array()
@@ -440,4 +440,4 @@ class TrainDataset(Dataset):
         ).squeeze()
         label = torch.from_numpy(label).float()
         label = torch.where(self.wet, label, 0.0)
-        return label  # Float[Array, "var lat=180 lon=360"]
+        return label

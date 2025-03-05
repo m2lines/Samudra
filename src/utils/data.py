@@ -5,19 +5,24 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Bool, Float
 
 import config
-from constants import MASK_VARS, ExtraVars, InputVars, OutputVars, TensorMap
+from constants import (
+    MASK_VARS,
+    ExtraVars,
+    Grid,
+    GridMask,
+    InputMask,
+    InputVars,
+    OutputVars,
+    TensorMap,
+)
 
 
 # TODO(alxmrs): Add docstring that defines what "wet" is.
 def extract_wet_mask(
     data: xr.Dataset, outputs: OutputVars, hist: int
-) -> tuple[
-    Bool[torch.Tensor, "input_vars lat=180 lon=360"],
-    Bool[torch.Tensor, "lat=180 lon=360"],
-]:
+) -> tuple[InputMask, GridMask]:
     wet_mask = data[MASK_VARS]
     if "time" in wet_mask.dims:
         wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
@@ -40,7 +45,7 @@ def extract_wet_mask(
     return wet_inp, wet_surface
 
 
-def spherical_area_weights(data: xr.Dataset) -> Float[torch.Tensor, "lat=180 lon=360"]:
+def spherical_area_weights(data: xr.Dataset) -> Grid:
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())
     weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()

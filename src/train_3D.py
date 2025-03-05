@@ -18,7 +18,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
-from jaxtyping import Float
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -36,6 +35,7 @@ from constants import (
     INPT_VARS,
     OUT_VARS,
     ExtraVars,
+    Grid,
     InputVars,
     OutputVars,
     TensorMap,
@@ -181,9 +181,8 @@ class Trainer:
             self.data, self.outputs, cfg.data.hist
         )
         wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
-        self.area_weights: Float[torch.Tensor, "lat=180 lon=360"] = (
-            spherical_area_weights(self.data)
-        )
+        self.area_weights: Grid = spherical_area_weights(self.data)
+
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(

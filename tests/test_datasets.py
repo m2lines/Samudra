@@ -212,10 +212,22 @@ def test_val__data_shape(val_loader_pair: LoaderPair):
     )
     output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
 
-    for sample in loader:
+    num_samples = len(loader)
+    for i, sample in enumerate(loader):
         X, y = extract_sample_arrays(sample)
-        assert X.shape == (1, batch_size, input_var_dim, 180, 360)
-        assert y.shape == (1, batch_size, output_var_dim, 180, 360)
+
+        # Last validation batch may have fewer samples
+        assert X.shape[0] == cfg.steps[0]
+        assert X.shape[1] == batch_size or (
+            i == num_samples - 1 and X.shape[1] < batch_size
+        )
+        assert X.shape[2:] == (input_var_dim, 180, 360)
+
+        assert y.shape[0] == cfg.steps[0]
+        assert y.shape[1] == batch_size or (
+            i == num_samples - 1 and y.shape[1] < batch_size
+        )
+        assert y.shape[2:] == (output_var_dim, 180, 360)
 
 
 def test_inference__loads_correct_number_of_samples(inference_loader_pair: LoaderPair):
@@ -230,7 +242,7 @@ def test_inference__data_shape(inference_loader_pair: LoaderPair):
     cfg, loader = inference_loader_pair
 
     exp = cfg.experiment
-    batch_size = cfg.batch_size
+    batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
     input_var_dim = len(INPT_VARS[exp.exp_num_in]) * hist + len(

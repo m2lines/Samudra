@@ -13,7 +13,7 @@ InputTensor = Float[GriddedTensor, "input_vars"]  # equivalent to "input_vars la
 ExtraTensor = Float[GriddedTensor, "extra_vars"]
 TotalInputTensor = Float[GriddedTensor, "total_vars"]
 LabelTensor = Float[GriddedTensor, "output_vars"]
-BatchedInput = Float[InputTensor, "batch"]
+BatchedInput = Float[InputTensor, "batch"]  # equivalent to "batch input_vars lat lon"
 BatchedExtra = Float[ExtraTensor, "batch"]
 BatchedTotalInput = Float[TotalInputTensor, "batch"]
 

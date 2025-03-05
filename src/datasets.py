@@ -1,5 +1,4 @@
 import logging
-from typing import Dict, List
 
 import numpy as np
 import torch
@@ -210,7 +209,7 @@ class InferenceDataset(Dataset):
 
 
 class InferenceDatasets(Dataset):
-    def __init__(self, datasets: List[InferenceDataset], lengths: List[int]):
+    def __init__(self, datasets: list[InferenceDataset], lengths: list[int]):
         self.datasets = datasets
         self.lengths = lengths
 
@@ -223,7 +222,7 @@ class InferenceDatasets(Dataset):
 
 class TrainData:
     def __init__(self, output_channels: int):
-        self.td_dict: Dict[int, Example] = {}
+        self.td_dict: dict[int, Example] = {}
         self.output_channels = output_channels
         self.steps = 0
 

@@ -48,7 +48,7 @@ data:
   scaling_residuals_file: null
   depth_mode: all
   time_delta: 5
-  num_workers: 0
+  num_workers: 4
   hist: 0
 
 

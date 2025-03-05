@@ -17,7 +17,7 @@ BatchInput = Float[Input, "batch"]  # equivalent to "batch input_vars lat lon"
 BatchExtra = Float[Extra, "batch"]
 BatchTotalInput = Float[TotalInput, "batch"]
 
-GridMask = Bool[torch.Tensor, "lat=180 lon=360"]
+GridMask = Bool[torch.Tensor, "180 360"]
 InputMask = Bool[GridMask, "input_vars"]
 
 # Experiment inputs and outputs

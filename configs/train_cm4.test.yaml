@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 2
-batch_size: 2
+batch_size: 1
 learning_rate: 0.0001
 scheduler: false
 loss: mse

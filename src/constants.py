@@ -3,6 +3,22 @@ from typing import Dict, Optional
 
 import torch
 import xarray as xr
+from jaxtyping import Bool, Float
+
+# Common Type Aliases
+# See "Existing jaxtyping annotations" section of
+#  https://docs.kidger.site/jaxtyping/api/array/#array
+GriddedTensor = Float[torch.Tensor, "lat=180 lon=360"]
+InputTensor = Float[GriddedTensor, "input_vars"]  # equivalent to "input_vars lat lon"
+ExtraTensor = Float[GriddedTensor, "extra_vars"]
+TotalInputTensor = Float[GriddedTensor, "total_vars"]
+LabelTensor = Float[GriddedTensor, "output_vars"]
+BatchedInput = Float[InputTensor, "batch"]
+BatchedExtra = Float[ExtraTensor, "batch"]
+BatchedTotalInput = Float[TotalInputTensor, "batch"]
+
+GriddedMask = Bool[torch.Tensor, "lat=180 lon=360"]
+InputMask = Bool[GriddedMask, "input_vars"]
 
 # Experiment inputs and outputs
 # Assumption that all 3D variables are appended with depth_i_levels

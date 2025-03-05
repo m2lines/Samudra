@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import numpy as np
 import torch
@@ -8,9 +8,19 @@ from einops import rearrange
 from jaxtyping import Float
 from torch.utils.data import Dataset
 
-from constants import ExtraVars, InputVars, OutputVars
+from constants import (
+    BatchedExtra,
+    BatchedInput,
+    ExtraVars,
+    InputVars,
+    LabelTensor,
+    OutputVars,
+    TotalInputTensor,
+)
 from utils.data import Normalize
 from utils.device import get_device, using_gpu
+
+Example = tuple[TotalInputTensor, LabelTensor]
 
 
 class InferenceDataset(Dataset):
@@ -213,31 +223,31 @@ class InferenceDatasets(Dataset):
 
 class TrainData:
     def __init__(self, output_channels: int):
-        self.td_dict: Dict[int, Tuple[torch.Tensor, torch.Tensor]] = {}
+        self.td_dict: Dict[int, Example] = {}
         self.output_channels = output_channels
         self.steps = 0
 
-    def insert(self, input: torch.Tensor, label: torch.Tensor):
-        self.td_dict[self.steps] = (input, label)
+    def insert(self, input_: TotalInputTensor, label: LabelTensor):
+        self.td_dict[self.steps] = (input_, label)
         self.steps += 1
 
-    def get_initial_input(self):
+    def get_initial_input(self) -> TotalInputTensor:
         return self.td_dict[0][0]
 
-    def get_input(self, step: int):
+    def get_input(self, step: int) -> TotalInputTensor:
         return self.td_dict[step][0]
 
-    def get_label(self, step: int):
+    def get_label(self, step: int) -> LabelTensor:
         return self.td_dict[step][1]
 
-    def __getitem__(self, step: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
         return self.td_dict[step]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.steps
 
-    def to(self, device: torch.device):
+    def to(self, device: torch.device) -> None:
         for step in self.td_dict:
             self.td_dict[step] = (
                 self.td_dict[step][0].to(device),
@@ -335,22 +345,18 @@ class TrainDataset(Dataset):
         prev_rolling_idx = None
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
-            data_in: Float[torch.Tensor, "batch input_var lat=180 lon=360"] = (
-                self._get_input(x_index)
-            )
-            data_in_boundary: Float[torch.Tensor, "batch extra_var lat=180 lon=360"] = (
-                self._get_boundary(x_index)
-            )
-            data_combined: Float[torch.Tensor, "total_vars lat=180 lon=360"] = (
-                torch.cat((data_in, data_in_boundary), dim=1).squeeze()
-            )
 
-            label: Float[torch.Tensor, "input_var lat=180 lon=360"] = self._get_label(
-                x_index
-            )
+            data_in: BatchedInput = self._get_input(x_index)
+            data_in_boundary: BatchedExtra = self._get_boundary(x_index)
+
+            data_combined: TotalInputTensor = torch.cat(
+                (data_in, data_in_boundary), dim=1
+            ).squeeze()
+
+            label: LabelTensor = self._get_label(x_index)
 
             TD.insert(
-                input=data_combined,
+                input_=data_combined,
                 label=label,
             )
 
@@ -385,9 +391,7 @@ class TrainDataset(Dataset):
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index
 
-    def _get_input(
-        self, x_index
-    ) -> Float[torch.Tensor, "batch input_var lat=180 lon=360"]:
+    def _get_input(self, x_index) -> BatchedInput:
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
@@ -405,9 +409,7 @@ class TrainDataset(Dataset):
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
-    def _get_boundary(
-        self, x_index
-    ) -> Float[torch.Tensor, "batch extra_var lat=180 lon=360"]:
+    def _get_boundary(self, x_index) -> BatchedExtra:
         """
         This function returns the boundary condition for the current time step.
 
@@ -424,7 +426,7 @@ class TrainDataset(Dataset):
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
-    def _get_label(self, x_index) -> Float[torch.Tensor, "input_var lat=180 lon=360"]:
+    def _get_label(self, x_index) -> LabelTensor:
         label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = (
             label.to_array()

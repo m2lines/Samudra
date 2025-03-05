@@ -91,6 +91,7 @@ class BaseModel(torch.nn.Module):
             )
             if step == 0 and steps_completed == 0:
                 input_tensor = dataset.get_initial_input().to(device=get_device())
+                assert input_tensor.device == torch.device("cpu")
 
             elif step == 0 and steps_completed > 0:
                 input_tensor = dataset.merge_prognostic_and_boundary(

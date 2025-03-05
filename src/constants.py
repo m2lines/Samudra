@@ -8,7 +8,7 @@ from jaxtyping import Bool, Float
 # Common Type Aliases
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
-Grid = Float[torch.Tensor, "lat=180 lon=360"]
+Grid = Float[torch.Tensor, "180 360"]
 Input = Float[Grid, "input_vars"]  # equivalent to "input_vars lat lon"
 Extra = Float[Grid, "extra_vars"]
 TotalInput = Float[Grid, "total_vars"]

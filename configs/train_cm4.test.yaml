@@ -1,11 +1,11 @@
 # A config file to test training.
 # Used in automated tests.
-debug: true
+debug: false
 disk_mode: true
-pin_mem: false
+pin_mem: true
 save_freq: 5
-epochs: 120
-batch_size: 1
+epochs: 2
+batch_size: 2
 learning_rate: 0.0001
 scheduler: false
 loss: mse
@@ -28,16 +28,15 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: train
-  sub_name: test_cm4_samudra
+  base_name: train
+  sub_name: jder_test_fake_data
   rand_seed: 15
   base_output_dir: .LOCAL
-  gantry: false
-  cluster_data_dir: will_be_replaced
   wandb:
     mode: disabled
-    project: 3D_ocean_emu_CM4
-    entity: testrobot
+    project: ocean-emulators
+    entity: m2lines
+    group: samudra-train-om4
   network: convnextunet
   exp_num_in: '3D_5'
   exp_num_extra: '3D_5'
@@ -49,7 +48,7 @@ data:
   scaling_residuals_file: null
   depth_mode: all
   time_delta: 5
-  num_workers: 4
+  num_workers: 0
   hist: 0
 
 
@@ -68,10 +67,6 @@ unet:
     activation: "capped_gelu"
     upscale_factor: 2
     norm: "batch"
-
-  corrector:
-    non_negative_corrector_names:
-      - "so"
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

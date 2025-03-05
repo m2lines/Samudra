@@ -40,6 +40,7 @@ class Aggregator:
             hist=hist,
             area_weights=area_weights,
             output_channels=output_channels,
+            record_step_20=(n_timesteps >= 20),
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
         )
@@ -58,6 +59,7 @@ class Aggregator:
             hist=hist,
             area_weights=area_weights,
             output_channels=output_channels,
+            record_step_20=(n_timesteps >= 20),
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,
         )

@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - u/jder/ci-tests
   workflow_dispatch:
 
 jobs:

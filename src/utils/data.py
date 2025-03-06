@@ -4,7 +4,9 @@ import cftime
 import numpy as np
 import torch
 import xarray as xr
+from beartype import beartype as typechecker
 from einops import rearrange
+from jaxtyping import jaxtyped
 
 import config
 from constants import (
@@ -20,6 +22,7 @@ from constants import (
 
 
 # TODO(alxmrs): Add docstring that defines what "wet" is.
+@jaxtyped(typechecker=typechecker)
 def extract_wet_mask(
     data: xr.Dataset, outputs: OutputVars, hist: int
 ) -> tuple[InputMask, GridMask]:
@@ -42,9 +45,10 @@ def extract_wet_mask(
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)
     wet_inp = torch.concat([wet_inp] * (hist + 1), dim=0)
-    return wet_inp, wet_surface
+    return wet_inp.bool(), wet_surface.bool()
 
 
+@jaxtyped(typechecker=typechecker)
 def spherical_area_weights(data: xr.Dataset) -> Grid:
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())

@@ -41,6 +41,7 @@ find = {}
 
 [tool.ruff]
 lint.select = [ "D", "E", "F", "I", "W" ]
+# F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 lint.ignore = [ "D1", "D200", "D205", "D212", "E203", "E402", "F541", "F722", "W293" ]
 lint.per-file-ignores."*/__init__.py" = [ "F401" ]
 lint.per-file-ignores."scripts/*" = [ "D" ]

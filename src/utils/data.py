@@ -21,11 +21,11 @@ from constants import (
 )
 
 
-# TODO(alxmrs): Add docstring that defines what "wet" is.
 @jaxtyped(typechecker=typechecker)
 def extract_wet_mask(
     data: xr.Dataset, outputs: OutputVars, hist: int
 ) -> tuple[InputMask, GridMask]:
+    """A mask for where the oceans are. Water is wet."""
     wet_mask = data[MASK_VARS]
     if "time" in wet_mask.dims:
         wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()

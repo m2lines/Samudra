@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741272124657,
+  "lastUpdate": 1741272127123,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -88,6 +88,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0747579601187738",
             "extra": "mean: 6.122512673400001 sec\nrounds: 5"
+          }
+        ]
+      }
+    ],
+    "Python Benchmark with pytest-benchmark (GPU)": [
+      {
+        "commit": {
+          "author": {
+            "name": "Jesse Rusak",
+            "username": "jder",
+            "email": "me@jesserusak.com"
+          },
+          "committer": {
+            "name": "Jesse Rusak",
+            "username": "jder",
+            "email": "me@jesserusak.com"
+          },
+          "id": "e5b4747750ce6e204e6c64848da4303f48625cb6",
+          "message": "Use GPU runners for benchmarks too",
+          "timestamp": "2025-03-06T14:31:42Z",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/e5b4747750ce6e204e6c64848da4303f48625cb6"
+        },
+        "date": 1741272126186,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-train]",
+            "value": 0.20077627560966077,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2893057014535929",
+            "extra": "mean: 4.980668143999992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-val]",
+            "value": 0.45316694607284674,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021339989101592623",
+            "extra": "mean: 2.2066922768000152 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda]",
+            "value": 0.16381264858865272,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10637843211555174",
+            "extra": "mean: 6.104534714599993 sec\nrounds: 5"
           }
         ]
       }

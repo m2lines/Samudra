@@ -1,0 +1,70 @@
+# Run GPU-only tests for the project via pytest
+name: Test GPU
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  create-runner:
+    runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.create-runner.outputs.label }}
+    steps:
+      - id: create-runner
+        uses: Open-Athena/gce-github-runner@main
+        with:
+          token: ${{ secrets.GH_SA_TOKEN }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          runner_service_account: ${{ secrets.GCP_RUNNER_SA_EMAIL }}
+          image_project: deeplearning-platform-release
+          # It is easiest if this cuda version (cu121) matches the cuda version below.
+          # (We could relax this since installing torch below pulls in the right version of cuda
+          # libraries, but then you have a mismatch between the cuda toolkit and those libraries, which seems possibly bad.)
+          image: pytorch-2-2-cu121-v20250205-ubuntu-2204-py310-conda
+          machine_zone: "us-central1-a"
+          machine_type: "g2-standard-8"
+          disk_size: "200GB"
+          accelerator: "count=1,type=nvidia-l4"
+          # shutdown_timeout: 1800 # uncomment to allow your CI machines to stay around after running for debugging purposes
+
+  test:
+    runs-on: ${{ needs.create-runner.outputs.label }}
+    env:
+      # see note about machine image above
+      CUDA_VERSION: 12.1
+    needs: create-runner
+    steps:
+      - name: Install nvidia drivers
+        run: |
+          sudo /opt/deeplearning/install-driver.sh
+          if test -d /usr/local/cuda-$CUDA_VERSION/bin ; then
+            echo /usr/local/cuda-$CUDA_VERSION/bin >> $GITHUB_PATH
+          else
+            # bail
+            echo "Correct CUDA version not installed"
+            exit 1
+          fi
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: uv sync --dev --all-extras
+
+      - name: Run pytest
+        run: uv run pytest -v -m "not manual and cuda"

@@ -1,15 +1,13 @@
 import logging
 
 import pytest
-
-from config import TrainConfig
-from train_3D import Trainer
+from test_datasets import TrainPair
 
 
 @pytest.mark.manual
-def test_trainer__mini_benchmark(train_config: TrainConfig, caplog, benchmark):
+def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
     caplog.set_level(logging.INFO)
-    trainer = Trainer(train_config)
+    _, trainer = trainer_pair
 
     @benchmark
     def run():

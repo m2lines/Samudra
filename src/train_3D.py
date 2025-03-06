@@ -58,6 +58,13 @@ class Trainer:
     model: UNet | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
+        # Prep directory structure -- we do this first so it's set up before
+        # we try to initialize distributed training.
+        cfg.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
+        cfg.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+        cfg.save_yaml(str(cfg.experiment.output_dir / "config.yaml"))
+
+        # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
@@ -252,15 +259,6 @@ class Trainer:
         self.wandb_logger.configure(
             cfg.experiment.wandb.mode == "online", is_main_process()
         )
-
-        # Outputs
-        if not os.path.exists(cfg.experiment.nets_dir):
-            os.makedirs(cfg.experiment.nets_dir, exist_ok=True)
-
-        if not os.path.exists(cfg.experiment.output_dir):
-            os.makedirs(cfg.experiment.output_dir, exist_ok=True)
-
-        cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(

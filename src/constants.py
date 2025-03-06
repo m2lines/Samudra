@@ -17,10 +17,6 @@ Extra = Float[Grid, "extra_vars"]
 # So, we'll leave this default and use symbolic axes locally.
 TotalInput = Float[Grid, "total_vars"]
 Label = Float[Grid, "output_vars"]
-BatchInput = Float[Input, "batch"]  # equivalent to "batch input_vars lat lon"
-BatchExtra = Float[Extra, "batch"]
-BatchTotalInput = Float[TotalInput, "batch"]
-BatchLabel = Float[Label, "batch"]
 
 GridMask = Bool[torch.Tensor, "180 360"]
 InputMask = Bool[GridMask, "input_vars"]

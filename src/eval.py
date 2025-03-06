@@ -29,6 +29,8 @@ from utils.wandb import WandBLogger
 
 class Eval:
     def __init__(self, cfg: EvalConfig) -> None:
+        cfg.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+
         self.device = init_eval_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
@@ -56,13 +58,13 @@ class Eval:
         else:
             self.levels = int(levels)
 
-        self.str_in = "".join([i + "_" for i in self.inputs])
-        self.str_ext = "".join([i + "_" for i in self.extra_in])
-        self.str_out = "".join([i + "_" for i in self.outputs])
+        str_in = ", ".join([i for i in self.inputs])
+        str_ext = ", ".join([i for i in self.extra_in])
+        str_out = ", ".join([i for i in self.outputs])
 
-        logging.info(f"inputs: {self.str_in}")
-        logging.info(f"extra inputs: {self.str_ext}")
-        logging.info(f"outputs: {self.str_out}")
+        logging.info(f"inputs: {str_in}")
+        logging.info(f"extra inputs: {str_ext}")
+        logging.info(f"outputs: {str_out}")
         logging.info(f"levels: {self.levels}")
 
         self.N_atm = len(self.extra_in)
@@ -265,9 +267,6 @@ def main():
 
     # Load config from YAML
     cfg = EvalConfig.from_yaml(args.config, overrides)
-
-    if not os.path.exists(cfg.experiment.output_dir):
-        os.makedirs(cfg.experiment.output_dir, exist_ok=True)
 
     handle_logging(cfg)
     handle_warnings()

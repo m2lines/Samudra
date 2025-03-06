@@ -11,6 +11,7 @@ def using_gpu() -> bool:
 # by moving to some training framework + context objects once we have
 # benchmarking set up.
 def set_device(device: torch.device) -> None:
+    global _CHOSEN_DEVICE
     _CHOSEN_DEVICE = device
 
 

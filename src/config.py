@@ -79,7 +79,7 @@ class DistributedConfig:
 
 @dataclass
 class ExperimentConfig:
-    name: str = "train"
+    base_name: str = "train"
     sub_name: str = "cm4_samudra"
     rand_seed: int = 1
     base_output_dir: str = "train_3D"
@@ -95,7 +95,7 @@ class ExperimentConfig:
 
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")
-        self.name = f"{timestamp}-{self.name}"
+        self.name = f"{timestamp}-{self.base_name}"
         self.output_dir = Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
         self.nets_dir = self.output_dir / "saved_nets"
         if self.gantry:

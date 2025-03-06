@@ -10,7 +10,7 @@ record_every: 10
 backend: auto
 
 experiment:
-  name: eval
+  base_name: eval
   sub_name: cm4_samudra
   rand_seed: 15
   base_output_dir: /results

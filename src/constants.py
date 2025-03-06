@@ -11,6 +11,10 @@ from jaxtyping import Bool, Float
 Grid = Float[torch.Tensor, "180 360"]
 Input = Float[Grid, "input_vars"]  # equivalent to "input_vars lat lon"
 Extra = Float[Grid, "extra_vars"]
+# A note from jaxtyping (why we can't do "input_vars+extra_vars"):
+#   In practice you should usually only use symbolic axes in annotations
+#   for return types, referring only to axes annotated for arguments.
+# So, we'll leave this default and use symbolic axes locally.
 TotalInput = Float[Grid, "total_vars"]
 Label = Float[Grid, "output_vars"]
 BatchInput = Float[Input, "batch"]  # equivalent to "batch input_vars lat lon"

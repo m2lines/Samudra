@@ -261,7 +261,7 @@ def data_source() -> DataSource:
     }
     ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
-    return DataSource(data=ds, means=ds.mean("time"), stds=ds.std("time"))
+    return DataSource(data=ds, means=ds.mean(), stds=ds.std())
 
 
 @pytest.fixture(scope="session")

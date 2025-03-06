@@ -57,6 +57,7 @@ markers = [
 pythonpath = [
   "src",
 ]
+addopts = "--jaxtyping-packages=data,datasets,beartype.beartype"
 
 [tool.mypy]
 ignore_missing_imports = true

@@ -4,9 +4,8 @@ from typing import TypeAlias
 import numpy as np
 import torch
 import xarray as xr
-from beartype import beartype as typechecker
 from einops import rearrange
-from jaxtyping import Float, Integer, jaxtyped
+from jaxtyping import Float, Integer
 from torch.utils.data import Dataset
 
 from constants import (
@@ -232,24 +231,19 @@ class TrainData:
         self.output_channels = output_channels
         self.steps = 0
 
-    @jaxtyped(typechecker=typechecker)
     def insert(self, input_: TDInput, label: TDLabel):
         self.td_dict[self.steps] = (input_, label)
         self.steps += 1
 
-    @jaxtyped(typechecker=typechecker)
     def get_initial_input(self) -> TDInput:
         return self.td_dict[0][0]
 
-    @jaxtyped(typechecker=typechecker)
     def get_input(self, step: int) -> TDInput:
         return self.td_dict[step][0]
 
-    @jaxtyped(typechecker=typechecker)
     def get_label(self, step: int) -> TDLabel:
         return self.td_dict[step][1]
 
-    @jaxtyped(typechecker=typechecker)
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
         return self.td_dict[step]
@@ -350,7 +344,6 @@ class TrainDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
-    @jaxtyped(typechecker=typechecker)
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_output_channels)
         prev_rolling_idx = None
@@ -371,7 +364,6 @@ class TrainDataset(Dataset):
 
         return TD
 
-    @jaxtyped(typechecker=typechecker)
     def _get_x_index(
         self, idx: int, step: int, prev_rolling_idx: int | None
     ) -> Integer[xr.Variable, "window_dim time"]:
@@ -401,7 +393,6 @@ class TrainDataset(Dataset):
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index
 
-    @jaxtyped(typechecker=typechecker)
     def _get_input(self, x_index) -> Float[Input, "*batch"]:
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
@@ -420,7 +411,6 @@ class TrainDataset(Dataset):
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
-    @jaxtyped(typechecker=typechecker)
     def _get_boundary(self, x_index) -> Float[Extra, "*batch"]:
         """
         This function returns the boundary condition for the current time step.
@@ -438,7 +428,6 @@ class TrainDataset(Dataset):
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
-    @jaxtyped(typechecker=typechecker)
     def _get_label(self, x_index) -> Label:
         label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = (

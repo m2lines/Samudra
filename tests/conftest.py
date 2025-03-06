@@ -74,8 +74,8 @@ class DataSourceDims:
         # So, we declare arrays as equal within a generous tolerance.
         # We can use exact equality with days_since_start since they are ints.
         return (
-            np.allclose(self.lat, other.lat, rtol=1)
-            and np.allclose(self.lng, other.lng, rtol=0.1)
+            np.allclose(self.lat, other.lat, atol=0.1)
+            and np.allclose(self.lng, other.lng, atol=0.01)
             and np.array_equal(self.days_since_start, other.days_since_start)
             and self.start_day == other.start_day
         )

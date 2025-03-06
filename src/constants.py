@@ -9,14 +9,14 @@ from jaxtyping import Bool, Float
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 Grid = Float[torch.Tensor, "180 360"]
-Input = Float[Grid, "input_vars"]  # equivalent to "input_vars lat lon"
-Extra = Float[Grid, "extra_vars"]
+Input = Float[Grid, "*batch input_vars"]  # equivalent to "input_vars lat lon"
+Extra = Float[Grid, "*batch extra_vars"]
 # A note from jaxtyping (why we can't do "input_vars+extra_vars"):
 #   In practice you should usually only use symbolic axes in annotations
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
-TotalInput = Float[Grid, "total_vars"]
-Label = Float[Grid, "output_vars"]
+TotalInput = Float[Grid, "*batch total_vars"]
+Label = Float[Grid, "*batch output_vars"]
 
 GridMask = Bool[torch.Tensor, "180 360"]
 InputMask = Bool[GridMask, "input_vars"]

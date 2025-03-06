@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741298354177,
+  "lastUpdate": 1741298356157,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -178,6 +178,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.10637843211555174",
             "extra": "mean: 6.104534714599993 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5d1c2d724d8abc6fb958e63520e32674d399af2",
+          "message": "GPU Tests & benchmarks (#96)\n\nRuns tests on GPU. Also moves existing CPU benchmarks to a GPU runner\nmachine and runs GPU benchmarks there, too. This lets us have 1\nbenchmark job and (I would expect) a more consistent performance\nenvironment for CPU tests, too.",
+          "timestamp": "2025-03-06T16:49:15-05:00",
+          "tree_id": "563daeb6dd63c785b2cc788225b3587c0cb391de",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/c5d1c2d724d8abc6fb958e63520e32674d399af2"
+        },
+        "date": 1741298355307,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-train]",
+            "value": 0.2007299897193038,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3335808387688165",
+            "extra": "mean: 4.981816625400006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-val]",
+            "value": 0.4558057791548714,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02179595023817908",
+            "extra": "mean: 2.1939168956000117 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda]",
+            "value": 0.1661040596205076,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10025466902673769",
+            "extra": "mean: 6.020322454999996 sec\nrounds: 5"
           }
         ]
       }

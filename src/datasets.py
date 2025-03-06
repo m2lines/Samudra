@@ -3,13 +3,16 @@ import logging
 import numpy as np
 import torch
 import xarray as xr
+from beartype import beartype as typechecker
 from einops import rearrange
-from jaxtyping import Float
+from jaxtyping import Float, jaxtyped
 from torch.utils.data import Dataset
 
 from constants import (
     BatchExtra,
     BatchInput,
+    BatchLabel,
+    BatchTotalInput,
     ExtraVars,
     GridMask,
     InputMask,
@@ -21,7 +24,7 @@ from constants import (
 from utils.data import Normalize
 from utils.device import get_device, using_gpu
 
-Example = tuple[TotalInput, Label]
+Example = tuple[TotalInput | BatchTotalInput, Label | BatchLabel]
 
 
 class InferenceDataset(Dataset):
@@ -228,19 +231,24 @@ class TrainData:
         self.output_channels = output_channels
         self.steps = 0
 
-    def insert(self, input_: TotalInput, label: Label):
+    @jaxtyped(typechecker=typechecker)
+    def insert(self, input_: TotalInput | BatchTotalInput, label: Label | BatchLabel):
         self.td_dict[self.steps] = (input_, label)
         self.steps += 1
 
-    def get_initial_input(self) -> TotalInput:
+    @jaxtyped(typechecker=typechecker)
+    def get_initial_input(self) -> TotalInput | BatchTotalInput:
         return self.td_dict[0][0]
 
-    def get_input(self, step: int) -> TotalInput:
+    @jaxtyped(typechecker=typechecker)
+    def get_input(self, step: int) -> TotalInput | BatchTotalInput:
         return self.td_dict[step][0]
 
-    def get_label(self, step: int) -> Label:
+    @jaxtyped(typechecker=typechecker)
+    def get_label(self, step: int) -> Label | BatchLabel:
         return self.td_dict[step][1]
 
+    @jaxtyped(typechecker=typechecker)
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
         return self.td_dict[step]

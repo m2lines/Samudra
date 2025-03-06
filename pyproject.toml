@@ -25,6 +25,7 @@ dynamic = [ "dependencies", "optional-dependencies", "version" ]
 
 [dependency-groups]
 dev = [
+  "beartype>=0.20",
   "hypothesis[numpy]>=6.127.2",
   "pytest>=8.3.4",
   "pytest-benchmark[histogram]>=5.1",

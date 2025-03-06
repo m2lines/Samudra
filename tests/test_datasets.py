@@ -5,7 +5,7 @@ import datetime
 import cftime
 import numpy as np
 import pytest
-from conftest import DataSourceDims
+from conftest import DataSourceDims, TrainPair
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
@@ -15,25 +15,11 @@ from torch.utils.data import DataLoader
 from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS
 from datasets import TrainData
-from train_3D import Trainer
 
 # Note: Refactoring data loaders is planned for the near-term. Ideally,
 # these fixtures allow us to isolate data loader tests from their setup.
 
-TrainPair = tuple[TrainConfig, Trainer]
 LoaderPair = tuple[TrainConfig, DataLoader]
-
-
-# This micro-fixture is cached by pytest. Thus, we don't have to change
-# the factory methods that throw errors during double initialization.
-@pytest.fixture(scope="session")
-def trainer_pair(train_config: TrainConfig) -> TrainPair:
-    trainer = Trainer(train_config)
-
-    # cur_step will set the number of pairs in the input/output sample
-    trainer.init_data_loaders(cur_step=train_config.steps[0])
-
-    return train_config, trainer
 
 
 @pytest.fixture

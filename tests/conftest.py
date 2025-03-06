@@ -12,6 +12,7 @@ from typing_extensions import Self
 
 import constants as c
 from config import TrainBackendConfig, TrainConfig
+from train_3D import Trainer
 
 
 @dataclasses.dataclass
@@ -300,3 +301,18 @@ def train_config(
 
         # After contextmanager closes, all test data will be automatically cleaned up.
         yield test_data_trainer
+
+
+TrainPair = tuple[TrainConfig, Trainer]
+
+
+# This micro-fixture is cached by pytest. Thus, we don't have to change
+# the factory methods that throw errors during double initialization.
+@pytest.fixture(scope="session")
+def trainer_pair(train_config: TrainConfig) -> TrainPair:
+    trainer = Trainer(train_config)
+
+    # cur_step will set the number of pairs in the input/output sample
+    trainer.init_data_loaders(cur_step=train_config.steps[0])
+
+    return train_config, trainer

@@ -5,7 +5,7 @@ import torch
 import xarray as xr
 from beartype import beartype as typechecker
 from einops import rearrange
-from jaxtyping import Float, jaxtyped
+from jaxtyping import Float, Integer, jaxtyped
 from torch.utils.data import Dataset
 
 from constants import (
@@ -349,7 +349,8 @@ class TrainDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
-    def __getitem__(self, idx):
+    @jaxtyped(typechecker=typechecker)
+    def __getitem__(self, idx: int):
         TD = TrainData(self.num_output_channels)
         prev_rolling_idx = None
         for step in range(self.steps):
@@ -371,9 +372,10 @@ class TrainDataset(Dataset):
 
         return TD
 
+    @jaxtyped(typechecker=typechecker)
     def _get_x_index(
-        self, idx, step, prev_rolling_idx
-    ) -> Float[xr.Variable, "window_dim time"]:
+        self, idx: int, step: int, prev_rolling_idx: int | None
+    ) -> Integer[xr.Variable, "window_dim time"]:
         assert isinstance(idx, int)
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")
@@ -400,6 +402,7 @@ class TrainDataset(Dataset):
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index
 
+    @jaxtyped(typechecker=typechecker)
     def _get_input(self, x_index) -> BatchInput:
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
@@ -418,6 +421,7 @@ class TrainDataset(Dataset):
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
+    @jaxtyped(typechecker=typechecker)
     def _get_boundary(self, x_index) -> BatchExtra:
         """
         This function returns the boundary condition for the current time step.
@@ -435,6 +439,7 @@ class TrainDataset(Dataset):
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
+    @jaxtyped(typechecker=typechecker)
     def _get_label(self, x_index) -> Label:
         label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = (

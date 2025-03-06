@@ -30,7 +30,7 @@ jobs:
           image: pytorch-2-2-cu121-v20250205-ubuntu-2204-py310-conda
           machine_zone: "us-central1-a"
           machine_type: "g2-standard-8"
-          disk_size: "200"
+          disk_size: "200GB"
           accelerator: "count=1,type=nvidia-l4"
           # shutdown_timeout: 1800 # uncomment to allow your CI machines to stay around after running for debugging purposes
 

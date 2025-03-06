@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741131981015,
+  "lastUpdate": 1741272124657,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -45,6 +45,49 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.20254437427843017",
             "extra": "mean: 4.237839206799992 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jesse Rusak",
+            "username": "jder",
+            "email": "me@jesserusak.com"
+          },
+          "committer": {
+            "name": "Jesse Rusak",
+            "username": "jder",
+            "email": "me@jesserusak.com"
+          },
+          "id": "e5b4747750ce6e204e6c64848da4303f48625cb6",
+          "message": "Use GPU runners for benchmarks too",
+          "timestamp": "2025-03-06T14:31:42Z",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/e5b4747750ce6e204e6c64848da4303f48625cb6"
+        },
+        "date": 1741272123691,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.19450538555785601,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3578038321581784",
+            "extra": "mean: 5.141245817599986 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.42210662317939274,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14352713139068227",
+            "extra": "mean: 2.369069673599995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.16333163414175053,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0747579601187738",
+            "extra": "mean: 6.122512673400001 sec\nrounds: 5"
           }
         ]
       }

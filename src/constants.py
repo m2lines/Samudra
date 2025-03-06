@@ -91,7 +91,7 @@ MASK_VARS = [
 ]
 
 InputVars = list[str]
-INPT_VARS = {
+INPT_VARS: dict[str, InputVars] = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "ur", "vr"],
     "3": ["um", "vm", "Tm"],
@@ -129,7 +129,7 @@ INPT_VARS = {
     + ["zos"],
 }
 ExtraVars = list[str]
-EXTRA_VARS = {
+EXTRA_VARS: dict[str, ExtraVars] = {
     "1": ["ur", "vr"],
     "2": ["ur", "vr", "Tm"],
     "3": ["Tm"],
@@ -164,7 +164,7 @@ EXTRA_VARS = {
     "3D_all_SAT": ["tauuo", "tauvo", "air_temperature_at_two_meters"],
 }
 OutputVars = list[str]
-OUT_VARS = {
+OUT_VARS: dict[str, OutputVars] = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "Tm"],
     "3": ["ur", "vr"],

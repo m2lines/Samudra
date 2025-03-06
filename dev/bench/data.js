@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741272127123,
+  "lastUpdate": 1741298354177,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -88,6 +88,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0747579601187738",
             "extra": "mean: 6.122512673400001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c5d1c2d724d8abc6fb958e63520e32674d399af2",
+          "message": "GPU Tests & benchmarks (#96)\n\nRuns tests on GPU. Also moves existing CPU benchmarks to a GPU runner\nmachine and runs GPU benchmarks there, too. This lets us have 1\nbenchmark job and (I would expect) a more consistent performance\nenvironment for CPU tests, too.",
+          "timestamp": "2025-03-06T16:49:15-05:00",
+          "tree_id": "563daeb6dd63c785b2cc788225b3587c0cb391de",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/c5d1c2d724d8abc6fb958e63520e32674d399af2"
+        },
+        "date": 1741298353195,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.17420555904308752,
+            "unit": "iter/sec",
+            "range": "stddev: 0.38049027027638777",
+            "extra": "mean: 5.740344943600007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.4000370094079227,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1758521402419627",
+            "extra": "mean: 2.4997687126000074 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.1633972642911852,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08581570713335311",
+            "extra": "mean: 6.1200535048 sec\nrounds: 5"
           }
         ]
       }

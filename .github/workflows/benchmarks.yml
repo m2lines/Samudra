@@ -10,14 +10,51 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # Allow updating content on GitHub pages
-  deployments: write  # Allow to deploy to GitHub pages
+  contents: write # Allow updating content on GitHub pages
+  deployments: write # Allow to deploy to GitHub pages
 
 jobs:
-  benchmark:
-    name: Performance regression check
+  create-runner:
     runs-on: ubuntu-latest
+    outputs:
+      label: ${{ steps.create-runner.outputs.label }}
     steps:
+      - id: create-runner
+        uses: Open-Athena/gce-github-runner@main
+        with:
+          token: ${{ secrets.GH_SA_TOKEN }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          runner_service_account: ${{ secrets.GCP_RUNNER_SA_EMAIL }}
+          image_project: deeplearning-platform-release
+          # It is easiest if this cuda version (cu121) matches the cuda version below.
+          # (We could relax this since installing torch below pulls in the right version of cuda
+          # libraries, but then you have a mismatch between the cuda toolkit and those libraries, which seems possibly bad.)
+          image: pytorch-2-2-cu121-v20250205-ubuntu-2204-py310-conda
+          machine_zone: "us-central1-a"
+          machine_type: "g2-standard-8"
+          disk_size: "200"
+          accelerator: "count=1,type=nvidia-l4"
+          # shutdown_timeout: 1800 # uncomment to allow your CI machines to stay around after running for debugging purposes
+
+  test:
+    runs-on: ${{ needs.create-runner.outputs.label }}
+    env:
+      # see note about machine image above
+      CUDA_VERSION: 12.1
+    needs: create-runner
+    steps:
+      - name: Install nvidia drivers
+        run: |
+          sudo /opt/deeplearning/install-driver.sh
+          if test -d /usr/local/cuda-$CUDA_VERSION/bin ; then
+            echo /usr/local/cuda-$CUDA_VERSION/bin >> $GITHUB_PATH
+          else
+            # bail
+            echo "Correct CUDA version not installed"
+            exit 1
+          fi
+
       - name: Check out code
         uses: actions/checkout@v2
 
@@ -29,9 +66,14 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Run benchmarks
-        run: uv run --frozen pytest -m "not cuda" --benchmark-only --benchmark-json output.json
+      # once we've solved https://github.com/suryadheeshjith/Ocean_Emulator/issues/87 we can make a single pytest run
+      - name: Run CPU benchmarks
+        run: uv run --frozen pytest -m "not cuda" --benchmark-only --benchmark-json output-cpu.json
 
+      - name: Run GPU benchmarks
+        run: uv run --frozen pytest -m "cuda" --benchmark-only --benchmark-json output-gpu.json
+
+      # Avoid issues checking out the gh-pages branch (eg uv.lock updated)
       - name: Stash
         run: git stash
 
@@ -40,12 +82,27 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Python Benchmark with pytest-benchmark
-          tool: 'pytest'
-          output-file-path: output.json
+          tool: "pytest"
+          output-file-path: output-cpu.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           # Show alert with commit comment on detecting possible performance regression
-          alert-threshold: '200%'
+          alert-threshold: "200%"
           comment-on-alert: true
           fail-on-alert: true
-          alert-comment-cc-users: '@alxmrs'
+          alert-comment-cc-users: "@alxmrs,@jder"
+
+      # gh-pages branch is automatically updated with extracted benchmark data.
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Python Benchmark with pytest-benchmark (GPU)
+          tool: "pytest"
+          output-file-path: output-gpu.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          # Show alert with commit comment on detecting possible performance regression
+          alert-threshold: "200%"
+          comment-on-alert: true
+          fail-on-alert: true
+          alert-comment-cc-users: "@alxmrs,@jder"

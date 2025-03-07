@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741310517146,
+  "lastUpdate": 1741310519024,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -327,6 +327,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.10025466902673769",
             "extra": "mean: 6.020322454999996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97f2bb5015b51f43ffffd5435c924eb8b1438cd4",
+          "message": "Ensuring uniqueness property of interpretable data. (#98)\n\nAlso, added a minor equality fix which tolerates noisier data. Luckily,\nthe uniqueness property is still preserved.",
+          "timestamp": "2025-03-06T16:49:08-08:00",
+          "tree_id": "4b7d7f3d7897fb96084d8ff265693f58ba2628e9",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/97f2bb5015b51f43ffffd5435c924eb8b1438cd4"
+        },
+        "date": 1741310518219,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-train]",
+            "value": 0.22309867030627117,
+            "unit": "iter/sec",
+            "range": "stddev: 0.21069167186643556",
+            "extra": "mean: 4.482321649999949 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-val]",
+            "value": 0.4720718166140207,
+            "unit": "iter/sec",
+            "range": "stddev: 0.009172992028600273",
+            "extra": "mean: 2.1183217570000124 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda]",
+            "value": 0.1919366322234432,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06809184254506163",
+            "extra": "mean: 5.210052861799977 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda]",
+            "value": 0.011739087073800239,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6091465259295263",
+            "extra": "mean: 85.185499836 sec\nrounds: 5"
           }
         ]
       }

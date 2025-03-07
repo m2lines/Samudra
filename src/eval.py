@@ -30,7 +30,7 @@ from utils.wandb import WandBLogger
 
 class Eval:
     def __init__(self, cfg: EvalConfig) -> None:
-        cfg.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+        cfg.prepare_output_dirs()
 
         self.device = init_eval_backend(cfg.backend)
 
@@ -287,6 +287,7 @@ def main():
 
     # Load config from YAML
     cfg = EvalConfig.from_yaml(args.config, overrides)
+    cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg)
     handle_warnings()

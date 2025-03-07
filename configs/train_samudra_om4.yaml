@@ -13,7 +13,8 @@ inference_epochs: [-1]
 data_percent: 1.0
 train:
   start_time: "1975-01-03"
-  end_time: "2013-10-05"
+  end_time: "1975-05-03"
+  # end_time: "2013-10-05"
 val:
   start_time: "2013-10-05"
   end_time: "2014-10-05"
@@ -52,10 +53,13 @@ data:
 
 
 unet:
-  ch_width: [157, 200, 250, 300, 400]
+  # ch_width: [157, 200, 250, 300, 400]
+  ch_width: [157,200]
   n_out: 77
-  dilation: [1, 2, 4, 8]
-  n_layers: [1, 1, 1, 1]
+  # dilation: [1, 2, 4, 8]
+  # n_layers: [1, 1, 1, 1]
+  dilation: [1]
+  n_layers: [1]
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"

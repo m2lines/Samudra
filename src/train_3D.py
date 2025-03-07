@@ -85,9 +85,9 @@ class Trainer:
         self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
 
         # TODO: The codebase currently contains code that depends on this
-        assert (
-            self.inputs == self.outputs
-        ), "Input and output variables must be the same"
+        assert self.inputs == self.outputs, (
+            "Input and output variables must be the same"
+        )
 
         levels = cfg.experiment.exp_num_in.split("_")[-1]
         if "all" in levels:
@@ -792,7 +792,19 @@ def main():
     trainer = Trainer(cfg)
 
     try:
-        trainer.run()
+        with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+            on_trace_ready=torch.profiler.tensorboard_trace_handler(
+                f"{cfg.experiment.output_dir}/profile-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            ),
+            record_shapes=True,
+            profile_memory=True,
+            with_stack=True,
+        ):
+            trainer.run()
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         logging.error(traceback.format_exc())

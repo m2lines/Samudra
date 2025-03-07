@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+import logging
+from typing import Dict, Optional, Tuple
 
 import cftime
 import numpy as np
@@ -6,7 +7,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from constants import MASK_VARS, TensorMap
+from constants import DEPTH_I_LEVELS, DEPTH_LEVELS, MASK_VARS, TensorMap
 
 
 def extract_wet_mask(data, outputs, hist):
@@ -40,22 +41,17 @@ def spherical_area_weights(data) -> torch.Tensor:
     return weights
 
 
-def get_time_slice(time_config, time_delta=5, hist=1):
+def get_inference_steps(time_config, time_delta=5, hist=1):
     """
-    Get the time slice and number of rollout steps for the given time configuration.
-
-    The slice includes both the start and end times. There is option to include
-    the initial condition but num_steps does not include the initial condition.
+    Get the number of inference/rollout steps for the given time configuration.
 
     Args:
         time_config: Time configuration
-        initial_cond: Whether to include the initial condition
         time_delta: Time delta in days
         hist: Number of rollout steps
 
     Returns:
-        slice: Time slice
-        num_steps: Number of rollout steps (not including initial condition)
+        num_steps: Number of rollout steps
     """
     start_time_str = time_config.start_time
     start_year, start_month, start_day = start_time_str.split("-")
@@ -72,7 +68,7 @@ def get_time_slice(time_config, time_delta=5, hist=1):
     # Might have extra remaining days, so we remove them
     mod = num_steps % (hist + 1)
     num_steps = num_steps - mod
-    return slice(start_time, end_time), num_steps
+    return num_steps
 
 
 def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -105,6 +101,79 @@ def get_norm_unnorm_dicts(
     # Get unnormalized dict
     data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
     return data_dict, data_unnorm_dict
+
+
+def compute_anomalies(
+    data: xr.Dataset, data_mean: xr.Dataset, data_std: xr.Dataset, var: str
+) -> Tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    """
+    Compute the anomalies of a data variable.
+    """
+    climatology = data[var].groupby("time.dayofyear").mean("time").compute()
+    # Remove the seasonal cycle (climatology) from the detrended data
+    day_of_year = data[var]["time"].dt.dayofyear
+    data[var + "_anomalies"] = (
+        data[var] - climatology.sel(dayofyear=day_of_year)
+    ).compute()
+    data_mean[var + "_anomalies"] = data[var + "_anomalies"].mean().compute()
+    data_std[var + "_anomalies"] = data[var + "_anomalies"].std().compute()
+    return data, data_mean, data_std
+
+
+def validate_data(
+    data: xr.Dataset, data_mean: xr.Dataset, data_std: xr.Dataset
+) -> Tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    """
+    Validate the data such that we have the correct format for training.
+    """
+    # Check if Mask variables exist
+    if MASK_VARS[0] not in data.variables:
+        assert "wetmask" in data.variables, "Wet mask cannot be constructed without "
+        "either the wetmask variable or the level-wise masks"
+
+        # Construct the mask variables
+        wet_mask = data["wetmask"]
+        for i, lev in enumerate(DEPTH_I_LEVELS):
+            assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
+            data[f"mask_{lev}"] = wet_mask.isel(lev=i)
+
+        data = data.drop_vars("wetmask")
+
+    # Check if data variables are in the right format
+    # This check is to ensure we convert data to the correct format
+    for var_str in data.variables:
+        # OM4 data format has variables in the form: var_lev_depthlevel
+        # ex. so_lev_1040_0. We need to convert into var_depthlevelidx
+        if "_lev_" in var_str:
+            var_split = var_str.split("_lev_")
+            var = var_split[0]
+            lev_in_depth = float(var_split[1].replace("_", "."))
+            lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
+            data = data.rename({var_str: var + "_" + str(lev_in_depth_idx)})
+            data_mean = data_mean.rename({var_str: var + "_" + str(lev_in_depth_idx)})
+            data_std = data_std.rename({var_str: var + "_" + str(lev_in_depth_idx)})
+            logging.info(f"Converted {var_str} to {var + '_' + str(lev_in_depth_idx)}")
+
+    # OM4 data has coordinates we don't need
+    # We drop them and rename x, y dimensions to lon, lat
+    if "lat" not in data.dims:
+        # Drop unnecessary coordinates and rename dimensions
+        data = data.drop_vars(
+            ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
+        ).rename({"x": "lon", "y": "lat"})
+
+    # Check if any anomalies are needed to be computed
+    tensor_map = TensorMap.get_instance()
+    for var in tensor_map.extras:
+        if var.endswith("_anomalies"):
+            base_var = var.replace("_anomalies", "")
+            if var not in data.variables and base_var in data.variables:
+                logging.info(f"Computing anomalies for {base_var}")
+                data, data_mean, data_std = compute_anomalies(
+                    data, data_mean, data_std, base_var
+                )
+
+    return data, data_mean, data_std
 
 
 # TODO: Repetitive code. Refactor

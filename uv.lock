@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.12' and sys_platform == 'darwin'",
@@ -2682,6 +2681,7 @@ wheels = [
 
 [[package]]
 name = "ocean-emulators"
+version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "absl-py" },
@@ -3262,7 +3262,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "beartype", specifier = ">=0.20.0" },
+    { name = "beartype", specifier = ">=0.20" },
     { name = "hypothesis", extras = ["numpy"], specifier = ">=6.127.2" },
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-benchmark", extras = ["histogram"], specifier = ">=5.1" },

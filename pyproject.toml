@@ -57,6 +57,7 @@ markers = [
 pythonpath = [
   "src",
 ]
+testpaths = [ "tests" ]
 addopts = "--jaxtyping-packages=data,datasets,beartype.beartype"
 
 [tool.mypy]

@@ -25,6 +25,7 @@ dynamic = [ "dependencies", "optional-dependencies", "version" ]
 
 [dependency-groups]
 dev = [
+  "beartype>=0.20",
   "hypothesis[numpy]>=6.127.2",
   "pytest>=8.3.4",
   "pytest-benchmark[histogram]>=5.1",
@@ -40,7 +41,8 @@ find = {}
 
 [tool.ruff]
 lint.select = [ "D", "E", "F", "I", "W" ]
-lint.ignore = [ "D1", "D200", "D205", "D212", "E203", "E402", "F541", "W293" ]
+# F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
+lint.ignore = [ "D1", "D200", "D205", "D212", "E203", "E402", "F541", "F722", "W293" ]
 lint.per-file-ignores."*/__init__.py" = [ "F401" ]
 lint.per-file-ignores."scripts/*" = [ "D" ]
 lint.per-file-ignores."test_*.py" = [ "D" ]
@@ -55,6 +57,8 @@ markers = [
 pythonpath = [
   "src",
 ]
+testpaths = [ "tests" ]
+addopts = "--jaxtyping-packages=data,datasets,beartype.beartype"
 
 [tool.mypy]
 ignore_missing_imports = true

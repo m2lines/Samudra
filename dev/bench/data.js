@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741382895869,
+  "lastUpdate": 1741382898725,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -431,6 +431,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6091465259295263",
             "extra": "mean: 85.185499836 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9bf9391bb918a926b0d2c530fde14fae0d78cfe2",
+          "message": "Added some typing definitions (array and otherwise). (#97)\n\nA pre-requisite step in refactoring the data loader (for me, anyway) is\njust understanding what's going on. To that end, I've added\nbeartype-enforced jaxtyping and standard typing definitions to parts of\nthe codebase that the data loader touches.\n\nThis does not aim for complete typing coverage of the codebase. Rather,\nthese annotations have been added so I can feel confident in pulling\narray parsing routines up and down. Besides serving as useful\ndocumentation, these perform runtime type checks to ensure correctness.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-03-07T12:55:01-08:00",
+          "tree_id": "6b4029a4aae29a5d17c745b3d85bfc41f1296dfb",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/9bf9391bb918a926b0d2c530fde14fae0d78cfe2"
+        },
+        "date": 1741382897875,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-train]",
+            "value": 0.22992087375214657,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23922939074319327",
+            "extra": "mean: 4.349322372000006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-val]",
+            "value": 0.526724586413213,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00403647286869211",
+            "extra": "mean: 1.8985253884000486 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda]",
+            "value": 0.18910201421960646,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09447154343676127",
+            "extra": "mean: 5.288150970399966 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda]",
+            "value": 0.011287388306822532,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4751405139903926",
+            "extra": "mean: 88.5944536342 sec\nrounds: 5"
           }
         ]
       }

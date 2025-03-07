@@ -3,6 +3,23 @@ from typing import Dict, Optional
 
 import torch
 import xarray as xr
+from jaxtyping import Bool, Float
+
+# Common Type Aliases
+# See "Existing jaxtyping annotations" section of
+#  https://docs.kidger.site/jaxtyping/api/array/#array
+Grid = Float[torch.Tensor, "180 360"]
+Input = Float[Grid, "*batch input_vars"]  # equivalent to "*batch input_vars lat lon"
+Extra = Float[Grid, "*batch extra_vars"]
+# A note from jaxtyping (why we can't do "input_vars+extra_vars"):
+#   In practice you should usually only use symbolic axes in annotations
+#   for return types, referring only to axes annotated for arguments.
+# So, we'll leave this default and use symbolic axes locally.
+TotalInput = Float[Grid, "*batch total_vars"]
+Label = Float[Grid, "*batch output_vars"]
+
+GridMask = Bool[torch.Tensor, "180 360"]
+InputMask = Bool[GridMask, "input_vars"]
 
 # Experiment inputs and outputs
 # Assumption that all 3D variables are appended with depth_i_levels
@@ -73,7 +90,8 @@ MASK_VARS = [
     "mask_18",
 ]
 
-INPT_VARS = {
+InputVars = list[str]
+INPT_VARS: dict[str, InputVars] = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "ur", "vr"],
     "3": ["um", "vm", "Tm"],
@@ -110,7 +128,8 @@ INPT_VARS = {
     ]
     + ["zos"],
 }
-EXTRA_VARS = {
+ExtraVars = list[str]
+EXTRA_VARS: dict[str, ExtraVars] = {
     "1": ["ur", "vr"],
     "2": ["ur", "vr", "Tm"],
     "3": ["Tm"],
@@ -144,7 +163,8 @@ EXTRA_VARS = {
     "3D_all_SAT_tos": ["tauuo", "tauvo", "DSWRFtoa", "air_temperature_at_two_meters"],
     "3D_all_SAT": ["tauuo", "tauvo", "air_temperature_at_two_meters"],
 }
-OUT_VARS = {
+OutputVars = list[str]
+OUT_VARS: dict[str, OutputVars] = {
     "1": ["um", "vm"],
     "2": ["um", "vm", "Tm"],
     "3": ["ur", "vr"],
@@ -198,6 +218,7 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
     return metadata
 
 
+# TODO(#95): See if this can be removed and replaced.
 class TensorMap:
     _instance: Optional["TensorMap"] = None
 

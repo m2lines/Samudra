@@ -12,7 +12,6 @@ from typing_extensions import Self
 
 import constants as c
 from config import TrainBackendConfig, TrainConfig
-from train_3D import Trainer
 
 
 @dataclasses.dataclass
@@ -303,13 +302,14 @@ def train_config(
         yield test_data_trainer
 
 
-TrainPair = tuple[TrainConfig, Trainer]
-
-
 # This micro-fixture is cached by pytest. Thus, we don't have to change
 # the factory methods that throw errors during double initialization.
 @pytest.fixture(scope="session")
-def trainer_pair(train_config: TrainConfig) -> TrainPair:
+def trainer_pair(train_config: TrainConfig):
+    # Import needs to be here in order to prevent a gnarly jaxtyping bug:
+    # See https://github.com/patrick-kidger/jaxtyping/issues/306
+    from train_3D import Trainer
+
     trainer = Trainer(train_config)
 
     # cur_step will set the number of pairs in the input/output sample

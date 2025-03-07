@@ -26,10 +26,21 @@ from torch.utils.data import (
     RandomSampler,
 )
 
+import config
 from aggregator import Aggregator, LossAggregator
 from backend import init_train_backend
 from config import TrainConfig
-from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
+from constants import (
+    EXTRA_VARS,
+    INPT_VARS,
+    OUT_VARS,
+    ExtraVars,
+    Grid,
+    InputVars,
+    OutputVars,
+    TensorMap,
+    construct_metadata,
+)
 from datasets import InferenceDataset, InferenceDatasets, TrainDataset
 from models.unet import UNet
 from stepper import Stepper, TrainOutput, ValOutput
@@ -82,9 +93,9 @@ class Trainer:
         set_seed(cfg.experiment.rand_seed)
 
         # Getting input, extra input and output
-        self.inputs = INPT_VARS[cfg.experiment.exp_num_in]
-        self.extra_in = EXTRA_VARS[cfg.experiment.exp_num_extra]
-        self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
+        self.inputs: InputVars = INPT_VARS[cfg.experiment.exp_num_in]
+        self.extra_in: ExtraVars = EXTRA_VARS[cfg.experiment.exp_num_extra]
+        self.outputs: OutputVars = OUT_VARS[cfg.experiment.exp_num_out]
 
         # TODO: The codebase currently contains code that depends on this
         assert (
@@ -170,7 +181,8 @@ class Trainer:
             self.data, self.outputs, cfg.data.hist
         )
         wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
-        self.area_weights = spherical_area_weights(self.data)
+        self.area_weights: Grid = spherical_area_weights(self.data)
+
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
@@ -288,22 +300,22 @@ class Trainer:
 
         # Training
         self.epochs = cfg.epochs
-        self.hist = cfg.data.hist
+        self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
         self.output_dir = cfg.experiment.output_dir
         self.network = cfg.experiment.network
         self.debug = cfg.debug
-        self.data_stride = cfg.data_stride
-        self.batch_size = cfg.batch_size
-        self.num_workers = cfg.data.num_workers
-        self.pin_mem = cfg.pin_mem
-        self.train_times = cfg.train
+        self.data_stride: list[int] = cfg.data_stride
+        self.batch_size: int = cfg.batch_size
+        self.num_workers: int = cfg.data.num_workers
+        self.pin_mem: bool = cfg.pin_mem
+        self.train_times: config.TimeConfig = cfg.train
         self.val_times = cfg.val
         self.inference_times = cfg.inference
         self.inference_epochs = cfg.inference_epochs
-        self.time_delta = cfg.data.time_delta
+        self.time_delta: int = cfg.data.time_delta
         self.num_batches_seen = 0
 
         assert self.tensor_map is not None

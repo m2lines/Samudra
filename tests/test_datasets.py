@@ -1,6 +1,7 @@
 """Test core Datasets and DataLoaders."""
 
 import datetime
+import itertools
 
 import cftime
 import numpy as np
@@ -140,6 +141,18 @@ def test_test_util__data_source_roundtrip(
     )
     # intermediate representation: `xarray.DataArray`
     da = dims_uncoded.encode(data_var_index)
+
+    # Additional property: If the inputs are unique, then the outputs should be unique.
+    inputs = itertools.product(*[v.values for v in dims_uncoded.to_coords().values()])
+    # The cross product of the input values maps on to one output coordinate.
+    inputs_are_unique = len(set(inputs)) == len(list(inputs))
+    if inputs_are_unique:
+        unique, counts = np.unique(da.values.flatten(), return_counts=True)
+        duplicates, num_dups = unique[counts > 1], counts[counts > 1]
+        assert len(unique) == da.size, (
+            f"All values are unique. frequency of duplicates: "
+            f"{list(zip(duplicates, num_dups))}"
+        )
 
     # end
     dims_decoded, decoded_var_index = DataSourceDims.decode(da)

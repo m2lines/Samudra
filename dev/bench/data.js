@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741298356157,
+  "lastUpdate": 1741306784126,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -133,6 +133,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08581570713335311",
             "extra": "mean: 6.1200535048 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3600a25e2cd26d87135c62942eab6335efd51465",
+          "message": "fix benchmarks when run together (#99)\n\nSorry, I clearly [did not\ntest](https://github.com/suryadheeshjith/Ocean_Emulator/actions/runs/13708924698/job/38341018074)\nthe benchmarks well enough when run together with the new trainer\nbenchmark.\n\nToday we can't create more than one trainer in a process. It's on my\nplate to fix\n(https://github.com/suryadheeshjith/Ocean_Emulator/issues/87) but in the\nmeantime let's unbreak the benchmark by re-using the existing trainer.",
+          "timestamp": "2025-03-06T18:45:37-05:00",
+          "tree_id": "c622727bc25ffa4cb99a684875652a48412ca546",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/3600a25e2cd26d87135c62942eab6335efd51465"
+        },
+        "date": 1741306783167,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.08298613778205478,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09666503770369714",
+            "extra": "mean: 12.050205332199994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.2280556547853698,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08263070259120724",
+            "extra": "mean: 4.384894559800022 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.20572186388893965,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12199368978710297",
+            "extra": "mean: 4.860932042400009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.008765476842917017,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3767539694413662",
+            "extra": "mean: 114.0839246878 sec\nrounds: 5"
           }
         ]
       }

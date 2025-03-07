@@ -29,22 +29,14 @@ inference:
 data_stride: [1]
 steps: [4]
 step_transition: []
-
-distributed:
-  enabled: true
-  dist_url: null
-  world_size: null
-  rank: null
-  gpu: null
-  dist_backend: null
+backend: auto
 
 experiment:
-  name: train
+  base_name: train
   sub_name: local_om4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
-  cluster_data_dir: null
   wandb:
     mode: online
     project: ocean-emulators
@@ -55,9 +47,9 @@ experiment:
   exp_num_extra: 3D_all_hfds_anom
   exp_num_out: 3D_all
 data:
-  data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies
-  data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
-  data_stds_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_stds
+  data_path: /Users/jder/oa/om4/data.zarr
+  data_means_path: /Users/jder/oa/om4/data_mean.zarr
+  data_stds_path: /Users/jder/oa/om4/data_std.zarr
   scaling_residuals_file: null
   depth_mode: all
   time_delta: 5

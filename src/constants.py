@@ -9,7 +9,7 @@ from jaxtyping import Bool, Float
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 Grid = Float[torch.Tensor, "180 360"]
-Input = Float[Grid, "*batch input_vars"]  # equivalent to "input_vars lat lon"
+Input = Float[Grid, "*batch input_vars"]  # equivalent to "*batch input_vars lat lon"
 Extra = Float[Grid, "*batch extra_vars"]
 # A note from jaxtyping (why we can't do "input_vars+extra_vars"):
 #   In practice you should usually only use symbolic axes in annotations

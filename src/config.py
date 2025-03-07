@@ -199,7 +199,6 @@ class TrainConfig:
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
-        self.save_yaml(str(self.experiment.output_dir / "config.yaml"))
 
 
 # See backend.py for how these are turned into concrete devices

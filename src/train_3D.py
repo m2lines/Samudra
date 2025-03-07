@@ -59,6 +59,7 @@ class Trainer:
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
+        cfg.save_yaml(str(cfg.experiment.output_dir / "config.yaml"))
 
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)

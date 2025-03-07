@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741306784126,
+  "lastUpdate": 1741310517146,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -185,6 +185,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3767539694413662",
             "extra": "mean: 114.0839246878 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97f2bb5015b51f43ffffd5435c924eb8b1438cd4",
+          "message": "Ensuring uniqueness property of interpretable data. (#98)\n\nAlso, added a minor equality fix which tolerates noisier data. Luckily,\nthe uniqueness property is still preserved.",
+          "timestamp": "2025-03-06T16:49:08-08:00",
+          "tree_id": "4b7d7f3d7897fb96084d8ff265693f58ba2628e9",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/97f2bb5015b51f43ffffd5435c924eb8b1438cd4"
+        },
+        "date": 1741310516183,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.08404096600870015,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0850279938238179",
+            "extra": "mean: 11.898958894600014 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.23398952639640067,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06960598422412712",
+            "extra": "mean: 4.2736955597999895 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.2120294014564163,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08449484078531101",
+            "extra": "mean: 4.7163270430000015 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.00914679521936642,
+            "unit": "iter/sec",
+            "range": "stddev: 0.21895924952592646",
+            "extra": "mean: 109.3279095046 sec\nrounds: 5"
           }
         ]
       }

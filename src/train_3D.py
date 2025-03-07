@@ -58,11 +58,7 @@ class Trainer:
     model: UNet | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
-        # Prep directory structure -- we do this first so it's set up before
-        # we try to initialize distributed training.
-        cfg.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
-        cfg.experiment.output_dir.mkdir(parents=True, exist_ok=True)
-        cfg.save_yaml(str(cfg.experiment.output_dir / "config.yaml"))
+        cfg.prepare_output_dirs()
 
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
@@ -765,6 +761,7 @@ def main():
 
     # Load config from YAML
     cfg = TrainConfig.from_yaml(args.config, overrides)
+    cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg)
     handle_warnings()

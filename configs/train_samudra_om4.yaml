@@ -1,9 +1,9 @@
-debug: false
+debug: true
 disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
+batch_size: 1
 learning_rate: 0.0002
 scheduler: true
 loss: mse
@@ -42,13 +42,13 @@ experiment:
   exp_num_extra: 3D_all_hfds_anom
   exp_num_out: 3D_all
 data:
-  data_path: /Users/jder/oa/om4/om4.zarr
-  data_means_path: /Users/jder/oa/om4/om4_means.zarr
-  data_stds_path: /Users/jder/oa/om4/om4_stds.zarr
+  data_path: /home/jder/data/om4.zarr
+  data_means_path: /home/jder/data/om4_means.zarr
+  data_stds_path: /home/jder/data/om4_stds.zarr
   scaling_residuals_file: null
   depth_mode: all
   time_delta: 5
-  num_workers: 4
+  num_workers: 0
   hist: 1
 
 

@@ -85,7 +85,7 @@ class Stepper:
         initial_prognostic = None
         step = 0
         if loss_fn is not None:
-            inference_loss = 0
+            inference_loss = 0.0
         for loop, num_steps in enumerate(num_steps_list):
             logging.info(
                 f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
@@ -115,12 +115,11 @@ class Stepper:
                 )  # time-dependent aggs dont work, time is incorrect as well
                 if loss_fn is not None:
                     loss_per_channel = loss_fn(IO.prediction, IO.target)
-                    inference_loss += torch.mean(loss_per_channel)
+                    inference_loss += torch.mean(loss_per_channel).item()
                 if writer:
                     writer.record_batch(IO)
-                if (i + 1) % record_every == 0:
-                    logging.info(f"Inference [epoch {epoch}]: writing to zarr...")
-                    if writer:
+                    if (i + 1) % record_every == 0:
+                        logging.info(f"Inference [epoch {epoch}]: writing to zarr...")
                         writer.write()
 
             if writer and not writer.buffer_empty:

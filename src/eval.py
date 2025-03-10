@@ -13,13 +13,7 @@ from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_meta
 from datasets import InferenceDataset
 from models.unet import UNet
 from stepper import Stepper
-from utils.data import (
-    Normalize,
-    extract_wet_mask,
-    get_inference_steps,
-    spherical_area_weights,
-    validate_data,
-)
+from utils.data import Normalize, extract_wet_mask, get_inference_steps, validate_data
 from utils.device import get_device, using_gpu
 from utils.distributed import set_seed
 from utils.logging import handle_logging, handle_warnings
@@ -83,45 +77,22 @@ class Eval:
 
         # Dataloaders
         logging.info(f"Loading data")
-        assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
         self.data_stds_path = cfg.data.data_stds_path
-        self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        if "*" in self.data_path:
-            data = xr.open_mfdataset(
-                os.path.join(self.data_dir, self.data_path),
-                engine="netcdf4",
-                chunks={"time": 1, "lat": 180, "lon": 360},
-            )
-        else:
-            data = xr.open_zarr(os.path.join(self.data_dir, self.data_path), chunks={})
-        if self.data_means_path.endswith(".nc"):
-            data_mean = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_means_path),
-                engine="netcdf4",
-                chunks={},
-            )
-        else:
-            data_mean = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_means_path),
-                engine="zarr",
-                chunks={},
-            )
-        if self.data_stds_path.endswith(".nc"):
-            data_std = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_stds_path),
-                engine="netcdf4",
-                chunks={},
-            )
-        else:
-            data_std = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_stds_path),
-                engine="zarr",
-                chunks={},
-            )
+        data = xr.open_zarr(os.path.join(self.data_dir, self.data_path), chunks={})
+        data_mean = xr.open_dataset(
+            os.path.join(self.data_dir, self.data_means_path),
+            engine="zarr",
+            chunks={},
+        )
+        data_std = xr.open_dataset(
+            os.path.join(self.data_dir, self.data_stds_path),
+            engine="zarr",
+            chunks={},
+        )
         self.data, self.data_mean, self.data_std = validate_data(
             data, data_mean, data_std, detrend_vars=cfg.data.detrend_vars
         )
@@ -131,8 +102,6 @@ class Eval:
             self.data, self.outputs, cfg.data.hist
         )
         wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
-        self.area_weights = spherical_area_weights(self.data)
-        self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
             self.data_mean,

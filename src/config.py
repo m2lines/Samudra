@@ -19,8 +19,6 @@ class DataConfig:
     data_path: str = "CM4_5daily_v0.4.0"
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
-    scaling_residuals_file: Optional[str] = None
-    depth_mode: str = "all"
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1

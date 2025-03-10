@@ -2,7 +2,7 @@ debug: true
 save_zarr: true
 disk_mode: true
 inference:
-  start_time: "2014-10-10"
+  start_time: "2014-09-30"
   end_time: "2022-12-24"
 ckpt_path: /this/path/does/not/exist # Fill in script
 num_model_steps_forward: 20
@@ -29,8 +29,6 @@ data:
   data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_104_years_2014_netzerohfds_detrended # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_1990_netzerohfds
   data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
   data_stds_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_stds
-  scaling_residuals_file: null
-  depth_mode: all
   time_delta: 5
   num_workers: 4
   hist: 1

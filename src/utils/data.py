@@ -33,14 +33,6 @@ def extract_wet_mask(data, outputs, hist):
     return wet_inp, wet_surface
 
 
-def spherical_area_weights(data) -> torch.Tensor:
-    num_lon = data.lon.size
-    lats = torch.from_numpy(data.lat.to_numpy())
-    weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
-    weights /= weights.sum()
-    return weights
-
-
 def get_inference_steps(time_config, time_delta=5, hist=1):
     """
     Get the number of inference/rollout steps for the given time configuration.

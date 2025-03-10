@@ -4,12 +4,9 @@ import logging
 import os
 import time
 import traceback
-from functools import partial
-from pathlib import Path
 from typing import Union
 
 import dask
-import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
@@ -26,13 +23,7 @@ from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_meta
 from datasets import InferenceDataset, InferenceDatasets, TrainDataset
 from models.unet import UNet
 from stepper import Stepper, TrainOutput, ValOutput
-from utils.data import (
-    Normalize,
-    extract_wet_mask,
-    get_inference_steps,
-    spherical_area_weights,
-    validate_data,
-)
+from utils.data import Normalize, extract_wet_mask, get_inference_steps, validate_data
 from utils.device import get_device, using_gpu
 from utils.distributed import (
     all_reduce_mean,
@@ -42,15 +33,9 @@ from utils.distributed import (
     set_seed,
 )
 from utils.logging import MetricLogger, SmoothedValue, handle_logging, handle_warnings
-from utils.loss import (
-    decomposed_mse,
-    decomposed_mse_cos_weighted,
-    decomposed_mse_diff_weighted,
-    decomposed_mse_mae,
-    decomposed_mse_scaled,
-)
+from utils.loss import decomposed_mse
 from utils.model import get_model_summary
-from utils.train import collate_inference_data, collate_train_data
+from utils.train import CheckpointPaths, collate_inference_data, collate_train_data
 
 
 class Trainer:
@@ -121,57 +106,26 @@ class Trainer:
         assert isinstance(cfg.steps, list)
         assert isinstance(cfg.step_transition, list)
         assert len(cfg.step_transition) == len(cfg.steps) - 1
-        max_steps = str(cfg.steps[-1])
-        self.str_video = (
-            "steps_"
-            + max_steps
-            + "_"
-            + cfg.data.depth_mode
-            + "_Lateral_Data_025_no_smooth"
-        )
 
         # Dataloaders
         logging.info(f"Loading data")
-        assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
         self.data_stds_path = cfg.data.data_stds_path
-        self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        if "*" in self.data_path:
-            data = xr.open_mfdataset(
-                os.path.join(self.data_dir, self.data_path),
-                engine="netcdf4",
-                chunks={"time": 1, "lat": 180, "lon": 360},
-            )
-        else:
-            data = xr.open_zarr(os.path.join(self.data_dir, self.data_path), chunks={})
+        data = xr.open_zarr(os.path.join(self.data_dir, self.data_path), chunks={})
 
-        if self.data_means_path.endswith(".nc"):
-            data_mean = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_means_path),
-                engine="netcdf4",
-                chunks={},
-            )
-        else:
-            data_mean = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_means_path),
-                engine="zarr",
-                chunks={},
-            )
-        if self.data_stds_path.endswith(".nc"):
-            data_std = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_stds_path),
-                engine="netcdf4",
-                chunks={},
-            )
-        else:
-            data_std = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_stds_path),
-                engine="zarr",
-                chunks={},
-            )
+        data_mean = xr.open_dataset(
+            os.path.join(self.data_dir, self.data_means_path),
+            engine="zarr",
+            chunks={},
+        )
+        data_std = xr.open_dataset(
+            os.path.join(self.data_dir, self.data_stds_path),
+            engine="netcdf4",
+            chunks={},
+        )
 
         self.data, self.data_mean, self.data_std = validate_data(
             data, data_mean, data_std
@@ -182,8 +136,6 @@ class Trainer:
             self.data, self.outputs, cfg.data.hist
         )
         wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
-        self.area_weights = spherical_area_weights(self.data)
-        self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
             self.data_mean,
@@ -222,34 +174,9 @@ class Trainer:
         self.network = cfg.experiment.network
 
         # Loss function
+        logging.info("Using decomposed mse loss")
         if cfg.loss == "mse":
-            logging.info("Using decomposed mse loss")
             self.loss_fn = decomposed_mse
-        elif cfg.loss == "mse_diff_weighted":
-            assert cfg.data.hist == 1  # TEMP
-            logging.info("Using decomposed mse loss with weighted diff")
-            self.loss_fn = decomposed_mse_diff_weighted
-        elif cfg.loss == "mse_cos_weighted":
-            logging.info("Using decomposed mse loss with weighted cos")
-            area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
-            area_weights = torch.from_numpy(area_weights).to(device=self.device)
-            self.loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
-        elif cfg.loss == "mse_residual_scaled":
-            logging.info("Using decomposed mse loss with scaled residuals")
-            scaling_residuals = xr.open_zarr(
-                os.path.join(self.data_dir, self.scaling_residuals_file)
-            )
-            scale = torch.from_numpy(
-                (self.data_std[self.outputs] / scaling_residuals[self.outputs])
-                .compute()
-                .to_array()
-                .to_numpy()
-            ).to(device=self.device)
-            scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
-            self.loss_fn = partial(decomposed_mse_scaled, scaling=scale)
-        elif cfg.loss == "mse_mae":
-            logging.info("Using decomposed mse loss with mae")
-            self.loss_fn = decomposed_mse_mae
         else:
             raise NotImplementedError
 
@@ -290,6 +217,7 @@ class Trainer:
         self.time_delta = cfg.data.time_delta
         self.num_batches_seen = 0
         self.start_epoch = 0
+        self.ckpt_paths = CheckpointPaths(self.nets_dir)
 
         assert self.tensor_map is not None
 
@@ -398,7 +326,7 @@ class Trainer:
                 logging.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
             if is_main_process():
-                self.save_checkpoint(epoch, v_loss, inf_loss)
+                self.save_all_checkpoints(epoch, v_loss, inf_loss)
 
             time_elapsed = time.time() - start_epoch_train_time
 
@@ -424,7 +352,7 @@ class Trainer:
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = "Training Epoch: [{}]".format(epoch)
         # iters = len(self.train_loader)
-        total_train_loss = 0
+        total_train_loss = 0.0
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
@@ -470,7 +398,7 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
 
-        total_val_loss = 0
+        total_val_loss = 0.0
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.val_loader, 1, header)
         ):
@@ -616,54 +544,52 @@ class Trainer:
             collate_fn=collate_train_data,
         )
 
-    def save_checkpoint(self, epoch, v_loss, inf_loss):
-        save_best_val = False
-        # Check for best validation loss
-        if v_loss < self.best_val_loss:
+    def save_all_checkpoints(self, epoch, v_loss, inf_loss):
+        save_best_checkpoint = False
+        if v_loss <= self.best_val_loss:
+            logging.info(
+                "Saving lowest validation loss checkpoint to "
+                f"{self.ckpt_paths.best_validation_checkpoint_path}"
+            )
             self.best_val_loss = v_loss
-            logging.info(f"New best validation loss achieved at epoch {epoch}")
-            save_best_val = True  # Wait to save until we check inference loss
+            save_best_checkpoint = True  # wait until inference error is updated
+        if inf_loss is not None and (inf_loss <= self.best_inf_loss):
+            logging.info(
+                f"Epoch inference error ({inf_loss}) is lower than "
+                f"previous best inference error ({self.best_inf_loss})."
+            )
+            logging.info(
+                "Saving lowest inference error checkpoint to "
+                f"{self.ckpt_paths.best_inference_checkpoint_path}"
+            )
+            self.best_inf_loss = inf_loss
+            self.save_checkpoint(epoch, self.ckpt_paths.best_inference_checkpoint_path)
+        if save_best_checkpoint:
+            self.save_checkpoint(epoch, self.ckpt_paths.best_validation_checkpoint_path)
 
-        # Check for best inference loss if available
-        if inf_loss is not None:
-            if inf_loss < self.best_inf_loss:
-                self.best_inf_loss = inf_loss
-                logging.info(f"New best inference loss achieved at epoch {epoch}")
-                logging.info("Saving best inference model")
-                self._save_checkpoint(epoch, best=True, best_type="inference")
+        logging.info(
+            f"Saving latest checkpoint to {self.ckpt_paths.latest_checkpoint_path}"
+        )
+        self.save_checkpoint(epoch, self.ckpt_paths.latest_checkpoint_path)
+        if epoch % self.save_freq == 0:
+            self.save_checkpoint(
+                epoch, self.ckpt_paths.latest_checkpoint_path_with_epoch(epoch)
+            )
 
-        # Save best validation checkpoint if needed
-        if save_best_val:
-            logging.info("Saving best validation model")
-            self._save_checkpoint(epoch, best=True, best_type="validation")
-
-        # Regular checkpoint saving
-        elif (epoch) % self.save_freq == 0:
-            logging.info(f"Saving model at epoch {epoch}")
-            self._save_checkpoint(epoch)
-
-    def _save_checkpoint(self, epoch, best=False, best_type=None):
+    def save_checkpoint(self, epoch, checkpoint_path):
         checkpoint = {
             "model": self.model.module.state_dict()
             if using_gpu()
             else self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "epoch": epoch,
+            "best_val_loss": self.best_val_loss,
+            "best_inf_loss": self.best_inf_loss,
         }
         if self.scheduler:
             checkpoint["scheduler"] = self.scheduler.state_dict()
 
-        # Determine filename suffix based on checkpoint type
-        if best:
-            suffix = f"best_{best_type}" if best_type else "best"
-        else:
-            suffix = ""
-
-        save_path = Path(self.nets_dir) / "{0}_epoch_{1}_{2}.pt".format(
-            self.network, epoch, (suffix + "_" if suffix else "") + self.str_video
-        )
-
-        torch.save(checkpoint, save_path)
+        torch.save(checkpoint, checkpoint_path)
 
 
 def main():

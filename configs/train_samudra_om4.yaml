@@ -1,4 +1,4 @@
-debug: false
+debug: true
 disk_mode: true
 pin_mem: true
 save_freq: 5
@@ -13,19 +13,13 @@ inference_epochs: [-1]
 data_percent: 1.0
 train:
   start_time: "1975-01-03"
-  end_time: "2013-10-05"
+  end_time: "1976-01-03" # "2013-10-05"
 val:
   start_time: "2013-10-05"
   end_time: "2014-10-05"
 inference:
   - start_time: "1975-01-03"
-    end_time: "1985-01-03"
-  - start_time: "1985-01-03"
-    end_time: "1995-01-03"
-  - start_time: "1995-01-03"
-    end_time: "2005-01-03"
-  - start_time: "2004-10-05"
-    end_time: "2014-10-05"
+    end_time: "1976-01-03"
 data_stride: [1]
 steps: [4]
 step_transition: []
@@ -45,11 +39,6 @@ experiment:
   base_output_dir: .LOCAL
   gantry: false
   cluster_data_dir: null
-  wandb:
-    mode: online
-    project: ocean-emulators
-    entity: m2lines
-    group: samudra-train-om4
   network: convnextunet
   exp_num_in: 3D_all
   exp_num_extra: 3D_all_hfds_anom
@@ -66,8 +55,8 @@ data:
 
 
 unet:
-  ch_width: [157, 200, 250, 300, 400]
-  n_out: 77
+  ch_width: [158, 200, 250, 300, 400] # This includes input channels
+  n_out: 154
   dilation: [1, 2, 4, 8]
   n_layers: [1, 1, 1, 1]
   pred_residuals: false

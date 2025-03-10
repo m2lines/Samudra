@@ -1,14 +1,9 @@
-# TODO:
-# - resubmit jobs / preempted job safety
-# - better stepper module and a cleaner model module
-# - cleaner dataset modules
 import argparse
 import datetime
 import logging
 import os
 import time
 import traceback
-import warnings
 from functools import partial
 from pathlib import Path
 from typing import Union
@@ -26,7 +21,6 @@ from torch.utils.data import (
     RandomSampler,
 )
 
-from aggregator import Aggregator, LossAggregator
 from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset, InferenceDatasets, TrainDataset
@@ -57,7 +51,6 @@ from utils.loss import (
 )
 from utils.model import get_model_summary
 from utils.train import collate_inference_data, collate_train_data
-from utils.wandb import WandBLogger
 
 
 class Trainer:
@@ -262,9 +255,6 @@ class Trainer:
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
-        # self.optimizer = torch.optim.AdamW(
-        #     self.model.parameters(), lr=cfg.learning_rate, fused=True
-        # )
 
         # Scheduler
         self.scheduler = None
@@ -272,31 +262,6 @@ class Trainer:
             self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                 self.optimizer, T_max=cfg.epochs
             )
-
-        # Initialize WandB
-        self.wandb_logger = WandBLogger.init_instance()
-        self.wandb_logger.configure(
-            cfg.experiment.wandb.mode == "online", is_main_process()
-        )
-
-        # Set up wandb run
-        self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
-            cfg.resume_ckpt_path, cfg, finetune=cfg.finetune
-        )
-
-        if cfg.resume_ckpt_path is not None:
-            if cfg.finetune:
-                self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
-                self.start_epoch = 1
-            else:
-                self.load_checkpoint(cfg.resume_ckpt_path)
-                if not self.wandb_logger.enabled and is_main_process():
-                    warnings.warn(
-                        "This checkpoint had wandb enabled, \
-                            but wandb is not enabled now!"
-                    )
-        else:
-            self.start_epoch = 1
 
         # Modify DDP setup based on device
         if using_gpu():
@@ -324,9 +289,9 @@ class Trainer:
         self.inference_epochs = cfg.inference_epochs
         self.time_delta = cfg.data.time_delta
         self.num_batches_seen = 0
+        self.start_epoch = 0
 
         assert self.tensor_map is not None
-        self.loss_aggregator = LossAggregator.init_instance()
 
         self.init_inference_stores()
 
@@ -344,7 +309,6 @@ class Trainer:
         # Determine number of processes based on device
         if using_gpu():
             num_splits = get_world_size()
-            logging.info(f"Number of processes: {num_splits}, preferably use 8")
         else:
             num_splits = 1
 
@@ -402,7 +366,6 @@ class Trainer:
     def run(self) -> None:
         self.best_val_loss = torch.tensor(1e8)
         self.best_inf_loss = torch.tensor(1e8)
-        self.wandb_logger.watch(self.model, log="all")
 
         start_time = time.time()
         for epoch in range(self.start_epoch, self.epochs + 1):
@@ -417,21 +380,17 @@ class Trainer:
                 self.val_sampler.set_epoch(epoch)
 
             start_epoch_train_time = time.time()
-            train_stats = self.train_one_epoch(epoch)
+            train_loss = self.train_one_epoch(epoch)
             end_epoch_train_time = time.time()
-            val_stats = self.validate_one_epoch(epoch)
+            v_loss = self.validate_one_epoch(epoch)
             end_epoch_val_time = time.time()
 
             if -1 in self.inference_epochs or epoch in self.inference_epochs:
-                inf_stats = self.inference_one_epoch(epoch)
+                inf_loss = self.inference_one_epoch(epoch)
                 end_epoch_inf_time = time.time()
             else:
-                inf_stats = {}
+                inf_loss = None
                 end_epoch_inf_time = None
-
-            train_loss = train_stats["train/mean/loss"]
-            v_loss = val_stats["val/mean/loss"]
-            inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
 
             logging.info(f"Achieved Train Loss = {train_loss:.3f}")
             logging.info(f"Achieved Validation Loss = {v_loss:.3f}")
@@ -444,10 +403,6 @@ class Trainer:
             time_elapsed = time.time() - start_epoch_train_time
 
             log_stats = {
-                **train_stats,
-                **val_stats,
-                **inf_stats,
-                "epoch": epoch,
                 "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
                 "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
                 "epoch_total_seconds": time_elapsed,
@@ -457,22 +412,19 @@ class Trainer:
                 log_stats["epoch_inference_seconds"] = (
                     end_epoch_inf_time - end_epoch_val_time
                 )
-
-            if is_main_process():
-                self.wandb_logger.log(log_stats, step=self.num_batches_seen)
+            logging.info(log_stats)
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logging.info(f"Training time {total_time_str}")
-        self.finish()
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
-        train_aggregator = Aggregator.get_train_aggregator()
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = "Training Epoch: [{}]".format(epoch)
         # iters = len(self.train_loader)
+        total_train_loss = 0
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
@@ -483,7 +435,6 @@ class Trainer:
             data.to(self.device)
             TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
             TO.loss.backward()
-            train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
 
@@ -501,41 +452,25 @@ class Trainer:
             with torch.no_grad():
                 # Reduce losses
                 loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
-                metrics = {
-                    "train/batch/loss": loss_value_reduce,
-                    "train/batch/lr": lr,
-                    **self.loss_aggregator.get_channel_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                    **self.loss_aggregator.get_depth_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                    **self.loss_aggregator.get_variable_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                }
-
-            self.wandb_logger.log(metrics, step=self.num_batches_seen)
 
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
+            total_train_loss += loss_value_reduce.item()
+
         if self.scheduler is not None:
             self.scheduler.step()
 
-        return train_aggregator.get_logs()
+        return total_train_loss / len(self.train_loader)
 
     @torch.no_grad()
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
-        val_aggregator = Aggregator.get_validation_aggregator(
-            self.metadata, self.hist, self.area_weights, self.num_out
-        )
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
 
+        total_val_loss = 0
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.val_loader, 1, header)
         ):
@@ -544,35 +479,28 @@ class Trainer:
 
             data.to(self.device)
             VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
-            val_aggregator.record_batch(VO)
             metric_logger.update(loss=VO.loss)
 
-        return val_aggregator.get_logs(label="val")
+            total_val_loss += VO.loss.item()
+
+        return total_val_loss / len(self.val_loader)
 
     @torch.no_grad()
     def inference_one_epoch(self, epoch):
         self.model.eval()
 
-        for data_iter_step, (inference_dataset, num_steps) in enumerate(
-            self.inference_loader
-        ):
-            inf_aggregator = Aggregator.get_inline_inference_aggregator(
-                num_steps,
-                self.metadata,
-                self.hist,
-                self.area_weights,
-                self.num_out,
-            )
-
-            Stepper.inference(
+        total_inf_loss = 0
+        for _, (inference_dataset, num_steps) in enumerate(self.inference_loader):
+            inference_loss = Stepper.inference(
                 model=self.model.module if using_gpu() else self.model,
                 dataset=inference_dataset,
-                inf_aggregator=inf_aggregator,
                 epoch=epoch,
                 num_model_steps_forward=num_steps,
+                loss_fn=self.loss_fn,
             )
-        logs = inf_aggregator.get_summary_logs()
-        return {f"inference/{k}": v for k, v in logs.items()}
+            total_inf_loss += inference_loss
+
+        return total_inf_loss / len(self.inference_loader)
 
     def get_current_step(self, epoch):
         """Determine the current step based on the epoch and transition points.
@@ -721,8 +649,6 @@ class Trainer:
             else self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "epoch": epoch,
-            "wandb_id": self.wandb_id,
-            "wandb_name": self.wandb_name,
         }
         if self.scheduler:
             checkpoint["scheduler"] = self.scheduler.state_dict()
@@ -738,33 +664,6 @@ class Trainer:
         )
 
         torch.save(checkpoint, save_path)
-
-    def load_checkpoint(self, checkpoint_path, finetune=False):
-        logging.info(f"Loaded checkpoint from {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path)
-        if finetune:
-            self.model.load_state_dict(checkpoint["model"])
-        else:
-            self.optimizer.load_state_dict(checkpoint["optimizer"])
-            if self.scheduler:
-                self.scheduler.load_state_dict(checkpoint["scheduler"])
-            self.start_epoch = checkpoint["epoch"] + 1
-            self.wandb_id = checkpoint["wandb_id"]
-            self.wandb_name = checkpoint["wandb_name"]
-
-            logging.info(f"Start Epoch: {self.start_epoch}")
-            logging.info(f"Wandb id: {self.wandb_id}")
-            logging.info(f"Wandb name: {self.wandb_name}")
-            logging.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
-
-    def is_wandb_enabled(self):
-        if using_gpu():
-            return self.wandb_logger.enabled and is_main_process()
-        else:
-            return self.wandb_logger.enabled
-
-    def finish(self):
-        self.wandb_logger.finish()
 
 
 def main():

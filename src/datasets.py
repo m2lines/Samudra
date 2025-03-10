@@ -142,9 +142,7 @@ class InferenceDataset(Dataset):
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in = Normalize.get_instance().normalize_inputs(
-            data_in
-        )  # TODO: Weird error when I get_instance in init
+        data_in = Normalize.get_instance().normalize_inputs(data_in)
         data_in = (
             data_in.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")

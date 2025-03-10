@@ -1,13 +1,11 @@
 import logging
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 
 import torch
 
-from aggregator import InferenceEvaluatorAggregator
 from datasets import InferenceDataset, TrainData
 from utils.device import using_gpu
 from utils.model import InfOutput, TrainOutput, ValOutput
-from utils.wandb import get_record_to_wandb
 from utils.writer import ZarrWriter
 
 
@@ -42,14 +40,14 @@ class Stepper:
     def inference(
         model: torch.nn.Module,
         dataset: InferenceDataset,
-        inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
         output_dir: Optional[str] = None,
         model_path: Optional[str] = None,
         num_model_steps_forward: int = 200,
         record_every: int = 10,
         save_zarr: bool = False,
-    ) -> None:
+        loss_fn: Optional[Callable] = None,
+    ) -> Optional[float]:
         if save_zarr:
             if output_dir is None or model_path is None:
                 raise ValueError(
@@ -59,17 +57,13 @@ class Stepper:
             writer = ZarrWriter(
                 output_dir,
                 coords=coords,
-                hist=inf_aggregator.hist,
+                hist=dataset.hist,
                 model_path=model_path,
             )
         else:
             writer = None
-        record_logs = get_record_to_wandb(label="inference")
         logging.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
-        logs = inf_aggregator.record_initial_prognostic(
-            initial_prognostic=dataset.initial_prognostic,
-        )
-        record_logs(logs)
+
         num_model_steps = len(dataset)
         num_steps_list = []
 
@@ -90,6 +84,8 @@ class Stepper:
         num_loops = len(num_steps_list)
         initial_prognostic = None
         step = 0
+        if loss_fn is not None:
+            inference_loss = 0
         for loop, num_steps in enumerate(num_steps_list):
             logging.info(
                 f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
@@ -105,7 +101,6 @@ class Stepper:
             # Setting initial prognostic for next loop
             initial_prognostic = outs[-1].clone()
 
-            all_logs: list[Dict[str, float | int | str]] = []
             for i in range(num_steps):
                 logging.info(
                     f"Inference [epoch {epoch}]: recording output window {i + step} of "
@@ -118,21 +113,23 @@ class Stepper:
                     ),  # TODO: Pack with input
                     time=dataset.get_input_time(step + i),
                 )  # time-dependent aggs dont work, time is incorrect as well
+                if loss_fn is not None:
+                    loss_per_channel = loss_fn(IO.prediction, IO.target)
+                    inference_loss += torch.mean(loss_per_channel)
                 if writer:
                     writer.record_batch(IO)
-                logs = inf_aggregator.record_batch(IO)
-                all_logs.extend(logs)
                 if (i + 1) % record_every == 0:
-                    logging.info(f"Inference [epoch {epoch}]: wandb logging...")
-                    record_logs(all_logs)
+                    logging.info(f"Inference [epoch {epoch}]: writing to zarr...")
                     if writer:
                         writer.write()
-                    all_logs = []
 
-            if len(all_logs) > 0:
-                logging.info(f"Inference [epoch {epoch}]: wandb logging...")
-                record_logs(all_logs)
-                if writer:
-                    writer.write()
+            if writer and not writer.buffer_empty:
+                logging.info(f"Inference [epoch {epoch}]: writing to zarr...")
+                writer.write()
 
             step += num_steps
+
+        if loss_fn is not None:
+            return inference_loss / num_model_steps
+        else:
+            return None

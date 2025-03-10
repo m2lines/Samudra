@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 import torch
 import xarray as xr
@@ -20,7 +20,7 @@ class ZarrWriter:
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
         self.hist = hist
-        self.acc_tensor = None
+        self.acc_tensor: Optional[torch.Tensor] = None
         self.coords = coords
         self.model_path = model_path
 
@@ -36,6 +36,10 @@ class ZarrWriter:
             self.acc_tensor = pred_tensor
         else:
             self.acc_tensor = torch.cat([self.acc_tensor, pred_tensor], dim=0)
+
+    @property
+    def buffer_empty(self):
+        return self.acc_tensor is None
 
     def write(self):
         # Write to zarr

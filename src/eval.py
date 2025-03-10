@@ -8,7 +8,6 @@ import traceback
 import torch
 import xarray as xr
 
-from aggregator import Aggregator
 from config import EvalConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset
@@ -22,10 +21,9 @@ from utils.data import (
     validate_data,
 )
 from utils.device import get_device, using_gpu
-from utils.distributed import is_main_process, set_seed
+from utils.distributed import set_seed
 from utils.logging import handle_logging, handle_warnings
 from utils.model import get_model_summary
-from utils.wandb import WandBLogger
 
 
 class Eval:
@@ -176,17 +174,6 @@ class Eval:
 
         self.network = cfg.experiment.network
 
-        # Initialize WandB
-        self.wandb_logger = WandBLogger.init_instance()
-        self.wandb_logger.configure(
-            cfg.experiment.wandb.mode == "online", is_main_process()
-        )
-
-        # Set up wandb run
-        self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
-            None, cfg, finetune=False
-        )
-
         # Eval
         self.hist = cfg.data.hist
         self.output_dir = cfg.experiment.output_dir
@@ -223,38 +210,19 @@ class Eval:
 
     def run(self) -> None:
         start_time = time.time()
-        inf_stats = self.standalone_inference()
-        time_elapsed = time.time() - start_time
-
-        log_stats = {
-            **inf_stats,
-            "eval_total_seconds": time_elapsed,
-        }
-
-        if is_main_process():
-            self.wandb_logger.log(log_stats, step=None)
-
+        self.standalone_inference()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info(f"Eval time (Including wandb logging) {total_time_str}")
-        self.finish()
+        logging.info(f"Eval time {total_time_str}")
 
     @torch.no_grad()
     def standalone_inference(self):
         self.model.eval()
-        inf_aggregator = Aggregator.get_standalone_inference_aggregator(
-            self.num_time_steps,
-            self.metadata,
-            self.hist,
-            self.area_weights,
-            self.num_out,
-        )
 
         logging.info(f"num_model_steps_forward: {self.num_model_steps_forward}")
         Stepper.inference(
             model=self.model,
             dataset=self.inference_dataset,
-            inf_aggregator=inf_aggregator,
             epoch=0,
             output_dir=self.output_dir,
             model_path=self.model_path,
@@ -262,11 +230,6 @@ class Eval:
             record_every=self.record_every,
             save_zarr=self.save_zarr,
         )
-        logs = inf_aggregator.get_summary_logs()
-        return {f"inference/{k}": v for k, v in logs.items()}
-
-    def finish(self):
-        self.wandb_logger.finish()
 
 
 def main():

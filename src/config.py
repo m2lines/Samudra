@@ -9,16 +9,6 @@ from dacite import from_dict
 
 
 @dataclass
-class WandBConfig:
-    mode: str = "disabled"  # online, disabled
-    project: str = "3D_ocean_emu_CM4"
-    entity: str = "suryadheeshjith"
-    group: Optional[str] = None
-    tags: Optional[List[str]] = None
-    notes: Optional[str] = None
-
-
-@dataclass
 class TimeConfig:
     start_time: str
     end_time: str
@@ -87,7 +77,6 @@ class ExperimentConfig:
     base_output_dir: str = "train_3D"
     gantry: bool = False
     cluster_data_dir: str = "/"
-    wandb: WandBConfig = field(default_factory=WandBConfig)
 
     # Model configuration
     network: str = "convnextunet"

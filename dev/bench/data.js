@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741627721408,
+  "lastUpdate": 1741627723191,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -535,6 +535,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4751405139903926",
             "extra": "mean: 88.5944536342 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0aceb9715af89c643c99944c2c06358d4e48faeb",
+          "message": "fix training when run by main script (#100)\n\nTurns out the handle_logging requires the directory to be there first,\nso create them first (but also try again to recreate them in the\nconstructor)",
+          "timestamp": "2025-03-10T12:54:38-04:00",
+          "tree_id": "8fed0ad94d9d50ba2de540cb6b793a7f92a27590",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/0aceb9715af89c643c99944c2c06358d4e48faeb"
+        },
+        "date": 1741627722387,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-train]",
+            "value": 0.22426568282225387,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4167917507396066",
+            "extra": "mean: 4.458996969200006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-val]",
+            "value": 0.5275285167846749,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01090028772761698",
+            "extra": "mean: 1.8956321188000858 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda]",
+            "value": 0.18882281577043872,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09797101964973079",
+            "extra": "mean: 5.295970171399995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda]",
+            "value": 0.011281859647242404,
+            "unit": "iter/sec",
+            "range": "stddev: 0.35685856422703643",
+            "extra": "mean: 88.63786922259996 sec\nrounds: 5"
           }
         ]
       }

@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import time
+import traceback
 
 import torch
 import xarray as xr
@@ -124,7 +125,7 @@ class Eval:
                 chunks={},
             )
         self.data, self.data_mean, self.data_std = validate_data(
-            data, data_mean, data_std
+            data, data_mean, data_std, detrend_vars=cfg.data.detrend_vars
         )
 
         self.metadata = construct_metadata(self.data)
@@ -249,6 +250,7 @@ class Eval:
             self.num_out,
         )
 
+        logging.info(f"num_model_steps_forward: {self.num_model_steps_forward}")
         Stepper.inference(
             model=self.model,
             dataset=self.inference_dataset,
@@ -294,7 +296,12 @@ def main():
     handle_warnings()
 
     Evaluator = Eval(cfg)
-    Evaluator.run()
+    try:
+        Evaluator.run()
+    except Exception as e:
+        # log traceback
+        logging.error(traceback.format_exc())
+        raise e
 
 
 if __name__ == "__main__":

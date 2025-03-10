@@ -34,6 +34,7 @@ class DataConfig:
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1
+    detrend_vars: Optional[List[str]] = None
 
 
 @dataclass

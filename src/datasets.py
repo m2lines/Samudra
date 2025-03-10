@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
+from xarray_einstats.einops import rearrange, reduce
 from jaxtyping import Float
 from torch.utils.data import Dataset
 
@@ -363,6 +364,23 @@ class TrainDataset(Dataset):
 
         return TD
 
+    def __old_getitem__(self, idx: int) -> Example:
+        if not isinstance(idx, int):
+            raise ValueError(f'only `int` indexes are supported. Found: {idx}.')
+        if idx < 0 or idx >= self.size:
+            raise IndexError(
+                f'index out of range. Must be between 0 and {self.size}, found: {idx}.'
+            )
+        # steps = np.arange(self.steps, dtype=int) # ?
+        rolling_idx = self.rolling_indices.isel(window_dim=slice(idx, idx + 1))
+        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
+
+        data_in = self._inputs_no_extra.isel(time=x_index).isel(
+            time=slice(None, self.hist + 1)
+        )
+
+
+
     def _get_x_index(
         self, idx: int, step: int, prev_rolling_idx: int | None
     ) -> xr.Variable:
@@ -374,9 +392,8 @@ class TrainDataset(Dataset):
 
         start = idx + step * (self.hist + 1) * self.stride
         end = start + 1
-        idx_slice = slice(
-            start, end
-        )  # Create a slice for similar indexing as in InferenceDataset
+        # Create a slice for similar indexing as in InferenceDataset
+        idx_slice = slice(start, end)
         rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
         # Convert to tests, tests are outdated since changing time definition
         # if prev_rolling_idx is not None:
@@ -393,13 +410,15 @@ class TrainDataset(Dataset):
         return x_index
 
     def _get_input(self, x_index) -> Input:
-        data_in = self._inputs_no_extra.isel(time=x_index).isel(
-            time=slice(None, self.hist + 1)
+        data_in = (
+            self._inputs_no_extra
+            .isel(time=x_index)
+            .isel(time=slice(None, self.hist + 1))
+            .transpose("window_dim", "time", "lat", "lon")
         )
         data_in = (
             data_in.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
         )
         data_in = rearrange(
             data_in,

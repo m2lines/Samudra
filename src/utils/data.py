@@ -45,6 +45,16 @@ def extract_wet_mask(
     return wet_inp.bool(), wet_surface.bool()
 
 
+def xwet_mask(data: xr.Dataset, outputs: OutputVars, hist: int) -> xr.Dataset:
+    wet_mask = data[MASK_VARS]
+    if "time" in wet_mask.dims:
+        wet_mask_ = wet_mask.isel(time=0)
+        wet_surface_mask_np = wet_mask[MASK_VARS[0]].isel(time=0)
+    else:
+        wet_mask_np = wet_mask
+        wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
+
+
 def spherical_area_weights(data: xr.Dataset) -> Grid:
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())

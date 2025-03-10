@@ -21,12 +21,12 @@ experiment:
     entity: suryadheeshjith
     group: samudra-inference-long
   network: convnextunet
-  exp_num_in: 3D_noFast_all
+  exp_num_in: 3D_all
   exp_num_extra: 3D_all_hfds_anom
-  exp_num_out: 3D_noFast_all
+  exp_num_out: 3D_all
 
 data:
-  data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_104_years_2014_netzerohfds_detrended # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_1990_netzerohfds
+  data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_104_years_2014_netzerohfds # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_1990_netzerohfds
   data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
   data_stds_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_stds
   scaling_residuals_file: null

@@ -804,7 +804,7 @@ def main():
             profile_memory=False,
             with_stack=True,
         ):
-        trainer.run()
+            trainer.run()
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         logging.error(traceback.format_exc())

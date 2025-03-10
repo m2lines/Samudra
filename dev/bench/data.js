@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741382898725,
+  "lastUpdate": 1741627721408,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -289,6 +289,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.9132895272672001",
             "extra": "mean: 111.22799610860002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0aceb9715af89c643c99944c2c06358d4e48faeb",
+          "message": "fix training when run by main script (#100)\n\nTurns out the handle_logging requires the directory to be there first,\nso create them first (but also try again to recreate them in the\nconstructor)",
+          "timestamp": "2025-03-10T12:54:38-04:00",
+          "tree_id": "8fed0ad94d9d50ba2de540cb6b793a7f92a27590",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/0aceb9715af89c643c99944c2c06358d4e48faeb"
+        },
+        "date": 1741627720461,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.08308876848398251,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12454989519473743",
+            "extra": "mean: 12.035320997600001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.23073466076764376,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07502369872988854",
+            "extra": "mean: 4.333982578399992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.20852099929602827,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08751779490152026",
+            "extra": "mean: 4.795680067600017 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.008834935520368131,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14006964569640215",
+            "extra": "mean: 113.18701734659999 sec\nrounds: 5"
           }
         ]
       }

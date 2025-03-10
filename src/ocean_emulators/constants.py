@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Dict, TypeAlias, TypeVar
 
 import torch
 import xarray as xr
@@ -10,7 +10,11 @@ from ocean_emulators.utils.multiton import Multiton
 # Common Type Aliases
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
-Grid = Float[torch.Tensor, "180 360"]
+
+# Our Arrays will be either `torch.Tensor`s or `xarray.DataArray`s.
+Array = TypeVar("Array", torch.Tensor, xr.DataArray)
+
+Grid = Float[Array, "180 360"]
 Prognostic = Float[
     Grid, "*batch prognostic_vars"
 ]  # equivalent to "*batch prognostic_vars lat lon"
@@ -19,9 +23,15 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 #   In practice you should usually only use symbolic axes in annotations
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
-Input = Float[Grid, "*batch total_vars"]
+Input: TypeAlias = Float[Grid, "*batch total_vars"]
+Label: TypeAlias = Prognostic
 
 GridMask = Bool[torch.Tensor, "180 360"]
+PrognosticMask = Bool[GridMask, "prognostic_vars"]
+
+Example = tuple[Input, Label] | tuple[xr.Dataset, xr.Dataset]
+
+GridMask = Bool[Array, "180 360"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
 # Experiment prognostic and boundary variables
@@ -128,6 +138,12 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
                 "units": "Unknown",
             }
     return metadata
+
+
+LOADER_FLAGS = [
+    "Eager-TrainData-OM4-Loader",
+    "Lazy-Xarray-OM4-Loader",
+]
 
 
 # TODO(#95): See if this can be removed and replaced.

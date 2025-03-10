@@ -2,7 +2,10 @@ from itertools import tee
 from typing import Sequence, Tuple
 
 import torch
+import xarray as xr
+from xarray_einstats.einops import rearrange  # noqa: F401
 
+from ocean_emulators.constants import Example
 from ocean_emulators.datasets import InferenceDataset, TrainData
 
 
@@ -25,6 +28,30 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
         batched_data.insert(input, label)
 
     return batched_data
+
+
+def collate_om4(examples: Sequence[Example]) -> TrainData:
+    """Combine several deferred Examples into single a `torch.Tensor` example pair."""
+    inputs_batch = xr.concat([x.to_array() for x, _ in examples], dim="step")
+    labels_batch = xr.concat([y.to_array() for _, y in examples], dim="step")
+
+    inputs = inputs_batch.compute().einops.rearrange(
+        "step window (time variable) lat lon"
+    )
+    labels = labels_batch.compute().einops.rearrange(
+        "step window (time variable) lat lon"
+    )
+
+    input_tensor = torch.from_numpy(inputs.to_numpy())
+    labels_tensor = torch.from_numpy(labels.to_numpy())
+
+    # TODO(#126): Remove TrainData interface (eventually)
+    batch = TrainData(inputs[0].shape[2])
+    steps = input_tensor.shape[0]
+    for step in range(steps):
+        batch.insert(input_tensor[step], labels_tensor[step])
+
+    return batch
 
 
 def collate_inference_data(

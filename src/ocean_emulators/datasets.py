@@ -5,22 +5,152 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Float
+from jaxtyping import Float, Integer
 from torch.utils.data import Dataset
 
 from ocean_emulators.constants import (
+    LOADER_FLAGS,
     Boundary,
     BoundaryVarNames,
+    Example,
     GridMask,
     Input,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import Normalize
+from ocean_emulators.utils.data import Normalize, mask, unflatten_masks
 from ocean_emulators.utils.device import get_device, using_gpu
 
-Example = tuple[Input, Prognostic]
+
+class OM4Dataset(Dataset):
+    """A `torch.Dataset` for Zarr-backed OM4 data."""
+
+    FLAG = LOADER_FLAGS[1]
+
+    def __init__(
+        self,
+        data: xr.Dataset,
+        input_vars: PrognosticVarNames,
+        extra_vars: BoundaryVarNames,
+        output_vars: PrognosticVarNames,  # TODO(alxmrs): rm
+        hist: int,
+        steps: int,
+        stride: int = 1,
+        is_inference: bool = False,
+    ) -> None:
+        # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
+        data = unflatten_masks(data)
+
+        input_ = data[input_vars]
+        extra_ = data[extra_vars]
+        output_ = data[output_vars]
+
+        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
+        norm = Normalize.get_instance()
+        norm_input = norm.normalize_inputs(input_)
+        norm_extra = norm.normalize_boundary(extra_)
+        norm_output = norm.normalize_outputs(output_)
+
+        # Set non-ocean areas to zero.
+        self.input = mask(norm_input, data.wetmask)
+        self.extra = mask(norm_extra, data.wetmask)
+        self.output = mask(norm_output, data.wetmask)
+
+        self.hist: int = hist
+        self.steps: int = steps
+        self.stride: int = stride
+        self.is_inference: bool = is_inference
+
+        self._size: int = (
+            data.time.size
+            - self.steps * (self.hist + 1) * self.stride
+            - self.hist * self.stride
+        )
+
+        # TODO(alxmrs): When we want to support inference later on, we will need to
+        #  calculate different steps.
+        total_steps: int = 2 * self.hist + 2
+        # Calculate the number of windows
+        num_windows = data.time.size - (total_steps - 1) * self.stride
+        # Create base indices
+        indices = np.arange(num_windows)
+        indices_da = xr.DataArray(indices, dims=["window"])
+        # Create window dimension
+        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
+        # Construct rolling indices
+        self.rolling_indices: Integer[xr.DataArray, "window time"] = (
+            indices_da + stride * window_dim
+        )
+
+    def __len__(self) -> int:
+        return self._size
+
+    # TODO(#124): Vectorize `step`
+    def window_from(
+        self, idx: int | slice, step: int
+    ) -> Integer[xr.Variable, "window time"]:
+        """Coalesce index values to a window of the input data."""
+        # First, parse int inputs as a slice.
+        if isinstance(idx, int):
+            if idx < 0 or idx >= len(self):
+                raise IndexError(
+                    f"index {idx!r} out of bounds. Must be between 0 and {len(self)}."
+                )
+
+            if not self.is_inference:
+                idx = idx + step * (self.hist + 1) * self.stride
+            idx = slice(idx, idx + 1, 1)
+
+        # Validate and normalize all slices.
+        if self.is_inference:
+            if idx.start < 0 or idx.stop < 0 or idx.step < 0:
+                raise IndexError(
+                    f"index {idx!r} invalid: negative values not supported."
+                )
+            if idx.start > self._size or idx.stop > self._size:
+                raise IndexError(
+                    f"index {idx!r} out of bounds. "
+                    f"All bounds must be less than or equal to {len(self)}."
+                )
+
+        if idx.start is None:
+            idx = slice(0, idx.stop, idx.step)
+        if idx.stop is None:
+            idx = slice(idx.start, len(self), idx.step)
+
+        window_index = self.rolling_indices.isel(window=idx)
+        window = xr.Variable(["window", "time"], window_index)
+
+        return window
+
+    def __getitem__(self, idx: int) -> Example:
+        inputs = []
+        labels = []
+
+        # TODO(#124): Vectorize this operation! Or, is it fine because it's lazy?
+        for step in range(self.steps):
+            window = self.window_from(idx, step)
+
+            # This point in time splits the training data and the label data!
+            time_split = self.hist + 1
+
+            prognostic = self.input.isel(time=window).isel(time=slice(None, time_split))
+            boundary = self.extra.isel(time=window).isel(time=self.hist)
+            input_ = xr.merge(
+                [prognostic, boundary], compat="no_conflicts"
+            )  # Combines variables.
+
+            label = self.output.isel(time=window).isel(time=slice(time_split, None))
+
+            inputs.append(input_)
+            labels.append(label)
+
+        # Combines data along a new dimension "step"
+        input_ = xr.concat(inputs, dim="step")
+        label = xr.concat(labels, dim="step")
+
+        return input_, label
 
 
 class InferenceDataset(Dataset):
@@ -280,6 +410,8 @@ class TrainDataset(Dataset):
             step=3->[[9, 10, 11], [12, 13, 14]]
     """
 
+    FLAG = LOADER_FLAGS[0]
+
     def __init__(
         self,
         data: xr.Dataset,
@@ -377,9 +509,8 @@ class TrainDataset(Dataset):
 
         start = idx + step * (self.hist + 1) * self.stride
         end = start + 1
-        idx_slice = slice(
-            start, end
-        )  # Create a slice for similar indexing as in InferenceDataset
+        # Create a slice for similar indexing as in InferenceDataset
+        idx_slice = slice(start, end)
         rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
         # Convert to tests, tests are outdated since changing time definition
         # if prev_rolling_idx is not None:

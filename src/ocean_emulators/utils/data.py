@@ -6,8 +6,10 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from ocean_emulators import config
+from ocean_emulators.config import TimeConfig
 from ocean_emulators.constants import (
+    DEPTH_I_LEVELS,
+    DEPTH_LEVELS,
     MASK_VARS,
     BoundaryVarNames,
     Grid,
@@ -23,7 +25,8 @@ def extract_wet_mask(
     data: xr.Dataset, prognostic_var_names: PrognosticVarNames, hist: int
 ) -> tuple[PrognosticMask, GridMask]:
     """A mask for where the oceans are. Water is wet."""
-    wet_mask = data[MASK_VARS]
+    data_ = flatten_masks(data)
+    wet_mask = data_[MASK_VARS]
     if "time" in wet_mask.dims:
         wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
         wet_surface_mask_np = wet_mask[MASK_VARS[0]].isel(time=0).to_numpy()
@@ -31,18 +34,104 @@ def extract_wet_mask(
         wet_mask_np = wet_mask.to_array().to_numpy()
         wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
 
-    depth_ind = []
-    for var_depth_i in prognostic_var_names:
-        var_split = var_depth_i.split("_")
-        if len(var_split) == 1:
-            depth_ind.append(0)
-        else:
-            depth_ind.append(int(var_split[-1]))
+    depth_ind = _parse_lev_from_output_var(prognostic_var_names)
 
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)
     wet_inp = torch.concat([wet_inp] * (hist + 1), dim=0)
     return wet_inp.bool(), wet_surface.bool()
+
+
+def _parse_lev_from_output_var(prognostic_var_names: PrognosticVarNames) -> list[int]:
+    """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
+    depth_inds = []
+    for var_depth_i in prognostic_var_names:
+        # Examples: "so_18", "zos"
+        var_split = var_depth_i.split("_")
+        if len(var_split) == 1:
+            depth_inds.append(0)
+        else:
+            depth_inds.append(int(var_split[-1]))
+
+    return depth_inds
+
+
+def flatten_masks(data: xr.Dataset) -> xr.Dataset:
+    """Adds data_vars "mask_0"..."mask_18" with dimensions (y, x)."""
+    data_ = data.copy()
+    if MASK_VARS[0] not in data_.variables:
+        assert "wetmask" in data_.variables, (
+            "Wet mask cannot be constructed without "
+            "either the wetmask variable or the level-wise masks"
+        )
+
+        wet_mask = data_["wetmask"]
+        for i, lev in enumerate(DEPTH_I_LEVELS):
+            assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
+            data_[f"mask_{lev}"] = wet_mask.isel(lev=i)
+
+        data_ = data_.drop_vars("wetmask")
+
+    return data_
+
+
+def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
+    """Adds a "wetmask" `xarray.DataArray` with dimensions (lev, y, x)."""
+    data_ = data.copy()
+    if "wetmask" not in data_.variables:
+        assert MASK_VARS[0] in data_.variables, "Wet mask must have masks as data vars!"
+
+        wetmask = data_[MASK_VARS].to_array(dim="lev", name="wetmask")
+
+        data_["wetmask"] = wetmask.assign_coords(lev=data_.lev)
+        data_ = data_.drop_vars(MASK_VARS)
+
+    return data_
+
+
+def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
+    """Apply a wetmask (areas of the ocean) to all variables in the dataset."""
+    # I revised on this via Project Pythia's tutorial:
+    #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
+    data_ = data.copy()
+
+    wetmask = wetmask.astype(bool)
+    surface_mask = wetmask.isel(lev=0)
+
+    for name, da in data_.items():
+        # Parse the level index info from the variable name.
+        is_surface = False
+        tokens = str(name).split("_")
+        # If the name has four tokens, then it definitely is at some depth level (i.e.,
+        # not at the surface).
+        if len(tokens) >= 4:  # OM4 data format (e.g., {variable}_lev_{level}_{decimal})
+            # TODO(alxmrs): Is the OM4 data wrong? Is preprocessing done somewhere?
+            # In this format, "level" is a member of DEPTH_LEVELS, _not_ DEPTH_I_LEVELS.
+            # Thus, we need to convert it to the corresponding DEPTH_I_LEVELS index.
+            _, _, level, *_ = tokens
+            closest_level = min(DEPTH_LEVELS, key=lambda x: abs(x - float(level)))
+            level = DEPTH_I_LEVELS[DEPTH_LEVELS.index(closest_level)]
+        # If it has two tokens, then it _maybe_ at the surface.
+        elif len(tokens) == 2:  # output_vars format (e.g., {variable}_{level})
+            _, level = tokens
+            if level not in DEPTH_I_LEVELS:
+                is_surface = True
+        # With any other tokens, it _definitely_ is at the surface.
+        else:
+            is_surface = True
+
+        if is_surface:
+            # Assume this variable is at the surface
+            # Apply the boundary layer mask and continue
+            data_[name] = da.where(surface_mask, 0.0)
+            continue
+
+        assert level in DEPTH_I_LEVELS, f"Found unknown Depth Level! {level!r}."
+        lev = DEPTH_LEVELS[int(level)]
+
+        data_[name] = da.where(wetmask.sel(lev=lev), 0.0)
+
+    return data_
 
 
 def spherical_area_weights(data: xr.Dataset) -> Grid:
@@ -54,7 +143,7 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
 
 
 def get_time_slice(
-    time_config: config.TimeConfig, time_delta: int = 5, hist: int = 1
+    time_config: TimeConfig, time_delta: int = 5, hist: int = 1
 ) -> tuple[slice, int]:
     """
     Get the time slice and number of rollout steps for the given time configuration.

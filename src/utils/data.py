@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import cftime
 import numpy as np
@@ -103,9 +103,7 @@ def get_norm_unnorm_dicts(
     return data_dict, data_unnorm_dict
 
 
-def compute_anomalies(
-    data: xr.Dataset, data_mean: xr.Dataset, data_std: xr.Dataset, var: str
-) -> Tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+def compute_anomalies(data: xr.Dataset, var: str) -> xr.Dataset:
     """
     Compute the anomalies of a data variable.
     """
@@ -115,13 +113,53 @@ def compute_anomalies(
     data[var + "_anomalies"] = (
         data[var] - climatology.sel(dayofyear=day_of_year)
     ).compute()
-    data_mean[var + "_anomalies"] = data[var + "_anomalies"].mean().compute()
-    data_std[var + "_anomalies"] = data[var + "_anomalies"].std().compute()
-    return data, data_mean, data_std
+    return data
+
+
+def detrend_data(
+    data: xr.Dataset,
+    var: str,
+) -> xr.Dataset:
+    """
+    Detrend the data for the given variables and recompute statistics.
+    """
+    poly_coeffs = data[var].polyfit(dim="time", deg=1).compute()
+    trend = xr.polyval(data["time"], poly_coeffs.polyfit_coefficients).compute()
+    logging.info(
+        f"Average Trend before detrending: {(trend[-1] - trend[0]).mean().values}"
+    )
+    # Remove the trend from the original data
+    data[var] = data[var] - trend
+
+    poly_coeffs = data[var].polyfit(dim="time", deg=1).compute()
+    trend = xr.polyval(data["time"], poly_coeffs.polyfit_coefficients).compute()
+    logging.info(
+        f"Average Trend after detrending: {(trend[-1] - trend[0]).mean().values}"
+    )
+    return data
+
+
+def rename_vars_if_reqd(data: xr.Dataset) -> xr.Dataset:
+    """
+    Rename variables if required.
+    """
+    for var_str in data.variables:
+        # OM4 data format has variables in the form: var_lev_depthlevel
+        # ex. so_lev_1040_0. We need to convert into var_depthlevelidx
+        if "_lev_" in var_str:
+            var_split = var_str.split("_lev_")
+            var = var_split[0]
+            lev_in_depth = float(var_split[1].replace("_", "."))
+            lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
+            data = data.rename({var_str: var + "_" + str(lev_in_depth_idx)})
+    return data
 
 
 def validate_data(
-    data: xr.Dataset, data_mean: xr.Dataset, data_std: xr.Dataset
+    data: xr.Dataset,
+    data_mean: xr.Dataset,
+    data_std: xr.Dataset,
+    detrend_vars: Optional[List[str]] = None,
 ) -> Tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """
     Validate the data such that we have the correct format for training.
@@ -141,18 +179,9 @@ def validate_data(
 
     # Check if data variables are in the right format
     # This check is to ensure we convert data to the correct format
-    for var_str in data.variables:
-        # OM4 data format has variables in the form: var_lev_depthlevel
-        # ex. so_lev_1040_0. We need to convert into var_depthlevelidx
-        if "_lev_" in var_str:
-            var_split = var_str.split("_lev_")
-            var = var_split[0]
-            lev_in_depth = float(var_split[1].replace("_", "."))
-            lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
-            data = data.rename({var_str: var + "_" + str(lev_in_depth_idx)})
-            data_mean = data_mean.rename({var_str: var + "_" + str(lev_in_depth_idx)})
-            data_std = data_std.rename({var_str: var + "_" + str(lev_in_depth_idx)})
-            logging.info(f"Converted {var_str} to {var + '_' + str(lev_in_depth_idx)}")
+    data = rename_vars_if_reqd(data)
+    data_mean = rename_vars_if_reqd(data_mean)
+    data_std = rename_vars_if_reqd(data_std)
 
     # OM4 data has coordinates we don't need
     # We drop them and rename x, y dimensions to lon, lat
@@ -169,9 +198,15 @@ def validate_data(
             base_var = var.replace("_anomalies", "")
             if var not in data.variables and base_var in data.variables:
                 logging.info(f"Computing anomalies for {base_var}")
-                data, data_mean, data_std = compute_anomalies(
-                    data, data_mean, data_std, base_var
-                )
+                data = compute_anomalies(data, base_var)
+
+    # Detrend data if needed
+    if detrend_vars is not None:
+        for var in detrend_vars:
+            if var not in data.data_vars:
+                raise ValueError(f"Variable {var} not found in data")
+            logging.info(f"Detrending {var}")
+            data = detrend_data(data, var)
 
     return data, data_mean, data_std
 

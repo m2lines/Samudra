@@ -4,9 +4,9 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from xarray_einstats.einops import rearrange, reduce
 from jaxtyping import Float
 from torch.utils.data import Dataset
+from xarray_einstats.einops import rearrange
 
 from constants import (
     Extra,
@@ -366,10 +366,10 @@ class TrainDataset(Dataset):
 
     def __old_getitem__(self, idx: int) -> Example:
         if not isinstance(idx, int):
-            raise ValueError(f'only `int` indexes are supported. Found: {idx}.')
+            raise ValueError(f"only `int` indexes are supported. Found: {idx}.")
         if idx < 0 or idx >= self.size:
             raise IndexError(
-                f'index out of range. Must be between 0 and {self.size}, found: {idx}.'
+                f"index out of range. Must be between 0 and {self.size}, found: {idx}."
             )
         # steps = np.arange(self.steps, dtype=int) # ?
         rolling_idx = self.rolling_indices.isel(window_dim=slice(idx, idx + 1))
@@ -378,8 +378,6 @@ class TrainDataset(Dataset):
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-
-
 
     def _get_x_index(
         self, idx: int, step: int, prev_rolling_idx: int | None
@@ -411,14 +409,12 @@ class TrainDataset(Dataset):
 
     def _get_input(self, x_index) -> Input:
         data_in = (
-            self._inputs_no_extra
-            .isel(time=x_index)
+            self._inputs_no_extra.isel(time=x_index)
             .isel(time=slice(None, self.hist + 1))
             .transpose("window_dim", "time", "lat", "lon")
         )
-        data_in = (
-            data_in.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
+        data_in = data_in.to_array().transpose(
+            "window_dim", "time", "variable", "lat", "lon"
         )
         data_in = rearrange(
             data_in,

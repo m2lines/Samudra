@@ -795,16 +795,16 @@ def main():
         with torch.profiler.profile(
             activities=[
                 torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA,
+                # torch.profiler.ProfilerActivity.CUDA,
             ],
             on_trace_ready=torch.profiler.tensorboard_trace_handler(
                 f"{cfg.experiment.output_dir}/profile-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
             ),
-            record_shapes=True,
-            profile_memory=True,
+            record_shapes=False,
+            profile_memory=False,
             with_stack=True,
         ):
-            trainer.run()
+        trainer.run()
     except Exception as e:
         logging.error(f"An error occurred: {e}")
         logging.error(traceback.format_exc())

@@ -1,4 +1,4 @@
-debug: true
+debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5

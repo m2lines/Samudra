@@ -359,16 +359,6 @@ class TrainDataset(Dataset):
             start, end
         )  # Create a slice for similar indexing as in InferenceDataset
         rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
-        # Convert to tests, tests are outdated since changing time definition
-        # if prev_rolling_idx is not None:
-        #     assert (
-        #         prev_rolling_idx.isel(time=slice(self.hist + 1, None))
-        #         - rolling_idx.isel(time=slice(0, self.hist + 1))
-        #     ).sum() == 0  # Prev output = Cur Input
-        #     assert (
-        #         rolling_idx.diff("time") == self.stride
-        #     ).all()  # Stride is maintained
-        #     assert rolling_idx.isel(time=-1) < self.size  # Last index check
 
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index

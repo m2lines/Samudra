@@ -34,7 +34,6 @@ from utils.distributed import (
 )
 from utils.logging import MetricLogger, SmoothedValue, handle_logging, handle_warnings
 from utils.loss import decomposed_mse
-from utils.model import get_model_summary
 from utils.train import CheckpointPaths, collate_inference_data, collate_train_data
 
 
@@ -78,9 +77,9 @@ class Trainer:
         else:
             self.levels = int(levels)
 
-        self.str_in = "".join([i + "_" for i in self.inputs])
-        self.str_ext = "".join([i + "_" for i in self.extra_in])
-        self.str_out = "".join([i + "_" for i in self.outputs])
+        self.str_in = ", ".join([i for i in self.inputs])
+        self.str_ext = ", ".join([i for i in self.extra_in])
+        self.str_out = ", ".join([i for i in self.outputs])
 
         logging.info(f"inputs: {self.str_in}")
         logging.info(f"extra inputs: {self.str_ext}")
@@ -123,7 +122,7 @@ class Trainer:
         )
         data_std = xr.open_dataset(
             os.path.join(self.data_dir, self.data_stds_path),
-            engine="netcdf4",
+            engine="zarr",
             chunks={},
         )
 
@@ -166,8 +165,6 @@ class Trainer:
             )
         else:
             raise NotImplementedError
-
-        get_model_summary(model, self.num_in)
 
         self.model = model
         self.nets_dir = cfg.experiment.nets_dir
@@ -367,7 +364,7 @@ class Trainer:
             self.num_batches_seen += 1
 
             # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             self.optimizer.step()
 

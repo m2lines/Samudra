@@ -17,7 +17,6 @@ from utils.data import Normalize, extract_wet_mask, get_inference_steps, validat
 from utils.device import get_device, using_gpu
 from utils.distributed import set_seed
 from utils.logging import handle_logging, handle_warnings
-from utils.model import get_model_summary
 
 
 class Eval:
@@ -51,9 +50,9 @@ class Eval:
         else:
             self.levels = int(levels)
 
-        self.str_in = "".join([i + "_" for i in self.inputs])
-        self.str_ext = "".join([i + "_" for i in self.extra_in])
-        self.str_out = "".join([i + "_" for i in self.outputs])
+        self.str_in = ", ".join([i for i in self.inputs])
+        self.str_ext = ", ".join([i for i in self.extra_in])
+        self.str_out = ", ".join([i for i in self.outputs])
 
         logging.info(f"inputs: {self.str_in}")
         logging.info(f"extra inputs: {self.str_ext}")
@@ -132,8 +131,6 @@ class Eval:
             )
         else:
             raise NotImplementedError
-
-        get_model_summary(model, self.num_in)
 
         model.load_state_dict(
             torch.load(cfg.ckpt_path, map_location=torch.device("cuda"))["model"]

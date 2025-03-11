@@ -4,7 +4,7 @@ from typing import Dict, Optional
 import torch
 import xarray as xr
 
-# Experiment inputs and outputs
+# Experiment variables
 # Assumption that all 3D variables are appended with depth_i_levels
 # and all 2D variables do not have any digits / underscores in their names
 DEPTH_LEVELS = [
@@ -73,7 +73,7 @@ MASK_VARS = [
     "mask_18",
 ]
 
-INPT_VARS = {
+PROG_VARS_MAP = {
     "thermo_dynamic": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
@@ -81,16 +81,8 @@ INPT_VARS = {
     "thermo": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
     + ["zos"],
 }
-EXTRA_VARS = {
+BOUND_VARS_MAP = {
     "hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
-}
-OUT_VARS = {
-    "thermo_dynamic": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
-    ]
-    + ["zos"],
-    "thermo": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
-    + ["zos"],
 }
 
 default_metadata = {
@@ -177,29 +169,31 @@ class TensorMap:
         return cls._instance
 
     @classmethod
-    def init_instance(cls, exp_num: str, exp_num_extra: str) -> "TensorMap":
+    def init_instance(
+        cls, prognostic_vars_key: str, boundary_vars_key: str
+    ) -> "TensorMap":
         if cls._instance is not None:
             raise ValueError("TensorMap already initialized")
 
         instance = super().__new__(cls)
-        instance._initialize(exp_num, exp_num_extra)
+        instance._initialize(prognostic_vars_key, boundary_vars_key)
         cls._instance = instance
         return cls._instance
 
-    def _initialize(self, exp_num: str, exp_num_extra: str):
+    def _initialize(self, prognostic_vars_key: str, boundary_vars_key: str):
         """
         Maps input variables / depth levels to their indices in the input tensor.
 
         VAR_3D_IDX maps the input variables to their indices in the input tensor
         DP_3D_IDX maps the depth levels to their indices in the input tensor
         """
-        self.exp_num = exp_num
+        self.prognostic_vars_key = prognostic_vars_key
         self.VAR_3D_IDX: Dict[str, torch.Tensor] = {}
         self.DP_3D_IDX: Dict[str, torch.Tensor] = {}
 
         self.VAR_SET_2D = []
         self.VAR_SET_3D = []
-        for out in OUT_VARS[exp_num]:
+        for out in PROG_VARS_MAP[prognostic_vars_key]:
             var_split = out.split("_")
             if len(var_split) == 1:
                 self.VAR_SET_2D.append(var_split[0])
@@ -208,11 +202,13 @@ class TensorMap:
 
         # Consistent order of variables
         self.VAR_SET = list(
-            dict.fromkeys(([out.split("_")[0] for out in OUT_VARS[exp_num]]))
+            dict.fromkeys(
+                ([out.split("_")[0] for out in PROG_VARS_MAP[prognostic_vars_key]])
+            )
         )
         self.DEPTH_SET = DEPTH_I_LEVELS
-        self.outputs = OUT_VARS[exp_num]
-        self.extras = EXTRA_VARS[exp_num_extra]
+        self.prognostic_vars = PROG_VARS_MAP[prognostic_vars_key]
+        self.boundary_vars = BOUND_VARS_MAP[boundary_vars_key]
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()
@@ -220,7 +216,7 @@ class TensorMap:
     def _populate_var_3d_idx(self):
         for kt in self.VAR_SET:
             self.VAR_3D_IDX[kt] = torch.tensor([])
-            for i, k in enumerate(self.outputs):
+            for i, k in enumerate(self.prognostic_vars):
                 if kt in k:
                     self.VAR_3D_IDX[kt] = torch.cat(
                         [self.VAR_3D_IDX[kt], torch.tensor([i])]
@@ -230,7 +226,7 @@ class TensorMap:
     def _populate_dp_3d_idx(self):
         for d in self.DEPTH_SET:
             self.DP_3D_IDX[d] = torch.tensor([])
-            for i, k in enumerate(self.outputs):
+            for i, k in enumerate(self.prognostic_vars):
                 k_split = k.split("_")
                 if len(k_split) == 1:
                     continue

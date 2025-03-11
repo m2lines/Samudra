@@ -75,9 +75,8 @@ class ExperimentConfig:
 
     # Model configuration
     network: str = "samudra"
-    exp_num_in: str = "thermo_dynamic"
-    exp_num_extra: str = "hfds_anom"
-    exp_num_out: str = "thermo_dynamic"
+    prognostic_vars_key: str = "thermo_dynamic"
+    boundary_vars_key: str = "hfds_anom"
 
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")

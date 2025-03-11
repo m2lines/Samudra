@@ -15,9 +15,8 @@ experiment:
   base_output_dir: .LOCAL
   data_dir: /pscratch/sd/s/suryad/data
   network: samudra
-  exp_num_in: thermo_dynamic
-  exp_num_extra: hfds_anom
-  exp_num_out: thermo_dynamic
+  prognostic_vars_key: thermo_dynamic # thermo_dynamic or thermo
+  boundary_vars_key: hfds_anom
 
 data:
   data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_104_years_2014_netzerohfds_detrended # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_1990_netzerohfds

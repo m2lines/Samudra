@@ -19,7 +19,7 @@ from torch.utils.data import (
 )
 
 from config import TrainConfig
-from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
+from constants import BOUND_VARS_MAP, PROG_VARS_MAP, TensorMap, construct_metadata
 from datasets import InferenceDataset, InferenceDatasets, TrainDataset
 from models.samudra import Samudra
 from stepper import Stepper, TrainOutput, ValOutput
@@ -64,36 +64,27 @@ class Trainer:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
-        # Getting input, extra input and output
-        self.inputs = INPT_VARS[cfg.experiment.exp_num_in]
-        self.extra_in = EXTRA_VARS[cfg.experiment.exp_num_extra]
-        self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
-
-        # TODO: The codebase currently contains code that depends on this
-        assert self.inputs == self.outputs, "Input and output "
-        "variables must be the same"
+        # Getting prognostic and boundary variables
+        self.prognostic_vars = PROG_VARS_MAP[cfg.experiment.prognostic_vars_key]
+        self.boundary_vars = BOUND_VARS_MAP[cfg.experiment.boundary_vars_key]
 
         self.levels = 19
 
-        self.str_in = ", ".join([i for i in self.inputs])
-        self.str_ext = ", ".join([i for i in self.extra_in])
-        self.str_out = ", ".join([i for i in self.outputs])
+        self.str_prog_vars = ", ".join([i for i in self.prognostic_vars])
+        self.str_bound_vars = ", ".join([i for i in self.boundary_vars])
 
-        logging.info(f"inputs: {self.str_in}")
-        logging.info(f"extra inputs: {self.str_ext}")
-        logging.info(f"outputs: {self.str_out}")
-        logging.info(f"levels: {self.levels}")
+        logging.info(f"Prognostic variables: {self.str_prog_vars}")
+        logging.info(f"Boundary variables: {self.str_bound_vars}")
+        logging.info(f"Levels: {self.levels}")
 
-        self.N_atm = len(self.extra_in)
-        self.N_in = len(self.inputs)
-        self.N_extra = self.N_atm
-        self.N_out = len(self.outputs)
+        self.N_bound = len(self.boundary_vars)
+        self.N_prog = len(self.prognostic_vars)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
-        self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
+        self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
+        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
-            cfg.experiment.exp_num_out, cfg.experiment.exp_num_extra
+            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
         logging.info(f"Number of inputs: {self.num_in}")
@@ -130,16 +121,15 @@ class Trainer:
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.outputs, cfg.data.hist
+            self.data, self.prognostic_vars, cfg.data.hist
         )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
+        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_vars, 0)
 
         self.normalize = Normalize.init_instance(
             self.data_mean,
             self.data_std,
-            self.inputs,
-            self.extra_in,
-            self.outputs,
+            self.prognostic_vars,
+            self.boundary_vars,
             wet_without_hist,
         )
 
@@ -252,9 +242,8 @@ class Trainer:
             )
             inference_dataset = InferenceDataset(
                 inference_data,
-                self.inputs,
-                self.extra_in,
-                self.outputs,
+                self.prognostic_vars,
+                self.boundary_vars,
                 self.wet,
                 self.wet_surface,
                 self.hist,
@@ -473,9 +462,8 @@ class Trainer:
                             self.train_times.end_time,
                         )
                     ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
+                    self.prognostic_vars,
+                    self.boundary_vars,
                     self.wet,
                     self.wet_surface,
                     self.hist,
@@ -495,9 +483,8 @@ class Trainer:
                             self.val_times.end_time,
                         )
                     ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
+                    self.prognostic_vars,
+                    self.boundary_vars,
                     self.wet,
                     self.wet_surface,
                     self.hist,
@@ -569,7 +556,7 @@ class Trainer:
             f"Saving latest checkpoint to {self.ckpt_paths.latest_checkpoint_path}"
         )
         self.save_checkpoint(epoch, self.ckpt_paths.latest_checkpoint_path)
-        if epoch % self.save_freq == 0:
+        if epoch > 0 and epoch % self.save_freq == 0:
             self.save_checkpoint(
                 epoch, self.ckpt_paths.latest_checkpoint_path_with_epoch(epoch)
             )

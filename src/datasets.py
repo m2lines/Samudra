@@ -28,9 +28,8 @@ class InferenceDataset(Dataset):
     def __init__(
         self,
         data,
-        inputs_str,
-        extra_in_str,
-        outputs_str,
+        prognostic_vars,
+        boundary_vars,
         wet,
         wet_surface,
         hist,
@@ -41,10 +40,9 @@ class InferenceDataset(Dataset):
 
         self.hist = hist
 
-        self._outputs = data[outputs_str]
-        self.output_channels = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra = data[inputs_str]
-        self._extras = data[extra_in_str]
+        self._prognostic_data = data[prognostic_vars]
+        self.prognostic_channels = (hist + 1) * len(prognostic_vars)
+        self._boundary_data = data[boundary_vars]
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -87,7 +85,7 @@ class InferenceDataset(Dataset):
     @property
     def initial_prognostic(self):
         data = self.__getitem__(0)[0]
-        return data[:, : self.output_channels]
+        return data[:, : self.prognostic_channels]
 
     def inference_target(self, step: int):
         return self.__getitem__(step)[1]
@@ -98,7 +96,7 @@ class InferenceDataset(Dataset):
 
     # TODO: This is a placeholder for now since time returned is incorrect
     def get_input_time(self, step: int):
-        return self._inputs_no_extra.time[step]
+        return self._prognostic_data.time[step]
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         x_index = self._get_x_index(step)
@@ -139,10 +137,10 @@ class InferenceDataset(Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
-        data_in = self._inputs_no_extra.isel(time=x_index).isel(
+        data_in = self._prognostic_data.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in = Normalize.get_instance().normalize_inputs(data_in)
+        data_in = Normalize.get_instance().normalize_prognostic_data(data_in)
         data_in = (
             data_in.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -163,7 +161,7 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary = self._boundary_data.isel(time=x_index).isel(time=self.hist)
         data_in_boundary = Normalize.get_instance().normalize_boundary(data_in_boundary)
         data_in_boundary = (
             data_in_boundary.to_array()
@@ -175,8 +173,10 @@ class InferenceDataset(Dataset):
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
-        label = Normalize.get_instance().normalize_outputs(label)
+        label = self._prognostic_data.isel(time=x_index).isel(
+            time=slice(self.hist + 1, None)
+        )
+        label = Normalize.get_instance().normalize_prognostic_data(label)
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -192,7 +192,7 @@ class InferenceDataset(Dataset):
         return label
 
     def get_coords_dict(self):
-        return {co: self._inputs_no_extra[co] for co in self._inputs_no_extra.coords}
+        return {co: self._prognostic_data[co] for co in self._prognostic_data.coords}
 
 
 class InferenceDatasets(Dataset):
@@ -208,9 +208,9 @@ class InferenceDatasets(Dataset):
 
 
 class TrainData:
-    def __init__(self, output_channels: int):
+    def __init__(self, prognostic_channels: int):
         self.td_dict: Dict[int, Tuple[torch.Tensor, torch.Tensor]] = {}
-        self.output_channels = output_channels
+        self.prognostic_channels = prognostic_channels
         self.steps = 0
 
     def insert(self, input: torch.Tensor, label: torch.Tensor):
@@ -228,7 +228,7 @@ class TrainData:
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         input, _ = self.td_dict[step]
-        input[:, : self.output_channels] = prognostic
+        input[:, : self.prognostic_channels] = prognostic
         return input
 
     def __getitem__(self, step: int):
@@ -268,9 +268,8 @@ class TrainDataset(Dataset):
     def __init__(
         self,
         data,
-        inputs_str,
-        extra_in_str,
-        outputs_str,
+        prognostic_vars,
+        boundary_vars,
         wet,
         wet_surface,
         hist,
@@ -284,10 +283,9 @@ class TrainDataset(Dataset):
         self.steps = steps
         self.stride = stride
 
-        self._outputs = data[outputs_str]
-        self.output_channels = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra = data[inputs_str]
-        self._extras = data[extra_in_str]
+        self._prognostic_data = data[prognostic_vars]
+        self.prognostic_channels = (hist + 1) * len(prognostic_vars)
+        self._boundary_data = data[boundary_vars]
 
         # This class will be used only for training
         total_steps = 2 * self.hist + 2
@@ -321,15 +319,19 @@ class TrainDataset(Dataset):
         # Normalize
         logging.info("Normalizing inputs")
         self.normalize = Normalize.get_instance()
-        self._inputs_no_extra = self.normalize.normalize_inputs(self._inputs_no_extra)
-        self._extras = self.normalize.normalize_boundary(self._extras)
-        self._outputs = self.normalize.normalize_outputs(self._outputs)
+        self._prognostic_data = self.normalize.normalize_prognostic_data(
+            self._prognostic_data
+        )
+        self._boundary_data = self.normalize.normalize_boundary(self._boundary_data)
+        self._prognostic_data = self.normalize.normalize_prognostic_data(
+            self._prognostic_data
+        )
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, idx):
-        TD = TrainData(self.output_channels)
+        TD = TrainData(self.prognostic_channels)
         prev_rolling_idx = None
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
@@ -364,7 +366,7 @@ class TrainDataset(Dataset):
         return x_index
 
     def _get_input(self, x_index):
-        data_in = self._inputs_no_extra.isel(time=x_index).isel(
+        data_in = self._prognostic_data.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
         data_in = (
@@ -388,7 +390,7 @@ class TrainDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary = self._boundary_data.isel(time=x_index).isel(time=self.hist)
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -399,7 +401,9 @@ class TrainDataset(Dataset):
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
+        label = self._prognostic_data.isel(time=x_index).isel(
+            time=slice(self.hist + 1, None)
+        )
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")

@@ -6,8 +6,8 @@ import xarray as xr
 from einops import rearrange
 
 from constants import TensorMap
-from src.utils.outputs import InfOutput
 from utils.data import Normalize
+from utils.outputs import InfOutput
 
 
 class ZarrWriter:
@@ -31,7 +31,7 @@ class ZarrWriter:
         pred_tensor = IO.prediction
         pred_tensor = pred_tensor.squeeze(0)
         pred_tensor = rearrange(pred_tensor, "(n c) h w -> n c h w", n=self.hist + 1)
-        pred_tensor = self.normalize.unnormalize_tensor_outputs(pred_tensor)
+        pred_tensor = self.normalize.unnormalize_tensor_prognostics(pred_tensor)
         if self.acc_tensor is None:
             self.acc_tensor = pred_tensor
         else:

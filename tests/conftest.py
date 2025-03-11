@@ -41,9 +41,15 @@ class DataSourceDims:
     - D := A int representing the index of the current data variable.
     """
 
-    lat: NDArray[np.float64] = np.arange(-89.24, 90, 1, dtype=np.float64)
-    lng: NDArray[np.float64] = np.arange(0.5, 360, 1, dtype=np.float64)
-    days_since_start: NDArray[np.int32] = np.array([0, 5, 10])
+    lat: NDArray[np.float64] = dataclasses.field(
+        default_factory=lambda: np.arange(-89.24, 90, 1, dtype=np.float64)
+    )
+    lng: NDArray[np.float64] = dataclasses.field(
+        default_factory=lambda: np.arange(0.5, 360, 1, dtype=np.float64)
+    )
+    days_since_start: NDArray[np.int32] = dataclasses.field(
+        default_factory=lambda: np.array([0, 5, 10])
+    )
     start_day: cftime.datetime = cftime.DatetimeNoLeap.strptime(
         "1969-08-05", "%Y-%m-%d", "noleap"
     )
@@ -164,9 +170,9 @@ class DataSourceDims:
             (DataSourceDims, int) - Parsed dims and data_var index.
         """
         encoded = da.to_numpy()
-        assert (
-            len(encoded.shape) == 3
-        ), "DataArray must have (time, lat, lng) dimensions."
+        assert len(encoded.shape) == 3, (
+            "DataArray must have (time, lat, lng) dimensions."
+        )
 
         scalar = encoded.flat[0]
         tim_dim = encoded[:, 0, 0]

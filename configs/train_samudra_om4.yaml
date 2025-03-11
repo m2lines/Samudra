@@ -2,14 +2,14 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 70
+epochs: 1
 batch_size: 1
 learning_rate: 0.0002
 scheduler: true
 loss: mse
 finetune: false
 resume_ckpt_path: null
-inference_epochs: [-1]
+inference_epochs: []
 data_percent: 1.0
 train:
   start_time: "1975-01-03"
@@ -17,7 +17,7 @@ train:
   # end_time: "2013-10-05"
 val:
   start_time: "2013-10-05"
-  end_time: "2014-10-05"
+  end_time: "2013-11-05"
 inference:
   - start_time: "2014-11-05"
     end_time: "2015-11-05"

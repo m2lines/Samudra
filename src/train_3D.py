@@ -450,6 +450,13 @@ class Trainer:
                 "epoch_total_seconds": time_elapsed,
             }
 
+            logging.info(f"Train seconds: {log_stats['epoch_train_seconds']:.2f}")
+            logging.info(
+                f"Validation seconds: {log_stats['epoch_validation_seconds']:.2f}"
+            )
+            logging.info(f"Total seconds: {log_stats['epoch_total_seconds']:.2f}")
+            logging.info(f"Epoch {epoch} completed")
+
             if end_epoch_inf_time is not None:
                 log_stats["epoch_inference_seconds"] = (
                     end_epoch_inf_time - end_epoch_val_time
@@ -792,18 +799,18 @@ def main():
     trainer = Trainer(cfg)
 
     try:
-        with torch.profiler.profile(
-            activities=[
-                torch.profiler.ProfilerActivity.CPU,
-                # torch.profiler.ProfilerActivity.CUDA,
-            ],
-            on_trace_ready=torch.profiler.tensorboard_trace_handler(
-                f"{cfg.experiment.output_dir}/profile-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            ),
-            record_shapes=False,
-            profile_memory=False,
-            with_stack=True,
-        ):
+        # with torch.profiler.profile(
+        #     activities=[
+        #         torch.profiler.ProfilerActivity.CPU,
+        #         # torch.profiler.ProfilerActivity.CUDA,
+        #     ],
+        #     on_trace_ready=torch.profiler.tensorboard_trace_handler(
+        #         f"{cfg.experiment.output_dir}/profile-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        #     ),
+        #     record_shapes=False,
+        #     profile_memory=False,
+        #     with_stack=True,
+        # ):
             trainer.run()
     except Exception as e:
         logging.error(f"An error occurred: {e}")

@@ -57,8 +57,10 @@ class Eval:
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
-        logging.info(f"Number of inputs: {self.num_in}")
-        logging.info(f"Number of outputs: {self.num_out}")
+        logging.info(
+            f"Number of inputs: hist * prognostic_vars + boundary_vars = {self.num_in}"
+        )
+        logging.info(f"Number of outputs: hist * prognostic_vars = {self.num_out}")
 
         # Dataloaders
         logging.info(f"Loading data")
@@ -97,7 +99,10 @@ class Eval:
         )
 
         # Model
-        logging.info(f"Getting model {cfg.experiment.network}")
+        logging.info(
+            f"Instantiating model {cfg.experiment.network} from checkpoint "
+            f"{cfg.ckpt_path}"
+        )
         if "samudra" == cfg.experiment.network:
             if cfg.unet.ch_width[0] != self.num_in:
                 logging.info(
@@ -155,7 +160,6 @@ class Eval:
             self.wet,
             self.wet_surface,
             self.hist,
-            long_rollout=True,
         )
 
     def run(self) -> None:
@@ -202,8 +206,12 @@ def main():
     # Load config from YAML
     cfg = EvalConfig.from_yaml(args.config, overrides)
 
-    if not os.path.exists(cfg.experiment.output_dir):
-        os.makedirs(cfg.experiment.output_dir, exist_ok=True)
+    if os.path.exists(cfg.experiment.output_dir):
+        raise ValueError(
+            f"Output directory {cfg.experiment.output_dir} already exists, "
+            "please delete it or use a different expt directory"
+        )
+    os.makedirs(cfg.experiment.output_dir, exist_ok=True)
 
     handle_logging(cfg)
     handle_warnings()

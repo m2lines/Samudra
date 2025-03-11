@@ -33,7 +33,7 @@ class BaseModel(torch.nn.Module):
         self.pad = pad
         self.hist = hist
         self.input_channels = ch_width[0]
-        self.output_channels = n_out
+        self.prognostic_channels = n_out
 
     def forward_once(self, fts):
         raise NotImplementedError()

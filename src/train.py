@@ -87,8 +87,10 @@ class Trainer:
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
-        logging.info(f"Number of inputs: {self.num_in}")
-        logging.info(f"Number of outputs: {self.num_out}")
+        logging.info(
+            f"Number of inputs: hist * prognostic_vars + boundary_vars = {self.num_in}"
+        )
+        logging.info(f"Number of outputs: hist * prognostic_vars = {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
         assert isinstance(cfg.steps, list)
@@ -134,7 +136,7 @@ class Trainer:
         )
 
         # Model
-        logging.info(f"Getting model {cfg.experiment.network}")
+        logging.info(f"Instantiating model {cfg.experiment.network}")
         if "samudra" == cfg.experiment.network:
             if cfg.unet.ch_width[0] != self.num_in:
                 logging.info(
@@ -159,7 +161,7 @@ class Trainer:
         self.network = cfg.experiment.network
 
         # Loss function
-        logging.info("Using decomposed mse loss")
+        logging.info("Loss = mse")
         if cfg.loss == "mse":
             self.loss_fn = decomposed_mse
         else:
@@ -247,7 +249,6 @@ class Trainer:
                 self.wet,
                 self.wet_surface,
                 self.hist,
-                long_rollout=True,
             )
 
             inference_datasets.append(inference_dataset)

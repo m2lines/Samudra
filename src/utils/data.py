@@ -76,13 +76,13 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tens
 def get_norm_unnorm_dicts(
     data: torch.Tensor,
     input_type: str = "target",
-    output_channels: int = 0,
+    prognostic_channels: int = 0,
     hist: int = 1,
 ):
     normalize = Normalize.get_instance()
     # Remove boundary data if input
     if input_type == "input":
-        data = data[:, :output_channels]
+        data = data[:, :prognostic_channels]
 
     # Separate history from channels
     data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)

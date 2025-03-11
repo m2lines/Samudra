@@ -21,10 +21,10 @@ def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
 
 
 def collate_train_data(data: Sequence[TrainData]) -> TrainData:
-    output_channels = data[0].output_channels
+    prognostic_channels = data[0].prognostic_channels
     steps = len(data[0])
 
-    batched_data = TrainData(output_channels)
+    batched_data = TrainData(prognostic_channels)
 
     for step in range(steps):
         input = torch.stack([d.get_input(step) for d in data])

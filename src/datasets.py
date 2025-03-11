@@ -33,7 +33,6 @@ class InferenceDataset(Dataset):
         wet,
         wet_surface,
         hist,
-        long_rollout,
     ):
         super().__init__()
         self.device = get_device()
@@ -62,14 +61,12 @@ class InferenceDataset(Dataset):
         )  # Skip indices based on history
         self.rolling_indices = self.rolling_indices.astype(int)
 
-        if long_rollout:
-            logging.info(
-                "Long rollout will use input at time {0} and produce"
-                " output at {1}".format(
-                    data.time.values[0],
-                    data.time.values[self.hist + 1],
-                )
+        logging.info(
+            "Inference will use input at time {0} and produce output at {1}".format(
+                data.time.values[0],
+                data.time.values[self.hist + 1],
             )
+        )
 
         self.wet = wet.bool()
         self.wet_surface = wet_surface.bool()
@@ -140,7 +137,7 @@ class InferenceDataset(Dataset):
         data_in = self._prognostic_data.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in = Normalize.get_instance().normalize_prognostic_data(data_in)
+        data_in = Normalize.get_instance().normalize_prognostics(data_in)
         data_in = (
             data_in.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -176,7 +173,7 @@ class InferenceDataset(Dataset):
         label = self._prognostic_data.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)
         )
-        label = Normalize.get_instance().normalize_prognostic_data(label)
+        label = Normalize.get_instance().normalize_prognostics(label)
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -317,15 +314,11 @@ class TrainDataset(Dataset):
             self.wet_surface = self.wet_surface.pin_memory()
 
         # Normalize
-        logging.info("Normalizing inputs")
         self.normalize = Normalize.get_instance()
-        self._prognostic_data = self.normalize.normalize_prognostic_data(
+        self._prognostic_data = self.normalize.normalize_prognostics(
             self._prognostic_data
         )
         self._boundary_data = self.normalize.normalize_boundary(self._boundary_data)
-        self._prognostic_data = self.normalize.normalize_prognostic_data(
-            self._prognostic_data
-        )
 
     def __len__(self):
         return self.size

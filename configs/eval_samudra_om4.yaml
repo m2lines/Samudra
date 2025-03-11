@@ -1,4 +1,4 @@
-debug: true
+debug: false
 save_zarr: true
 disk_mode: true
 inference:
@@ -28,8 +28,8 @@ data:
 
 
 unet:
-  ch_width: [157, 200, 250, 300, 400]
-  n_out: 77
+  ch_width: [158, 200, 250, 300, 400]
+  n_out: 154
   dilation: [1, 2, 4, 8]
   n_layers: [1, 1, 1, 1]
   last_kernel_size: 3

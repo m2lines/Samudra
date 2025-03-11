@@ -144,7 +144,7 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
             elif var.split("_")[0] in default_metadata:
                 metadata[var] = default_metadata[var.split("_")[0]]
             else:
-                logging.info(f"{var} does not have any default metadata")
+                logging.debug(f"{var} does not have any default metadata")
                 metadata[var] = {
                     "long_name": "Unknown",
                     "units": "Unknown",
@@ -187,13 +187,15 @@ class TensorMap:
         VAR_3D_IDX maps the input variables to their indices in the input tensor
         DP_3D_IDX maps the depth levels to their indices in the input tensor
         """
-        self.prognostic_vars_key = prognostic_vars_key
+        self.prognostic_vars = PROG_VARS_MAP[prognostic_vars_key]
+        self.boundary_vars = BOUND_VARS_MAP[boundary_vars_key]
+
         self.VAR_3D_IDX: Dict[str, torch.Tensor] = {}
         self.DP_3D_IDX: Dict[str, torch.Tensor] = {}
 
         self.VAR_SET_2D = []
         self.VAR_SET_3D = []
-        for out in PROG_VARS_MAP[prognostic_vars_key]:
+        for out in self.prognostic_vars:
             var_split = out.split("_")
             if len(var_split) == 1:
                 self.VAR_SET_2D.append(var_split[0])
@@ -202,13 +204,9 @@ class TensorMap:
 
         # Consistent order of variables
         self.VAR_SET = list(
-            dict.fromkeys(
-                ([out.split("_")[0] for out in PROG_VARS_MAP[prognostic_vars_key]])
-            )
+            dict.fromkeys(([out.split("_")[0] for out in self.prognostic_vars]))
         )
         self.DEPTH_SET = DEPTH_I_LEVELS
-        self.prognostic_vars = PROG_VARS_MAP[prognostic_vars_key]
-        self.boundary_vars = BOUND_VARS_MAP[boundary_vars_key]
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()

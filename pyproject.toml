@@ -1,15 +1,15 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 
-requires = [ "setuptools", "wheel" ]
+requires = ["setuptools", "wheel"]
 
 [project]
 name = "ocean-emulators"
 description = "Train and evaluate ocean model emulators"
 readme = "README.md"
-keywords = [ "climate", "emulation", "machine learning", "ocean" ]
+keywords = ["climate", "emulation", "machine learning", "ocean"]
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
@@ -21,7 +21,22 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dynamic = [ "dependencies", "optional-dependencies", "version" ]
+dependencies = [
+  "cftime",
+  "dask",
+  "matplotlib",
+  "numpy<2",
+  "torch==2.2.1",
+  "wandb",
+  "xarray[io]",
+  "pyyaml",
+  "dacite",
+  "einops",
+  "torchinfo",
+  "zarr>=3",
+  "jaxtyping>=0.2.38",
+]
+version = "2025.1.0"
 
 [dependency-groups]
 dev = [
@@ -39,11 +54,22 @@ dependencies = { file = "requirements.txt" }
 find = {}
 
 [tool.ruff]
-lint.select = [ "D", "E", "F", "I", "W" ]
-lint.ignore = [ "D1", "D200", "D205", "D212", "E203", "E402", "F541", "W293" ]
-lint.per-file-ignores."*/__init__.py" = [ "F401" ]
-lint.per-file-ignores."scripts/*" = [ "D" ]
-lint.per-file-ignores."test_*.py" = [ "D" ]
+lint.select = ["D", "E", "F", "I", "W"]
+# F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
+lint.ignore = [
+  "D1",
+  "D200",
+  "D205",
+  "D212",
+  "E203",
+  "E402",
+  "F541",
+  "F722",
+  "W293",
+]
+lint.per-file-ignores."*/__init__.py" = ["F401"]
+lint.per-file-ignores."scripts/*" = ["D"]
+lint.per-file-ignores."test_*.py" = ["D"]
 lint.isort.split-on-trailing-comma = false
 lint.pydocstyle.convention = "google"
 
@@ -52,9 +78,9 @@ markers = [
   "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
   "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
 ]
-pythonpath = [
-  "src",
-]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "--jaxtyping-packages=data,datasets,beartype.beartype"
 
 [tool.mypy]
 ignore_missing_imports = true

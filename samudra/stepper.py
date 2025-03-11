@@ -2,7 +2,6 @@ import logging
 from typing import Callable, Optional
 
 import torch
-
 from datasets import InferenceDataset, TrainData
 from utils.device import using_gpu
 from utils.model import InfOutput, TrainOutput, ValOutput

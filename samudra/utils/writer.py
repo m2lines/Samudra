@@ -3,9 +3,8 @@ from typing import Dict, Optional
 
 import torch
 import xarray as xr
-from einops import rearrange
-
 from constants import TensorMap
+from einops import rearrange
 from utils.data import Normalize
 from utils.model import InfOutput
 

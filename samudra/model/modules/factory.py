@@ -1,7 +1,6 @@
 from typing import Type
 
 import torch.nn as nn
-
 from model.modules.activations import CappedGELU, ReLU
 from model.modules.blocks import (
     AvgPool,

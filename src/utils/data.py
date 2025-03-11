@@ -108,29 +108,6 @@ def compute_anomalies(data: xr.Dataset, var: str) -> xr.Dataset:
     return data
 
 
-def detrend_data(
-    data: xr.Dataset,
-    var: str,
-) -> xr.Dataset:
-    """
-    Detrend the data for the given variables and recompute statistics.
-    """
-    poly_coeffs = data[var].polyfit(dim="time", deg=1).compute()
-    trend = xr.polyval(data["time"], poly_coeffs.polyfit_coefficients).compute()
-    logging.info(
-        f"Average Trend before detrending: {(trend[-1] - trend[0]).mean().values}"
-    )
-    # Remove the trend from the original data
-    data[var] = data[var] - trend
-
-    poly_coeffs = data[var].polyfit(dim="time", deg=1).compute()
-    trend = xr.polyval(data["time"], poly_coeffs.polyfit_coefficients).compute()
-    logging.info(
-        f"Average Trend after detrending: {(trend[-1] - trend[0]).mean().values}"
-    )
-    return data
-
-
 def rename_vars(data: xr.Dataset) -> xr.Dataset:
     """
     Rename variables if required.

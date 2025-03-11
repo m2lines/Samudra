@@ -3,27 +3,21 @@ save_zarr: true
 disk_mode: true
 inference:
   start_time: "2014-09-30"
-  end_time: "2022-12-24"
-ckpt_path: /this/path/does/not/exist # Fill in script
-num_model_steps_forward: 20
-record_every: 10
+  end_time: "2014-10-30" # "2022-12-24"
+ckpt_path: /path/here/or/fill/in/script # Fill in script
+num_model_steps_forward: 20 # Number of steps to run forward pass at a time
+record_every: 10 # Write to zarr every record_every steps (if save_zarr is true)
 
 experiment:
   name: eval
   sub_name: local_om4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
-  gantry: false
-  cluster_data_dir: null
-  wandb:
-    mode: online
-    project: ocean-emulators
-    entity: m2lines
-    group: samudra-inference-om4
-  network: convnextunet
-  exp_num_in: 3D_noFast_all
-  exp_num_extra: 3D_all_hfds_anom
-  exp_num_out: 3D_noFast_all
+  data_dir: /pscratch/sd/s/suryad/data
+  network: samudra
+  exp_num_in: thermo_dynamic
+  exp_num_extra: hfds_anom
+  exp_num_out: thermo_dynamic
 
 data:
   data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_104_years_2014_netzerohfds_detrended # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_1990_netzerohfds
@@ -39,7 +33,6 @@ unet:
   n_out: 77
   dilation: [1, 2, 4, 8]
   n_layers: [1, 1, 1, 1]
-  pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
 

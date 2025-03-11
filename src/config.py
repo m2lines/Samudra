@@ -22,7 +22,6 @@ class DataConfig:
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1
-    detrend_vars: Optional[List[str]] = None
 
 
 @dataclass
@@ -45,7 +44,6 @@ class UNetConfig:
     n_out: int = 77
     dilation: List[int] = field(default_factory=lambda: [1, 2, 4, 8])
     n_layers: List[int] = field(default_factory=lambda: [1, 1, 1, 1])
-    pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
     wet: Optional[Any] = None
@@ -72,25 +70,21 @@ class ExperimentConfig:
     name: str = "train"
     sub_name: str = "cm4_samudra"
     rand_seed: int = 1
-    base_output_dir: str = "train_3D"
-    gantry: bool = False
-    cluster_data_dir: str = "/"
+    base_output_dir: str = "train"
+    data_dir: Path = Path("/")
 
     # Model configuration
-    network: str = "convnextunet"
-    exp_num_in: str = "3D_all"
-    exp_num_extra: str = "3D_all"
-    exp_num_out: str = "3D_all"
+    network: str = "samudra"
+    exp_num_in: str = "thermo_dynamic"
+    exp_num_extra: str = "hfds_anom"
+    exp_num_out: str = "thermo_dynamic"
 
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")
         self.name = f"{timestamp}-{self.name}"
         self.output_dir = Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
         self.nets_dir = self.output_dir / "saved_nets"
-        if self.gantry:
-            self.data_dir = Path("/")
-        else:
-            self.data_dir = Path(self.cluster_data_dir)
+        self.data_dir = Path(self.data_dir)
 
 
 @dataclass
@@ -104,21 +98,18 @@ class TrainConfig:
     learning_rate: float = 2e-4
     scheduler: bool = False
     loss: str = "mse"
-    finetune: bool = False
-    resume_ckpt_path: Optional[str] = None
     debug: bool = False
 
     # Data parameters at root level
-    data_percent: float = 1.0
     data_stride: List[int] = field(default_factory=lambda: [1])
     steps: List[int] = field(default_factory=lambda: [4])
     step_transition: List[int] = field(default_factory=lambda: [])
     inference_epochs: List[int] = field(default_factory=lambda: [-1])
     train: TimeConfig = field(
-        default_factory=lambda: TimeConfig("151-01-06", "306-01-01")
+        default_factory=lambda: TimeConfig("1975-01-03", "2014-01-13")
     )
     val: TimeConfig = field(
-        default_factory=lambda: TimeConfig("306-01-01", "311-01-01")
+        default_factory=lambda: TimeConfig("2014-01-18", "2014-09-20")
     )
     inference: List[TimeConfig] = field(default_factory=list)
 
@@ -158,9 +149,6 @@ class TrainConfig:
             "learning_rate": self.learning_rate,
             "scheduler": self.scheduler,
             "loss": self.loss,
-            "finetune": self.finetune,
-            "resume_ckpt_path": self.resume_ckpt_path,
-            "data_percent": self.data_percent,
             "data_stride": self.data_stride,
             "steps": self.steps,
             "step_transition": self.step_transition,
@@ -193,7 +181,7 @@ class EvalConfig:
     record_every: int = 10
     # Config components
     inference: TimeConfig = field(
-        default_factory=lambda: TimeConfig("311-01-01", "351-01-01")
+        default_factory=lambda: TimeConfig("2014-01-18", "2014-09-20")
     )
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     data: DataConfig = field(default_factory=DataConfig)

@@ -1,15 +1,11 @@
 #!/bin/bash
 
-# Assumes you have activated the emulator conda environment and
-# set the CLUSTER_NAME and OCEAN_DATA_DIR environment variables
-set -e
+# Assumes you have activated the environment
+# for example: conda activate emulator
+
 CONFIG_PATH=configs/train_samudra_om4.yaml
 
-echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR
+echo 'Running local training'
 echo 'Using config file:' $CONFIG_PATH
 
-# Create a temporary config file with updated cluster_data_dir
-TMP_CONFIG_PATH=/tmp/config_temp.yaml
-sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $TMP_CONFIG_PATH
-
-torchrun src/train_3D.py --config $TMP_CONFIG_PATH --subname "train-test-samudra-om4"
+torchrun src/train.py --config $CONFIG_PATH --subname "samudra-om4"

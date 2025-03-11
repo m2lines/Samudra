@@ -11,7 +11,7 @@ import xarray as xr
 from config import EvalConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset
-from models.unet import UNet
+from model.samudra import Samudra
 from stepper import Stepper
 from utils.data import Normalize, extract_wet_mask, get_inference_steps, validate_data
 from utils.device import get_device, using_gpu
@@ -42,13 +42,7 @@ class Eval:
         assert self.inputs == self.outputs, "Input and output "
         "variables must be the same"
 
-        levels = cfg.experiment.exp_num_in.split("_")[-1]
-        if "all" in levels:
-            self.levels = 19
-        elif "2D" in levels:
-            self.levels = 1
-        else:
-            self.levels = int(levels)
+        self.levels = 19
 
         self.str_in = ", ".join([i for i in self.inputs])
         self.str_ext = ", ".join([i for i in self.extra_in])
@@ -93,7 +87,7 @@ class Eval:
             chunks={},
         )
         self.data, self.data_mean, self.data_std = validate_data(
-            data, data_mean, data_std, detrend_vars=cfg.data.detrend_vars
+            data, data_mean, data_std
         )
 
         self.metadata = construct_metadata(self.data)
@@ -113,7 +107,7 @@ class Eval:
 
         # Model
         logging.info(f"Getting model {cfg.experiment.network}")
-        if "convnextunet" == cfg.experiment.network:
+        if "samudra" == cfg.experiment.network:
             if cfg.unet.ch_width[0] != self.num_in:
                 logging.info(
                     f"NOTE: Changing input channels to match data "
@@ -126,9 +120,9 @@ class Eval:
                     f"{cfg.unet.n_out}->{self.num_out}"
                 )
                 cfg.unet.n_out = self.num_out
-            model = UNet(cfg.unet, hist=cfg.data.hist, wet=self.wet.to(self.device)).to(
-                self.device
-            )
+            model = Samudra(
+                cfg.unet, hist=cfg.data.hist, wet=self.wet.to(self.device)
+            ).to(self.device)
         else:
             raise NotImplementedError
 

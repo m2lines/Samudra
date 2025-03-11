@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import cftime
 import numpy as np
@@ -131,7 +131,7 @@ def detrend_data(
     return data
 
 
-def rename_vars_if_reqd(data: xr.Dataset) -> xr.Dataset:
+def rename_vars(data: xr.Dataset) -> xr.Dataset:
     """
     Rename variables if required.
     """
@@ -151,10 +151,9 @@ def validate_data(
     data: xr.Dataset,
     data_mean: xr.Dataset,
     data_std: xr.Dataset,
-    detrend_vars: Optional[List[str]] = None,
 ) -> Tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """
-    Validate the data such that we have the correct format for training.
+    Validate the data such that we have the correct format for training/evaluation.
     """
     # Check if Mask variables exist
     if MASK_VARS[0] not in data.variables:
@@ -171,9 +170,9 @@ def validate_data(
 
     # Check if data variables are in the right format
     # This check is to ensure we convert data to the correct format
-    data = rename_vars_if_reqd(data)
-    data_mean = rename_vars_if_reqd(data_mean)
-    data_std = rename_vars_if_reqd(data_std)
+    data = rename_vars(data)
+    data_mean = rename_vars(data_mean)
+    data_std = rename_vars(data_std)
 
     # OM4 data has coordinates we don't need
     # We drop them and rename x, y dimensions to lon, lat
@@ -183,7 +182,7 @@ def validate_data(
             ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
         ).rename({"x": "lon", "y": "lat"})
 
-    # Check if any anomalies are needed to be computed
+    # Check if anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()
     for var in tensor_map.extras:
         if var.endswith("_anomalies"):
@@ -192,18 +191,9 @@ def validate_data(
                 logging.info(f"Computing anomalies for {base_var}")
                 data = compute_anomalies(data, base_var)
 
-    # Detrend data if needed
-    if detrend_vars is not None:
-        for var in detrend_vars:
-            if var not in data.data_vars:
-                raise ValueError(f"Variable {var} not found in data")
-            logging.info(f"Detrending {var}")
-            data = detrend_data(data, var)
-
     return data, data_mean, data_std
 
 
-# TODO: Repetitive code. Refactor
 class Normalize:
     _instance: Optional["Normalize"] = None
 

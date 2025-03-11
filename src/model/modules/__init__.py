@@ -1,5 +1,5 @@
-from .activations import CappedGELU, CappedLeakyReLU, ReLU
-from .blocks import BilinearUpsample, ConvBlock, ConvNeXtBlock, TransposedConvUpsample
+from .activations import CappedGELU, ReLU
+from .blocks import BilinearUpsample, ConvNeXtBlock, TransposedConvUpsample
 from .factory import (
     ACTIVATION_REGISTRY,
     BLOCK_REGISTRY,
@@ -9,11 +9,9 @@ from .factory import (
 
 __all__ = [
     "BilinearUpsample",
-    "ConvBlock",
     "ConvNeXtBlock",
     "TransposedConvUpsample",
     "CappedGELU",
-    "CappedLeakyReLU",
     "ReLU",
     "BLOCK_REGISTRY",
     "DOWNSAMPLE_REGISTRY",

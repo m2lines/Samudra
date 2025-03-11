@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS
 from datasets import TrainData
-from train_3D import Trainer
+from train import Trainer
 
 # Note: Refactoring data loaders is planned for the near-term. Ideally,
 # these fixtures allow us to isolate data loader tests from their setup.

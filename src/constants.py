@@ -74,22 +74,22 @@ MASK_VARS = [
 ]
 
 INPT_VARS = {
-    "3D_all": [
+    "thermo_dynamic": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
     + ["zos"],
-    "3D_noFast_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
+    "thermo": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
     + ["zos"],
 }
 EXTRA_VARS = {
-    "3D_all_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
+    "hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
 }
 OUT_VARS = {
-    "3D_all": [
+    "thermo_dynamic": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
     + ["zos"],
-    "3D_noFast_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
+    "thermo": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
     + ["zos"],
 }
 

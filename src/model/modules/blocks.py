@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models.modules.activations import CappedGELU
+from model.modules.activations import CappedGELU
 
 
 class TransposedConvUpsample(torch.nn.Module):
@@ -66,64 +66,7 @@ class MaxPool(torch.nn.Module):
         return self.maxpool(x)
 
 
-class CoreBlock(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, dilation, pad):
-        super().__init__()
-        assert kernel_size % 2 != 0, "Cannot use even kernel sizes!"
-
-        self.N_in = in_channels
-        self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
-        self.pad = pad
-
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
-        raise NotImplementedError()
-
-
-class ConvBlock(CoreBlock):
-    def __init__(
-        self,
-        in_channels: int = 300,
-        out_channels: int = 1,
-        kernel_size: int = 3,
-        dilation: int = 1,
-        n_layers: int = 1,
-        activation: torch.nn.Module = CappedGELU,
-        pad="circular",
-    ):
-        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
-
-        layers = []
-        layers.append(
-            torch.nn.Conv2d(in_channels, out_channels, kernel_size, dilation=dilation)
-        )
-        layers.append(torch.nn.BatchNorm2d(out_channels))
-        layers.append(activation())
-        for _ in range(n_layers - 1):
-            layers.append(
-                torch.nn.Conv2d(
-                    out_channels, out_channels, kernel_size, dilation=dilation
-                )
-            )
-            layers.append(torch.nn.BatchNorm2d(out_channels))
-            layers.append(activation())
-
-        self.layers = nn.ModuleList(layers)
-        # self.layers = nn.ModuleList(layer)
-
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
-        for layer in self.layers:
-            if isinstance(layer, nn.Conv2d):
-                fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                fts = torch.nn.functional.pad(
-                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
-            fts = layer(fts)
-        return fts
-
-
-class ConvNeXtBlock(CoreBlock):
+class ConvNeXtBlock(torch.nn.Module):
     """
     A convolution block as reported in https://github.com/CognitiveModeling/dlwp-hpx/blob/main/src/dlwp-hpx/dlwp/model/modules/blocks.py.
 
@@ -144,7 +87,13 @@ class ConvNeXtBlock(CoreBlock):
         upscale_factor: int = 4,
         norm="batch",
     ):
-        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        super().__init__()
+        assert kernel_size % 2 != 0, "Cannot use even kernel sizes!"
+
+        self.N_in = in_channels
+        self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
+        self.pad = pad
+
         assert n_layers == 1, "Can only use a single layer here!"
 
         # Instantiate 1x1 conv to increase/decrease channel depth if necessary

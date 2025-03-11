@@ -21,7 +21,7 @@ from torch.utils.data import (
 from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset, InferenceDatasets, TrainDataset
-from models.unet import UNet
+from model.samudra import Samudra
 from stepper import Stepper, TrainOutput, ValOutput
 from utils.data import Normalize, extract_wet_mask, get_inference_steps, validate_data
 from utils.device import get_device, using_gpu
@@ -141,7 +141,7 @@ class Trainer:
 
         # Model
         logging.info(f"Getting model {cfg.experiment.network}")
-        if "convnextunet" == cfg.experiment.network:
+        if "samudra" == cfg.experiment.network:
             if cfg.unet.ch_width[0] != self.num_in:
                 logging.info(
                     f"NOTE: Changing input channels to match data "
@@ -154,9 +154,9 @@ class Trainer:
                     f"{cfg.unet.n_out}->{self.num_out}"
                 )
                 cfg.unet.n_out = self.num_out
-            model = UNet(cfg.unet, hist=cfg.data.hist, wet=self.wet.to(self.device)).to(
-                self.device
-            )
+            model = Samudra(
+                cfg.unet, hist=cfg.data.hist, wet=self.wet.to(self.device)
+            ).to(self.device)
         else:
             raise NotImplementedError
 

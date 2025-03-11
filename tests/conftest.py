@@ -184,7 +184,7 @@ def train_config(
         )
         experiment_config = dataclasses.replace(
             trainer.experiment,
-            cluster_data_dir=os.path.join(tmpdir, "cluster_data"),
+            data_dir=os.path.join(tmpdir, "cluster_data"),
         )
         test_data_trainer = dataclasses.replace(
             trainer,

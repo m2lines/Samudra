@@ -2,18 +2,16 @@ from typing import Type
 
 import torch.nn as nn
 
-from models.modules.activations import CappedGELU, ReLU
-from models.modules.blocks import (
+from model.modules.activations import CappedGELU, ReLU
+from model.modules.blocks import (
     AvgPool,
     BilinearUpsample,
-    ConvBlock,
     ConvNeXtBlock,
     MaxPool,
     TransposedConvUpsample,
 )
 
 BLOCK_REGISTRY = {
-    "conv_block": ConvBlock,
     "conv_next_block": ConvNeXtBlock,
 }
 

@@ -1,13 +1,15 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, TypeAlias
 
 import cftime
 import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
+from jaxtyping import Bool
 
 import config
 from constants import (
+    DEPTH_I_LEVELS,
     MASK_VARS,
     ExtraVars,
     Grid,
@@ -17,6 +19,9 @@ from constants import (
     OutputVars,
     TensorMap,
 )
+
+XWetMask: TypeAlias = Bool[xr.DataArray, "lev 180 360"]
+XSurfaceMask: TypeAlias = Bool[xr.DataArray, "1 180 360"]
 
 
 def extract_wet_mask(
@@ -31,13 +36,7 @@ def extract_wet_mask(
         wet_mask_np = wet_mask.to_array().to_numpy()
         wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
 
-    depth_ind = []
-    for var_depth_i in outputs:
-        var_split = var_depth_i.split("_")
-        if len(var_split) == 1:
-            depth_ind.append(0)
-        else:
-            depth_ind.append(int(var_split[-1]))
+    depth_ind = _parse_lev_from_output_var(outputs)
 
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)
@@ -45,14 +44,62 @@ def extract_wet_mask(
     return wet_inp.bool(), wet_surface.bool()
 
 
-def xwet_mask(data: xr.Dataset, outputs: OutputVars, hist: int) -> xr.Dataset:
-    wet_mask = data[MASK_VARS]
-    if "time" in wet_mask.dims:
-        wet_mask_ = wet_mask.isel(time=0)
-        wet_surface_mask_np = wet_mask[MASK_VARS[0]].isel(time=0)
-    else:
-        wet_mask_np = wet_mask
-        wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
+def _parse_lev_from_output_var(outputs: OutputVars) -> list[int]:
+    """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
+    depth_inds = []
+    for var_depth_i in outputs:
+        # Examples: "so_18", "zos"
+        var_split = var_depth_i.split("_")
+        if len(var_split) == 1:
+            depth_inds.append(0)
+        else:
+            depth_inds.append(int(var_split[-1]))
+
+    return depth_inds
+
+
+def flatten_masks(data: xr.Dataset) -> xr.Dataset:
+    """Adds data_vars "mask_0"..."mask_18" with dimensions (y, x)."""
+    if MASK_VARS[0] not in data.variables:
+        assert "wetmask" in data.variables, "Wet mask cannot be constructed without "
+        "either the wetmask variable or the level-wise masks"
+
+        wet_mask = data["wetmask"]
+        for i, lev in enumerate(DEPTH_I_LEVELS):
+            assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
+            data[f"mask_{lev}"] = wet_mask.isel(lev=i)
+
+        data = data.drop_vars("wetmask")
+
+    return data
+
+
+def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
+    """Adds a "wetmask" `xarray.DataArray` with dimensions (lev, y, x)."""
+    if "wetmask" not in data.variables:
+        assert MASK_VARS[0] in data.variables, "Wet mask must have masks as data vars!"
+
+        wetmask = data[MASK_VARS].to_array(dim="lev", name="wetmask")
+        wetmask.assign_coords(lev=data.lev)
+
+        data["wetmask"] = wetmask
+        data = data.drop_vars(MASK_VARS)
+
+    return data
+
+
+def xwet_mask(data: xr.Dataset, outputs: OutputVars) -> tuple[XWetMask, XSurfaceMask]:
+    data_with_wetmask = unflatten_masks(data)
+    output_depths = _parse_lev_from_output_var(outputs)
+
+    wetmask = data_with_wetmask.wetmask.isel(lev=output_depths)
+    wetmask_surface = wetmask.isel(lev=0)
+
+    if "time" in wetmask.dims:
+        wetmask = wetmask.isel(time=0)
+        wetmask_surface = wetmask.isel(time=0)
+
+    return wetmask.astype(bool), wetmask_surface.astype(bool)
 
 
 def spherical_area_weights(data: xr.Dataset) -> Grid:

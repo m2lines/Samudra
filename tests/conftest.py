@@ -177,6 +177,7 @@ class DataSourceDims:
         coords = {
             "lon": xr.DataArray(self.lng, dims=["lon"]),
             "lat": xr.DataArray(self.lat, dims=["lat"]),
+            "lev": xr.DataArray(np.array(c.DEPTH_LEVELS), dims=["lev"]),
             "time": xr.DataArray(time, dims=["time"]),
         }
         return coords

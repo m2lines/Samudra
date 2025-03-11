@@ -257,6 +257,29 @@ class TrainData:
             )
 
 
+class XTrainDataset(Dataset):
+    """An Xarray-based-`torch.Dataset` to create training and validation examples."""
+
+    def __init__(
+        self,
+        data: xr.Dataset,
+        inputs_str: InputVars,
+        extra_in_str: ExtraVars,
+        outputs_str: OutputVars,
+        hist: int,
+        steps: int,
+        stride: int = 1,
+    ) -> None:
+        pass
+
+    def __len__(self) -> int:
+        pass
+        return 0
+
+    def __getitem__(self, idx: int) -> Example:
+        return (None, None)
+
+
 class TrainDataset(Dataset):
     """
     This class is used for training and validation.
@@ -378,6 +401,7 @@ class TrainDataset(Dataset):
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
+        return None, None
 
     def _get_x_index(
         self, idx: int, step: int, prev_rolling_idx: int | None

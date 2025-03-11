@@ -1,8 +1,9 @@
 from typing import Type
 
 import torch.nn as nn
-from model.modules.activations import CappedGELU, ReLU
-from model.modules.blocks import (
+
+from models.activations import CappedGELU, ReLU
+from models.blocks import (
     AvgPool,
     BilinearUpsample,
     ConvNeXtBlock,

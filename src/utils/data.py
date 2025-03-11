@@ -5,8 +5,9 @@ import cftime
 import numpy as np
 import torch
 import xarray as xr
-from constants import DEPTH_I_LEVELS, DEPTH_LEVELS, MASK_VARS, TensorMap
 from einops import rearrange
+
+from constants import DEPTH_I_LEVELS, DEPTH_LEVELS, MASK_VARS, TensorMap
 
 
 def extract_wet_mask(data, outputs, hist):

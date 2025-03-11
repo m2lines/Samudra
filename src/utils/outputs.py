@@ -1,15 +1,4 @@
-import logging
-
-import numpy as np
 import torch
-from torchinfo import summary
-
-
-def get_model_summary(model: torch.nn.Module, num_input_channels: int):
-    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    params = sum([np.prod(p.size()) for p in model_parameters])
-    logging.info(f"Number of parameters: {params}")
-    logging.info(summary(model))
 
 
 class TrainOutput:

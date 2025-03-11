@@ -7,10 +7,11 @@ import traceback
 
 import torch
 import xarray as xr
+
 from config import EvalConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset
-from model.samudra import Samudra
+from models.samudra import Samudra
 from stepper import Stepper
 from utils.data import Normalize, extract_wet_mask, get_inference_steps, validate_data
 from utils.device import get_device, using_gpu

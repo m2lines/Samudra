@@ -3,6 +3,8 @@ from itertools import tee
 from typing import Sequence, Tuple
 
 import torch
+import torch.nn.functional as F
+
 from datasets import InferenceDataset, TrainData
 
 
@@ -11,6 +13,11 @@ def pairwise(iterable):
     a, b = tee(iterable)
     next(b, None)
     return zip(a, b)
+
+
+def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """Standard MSE loss computed per channel."""
+    return F.mse_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
 
 
 def collate_train_data(data: Sequence[TrainData]) -> TrainData:

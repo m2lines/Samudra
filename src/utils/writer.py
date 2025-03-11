@@ -3,10 +3,11 @@ from typing import Dict, Optional
 
 import torch
 import xarray as xr
-from constants import TensorMap
 from einops import rearrange
+
+from constants import TensorMap
+from src.utils.outputs import InfOutput
 from utils.data import Normalize
-from utils.model import InfOutput
 
 
 class ZarrWriter:

@@ -4,9 +4,10 @@ from typing import Union
 import numpy as np
 import torch
 import torch.nn as nn
+
 from datasets import InferenceDataset, TrainData
-from model.modules.blocks import BilinearUpsample, ConvNeXtBlock, TransposedConvUpsample
-from model.modules.factory import (
+from models.blocks import BilinearUpsample, ConvNeXtBlock, TransposedConvUpsample
+from models.factory import (
     create_block,
     create_downsample,
     create_upsample,

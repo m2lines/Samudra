@@ -69,13 +69,7 @@ class Trainer:
         assert self.inputs == self.outputs, "Input and output "
         "variables must be the same"
 
-        levels = cfg.experiment.exp_num_in.split("_")[-1]
-        if "all" in levels:
-            self.levels = 19
-        elif "2D" in levels:
-            self.levels = 1
-        else:
-            self.levels = int(levels)
+        self.levels = 19
 
         self.str_in = ", ".join([i for i in self.inputs])
         self.str_ext = ", ".join([i for i in self.extra_in])
@@ -88,7 +82,7 @@ class Trainer:
 
         self.N_atm = len(self.extra_in)
         self.N_in = len(self.inputs)
-        self.N_extra = self.N_atm  # Number of atmosphere variables
+        self.N_extra = self.N_atm
         self.N_out = len(self.outputs)
 
         self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
@@ -326,18 +320,17 @@ class Trainer:
                 self.save_all_checkpoints(epoch, v_loss, inf_loss)
 
             time_elapsed = time.time() - start_epoch_train_time
-
-            log_stats = {
-                "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
-                "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
-                "epoch_total_seconds": time_elapsed,
-            }
-
+            logging.info(
+                f"Train time: {end_epoch_train_time - start_epoch_train_time:.3f}s"
+            )
+            logging.info(
+                f"Validation time: {end_epoch_val_time - end_epoch_train_time:.3f}s"
+            )
             if end_epoch_inf_time is not None:
-                log_stats["epoch_inference_seconds"] = (
-                    end_epoch_inf_time - end_epoch_val_time
+                logging.info(
+                    f"Inference time: {end_epoch_inf_time - end_epoch_val_time:.3f}s"
                 )
-            logging.info(log_stats)
+            logging.info(f"Total time: {time_elapsed:.3f}s")
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -544,6 +537,10 @@ class Trainer:
     def save_all_checkpoints(self, epoch, v_loss, inf_loss):
         save_best_checkpoint = False
         if v_loss <= self.best_val_loss:
+            logging.info(
+                f"Epoch validation loss ({v_loss}) is lower than "
+                f"previous best validation loss ({self.best_val_loss})."
+            )
             logging.info(
                 "Saving lowest validation loss checkpoint to "
                 f"{self.ckpt_paths.best_validation_checkpoint_path}"

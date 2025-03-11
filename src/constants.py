@@ -74,109 +74,22 @@ MASK_VARS = [
 ]
 
 INPT_VARS = {
-    "1": ["um", "vm"],
-    "2": ["um", "vm", "ur", "vr"],
-    "3": ["um", "vm", "Tm"],
-    "4": ["um", "vm", "ur", "vr", "Tm", "Tr"],
-    "5": ["ur", "vr"],
-    "6": ["ur", "vr", "Tr"],
-    "7": ["Tm"],
-    "8": ["Tm", "Tr"],
-    "9": ["u", "v"],
-    "10": ["u", "v", "T"],
-    "11": ["tau_u", "tau_v"],
-    "12": ["tau_u", "tau_v", "t_ref"],
-    "3D": ["uo", "vo", "thetao", "so", "zos"],
-    "2D": [k + DEPTH_I_LEVELS[0] for k in ["uo_", "vo_", "thetao_", "so_"]] + ["zos"],
-    "3D_5": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
-    ]
-    + ["zos"],
     "3D_all": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
     + ["zos"],
-    "3D_tos_all": ["tos", "zos"]
-    + [k + str(j) for k in ["so_", "thetao_", "uo_", "vo_"] for j in DEPTH_I_LEVELS],
     "3D_noFast_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
-    + ["zos"],
-    "3D_TS_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS],
-    "3D_onlyTemp_all": [k + str(j) for k in ["thetao_"] for j in DEPTH_I_LEVELS],
-    "3D_SST_all": [
-        k + str(j)
-        for k in ["uo_", "vo_", "thetao_", "so_"]
-        for j in DEPTH_I_LEVELS
-        if not (k == "thetao_" and j == DEPTH_I_LEVELS[0])
-    ]
     + ["zos"],
 }
 EXTRA_VARS = {
-    "1": ["ur", "vr"],
-    "2": ["ur", "vr", "Tm"],
-    "3": ["Tm"],
-    "4": ["ur", "vr", "Tm", "Tr"],
-    "NoBoundary": [],
-    "6": ["um", "vm"],
-    "7": ["um", "vm", "Tm"],
-    "8": ["um", "vm", "Tm", "Tr"],
-    "9": ["ur", "vr", "tau_u", "tau_v"],
-    "10": ["tau_u", "tau_v"],
-    "11": ["t_ref"],
-    "12": ["tau_u", "tau_v", "t_ref"],
-    "13": ["ur", "vr", "Tr", "tau_u", "tau_v", "t_ref"],
-    "3D": ["tauuo", "tauvo", "hfds"],
-    "2D": ["tauuo", "tauvo", "hfds"],
-    "3D_noFast_all": [k + str(j) for k in ["uo_", "vo_"] for j in DEPTH_I_LEVELS]
-    + ["tauuo", "tauvo", "hfds"],
-    "3D_5": ["tauuo", "tauvo", "hfds"],
-    "3D_all": ["tauuo", "tauvo", "hfds"],
-    "3D_mask_all": ["hfds", "tauuo", "tauvo"]
-    + [k + str(j) for k in ["mask_"] for j in DEPTH_I_LEVELS],
     "3D_all_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
-    "3D_all_hfds_anom_cuminteg": [
-        "tauuo",
-        "tauvo",
-        "hfds",
-        "hfds_anomalies",
-        "cum_integrated_heat",
-    ],
-    "3D_all_onlyhfds_cuminteg": ["tauuo", "tauvo", "cum_integrated_heat"],
-    "3D_all_SAT_tos": ["tauuo", "tauvo", "DSWRFtoa", "air_temperature_at_two_meters"],
-    "3D_all_SAT": ["tauuo", "tauvo", "air_temperature_at_two_meters"],
 }
 OUT_VARS = {
-    "1": ["um", "vm"],
-    "2": ["um", "vm", "Tm"],
-    "3": ["ur", "vr"],
-    "4": ["ur", "vr", "Tr"],
-    "5": ["u", "v"],
-    "6": ["u", "v", "T"],
-    "3D": ["uo", "vo", "thetao", "so", "zos"],
-    "2D": [k + DEPTH_I_LEVELS[0] for k in ["uo_", "vo_", "thetao_", "so_"]] + ["zos"],
-    "3D_5": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
-    ]
-    + ["zos"],
-    "3D_noFast_5": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]]
-    + ["zos"],
     "3D_all": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
     + ["zos"],
-    "3D_tos_all": ["tos", "zos"]
-    + [k + str(j) for k in ["so_", "thetao_", "uo_", "vo_"] for j in DEPTH_I_LEVELS],
     "3D_noFast_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
-    + ["zos"],
-    "3D_onlyTemp_all": [k + str(j) for k in ["thetao_"] for j in DEPTH_I_LEVELS],
-    "3D_onlyFast_all": [k + str(j) for k in ["uo_", "vo_"] for j in DEPTH_I_LEVELS]
-    + ["zos"],
-    "3D_TS_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS],
-    "3D_SST_all": [
-        k + str(j)
-        for k in ["uo_", "vo_", "thetao_", "so_"]
-        for j in DEPTH_I_LEVELS
-        if not (k == "thetao_" and j == DEPTH_I_LEVELS[0])
-    ]
     + ["zos"],
 }
 

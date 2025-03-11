@@ -61,7 +61,7 @@ class Eval:
 
         self.N_atm = len(self.extra_in)
         self.N_in = len(self.inputs)
-        self.N_extra = self.N_atm  # Number of atmosphere variables
+        self.N_extra = self.N_atm
         self.N_out = len(self.outputs)
 
         self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)

@@ -25,16 +25,16 @@ dependencies = [
   "cftime",
   "dask",
   "matplotlib",
-  "numpy<2",
-  "torch==2.2.1",
+  "numpy<2",      # There is some incompatibility between a dependency and numpy 2+
+  "torch~=2.2.1",
   "wandb",
   "xarray[io]",
   "pyyaml",
   "dacite",
   "einops",
   "torchinfo",
-  "zarr>=3",
-  "jaxtyping>=0.2.38",
+  "zarr",
+  "jaxtyping",
 ]
 version = "2025.1.0"
 

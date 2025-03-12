@@ -939,15 +939,15 @@ requires-dist = [
     { name = "dacite" },
     { name = "dask" },
     { name = "einops" },
-    { name = "jaxtyping", specifier = ">=0.2.38" },
+    { name = "jaxtyping" },
     { name = "matplotlib" },
     { name = "numpy", specifier = "<2" },
     { name = "pyyaml" },
-    { name = "torch", specifier = "==2.2.1" },
+    { name = "torch", specifier = "~=2.2.1" },
     { name = "torchinfo" },
     { name = "wandb" },
     { name = "xarray", extras = ["io"] },
-    { name = "zarr", specifier = ">=3" },
+    { name = "zarr" },
 ]
 
 [package.metadata.requires-dev]

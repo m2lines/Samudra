@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741627723191,
+  "lastUpdate": 1741818770588,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -341,6 +341,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14006964569640215",
             "extra": "mean: 113.18701734659999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a97aedbdefcb457c38975dcf92760f06ae6bd8fe",
+          "message": "Simple utility script to clone Samudra data locally. (#107)\n\nClones OM4 in about 600s using ~100MB chunks. Saves means and stds as\nNetCDF. Is packaged as a `uv` script (it self-describes dependencies).\n\nThis change is in service of setting up remote GPU runs and chunk\ntuning.\n\n---------\n\nCo-authored-by: Surya Dheeshjith <41594351+suryadheeshjith@users.noreply.github.com>",
+          "timestamp": "2025-03-12T14:58:58-07:00",
+          "tree_id": "cbaadc70bab29f387c6851c16096922d6698e51d",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/a97aedbdefcb457c38975dcf92760f06ae6bd8fe"
+        },
+        "date": 1741818769656,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.08425397039594708,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10199128897160649",
+            "extra": "mean: 11.868876864799995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.2342176528625997,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09519466891075043",
+            "extra": "mean: 4.269533008200005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.2098116748303666,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09907749668723016",
+            "extra": "mean: 4.766179006999982 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.008902273599793342,
+            "unit": "iter/sec",
+            "range": "stddev: 0.759238922851277",
+            "extra": "mean: 112.33085444859996 sec\nrounds: 5"
           }
         ]
       }

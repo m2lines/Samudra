@@ -170,9 +170,9 @@ class DataSourceDims:
             (DataSourceDims, int) - Parsed dims and data_var index.
         """
         encoded = da.to_numpy()
-        assert len(encoded.shape) == 3, (
-            "DataArray must have (time, lat, lng) dimensions."
-        )
+        assert (
+            len(encoded.shape) == 3
+        ), "DataArray must have (time, lat, lng) dimensions."
 
         scalar = encoded.flat[0]
         tim_dim = encoded[:, 0, 0]

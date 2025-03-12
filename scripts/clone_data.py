@@ -2,8 +2,10 @@
 # /// script
 # requires-python = ">=3.10"
 # dependencies = [
-#     "xarray[io]",
-#     "dask",
+#   "xarray[io]",
+#   "dask",
+#   "requests",
+#   "aiohttp",
 # ]
 # ///
 
@@ -28,19 +30,17 @@ def main(dest_root: pathlib.Path, time_slice: slice) -> None:
         ("OM4_stds", "netcdf"),
     ]:
         dest = dest_root / name
+        target = DATA_ROOT + name
 
         if name == "OM4":
-            data = xr.open_dataset(
-                DATA_ROOT + name, engine="zarr", chunks={"time": 700}
-            )
+            data = xr.open_dataset(target, engine="zarr", chunks={"time": 700})
             data = data.isel(time=time_slice)
-            data = data.chunk({"time": 1})
         else:
-            data = xr.open_dataset(DATA_ROOT + name, engine="zarr", chunks={})
+            data = xr.open_dataset(target, engine="zarr", chunks={})
 
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":
-                data.to_zarr(str(dest) + ".zarr")
+                data.chunk(dict(time=1)).to_zarr(str(dest) + ".zarr")
             else:
                 data.to_netcdf(str(dest) + ".nc")
 

@@ -22,19 +22,19 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-  "cftime",
-  "dask",
-  "matplotlib",
-  "numpy<2",      # There is some incompatibility between a dependency and numpy 2+
-  "torch~=2.2.1",
-  "wandb",
-  "xarray[io]",
-  "pyyaml",
-  "dacite",
-  "einops",
-  "torchinfo",
-  "zarr",
-  "jaxtyping",
+  "cftime>=1.6.4.post1",
+  "dacite>=1.9.2",
+  "dask>=2025.2.0",
+  "einops>=0.8.1",
+  "jaxtyping>=0.2.38",
+  "matplotlib>=3.10.1",
+  "numpy>=1.26.4,<2",     # There is some incompatibility between a dependency and numpy 2+
+  "pyyaml>=6.0.2",
+  "torch>=2.2.1",
+  "torchinfo>=1.8.0",
+  "wandb>=0.19.8",
+  "xarray[io]>=2025.1.2",
+  "zarr>=3.0.5",
 ]
 version = "2025.1.0"
 

@@ -905,7 +905,7 @@ wheels = [
 
 [[package]]
 name = "ocean-emulators"
-version = "2025.1.0"
+version = "1.0"
 source = { editable = "." }
 dependencies = [
     { name = "cftime" },
@@ -937,14 +937,14 @@ dev = [
 requires-dist = [
     { name = "cftime", specifier = ">=1.6.4.post1" },
     { name = "dacite", specifier = ">=1.9.2" },
-    { name = "dask", specifier = ">=2025.2.0" },
+    { name = "dask", specifier = ">=2025.2" },
     { name = "einops", specifier = ">=0.8.1" },
     { name = "jaxtyping", specifier = ">=0.2.38" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "torch", specifier = "~=2.2.1" },
-    { name = "torchinfo", specifier = ">=1.8.0" },
+    { name = "torchinfo", specifier = ">=1.8" },
     { name = "wandb", specifier = ">=0.19.8" },
     { name = "xarray", extras = ["io"], specifier = ">=2025.1.2" },
     { name = "zarr", specifier = ">=3.0.5" },

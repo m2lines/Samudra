@@ -25,7 +25,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: uv sync --dev --all-extras
+        run: uv sync --locked --dev --all-extras
 
       - name: Run pytest
-        run: uv run pytest -v -m "not manual and not cuda"
+        run: uv run --locked pytest -v -m "not manual and not cuda"

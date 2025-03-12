@@ -34,7 +34,7 @@ def main(dest_root: pathlib.Path, time_slice: slice) -> None:
                 DATA_ROOT + name, engine="zarr", chunks={"time": 700}
             )
             data = data.isel(time=time_slice)
-            data.chunk({"time": 1})
+            data = data.chunk({"time": 1})
         else:
             data = xr.open_dataset(DATA_ROOT + name, engine="zarr", chunks={})
 

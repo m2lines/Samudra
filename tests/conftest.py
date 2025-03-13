@@ -10,8 +10,8 @@ import xarray as xr
 from numpy.typing import NDArray
 from typing_extensions import Self
 
-import constants as c
-from config import TrainBackendConfig, TrainConfig
+import ocean_emulators.constants as c
+from ocean_emulators.config import TrainBackendConfig, TrainConfig
 
 
 @dataclasses.dataclass
@@ -370,7 +370,7 @@ def train_config(
 def trainer_pair(train_config: TrainConfig):
     # Import needs to be here in order to prevent a gnarly jaxtyping bug:
     # See https://github.com/patrick-kidger/jaxtyping/issues/306
-    from train_3D import Trainer
+    from ocean_emulators.train_3D import Trainer
 
     trainer = Trainer(train_config)
 

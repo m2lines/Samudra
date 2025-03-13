@@ -6,17 +6,17 @@ import itertools
 import cftime
 import numpy as np
 import pytest
-from conftest import DataSourceDims
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader
 
-from config import TrainConfig
-from constants import EXTRA_VARS, INPT_VARS, OUT_VARS
-from datasets import TrainData
-from train_3D import Trainer
+from ocean_emulators.config import TrainConfig
+from ocean_emulators.constants import EXTRA_VARS, INPT_VARS, OUT_VARS
+from ocean_emulators.datasets import TrainData
+from ocean_emulators.train_3D import Trainer
+from tests.conftest import DataSourceDims
 
 # Note: Refactoring data loaders is planned for the near-term. Ideally,
 # these fixtures allow us to isolate data loader tests from their setup.

@@ -54,10 +54,10 @@ def main(args: argparse.Namespace) -> float:
         # Zarr v3 has a runtime config contextmanager.
         if zc := args.zarr_concurrency:
             with zarr.config.set({"async.concurrency": zc}):
-                ds = xr.open_zarr(target, chunks=chunks)
+                ds = xr.open_zarr(target, chunks=chunks, consolidated=True)
         # Zarr v2 does not.
         else:
-            ds = xr.open_zarr(target, chunks=chunks)
+            ds = xr.open_zarr(target, chunks=chunks, consolidated=True)
 
         if args.write_test_data:
             with tempfile.TemporaryDirectory() as tmpdir:

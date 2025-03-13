@@ -3,9 +3,7 @@ import os
 from copy import deepcopy
 from datetime import datetime
 
-import cftime
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 
@@ -242,13 +240,6 @@ def get_plot_ready_cm4_data(pred_dict, output_path, long_rollout):
     return ds_groundtruth, pred_dict
 
 
-def convert_datetime64_to_cftime(t):
-    ts = pd.Timestamp(t)
-    return cftime.DatetimeProlepticGregorian(
-        ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second, ts.microsecond
-    )
-
-
 def get_plot_ready_om4_data(pred_dict, output_path, long_rollout):
     """
     Get plot ready OM4 data.
@@ -337,10 +328,9 @@ def get_plot_ready_om4_data(pred_dict, output_path, long_rollout):
 
     ### Convert time from np.datetime64 to DatetimeProlepticGregorian
     times = ds_groundtruth.time.values
-    times_updated = [convert_datetime64_to_cftime(t) for t in times]
-    ds_groundtruth["time"] = times_updated
+    ds_groundtruth["time"] = times
     for key in pred_dict.keys():
-        pred_dict[key]["ds_prediction"]["time"] = times_updated
+        pred_dict[key]["ds_prediction"]["time"] = times
 
     return ds_groundtruth, pred_dict
 

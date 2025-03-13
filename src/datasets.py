@@ -269,7 +269,7 @@ class TrainDataset(Dataset):
 
     def __init__(
         self,
-        data,
+        data: xr.Dataset,
         inputs_str,
         extra_in_str,
         outputs_str,
@@ -286,10 +286,10 @@ class TrainDataset(Dataset):
         self.steps = steps
         self.stride = stride
 
-        self._outputs = data[outputs_str]
+        self._outputs: xr.DataArray = data[outputs_str].as_numpy()
         self.output_channels = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra = data[inputs_str]
-        self._extras = data[extra_in_str]
+        self._inputs_no_extra: xr.DataArray = data[inputs_str].as_numpy()
+        self._extras: xr.DataArray = data[extra_in_str].as_numpy()
 
         # This class will be used only for training
         total_steps = 2 * self.hist + 2

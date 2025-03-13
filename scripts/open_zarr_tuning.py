@@ -2,10 +2,11 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "xarray[io]",
-#   "zarr>=3",
+#   "zarr>=3",   # Zarr v2 --> change to `zarr<3`; Zarr v3 --> change to `zarr>=3`.
 #   "dask",
 #   "requests",
 #   "aiohttp",
+#   "numcodecs>=0.15",
 # ]
 # ///
 """Experimenting with optimal ways to open the OM4 Zarr.
@@ -21,7 +22,9 @@ How to run experiments:
 import argparse
 import pathlib
 import sys
+import tempfile
 import time
+from typing import Any
 
 import xarray as xr
 import zarr
@@ -31,21 +34,36 @@ REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/OM4"
 
 def main(args: argparse.Namespace) -> float:
     """Calculates elapsed time to open Zarr target over several iterations."""
+    target = args.target or REMOTE_DATA
+
     chunks = {}
     if tc := args.time_chunks:
         chunks["time"] = tc
 
-    target = args.target or REMOTE_DATA
+    write_kwargs: dict[str, Any] = dict(consolidated=False)
+    if zarr.__version__.startswith("3"):
+        import numcodecs
+        import numcodecs.zarr3
+
+        # Bug in Zarr v3 Codecs; using a workaround:
+        # https://github.com/pydata/xarray/issues/9987#issuecomment-2631471771
+        write_kwargs["encoding"] = {"zos": {"compressors": [numcodecs.zarr3.Blosc()]}}
 
     start_time = time.perf_counter()
     for _ in range(args.n_iters):
         # Zarr v3 has a runtime config contextmanager.
         if zc := args.zarr_concurrency:
             with zarr.config.set({"async.concurrency": zc}):
-                xr.open_zarr(target, chunks=chunks)
+                ds = xr.open_zarr(target, chunks=chunks)
         # Zarr v2 does not.
         else:
-            xr.open_zarr(target, chunks=chunks)
+            ds = xr.open_zarr(target, chunks=chunks)
+
+        if args.write_test_data:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                ds.zos.isel(time=slice(0, 1024)).to_zarr(
+                    tmpdir + "OM4.zarr", **write_kwargs
+                )
     end_time = time.perf_counter()
 
     return end_time - start_time
@@ -68,6 +86,7 @@ if __name__ == "__main__":
         default=getattr(zarr, "config", {}).get("async.concurrency"),
     )
     parser.add_argument("--time_chunks", type=int, default=None)
+    parser.add_argument("--write_test_data", action="store_true")
     args = parser.parse_args()
 
     print(sys.version)

@@ -3,7 +3,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 1
-batch_size: 1
+batch_size: 2
 learning_rate: 0.0002
 scheduler: true
 loss: mse
@@ -53,13 +53,10 @@ data:
 
 
 unet:
-  # ch_width: [157, 200, 250, 300, 400]
-  ch_width: [157,200]
+  ch_width: [157, 200, 250, 300, 400]
   n_out: 77
-  # dilation: [1, 2, 4, 8]
-  # n_layers: [1, 1, 1, 1]
-  dilation: [1]
-  n_layers: [1]
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"

@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -286,10 +287,14 @@ class TrainDataset(Dataset):
         self.steps = steps
         self.stride = stride
 
+        now = time.time()
         self._outputs: xr.DataArray = data[outputs_str].as_numpy()
         self.output_channels = (hist + 1) * len(outputs_str)
         self._inputs_no_extra: xr.DataArray = data[inputs_str].as_numpy()
         self._extras: xr.DataArray = data[extra_in_str].as_numpy()
+        logging.info(
+            "Time taken to load data: {0:.2f} seconds".format(time.time() - now)
+        )
 
         # This class will be used only for training
         total_steps = 2 * self.hist + 2

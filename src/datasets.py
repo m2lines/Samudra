@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Float, Integer
+from jaxtyping import Float
 from torch.utils.data import Dataset
 
 from constants import (
@@ -365,7 +365,7 @@ class TrainDataset(Dataset):
 
     def _get_x_index(
         self, idx: int, step: int, prev_rolling_idx: int | None
-    ) -> Integer[xr.Variable, "window_dim time"]:
+    ) -> xr.Variable:
         assert isinstance(idx, int)
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")

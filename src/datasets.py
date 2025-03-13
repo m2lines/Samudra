@@ -42,16 +42,10 @@ class InferenceDataset(Dataset):
 
         self.hist = hist
 
-        logging.info("Preloading data")
-        start = time.time()
-        self._outputs = data[outputs_str].as_numpy()
+        self._outputs = data[outputs_str]
         self.output_channels = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra = data[inputs_str].as_numpy()
-        self._extras = data[extra_in_str].as_numpy()
-        duration = time.time() - start
-        logging.info(
-            "Time taken to load data: {0} seconds".format(duration)
-        )
+        self._inputs_no_extra = data[inputs_str]
+        self._extras = data[extra_in_str]
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -285,6 +279,7 @@ class TrainDataset(Dataset):
         hist,
         steps,
         stride=1,
+        preload_data: bool = False,
     ):
         super().__init__()
         self.device = get_device()
@@ -297,6 +292,17 @@ class TrainDataset(Dataset):
         self.output_channels = (hist + 1) * len(outputs_str)
         self._inputs_no_extra = data[inputs_str]
         self._extras = data[extra_in_str]
+
+        if preload_data:
+            logging.info("Preloading data")
+            start = time.time()
+            self._outputs = self._outputs.as_numpy()
+            self._inputs_no_extra = self._inputs_no_extra.as_numpy()
+            self._extras = self._extras.as_numpy()
+            duration = time.time() - start
+            logging.info(
+                "Time taken to load data: {0} seconds".format(duration)
+            )
 
         # This class will be used only for training
         total_steps = 2 * self.hist + 2

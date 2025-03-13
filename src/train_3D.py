@@ -145,6 +145,7 @@ class Trainer:
         self.data_means_path = cfg.data.data_means_path
         self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
+        self.preload_data = cfg.preload_data
 
         if "*" in self.data_path:
             data = xr.open_mfdataset(
@@ -299,7 +300,7 @@ class Trainer:
             self.start_epoch = 1
 
         # Modify DDP setup based on device
-        if using_gpu():
+        if cfg.distributed.enabled:
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
             self.model = nn.parallel.DistributedDataParallel(
                 self.model, device_ids=[cfg.distributed.gpu]
@@ -630,7 +631,8 @@ class Trainer:
                     self.wet_surface,
                     self.hist,
                     cur_step,
-                    stride,
+                    stride=stride,
+                    preload_data=self.preload_data,
                 )
                 for stride in self.data_stride
             ]

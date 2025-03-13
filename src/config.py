@@ -120,6 +120,7 @@ class TrainConfig:
     finetune: bool = False
     resume_ckpt_path: Optional[str] = None
     debug: bool = False
+    preload_data: bool = False
 
     # Data parameters at root level
     data_percent: float = 1.0
@@ -178,6 +179,7 @@ class TrainConfig:
             "steps": self.steps,
             "step_transition": self.step_transition,
             "inference_epochs": self.inference_epochs,
+            "preload_data": self.preload_data,
             "train": self.train.__dict__,
             "val": self.val.__dict__,
             "inference": [t.__dict__ for t in self.inference],

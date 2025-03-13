@@ -29,6 +29,7 @@ inference:
 data_stride: [1]
 steps: [4]
 step_transition: []
+preload_data: False
 
 distributed:
   enabled: true

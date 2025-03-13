@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -41,10 +42,16 @@ class InferenceDataset(Dataset):
 
         self.hist = hist
 
-        self._outputs = data[outputs_str]
+        logging.info("Preloading data")
+        start = time.time()
+        self._outputs = data[outputs_str].as_numpy()
         self.output_channels = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra = data[inputs_str]
-        self._extras = data[extra_in_str]
+        self._inputs_no_extra = data[inputs_str].as_numpy()
+        self._extras = data[extra_in_str].as_numpy()
+        duration = time.time() - start
+        logging.info(
+            "Time taken to load data: {0} seconds".format(duration)
+        )
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(

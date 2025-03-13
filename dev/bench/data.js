@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741818772381,
+  "lastUpdate": 1741828298963,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -393,6 +393,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.759238922851277",
             "extra": "mean: 112.33085444859996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "01174fc821dbbb67f970d39642a228e9678e6794",
+          "message": "Upgrade to python 3.11, zarr 3, and various other updates (#108)\n\nI originally did this for performance reasons (which [didn't pan out\nyet](https://github.com/suryadheeshjith/Ocean_Emulator/issues/106#issuecomment-2717976095))\nbut seems like it's healthy to do this anyway.",
+          "timestamp": "2025-03-12T20:25:45-04:00",
+          "tree_id": "b1ded0cbe7f52ca0b73bf55a3adc2ad821c76d2e",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/01174fc821dbbb67f970d39642a228e9678e6794"
+        },
+        "date": 1741828298022,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.0411522478633058,
+            "unit": "iter/sec",
+            "range": "stddev: 0.17979805702965126",
+            "extra": "mean: 24.30000915920001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.11465575245289567,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12203664141318428",
+            "extra": "mean: 8.721760388000007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.11195474981538805,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10314289492338011",
+            "extra": "mean: 8.932180203600002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.0061999992218993525,
+            "unit": "iter/sec",
+            "range": "stddev: 2.4311620349088625",
+            "extra": "mean: 161.29034282260002 sec\nrounds: 5"
           }
         ]
       }

@@ -18,6 +18,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
+import zarr
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -158,10 +159,11 @@ class Trainer:
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            self.data = xr.open_zarr(
-                os.path.join(self.data_dir, self.data_path),
-                chunks={},
-            )
+            with zarr.config.set({"async.concurrency": 128}):
+                self.data = xr.open_zarr(
+                    os.path.join(self.data_dir, self.data_path),
+                    chunks=dict(time=700),
+                )
         self.data_mean = xr.open_dataset(
             os.path.join(self.data_dir, self.data_means_path),
             engine="netcdf4",

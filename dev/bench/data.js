@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741828298963,
+  "lastUpdate": 1741992450812,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -445,6 +445,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.4311620349088625",
             "extra": "mean: 161.29034282260002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d56ca15da553046e13312b57b682617f96021e3",
+          "message": "Fix: Opening with consolidated metadata. (#117)\n\nI expect that this will fix the performance regression from switching\nbetween Zarr v2 --> Zarr v3.",
+          "timestamp": "2025-03-14T14:59:55-07:00",
+          "tree_id": "b13231b0e0470131ad33bec96a8355d4398e15da",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/3d56ca15da553046e13312b57b682617f96021e3"
+        },
+        "date": 1741992449913,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.040724808720175136,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14400221591182144",
+            "extra": "mean: 24.555057013800003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.11405716334819677,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2164257567748326",
+            "extra": "mean: 8.767533494999986 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.11190599314736037,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1561394754054805",
+            "extra": "mean: 8.936071892800033 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.006005123903776435,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8931699472865272",
+            "extra": "mean: 166.5244574506 sec\nrounds: 5"
           }
         ]
       }

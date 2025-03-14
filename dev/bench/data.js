@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741992450812,
+  "lastUpdate": 1741992452635,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -795,6 +795,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.4333323437858405",
             "extra": "mean: 90.1176489126 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d56ca15da553046e13312b57b682617f96021e3",
+          "message": "Fix: Opening with consolidated metadata. (#117)\n\nI expect that this will fix the performance regression from switching\nbetween Zarr v2 --> Zarr v3.",
+          "timestamp": "2025-03-14T14:59:55-07:00",
+          "tree_id": "b13231b0e0470131ad33bec96a8355d4398e15da",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/3d56ca15da553046e13312b57b682617f96021e3"
+        },
+        "date": 1741992451844,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-train]",
+            "value": 0.10245816811119454,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7779846083122064",
+            "extra": "mean: 9.760080806000087 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-val]",
+            "value": 0.23041606824007824,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03554523288931647",
+            "extra": "mean: 4.339975105199983 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda]",
+            "value": 0.10193199337675968,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15138358502023613",
+            "extra": "mean: 9.810462514000028 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda]",
+            "value": 0.00858241174217352,
+            "unit": "iter/sec",
+            "range": "stddev: 1.332111811423076",
+            "extra": "mean: 116.51736482019996 sec\nrounds: 5"
           }
         ]
       }

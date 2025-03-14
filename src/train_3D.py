@@ -159,10 +159,15 @@ class Trainer:
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
+            # By default, Zarr v2 opens the data with consolidated metadata.
+            # However, Zarr v3 does not. Thus, we need to make this explicit.
+            # In addition, we've found improvements opening data with time=700
+            # sized chunks.
             with zarr.config.set({"async.concurrency": 128}):
                 self.data = xr.open_zarr(
                     os.path.join(self.data_dir, self.data_path),
                     chunks=dict(time=700),
+                    consolidated=True,
                 )
         self.data_mean = xr.open_dataset(
             os.path.join(self.data_dir, self.data_means_path),
@@ -236,7 +241,8 @@ class Trainer:
         elif cfg.loss == "mse_residual_scaled":
             logging.info("Using decomposed mse loss with scaled residuals")
             scaling_residuals = xr.open_zarr(
-                os.path.join(self.data_dir, self.scaling_residuals_file)
+                os.path.join(self.data_dir, self.scaling_residuals_file),
+                consolidated=True,
             )
             scale = torch.from_numpy(
                 (self.data_std[self.outputs] / scaling_residuals[self.outputs])

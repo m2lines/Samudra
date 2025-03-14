@@ -161,6 +161,7 @@ class Trainer:
             self.data = xr.open_zarr(
                 os.path.join(self.data_dir, self.data_path),
                 chunks={},
+                consolidated=True,
             )
         self.data_mean = xr.open_dataset(
             os.path.join(self.data_dir, self.data_means_path),
@@ -234,7 +235,8 @@ class Trainer:
         elif cfg.loss == "mse_residual_scaled":
             logging.info("Using decomposed mse loss with scaled residuals")
             scaling_residuals = xr.open_zarr(
-                os.path.join(self.data_dir, self.scaling_residuals_file)
+                os.path.join(self.data_dir, self.scaling_residuals_file),
+                consolidated=True,
             )
             scale = torch.from_numpy(
                 (self.data_std[self.outputs] / scaling_residuals[self.outputs])

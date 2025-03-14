@@ -19,7 +19,7 @@ from constants import (
     OutputVars,
     TotalInput,
 )
-from utils.data import Normalize
+from utils.data import Normalize, mask, unflatten_masks
 from utils.device import get_device, using_gpu
 
 Example = tuple[TotalInput, Label]
@@ -263,21 +263,79 @@ class XTrainDataset(Dataset):
     def __init__(
         self,
         data: xr.Dataset,
-        inputs_str: InputVars,
-        extra_in_str: ExtraVars,
-        outputs_str: OutputVars,
+        input_vars: InputVars,
+        extra_vars: ExtraVars,
+        output_vars: OutputVars,
         hist: int,
         steps: int,
         stride: int = 1,
     ) -> None:
-        pass
+        # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
+        data = unflatten_masks(data)
+
+        input_ = data[input_vars]
+        extra_ = data[extra_vars]
+        output_ = data[output_vars]
+
+        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
+        norm = Normalize.get_instance()
+        norm_input = norm.normalize_inputs(input_)
+        norm_extra = norm.normalize_boundary(extra_)
+        norm_output = norm.normalize_outputs(output_)
+
+        # Finally, apply wet-masks to the data up-front.
+        self.input = mask(norm_input)
+        self.extra = mask(norm_extra)
+        self.output = mask(norm_output)
+
+        self.hist = hist
+        self.steps = steps
+        self.stride = stride
+
+        self._size = (
+            data.time.size
+            - self.steps * (self.hist + 1) * self.stride
+            - self.hist * self.stride
+        )
+
+        # This class will be used only for training
+        total_steps: int = 2 * self.hist + 2
+
+        # Calculate the number of windows
+        num_windows = data.time.size - (total_steps - 1) * self.stride
+
+        # Create base indices
+        indices = np.arange(num_windows)
+        indices_da = xr.DataArray(indices, dims=["window_dim"])
+
+        # Create window dimension
+        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
+
+        # Construct rolling indices
+        self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
+            indices_da + stride * window_dim
+        )
 
     def __len__(self) -> int:
-        pass
-        return 0
+        return self._size
 
     def __getitem__(self, idx: int) -> Example:
-        return (None, None)
+        if not isinstance(idx, int):
+            raise ValueError(f"only `int` indexes are supported. Found: {idx}.")
+        if idx < 0 or idx >= len(self):
+            raise IndexError(
+                f"index out of range. Must be between 0 and {len(self)}, found: {idx}."
+            )
+        # steps = np.arange(self.steps, dtype=int) # ?
+        rolling_idx = self.rolling_indices.isel(window_dim=slice(idx, idx + 1))
+        current_window = xr.Variable(["window_dim", "time"], rolling_idx)
+
+        data_in = self.input.isel(time=current_window).isel(
+            time=slice(None, self.hist + 1)
+        )
+
+        data_extra = self.extra.isel(time=current_window).isel(time=self.hist)
+        return None, None
 
 
 class TrainDataset(Dataset):
@@ -386,22 +444,6 @@ class TrainDataset(Dataset):
             )
 
         return TD
-
-    def __old_getitem__(self, idx: int) -> Example:
-        if not isinstance(idx, int):
-            raise ValueError(f"only `int` indexes are supported. Found: {idx}.")
-        if idx < 0 or idx >= self.size:
-            raise IndexError(
-                f"index out of range. Must be between 0 and {self.size}, found: {idx}."
-            )
-        # steps = np.arange(self.steps, dtype=int) # ?
-        rolling_idx = self.rolling_indices.isel(window_dim=slice(idx, idx + 1))
-        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
-
-        data_in = self._inputs_no_extra.isel(time=x_index).isel(
-            time=slice(None, self.hist + 1)
-        )
-        return None, None
 
     def _get_x_index(
         self, idx: int, step: int, prev_rolling_idx: int | None

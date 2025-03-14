@@ -10,6 +10,7 @@ from jaxtyping import Bool
 import config
 from constants import (
     DEPTH_I_LEVELS,
+    DEPTH_LEVELS,
     MASK_VARS,
     ExtraVars,
     Grid,
@@ -100,6 +101,35 @@ def xwet_mask(data: xr.Dataset, outputs: OutputVars) -> tuple[XWetMask, XSurface
         wetmask_surface = wetmask.isel(time=0)
 
     return wetmask.astype(bool), wetmask_surface.astype(bool)
+
+
+def mask(data: xr.Dataset) -> xr.Dataset:
+    """Applies the wetmask to the data up-front."""
+    # I revised on this via Project Pythia's tutorial:
+    #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
+    data_ = data.copy()
+    wetmask = data_.wetmask.astype(bool)
+    surface_mask = wetmask.isel(lev=0)
+
+    for name, da in data_.items():
+        try:
+            variable, _, level, _ = name.split("_")
+        except ValueError:
+            # Assume this variable is at the surface.
+            # Apply the boundary layer mask and continue on.
+            data_[name] = da.where(surface_mask)
+            continue
+
+        # The string encoding is... not the best. For example, it doesn't
+        # include decimal numbers. So, we set `lev` to be the closet value
+        # to the whole list of DEPTH_LEVELS.
+        lev = float(level)
+        lev = min(DEPTH_LEVELS, key=lambda m: abs(m - lev))
+        assert lev in DEPTH_LEVELS, f"Found unknown Depth Level! {lev}."
+
+        data_[name] = da.where(wetmask.sel(lev=lev))
+
+    return data_
 
 
 def spherical_area_weights(data: xr.Dataset) -> Grid:

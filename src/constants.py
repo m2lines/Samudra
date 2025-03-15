@@ -13,9 +13,7 @@ from jaxtyping import Bool, Float
 Arr = TypeVar("Arr", torch.Tensor, xr.DataArray)
 
 Grid = Float[Arr, "180 360"]
-Prognostic = Float[
-    Grid, "*batch input_vars"
-]  # equivalent to "*batch input_vars lat lon"
+Prognostic = Float[Grid, "*batch input_vars"]  # = "*batch input_vars lat lon"
 Boundary = Float[Grid, "*batch extra_vars"]
 # A note from jaxtyping (why we can't do "input_vars+extra_vars"):
 #   In practice you should usually only use symbolic axes in annotations

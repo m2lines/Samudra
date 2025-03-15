@@ -622,8 +622,6 @@ class Trainer:
                     self.outputs,
                     self.wet,
                     self.wet_surface,
-                    self.xwet,
-                    self.xwet_surface,
                     self.hist,
                     cur_step,
                     stride,

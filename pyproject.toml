@@ -30,13 +30,14 @@ dependencies = [
   "einops>=0.8.1",
   "jaxtyping>=0.2.38",
   "matplotlib>=3.10.1",
-  "numpy>=1.26.4,<2",     # There is some incompatibility between a dependency and numpy 2+
+  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
   "pyyaml>=6.0.2",
   "requests>=2.32.3",
   "torch~=2.2.1",
   "torchinfo>=1.8",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
+  "xarray-einstats[einops]>=0.8",
   "zarr>=3.0.5",
 ]
 

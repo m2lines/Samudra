@@ -4,12 +4,11 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Float
+from jaxtyping import Float, Integer
 from torch.utils.data import Dataset
-from xarray_einstats.einops import rearrange
 
 from constants import (
-    Extra,
+    Boundary,
     ExtraVars,
     GridMask,
     Input,
@@ -17,12 +16,12 @@ from constants import (
     InputVars,
     Label,
     OutputVars,
-    TotalInput,
+    Prognostic,
 )
 from utils.data import Normalize, mask, unflatten_masks
 from utils.device import get_device, using_gpu
 
-Example = tuple[TotalInput, Label]
+Example = tuple[Input, Label] | tuple[xr.Dataset, xr.Dataset]
 
 
 class InferenceDataset(Dataset):
@@ -229,14 +228,14 @@ class TrainData:
         self.output_channels = output_channels
         self.steps = 0
 
-    def insert(self, input_: TotalInput, label: Label):
+    def insert(self, input_: Input, label: Label):
         self.td_dict[self.steps] = (input_, label)
         self.steps += 1
 
-    def get_initial_input(self) -> TotalInput:
+    def get_initial_input(self) -> Input:
         return self.td_dict[0][0]
 
-    def get_input(self, step: int) -> TotalInput:
+    def get_input(self, step: int) -> Input:
         return self.td_dict[step][0]
 
     def get_label(self, step: int) -> Label:
@@ -257,8 +256,8 @@ class TrainData:
             )
 
 
-class XTrainDataset(Dataset):
-    """An Xarray-based-`torch.Dataset` to create training and validation examples."""
+class OM4Dataset(Dataset):
+    """A `torch.Dataset` for Zarr-backed OM4 data."""
 
     def __init__(
         self,
@@ -269,6 +268,7 @@ class XTrainDataset(Dataset):
         hist: int,
         steps: int,
         stride: int = 1,
+        is_inference: bool = False,
     ) -> None:
         # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
         data = unflatten_masks(data)
@@ -288,11 +288,12 @@ class XTrainDataset(Dataset):
         self.extra = mask(norm_extra)
         self.output = mask(norm_output)
 
-        self.hist = hist
-        self.steps = steps
-        self.stride = stride
+        self.hist: int = hist
+        self.steps: int = steps
+        self.stride: int = stride
+        self.is_inference: bool = is_inference
 
-        self._size = (
+        self._size: int = (
             data.time.size
             - self.steps * (self.hist + 1) * self.stride
             - self.hist * self.stride
@@ -300,17 +301,13 @@ class XTrainDataset(Dataset):
 
         # This class will be used only for training
         total_steps: int = 2 * self.hist + 2
-
         # Calculate the number of windows
         num_windows = data.time.size - (total_steps - 1) * self.stride
-
         # Create base indices
         indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["window_dim"])
-
+        indices_da = xr.DataArray(indices, dims=["window"])
         # Create window dimension
         window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
-
         # Construct rolling indices
         self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
             indices_da + stride * window_dim
@@ -319,23 +316,65 @@ class XTrainDataset(Dataset):
     def __len__(self) -> int:
         return self._size
 
-    def __getitem__(self, idx: int) -> Example:
-        if not isinstance(idx, int):
-            raise ValueError(f"only `int` indexes are supported. Found: {idx}.")
-        if idx < 0 or idx >= len(self):
+    # TODO(alxmrs): Vectorize `step`
+    def window_from(
+        self, idx: int | slice, step: int
+    ) -> Integer[xr.Variable, "window time"]:
+        """Coalesce index values to a window of the input data."""
+        # First, parse int inputs as a slice.
+        if isinstance(idx, int):
+            if idx < 0 or idx >= len(self):
+                raise IndexError(
+                    f"index {idx!r} out of bounds. Must be between 0 and {len(self)}."
+                )
+
+            if not self.is_inference:
+                idx = idx + step * (self.hist + 1) * self.stride
+            idx = slice(idx, idx + 1, 1)
+
+        # Validate and normalize all slices.
+        if idx.start < 0 or idx.stop < 0 or idx.step < 0:
+            raise IndexError(f"index {idx!r} invalid: negative values not supported.")
+        if idx.start >= self._size or idx.stop >= self._size:
             raise IndexError(
-                f"index out of range. Must be between 0 and {len(self)}, found: {idx}."
+                f"index {idx!r} out of bounds. slice must be less than {len(self)}."
             )
-        # steps = np.arange(self.steps, dtype=int) # ?
-        rolling_idx = self.rolling_indices.isel(window_dim=slice(idx, idx + 1))
-        current_window = xr.Variable(["window_dim", "time"], rolling_idx)
 
-        data_in = self.input.isel(time=current_window).isel(
-            time=slice(None, self.hist + 1)
-        )
+        if idx.start is None:
+            idx = slice(0, idx.stop, idx.step)
+        if idx.stop is None:
+            idx = slice(idx.start, len(self), idx.step)
 
-        data_extra = self.extra.isel(time=current_window).isel(time=self.hist)
-        return None, None
+        window_index = self.rolling_indices.isel(window=idx)
+        window = xr.Variable(["window", "time"], window_index)
+
+        return window
+
+    def __getitem__(self, idx: int) -> Example:
+        inputs = []
+        labels = []
+
+        # TODO(alxmrs): Vectorize this operation! Or: is it fine because it's lazy?
+        for step in range(self.steps):
+            window = self.window_from(idx, step)
+
+            # This point in time splits the training data and the label data!
+            time_split = self.hist + 1
+
+            prognostic = self.input.isel(time=window).isel(time=slice(None, time_split))
+            boundary = self.extra.isel(time=window).isel(time=self.hist)
+            input_ = xr.merge([prognostic, boundary])  # Combines `data_var`s.
+
+            label = self.output.isel(time=window).isel(time=slice(time_split, None))
+
+            inputs.append(input_)
+            labels.append(label)
+
+        # Combines data along a new dimension "step"
+        input_ = xr.concat(inputs, dim="step")
+        label = xr.concat(labels, dim="step")
+
+        return input_, label
 
 
 class TrainDataset(Dataset):
@@ -429,10 +468,10 @@ class TrainDataset(Dataset):
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
 
-            data_in: Input = self._get_input(x_index)
-            data_in_boundary: Extra = self._get_boundary(x_index)
+            data_in: Prognostic = self._get_input(x_index)
+            data_in_boundary: Boundary = self._get_boundary(x_index)
 
-            data_combined: TotalInput = torch.cat(
+            data_combined: Input = torch.cat(
                 (data_in, data_in_boundary), dim=1
             ).squeeze()
 
@@ -473,7 +512,7 @@ class TrainDataset(Dataset):
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index
 
-    def _get_input(self, x_index) -> Input:
+    def _get_input(self, x_index) -> Prognostic:
         data_in = (
             self._inputs_no_extra.isel(time=x_index)
             .isel(time=slice(None, self.hist + 1))
@@ -491,7 +530,7 @@ class TrainDataset(Dataset):
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
-    def _get_boundary(self, x_index) -> Extra:
+    def _get_boundary(self, x_index) -> Boundary:
         """
         This function returns the boundary condition for the current time step.
 

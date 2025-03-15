@@ -1350,6 +1350,7 @@ dependencies = [
     { name = "torchinfo" },
     { name = "wandb" },
     { name = "xarray", extra = ["io"] },
+    { name = "xarray-einstats", extra = ["einops"] },
     { name = "zarr" },
 ]
 
@@ -1380,6 +1381,7 @@ requires-dist = [
     { name = "torchinfo", specifier = ">=1.8" },
     { name = "wandb", specifier = ">=0.19.8" },
     { name = "xarray", extras = ["io"], specifier = ">=2025.1.2" },
+    { name = "xarray-einstats", extras = ["einops"], specifier = ">=0.8.0" },
     { name = "zarr", specifier = ">=3.0.5" },
 ]
 
@@ -2434,6 +2436,25 @@ io = [
     { name = "pooch" },
     { name = "scipy" },
     { name = "zarr" },
+]
+
+[[package]]
+name = "xarray-einstats"
+version = "0.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scipy" },
+    { name = "xarray" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ed/5d/654cca0448ad5c1d0333530511bc20eefaab304a4362dcbdc7ea3da12a3d/xarray_einstats-0.8.0.tar.gz", hash = "sha256:7f1573f9bd4d60d6e7ed9fd27c4db39da51ec49bf8ba654d4602a139a6309d7f", size = 30225 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f8/07/27f0d68989bb1c44a781747e222dda67cf65002834ed35ad91abd1a71802/xarray_einstats-0.8.0-py3-none-any.whl", hash = "sha256:fd00552c3fb5c859b1ebc7c88a97342d3bb93d14bba904c5a9b94a4f724b76b4", size = 32553 },
+]
+
+[package.optional-dependencies]
+einops = [
+    { name = "einops" },
 ]
 
 [[package]]

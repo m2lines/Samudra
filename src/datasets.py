@@ -9,6 +9,7 @@ from torch.utils.data import Dataset
 
 from constants import (
     Boundary,
+    Example,
     ExtraVars,
     GridMask,
     Input,
@@ -20,8 +21,6 @@ from constants import (
 )
 from utils.data import Normalize, mask, unflatten_masks
 from utils.device import get_device, using_gpu
-
-Example = tuple[Input, Label] | tuple[xr.Dataset, xr.Dataset]
 
 
 class InferenceDataset(Dataset):
@@ -513,13 +512,13 @@ class TrainDataset(Dataset):
         return x_index
 
     def _get_input(self, x_index) -> Prognostic:
-        data_in = (
-            self._inputs_no_extra.isel(time=x_index)
-            .isel(time=slice(None, self.hist + 1))
-            .transpose("window_dim", "time", "lat", "lon")
+        data_in = self._inputs_no_extra.isel(time=x_index).isel(
+            time=slice(None, self.hist + 1)
         )
-        data_in = data_in.to_array().transpose(
-            "window_dim", "time", "variable", "lat", "lon"
+        data_in = (
+            data_in.to_array()
+            .transpose("window_dim", "time", "variable", "lat", "lon")
+            .to_numpy()
         )
         data_in = rearrange(
             data_in,

@@ -49,7 +49,6 @@ from utils.data import (
     extract_wet_mask,
     get_time_slice,
     spherical_area_weights,
-    xwet_mask,
 )
 from utils.device import using_gpu
 from utils.distributed import all_reduce_mean, get_world_size, is_main_process, set_seed
@@ -179,7 +178,6 @@ class Trainer:
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.outputs, cfg.data.hist
         )
-        self.xwet, self.xwet_surface = xwet_mask(self.data, self.outputs)
         wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
@@ -645,8 +643,6 @@ class Trainer:
                     self.outputs,
                     self.wet,
                     self.wet_surface,
-                    self.xwet,
-                    self.xwet_surface,
                     self.hist,
                     1,  # current_step set to 1 for validation
                     stride,

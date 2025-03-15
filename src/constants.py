@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, TypeVar
+from typing import Dict, Optional, TypeAlias, TypeVar
 
 import torch
 import xarray as xr
@@ -21,8 +21,10 @@ Boundary = Float[Grid, "*batch extra_vars"]
 #   In practice you should usually only use symbolic axes in annotations
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
-Input = Float[Grid, "*batch total_vars"]
-Label = Float[Grid, "*batch output_vars"]
+Input: TypeAlias = Float[Grid, "*batch total_vars"]
+Label: TypeAlias = Float[Grid, "*batch output_vars"]
+
+Example = tuple[Input, Label] | tuple[xr.Dataset, xr.Dataset]
 
 GridMask = Bool[Arr, "180 360"]
 InputMask = Bool[GridMask, "input_vars"]

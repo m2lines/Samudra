@@ -4,7 +4,8 @@ from typing import Sequence, Tuple
 import torch
 import xarray as xr
 
-from datasets import Example, InferenceDataset, TrainData
+from constants import Example
+from datasets import InferenceDataset, TrainData
 
 
 def pairwise(iterable):
@@ -28,7 +29,7 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
     return batched_data
 
 
-def collate_om4_batch(examples: Sequence[Example]) -> Example:
+def collate_om4(examples: Sequence[Example]) -> Example:
     inputs: list[xr.DataArray] = []
     labels: list[xr.DataArray] = []
 

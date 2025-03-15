@@ -1,11 +1,10 @@
-from typing import Dict, Optional, TypeAlias
+from typing import Dict, Optional
 
 import cftime
 import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Bool
 
 import config
 from constants import (
@@ -20,9 +19,6 @@ from constants import (
     OutputVars,
     TensorMap,
 )
-
-XWetMask: TypeAlias = Bool[xr.DataArray, "lev 180 360"]
-XSurfaceMask: TypeAlias = Bool[xr.DataArray, "1 180 360"]
 
 
 def extract_wet_mask(
@@ -87,20 +83,6 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
         data = data.drop_vars(MASK_VARS)
 
     return data
-
-
-def xwet_mask(data: xr.Dataset, outputs: OutputVars) -> tuple[XWetMask, XSurfaceMask]:
-    data_with_wetmask = unflatten_masks(data)
-    output_depths = _parse_lev_from_output_var(outputs)
-
-    wetmask = data_with_wetmask.wetmask.isel(lev=output_depths)
-    wetmask_surface = wetmask.isel(lev=0)
-
-    if "time" in wetmask.dims:
-        wetmask = wetmask.isel(time=0)
-        wetmask_surface = wetmask.isel(time=0)
-
-    return wetmask.astype(bool), wetmask_surface.astype(bool)
 
 
 def mask(data: xr.Dataset) -> xr.Dataset:

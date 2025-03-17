@@ -42,6 +42,7 @@ dependencies = [
 dev = [
   "beartype>=0.20",
   "hypothesis[numpy]>=6.127.2",
+  "ipykernel>=6.29.5",
   "pytest>=8.3.4",
   "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",

@@ -28,11 +28,12 @@ def _trunc(arr: NDArray[np.floating], decimals: int) -> NDArray[np.floating]:
     return np.trunc(arr * factor) / factor
 
 
-HEADER_BIT_OFFSET = 56
-LAT_BIT_OFFSET = 40
-LNG_BIT_OFFSET = 24
-DAYS_BIT_OFFSET = 8
-VAR_BIT_OFFSET = 0
+HEADER = np.uint64(0b01000000)
+HEADER_BIT_OFFSET = np.uint64(56)
+LAT_BIT_OFFSET = np.uint64(40)
+LNG_BIT_OFFSET = np.uint64(24)
+DAYS_BIT_OFFSET = np.uint64(8)
+VAR_BIT_OFFSET = np.uint64(0)
 
 
 @dataclasses.dataclass
@@ -74,12 +75,14 @@ class DataSourceDims:
             raise ValueError("days_since_start values must fit in a uint16.")
 
     def __eq__(self, other) -> bool:
-        # lat and lng values will often have floating point rounding errors.
-        # So, we declare arrays as equal within a generous tolerance.
+        # lat and lng values round-trip via float16s, so declare them equal if they
+        # would encode to the same float16.
         # We can use exact equality with days_since_start since they are ints.
         return (
-            np.allclose(self.lat, other.lat, atol=1e-4)
-            and np.allclose(self.lng, other.lng, atol=1e-4)
+            np.array_equal(self.lat.astype(np.float16), other.lat.astype(np.float16))
+            and np.array_equal(
+                self.lng.astype(np.float16), other.lng.astype(np.float16)
+            )
             and np.array_equal(self.days_since_start, other.days_since_start)
             and self.start_day == other.start_day
         )
@@ -110,7 +113,7 @@ class DataSourceDims:
         }
         return coords
 
-    def encode(self, data_var_index: np.uint8 = 0) -> xr.DataArray:
+    def encode(self, data_var_index: np.uint = 0) -> xr.DataArray:
         """Encodes source data dimensions into an array of interpretable `np.float64`s.
 
         Arguments:
@@ -119,30 +122,43 @@ class DataSourceDims:
         Returns:
             An xarray.DataArray of np.float64 numbers with the above encoding scheme.
         """
-        days_reshaped = (
-            self.days_since_start[:, np.newaxis, np.newaxis].astype(np.uint16)
-            << DAYS_BIT_OFFSET
-        )  # Float[D, 1, 1]
+        assert data_var_index <= np.iinfo(np.uint8).max, (
+            f"data_var_index must fit in a uint8. Got {data_var_index} instead."
+        )
+        data_var_index = np.uint64(data_var_index)
 
-        latlng_grid = np.stack(
-            np.meshgrid(self.lat[::-1], self.lng, indexing="ij"),
-            axis=0,
+        days_reshaped = self.days_since_start[:, np.newaxis, np.newaxis].astype(
+            np.uint64
+        )
+        latlng_grid = (
+            np.stack(
+                np.meshgrid(
+                    self.lat[::-1],
+                    self.lng,
+                    indexing="ij",
+                ),
+                axis=0,
+            )
+            .astype(np.float16)
+            .view(np.uint16)
+            .astype(np.uint64)
         )
 
-        template_grid = (latlng_grid[0, :, :].view(np.uint16) << LAT_BIT_OFFSET) + (
-            latlng_grid[1, :, :].view(np.uint16) << LNG_BIT_OFFSET
+        template_grid = (latlng_grid[0, :, :] << LAT_BIT_OFFSET) + (
+            latlng_grid[1, :, :] << LNG_BIT_OFFSET
         )
         rolled_out_grid = np.repeat(
             template_grid[np.newaxis, :, :], days_reshaped.shape[0], axis=0
         )
 
-        interpretable_grid = rolled_out_grid + days_reshaped
+        interpretable_grid = (
+            rolled_out_grid
+            + (days_reshaped << DAYS_BIT_OFFSET)
+            + (data_var_index << VAR_BIT_OFFSET)
+            + (HEADER << HEADER_BIT_OFFSET)
+        )
         return xr.DataArray(
-            (
-                interpretable_grid
-                + (data_var_index << VAR_BIT_OFFSET)
-                + (0x402A << HEADER_BIT_OFFSET)
-            ).view(np.float64),
+            interpretable_grid.view(np.float64),
             dims=["time", "lat", "lon"],
             attrs={
                 "start_day": self.start_day.toordinal(),
@@ -165,7 +181,7 @@ class DataSourceDims:
             "DataArray must have (time, lat, lng) dimensions."
         )
 
-        assert np.all(encoded >> HEADER_BIT_OFFSET == 0x402A), (
+        assert np.all(encoded >> HEADER_BIT_OFFSET == HEADER), (
             "Data did not come from `encode_data_source`. "
         )
 
@@ -174,11 +190,19 @@ class DataSourceDims:
         lat_dim = encoded[0, :, 0][::-1]
         lng_dim = encoded[0, 0, :]
 
-        days_since_start = (tim_dim >> DAYS_BIT_OFFSET & np.uint64(0xFF)).astype(
-            np.uint8
+        days_since_start = (tim_dim >> DAYS_BIT_OFFSET & np.uint64(0xFFFF)).astype(
+            np.uint16
         )
-        lat = (lat_dim >> LAT_BIT_OFFSET & np.uint64(0xFFFF)).astype(np.float16)
-        lng = (lng_dim >> LNG_BIT_OFFSET & np.uint64(0xFFFF)).astype(np.float16)
+        lat = (
+            ((lat_dim >> LAT_BIT_OFFSET) & np.uint64(0xFFFF))
+            .astype(np.uint16)
+            .view(np.float16)
+        )
+        lng = (
+            ((lng_dim >> LNG_BIT_OFFSET) & np.uint64(0xFFFF))
+            .astype(np.uint16)
+            .view(np.float16)
+        )
 
         data_var_index = (scalar >> VAR_BIT_OFFSET & np.uint64(0xFF)).astype(np.uint8)
 

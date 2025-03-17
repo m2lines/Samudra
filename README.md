@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/897008418.svg)](https://doi.org/10.5281/zenodo.15037462)
+
 # Samudra: A Global Ocean Emulator
 
 This repository contains the implementation of Samudra, a global ocean emulator described in ["Samudra: An AI Global Ocean Emulator for Climate"](https://arxiv.org/abs/2412.03795). Samudra efficiently emulates the ocean component of a state-of-the-art climate model, accurately reproducing key ocean variables including sea surface height, horizontal velocities, temperature, and salinity, across their full depth.

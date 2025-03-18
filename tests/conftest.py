@@ -1,7 +1,7 @@
 import dataclasses
 import os
 import tempfile
-from typing import Any, Generator
+from typing import Any, ClassVar, Generator
 
 import cftime
 import numpy as np
@@ -23,17 +23,48 @@ class DataSource:
     stds: xr.Dataset
 
 
-def _trunc(arr: NDArray[np.floating], decimals: int) -> NDArray[np.floating]:
-    factor = 10**decimals
-    return np.trunc(arr * factor) / factor
+@dataclasses.dataclass
+class BitField:
+    offset: int
+    dtype: np.dtype
 
+    # numpy implicitly converts scalar types like np.float16 to a dtype when needed,
+    # so we do, too
+    def __init__(self, offset: int, dtype: np.dtype | type) -> None:
+        self.offset = offset
+        self.dtype = np.dtype(dtype)
 
-HEADER = np.uint64(0b01000000)
-HEADER_BIT_OFFSET = np.uint64(56)
-LAT_BIT_OFFSET = np.uint64(40)
-LNG_BIT_OFFSET = np.uint64(24)
-DAYS_BIT_OFFSET = np.uint64(8)
-VAR_BIT_OFFSET = np.uint64(0)
+    def ensure_value_fits(self, value: np.array) -> None:
+        if np.any(value < np.iinfo(self.dtype).min):
+            raise ValueError(
+                f"Value {value} is less than the minimum value for {self.dtype}"
+            )
+        if np.any(value > np.iinfo(self.dtype).max):
+            raise ValueError(
+                f"Value {value} is greater than the maximum value for {self.dtype}"
+            )
+
+    def mask(self) -> np.uint64:
+        return np.uint64((1 << (self.size_in_bytes() * 8)) - 1)
+
+    def size_in_bytes(self) -> int:
+        return np.dtype(self.dtype).itemsize
+
+    def uint_type(self) -> np.dtype:
+        # Yes, this is in bytes for some reason so u4 == uint32
+        return np.dtype(f"u{self.size_in_bytes()}")
+
+    def decode_from(self, container: NDArray[np.uint64]) -> NDArray[np.uint64]:
+        return (
+            ((container >> np.uint64(self.offset)) & self.mask())
+            .astype(self.uint_type())
+            .view(self.dtype)
+        )
+
+    def encode(self, value: NDArray) -> NDArray[np.uint64]:
+        return value.astype(self.dtype).view(self.uint_type()).astype(
+            np.uint64
+        ) << np.uint64(self.offset)
 
 
 @dataclasses.dataclass
@@ -48,6 +79,14 @@ class DataSourceDims:
       * days_since_start encoded as a uint16
       * data_var_index encoded as a uint8
     """
+
+    _header_value: ClassVar[np.uint64] = np.uint64(0b01000000)
+
+    _header: ClassVar[BitField] = BitField(offset=56, dtype=np.uint8)
+    _lat: ClassVar[BitField] = BitField(offset=40, dtype=np.float16)
+    _lng: ClassVar[BitField] = BitField(offset=24, dtype=np.float16)
+    _days_since_start: ClassVar[BitField] = BitField(offset=8, dtype=np.uint16)
+    _data_var_index: ClassVar[BitField] = BitField(offset=0, dtype=np.uint8)
 
     lat: NDArray[np.float64] = dataclasses.field(
         default_factory=lambda: np.arange(-89.24, 90, 1, dtype=np.float64)
@@ -69,10 +108,7 @@ class DataSourceDims:
         if np.any(self.lng < 0.0) or np.any(self.lng > 360.0):
             raise ValueError("lng values are expected to be between 0 and 360 degrees.")
 
-        if np.any(self.days_since_start < 0) or np.any(
-            self.days_since_start > np.iinfo(np.uint16).max
-        ):
-            raise ValueError("days_since_start values must fit in a uint16.")
+        self._days_since_start.ensure_value_fits(self.days_since_start)
 
     def __eq__(self, other) -> bool:
         # lat and lng values round-trip via float16s, so declare them equal if they
@@ -113,7 +149,7 @@ class DataSourceDims:
         }
         return coords
 
-    def encode(self, data_var_index: np.uint = 0) -> xr.DataArray:
+    def encode(self, data_var_index: np.uint | int = 0) -> xr.DataArray:
         """Encodes source data dimensions into an array of interpretable `np.float64`s.
 
         Arguments:
@@ -122,30 +158,20 @@ class DataSourceDims:
         Returns:
             An xarray.DataArray of np.float64 numbers with the above encoding scheme.
         """
-        assert data_var_index <= np.iinfo(np.uint8).max, (
-            f"data_var_index must fit in a uint8. Got {data_var_index} instead."
-        )
-        data_var_index = np.uint64(data_var_index)
+        self._data_var_index.ensure_value_fits(data_var_index)
 
-        days_reshaped = self.days_since_start[:, np.newaxis, np.newaxis].astype(
-            np.uint64
-        )
-        latlng_grid = (
-            np.stack(
-                np.meshgrid(
-                    self.lat[::-1],
-                    self.lng,
-                    indexing="ij",
-                ),
-                axis=0,
-            )
-            .astype(np.float16)
-            .view(np.uint16)
-            .astype(np.uint64)
+        days_reshaped = self.days_since_start[:, np.newaxis, np.newaxis]
+        latlng_grid = np.stack(
+            np.meshgrid(
+                self.lat[::-1],
+                self.lng,
+                indexing="ij",
+            ),
+            axis=0,
         )
 
-        template_grid = (latlng_grid[0, :, :] << LAT_BIT_OFFSET) + (
-            latlng_grid[1, :, :] << LNG_BIT_OFFSET
+        template_grid = self._lat.encode(latlng_grid[0, :, :]) + self._lng.encode(
+            latlng_grid[1, :, :]
         )
         rolled_out_grid = np.repeat(
             template_grid[np.newaxis, :, :], days_reshaped.shape[0], axis=0
@@ -153,9 +179,9 @@ class DataSourceDims:
 
         interpretable_grid = (
             rolled_out_grid
-            + (days_reshaped << DAYS_BIT_OFFSET)
-            + (data_var_index << VAR_BIT_OFFSET)
-            + (HEADER << HEADER_BIT_OFFSET)
+            + self._days_since_start.encode(days_reshaped)
+            + self._data_var_index.encode(np.array(data_var_index))
+            + self._header.encode(self._header_value)
         )
         return xr.DataArray(
             interpretable_grid.view(np.float64),
@@ -181,7 +207,7 @@ class DataSourceDims:
             "DataArray must have (time, lat, lng) dimensions."
         )
 
-        assert np.all(encoded >> HEADER_BIT_OFFSET == HEADER), (
+        assert np.all(cls._header.decode_from(encoded) == cls._header_value), (
             "Data did not come from `encode_data_source`. "
         )
 
@@ -190,21 +216,10 @@ class DataSourceDims:
         lat_dim = encoded[0, :, 0][::-1]
         lng_dim = encoded[0, 0, :]
 
-        days_since_start = (tim_dim >> DAYS_BIT_OFFSET & np.uint64(0xFFFF)).astype(
-            np.uint16
-        )
-        lat = (
-            ((lat_dim >> LAT_BIT_OFFSET) & np.uint64(0xFFFF))
-            .astype(np.uint16)
-            .view(np.float16)
-        )
-        lng = (
-            ((lng_dim >> LNG_BIT_OFFSET) & np.uint64(0xFFFF))
-            .astype(np.uint16)
-            .view(np.float16)
-        )
-
-        data_var_index = (scalar >> VAR_BIT_OFFSET & np.uint64(0xFF)).astype(np.uint8)
+        days_since_start = cls._days_since_start.decode_from(tim_dim)
+        lat = cls._lat.decode_from(lat_dim)
+        lng = cls._lng.decode_from(lng_dim)
+        data_var_index = cls._data_var_index.decode_from(scalar)
 
         data_source = cls(
             lat=lat,

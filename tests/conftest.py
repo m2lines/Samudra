@@ -33,6 +33,13 @@ class BitField:
     # numpy implicitly converts scalar types like np.float16 to a dtype when needed,
     # so we do, too
     def __init__(self, offset: int, dtype: np.dtype | type) -> None:
+        """Create a description of a bit field.
+
+        Arguments:
+            offset: int - The offset of the field within the uint64, in bits.
+            dtype: np.dtype | type - The type of the field. The underlying bytes
+            of this type are what is stored in the uint64 at this offset.
+        """
         self.offset = np.uint64(offset)
         self.dtype = np.dtype(dtype)
 

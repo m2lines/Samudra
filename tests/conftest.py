@@ -203,13 +203,13 @@ class DataSourceDims:
             (DataSourceDims, int) - Parsed dims and data_var index.
         """
         encoded = da.to_numpy().view(np.uint64)
-        assert len(encoded.shape) == 3, (
-            "DataArray must have (time, lat, lng) dimensions."
-        )
+        assert (
+            len(encoded.shape) == 3
+        ), "DataArray must have (time, lat, lng) dimensions."
 
-        assert np.all(cls._header.decode_from(encoded) == cls._header_value), (
-            "Data did not come from `encode_data_source`. "
-        )
+        assert np.all(
+            cls._header.decode_from(encoded) == cls._header_value
+        ), "Data did not come from `encode_data_source`. "
 
         scalar = encoded.flat[0].view(np.uint64)
         tim_dim = encoded[:, 0, 0]

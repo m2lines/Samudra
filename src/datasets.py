@@ -40,6 +40,7 @@ class OM4Dataset(Dataset):
         # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
         data = unflatten_masks(data)
 
+        # Apply oceans mask to the data up-front.
         masked = mask(data)
 
         input_ = masked[input_vars]
@@ -80,7 +81,7 @@ class OM4Dataset(Dataset):
     def __len__(self) -> int:
         return self._size
 
-    # TODO(alxmrs): Vectorize `step`
+    # TODO(#124): Vectorize `step`
     # TODO(alxmrs): Why doesn't jaxtyping work here?
     def window_from(self, idx: int | slice, step: int) -> xr.Variable:
         """Coalesce index values to a window of the input data."""
@@ -118,7 +119,7 @@ class OM4Dataset(Dataset):
         inputs = []
         labels = []
 
-        # TODO(alxmrs): Vectorize this operation! Or, is it fine because it's lazy?
+        # TODO(#124): Vectorize this operation! Or, is it fine because it's lazy?
         for step in range(self.steps):
             window = self.window_from(idx, step)
 

@@ -84,32 +84,35 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
     return data
 
 
-def mask(data: xr.Dataset, wetmask: xr.DataArray | None = None) -> xr.Dataset:
+def mask(data: xr.Dataset) -> xr.Dataset:
     """Applies the wetmask to the data up-front."""
     # I revised on this via Project Pythia's tutorial:
     #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
     data_ = data.copy()
 
-    if wetmask is None:
-        wetmask = data_.wetmask
-    wetmask = wetmask.astype(bool)
+    wetmask = data_.wetmask.astype(bool)
     surface_mask = wetmask.isel(lev=0)
 
     for name, da in data_.items():
-        try:
-            variable, _, level, _ = name.split("_")
-        except ValueError:
-            # Assume this variable is at the surface.
-            # Apply the boundary layer mask and continue on.
+        # Parse the level index info from the variable name.
+        tokens = str(name).split("_")
+        if len(tokens) == 4:  # OM4 data format (e.g., {variable}_lev_{level}_{decimal})
+            # TODO(alxmrs): Is the OM4 data wrong? Is preprocessing done somewhere?
+            # In this format, "level" is a member of DEPTH_LEVELS, _not_ DEPTH_I_LEVELS.
+            # Thus, we need to convert it to the corresponding DEPTH_I_LEVELS index.
+            _, _, level, _ = tokens
+            closest_level = min(DEPTH_LEVELS, key=lambda x: abs(x - float(level)))
+            level = str(DEPTH_LEVELS.index(closest_level))
+        elif len(tokens) == 2:  # output_vars format (e.g., {variable}_{level})
+            _, level = tokens
+        else:
+            # Assume this variable is at the surface
+            # Apply the boundary layer mask and continue
             data_[name] = da.where(surface_mask, 0.0)
             continue
 
-        # The string encoding is... not the best. For example, it doesn't
-        # include decimal numbers. So, we set `lev` to be the closet value
-        # to the whole list of DEPTH_LEVELS.
-        lev = float(level)
-        lev = min(DEPTH_LEVELS, key=lambda m: abs(m - lev))
-        assert lev in DEPTH_LEVELS, f"Found unknown Depth Level! {lev}."
+        assert level in DEPTH_I_LEVELS, f"Found unknown Depth Level! {level}."
+        lev = DEPTH_LEVELS[int(level)]
 
         data_[name] = da.where(wetmask.sel(lev=lev), 0.0)
 

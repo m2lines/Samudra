@@ -3,6 +3,7 @@ from typing import Sequence, Tuple
 
 import torch
 import xarray as xr
+from xarray_einstats.einops import rearrange  # noqa: F401
 
 from constants import Example
 from datasets import InferenceDataset, TrainData
@@ -30,24 +31,23 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
 
 
 def collate_om4(examples: Sequence[Example]) -> Example:
+    """Combine several deferred Examples into single a `torch.Tensor` example pair."""
     inputs: list[xr.DataArray] = []
     labels: list[xr.DataArray] = []
 
     for input_, label in examples:
         inputs.append(
-            input_.to_array(dim="vars")
-            .transpose("step", "window", "time", "vars", "lat", "lon")
+            input_.to_array()
             .compute()
             .einops.rearrange(
-                "step window (time vars) lat lon",
+                "step window (time variable) lat lon",
             )
         )
         labels.append(
-            label.to_array(dim="vars")
-            .transpose("step", "window", "time", "vars", "lat", "lon")
+            label.to_array()
             .compute()
             .einops.rearrange(
-                "step window (time vars) lat lon",
+                "step window (time variable) lat lon",
             )
         )
 

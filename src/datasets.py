@@ -52,11 +52,6 @@ class OM4Dataset(Dataset):
         self.extra = norm.normalize_boundary(extra_)
         self.output = norm.normalize_outputs(output_)
 
-        # # Finally, apply wet-masks to the data up-front.
-        # self.input = mask(norm_input)
-        # self.extra = mask(norm_extra)
-        # self.output = mask(norm_output)
-
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
@@ -123,7 +118,7 @@ class OM4Dataset(Dataset):
         inputs = []
         labels = []
 
-        # TODO(alxmrs): Vectorize this operation! Or: is it fine because it's lazy?
+        # TODO(alxmrs): Vectorize this operation! Or, is it fine because it's lazy?
         for step in range(self.steps):
             window = self.window_from(idx, step)
 
@@ -132,7 +127,7 @@ class OM4Dataset(Dataset):
 
             prognostic = self.input.isel(time=window).isel(time=slice(None, time_split))
             boundary = self.extra.isel(time=window).isel(time=self.hist)
-            input_ = xr.merge([prognostic, boundary])  # Combines `data_var`s.
+            input_ = xr.merge([prognostic, boundary])  # Combines variables.
 
             label = self.output.isel(time=window).isel(time=slice(time_split, None))
 

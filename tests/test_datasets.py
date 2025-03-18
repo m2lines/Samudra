@@ -331,9 +331,22 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
     )
     om4_samples = sorted([as_numpy(sample) for sample in om4_loader], key=key)
 
-    for orig_sample, om4_sample in zip(original_samples, om4_samples):
-        assert np.allclose(orig_sample[0], om4_sample[0], atol=0.1)
-        assert np.allclose(orig_sample[1], om4_sample[1], atol=0.1)
+    atol = 0.01
+    for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
+        x_not_close = not np.isclose(x_orig, x_new, atol=atol)
+        y_not_close = not np.isclose(y_orig, y_new, atol=atol)
+
+        x_not_close_index = list(zip(*np.where(x_not_close)))
+        y_not_close_index = list(zip(*np.where(y_not_close)))
+
+        assert np.allclose(x_orig, x_new, atol=atol), (
+            f"{len(x_not_close_index)} values differ: "
+            f"{x_orig[x_not_close]} != {x_new[x_not_close]}."
+        )
+        assert np.allclose(y_orig, y_new, atol=atol), (
+            f"{len(y_not_close_index)} values differ: "
+            f"{y_orig[y_not_close]} != {y_new[y_not_close]}."
+        )
 
 
 @pytest.mark.manual

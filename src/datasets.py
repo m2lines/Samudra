@@ -23,6 +23,129 @@ from utils.data import Normalize, mask, unflatten_masks
 from utils.device import get_device, using_gpu
 
 
+class OM4Dataset(Dataset):
+    """A `torch.Dataset` for Zarr-backed OM4 data."""
+
+    def __init__(
+        self,
+        data: xr.Dataset,
+        input_vars: InputVars,
+        extra_vars: ExtraVars,
+        output_vars: OutputVars,
+        hist: int,
+        steps: int,
+        stride: int = 1,
+        is_inference: bool = False,
+    ) -> None:
+        # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
+        data = unflatten_masks(data)
+
+        masked = mask(data)
+
+        input_ = masked[input_vars]
+        extra_ = masked[extra_vars]
+        output_ = masked[output_vars]
+
+        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
+        norm = Normalize.get_instance()
+        self.input = norm.normalize_inputs(input_)
+        self.extra = norm.normalize_boundary(extra_)
+        self.output = norm.normalize_outputs(output_)
+
+        # # Finally, apply wet-masks to the data up-front.
+        # self.input = mask(norm_input)
+        # self.extra = mask(norm_extra)
+        # self.output = mask(norm_output)
+
+        self.hist: int = hist
+        self.steps: int = steps
+        self.stride: int = stride
+        self.is_inference: bool = is_inference
+
+        self._size: int = (
+            data.time.size
+            - self.steps * (self.hist + 1) * self.stride
+            - self.hist * self.stride
+        )
+
+        # This class will be used only for training
+        total_steps: int = 2 * self.hist + 2
+        # Calculate the number of windows
+        num_windows = data.time.size - (total_steps - 1) * self.stride
+        # Create base indices
+        indices = np.arange(num_windows)
+        indices_da = xr.DataArray(indices, dims=["window"])
+        # Create window dimension
+        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
+        # Construct rolling indices
+        self.rolling_indices: Integer[xr.DataArray, "window time"] = (
+            indices_da + stride * window_dim
+        )
+
+    def __len__(self) -> int:
+        return self._size
+
+    # TODO(alxmrs): Vectorize `step`
+    # TODO(alxmrs): Why doesn't jaxtyping work here?
+    def window_from(self, idx: int | slice, step: int) -> xr.Variable:
+        """Coalesce index values to a window of the input data."""
+        # First, parse int inputs as a slice.
+        if isinstance(idx, int):
+            if idx < 0 or idx >= len(self):
+                raise IndexError(
+                    f"index {idx!r} out of bounds. Must be between 0 and {len(self)}."
+                )
+
+            if not self.is_inference:
+                idx = idx + step * (self.hist + 1) * self.stride
+            idx = slice(idx, idx + 1, 1)
+
+        # Validate and normalize all slices.
+        if idx.start < 0 or idx.stop < 0 or idx.step < 0:
+            raise IndexError(f"index {idx!r} invalid: negative values not supported.")
+        if idx.start > self._size or idx.stop > self._size:
+            raise IndexError(
+                f"index {idx!r} out of bounds. "
+                f"All bounds must be less than or equal to {len(self)}."
+            )
+
+        if idx.start is None:
+            idx = slice(0, idx.stop, idx.step)
+        if idx.stop is None:
+            idx = slice(idx.start, len(self), idx.step)
+
+        window_index = self.rolling_indices.isel(window=idx)
+        window = xr.Variable(["window", "time"], window_index)
+
+        return window
+
+    def __getitem__(self, idx: int) -> Example:
+        inputs = []
+        labels = []
+
+        # TODO(alxmrs): Vectorize this operation! Or: is it fine because it's lazy?
+        for step in range(self.steps):
+            window = self.window_from(idx, step)
+
+            # This point in time splits the training data and the label data!
+            time_split = self.hist + 1
+
+            prognostic = self.input.isel(time=window).isel(time=slice(None, time_split))
+            boundary = self.extra.isel(time=window).isel(time=self.hist)
+            input_ = xr.merge([prognostic, boundary])  # Combines `data_var`s.
+
+            label = self.output.isel(time=window).isel(time=slice(time_split, None))
+
+            inputs.append(input_)
+            labels.append(label)
+
+        # Combines data along a new dimension "step"
+        input_ = xr.concat(inputs, dim="step")
+        label = xr.concat(labels, dim="step")
+
+        return input_, label
+
+
 class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 
@@ -253,127 +376,6 @@ class TrainData:
                 self.td_dict[step][0].to(device),
                 self.td_dict[step][1].to(device),
             )
-
-
-class OM4Dataset(Dataset):
-    """A `torch.Dataset` for Zarr-backed OM4 data."""
-
-    def __init__(
-        self,
-        data: xr.Dataset,
-        input_vars: InputVars,
-        extra_vars: ExtraVars,
-        output_vars: OutputVars,
-        hist: int,
-        steps: int,
-        stride: int = 1,
-        is_inference: bool = False,
-    ) -> None:
-        # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
-        data = unflatten_masks(data)
-
-        input_ = data[input_vars]
-        extra_ = data[extra_vars]
-        output_ = data[output_vars]
-
-        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
-        norm = Normalize.get_instance()
-        norm_input = norm.normalize_inputs(input_)
-        norm_extra = norm.normalize_boundary(extra_)
-        norm_output = norm.normalize_outputs(output_)
-
-        # Finally, apply wet-masks to the data up-front.
-        self.input = mask(norm_input)
-        self.extra = mask(norm_extra)
-        self.output = mask(norm_output)
-
-        self.hist: int = hist
-        self.steps: int = steps
-        self.stride: int = stride
-        self.is_inference: bool = is_inference
-
-        self._size: int = (
-            data.time.size
-            - self.steps * (self.hist + 1) * self.stride
-            - self.hist * self.stride
-        )
-
-        # This class will be used only for training
-        total_steps: int = 2 * self.hist + 2
-        # Calculate the number of windows
-        num_windows = data.time.size - (total_steps - 1) * self.stride
-        # Create base indices
-        indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["window"])
-        # Create window dimension
-        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
-        # Construct rolling indices
-        self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
-            indices_da + stride * window_dim
-        )
-
-    def __len__(self) -> int:
-        return self._size
-
-    # TODO(alxmrs): Vectorize `step`
-    def window_from(
-        self, idx: int | slice, step: int
-    ) -> Integer[xr.Variable, "window time"]:
-        """Coalesce index values to a window of the input data."""
-        # First, parse int inputs as a slice.
-        if isinstance(idx, int):
-            if idx < 0 or idx >= len(self):
-                raise IndexError(
-                    f"index {idx!r} out of bounds. Must be between 0 and {len(self)}."
-                )
-
-            if not self.is_inference:
-                idx = idx + step * (self.hist + 1) * self.stride
-            idx = slice(idx, idx + 1, 1)
-
-        # Validate and normalize all slices.
-        if idx.start < 0 or idx.stop < 0 or idx.step < 0:
-            raise IndexError(f"index {idx!r} invalid: negative values not supported.")
-        if idx.start >= self._size or idx.stop >= self._size:
-            raise IndexError(
-                f"index {idx!r} out of bounds. slice must be less than {len(self)}."
-            )
-
-        if idx.start is None:
-            idx = slice(0, idx.stop, idx.step)
-        if idx.stop is None:
-            idx = slice(idx.start, len(self), idx.step)
-
-        window_index = self.rolling_indices.isel(window=idx)
-        window = xr.Variable(["window", "time"], window_index)
-
-        return window
-
-    def __getitem__(self, idx: int) -> Example:
-        inputs = []
-        labels = []
-
-        # TODO(alxmrs): Vectorize this operation! Or: is it fine because it's lazy?
-        for step in range(self.steps):
-            window = self.window_from(idx, step)
-
-            # This point in time splits the training data and the label data!
-            time_split = self.hist + 1
-
-            prognostic = self.input.isel(time=window).isel(time=slice(None, time_split))
-            boundary = self.extra.isel(time=window).isel(time=self.hist)
-            input_ = xr.merge([prognostic, boundary])  # Combines `data_var`s.
-
-            label = self.output.isel(time=window).isel(time=slice(time_split, None))
-
-            inputs.append(input_)
-            labels.append(label)
-
-        # Combines data along a new dimension "step"
-        input_ = xr.concat(inputs, dim="step")
-        label = xr.concat(labels, dim="step")
-
-        return input_, label
 
 
 class TrainDataset(Dataset):

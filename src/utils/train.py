@@ -36,16 +36,18 @@ def collate_om4(examples: Sequence[Example]) -> Example:
     for input_, label in examples:
         inputs.append(
             input_.to_array(dim="vars")
-            .transpose("step window time vars lat lon")
+            .transpose("step", "window", "time", "vars", "lat", "lon")
+            .compute()
             .einops.rearrange(
-                "step window time vars lat lon -> step window (time vars) lat lon",
+                "step window (time vars) lat lon",
             )
         )
         labels.append(
             label.to_array(dim="vars")
-            .transpose("step window time vars lat lon")
+            .transpose("step", "window", "time", "vars", "lat", "lon")
+            .compute()
             .einops.rearrange(
-                "step window time vars lat lon -> step window (time vars) lat lon",
+                "step window (time vars) lat lon",
             )
         )
 

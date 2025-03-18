@@ -333,8 +333,8 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
 
     atol = 0.01
     for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
-        x_not_close = not np.isclose(x_orig, x_new, atol=atol)
-        y_not_close = not np.isclose(y_orig, y_new, atol=atol)
+        x_not_close = np.isclose(x_orig, x_new, atol=atol) == False  # noqa: E712
+        y_not_close = np.isclose(y_orig, y_new, atol=atol) == False  # noqa: E712
 
         x_not_close_index = list(zip(*np.where(x_not_close)))
         y_not_close_index = list(zip(*np.where(y_not_close)))

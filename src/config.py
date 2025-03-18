@@ -34,6 +34,7 @@ class DataConfig:
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1
+    loader_version = "1.0"
 
 
 @dataclass

@@ -41,7 +41,7 @@ from constants import (
     TensorMap,
     construct_metadata,
 )
-from datasets import InferenceDataset, InferenceDatasets, TrainDataset
+from datasets import InferenceDataset, InferenceDatasets, OM4Dataset, TrainDataset
 from models.unet import UNet
 from stepper import Stepper, TrainOutput, ValOutput
 from utils.data import (
@@ -145,6 +145,7 @@ class Trainer:
         # Dataloaders
         logging.info(f"Loading data")
         assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
+        self.loader_version = cfg.data.loader_version
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
@@ -605,51 +606,85 @@ class Trainer:
             cur_step: Current training step size
         """
         # Create datasets
-        train_data: Dataset = ConcatDataset(
-            [
-                TrainDataset(
-                    self.data.sel(
-                        time=get_time_slice(
-                            self.train_times,
-                            time_delta=self.time_delta,
-                            hist=self.hist,
-                        )[0]
-                    ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
-                    self.wet,
-                    self.wet_surface,
-                    self.hist,
-                    cur_step,
-                    stride,
-                )
-                for stride in self.data_stride
-            ]
-        )
 
-        val_data: Dataset = ConcatDataset(
-            [
-                TrainDataset(
-                    self.data.sel(
-                        time=get_time_slice(
-                            self.val_times,
-                            time_delta=self.time_delta,
-                            hist=self.hist,
-                        )[0]
-                    ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
-                    self.wet,
-                    self.wet_surface,
-                    self.hist,
-                    1,  # current_step set to 1 for validation
-                    stride,
+        train_slice = get_time_slice(
+            self.train_times, time_delta=self.time_delta, hist=self.hist
+        )[0]
+        val_slice = get_time_slice(
+            self.val_times,
+            time_delta=self.time_delta,
+            hist=self.hist,
+        )[0]
+
+        match self.loader_version:
+            case "1.0":
+                train_data = ConcatDataset(
+                    [
+                        TrainDataset(
+                            self.data.sel(time=train_slice),
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.wet,
+                            self.wet_surface,
+                            self.hist,
+                            cur_step,
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
                 )
-                for stride in self.data_stride
-            ]
-        )
+
+                val_data = ConcatDataset(
+                    [
+                        TrainDataset(
+                            self.data.sel(time=val_slice),
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.wet,
+                            self.wet_surface,
+                            self.hist,
+                            1,  # current_step set to 1 for validation
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+            case "2.0":
+                train_data = ConcatDataset(
+                    [
+                        OM4Dataset(
+                            self.data.sel(time=train_slice),
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.hist,
+                            cur_step,
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+
+                val_data = ConcatDataset(
+                    [
+                        OM4Dataset(
+                            self.data.sel(time=val_slice),
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.hist,
+                            1,  # current_step set to 1 for validation
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+            case _:
+                raise NotImplementedError(
+                    f"Loader version {self.loader_version} not supported"
+                )
 
         logging.info("Instantiating torch loaders")
 

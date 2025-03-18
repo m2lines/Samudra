@@ -77,20 +77,22 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
         assert MASK_VARS[0] in data.variables, "Wet mask must have masks as data vars!"
 
         wetmask = data[MASK_VARS].to_array(dim="lev", name="wetmask")
-        wetmask.assign_coords(lev=data.lev)
 
-        data["wetmask"] = wetmask
+        data["wetmask"] = wetmask.assign_coords(lev=data.lev)
         data = data.drop_vars(MASK_VARS)
 
     return data
 
 
-def mask(data: xr.Dataset) -> xr.Dataset:
+def mask(data: xr.Dataset, wetmask: xr.DataArray | None = None) -> xr.Dataset:
     """Applies the wetmask to the data up-front."""
     # I revised on this via Project Pythia's tutorial:
     #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
     data_ = data.copy()
-    wetmask = data_.wetmask.astype(bool)
+
+    if wetmask is None:
+        wetmask = data_.wetmask
+    wetmask = wetmask.astype(bool)
     surface_mask = wetmask.isel(lev=0)
 
     for name, da in data_.items():
@@ -99,7 +101,7 @@ def mask(data: xr.Dataset) -> xr.Dataset:
         except ValueError:
             # Assume this variable is at the surface.
             # Apply the boundary layer mask and continue on.
-            data_[name] = da.where(surface_mask)
+            data_[name] = da.where(surface_mask, 0.0)
             continue
 
         # The string encoding is... not the best. For example, it doesn't
@@ -109,7 +111,7 @@ def mask(data: xr.Dataset) -> xr.Dataset:
         lev = min(DEPTH_LEVELS, key=lambda m: abs(m - lev))
         assert lev in DEPTH_LEVELS, f"Found unknown Depth Level! {lev}."
 
-        data_[name] = da.where(wetmask.sel(lev=lev))
+        data_[name] = da.where(wetmask.sel(lev=lev), 0.0)
 
     return data_
 

@@ -213,7 +213,7 @@ class DataSourceDims:
         """Parse array of encoded floats into its constituent parts.
 
         Arguments:
-            da: DataArray with encoded floats. See `encode_data_source`.
+            da: DataArray with encoded floats. See `encode`.
 
         Returns:
             (DataSourceDims, int) - Parsed dims and data_var index.
@@ -225,7 +225,7 @@ class DataSourceDims:
 
         assert np.all(
             cls._header_field.decode_from(encoded) == cls._header_value
-        ), "Data did not come from `encode_data_source`. "
+        ), "Data did not come from `encode`. "
 
         scalar = encoded.flat[0].view(np.uint64)
         tim_dim = encoded[:, 0, 0]

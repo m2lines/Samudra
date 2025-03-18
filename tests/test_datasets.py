@@ -6,6 +6,7 @@ import itertools
 import cftime
 import numpy as np
 import pytest
+import xarray as xr
 from conftest import DataSourceDims
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
@@ -15,8 +16,9 @@ from torch.utils.data import DataLoader
 
 from config import TrainConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS
-from datasets import TrainData
+from datasets import OM4Dataset, TrainData
 from train_3D import Trainer
+from utils.train import collate_om4
 
 # Note: Refactoring data loaders is planned for the near-term. Ideally,
 # these fixtures allow us to isolate data loader tests from their setup.
@@ -291,6 +293,47 @@ def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
             assert (
                 np.count_nonzero(y.numpy()) != 0
             ), "Label data should not be a zeros matrix!"
+
+
+def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
+    cfg, loader = train_loader_pair
+
+    ds = xr.open_dataset(cfg.data.data_path, chunks={})
+
+    input_vars = INPT_VARS[cfg.experiment.exp_num_in]
+    extra_vars = EXTRA_VARS[cfg.experiment.exp_num_extra]
+    output_vars = OUT_VARS[cfg.experiment.exp_num_out]
+
+    om4 = OM4Dataset(
+        ds,
+        input_vars,
+        extra_vars,
+        output_vars,
+        cfg.data.hist,
+        cfg.steps[0],
+        cfg.data_stride[0],
+    )
+
+    om4_loader = DataLoader(
+        om4,
+        batch_size=cfg.batch_size,
+        collate_fn=collate_om4,
+    )
+
+    def key(x):
+        return np.sum(x[0].flat) + np.sum(x[1].flat)
+
+    def as_numpy(x):
+        return x[0].cpu().detach().numpy(), x[1].cpu().detach().numpy()
+
+    original_samples = sorted(
+        [extract_sample_arrays(sample) for sample in loader], key=key
+    )
+    om4_samples = sorted([as_numpy(sample) for sample in om4_loader], key=key)
+
+    for orig_sample, om4_sample in zip(original_samples, om4_samples):
+        assert np.allclose(orig_sample[0], om4_sample[0], atol=0.1)
+        assert np.allclose(orig_sample[1], om4_sample[1], atol=0.1)
 
 
 @pytest.mark.manual

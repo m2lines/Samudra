@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741992452635,
+  "lastUpdate": 1742415150902,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -497,6 +497,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.8931699472865272",
             "extra": "mean: 166.5244574506 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "060cd1355ab2faa143c31b2a08b2ab2f5a45f33d",
+          "message": "Rework round-tripping/interpretable data with bit fields (#118)\n\nWhen I went to make another change, this test started failing again, I\nthink because it generated new test cases. Try to resolve the\ninstability by avoiding complexity of rounding and numeric error by\npacking data as smaller bitfields into the float64.",
+          "timestamp": "2025-03-19T15:22:57-04:00",
+          "tree_id": "6c9bbf536c4b5ca330bd2e226e4037795309748b",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/060cd1355ab2faa143c31b2a08b2ab2f5a45f33d"
+        },
+        "date": 1742415149940,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.03718484375862242,
+            "unit": "iter/sec",
+            "range": "stddev: 0.17812617612684606",
+            "extra": "mean: 26.892677201799994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.10297281333046318,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15248712441960743",
+            "extra": "mean: 9.711301145000016 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.10333347877382679,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09718891536038349",
+            "extra": "mean: 9.677405734000013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.005849237628025825,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6666653090527466",
+            "extra": "mean: 170.96245076600005 sec\nrounds: 5"
           }
         ]
       }

@@ -1,25 +1,55 @@
 # ocean_emulators
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/m2lines/ocean_emulators/main.svg)](https://results.pre-commit.ci/latest/github/m2lines/ocean_emulators/main)
 
+
+## Preprocessing
+
+This repository is currently being used to preprocess ocean datasets. 
+
+### Preprocessing steps
+
+1. Interpolation of variables at the cell boundaries to the cell centers
+2. Coarsening time-resolution of input data to 5-day simple average
+3. Rotation of velocities and wind stresses so that the variables indicate purely zonal (east-west) and meridional (north-south) flow, respectively.
+4. Spatial filtering with 18 x 18 gaussian kernel
+5. Horizontal regridding of native 0.25 degree data to 1 degree data
+
+### Preprocessing files
+These files live on the OSN pod:
+- Data: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation/ocean_5daily.zarr
+- Gaussian Grid: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-01-sample-raw-CM4-data/gaussian_grid_180_by_360.nc
+- Mosaic File: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-11-static-data/ocean_hgrid.nc
+- Static Data File: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-11-static-data/ocean_static_no_mask_table.nc
+
+### Possible issues
+
+1. Rotation of wind stresses (not done in this repo)
+2. Filtering across the Tripolar fold - https://github.com/m2lines/ocean_emulators/issues/69
+3. Setting threshold for land/ocean/sea-ice?
+4. Double check that interpolation of velocities are done correctly - Specifically, lon and lat are being used and not xh and yh.
+5. Vertical regridding - Handling partial grid cells
+6. Discontinuity with rotation before filtering  - https://github.com/m2lines/ocean_emulators/issues/69
+
+
 ## Data flow diagram
 ```mermaid
 flowchart TD
-    a[(A bunch of files/Zarr stores)] --> A[model specific processing \n `ocean_emulators.simulation_preprocessing.<>`]
-    A -->  b(`ds_processed`)
-    b --> |validate| B[`ocean_emulators.dataset_validation.ds_processed_validate`]
-    B --> C[Generic Preprocessing \n ocean_emulators.preprocessing]
-    C --> c(`ds_input`)
-    c --> |validate| D[`ocean_emulators.dataset_validation.ds_input_validate`]
-    D --> |download into uncompressed zarr| CC[ `ds_input` Local HPC copy]
+    a[(A bunch of files/Zarr stores)] --> A[model specific processing **ocean_emulators.simulation_preprocessing**]
+    A -->  b(**ds_processed**)
+    b --> |validate| B[**ocean_emulators.dataset_validation.ds_processed_validate**]
+    B --> C[Generic Preprocessing **ocean_emulators.preprocessing**]
+    C --> c(**ds_input**)
+    c --> |validate| D[**ocean_emulators.dataset_validation.ds_input_validate**]
+    D --> |download into uncompressed zarr| CC[ **ds_input** Local HPC copy]
     CC --> E[training]
     E --> d(model)
     d --> F[rollout]
-    F --> e[`ds_prediction_raw`]
-    e --> H[Postprocessing \n `ocean_emulators.postprocessing`]
-    H --> f(`ds_prediction`)
-    f -->|validate| I[`ocean_emulators.dataset_validation.ds_prediction_validate`]
+    F --> e[**ds_prediction_raw**]
+    e --> H[Postprocessing **ocean_emulators.postprocessing**]
+    H --> f(**ds_prediction**)
+    f -->|validate| I[**ocean_emulators.dataset_validation.ds_prediction_validate**]
     CC --> I
-    I --> |upload to cloud| J[`ds_prediction` Shareable prediction output]
+    I --> |upload to cloud| J[**ds_prediction** Shareable prediction output]
 ```
 
 
@@ -84,19 +114,21 @@ prediction_data_test(ds_prediction, ds_truth)
 ### Raw data
 | input_id | Cloud | Greene |
 | --- | --- | --- |
-| `'OM4_5daily'` | `'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
-| `"10_year_CM4_ocean_5daily"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_5daily.zarr"`| |
-| `"10_year_CM4_ice_5daily"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ice_5daily.zarr"` | |
-| `"10_year_CM4_ocean_6hourly"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_6hourly.zarr"` | |
-| `"10_year_CM4_ice_6hourly"` | `"gs://leap-persistent/m2lines/ai2_colab/2024-08-10-CM4-trial-run-output/full_state_ice.zarr"` | |
+| `'OM4_5daily'` | `'https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |
+| `"CM4_5daily"`| `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation/ocean_5daily.zarr/"`| |
+| `"10_year_CM4_ocean_5daily"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_5daily.zarr"`| |
+| `"10_year_CM4_ice_5daily"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ice_5daily.zarr"` | |
+| `"10_year_CM4_ocean_6hourly"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/ocean_6hourly.zarr"` | |
+| `"10_year_CM4_ice_6hourly"` | `"https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-10-CM4-trial-run-output/full_state_ice.zarr"` | |
 
 ### Input data
 
 | input_id | Cloud |
 | --- | --- |
-| `'OM4_5daily_v0.0'` | `"gs://leap-persistent/sd5313/input_OM4v0.0"` |
-| `'OM4_5daily_v0.2.1'` | `"gs://leap-persistent/jbusecke/ocean-emulators/OM4_5daily_v0.2.1.zarr"`|
-| `"CMIP_CM4_v0.1"` | `"gs://leap-persistent/jbusecke/ocean-emulators/CMIP6_GFDL-CM4.piControl.r1i1p1f1_v0.1.zarr"` |
+| `'OM4_5daily_v0.0'` | `"https://nyu1.osn.mghpcc.org/emulators/sd5313/input_OM4v0.0"` |
+| `'OM4_5daily_v0.2.1'` | `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/OM4_5daily_v0.2.1.zarr"`|
+| `"CMIP_CM4_v0.1"` | `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CMIP6_GFDL-CM4.piControl.r1i1p1f1_v0.1.zarr"` |
+| `"CM4_5daily_v0.4.0"`| `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CM4_5daily_v0.4.0.zarr"`| 
 
 
 ## Developing this package

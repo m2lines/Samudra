@@ -29,38 +29,69 @@ def convert_super_grid(ds_super_grid: xr.Dataset):
     return angle_h, lon_h, lat_h, lon_b, lat_b
 
 
-def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
+def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None):
     """OM4 specific preprocessing"""
-    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={})
+    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs)
 
-    if "z_l" in ds.coords:
-        ds = ds.rename({"z_l": "lev"})
+    if "z_i" in ds.coords:
+        ds = ds.rename({"z_i": "ilev", "z_l": "lev"})
+        dz = xr.DataArray(
+            ds.ilev.diff("ilev").values,
+            dims=["lev"],
+        ).astype("int64")
+        ilev = ds["ilev"]
+    else:
+        # add vertical info
+        dz = xr.DataArray(
+            [
+                5,
+                10,
+                15,
+                20,
+                30,
+                50,
+                70,
+                100,
+                150,
+                200,
+                250,
+                300,
+                400,
+                500,
+                600,
+                800,
+                1000,
+                1000,
+                1000,
+            ],
+            dims=["lev"],
+        )
+        ilev = xr.DataArray(
+            [
+                0,
+                5,
+                15,
+                30,
+                50,
+                80,
+                130,
+                200,
+                300,
+                450,
+                650,
+                900,
+                1200,
+                1600,
+                2100,
+                2700,
+                3500,
+                4500,
+                5500,
+                6500,
+            ],
+            dims=["ilev"],
+        )
 
-    # add vertical info
-    dz = xr.DataArray(
-        [
-            5,
-            10,
-            15,
-            20,
-            30,
-            50,
-            70,
-            100,
-            150,
-            200,
-            250,
-            300,
-            400,
-            500,
-            600,
-            800,
-            1000,
-            1000,
-            1000,
-        ],
-        dims=["lev"],
-    )
     ds = ds.assign_coords(dz=dz)
 
     # trim excess padding
@@ -83,10 +114,11 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     # remove the same areas as for the tracers again
     tracer_wetmask = ~np.isnan(ds_interpolated.thetao.isel(time=0)).drop_vars("time")
     ds = apply_mask(ds_interpolated, tracer_wetmask)
-    ds = ds.assign_coords(wetmask=tracer_wetmask)
+    ds = ds.assign_coords(ilev=ilev, wetmask=tracer_wetmask)
 
-    with fsspec.open(nc_grid_path) as f:
-        ds_grid = xr.open_dataset(f)
+    with fs.open(nc_grid_path) as f:
+        ds_grid = xr.open_dataset(f).load()
+
     ds_grid = ds_grid.drop_vars("time")
     ds_grid = ds_grid.set_coords([v for v in ds_grid.data_vars])
     # ds_grid
@@ -101,6 +133,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
         "time",
         "xh",
         "lat",
+        "ilev",
         "lev",
         "yh",
         "areacello",
@@ -110,7 +143,7 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     drop_coords = [co for co in ds.coords.keys() if co not in required_coords]
     ds = ds.drop(drop_coords)
 
-    with fsspec.open(nc_mosaic_path) as f:
+    with fs.open(nc_mosaic_path) as f:
         ds_super_grid = xr.open_dataset(f).load()
 
     a, lon, lat, lon_b, lat_b = convert_super_grid(ds_super_grid)
@@ -130,6 +163,6 @@ def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path):
     ds = ds.assign_coords(areacello=ds.areacello.astype("float64"))
     try:
         ds_processed_validate(ds)
-    except SchemaError:
-        print("Failed validation with {e}")
+    except SchemaError as err:
+        print(f"Failed validation with error: {str(err)}")
     return ds

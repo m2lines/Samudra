@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Dict, List, Literal, Optional, Union
+from typing import Dict, List, Literal, Mapping, Optional, Union
 
 import matplotlib.pyplot as plt
 import torch
@@ -286,7 +286,7 @@ class TimeMeanEvaluatorAggregator:
     @torch.no_grad()
     def get_logs(
         self, label: str
-    ) -> Dict[str, Union[float, torch.Tensor, wandb.Image]]:
+    ) -> Mapping[str, Union[float, torch.Tensor, wandb.Image]]:
         logs = self._gen_agg.get_logs("")
         preds = self._get_target_gen_pairs()
         bias_map_key = "bias_map"

@@ -205,13 +205,13 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
     metadata = {}
     for var in data.variables:
         try:
-            metadata[var] = {
+            metadata[str(var)] = {
                 "long_name": data[var].long_name,
                 "units": data[var].units,
             }
         except AttributeError:
             logging.info(f"{var} has no long_name or units attribute")
-            metadata[var] = {
+            metadata[str(var)] = {
                 "long_name": "Unknown",
                 "units": "Unknown",
             }

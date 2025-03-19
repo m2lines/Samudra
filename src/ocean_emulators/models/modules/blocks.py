@@ -1,3 +1,5 @@
+from typing import Callable
+
 import torch
 import torch.nn as nn
 
@@ -10,10 +12,10 @@ class TransposedConvUpsample(torch.nn.Module):
         in_channels: int = 3,
         out_channels: int = 1,
         upsampling: int = 2,
-        activation: torch.nn.Module = CappedGELU,
+        activation: Callable[[], torch.nn.Module] = CappedGELU,
     ):
         super().__init__()
-        upsampler = []
+        upsampler: list[torch.nn.Module] = []
         # Upsample transpose conv
         upsampler.append(
             torch.nn.ConvTranspose2d(
@@ -87,12 +89,12 @@ class ConvBlock(CoreBlock):
         kernel_size: int = 3,
         dilation: int = 1,
         n_layers: int = 1,
-        activation: torch.nn.Module = CappedGELU,
+        activation: Callable[[], torch.nn.Module] = CappedGELU,
         pad="circular",
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
 
-        layers = []
+        layers: list[torch.nn.Module] = []
         layers.append(
             torch.nn.Conv2d(in_channels, out_channels, kernel_size, dilation=dilation)
         )
@@ -139,7 +141,7 @@ class ConvNeXtBlock(CoreBlock):
         kernel_size: int = 3,
         dilation: int = 1,
         n_layers: int = 1,
-        activation: torch.nn.Module = CappedGELU,
+        activation: Callable[[], torch.nn.Module] = CappedGELU,
         pad="circular",
         upscale_factor: int = 4,
         norm="batch",
@@ -159,7 +161,7 @@ class ConvNeXtBlock(CoreBlock):
             )
 
         # Convolution block
-        convblock = []
+        convblock: list[torch.nn.Module] = []
         convblock.append(
             torch.nn.Conv2d(
                 in_channels=in_channels,

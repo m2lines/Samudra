@@ -1,5 +1,5 @@
 import os
-from typing import Dict
+from typing import Any, Dict
 
 import torch
 import xarray as xr
@@ -20,7 +20,7 @@ class ZarrWriter:
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
         self.hist = hist
-        self.acc_tensor = None
+        self.acc_tensor: torch.Tensor | None = None
         self.coords = coords
         self.model_path = model_path
 
@@ -42,7 +42,7 @@ class ZarrWriter:
         if self.acc_tensor is None:
             raise ValueError("No tensor to write")
 
-        coords = {k: v for k, v in self.coords.items()}
+        coords: Dict[str, Any] = {k: v for k, v in self.coords.items()}
         # TODO: Replace by actual time so I dont need to fix this downstream
         coords["time"] = range(self.acc_tensor.shape[0])
         ds = xr.Dataset(

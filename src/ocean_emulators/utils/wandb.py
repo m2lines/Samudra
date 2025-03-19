@@ -168,10 +168,10 @@ class WandBLogger:
         depth_set: list,
         var_set: list,
         step: int,
-        predictions: torch.Tensor = None,
-        targets: torch.Tensor = None,
-        targets_unnormalized: torch.Tensor = None,
-        model_pred_unnormalized: torch.Tensor = None,
+        predictions: torch.Tensor | None = None,
+        targets: torch.Tensor | None = None,
+        targets_unnormalized: torch.Tensor | None = None,
+        model_pred_unnormalized: torch.Tensor | None = None,
     ):
         """Log validation metrics including depth and variable specific metrics."""
         if not self._enabled:
@@ -210,26 +210,23 @@ class WandBLogger:
                 )
 
         # Plot predictions vs targets
-        if all(
-            x is not None
-            for x in [
-                predictions,
-                targets,
-                targets_unnormalized,
-                model_pred_unnormalized,
-            ]
+        if (
+            predictions is not None
+            and targets is not None
+            and targets_unnormalized is not None
+            and model_pred_unnormalized is not None
         ):
             for i, var in enumerate(outputs):
                 fig = plt.figure(figsize=(10, 5))
                 plt.plot(
                     range(targets.shape[0]),
-                    targets_unnormalized[:, :, :, i].mean(axis=(1, 2)),
+                    targets_unnormalized[:, :, :, i].mean(dim=(1, 2)),
                     label="Target",
                 )
                 min_val, max_val = plt.ylim()
                 plt.plot(
                     range(predictions.shape[0]),
-                    model_pred_unnormalized[:, :, :, i].mean(axis=(1, 2)),
+                    model_pred_unnormalized[:, :, :, i].mean(dim=(1, 2)),
                     label="Prediction",
                 )
 

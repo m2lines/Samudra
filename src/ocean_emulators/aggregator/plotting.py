@@ -46,7 +46,7 @@ def plot_imshow(
     # make figure size (in pixels) be the same as array size
     figsize = np.array(data.T.shape) / plt.rcParams["figure.dpi"]
     fig = Figure(figsize=figsize)  # create directly for cleanup when it leaves scope
-    ax = fig.add_axes([0, 0, 1, 1])
+    ax = fig.add_axes((0, 0, 1, 1))
     ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
     ax.set_axis_off()
     return fig

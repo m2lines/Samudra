@@ -28,7 +28,7 @@ class TrainAggregator:
         self._n_batches += 1
 
     @torch.no_grad()
-    def get_logs(self, label: str = "train") -> Dict[str, torch.Tensor]:
+    def get_logs(self, label: str = "train") -> Dict[str, float]:
         loss = self._loss / self._n_batches
 
         loss_aggregator = LossAggregator.get_instance()
@@ -44,7 +44,8 @@ class TrainAggregator:
             **var_loss_dict,
             **channel_loss_dict,
         }
+        meaned_logs = {}
         for key in sorted(logs.keys()):
-            logs[key] = float(all_reduce_mean(logs[key].detach()).cpu().numpy())
+            meaned_logs[key] = float(all_reduce_mean(logs[key].detach()).cpu().numpy())
 
-        return logs
+        return meaned_logs

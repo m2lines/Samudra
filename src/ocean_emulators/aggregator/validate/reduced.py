@@ -134,9 +134,10 @@ class MeanAggregator:
                 data[f"{metric}/{key}"] = (
                     self._variable_metrics[metric][key].get() / self._n_batches
                 )
+        meaned_data: Dict[str, float] = {}
         for key in sorted(data.keys()):
-            data[key] = float(all_reduce_mean(data[key].detach()).cpu().numpy())
-        return data
+            meaned_data[key] = float(all_reduce_mean(data[key].detach()).cpu().numpy())
+        return meaned_data
 
     @torch.no_grad()
     def get_logs(self, label: str):

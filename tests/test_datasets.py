@@ -72,7 +72,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
 
 
 @given(
-    data_var_index=st.integers(min_value=0, max_value=999),
+    data_var_index=st.integers(min_value=0, max_value=255),
     lat=arrays(
         dtype=np.float64,
         shape=vector_of(50),
@@ -100,7 +100,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     calendar="noleap",
 )
 @example(
-    data_var_index=999,
+    data_var_index=255,
     lat=np.array([90.00]),
     lng=np.array([360.0]),
     days_since_start=np.array([999]),
@@ -121,6 +121,14 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     data_var_index=0,
     days_since_start=np.array([0], dtype=np.int32),
     start_day=datetime.datetime(2000, 5, 1, 12),
+    calendar="noleap",
+)
+@example(
+    data_var_index=0,
+    lat=np.array([2.0]),
+    lng=np.array([1.375]),
+    days_since_start=np.array([0], dtype=np.int32),
+    start_day=datetime.datetime(2000, 1, 1, 0, 0),
     calendar="noleap",
 )
 @settings(deadline=1000)

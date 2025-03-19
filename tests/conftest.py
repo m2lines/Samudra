@@ -76,6 +76,9 @@ class BitField:
 
     def encode(self, value: NDArray) -> NDArray[np.uint64]:
         """Encodes & places the field; caller should + the field into the container."""
+        # Note that just `view(self.uint_type())` is not sufficient -- we need to
+        # extend the value to fill the full uint64 size so when we shift it doesn't
+        # just shift off the end of the (smaller) uint_type.
         return (
             value.astype(self.dtype).view(self.uint_type()).astype(np.uint64)
             << self.offset
@@ -94,6 +97,19 @@ class DataSourceDims:
       * lng encoded as a float16
       * days_since_start encoded as a uint16
       * data_var_index encoded as a uint8
+
+    For example, given lat=90, lng=180, days_since_start=8, data_var_index=7:
+
+        * header: 01000000, hex 0x40
+        * lat: 01010101 10100000, hex 0x55A0 (the float16 encoding of 90.0)
+        * lng: 01011001 10100000, hex 0x59A0 (the float16 encoding of 180.0)
+        * days_since_start: 00000000 00001000, hex 0x0008 (the uint16 encoding of 8)
+        * data_var_index: 00000111, hex 0x07 (the uint8 encoding of 7)
+
+    This produces this uint64: 0x4055A059A0000807
+    Which when interpreted as a float: https://float.exposed/0x4055A059A0000807
+    gives about 86.50.
+
     """
 
     _header_value: ClassVar[np.uint64] = np.uint64(0b01000000)

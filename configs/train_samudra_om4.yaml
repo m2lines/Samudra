@@ -29,14 +29,7 @@ inference:
 data_stride: [1]
 steps: [4]
 step_transition: []
-
-distributed:
-  enabled: true
-  dist_url: null
-  world_size: null
-  rank: null
-  gpu: null
-  dist_backend: null
+backend: auto
 
 experiment:
   name: train
@@ -63,6 +56,7 @@ data:
   time_delta: 5
   num_workers: 4
   hist: 1
+  loader_version: "2.0"
 
 
 unet:

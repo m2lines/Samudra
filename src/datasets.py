@@ -40,18 +40,20 @@ class OM4Dataset(Dataset):
         # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
         data = unflatten_masks(data)
 
-        # Apply oceans mask to the data up-front.
-        masked = mask(data)
-
-        input_ = masked[input_vars]
-        extra_ = masked[extra_vars]
-        output_ = masked[output_vars]
+        input_ = data[input_vars]
+        extra_ = data[extra_vars]
+        output_ = data[output_vars]
 
         # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
         norm = Normalize.get_instance()
-        self.input = norm.normalize_inputs(input_)
-        self.extra = norm.normalize_boundary(extra_)
-        self.output = norm.normalize_outputs(output_)
+        norm_input = norm.normalize_inputs(input_)
+        norm_extra = norm.normalize_boundary(extra_)
+        norm_output = norm.normalize_outputs(output_)
+
+        # Set non-ocean areas to zero.
+        self.input = mask(norm_input, data.wetmask)
+        self.extra = mask(norm_extra, data.wetmask)
+        self.output = mask(norm_output, data.wetmask)
 
         self.hist: int = hist
         self.steps: int = steps

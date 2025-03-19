@@ -84,13 +84,16 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
     return data
 
 
-def mask(data: xr.Dataset) -> xr.Dataset:
-    """Applies the wetmask to the data up-front."""
+def mask(data: xr.Dataset, wetmask: xr.DataArray | None = None) -> xr.Dataset:
+    """Apply a wetmask (areas of the ocean) to all variables in the dataset."""
     # I revised on this via Project Pythia's tutorial:
     #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
     data_ = data.copy()
 
-    wetmask = data_.wetmask.astype(bool)
+    if wetmask is None:
+        wetmask = data_.wetmask
+
+    wetmask = wetmask.astype(bool)
     surface_mask = wetmask.isel(lev=0)
 
     for name, da in data_.items():

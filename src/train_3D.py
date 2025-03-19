@@ -683,7 +683,7 @@ class Trainer:
                 )
             case _:
                 raise NotImplementedError(
-                    f"Loader version {self.loader_version} not supported"
+                    f"Loader version {self.loader_version} not supported."
                 )
 
         logging.info("Instantiating torch loaders")

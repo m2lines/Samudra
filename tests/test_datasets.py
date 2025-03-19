@@ -326,6 +326,9 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
     def as_numpy(x):
         return x[0].cpu().detach().numpy(), x[1].cpu().detach().numpy()
 
+    # Why are we sorting here? Well, the default data loader uses a random sampler. So
+    # we use sorting as a simple way to compare the two loaders (without having to
+    # monkeypatch the train loader fixture).
     original_samples = sorted(
         [extract_sample_arrays(sample) for sample in loader], key=key
     )

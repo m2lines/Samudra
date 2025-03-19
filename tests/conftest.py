@@ -1,7 +1,7 @@
 import dataclasses
 import os
 import tempfile
-from typing import Any, Generator
+from typing import Any, ClassVar, Generator
 
 import cftime
 import numpy as np
@@ -23,23 +23,102 @@ class DataSource:
     stds: xr.Dataset
 
 
-def _trunc(arr: NDArray[np.floating], decimals: int) -> NDArray[np.floating]:
-    factor = 10**decimals
-    return np.trunc(arr * factor) / factor
+@dataclasses.dataclass
+class BitField:
+    """Represents a bit field in a uint64."""
+
+    offset: np.uint64
+    dtype: np.dtype
+
+    # numpy implicitly converts scalar types like np.float16 to a dtype when needed,
+    # so we do, too
+    def __init__(self, offset: int, dtype: np.dtype | type) -> None:
+        """Create a description of a bit field.
+
+        Arguments:
+            offset: int - The offset of the field within the uint64, in bits.
+            dtype: np.dtype | type - The type of the field. The underlying bytes
+            of this type are what is stored in the uint64 at this offset.
+        """
+        self.offset = np.uint64(offset)
+        self.dtype = np.dtype(dtype)
+
+    def ensure_value_fits(self, value: np.array) -> None:
+        if np.any(value < np.iinfo(self.dtype).min):
+            raise ValueError(
+                f"Value {value} is less than the minimum value for {self.dtype}"
+            )
+        if np.any(value > np.iinfo(self.dtype).max):
+            raise ValueError(
+                f"Value {value} is greater than the maximum value for {self.dtype}"
+            )
+
+    def mask(self) -> np.uint64:
+        """Returns an all-1s bitmask for the field."""
+        return np.uint64((1 << (self.size_in_bytes() * 8)) - 1)
+
+    def size_in_bytes(self) -> int:
+        """How many bytes does this field take up?"""
+        return self.dtype.itemsize
+
+    def uint_type(self) -> np.dtype:
+        """A uint type that is the same size as the field's value."""
+        # Yes, this is in bytes, so u4 == uint32
+        return np.dtype(f"u{self.size_in_bytes()}")
+
+    def decode_from(self, container: NDArray[np.uint64]) -> NDArray:
+        """Extracts the field from a uint64 container."""
+        return (
+            ((container >> self.offset) & self.mask())
+            .astype(self.uint_type())
+            .view(self.dtype)
+        )
+
+    def encode(self, value: NDArray) -> NDArray[np.uint64]:
+        """Encodes & places the field; caller should + the field into the container."""
+        # Note that just `view(self.uint_type())` is not sufficient -- we need to
+        # extend the value to fill the full uint64 size so when we shift it doesn't
+        # just shift off the end of the (smaller) uint_type.
+        return (
+            value.astype(self.dtype).view(self.uint_type()).astype(np.uint64)
+            << self.offset
+        )
 
 
 @dataclasses.dataclass
 class DataSourceDims:
     """Dimension metadata to produce interpretable `xarray.DataArray`s.
 
-    Each float in the encoded `xarray.DataArray` has the following scheme:
-    (s)AAAAGGGG.TTTDDD
-    - s := Sign (+/-) of the Latitude. All other values are non-negative.
-    - A := Latitude, which ranges from 90.00 <--> -90.00 (only decimals=2).
-    - G := Longitude, which ranges from 000.0 <--> 360.0 (only decimals=1).
-    - T := Time, the number of days since the start time.
-    - D := A int representing the index of the current data variable.
+    Each float in the encoded `xarray.DataArray` is interpreted as a uint64 broken
+    into the following fields, MSB first:
+      * 8 bits fixed as 0100 0000
+        * which overlaps with float64 exponent to make it non-NaN and non-subnormal
+      * lat encoded as a float16
+      * lng encoded as a float16
+      * days_since_start encoded as a uint16
+      * data_var_index encoded as a uint8
+
+    For example, given lat=90, lng=180, days_since_start=8, data_var_index=7:
+
+        * header: 01000000, hex 0x40
+        * lat: 01010101 10100000, hex 0x55A0 (the float16 encoding of 90.0)
+        * lng: 01011001 10100000, hex 0x59A0 (the float16 encoding of 180.0)
+        * days_since_start: 00000000 00001000, hex 0x0008 (the uint16 encoding of 8)
+        * data_var_index: 00000111, hex 0x07 (the uint8 encoding of 7)
+
+    This produces this uint64: 0x4055A059A0000807
+    Which when interpreted as a float: https://float.exposed/0x4055A059A0000807
+    gives about 86.50.
+
     """
+
+    _header_value: ClassVar[np.uint64] = np.uint64(0b01000000)
+
+    _header_field: ClassVar[BitField] = BitField(offset=56, dtype=np.uint8)
+    _lat_field: ClassVar[BitField] = BitField(offset=40, dtype=np.float16)
+    _lng_field: ClassVar[BitField] = BitField(offset=24, dtype=np.float16)
+    _days_since_start_field: ClassVar[BitField] = BitField(offset=8, dtype=np.uint16)
+    _data_var_index_field: ClassVar[BitField] = BitField(offset=0, dtype=np.uint8)
 
     lat: NDArray[np.float64] = dataclasses.field(
         default_factory=lambda: np.arange(-89.24, 90, 1, dtype=np.float64)
@@ -47,41 +126,31 @@ class DataSourceDims:
     lng: NDArray[np.float64] = dataclasses.field(
         default_factory=lambda: np.arange(0.5, 360, 1, dtype=np.float64)
     )
-    days_since_start: NDArray[np.int32] = dataclasses.field(
-        default_factory=lambda: np.array([0, 5, 10])
+    days_since_start: NDArray[np.uint32] = dataclasses.field(
+        default_factory=lambda: np.array([0, 5, 10], dtype=np.uint32)
     )
     start_day: cftime.datetime = cftime.DatetimeNoLeap.strptime(
         "1969-08-05", "%Y-%m-%d", "noleap"
     )
 
     def __post_init__(self):
-        # In Python, modulus operations preserve the sign _based on the denominator_.
-        # So, to ensure that we can have negative latitudes, we parse the sign value
-        # of the lat array.
-        lat_sgn = np.sign(self.lat)
-        lat_sgn = np.where(lat_sgn == 0, 1, lat_sgn)  # change np.sign(0) to +1, not 0.
-        self.lat = _trunc(self.lat.astype(np.float64), 2)
         if np.any(self.lat < -90.0) or np.any(self.lat > 90.0):
-            raise ValueError("lat values must be between -90 and 90.")
-        self.lat %= lat_sgn * 100
+            raise ValueError("lat values are expected to be between -90 and 90.")
 
-        # All other values in the encoding must be non-negative.
-        self.lng = _trunc(self.lng.astype(np.float64), 1)
         if np.any(self.lng < 0.0) or np.any(self.lng > 360.0):
-            raise ValueError("lng values must be between 0 and 360 degrees.")
-        self.lng %= 1000
+            raise ValueError("lng values are expected to be between 0 and 360 degrees.")
 
-        self.days_since_start = self.days_since_start.astype(np.int32)
-        if np.any(self.days_since_start < 0) or np.any(self.days_since_start > 999):
-            raise ValueError("days_since_start must be between 0 and 999.")
+        self._days_since_start_field.ensure_value_fits(self.days_since_start)
 
     def __eq__(self, other) -> bool:
-        # lat and lng values will often have floating point rounding errors.
-        # So, we declare arrays as equal within a generous tolerance.
+        # lat and lng values round-trip via float16s, so declare them equal if they
+        # would encode to the same float16.
         # We can use exact equality with days_since_start since they are ints.
         return (
-            np.allclose(self.lat, other.lat, atol=0.1)
-            and np.allclose(self.lng, other.lng, atol=0.01)
+            np.array_equal(self.lat.astype(np.float16), other.lat.astype(np.float16))
+            and np.array_equal(
+                self.lng.astype(np.float16), other.lng.astype(np.float16)
+            )
             and np.array_equal(self.days_since_start, other.days_since_start)
             and self.start_day == other.start_day
         )
@@ -112,40 +181,42 @@ class DataSourceDims:
         }
         return coords
 
-    def encode(self, data_var_index: int = 0) -> xr.DataArray:
+    def encode(self, data_var_index: np.uint | int = 0) -> xr.DataArray:
         """Encodes source data dimensions into an array of interpretable `np.float64`s.
 
         Arguments:
-            data_var_index: int - The index of the data variable. Default is 0. This
-              must be a value between 0 and 999.
+            data_var_index: int - The index of the data variable. Default is 0.
 
         Returns:
             An xarray.DataArray of np.float64 numbers with the above encoding scheme.
         """
-        if data_var_index < 0 or data_var_index > 999:
-            raise ValueError("data_var_index must be between 0 and 999.")
+        self._data_var_index_field.ensure_value_fits(data_var_index)
 
-        days_reshaped = self.days_since_start[:, np.newaxis, np.newaxis].astype(
-            np.int32
-        )  # Float[D, 1, 1]
-
+        days_reshaped = self.days_since_start[:, np.newaxis, np.newaxis]
         latlng_grid = np.stack(
-            np.meshgrid(self.lat[::-1], self.lng, indexing="ij"),
+            np.meshgrid(
+                self.lat[::-1],
+                self.lng,
+                indexing="ij",
+            ),
             axis=0,
         )
-        latlng_grid_3sf = np.around(latlng_grid, decimals=2)
 
-        template_grid = (
-            latlng_grid_3sf[0, :, :] * 1_000_000.0 + latlng_grid_3sf[1, :, :] * 10.0
-        )
+        template_grid = self._lat_field.encode(
+            latlng_grid[0, :, :]
+        ) + self._lng_field.encode(latlng_grid[1, :, :])
         rolled_out_grid = np.repeat(
             template_grid[np.newaxis, :, :], days_reshaped.shape[0], axis=0
         )
 
-        interpretable_grid = rolled_out_grid + (days_reshaped / 1000)
-        data_index_digits = float(data_var_index) / 1_000_000
+        interpretable_grid = (
+            rolled_out_grid
+            + self._days_since_start_field.encode(days_reshaped)
+            + self._data_var_index_field.encode(np.array(data_var_index))
+            + self._header_field.encode(self._header_value)
+        )
         return xr.DataArray(
-            interpretable_grid + data_index_digits,
+            interpretable_grid.view(np.float64),
             dims=["time", "lat", "lon"],
             attrs={
                 "start_day": self.start_day.toordinal(),
@@ -157,44 +228,30 @@ class DataSourceDims:
     def decode(cls, da: xr.DataArray) -> tuple[Self, int]:
         """Parse array of encoded floats into its constituent parts.
 
-        AAAAGGGG.TTTDDD -->
-         (
-            DataSourceDims(lat=AA.AA, lng=GGG.G, days_since_start=TTT),
-            DDD,  # data_source_index
-        )
-
         Arguments:
-            da: DataArray with encoded floats. See `encode_data_source`.
+            da: DataArray with encoded floats. See `encode`.
 
         Returns:
             (DataSourceDims, int) - Parsed dims and data_var index.
         """
-        encoded = da.to_numpy()
+        encoded = da.to_numpy().view(np.uint64)
         assert (
             len(encoded.shape) == 3
         ), "DataArray must have (time, lat, lng) dimensions."
 
-        scalar = encoded.flat[0]
+        assert np.all(
+            cls._header_field.decode_from(encoded) == cls._header_value
+        ), "Data did not come from `encode`. "
+
+        scalar = encoded.flat[0].view(np.uint64)
         tim_dim = encoded[:, 0, 0]
         lat_dim = encoded[0, :, 0][::-1]
         lng_dim = encoded[0, 0, :]
 
-        # Signs are either +1 or -1. If the value is 0, default to +1.
-        lat_sign = np.sign(lat_dim)
-        lat_sign = np.where(lat_sign == 0, 1, lat_sign)
-
-        # In python, the modulus operator preserves the of the _denominator only_.
-        # Thus, we need to parse the sign values for latitude above and include it
-        # in our float arithemetic array processing.
-        # We only need to do this for the lat values because we do not allow any
-        # other values encoded in the float to be negative.
-        days_since_start = ((tim_dim * 1000) % 1000).astype(np.int32)
-        lat = (lat_dim // (lat_sign * 10_000)) / (lat_sign * 100)
-        lng = lng_dim / 10 % 1000
-        # we need both np.round and _trunc because changing magnitude
-        # of very small floating point values (especially, odd numbers)
-        # leads to repeated decimal values.
-        data_var_index = int(np.round(_trunc(scalar, decimals=7) * 1_000_000) % 1000)
+        days_since_start = cls._days_since_start_field.decode_from(tim_dim)
+        lat = cls._lat_field.decode_from(lat_dim)
+        lng = cls._lng_field.decode_from(lng_dim)
+        data_var_index = cls._data_var_index_field.decode_from(scalar)
 
         data_source = cls(
             lat=lat,
@@ -204,7 +261,6 @@ class DataSourceDims:
                 da.attrs.get("start_day"), da.attrs.get("start_day_cal")
             ),
         )
-
         return data_source, data_var_index
 
 

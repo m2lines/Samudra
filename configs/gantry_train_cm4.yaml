@@ -37,17 +37,10 @@ inference:
 data_stride: [1]
 steps: [4]
 step_transition: []
-
-distributed:
-  enabled: true
-  dist_url: null
-  world_size: null
-  rank: null
-  gpu: null
-  dist_backend: null
+backend: auto
 
 experiment:
-  name: train
+  base_name: train
   sub_name: cm4_samudra
   rand_seed: 1
   base_output_dir: /results

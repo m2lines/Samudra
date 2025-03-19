@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 from dacite import Config as DaciteConfig
@@ -35,6 +35,7 @@ class DataConfig:
     num_workers: int = 4
     hist: int = 1
     detrend_vars: Optional[List[str]] = None
+    loader_version = "1.0"
 
 
 @dataclass
@@ -71,7 +72,6 @@ class UNetConfig:
 
 @dataclass
 class DistributedConfig:
-    enabled: bool = True
     dist_url: Optional[str] = None
     world_size: Optional[int] = None
     rank: Optional[int] = None
@@ -81,7 +81,7 @@ class DistributedConfig:
 
 @dataclass
 class ExperimentConfig:
-    name: str = "train"
+    base_name: str = "train"
     sub_name: str = "cm4_samudra"
     rand_seed: int = 1
     base_output_dir: str = "train_3D"
@@ -97,13 +97,17 @@ class ExperimentConfig:
 
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")
-        self.name = f"{timestamp}-{self.name}"
+        self.name = f"{timestamp}-{self.base_name}"
         self.output_dir = Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
         self.nets_dir = self.output_dir / "saved_nets"
         if self.gantry:
             self.data_dir = Path("/")
         else:
             self.data_dir = Path(self.cluster_data_dir)
+
+
+# See backend.py for how these are turned into concrete devices
+TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 
 
 @dataclass
@@ -120,6 +124,7 @@ class TrainConfig:
     finetune: bool = False
     resume_ckpt_path: Optional[str] = None
     debug: bool = False
+    backend: TrainBackendConfig = "auto"
 
     # Data parameters at root level
     data_percent: float = 1.0
@@ -136,7 +141,6 @@ class TrainConfig:
     inference: List[TimeConfig] = field(default_factory=list)
 
     # Config components
-    distributed: DistributedConfig = field(default_factory=DistributedConfig)
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     data: DataConfig = field(default_factory=DataConfig)
     unet: UNetConfig = field(default_factory=UNetConfig)
@@ -173,6 +177,7 @@ class TrainConfig:
             "loss": self.loss,
             "finetune": self.finetune,
             "resume_ckpt_path": self.resume_ckpt_path,
+            "backend": self.backend,
             "data_percent": self.data_percent,
             "data_stride": self.data_stride,
             "steps": self.steps,
@@ -181,7 +186,6 @@ class TrainConfig:
             "train": self.train.__dict__,
             "val": self.val.__dict__,
             "inference": [t.__dict__ for t in self.inference],
-            "distributed": self.distributed.__dict__,
             "experiment": self.experiment.__dict__,
             "data": self.data.__dict__,
             "unet": {
@@ -194,6 +198,14 @@ class TrainConfig:
         with open(save_path, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False)
 
+    def prepare_output_dirs(self) -> None:
+        self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
+        self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+
+
+# See backend.py for how these are turned into concrete devices
+EvalBackendConfig = Literal["cpu", "cuda", "auto"]
+
 
 @dataclass
 class EvalConfig:
@@ -204,6 +216,8 @@ class EvalConfig:
     ckpt_path: str = ""
     num_model_steps_forward: int = 200
     record_every: int = 10
+    backend: EvalBackendConfig = "auto"
+
     # Config components
     inference: TimeConfig = field(
         default_factory=lambda: TimeConfig("311-01-01", "351-01-01")
@@ -256,3 +270,6 @@ class EvalConfig:
 
         with open(save_path, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False)
+
+    def prepare_output_dirs(self) -> None:
+        self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

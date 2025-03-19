@@ -29,3 +29,5 @@ output.log
 .idea
 *.egg-info/
 .venv/
+.benchmarks/
+.hypothesis/

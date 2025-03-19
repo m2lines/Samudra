@@ -5,7 +5,7 @@ import torch
 
 from aggregator import InferenceEvaluatorAggregator
 from datasets import InferenceDataset, TrainData
-from utils.device import using_gpu
+from models.base import BaseModel
 from utils.model import InfOutput, TrainOutput, ValOutput
 from utils.wandb import get_record_to_wandb
 from utils.writer import ZarrWriter
@@ -26,12 +26,20 @@ class Stepper:
     @staticmethod
     @torch.no_grad()
     def validate_step(
-        model: torch.nn.Module, batch: TrainData, loss_fn: Callable
+        model: BaseModel | torch.nn.parallel.DistributedDataParallel,
+        batch: TrainData,
+        loss_fn: Callable,
     ) -> ValOutput:
         assert len(batch) == 1  # Assert we are using one step of input and output
         input = batch.get_input(0)
         label = batch.get_label(0)
-        model = model.module if using_gpu() else model
+        # TODO(jder): we need the underlying model so we can use forward_once;
+        # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
+        model = (
+            model.module
+            if isinstance(model, torch.nn.parallel.DistributedDataParallel)
+            else model
+        )
         outs = model.forward_once(input)
         loss_per_channel = loss_fn(outs, label)
         loss = torch.mean(loss_per_channel)

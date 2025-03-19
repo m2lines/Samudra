@@ -1,14 +1,147 @@
 import logging
-from typing import Dict, List, Tuple
 
 import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
+from jaxtyping import Float, Integer
 from torch.utils.data import Dataset
 
-from utils.data import Normalize
+from constants import (
+    Boundary,
+    Example,
+    ExtraVars,
+    GridMask,
+    Input,
+    InputMask,
+    InputVars,
+    Label,
+    OutputVars,
+    Prognostic,
+)
+from utils.data import Normalize, mask, unflatten_masks
 from utils.device import get_device, using_gpu
+
+
+class OM4Dataset(Dataset):
+    """A `torch.Dataset` for Zarr-backed OM4 data."""
+
+    def __init__(
+        self,
+        data: xr.Dataset,
+        input_vars: InputVars,
+        extra_vars: ExtraVars,
+        output_vars: OutputVars,
+        hist: int,
+        steps: int,
+        stride: int = 1,
+        is_inference: bool = False,
+    ) -> None:
+        # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
+        data = unflatten_masks(data)
+
+        input_ = data[input_vars]
+        extra_ = data[extra_vars]
+        output_ = data[output_vars]
+
+        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
+        norm = Normalize.get_instance()
+        norm_input = norm.normalize_inputs(input_)
+        norm_extra = norm.normalize_boundary(extra_)
+        norm_output = norm.normalize_outputs(output_)
+
+        # Set non-ocean areas to zero.
+        self.input = mask(norm_input, data.wetmask)
+        self.extra = mask(norm_extra, data.wetmask)
+        self.output = mask(norm_output, data.wetmask)
+
+        self.hist: int = hist
+        self.steps: int = steps
+        self.stride: int = stride
+        self.is_inference: bool = is_inference
+
+        self._size: int = (
+            data.time.size
+            - self.steps * (self.hist + 1) * self.stride
+            - self.hist * self.stride
+        )
+
+        # This class will be used only for training
+        total_steps: int = 2 * self.hist + 2
+        # Calculate the number of windows
+        num_windows = data.time.size - (total_steps - 1) * self.stride
+        # Create base indices
+        indices = np.arange(num_windows)
+        indices_da = xr.DataArray(indices, dims=["window"])
+        # Create window dimension
+        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
+        # Construct rolling indices
+        self.rolling_indices: Integer[xr.DataArray, "window time"] = (
+            indices_da + stride * window_dim
+        )
+
+    def __len__(self) -> int:
+        return self._size
+
+    # TODO(#124): Vectorize `step`
+    # TODO(alxmrs): Why doesn't jaxtyping work here?
+    def window_from(self, idx: int | slice, step: int) -> xr.Variable:
+        """Coalesce index values to a window of the input data."""
+        # First, parse int inputs as a slice.
+        if isinstance(idx, int):
+            if idx < 0 or idx >= len(self):
+                raise IndexError(
+                    f"index {idx!r} out of bounds. Must be between 0 and {len(self)}."
+                )
+
+            if not self.is_inference:
+                idx = idx + step * (self.hist + 1) * self.stride
+            idx = slice(idx, idx + 1, 1)
+
+        # Validate and normalize all slices.
+        if idx.start < 0 or idx.stop < 0 or idx.step < 0:
+            raise IndexError(f"index {idx!r} invalid: negative values not supported.")
+        if idx.start > self._size or idx.stop > self._size:
+            raise IndexError(
+                f"index {idx!r} out of bounds. "
+                f"All bounds must be less than or equal to {len(self)}."
+            )
+
+        if idx.start is None:
+            idx = slice(0, idx.stop, idx.step)
+        if idx.stop is None:
+            idx = slice(idx.start, len(self), idx.step)
+
+        window_index = self.rolling_indices.isel(window=idx)
+        window = xr.Variable(["window", "time"], window_index)
+
+        return window
+
+    def __getitem__(self, idx: int) -> Example:
+        inputs = []
+        labels = []
+
+        # TODO(#124): Vectorize this operation! Or, is it fine because it's lazy?
+        for step in range(self.steps):
+            window = self.window_from(idx, step)
+
+            # This point in time splits the training data and the label data!
+            time_split = self.hist + 1
+
+            prognostic = self.input.isel(time=window).isel(time=slice(None, time_split))
+            boundary = self.extra.isel(time=window).isel(time=self.hist)
+            input_ = xr.merge([prognostic, boundary])  # Combines variables.
+
+            label = self.output.isel(time=window).isel(time=slice(time_split, None))
+
+            inputs.append(input_)
+            labels.append(label)
+
+        # Combines data along a new dimension "step"
+        input_ = xr.concat(inputs, dim="step")
+        label = xr.concat(labels, dim="step")
+
+        return input_, label
 
 
 class InferenceDataset(Dataset):
@@ -198,7 +331,7 @@ class InferenceDataset(Dataset):
 
 
 class InferenceDatasets(Dataset):
-    def __init__(self, datasets: List[InferenceDataset], lengths: List[int]):
+    def __init__(self, datasets: list[InferenceDataset], lengths: list[int]):
         self.datasets = datasets
         self.lengths = lengths
 
@@ -211,35 +344,31 @@ class InferenceDatasets(Dataset):
 
 class TrainData:
     def __init__(self, output_channels: int):
-        self.td_dict: Dict[int, Tuple[torch.Tensor, torch.Tensor]] = {}
+        self.td_dict: dict[int, Example] = {}
         self.output_channels = output_channels
         self.steps = 0
 
-    def insert(self, input: torch.Tensor, label: torch.Tensor):
-        self.td_dict[self.steps] = (input, label)
+    def insert(self, input_: Input, label: Label):
+        self.td_dict[self.steps] = (input_, label)
         self.steps += 1
 
-    def get_initial_input(self):
+    def get_initial_input(self) -> Input:
         return self.td_dict[0][0]
 
-    def get_input(self, step: int):
+    def get_input(self, step: int) -> Input:
         return self.td_dict[step][0]
 
-    def get_label(self, step: int):
+    def get_label(self, step: int) -> Label:
         return self.td_dict[step][1]
 
-    def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
-        input, _ = self.td_dict[step]
-        input[:, : self.output_channels] = prognostic
-        return input
-
-    def __getitem__(self, step: int):
+    def __getitem__(self, step: int) -> Example:
+        """Converts index (step) into (data, label) tuple."""
         return self.td_dict[step]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.steps
 
-    def to(self, device: torch.device):
+    def to(self, device: torch.device) -> None:
         for step in self.td_dict:
             self.td_dict[step] = (
                 self.td_dict[step][0].to(device),
@@ -269,30 +398,30 @@ class TrainDataset(Dataset):
 
     def __init__(
         self,
-        data,
-        inputs_str,
-        extra_in_str,
-        outputs_str,
-        wet,
-        wet_surface,
-        hist,
-        steps,
-        stride=1,
+        data: xr.Dataset,
+        inputs_str: InputVars,
+        extra_in_str: ExtraVars,
+        outputs_str: OutputVars,
+        wet: InputMask,
+        wet_surface: GridMask,
+        hist: int,
+        steps: int,
+        stride: int = 1,
     ):
         super().__init__()
         self.device = get_device()
 
-        self.hist = hist
-        self.steps = steps
-        self.stride = stride
+        self.hist: int = hist
+        self.steps: int = steps
+        self.stride: int = stride
 
-        self._outputs = data[outputs_str]
-        self.output_channels = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra = data[inputs_str]
-        self._extras = data[extra_in_str]
+        self._outputs: xr.Dataset = data[outputs_str]
+        self.num_output_channels: int = (hist + 1) * len(outputs_str)
+        self._inputs_no_extra: xr.Dataset = data[inputs_str]
+        self._extras: xr.Dataset = data[extra_in_str]
 
         # This class will be used only for training
-        total_steps = 2 * self.hist + 2
+        total_steps: int = 2 * self.hist + 2
 
         # Calculate the number of windows
         num_windows = data.time.size - (total_steps - 1) * self.stride
@@ -305,12 +434,14 @@ class TrainDataset(Dataset):
         window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
 
         # Construct rolling indices
-        self.rolling_indices = indices_da + stride * window_dim
+        self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
+            indices_da + stride * window_dim
+        )
 
         self.wet = wet.bool()
         self.wet_surface = wet_surface.bool()
 
-        self.size = (
+        self.size: int = (
             data.time.size
             - self.steps * (self.hist + 1) * self.stride
             - self.hist * self.stride
@@ -327,39 +458,44 @@ class TrainDataset(Dataset):
         self._extras = self.normalize.normalize_boundary(self._extras)
         self._outputs = self.normalize.normalize_outputs(self._outputs)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.size
 
-    def __getitem__(self, idx):
-        TD = TrainData(self.output_channels)
+    def __getitem__(self, idx: int):
+        TD = TrainData(self.num_output_channels)
         prev_rolling_idx = None
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
-            data_in = self._get_input(x_index)
-            data_in_boundary = self._get_boundary(x_index)
-            data_in = torch.cat((data_in, data_in_boundary), dim=1).squeeze()
 
-            label = self._get_label(x_index)
+            data_in: Prognostic = self._get_input(x_index)
+            data_in_boundary: Boundary = self._get_boundary(x_index)
+
+            data_combined: Input = torch.cat(
+                (data_in, data_in_boundary), dim=1
+            ).squeeze()
+
+            label: Label = self._get_label(x_index)
 
             TD.insert(
-                input=data_in,
+                input_=data_combined,
                 label=label,
             )
 
         return TD
 
-    def _get_x_index(self, idx, step, prev_rolling_idx):
+    def _get_x_index(
+        self, idx: int, step: int, prev_rolling_idx: int | None
+    ) -> xr.Variable:
         assert isinstance(idx, int)
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")
-        elif idx >= len(self):
+        if idx >= len(self):
             raise IndexError("Index out of range")
 
         start = idx + step * (self.hist + 1) * self.stride
         end = start + 1
-        idx_slice = slice(
-            start, end
-        )  # Create a slice for similar indexing as in InferenceDataset
+        # Create a slice for similar indexing as in InferenceDataset
+        idx_slice = slice(start, end)
         rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
         # Convert to tests, tests are outdated since changing time definition
         # if prev_rolling_idx is not None:
@@ -375,7 +511,7 @@ class TrainDataset(Dataset):
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index
 
-    def _get_input(self, x_index):
+    def _get_input(self, x_index) -> Prognostic:
         data_in = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
@@ -393,7 +529,7 @@ class TrainDataset(Dataset):
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
-    def _get_boundary(self, x_index):
+    def _get_boundary(self, x_index) -> Boundary:
         """
         This function returns the boundary condition for the current time step.
 
@@ -410,7 +546,7 @@ class TrainDataset(Dataset):
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
-    def _get_label(self, x_index):
+    def _get_label(self, x_index) -> Label:
         label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         label = (
             label.to_array()

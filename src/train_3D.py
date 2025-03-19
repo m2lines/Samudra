@@ -26,10 +26,22 @@ from torch.utils.data import (
     RandomSampler,
 )
 
+import config
 from aggregator import Aggregator, LossAggregator
+from backend import init_train_backend
 from config import TrainConfig
-from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
-from datasets import InferenceDataset, InferenceDatasets, TrainDataset
+from constants import (
+    EXTRA_VARS,
+    INPT_VARS,
+    OUT_VARS,
+    ExtraVars,
+    Grid,
+    InputVars,
+    OutputVars,
+    TensorMap,
+    construct_metadata,
+)
+from datasets import InferenceDataset, InferenceDatasets, OM4Dataset, TrainDataset
 from models.unet import UNet
 from stepper import Stepper, TrainOutput, ValOutput
 from utils.data import (
@@ -39,14 +51,8 @@ from utils.data import (
     spherical_area_weights,
     validate_data,
 )
-from utils.device import get_device, using_gpu
-from utils.distributed import (
-    all_reduce_mean,
-    get_world_size,
-    init_distributed_mode,
-    is_main_process,
-    set_seed,
-)
+from utils.device import using_gpu
+from utils.distributed import all_reduce_mean, get_world_size, is_main_process, set_seed
 from utils.logging import MetricLogger, SmoothedValue, handle_logging, handle_warnings
 from utils.loss import (
     decomposed_mse,
@@ -61,12 +67,14 @@ from utils.wandb import WandBLogger
 
 
 class Trainer:
-    def __init__(self, cfg) -> None:
-        if not using_gpu():
-            logging.info("No GPU available, using CPU")
-            cfg.distributed.enabled = False
+    model: UNet | nn.parallel.DistributedDataParallel
 
-        self.device = get_device()
+    def __init__(self, cfg: TrainConfig) -> None:
+        cfg.prepare_output_dirs()
+        cfg.save_yaml(str(cfg.experiment.output_dir / "config.yaml"))
+
+        # Backend
+        self.device, self.distributed = init_train_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
@@ -77,20 +85,20 @@ class Trainer:
             cfg.pin_mem = True
 
         # Distributed mode
-        init_distributed_mode(cfg.distributed)
         dask.config.set(scheduler="synchronous")
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
         # Getting input, extra input and output
-        self.inputs = INPT_VARS[cfg.experiment.exp_num_in]
-        self.extra_in = EXTRA_VARS[cfg.experiment.exp_num_extra]
-        self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
+        self.inputs: InputVars = INPT_VARS[cfg.experiment.exp_num_in]
+        self.extra_in: ExtraVars = EXTRA_VARS[cfg.experiment.exp_num_extra]
+        self.outputs: OutputVars = OUT_VARS[cfg.experiment.exp_num_out]
 
         # TODO: The codebase currently contains code that depends on this
-        assert self.inputs == self.outputs, "Input and output "
-        "variables must be the same"
+        assert (
+            self.inputs == self.outputs
+        ), "Input and output variables must be the same"
 
         levels = cfg.experiment.exp_num_in.split("_")[-1]
         if "all" in levels:
@@ -100,13 +108,13 @@ class Trainer:
         else:
             self.levels = int(levels)
 
-        self.str_in = "".join([i + "_" for i in self.inputs])
-        self.str_ext = "".join([i + "_" for i in self.extra_in])
-        self.str_out = "".join([i + "_" for i in self.outputs])
+        str_in = ", ".join([i for i in self.inputs])
+        str_ext = ", ".join([i for i in self.extra_in])
+        str_out = ", ".join([i for i in self.outputs])
 
-        logging.info(f"inputs: {self.str_in}")
-        logging.info(f"extra inputs: {self.str_ext}")
-        logging.info(f"outputs: {self.str_out}")
+        logging.info(f"inputs: {str_in}")
+        logging.info(f"extra inputs: {str_ext}")
+        logging.info(f"outputs: {str_out}")
         logging.info(f"levels: {self.levels}")
 
         self.N_atm = len(self.extra_in)
@@ -140,6 +148,7 @@ class Trainer:
         # Dataloaders
         logging.info(f"Loading data")
         assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
+        self.loader_version = cfg.data.loader_version
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
@@ -153,35 +162,26 @@ class Trainer:
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            data = xr.open_zarr(os.path.join(self.data_dir, self.data_path), chunks={})
-
-        if self.data_means_path.endswith(".nc"):
-            data_mean = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_means_path),
-                engine="netcdf4",
+            data = xr.open_zarr(
+                os.path.join(self.data_dir, self.data_path),
                 chunks={},
+                consolidated=True,
             )
-        else:
-            data_mean = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_means_path),
-                engine="zarr",
-                chunks={},
-            )
-        if self.data_stds_path.endswith(".nc"):
-            data_std = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_stds_path),
-                engine="netcdf4",
-                chunks={},
-            )
-        else:
-            data_std = xr.open_dataset(
-                os.path.join(self.data_dir, self.data_stds_path),
-                engine="zarr",
-                chunks={},
-            )
+        data_mean = xr.open_dataset(
+            os.path.join(self.data_dir, self.data_means_path),
+            engine="netcdf4",
+            chunks={},
+        )
+        data_std = xr.open_dataset(
+            os.path.join(self.data_dir, self.data_stds_path),
+            engine="netcdf4",
+            chunks={},
+        )
 
         self.data, self.data_mean, self.data_std = validate_data(
-            data, data_mean, data_std
+            data,
+            data_mean,
+            data_std,
         )
 
         self.metadata = construct_metadata(self.data)
@@ -189,7 +189,8 @@ class Trainer:
             self.data, self.outputs, cfg.data.hist
         )
         wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
-        self.area_weights = spherical_area_weights(self.data)
+        self.area_weights: Grid = spherical_area_weights(self.data)
+
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
@@ -244,7 +245,8 @@ class Trainer:
         elif cfg.loss == "mse_residual_scaled":
             logging.info("Using decomposed mse loss with scaled residuals")
             scaling_residuals = xr.open_zarr(
-                os.path.join(self.data_dir, self.scaling_residuals_file)
+                os.path.join(self.data_dir, self.scaling_residuals_file),
+                consolidated=True,
             )
             scale = torch.from_numpy(
                 (self.data_std[self.outputs] / scaling_residuals[self.outputs])
@@ -299,30 +301,30 @@ class Trainer:
             self.start_epoch = 1
 
         # Modify DDP setup based on device
-        if using_gpu():
-            self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
+        if self.distributed is not None:
             self.model = nn.parallel.DistributedDataParallel(
-                self.model, device_ids=[cfg.distributed.gpu]
+                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
+                device_ids=[self.distributed.gpu],
             )
 
         # Training
         self.epochs = cfg.epochs
-        self.hist = cfg.data.hist
+        self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
         self.output_dir = cfg.experiment.output_dir
         self.network = cfg.experiment.network
         self.debug = cfg.debug
-        self.data_stride = cfg.data_stride
-        self.batch_size = cfg.batch_size
-        self.num_workers = cfg.data.num_workers
-        self.pin_mem = cfg.pin_mem
-        self.train_times = cfg.train
+        self.data_stride: list[int] = cfg.data_stride
+        self.batch_size: int = cfg.batch_size
+        self.num_workers: int = cfg.data.num_workers
+        self.pin_mem: bool = cfg.pin_mem
+        self.train_times: config.TimeConfig = cfg.train
         self.val_times = cfg.val
         self.inference_times = cfg.inference
         self.inference_epochs = cfg.inference_epochs
-        self.time_delta = cfg.data.time_delta
+        self.time_delta: int = cfg.data.time_delta
         self.num_batches_seen = 0
 
         assert self.tensor_map is not None
@@ -381,7 +383,7 @@ class Trainer:
             inference_datasets, num_steps_inf_set
         )
 
-        if using_gpu():
+        if self.distributed is not None:
             self.inference_sampler = DistributedSampler(
                 inference_data_combined, shuffle=True
             )
@@ -565,7 +567,11 @@ class Trainer:
             )
 
             Stepper.inference(
-                model=self.model.module if using_gpu() else self.model,
+                # TODO(jder): we need the underlying model so we can use forward_once;
+                # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
+                model=self.model.module
+                if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+                else self.model,
                 dataset=inference_dataset,
                 inf_aggregator=inf_aggregator,
                 epoch=epoch,
@@ -614,53 +620,89 @@ class Trainer:
             cur_step: Current training step size
         """
         # Create datasets
-        train_data: Dataset = ConcatDataset(
-            [
-                TrainDataset(
-                    self.data.sel(
-                        time=slice(
-                            self.train_times.start_time,
-                            self.train_times.end_time,
-                        )
-                    ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
-                    self.wet,
-                    self.wet_surface,
-                    self.hist,
-                    cur_step,
-                    stride,
-                )
-                for stride in self.data_stride
-            ]
+
+        train_slice = slice(
+            self.train_times.start_time,
+            self.train_times.end_time,
+        )
+        val_slice = slice(
+            self.val_times.start_time,
+            self.val_times.end_time,
         )
 
-        val_data: Dataset = ConcatDataset(
-            [
-                TrainDataset(
-                    self.data.sel(
-                        time=slice(
-                            self.val_times.start_time,
-                            self.val_times.end_time,
+        match self.loader_version:
+            case "1.0":
+                train_data = ConcatDataset(
+                    [
+                        TrainDataset(
+                            self.data.sel(time=train_slice),
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.wet,
+                            self.wet_surface,
+                            self.hist,
+                            cur_step,
+                            stride,
                         )
-                    ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
-                    self.wet,
-                    self.wet_surface,
-                    self.hist,
-                    1,  # current_step set to 1 for validation
-                    stride,
+                        for stride in self.data_stride
+                    ]
                 )
-                for stride in self.data_stride
-            ]
-        )
+
+                val_data = ConcatDataset(
+                    [
+                        TrainDataset(
+                            self.data.sel(time=val_slice),
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.wet,
+                            self.wet_surface,
+                            self.hist,
+                            1,  # current_step set to 1 for validation
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+            case "2.0":
+                train_data = ConcatDataset(
+                    [
+                        OM4Dataset(
+                            self.data.sel(time=train_slice),
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.hist,
+                            cur_step,
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+
+                val_data = ConcatDataset(
+                    [
+                        OM4Dataset(
+                            self.data.sel(time=val_slice),
+                            self.inputs,
+                            self.extra_in,
+                            self.outputs,
+                            self.hist,
+                            1,  # current_step set to 1 for validation
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+            case _:
+                raise NotImplementedError(
+                    f"Loader version {self.loader_version} not supported."
+                )
 
         logging.info("Instantiating torch loaders")
 
-        if using_gpu():
+        if self.distributed is not None:
             self.train_sampler = DistributedSampler(train_data, shuffle=True)
             self.val_sampler = DistributedSampler(val_data, shuffle=False)
         else:
@@ -716,8 +758,10 @@ class Trainer:
 
     def _save_checkpoint(self, epoch, best=False, best_type=None):
         checkpoint = {
+            # TODO(jder): we need the underlying model so we can use forward_once;
+            # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
             "model": self.model.module.state_dict()
-            if using_gpu()
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
             else self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "epoch": epoch,
@@ -758,10 +802,7 @@ class Trainer:
             logging.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
 
     def is_wandb_enabled(self):
-        if using_gpu():
-            return self.wandb_logger.enabled and is_main_process()
-        else:
-            return self.wandb_logger.enabled
+        return self.wandb_logger.enabled and is_main_process()
 
     def finish(self):
         self.wandb_logger.finish()
@@ -784,15 +825,7 @@ def main():
 
     # Load config from YAML
     cfg = TrainConfig.from_yaml(args.config, overrides)
-
-    # Check dirs
-    if not os.path.exists(cfg.experiment.nets_dir):
-        os.makedirs(cfg.experiment.nets_dir, exist_ok=True)
-
-    if not os.path.exists(cfg.experiment.output_dir):
-        os.makedirs(cfg.experiment.output_dir, exist_ok=True)
-
-    cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
+    cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg)
     handle_warnings()

@@ -7,10 +7,25 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from constants import DEPTH_I_LEVELS, DEPTH_LEVELS, MASK_VARS, TensorMap
+import config
+from constants import (
+    DEPTH_I_LEVELS,
+    DEPTH_LEVELS,
+    MASK_VARS,
+    ExtraVars,
+    Grid,
+    GridMask,
+    InputMask,
+    InputVars,
+    OutputVars,
+    TensorMap,
+)
 
 
-def extract_wet_mask(data, outputs, hist):
+def extract_wet_mask(
+    data: xr.Dataset, outputs: OutputVars, hist: int
+) -> tuple[InputMask, GridMask]:
+    """A mask for where the oceans are. Water is wet."""
     wet_mask = data[MASK_VARS]
     if "time" in wet_mask.dims:
         wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
@@ -19,21 +34,96 @@ def extract_wet_mask(data, outputs, hist):
         wet_mask_np = wet_mask.to_array().to_numpy()
         wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
 
-    depth_ind = []
-    for var_depth_i in outputs:
-        var_split = var_depth_i.split("_")
-        if len(var_split) == 1:
-            depth_ind.append(0)
-        else:
-            depth_ind.append(int(var_split[-1]))
+    depth_ind = _parse_lev_from_output_var(outputs)
 
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)
     wet_inp = torch.concat([wet_inp] * (hist + 1), dim=0)
-    return wet_inp, wet_surface
+    return wet_inp.bool(), wet_surface.bool()
 
 
-def spherical_area_weights(data) -> torch.Tensor:
+def _parse_lev_from_output_var(outputs: OutputVars) -> list[int]:
+    """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
+    depth_inds = []
+    for var_depth_i in outputs:
+        # Examples: "so_18", "zos"
+        var_split = var_depth_i.split("_")
+        if len(var_split) == 1:
+            depth_inds.append(0)
+        else:
+            depth_inds.append(int(var_split[-1]))
+
+    return depth_inds
+
+
+def flatten_masks(data: xr.Dataset) -> xr.Dataset:
+    """Adds data_vars "mask_0"..."mask_18" with dimensions (y, x)."""
+    if MASK_VARS[0] not in data.variables:
+        assert "wetmask" in data.variables, "Wet mask cannot be constructed without "
+        "either the wetmask variable or the level-wise masks"
+
+        wet_mask = data["wetmask"]
+        for i, lev in enumerate(DEPTH_I_LEVELS):
+            assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
+            data[f"mask_{lev}"] = wet_mask.isel(lev=i)
+
+        data = data.drop_vars("wetmask")
+
+    return data
+
+
+def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
+    """Adds a "wetmask" `xarray.DataArray` with dimensions (lev, y, x)."""
+    if "wetmask" not in data.variables:
+        assert MASK_VARS[0] in data.variables, "Wet mask must have masks as data vars!"
+
+        wetmask = data[MASK_VARS].to_array(dim="lev", name="wetmask")
+
+        data["wetmask"] = wetmask.assign_coords(lev=data.lev)
+        data = data.drop_vars(MASK_VARS)
+
+    return data
+
+
+def mask(data: xr.Dataset, wetmask: xr.DataArray | None = None) -> xr.Dataset:
+    """Apply a wetmask (areas of the ocean) to all variables in the dataset."""
+    # I revised on this via Project Pythia's tutorial:
+    #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
+    data_ = data.copy()
+
+    if wetmask is None:
+        wetmask = data_.wetmask
+
+    wetmask = wetmask.astype(bool)
+    surface_mask = wetmask.isel(lev=0)
+
+    for name, da in data_.items():
+        # Parse the level index info from the variable name.
+        tokens = str(name).split("_")
+        if len(tokens) == 4:  # OM4 data format (e.g., {variable}_lev_{level}_{decimal})
+            # TODO(alxmrs): Is the OM4 data wrong? Is preprocessing done somewhere?
+            # In this format, "level" is a member of DEPTH_LEVELS, _not_ DEPTH_I_LEVELS.
+            # Thus, we need to convert it to the corresponding DEPTH_I_LEVELS index.
+            _, _, level, _ = tokens
+            closest_level = min(DEPTH_LEVELS, key=lambda x: abs(x - float(level)))
+            level = str(DEPTH_LEVELS.index(closest_level))
+        elif len(tokens) == 2:  # output_vars format (e.g., {variable}_{level})
+            _, level = tokens
+        else:
+            # Assume this variable is at the surface
+            # Apply the boundary layer mask and continue
+            data_[name] = da.where(surface_mask, 0.0)
+            continue
+
+        assert level in DEPTH_I_LEVELS, f"Found unknown Depth Level! {level}."
+        lev = DEPTH_LEVELS[int(level)]
+
+        data_[name] = da.where(wetmask.sel(lev=lev), 0.0)
+
+    return data_
+
+
+def spherical_area_weights(data: xr.Dataset) -> Grid:
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())
     weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
@@ -41,7 +131,9 @@ def spherical_area_weights(data) -> torch.Tensor:
     return weights
 
 
-def get_inference_steps(time_config, time_delta=5, hist=1):
+def get_inference_steps(
+    time_config: config.TimeConfig, time_delta: int = 5, hist: int = 1
+) -> tuple[slice, int]:
     """
     Get the number of inference/rollout steps for the given time configuration.
 
@@ -232,9 +324,9 @@ class Normalize:
         cls,
         data_mean: xr.Dataset,
         data_std: xr.Dataset,
-        inputs_str: str,
-        extra_in_str: str,
-        outputs_str: str,
+        inputs_str: InputVars,
+        extra_in_str: ExtraVars,
+        outputs_str: OutputVars,
         wet_mask: torch.Tensor,
     ) -> "Normalize":
         """Initialize the singleton instance with normalization parameters."""
@@ -252,9 +344,9 @@ class Normalize:
         self,
         data_mean: xr.Dataset,
         data_std: xr.Dataset,
-        inputs_str: str,
-        extra_in_str: str,
-        outputs_str: str,
+        inputs_str: InputVars,
+        extra_in_str: ExtraVars,
+        outputs_str: OutputVars,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""

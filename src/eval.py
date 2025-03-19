@@ -9,6 +9,7 @@ import torch
 import xarray as xr
 
 from aggregator import Aggregator
+from backend import init_eval_backend
 from config import EvalConfig
 from constants import EXTRA_VARS, INPT_VARS, OUT_VARS, TensorMap, construct_metadata
 from datasets import InferenceDataset
@@ -21,7 +22,7 @@ from utils.data import (
     spherical_area_weights,
     validate_data,
 )
-from utils.device import get_device, using_gpu
+from utils.device import using_gpu
 from utils.distributed import is_main_process, set_seed
 from utils.logging import handle_logging, handle_warnings
 from utils.model import get_model_summary
@@ -29,16 +30,16 @@ from utils.wandb import WandBLogger
 
 
 class Eval:
-    def __init__(self, cfg) -> None:
-        self.device = get_device()
+    def __init__(self, cfg: EvalConfig) -> None:
+        cfg.prepare_output_dirs()
+
+        self.device = init_eval_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
             cfg.data.num_workers = 0  # Disable multi-processing on CPU
-            cfg.pin_mem = False
         elif cfg.disk_mode:
             cfg.data.num_workers = torch.cuda.device_count() * cfg.data.num_workers
-            cfg.pin_mem = True
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
@@ -59,13 +60,13 @@ class Eval:
         else:
             self.levels = int(levels)
 
-        self.str_in = "".join([i + "_" for i in self.inputs])
-        self.str_ext = "".join([i + "_" for i in self.extra_in])
-        self.str_out = "".join([i + "_" for i in self.outputs])
+        str_in = ", ".join([i for i in self.inputs])
+        str_ext = ", ".join([i for i in self.extra_in])
+        str_out = ", ".join([i for i in self.outputs])
 
-        logging.info(f"inputs: {self.str_in}")
-        logging.info(f"extra inputs: {self.str_ext}")
-        logging.info(f"outputs: {self.str_out}")
+        logging.info(f"inputs: {str_in}")
+        logging.info(f"extra inputs: {str_ext}")
+        logging.info(f"outputs: {str_out}")
         logging.info(f"levels: {self.levels}")
 
         self.N_atm = len(self.extra_in)
@@ -288,9 +289,7 @@ def main():
 
     # Load config from YAML
     cfg = EvalConfig.from_yaml(args.config, overrides)
-
-    if not os.path.exists(cfg.experiment.output_dir):
-        os.makedirs(cfg.experiment.output_dir, exist_ok=True)
+    cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg)
     handle_warnings()

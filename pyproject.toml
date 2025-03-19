@@ -5,27 +5,51 @@ requires = [ "setuptools", "wheel" ]
 
 [project]
 name = "ocean-emulators"
+version = "1.0"
+
 description = "Train and evaluate ocean model emulators"
 readme = "README.md"
 keywords = [ "climate", "emulation", "machine learning", "ocean" ]
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dynamic = [ "dependencies", "optional-dependencies", "version" ]
+dependencies = [
+  "aiohttp>=3.11.13",
+  "cftime>=1.6.4.post1",
+  "dacite>=1.9.2",
+  "dask>=2025.2",
+  "einops>=0.8.1",
+  "jaxtyping>=0.2.38",
+  "matplotlib>=3.10.1",
+  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
+  "pyyaml>=6.0.2",
+  "requests>=2.32.3",
+  "torch~=2.2.1",
+  "torchinfo>=1.8",
+  "wandb>=0.19.8",
+  "xarray[io]>=2025.1.2",
+  "xarray-einstats[einops]>=0.8",
+  "zarr>=3.0.5",
+]
 
 [dependency-groups]
 dev = [
+  "beartype>=0.20",
+  "hypothesis[numpy]>=6.127.2",
+  "ipykernel>=6.29.5",
   "pytest>=8.3.4",
+  "pytest-benchmark[histogram]>=5.1",
+  "pytest-profiling>=1.8.1",
+  "snakeviz>=2.2.2",
 ]
 
 [tool.setuptools.dynamic]
@@ -36,7 +60,18 @@ find = {}
 
 [tool.ruff]
 lint.select = [ "D", "E", "F", "I", "W" ]
-lint.ignore = [ "D1", "D200", "D205", "D212", "E203", "E402", "F541", "W293" ]
+# F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
+lint.ignore = [
+  "D1",
+  "D200",
+  "D205",
+  "D212",
+  "E203",
+  "E402",
+  "F541",
+  "F722",
+  "W293",
+]
 lint.per-file-ignores."*/__init__.py" = [ "F401" ]
 lint.per-file-ignores."scripts/*" = [ "D" ]
 lint.per-file-ignores."test_*.py" = [ "D" ]
@@ -48,9 +83,9 @@ markers = [
   "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
   "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
 ]
-pythonpath = [
-  "src",
-]
+pythonpath = [ "src" ]
+testpaths = [ "tests" ]
+addopts = "--jaxtyping-packages=data,datasets,beartype.beartype"
 
 [tool.mypy]
 ignore_missing_imports = true

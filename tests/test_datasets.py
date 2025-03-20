@@ -1,6 +1,7 @@
 """Test core Datasets and DataLoaders."""
 
 import datetime
+import os
 
 import cftime
 import numpy as np
@@ -301,20 +302,22 @@ def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
             )
 
 
+@pytest.mark.all_configs
 def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
     cfg, loader = train_loader_pair
 
-    ds = xr.open_dataset(cfg.data.data_path, chunks={})
+    data_path = os.path.join(cfg.experiment.data_dir, cfg.data.data_path)
+    ds = xr.open_dataset(data_path, chunks={})
 
-    depth_vars = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
-    surface_vars = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
+    prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
+    boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
     val_ds, _, _ = validate_data(ds, xr.Dataset(), xr.Dataset())
 
     om4 = OM4Dataset(
         val_ds.sel(time=cfg.train.time_slice),
-        depth_vars,
-        surface_vars,
+        prognostic,
+        boundary,
         cfg.data.hist,
         cfg.steps[0],
         cfg.data_stride[0],

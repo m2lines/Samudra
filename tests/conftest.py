@@ -1,12 +1,14 @@
 import dataclasses
-import os
-import tempfile
-from typing import Any, ClassVar, Generator
+import pathlib
+import random
+import time
+from typing import ClassVar
 
 import cftime
 import numpy as np
 import pytest
 import xarray as xr
+from aiohttp import ServerDisconnectedError
 from numpy.typing import ArrayLike, NDArray
 from typing_extensions import Self
 
@@ -14,11 +16,16 @@ import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
 from ocean_emulators.utils.multiton import MultitonScope
 
+REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
+DEFAULT_CONFIG = "train_cm4.test.yaml"
+ALL_CONFIGS = [DEFAULT_CONFIG, "train_cm4_2step.test.yaml"]
+
 
 @dataclasses.dataclass
 class DataSource:
     """In-memory `xarray.Dataset`s needed for tests."""
 
+    name: str
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
@@ -268,10 +275,6 @@ class DataSourceDims:
         return data_source, data_var_index
 
 
-DEFAULT_CONFIG = "train_cm4.test.yaml"
-ALL_CONFIGS = [DEFAULT_CONFIG, "train_cm4_2step.test.yaml"]
-
-
 @pytest.fixture(scope="session", params=ALL_CONFIGS)
 def config_name(request: pytest.FixtureRequest) -> str:
     return request.param
@@ -343,36 +346,123 @@ def backend(request) -> TrainBackendConfig:
     return request.param
 
 
-@pytest.fixture(scope="session")
-def data_source() -> DataSource:
+def maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource | None:
+    """Open a cached DataSource from a cache directory if it exists."""
+    cache = cache_root / cache_name
+    try:
+        data = xr.open_zarr(cache / "data.zarr")
+        means = xr.open_dataset(cache / "means.nc")
+        stds = xr.open_dataset(cache / "stds.nc")
+        return DataSource(name=cache_name, data=data, means=means, stds=stds)
+    except FileNotFoundError:
+        return None
+
+
+def maybe_write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
+    """Write a DataSource to a cache directory if it doesn't exist."""
+    cache = cache_root / data_source.name
+    if not (dz := cache / "data.zarr").exists():
+        data_source.data.to_zarr(str(dz))
+    if not (dm := cache / "means.nc").exists():
+        data_source.means.to_netcdf(str(dm))
+    if not (ds := cache / "stds.nc").exists():
+        data_source.stds.to_netcdf(str(ds))
+
+
+def cache_dir(pytestconfig: pytest.Config) -> pathlib.Path:
+    dir = pytestconfig.rootpath / ".data_cache"
+    dir.mkdir(parents=True, exist_ok=True)
+    return dir
+
+
+def retry_with_backoff(
+    func, max_retries: int = 5, catch: type[Exception] = ServerDisconnectedError
+):
+    """Retry a function with exponential backoff."""
+    for attempt in range(max_retries):
+        try:
+            return func()
+        except catch:
+            if attempt == max_retries - 1:
+                raise
+            wait_time = (2**attempt) + random.uniform(0, 1)
+            print(
+                f"Server disconnected. Retrying in {wait_time:.2f}s "
+                f"(attempt {attempt + 1}/{max_retries})"
+            )
+            time.sleep(wait_time)
+
+
+@pytest.fixture(scope="session", params=["simulated", "remote-om4"])
+def data_source(request, pytestconfig) -> DataSource:
     """Returns in-memory `xarray.Dataset`s for tests."""
-    summer_of_love = xr.cftime_range(
-        "1969-08-05", "1969-12-31", freq="5D", calendar="noleap"
-    )
-    dims = DataSourceDims()
-    dims.set_time_range(summer_of_love)
+    # Use cached data if available.
+    if cached_data := maybe_read_cache(cache_dir(pytestconfig), request.param):
+        return cached_data
 
-    coords = dims.to_coords()
-    normal = np.random.normal(size=(len(coords["lat"]), len(coords["lon"])))
+    match request.param:
+        case "simulated":
+            time_range = xr.cftime_range(
+                "1975-08-05", "1975-12-31", freq="5D", calendar="noleap"
+            )
+            dims = DataSourceDims()
+            dims.set_time_range(time_range)
 
-    vars_2d = {
-        var: dims.encode(i) for i, var in enumerate(["hfds", "tauuo", "tauvo", "zos"])
-    }
-    vars_3d = {
-        f"{var}_{lev}": dims.encode(len(vars_2d) + i + j * 10)
-        for i, var in enumerate(["so", "thetao", "uo", "vo"])
-        for j, lev in enumerate(c.DEPTH_I_LEVELS)
-    }
-    # Mask with a binary circle.
-    masks = {
-        f"mask_{lev}": xr.DataArray(
-            np.where(normal > 0.5**lev, 1, 0), dims=["lat", "lon"]
-        )
-        for lev in range(len(c.DEPTH_I_LEVELS))
-    }
-    ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
+            coords = dims.to_coords()
+            normal = np.random.normal(size=(len(coords["lat"]), len(coords["lon"])))
 
-    return DataSource(data=ds, means=ds.mean(), stds=ds.std())
+            vars_2d = {
+                var: dims.encode(i)
+                for i, var in enumerate(["hfds", "tauuo", "tauvo", "zos"])
+            }
+            vars_3d = {
+                f"{var}_{lev}": dims.encode(len(vars_2d) + i + j * 10)
+                for i, var in enumerate(["so", "thetao", "uo", "vo"])
+                for j, lev in enumerate(c.DEPTH_I_LEVELS)
+            }
+            # Mask with a binary circle.
+            masks = {
+                f"mask_{lev}": xr.DataArray(
+                    np.where(normal > 0.5**lev, 1, 0), dims=["lat", "lon"]
+                )
+                for lev in range(len(c.DEPTH_I_LEVELS))
+            }
+            ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
+
+            return DataSource(
+                name=request.param, data=ds, means=ds.mean(), stds=ds.std()
+            )
+        case "remote-om4":
+            # The chunk-size should be about the same as the size of the time slice
+            # for optimal download time. In local experiments, this time range (which
+            # matches the simulated data) is about 30 items.
+
+            data = retry_with_backoff(
+                (
+                    lambda: xr.open_zarr(REMOTE_DATA + "OM4", chunks=dict(time=50))
+                    .sel(time=slice("1975-08-05", "1976-03-31"))
+                    .compute()
+                )
+            )
+            means = retry_with_backoff(
+                lambda: xr.open_dataset(
+                    REMOTE_DATA + "OM4_means", engine="zarr", chunks={}
+                ).compute()
+            )
+            stds = retry_with_backoff(
+                lambda: xr.open_dataset(
+                    REMOTE_DATA + "OM4_stds", engine="zarr", chunks={}
+                ).compute()
+            )
+
+            return DataSource(
+                name=request.param,
+                data=data,
+                means=means,
+                stds=stds,
+            )
+        case _:
+            raise ValueError(f"Unknown data source: {request.param}.")
 
 
 @pytest.fixture(scope="session")
@@ -381,43 +471,29 @@ def train_config(
     pytestconfig: pytest.Config,
     config_name: str,
     backend: TrainBackendConfig,
-) -> Generator[TrainConfig, Any, None]:
-    with tempfile.TemporaryDirectory() as tmpdir:
+) -> TrainConfig:
+    # Write test data to the cache directory if they aren't already there.
+    cache = cache_dir(pytestconfig)
+    maybe_write_cache(cache, data_source)
 
-        def _make_path(name_with_ext: str) -> str:
-            return os.path.join(tmpdir, name_with_ext)
+    # Open default training script; modify it as necessary.
+    trainer = TrainConfig.from_yaml(pytestconfig.rootpath / "configs" / config_name)
+    experiment_config = dataclasses.replace(
+        trainer.experiment,
+        cluster_data_dir=str(cache / data_source.name),
+    )
+    test_data_config = dataclasses.replace(
+        trainer,
+        experiment=experiment_config,
+        backend=backend,
+    )
 
-        # Write test data to a temporary directory.
-        data_source.data.to_zarr(_make_path("data.zarr"))
-        data_source.means.to_netcdf(_make_path("means.nc"))
-        data_source.stds.to_netcdf(_make_path("stds.nc"))
+    # Create a fresh scope to use in any tests using this config
+    # (see set_scope below)
+    scope = MultitonScope()
+    setattr(test_data_config, "_multiton_scope", scope)
 
-        # Open default training script; modify it so it uses the temporary directory.
-        trainer = TrainConfig.from_yaml(pytestconfig.rootpath / "configs" / config_name)
-        data_config = dataclasses.replace(
-            trainer.data,
-            data_path=_make_path("data.zarr"),
-            data_means_path=_make_path("means.nc"),
-            data_stds_path=_make_path("stds.nc"),
-        )
-        experiment_config = dataclasses.replace(
-            trainer.experiment,
-            cluster_data_dir=os.path.join(tmpdir, "cluster_data"),
-        )
-        test_data_config = dataclasses.replace(
-            trainer,
-            data=data_config,
-            experiment=experiment_config,
-            backend=backend,
-        )
-
-        # Create a fresh scope to use in any tests using this config
-        # (see set_scope below)
-        scope = MultitonScope()
-        setattr(test_data_config, "_multiton_scope", scope)
-
-        # After contextmanager closes, all test data will be automatically cleaned up.
-        yield test_data_config
+    return test_data_config
 
 
 @pytest.fixture(scope="session")

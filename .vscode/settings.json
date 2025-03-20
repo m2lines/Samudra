@@ -1,5 +1,0 @@
-{
-    "mypy-type-checker.args": [
-        "\"--config=pyproject.toml\""
-    ]
-}

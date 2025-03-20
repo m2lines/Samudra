@@ -1,5 +1,5 @@
 import logging
-from typing import Sized
+from typing import Any, Sized
 
 import numpy as np
 import torch
@@ -394,7 +394,8 @@ class TrainDataset(Dataset):
         return x_index
 
     def _get_input(self, x_index) -> Input:
-        data_in = self._inputs_no_extra.isel(time=x_index).isel(
+        # TODO(jder): nicer typing
+        data_in: Any = self._inputs_no_extra.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
         data_in = (
@@ -418,7 +419,8 @@ class TrainDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._extras.isel(time=x_index).isel(time=self.hist)
+        # TODO(jder): nicer typing
+        data_in_boundary: Any = self._extras.isel(time=x_index).isel(time=self.hist)
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -429,7 +431,10 @@ class TrainDataset(Dataset):
         return data_in_boundary
 
     def _get_label(self, x_index) -> Label:
-        label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
+        # TODO(jder): nicer typing
+        label: Any = self._outputs.isel(time=x_index).isel(
+            time=slice(self.hist + 1, None)
+        )
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")

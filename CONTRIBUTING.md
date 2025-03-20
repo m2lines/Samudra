@@ -154,6 +154,18 @@ git push --force-with-lease
 
 10. Celebrating submitting your patch to Ocean Emulator — well done!
 
+## VS Code Integration
+
+If you're using VS Code, we reccommend installing the `ruff` and `mypy` extensions. For the latter,
+you'll want to configure it to use pyproject.toml, which you can do with a `.vscode/settings.json` file:
+
+```json
+{
+    "mypy-type-checker.args": [
+        "\"--config=pyproject.toml\""
+    ]
+}
+```
 
 ## How to run tests
 

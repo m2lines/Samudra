@@ -1,7 +1,8 @@
 import logging
 
 import pytest
-from test_datasets import TrainPair
+
+from tests.test_datasets import TrainPair
 
 
 @pytest.mark.manual

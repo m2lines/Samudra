@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742501581734,
+  "lastUpdate": 1742501584804,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1107,6 +1107,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.26376087559888944",
             "extra": "mean: 90.48975099880003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "464c1d08f911f0ccdf1f50b74ec8c9f4245226b3",
+          "message": "Move everything into src/ocean_emulators, get rid of ocean_emulators_main (#110)\n\nFollow-up to https://github.com/suryadheeshjith/Ocean_Emulator/pull/108\nwhich moves everything into a named module and fixes #75.",
+          "timestamp": "2025-03-20T15:37:54-04:00",
+          "tree_id": "ec51f3a9c93c18a3be45d1bbc3719dd212d05df7",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/464c1d08f911f0ccdf1f50b74ec8c9f4245226b3"
+        },
+        "date": 1742501584127,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-train]",
+            "value": 0.1850146335566775,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2958826975038004",
+            "extra": "mean: 5.4049778699999935 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-val]",
+            "value": 0.40417749575591005,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03546283354902511",
+            "extra": "mean: 2.4741605124000214 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda]",
+            "value": 0.16336636997334078,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06829334469491871",
+            "extra": "mean: 6.121210872000074 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda]",
+            "value": 0.011365303890399539,
+            "unit": "iter/sec",
+            "range": "stddev: 0.568414207761383",
+            "extra": "mean: 87.9870885674 sec\nrounds: 5"
           }
         ]
       }

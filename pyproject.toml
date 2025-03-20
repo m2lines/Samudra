@@ -35,7 +35,7 @@ dependencies = [
   "torchinfo>=1.8",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
-  "zarr>=3.0.5",
+  "zarr<3",
 ]
 
 [dependency-groups]

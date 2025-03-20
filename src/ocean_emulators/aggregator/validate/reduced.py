@@ -9,7 +9,7 @@ from ocean_emulators.aggregator.metrics import (
     area_weighted_mean_bias,
     area_weighted_rmse,
 )
-from ocean_emulators.aggregator.validate.main import ValidateSubAggregator
+from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.distributed import all_reduce_mean
 

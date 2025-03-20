@@ -3,7 +3,7 @@ from typing import Dict
 import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
-from ocean_emulators.aggregator.validate.main import ValidateSubAggregator
+from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.wandb import Metrics
 
 

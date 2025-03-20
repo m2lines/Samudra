@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from typing import Dict
 
 import torch
@@ -8,27 +7,10 @@ from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
+from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
 from ocean_emulators.utils.model import ValOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
-
-
-class ValidateSubAggregator(ABC):
-    @abstractmethod
-    def get_logs(self, label: str) -> Metrics: ...
-
-    @abstractmethod
-    def record_batch(
-        self,
-        *,
-        loss: torch.Tensor,
-        target_data,
-        gen_data,
-        input_data,
-        target_data_norm,
-        gen_data_norm,
-        input_data_norm,
-    ): ...
 
 
 class ValidateAggregator(TrainAggregator):

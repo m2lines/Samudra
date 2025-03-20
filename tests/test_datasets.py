@@ -6,17 +6,17 @@ import itertools
 import cftime
 import numpy as np
 import pytest
-from conftest import DataSourceDims
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import DataLoader
 
-from config import TrainConfig
-from constants import EXTRA_VARS, INPT_VARS, OUT_VARS
-from datasets import TrainData
-from train_3D import Trainer
+from ocean_emulators.config import TrainConfig
+from ocean_emulators.constants import EXTRA_VARS, INPT_VARS, OUT_VARS
+from ocean_emulators.datasets import TrainData
+from ocean_emulators.train_3D import Trainer
+from tests.conftest import DataSourceDims
 
 # Note: Refactoring data loaders is planned for the near-term. Ideally,
 # these fixtures allow us to isolate data loader tests from their setup.
@@ -111,7 +111,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     data_var_index=7,
     lat=np.array([0.0]),
     lng=np.array([0.0]),
-    days_since_start=np.array([0], dtype=np.int32),
+    days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.datetime(2000, 5, 1, 12),
     calendar="noleap",
 )
@@ -119,7 +119,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lat=np.array([32.87]),
     lng=np.array([0.0]),
     data_var_index=0,
-    days_since_start=np.array([0], dtype=np.int32),
+    days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.datetime(2000, 5, 1, 12),
     calendar="noleap",
 )
@@ -127,7 +127,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     data_var_index=0,
     lat=np.array([2.0]),
     lng=np.array([1.375]),
-    days_since_start=np.array([0], dtype=np.int32),
+    days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.datetime(2000, 1, 1, 0, 0),
     calendar="noleap",
 )
@@ -136,7 +136,7 @@ def test_test_util__data_source_roundtrip(
     data_var_index: int,
     lat: NDArray[np.floating],
     lng: NDArray[np.floating],
-    days_since_start: NDArray[np.int32],
+    days_since_start: NDArray[np.uint32],
     start_day: datetime.datetime,
     calendar: str,
 ) -> None:

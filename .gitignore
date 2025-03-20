@@ -31,3 +31,4 @@ output.log
 .venv/
 .benchmarks/
 .hypothesis/
+.vscode/

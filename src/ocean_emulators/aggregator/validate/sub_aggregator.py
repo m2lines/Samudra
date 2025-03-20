@@ -1,0 +1,23 @@
+from abc import ABC, abstractmethod
+
+import torch
+
+from ocean_emulators.utils.wandb import Metrics
+
+
+class ValidateSubAggregator(ABC):
+    @abstractmethod
+    def get_logs(self, label: str) -> Metrics: ...
+
+    @abstractmethod
+    def record_batch(
+        self,
+        *,
+        loss: torch.Tensor,
+        target_data,
+        gen_data,
+        input_data,
+        target_data_norm,
+        gen_data_norm,
+        input_data_norm,
+    ): ...

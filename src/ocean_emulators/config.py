@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from os import PathLike
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
@@ -145,7 +146,7 @@ class TrainConfig:
 
     @classmethod
     def from_yaml(
-        cls, yaml_path: str, overrides: Optional[Dict[str, Any]] = None
+        cls, yaml_path: str | PathLike, overrides: Optional[Dict[str, Any]] = None
     ) -> "TrainConfig":
         """Load config from YAML with strict validation using dacite."""
         with open(yaml_path, "r") as f:

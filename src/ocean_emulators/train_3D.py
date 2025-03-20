@@ -21,7 +21,6 @@ import xarray as xr
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
-    Dataset,
     DistributedSampler,
     RandomSampler,
 )
@@ -244,6 +243,10 @@ class Trainer:
             self.loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
         elif cfg.loss == "mse_residual_scaled":
             logging.info("Using decomposed mse loss with scaled residuals")
+            assert self.scaling_residuals_file is not None, (
+                "With loss of 'mse_residual_scaled' you"
+                " must supply a scaling_residuals_file"
+            )
             scaling_residuals = xr.open_zarr(
                 os.path.join(self.data_dir, self.scaling_residuals_file),
                 consolidated=True,
@@ -374,7 +377,7 @@ class Trainer:
             inference_datasets.append(inference_dataset)
             num_steps_inf_set.append(num_time_steps)
 
-        inference_data_combined: Dataset = InferenceDatasets(
+        inference_data_combined = InferenceDatasets(
             inference_datasets, num_steps_inf_set
         )
 
@@ -615,7 +618,7 @@ class Trainer:
             cur_step: Current training step size
         """
         # Create datasets
-        train_data: Dataset = ConcatDataset(
+        train_data: ConcatDataset = ConcatDataset(
             [
                 TrainDataset(
                     self.data.sel(
@@ -638,7 +641,7 @@ class Trainer:
             ]
         )
 
-        val_data: Dataset = ConcatDataset(
+        val_data: ConcatDataset = ConcatDataset(
             [
                 TrainDataset(
                     self.data.sel(

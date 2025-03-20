@@ -13,10 +13,10 @@ from ocean_emulators.utils.model import InfOutput
 class ZarrWriter:
     def __init__(
         self,
-        output_dir: str,
+        output_dir: str | os.PathLike,
         coords: Dict[str, xr.DataArray],
         hist: int,
-        model_path: str,
+        model_path: str | os.PathLike,
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
         self.hist = hist

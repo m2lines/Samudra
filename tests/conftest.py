@@ -7,7 +7,7 @@ import cftime
 import numpy as np
 import pytest
 import xarray as xr
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from typing_extensions import Self
 
 import ocean_emulators.constants as c
@@ -43,14 +43,16 @@ class BitField:
         self.offset = np.uint64(offset)
         self.dtype = np.dtype(dtype)
 
-    def ensure_value_fits(self, value: np.array) -> None:
-        if np.any(value < np.iinfo(self.dtype).min):
+    def ensure_value_fits(self, value: ArrayLike) -> None:
+        # There's no type annotation for "integer array like" so we let it throw here if
+        # this is not an integer
+        if np.any(value < np.iinfo(self.dtype).min):  # type: ignore[operator]
             raise ValueError(
-                f"Value {value} is less than the minimum value for {self.dtype}"
+                f"Value {value!r} is less than the minimum value for {self.dtype}"
             )
-        if np.any(value > np.iinfo(self.dtype).max):
+        if np.any(value > np.iinfo(self.dtype).max):  # type: ignore[operator]
             raise ValueError(
-                f"Value {value} is greater than the maximum value for {self.dtype}"
+                f"Value {value!r} is greater than the maximum value for {self.dtype}"
             )
 
     def mask(self) -> np.uint64:
@@ -66,7 +68,7 @@ class BitField:
         # Yes, this is in bytes, so u4 == uint32
         return np.dtype(f"u{self.size_in_bytes()}")
 
-    def decode_from(self, container: NDArray[np.uint64]) -> NDArray:
+    def decode_from(self, container: NDArray[np.uint64] | np.uint64) -> NDArray:
         """Extracts the field from a uint64 container."""
         return (
             ((container >> self.offset) & self.mask())
@@ -74,7 +76,7 @@ class BitField:
             .view(self.dtype)
         )
 
-    def encode(self, value: NDArray) -> NDArray[np.uint64]:
+    def encode(self, value) -> NDArray[np.uint64]:
         """Encodes & places the field; caller should + the field into the container."""
         # Note that just `view(self.uint_type())` is not sufficient -- we need to
         # extend the value to fill the full uint64 size so when we shift it doesn't
@@ -225,7 +227,7 @@ class DataSourceDims:
         )
 
     @classmethod
-    def decode(cls, da: xr.DataArray) -> tuple[Self, int]:
+    def decode(cls, da: xr.DataArray) -> tuple[Self, NDArray[np.uint]]:
         """Parse array of encoded floats into its constituent parts.
 
         Arguments:

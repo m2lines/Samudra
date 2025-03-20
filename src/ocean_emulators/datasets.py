@@ -1,4 +1,5 @@
 import logging
+from typing import Sized
 
 import numpy as np
 import torch
@@ -210,7 +211,7 @@ class InferenceDataset(Dataset):
         return {co: self._inputs_no_extra[co] for co in self._inputs_no_extra.coords}
 
 
-class InferenceDatasets(Dataset):
+class InferenceDatasets(Dataset, Sized):
     def __init__(self, datasets: list[InferenceDataset], lengths: list[int]):
         self.datasets = datasets
         self.lengths = lengths

@@ -1,4 +1,5 @@
 import logging
+from os import PathLike
 from typing import Callable, Dict, Optional
 
 import torch
@@ -52,8 +53,8 @@ class Stepper:
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
-        output_dir: Optional[str] = None,
-        model_path: Optional[str] = None,
+        output_dir: Optional[str | PathLike] = None,
+        model_path: Optional[str | PathLike] = None,
         num_model_steps_forward: int = 200,
         record_every: int = 10,
         save_zarr: bool = False,

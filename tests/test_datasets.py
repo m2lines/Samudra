@@ -111,7 +111,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     data_var_index=7,
     lat=np.array([0.0]),
     lng=np.array([0.0]),
-    days_since_start=np.array([0], dtype=np.int32),
+    days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.datetime(2000, 5, 1, 12),
     calendar="noleap",
 )
@@ -119,7 +119,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lat=np.array([32.87]),
     lng=np.array([0.0]),
     data_var_index=0,
-    days_since_start=np.array([0], dtype=np.int32),
+    days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.datetime(2000, 5, 1, 12),
     calendar="noleap",
 )
@@ -127,7 +127,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     data_var_index=0,
     lat=np.array([2.0]),
     lng=np.array([1.375]),
-    days_since_start=np.array([0], dtype=np.int32),
+    days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.datetime(2000, 1, 1, 0, 0),
     calendar="noleap",
 )
@@ -136,7 +136,7 @@ def test_test_util__data_source_roundtrip(
     data_var_index: int,
     lat: NDArray[np.floating],
     lng: NDArray[np.floating],
-    days_since_start: NDArray[np.int32],
+    days_since_start: NDArray[np.uint32],
     start_day: datetime.datetime,
     calendar: str,
 ) -> None:

@@ -48,7 +48,7 @@ class WandBLogger:
     def enabled(self):
         return self._enabled
 
-    def setup_run(self, checkpoint_path: str, cfg: Any, finetune: bool = False):
+    def setup_run(self, checkpoint_path: str | None, cfg: Any, finetune: bool = False):
         """Set up a wandb run, either resuming from checkpoint or creating new run.
 
         Args:
@@ -145,7 +145,7 @@ class WandBLogger:
         if self._enabled:
             wandb.watch(model, **kwargs)
 
-    def log(self, metrics: Metrics, step: int, **kwargs):
+    def log(self, metrics: Metrics, step: int | None, **kwargs):
         """Log metrics to wandb."""
         if self._enabled:
             # Really, this should take a mapping, not a dict

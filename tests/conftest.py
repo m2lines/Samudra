@@ -267,6 +267,41 @@ class DataSourceDims:
         return data_source, data_var_index
 
 
+DEFAULT_CONFIG = "train_cm4.test.yaml"
+ALL_CONFIGS = [DEFAULT_CONFIG, "train_cm4_2step.test.yaml"]
+
+
+@pytest.fixture(scope="session", params=ALL_CONFIGS)
+def config_name(request: pytest.FixtureRequest) -> str:
+    return request.param
+
+
+@pytest.fixture(autouse=True)
+def check_skip_configs(request, config_name):
+    only_configs = request.node.get_closest_marker("only_configs")
+    if only_configs:
+        if config_name not in only_configs.args:
+            pytest.skip(
+                f"Skipping test for {config_name} because"
+                " it is not in {only_configs.args}"
+            )
+        if config_name not in ALL_CONFIGS:
+            raise ValueError(
+                f"Test config {config_name} is not"
+                " in the list of all configs: {ALL_CONFIGS}"
+            )
+
+    all_configs = request.node.get_closest_marker("all_configs")
+    if all_configs is None:
+        # If the test is not marked with all_configs, skip all configs except the one
+        # specified in the test.
+        if config_name != DEFAULT_CONFIG:
+            pytest.skip(
+                f"Skipping test for {config_name}"
+                " because it is not marked with all_configs"
+            )
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--model1", action="store", help="Path to the first model .pt file"
@@ -331,7 +366,10 @@ def data_source() -> DataSource:
 
 @pytest.fixture(scope="session")
 def train_config(
-    data_source: DataSource, pytestconfig: pytest.Config, backend: TrainBackendConfig
+    data_source: DataSource,
+    pytestconfig: pytest.Config,
+    config_name: str,
+    backend: TrainBackendConfig,
 ) -> Generator[TrainConfig, Any, None]:
     with tempfile.TemporaryDirectory() as tmpdir:
 
@@ -344,8 +382,7 @@ def train_config(
         data_source.stds.to_netcdf(_make_path("stds.netcdf"))
 
         # Open default training script; modify it so it uses the temporary directory.
-        default_config = pytestconfig.rootpath / "configs" / "train_cm4.test.yaml"
-        trainer = TrainConfig.from_yaml(default_config)
+        trainer = TrainConfig.from_yaml(pytestconfig.rootpath / "configs" / config_name)
         data_config = dataclasses.replace(
             trainer.data,
             data_path=_make_path("data.zarr"),

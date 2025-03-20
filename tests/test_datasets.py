@@ -225,14 +225,14 @@ def test_val__data_shape(val_loader_pair: LoaderPair):
     for i, sample in enumerate(loader):
         X, y = extract_sample_arrays(sample)
 
+        assert X.shape[0] == 1  # validation always has 1 step
         # Last validation batch may have fewer samples
-        assert X.shape[0] == cfg.steps[0]
         assert X.shape[1] == batch_size or (
             i == num_samples - 1 and X.shape[1] < batch_size
         )
         assert X.shape[2:] == (input_var_dim, 180, 360)
 
-        assert y.shape[0] == cfg.steps[0]
+        assert y.shape[0] == 1
         assert y.shape[1] == batch_size or (
             i == num_samples - 1 and y.shape[1] < batch_size
         )

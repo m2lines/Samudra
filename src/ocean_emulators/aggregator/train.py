@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Generic, TypeVar
 
 import torch
 
@@ -6,8 +6,11 @@ from ocean_emulators.aggregator.loss import LossAggregator
 from ocean_emulators.utils.distributed import all_reduce_mean
 from ocean_emulators.utils.model import TrainOutput
 
+T = TypeVar("T", bound=TrainOutput)
+Logs = dict[str, float]
 
-class TrainAggregator:
+
+class TrainAggregator(Generic[T]):
     """Aggregates train statistics for an epoch."""
 
     def __init__(self):
@@ -16,7 +19,7 @@ class TrainAggregator:
         self._loss_per_channel = torch.tensor(torch.nan)
 
     @torch.no_grad()
-    def record_batch(self, batch: TrainOutput):
+    def record_batch(self, batch: T):
         if torch.isnan(self._loss):
             self._loss = batch.loss
         else:
@@ -28,7 +31,7 @@ class TrainAggregator:
         self._n_batches += 1
 
     @torch.no_grad()
-    def get_logs(self, label: str = "train") -> Dict[str, float]:
+    def get_logs(self, label: str = "train") -> Logs:
         loss = self._loss / self._n_batches
 
         loss_aggregator = LossAggregator.get_instance()

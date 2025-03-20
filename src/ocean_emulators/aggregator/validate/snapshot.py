@@ -3,9 +3,11 @@ from typing import Dict
 import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
+from ocean_emulators.aggregator.train import Logs
+from ocean_emulators.aggregator.validate.main import ValidateSubAggregator
 
 
-class SnapshotAggregator:
+class SnapshotAggregator(ValidateSubAggregator):
     """
     An aggregator that records the first sample of the last batch of data.
     """
@@ -55,7 +57,7 @@ class SnapshotAggregator:
         self._input_data_norm = input_data_norm
 
     @torch.no_grad()
-    def get_logs(self, label: str):
+    def get_logs(self, label: str) -> Logs:
         """
         Returns logs as can be reported to WandB.
 

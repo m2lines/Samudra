@@ -3,10 +3,11 @@ from typing import Dict
 import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
+from ocean_emulators.aggregator.validate.main import ValidateSubAggregator
 from ocean_emulators.utils.distributed import all_reduce_mean
 
 
-class MapAggregator:
+class MapAggregator(ValidateSubAggregator):
     """
     An aggregator that records the average over batches as function of lat and lon.
     """

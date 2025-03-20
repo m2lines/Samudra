@@ -1,7 +1,9 @@
+from abc import ABC, abstractmethod
 from typing import Dict
 
 import torch
 
+from ocean_emulators.aggregator import Logs
 from ocean_emulators.aggregator.loss import LossAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
@@ -9,6 +11,23 @@ from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
 from ocean_emulators.utils.model import ValOutput
+
+
+class ValidateSubAggregator(ABC):
+    @abstractmethod
+    def get_logs(self, label: str) -> Logs: ...
+
+    @abstractmethod
+    def record_batch(
+        self,
+        loss: torch.Tensor,
+        target_data,
+        gen_data,
+        input_data,
+        target_data_norm,
+        gen_data_norm,
+        input_data_norm,
+    ): ...
 
 
 class ValidateAggregator(TrainAggregator):
@@ -23,7 +42,7 @@ class ValidateAggregator(TrainAggregator):
     ):
         super().__init__()
 
-        val_aggregators = {
+        val_aggregators: dict[str, ValidateSubAggregator] = {
             "snapshot": SnapshotAggregator(metadata, hist),
             "mean_map": MapAggregator(metadata, hist),
             "reduced": MeanAggregator(area_weights, hist),
@@ -75,7 +94,7 @@ class ValidateAggregator(TrainAggregator):
             )
 
     @torch.no_grad()
-    def get_logs(self, label: str):
+    def get_logs(self, label: str = "train") -> Logs:
         logs = super().get_logs(label)
         for agg_label in self._aggregators:
             for k, v in self._aggregators[agg_label].get_logs(label=agg_label).items():
@@ -104,7 +123,7 @@ class ValidateAggregator(TrainAggregator):
             rmse_key = f"{label}/mean/weighted_rmse/{var}"
             if rmse_key in validation_metrics:
                 scaled_squared_errors[var] = (
-                    validation_metrics[rmse_key] / self._loss_scaling[var].item()
+                    validation_metrics[rmse_key] / self._loss_scaling[var]
                 ) ** 2
         scaled_squared_errors_sum = sum(scaled_squared_errors.values())
         fractional_contribs = {

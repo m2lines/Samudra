@@ -6,6 +6,7 @@ import xarray as xr
 
 from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
 from ocean_emulators.utils.model import InfOutput, SingleTimeseriesOutput
+from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 from ..validate.reduced import MeanAggregator as OneStepMeanAggregator
 from .reduced import MeanAggregator, SingleTargetMeanAggregator
@@ -175,17 +176,17 @@ class InferenceEvaluatorAggregator:
     def get_summary_logs(self):
         # These aggregators require a full timeseries of
         # data and thus wandb logged at the end
-        logs = {}
+        logs: MetricsDict = {}
         for name, aggregator in self._summary_aggregators.items():
             logs.update(aggregator.get_logs(label=name))
         return logs
 
     @torch.no_grad()
-    def _get_logs(self):
+    def _get_logs(self) -> Metrics:
         """
         Returns logs as can be reported to WandB.
         """
-        logs = {}
+        logs: MetricsDict = {}
         for name, aggregator in self._aggregators.items():
             logs.update(aggregator.get_logs(label=name))
         for name, time_dependent_aggregator in self._time_dependent_aggregators.items():
@@ -238,11 +239,7 @@ class InferenceAggregator:
             metadata=metadata,
         )
         self._aggregators = aggregators
-        self._summary_aggregators = {
-            name: aggregators[name]
-            for name in ["time_mean"]  # ["time_mean", "annual"]
-        }
-        self._time_dependent_aggregator_names: list[str] = []  # ["annual"]
+        self._summary_aggregators = {name: aggregators[name] for name in ["time_mean"]}
         self._n_timesteps_seen = 0
 
     @property
@@ -268,13 +265,10 @@ class InferenceAggregator:
         )
 
         for name in self._aggregators:
-            if name in self._time_dependent_aggregator_names:
-                self._aggregators[name].record_batch(data.time, data_unnorm_dict)
-            else:
-                self._aggregators[name].record_batch(
-                    data=data_unnorm_dict,
-                    i_time_start=self._n_timesteps_seen,
-                )
+            self._aggregators[name].record_batch(
+                data=data_unnorm_dict,
+                i_time_start=self._n_timesteps_seen,
+            )
         key = list(data_unnorm_dict.keys())[0]
         n_times = data_unnorm_dict[key].shape[1]
         logs = self._get_inference_logs_slice(
@@ -312,17 +306,17 @@ class InferenceAggregator:
         return logs
 
     def get_summary_logs(self):
-        logs = {}
+        logs: MetricsDict = {}
         for name, aggregator in self._summary_aggregators.items():
             logs.update(aggregator.get_logs(label=name))
         return logs
 
     @torch.no_grad()
-    def _get_logs(self):
+    def _get_logs(self) -> Metrics:
         """
         Returns logs as can be reported to WandB.
         """
-        logs = {}
+        logs: MetricsDict = {}
         for name, aggregator in self._aggregators.items():
             logs.update(aggregator.get_logs(label=name))
         return logs
@@ -347,7 +341,7 @@ class InferenceAggregator:
         Args:
             step_slice: Timestep slice to determine the time series subset.
         """
-        logs = {}
+        logs: MetricsDict = {}
         for name, aggregator in self._aggregators.items():
             if isinstance(aggregator, SingleTargetMeanAggregator):
                 logs.update(aggregator.get_logs(label=name, step_slice=step_slice))

@@ -3,8 +3,8 @@ from typing import Dict
 import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
-from ocean_emulators.aggregator.train import Logs
 from ocean_emulators.aggregator.validate.main import ValidateSubAggregator
+from ocean_emulators.utils.wandb import Metrics
 
 
 class SnapshotAggregator(ValidateSubAggregator):
@@ -57,7 +57,7 @@ class SnapshotAggregator(ValidateSubAggregator):
         self._input_data_norm = input_data_norm
 
     @torch.no_grad()
-    def get_logs(self, label: str) -> Logs:
+    def get_logs(self, label: str) -> Metrics:
         """
         Returns logs as can be reported to WandB.
 

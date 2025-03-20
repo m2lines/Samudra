@@ -1,11 +1,17 @@
-# TODO: wandb is not working with mypy. I have put type ignores wherever needed.
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import wandb
+from wandb.data_types import WBValue
+
+# Metrics supported by wandb -- probably there are more possible types too
+Metrics = Mapping[str, float | torch.Tensor | WBValue]
+
+# Same as above but mutable when you're building something up
+MetricsDict = Dict[str, float | torch.Tensor | WBValue]
 
 
 class WandBLogger:
@@ -117,7 +123,7 @@ class WandBLogger:
     def finish(self):
         """Finish the wandb run."""
         if self._enabled:
-            wandb.finish()  # type: ignore[attr-defined]
+            wandb.finish()
 
     def configure(self, enabled: bool, is_main_process: bool):
         """Configure whether wandb should be enabled."""
@@ -128,7 +134,7 @@ class WandBLogger:
         """Initialize wandb run."""
         if self._enabled and not self._initialized:
             try:
-                self.run = wandb.init(**kwargs)  # type: ignore[attr-defined]
+                self.run = wandb.init(**kwargs)
                 self._initialized = True
             except Exception as e:
                 logging.error(f"Failed to initialize wandb: {e}")
@@ -137,12 +143,14 @@ class WandBLogger:
     def watch(self, model, **kwargs):
         """Watch model parameters and gradients."""
         if self._enabled:
-            wandb.watch(model, **kwargs)  # type: ignore[attr-defined]
+            wandb.watch(model, **kwargs)
 
-    def log(self, metrics: Dict[str, Any], step: int, **kwargs):
+    def log(self, metrics: Metrics, step: int, **kwargs):
         """Log metrics to wandb."""
         if self._enabled:
-            wandb.log(metrics, step=step, **kwargs)  # type: ignore[attr-defined]
+            # Really, this should take a mapping, not a dict
+            # (so it is covariant) but it doens't so we convert
+            wandb.log(dict(metrics), step=step, **kwargs)
 
     def Image(self, data, *args, **kwargs):
         if isinstance(data, np.ndarray):
@@ -240,7 +248,7 @@ class WandBLogger:
 
                 plt.title(var)
                 plt.legend()
-                self.log({f"eval/plots/{var}": wandb.Image(fig)}, step=step)  # type: ignore[attr-defined]
+                self.log({f"eval/plots/{var}": wandb.Image(fig)}, step=step)
                 plt.close()
 
 

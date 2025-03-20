@@ -541,7 +541,7 @@ class Trainer:
 
             data.to(self.device)
             VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
-            val_aggregator.record_batch(VO)
+            val_aggregator.record_validation_batch(VO)
             metric_logger.update(loss=VO.loss)
 
         return val_aggregator.get_logs(label="val")

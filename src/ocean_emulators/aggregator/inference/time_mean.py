@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Dict, List, Literal, Mapping, Optional, Union
+from typing import Dict, List, Literal, Optional
 
 import matplotlib.pyplot as plt
 import torch
@@ -12,6 +12,7 @@ from ocean_emulators.aggregator.metrics import (
 )
 from ocean_emulators.aggregator.plotting import get_cmap_limits, plot_imshow
 from ocean_emulators.utils.distributed import all_reduce_mean
+from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 
 @dataclasses.dataclass
@@ -149,8 +150,8 @@ class TimeMeanAggregator:
         return ret
 
     @torch.no_grad()
-    def get_logs(self, label: str) -> Dict[str, Union[float, wandb.Image]]:
-        logs: Dict[str, Union[float, wandb.Image]] = {}
+    def get_logs(self, label: str) -> Metrics:
+        logs: MetricsDict = {}
         data = self.get_data()
         gen_map_key = "gen_map"
         for name, pred in data.items():
@@ -284,10 +285,8 @@ class TimeMeanEvaluatorAggregator:
         return ret
 
     @torch.no_grad()
-    def get_logs(
-        self, label: str
-    ) -> Mapping[str, Union[float, torch.Tensor, wandb.Image]]:
-        logs = self._gen_agg.get_logs("")
+    def get_logs(self, label: str) -> Metrics:
+        logs = dict(self._gen_agg.get_logs(""))
         preds = self._get_target_gen_pairs()
         bias_map_key = "bias_map"
         rmse_all_channels = {}

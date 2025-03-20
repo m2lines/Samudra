@@ -3,7 +3,6 @@ from typing import Dict
 
 import torch
 
-from ocean_emulators.aggregator import Logs
 from ocean_emulators.aggregator.loss import LossAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
@@ -11,15 +10,17 @@ from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
 from ocean_emulators.utils.model import ValOutput
+from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 
 class ValidateSubAggregator(ABC):
     @abstractmethod
-    def get_logs(self, label: str) -> Logs: ...
+    def get_logs(self, label: str) -> Metrics: ...
 
     @abstractmethod
     def record_batch(
         self,
+        *,
         loss: torch.Tensor,
         target_data,
         gen_data,
@@ -53,8 +54,15 @@ class ValidateAggregator(TrainAggregator):
         self.hist = hist
         self.output_channels = output_channels
 
+    # TODO(jder): we could remove this by moving from inheritance
+    # to composition with the TrainAggregator functionality.
+    def record_batch(self, batch):
+        raise NotImplementedError(
+            "Call record_validation_batch instead of record_batch"
+        )
+
     @torch.no_grad()
-    def record_batch(self, batch: ValOutput):
+    def record_validation_batch(self, batch: ValOutput):
         super().record_batch(batch)  # Record losses
 
         if len(batch.target_data) == 0:
@@ -94,14 +102,17 @@ class ValidateAggregator(TrainAggregator):
             )
 
     @torch.no_grad()
-    def get_logs(self, label: str = "train") -> Logs:
-        logs = super().get_logs(label)
+    def get_logs(self, label: str = "train") -> Metrics:
+        logs: MetricsDict = dict(super().get_logs(label))
         for agg_label in self._aggregators:
             for k, v in self._aggregators[agg_label].get_logs(label=agg_label).items():
                 logs[f"{label}/{k}"] = v
+        # TODO(jder): we have an implicit assumption here that
+        # the superclass actually only returns float values;
+        # would be nice move that to a separate, maybe standalone, function.
         logs.update(
             self._get_loss_scaled_mse_components(
-                validation_metrics=logs,
+                validation_metrics=logs,  # type: ignore[arg-type]
                 label=label,
             )
         )

@@ -38,7 +38,7 @@ class MapAggregator(ValidateSubAggregator):
     @torch.no_grad()
     def record_batch(
         self,
-        loss: float,
+        loss,
         target_data,
         gen_data,
         input_data,

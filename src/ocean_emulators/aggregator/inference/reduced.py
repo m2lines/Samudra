@@ -16,6 +16,7 @@ from ocean_emulators.aggregator.metrics import (
 )
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.distributed import all_reduce_mean
+from ocean_emulators.utils.wandb import Metrics
 
 
 @dataclasses.dataclass
@@ -450,7 +451,7 @@ class SingleTargetMeanAggregator:
         return data
 
     @torch.no_grad()
-    def get_logs(self, label: str, step_slice: Optional[slice] = None):
+    def get_logs(self, label: str, step_slice: Optional[slice] = None) -> Metrics:
         """
         Returns logs as can be reported to WandB.
 

@@ -101,13 +101,14 @@ class MeanAggregator(ValidateSubAggregator):
     @torch.no_grad()
     def record_batch(
         self,
+        *,
+        loss: torch.Tensor = torch.tensor(np.nan),
         target_data,
         gen_data,
         target_data_norm,
         gen_data_norm,
         input_data: Dict[str, torch.Tensor] = {},
         input_data_norm: Dict[str, torch.Tensor] = {},
-        loss: torch.Tensor = torch.tensor(np.nan),
         i_time_start: int = 0,
     ):
         variable_metrics = self._get_variable_metrics(gen_data)

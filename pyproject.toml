@@ -75,10 +75,12 @@ lint.pydocstyle.convention = "google"
 markers = [
   "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
   "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
+  "only_configs: used to mark tests that only run on specific configs (not used on command line)",
+  "all_configs: used to mark tests that run on all configs (not used on command line)",
 ]
 pythonpath = [ "src" ]
 testpaths = [ "tests" ]
-addopts = "--jaxtyping-packages=data,datasets,beartype.beartype"
+addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers"
 
 [tool.mypy]
 check_untyped_defs = true

@@ -130,7 +130,7 @@ def compute_anomalies(data: xr.Dataset, var: str) -> xr.Dataset:
     return data
 
 
-def rename_vars_if_reqd(data: xr.Dataset) -> xr.Dataset:
+def rename_vars(data: xr.Dataset) -> xr.Dataset:
     """
     Rename variables if required.
     """
@@ -170,9 +170,9 @@ def validate_data(
 
     # Check if data variables are in the right format
     # This check is to ensure we convert data to the correct format
-    data = rename_vars_if_reqd(data)
-    data_mean = rename_vars_if_reqd(data_mean)
-    data_std = rename_vars_if_reqd(data_std)
+    data = rename_vars(data)
+    data_mean = rename_vars(data_mean)
+    data_std = rename_vars(data_std)
 
     # OM4 data has coordinates we don't need
     # We drop them and rename x, y dimensions to lon, lat

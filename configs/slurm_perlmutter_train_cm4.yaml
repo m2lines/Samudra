@@ -52,8 +52,8 @@ experiment:
     entity: ai2cm
     group: samudra-train-2in2out
   network: Samudra
-  prognostic_vars_key: 3D_tos_all
-  boundary_vars_key: 3D_mask_all
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds
 
 data:
   data_path: cm4_piControl_ocean_200yr_full_chunked.zarr

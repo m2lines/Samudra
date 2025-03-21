@@ -25,7 +25,7 @@ training:
   loss: mse
   network: Samudra
   prognostic_vars_key: 3D_noFast_all
-  boundary_vars_key: 3D_all
+  boundary_vars_key: tau_hfds
   finetune: false
   resume_ckpt_path: null
 

@@ -22,8 +22,8 @@ experiment:
     entity: m2lines
     group: samudra-eval-om4
   network: Samudra
-  prognostic_vars_key: 3D_all
-  boundary_vars_key: 3D_all_hfds_anom
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds_hfds_anom
 
 data:
   data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_104_years_2014_netzerohfds_detrended # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_1990_netzerohfds

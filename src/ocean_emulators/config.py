@@ -89,8 +89,8 @@ class ExperimentConfig:
 
     # Model configuration
     network: str = "Samudra"
-    prognostic_vars_key: str = "3D_all"
-    boundary_vars_key: str = "3D_all"
+    prognostic_vars_key: str = "thermo_dynamic_all"
+    boundary_vars_key: str = "thermo_dynamic_all"
 
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")

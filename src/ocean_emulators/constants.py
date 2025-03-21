@@ -94,20 +94,21 @@ MASK_VARS = [
 
 PrognosticVarsStr = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarsStr] = {
-    "3D_5": [
+    "thermo_dynamic_5": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
     ]
     + ["zos"],
-    "3D_all": [
+    "thermo_dynamic_all": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
+    + ["zos"],
+    "thermo_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
     + ["zos"],
 }
 BoundaryVarsStr = list[str]
 BOUNDARY_VARS: dict[str, BoundaryVarsStr] = {
-    "3D_5": ["tauuo", "tauvo", "hfds"],
-    "3D_all": ["tauuo", "tauvo", "hfds"],
-    "3D_all_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
+    "tau_hfds": ["tauuo", "tauvo", "hfds"],
+    "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
 }
 
 default_metadata = {

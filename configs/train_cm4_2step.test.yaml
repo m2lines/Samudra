@@ -38,8 +38,8 @@ experiment:
     entity: m2lines
     group: samudra-train-om4
   network: Samudra
-  prognostic_vars_key: '3D_5'
-  boundary_vars_key: '3D_5'
+  prognostic_vars_key: thermo_dynamic_5
+  boundary_vars_key: tau_hfds
 data:
   data_path: fake/path/to/data
   data_means_path: fake/path/to/means

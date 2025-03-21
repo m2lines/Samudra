@@ -278,28 +278,38 @@ def config_name(request: pytest.FixtureRequest) -> str:
 
 @pytest.fixture(autouse=True)
 def check_skip_configs(request, config_name):
+    """Decide if we run a test given only_configs and all_configs marks.
+
+    * If there is an only_configs mark, that overrides all_configs.
+      We run all configs in only_configs in that case.
+    * If there is no only_configs mark, and there is an all_configs mark,
+      we run all configs.
+    * If there is no only_configs or all_configs mark, we run the test for the
+      default config.
+
+    """
     only_configs = request.node.get_closest_marker("only_configs")
     if only_configs:
         if config_name not in only_configs.args:
             pytest.skip(
                 f"Skipping test for {config_name} because"
-                " it is not in {only_configs.args}"
+                f" it is not in {only_configs.args}"
             )
         if config_name not in ALL_CONFIGS:
             raise ValueError(
                 f"Test config {config_name} is not"
-                " in the list of all configs: {ALL_CONFIGS}"
+                f" in the list of all configs: {ALL_CONFIGS}"
             )
-
-    all_configs = request.node.get_closest_marker("all_configs")
-    if all_configs is None:
-        # If the test is not marked with all_configs, skip all configs except the one
-        # specified in the test.
-        if config_name != DEFAULT_CONFIG:
-            pytest.skip(
-                f"Skipping test for {config_name}"
-                " because it is not marked with all_configs"
-            )
+    else:
+        all_configs = request.node.get_closest_marker("all_configs")
+        if all_configs is None:
+            # If the test is not marked with all_configs, skip all configs except
+            # the default config.
+            if config_name != DEFAULT_CONFIG:
+                pytest.skip(
+                    f"Skipping test for {config_name}"
+                    " because it is not marked with all_configs"
+                )
 
 
 def pytest_addoption(parser):

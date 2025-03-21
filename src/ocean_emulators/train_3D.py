@@ -177,12 +177,12 @@ class Trainer:
             )
         data_mean = xr.open_dataset(
             os.path.join(self.data_dir, self.data_means_path),
-            engine="netcdf4" if self.data_path.endswith(".nc") else "zarr",
+            engine="netcdf4" if self.data_means_path.endswith(".nc") else "zarr",
             chunks={},
         )
         data_std = xr.open_dataset(
             os.path.join(self.data_dir, self.data_stds_path),
-            engine="netcdf4" if self.data_path.endswith(".nc") else "zarr",
+            engine="netcdf4" if self.data_stds_path.endswith(".nc") else "zarr",
             chunks={},
         )
 

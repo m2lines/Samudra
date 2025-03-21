@@ -88,10 +88,8 @@ def vector_of(max_vec_size: int, min_vec_size=1):
         shape=vector_of(50),
         elements=st.integers(min_value=0, max_value=999),
     ),
-    start_day=st.datetimes(
-        min_value=datetime.datetime(
-            1900, 1, 1
-        ),  # to quiet cftime warning about year < 0
+    start_day=st.dates(
+        min_value=datetime.date(1900, 1, 1),  # to quiet cftime warning about year < 0
     ),
     calendar=st.sampled_from(["noleap", "standard"]),
 )
@@ -100,7 +98,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lat=np.array([-90.0, 0.0, 90.0]),
     lng=np.array([0.0, 180.0]),
     days_since_start=np.array([5, 10, 15, 20, 25]),
-    start_day=datetime.datetime(2020, 1, 1),
+    start_day=datetime.date(2020, 1, 1),
     calendar="noleap",
 )
 @example(
@@ -108,7 +106,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lat=np.array([90.00]),
     lng=np.array([360.0]),
     days_since_start=np.array([999]),
-    start_day=datetime.datetime(2000, 5, 1, 12),
+    start_day=datetime.datetime(2000, 5, 1),
     calendar="noleap",
 )
 @example(
@@ -116,7 +114,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lat=np.array([0.0]),
     lng=np.array([0.0]),
     days_since_start=np.array([0], dtype=np.uint32),
-    start_day=datetime.datetime(2000, 5, 1, 12),
+    start_day=datetime.date(2000, 5, 1),
     calendar="noleap",
 )
 @example(
@@ -124,7 +122,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lng=np.array([0.0]),
     data_var_index=0,
     days_since_start=np.array([0], dtype=np.uint32),
-    start_day=datetime.datetime(2000, 5, 1, 12),
+    start_day=datetime.date(2000, 5, 1),
     calendar="noleap",
 )
 @example(
@@ -132,7 +130,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lat=np.array([2.0]),
     lng=np.array([1.375]),
     days_since_start=np.array([0], dtype=np.uint32),
-    start_day=datetime.datetime(2000, 1, 1, 0, 0),
+    start_day=datetime.date(2000, 1, 1),
     calendar="noleap",
 )
 @settings(deadline=1000)
@@ -141,9 +139,11 @@ def test_test_util__data_source_roundtrip(
     lat: NDArray[np.floating],
     lng: NDArray[np.floating],
     days_since_start: NDArray[np.uint32],
-    start_day: datetime.datetime,
+    start_day: datetime.date,
     calendar: str,
 ) -> None:
+    # We use hour=12 because that's what cftime uses when
+    # converting from ordinals (in DataSourceDims)
     start_day_cf = cftime.datetime(
         start_day.year, start_day.month, start_day.day, hour=12, calendar=calendar
     )

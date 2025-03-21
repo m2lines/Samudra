@@ -12,28 +12,28 @@ resume_ckpt_path: null
 inference_epochs: [-1]
 data_percent: 1.0
 train:
-  start_time: 151-01-06
-  end_time: 154-01-01
+  start_time: "0151-01-06"
+  end_time: "0154-01-01"
 val:
-  start_time: 306-01-01
-  end_time: 307-01-01
+  start_time: "0306-01-01"
+  end_time: "0307-01-01"
 inference:
-  - start_time: 151-01-06
-    end_time: 153-01-11
-  - start_time: 153-01-06
-    end_time: 155-01-11
-  - start_time: 155-01-06
-    end_time: 157-01-11
-  - start_time: 157-01-06
-    end_time: 159-01-11
-  - start_time: 159-01-06
-    end_time: 161-01-11
-  - start_time: 161-01-06
-    end_time: 163-01-11
-  - start_time: 163-01-06
-    end_time: 165-01-11
-  - start_time: 309-01-06
-    end_time: 311-01-11
+  - start_time: "0151-01-06"
+    end_time: "0153-01-11"
+  - start_time: "0153-01-06"
+    end_time: "0155-01-11"
+  - start_time: "0155-01-06"
+    end_time: "0157-01-11"
+  - start_time: "0157-01-06"
+    end_time: "0159-01-11"
+  - start_time: "0159-01-06"
+    end_time: "0161-01-11"
+  - start_time: "0161-01-06"
+    end_time: "0163-01-11"
+  - start_time: "0163-01-06"
+    end_time: "0165-01-11"
+  - start_time: "0309-01-06"
+    end_time: "0311-01-11"
 data_stride: [1]
 steps: [4]
 step_transition: []

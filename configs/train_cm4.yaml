@@ -50,7 +50,7 @@ experiment:
     mode: disabled
     project: 3D_ocean_emu_CM4
     entity: suryadheeshjith
-  network: convnextunet
+  network: Samudra
   exp_num_in: 3D_tos_all
   exp_num_extra: 3D_mask_all
   exp_num_out: 3D_tos_all
@@ -64,7 +64,7 @@ data:
   hist: 0
 
 
-unet:
+samudra:
   ch_width: [157, 200, 250, 300, 400]
   n_out: 77
   dilation: [1, 2, 4, 8]

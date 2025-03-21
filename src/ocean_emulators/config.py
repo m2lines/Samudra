@@ -51,7 +51,7 @@ class CorrectorConfig:
 
 
 @dataclass
-class UNetConfig:
+class SamudraConfig:
     ch_width: List[int] = field(default_factory=lambda: [157, 200, 250, 300, 400])
     n_out: int = 77
     dilation: List[int] = field(default_factory=lambda: [1, 2, 4, 8])
@@ -88,7 +88,7 @@ class ExperimentConfig:
     wandb: WandBConfig = field(default_factory=WandBConfig)
 
     # Model configuration
-    network: str = "convnextunet"
+    network: str = "Samudra"
     exp_num_in: str = "3D_all"
     exp_num_extra: str = "3D_all"
     exp_num_out: str = "3D_all"
@@ -141,7 +141,7 @@ class TrainConfig:
     # Config components
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    unet: UNetConfig = field(default_factory=UNetConfig)
+    samudra: SamudraConfig = field(default_factory=SamudraConfig)
 
     @classmethod
     def from_yaml(
@@ -186,10 +186,10 @@ class TrainConfig:
             "inference": [t.__dict__ for t in self.inference],
             "experiment": self.experiment.__dict__,
             "data": self.data.__dict__,
-            "unet": {
-                **self.unet.__dict__,
-                "core_block": self.unet.core_block.__dict__,
-                "corrector": self.unet.corrector.__dict__,
+            "samudra": {
+                **self.samudra.__dict__,
+                "core_block": self.samudra.core_block.__dict__,
+                "corrector": self.samudra.corrector.__dict__,
             },
         }
 
@@ -222,7 +222,7 @@ class EvalConfig:
     )
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     data: DataConfig = field(default_factory=DataConfig)
-    unet: UNetConfig = field(default_factory=UNetConfig)
+    samudra: SamudraConfig = field(default_factory=SamudraConfig)
 
     @classmethod
     def from_yaml(
@@ -259,10 +259,10 @@ class EvalConfig:
             "inference": self.inference.__dict__,
             "experiment": self.experiment.__dict__,
             "data": self.data.__dict__,
-            "unet": {
-                **self.unet.__dict__,
-                "core_block": self.unet.core_block.__dict__,
-                "corrector": self.unet.corrector.__dict__,
+            "samudra": {
+                **self.samudra.__dict__,
+                "core_block": self.samudra.core_block.__dict__,
+                "corrector": self.samudra.corrector.__dict__,
             },
         }
 

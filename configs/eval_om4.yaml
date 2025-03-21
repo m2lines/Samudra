@@ -21,7 +21,7 @@ experiment:
     project: ocean_emu_om4_reviews
     entity: suryadheeshjith
     group: samudra-inference-long
-  network: convnextunet
+  network: Samudra
   exp_num_in: 3D_all
   exp_num_extra: 3D_all_hfds_anom
   exp_num_out: 3D_all
@@ -36,7 +36,7 @@ data:
   hist: 1
 
 
-unet:
+samudra:
   ch_width: [157, 200, 250, 300, 400]
   n_out: 77
   dilation: [1, 2, 4, 8]

@@ -37,7 +37,7 @@ experiment:
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
-  network: convnextunet
+  network: Samudra
   exp_num_in: '3D_5'
   exp_num_extra: '3D_5'
   exp_num_out: '3D_5'
@@ -51,7 +51,7 @@ data:
   hist: 0
 
 
-unet:
+samudra:
   ch_width: [2, 3]
   n_out: 4
   dilation: [1, 2]

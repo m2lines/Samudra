@@ -23,7 +23,7 @@ training:
   learning_rate: 0.0002
   scheduler: true
   loss: mse
-  network: convnextunet
+  network: Samudra
   exp_num_in: 3D_noFast_all
   exp_num_extra: 3D_all
   exp_num_out: 3D_noFast_all
@@ -66,7 +66,7 @@ data:
       end_time: 311-01-11
   inference_epochs: [-1]
 
-unet:
+samudra:
   ch_width: [157, 200, 250, 300, 400]
   n_out: 77
   dilation: [1, 2, 4, 8]

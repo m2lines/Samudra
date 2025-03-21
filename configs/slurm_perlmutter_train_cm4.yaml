@@ -51,7 +51,7 @@ experiment:
     project: ocean-emulator
     entity: ai2cm
     group: samudra-train-2in2out
-  network: convnextunet
+  network: Samudra
   exp_num_in: 3D_tos_all
   exp_num_extra: 3D_mask_all
   exp_num_out: 3D_tos_all
@@ -66,7 +66,7 @@ data:
   hist: 1
 
 
-unet:
+samudra:
   ch_width: [157, 200, 250, 300, 400]
   n_out: 77
   dilation: [1, 2, 4, 8]

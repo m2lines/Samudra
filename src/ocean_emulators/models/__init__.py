@@ -1,3 +1,3 @@
-from .unet import UNet
+from .samudra import Samudra
 
-__all__ = ["UNet"]
+__all__ = ["Samudra"]

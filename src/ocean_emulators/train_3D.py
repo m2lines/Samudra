@@ -40,7 +40,7 @@ from ocean_emulators.constants import (
     construct_metadata,
 )
 from ocean_emulators.datasets import InferenceDataset, InferenceDatasets, TrainDataset
-from ocean_emulators.models.unet import UNet
+from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper, TrainOutput, ValOutput
 from ocean_emulators.utils.data import (
     Normalize,
@@ -75,7 +75,7 @@ from ocean_emulators.utils.wandb import WandBLogger
 
 
 class Trainer:
-    model: UNet | nn.parallel.DistributedDataParallel
+    model: Samudra | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
@@ -202,22 +202,22 @@ class Trainer:
 
         # Model
         logging.info(f"Getting model {cfg.experiment.network}")
-        if "convnextunet" == cfg.experiment.network:
-            if cfg.unet.ch_width[0] != self.num_in:
+        if "Samudra" == cfg.experiment.network:
+            if cfg.samudra.ch_width[0] != self.num_in:
                 logging.info(
                     f"NOTE: Changing input channels to match data "
-                    f"{cfg.unet.ch_width[0]}->{self.num_in}"
+                    f"{cfg.samudra.ch_width[0]}->{self.num_in}"
                 )
-                cfg.unet.ch_width[0] = self.num_in
-            if cfg.unet.n_out != self.num_out:
+                cfg.samudra.ch_width[0] = self.num_in
+            if cfg.samudra.n_out != self.num_out:
                 logging.info(
                     f"NOTE: Changing output channels to match data "
-                    f"{cfg.unet.n_out}->{self.num_out}"
+                    f"{cfg.samudra.n_out}->{self.num_out}"
                 )
-                cfg.unet.n_out = self.num_out
-            model = UNet(cfg.unet, hist=cfg.data.hist, wet=self.wet.to(self.device)).to(
-                self.device
-            )
+                cfg.samudra.n_out = self.num_out
+            model = Samudra(
+                cfg.samudra, hist=cfg.data.hist, wet=self.wet.to(self.device)
+            ).to(self.device)
         else:
             raise NotImplementedError
 

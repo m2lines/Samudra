@@ -388,16 +388,16 @@ def train_config(
 
         # Write test data to a temporary directory.
         data_source.data.to_zarr(_make_path("data.zarr"))
-        data_source.means.to_netcdf(_make_path("means.netcdf"))
-        data_source.stds.to_netcdf(_make_path("stds.netcdf"))
+        data_source.means.to_netcdf(_make_path("means.nc"))
+        data_source.stds.to_netcdf(_make_path("stds.nc"))
 
         # Open default training script; modify it so it uses the temporary directory.
         trainer = TrainConfig.from_yaml(pytestconfig.rootpath / "configs" / config_name)
         data_config = dataclasses.replace(
             trainer.data,
             data_path=_make_path("data.zarr"),
-            data_means_path=_make_path("means.netcdf"),
-            data_stds_path=_make_path("stds.netcdf"),
+            data_means_path=_make_path("means.nc"),
+            data_stds_path=_make_path("stds.nc"),
         )
         experiment_config = dataclasses.replace(
             trainer.experiment,

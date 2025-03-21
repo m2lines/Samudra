@@ -70,7 +70,6 @@ from ocean_emulators.utils.loss import (
     decomposed_mse_scaled,
 )
 from ocean_emulators.utils.model import get_model_summary
-from ocean_emulators.utils.multiton import scoped
 from ocean_emulators.utils.train import collate_inference_data, collate_train_data
 from ocean_emulators.utils.wandb import WandBLogger
 
@@ -78,7 +77,6 @@ from ocean_emulators.utils.wandb import WandBLogger
 class Trainer:
     model: UNet | nn.parallel.DistributedDataParallel
 
-    @scoped
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(str(cfg.experiment.output_dir / "config.yaml"))
@@ -401,7 +399,6 @@ class Trainer:
             collate_fn=collate_inference_data,
         )
 
-    @scoped
     def run(self) -> None:
         self.best_val_loss = torch.tensor(1e8)
         self.best_inf_loss = torch.tensor(1e8)
@@ -614,7 +611,6 @@ class Trainer:
 
         return cur_step
 
-    @scoped  # used externally in tests
     def init_data_loaders(self, cur_step: int) -> None:
         """Initialize training and validation data loaders.
 

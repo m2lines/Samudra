@@ -12,6 +12,7 @@ from typing_extensions import Self
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
+from ocean_emulators.utils.multiton import scope_for
 
 
 @dataclasses.dataclass
@@ -372,9 +373,20 @@ def trainer_pair(train_config: TrainConfig):
     # See https://github.com/patrick-kidger/jaxtyping/issues/306
     from ocean_emulators.train_3D import Trainer
 
-    trainer = Trainer(train_config)
+    with scope_for(train_config):
+        trainer = Trainer(train_config)
 
-    # cur_step will set the number of pairs in the input/output sample
-    trainer.init_data_loaders(cur_step=train_config.steps[0])
+        # cur_step will set the number of pairs in the input/output sample
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
 
     return train_config, trainer
+
+
+@pytest.fixture(autouse=True, scope="function")
+def set_scope(train_config: TrainConfig):
+    """Automatically sets up the correct Multiton scope for each test.
+
+    NB you must still do this manually for session-scoped fixtures.
+    """
+    with scope_for(train_config):
+        yield

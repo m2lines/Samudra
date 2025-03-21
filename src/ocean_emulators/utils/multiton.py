@@ -33,6 +33,7 @@ class MultitonScope:
         self.scope = {}
 
     def __enter__(self):
+        # TODO(jder): Could make this thread/async-safe if needed.
         self.previous_scope = Multiton._current_scope
         Multiton._current_scope = self.scope
         return self
@@ -44,14 +45,20 @@ class MultitonScope:
         Multiton._current_scope = self.previous_scope
 
 
+def scope_for(object) -> MultitonScope:
+    """Retrieves the scope associated with the @scoped decorator for an object."""
+    if getattr(object, "_multiton_scope", None) is None:
+        object._multiton_scope = MultitonScope()
+    return object._multiton_scope
+
+
 def scoped(func):
     """Decorator which binds a multiton scope to an instance method."""
 
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
-        if getattr(self, "_multiton_scope", None) is None:
-            self._multiton_scope = MultitonScope()
-        with self._multiton_scope:
+        scope = scope_for(self)
+        with scope:
             return func(self, *args, **kwargs)
 
     return wrapper

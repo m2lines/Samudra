@@ -91,7 +91,6 @@ class Eval:
 
         # Dataloaders
         logging.info(f"Loading data")
-        assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path

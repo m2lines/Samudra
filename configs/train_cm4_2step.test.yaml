@@ -46,7 +46,6 @@ data:
   data_means_path: fake/path/to/means
   data_stds_path: fake/path/to/stds
   scaling_residuals_file: null
-  depth_mode: all
   time_delta: 5
   num_workers: 4
   hist: 0

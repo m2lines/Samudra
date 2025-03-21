@@ -31,7 +31,6 @@ data:
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
   data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
   scaling_residuals_file: null
-  depth_mode: all
   time_delta: 5
   num_workers: 4
   hist: 1

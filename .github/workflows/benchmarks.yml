@@ -66,12 +66,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      # once we've solved https://github.com/suryadheeshjith/Ocean_Emulator/issues/87 we can make a single pytest run
-      - name: Run CPU benchmarks
-        run: uv run --locked pytest -m "not cuda" --benchmark-only --benchmark-json output-cpu.json
-
-      - name: Run GPU benchmarks
-        run: uv run --locked pytest -m "cuda" --benchmark-only --benchmark-json output-gpu.json
+      - name: Run benchmarks
+        run: uv run --locked pytest --benchmark-only --benchmark-json output-gpu.json
 
       # Avoid issues checking out the gh-pages branch (eg uv.lock updated)
       - name: Stash

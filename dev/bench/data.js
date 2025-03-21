@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742524627076,
+  "lastUpdate": 1742570486773,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -705,6 +705,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14222873978908288",
             "extra": "mean: 129.1205414064 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "151275c56c72857b639e3312eaa0abe8e97f3a46",
+          "message": "fix build, not sure how this was working in CI before (#133)\n\nCurrently, `uv run python` doesn't let you run `import ocean_emulators`.\nThis fixes that.",
+          "timestamp": "2025-03-21T10:44:15-04:00",
+          "tree_id": "b97592be8143c1817d59f2b91723d921274fcb14",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/151275c56c72857b639e3312eaa0abe8e97f3a46"
+        },
+        "date": 1742570485799,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.06795110596832138,
+            "unit": "iter/sec",
+            "range": "stddev: 0.034761535747241765",
+            "extra": "mean: 14.716463930200007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.18685259939420026,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08762517505957977",
+            "extra": "mean: 5.351812087400049 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.1704194952420998,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12162227048780766",
+            "extra": "mean: 5.867873265200023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.008249294397808906,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11374542200399147",
+            "extra": "mean: 121.2224890732 sec\nrounds: 5"
           }
         ]
       }

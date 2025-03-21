@@ -67,10 +67,10 @@ jobs:
           python-version: "3.11"
 
       - name: Run CPU benchmarks
-        run: uv run --locked pytest --benchmark-only --benchmark-json output-cpu.json
+        run: uv run --locked pytest -m "not cuda" --benchmark-only --benchmark-json output-cpu.json
 
       - name: Run GPU benchmarks
-        run: uv run --locked pytest --benchmark-only --benchmark-json output-gpu.json
+        run: uv run --locked pytest -m "cuda" --benchmark-only --benchmark-json output-gpu.json
 
       # Avoid issues checking out the gh-pages branch (eg uv.lock updated)
       - name: Stash

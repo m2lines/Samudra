@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS
 from ocean_emulators.datasets import TrainData
-from ocean_emulators.train_3D import Trainer
+from ocean_emulators.train import Trainer
 from tests.conftest import DataSourceDims
 
 # Note: Refactoring data loaders is planned for the near-term. Ideally,

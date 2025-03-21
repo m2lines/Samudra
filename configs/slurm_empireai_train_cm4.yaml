@@ -1,7 +1,7 @@
 name: train
 sub_name: cm4_samudra
 rand_seed: 1
-base_output_dir: train_3D
+base_output_dir: train
 debug: false
 gantry: false
 cluster_data_dir: /mnt/home/sd5313/data/

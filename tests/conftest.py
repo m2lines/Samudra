@@ -423,7 +423,7 @@ def train_config(
 def trainer_pair(train_config: TrainConfig):
     # Import needs to be here in order to prevent a gnarly jaxtyping bug:
     # See https://github.com/patrick-kidger/jaxtyping/issues/306
-    from ocean_emulators.train_3D import Trainer
+    from ocean_emulators.train import Trainer
 
     # NB fixtures still need to do this "by hand" since set_scope
     # doesn't run at session-scope time

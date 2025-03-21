@@ -9,7 +9,6 @@ import os
 import time
 import warnings
 from functools import partial
-from pathlib import Path
 from typing import Union
 
 import dask
@@ -68,7 +67,11 @@ from ocean_emulators.utils.loss import (
     decomposed_mse_scaled,
 )
 from ocean_emulators.utils.model import get_model_summary
-from ocean_emulators.utils.train import collate_inference_data, collate_train_data
+from ocean_emulators.utils.train import (
+    CheckpointPaths,
+    collate_inference_data,
+    collate_train_data,
+)
 from ocean_emulators.utils.wandb import WandBLogger
 
 
@@ -320,6 +323,7 @@ class Trainer:
         self.inference_epochs = cfg.inference_epochs
         self.time_delta: int = cfg.data.time_delta
         self.num_batches_seen = 0
+        self.ckpt_paths = CheckpointPaths(self.nets_dir)
 
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
@@ -434,7 +438,7 @@ class Trainer:
                 logging.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
             if is_main_process():
-                self.save_checkpoint(epoch, v_loss, inf_loss)
+                self.save_all_checkpoints(epoch, v_loss, inf_loss)
 
             time_elapsed = time.time() - start_epoch_train_time
 
@@ -685,58 +689,56 @@ class Trainer:
             collate_fn=collate_train_data,
         )
 
-    def save_checkpoint(self, epoch, v_loss, inf_loss):
-        save_best_val = False
-        # Check for best validation loss
-        if v_loss < self.best_val_loss:
+    def save_all_checkpoints(self, epoch, v_loss, inf_loss):
+        save_best_checkpoint = False
+        if v_loss <= self.best_val_loss:
+            logging.info(
+                f"Epoch validation loss ({v_loss}) is lower than "
+                f"previous best validation loss ({self.best_val_loss})."
+            )
+            logging.info(
+                "Saving lowest validation loss checkpoint to "
+                f"{self.ckpt_paths.best_validation_checkpoint_path}"
+            )
             self.best_val_loss = v_loss
-            logging.info(f"New best validation loss achieved at epoch {epoch}")
-            save_best_val = True  # Wait to save until we check inference loss
+            save_best_checkpoint = True  # wait until inference error is updated
+        if inf_loss is not None and (inf_loss <= self.best_inf_loss):
+            logging.info(
+                f"Epoch inference error ({inf_loss}) is lower than "
+                f"previous best inference error ({self.best_inf_loss})."
+            )
+            logging.info(
+                "Saving lowest inference error checkpoint to "
+                f"{self.ckpt_paths.best_inference_checkpoint_path}"
+            )
+            self.best_inf_loss = inf_loss
+            self.save_checkpoint(epoch, self.ckpt_paths.best_inference_checkpoint_path)
+        if save_best_checkpoint:
+            self.save_checkpoint(epoch, self.ckpt_paths.best_validation_checkpoint_path)
 
-        # Check for best inference loss if available
-        if inf_loss is not None:
-            if inf_loss < self.best_inf_loss:
-                self.best_inf_loss = inf_loss
-                logging.info(f"New best inference loss achieved at epoch {epoch}")
-                logging.info("Saving best inference model")
-                self._save_checkpoint(epoch, best=True, best_type="inference")
+        logging.info(
+            f"Saving latest checkpoint to {self.ckpt_paths.latest_checkpoint_path}"
+        )
+        self.save_checkpoint(epoch, self.ckpt_paths.latest_checkpoint_path)
+        if epoch > 0 and epoch % self.save_freq == 0:
+            self.save_checkpoint(
+                epoch, self.ckpt_paths.latest_checkpoint_path_with_epoch(epoch)
+            )
 
-        # Save best validation checkpoint if needed
-        if save_best_val:
-            logging.info("Saving best validation model")
-            self._save_checkpoint(epoch, best=True, best_type="validation")
-
-        # Regular checkpoint saving
-        elif (epoch) % self.save_freq == 0:
-            logging.info(f"Saving model at epoch {epoch}")
-            self._save_checkpoint(epoch)
-
-    def _save_checkpoint(self, epoch, best=False, best_type=None):
+    def save_checkpoint(self, epoch, checkpoint_path):
         checkpoint = {
-            # TODO(jder): we need the underlying model so we can use forward_once;
-            # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
             "model": self.model.module.state_dict()
-            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            if using_gpu()
             else self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "epoch": epoch,
-            "wandb_id": self.wandb_id,
-            "wandb_name": self.wandb_name,
+            "best_val_loss": self.best_val_loss,
+            "best_inf_loss": self.best_inf_loss,
         }
         if self.scheduler:
             checkpoint["scheduler"] = self.scheduler.state_dict()
 
-        # Determine filename suffix based on checkpoint type
-        if best:
-            suffix = f"best_{best_type}" if best_type else "best"
-        else:
-            suffix = ""
-
-        save_path = Path(self.nets_dir) / "{0}_epoch_{1}_{2}.pt".format(
-            self.network, epoch, (suffix + "_" if suffix else "") + self.str_video
-        )
-
-        torch.save(checkpoint, save_path)
+        torch.save(checkpoint, checkpoint_path)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
         logging.info(f"Loaded checkpoint from {checkpoint_path}")

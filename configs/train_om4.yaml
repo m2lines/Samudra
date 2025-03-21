@@ -20,13 +20,13 @@ val:
   end_time: "2014-10-05"
 inference:
   - start_time: "1975-01-03"
-    end_time: "1985-01-03"
+    end_time: "1976-01-03" # "1985-01-03"
   - start_time: "1985-01-03"
-    end_time: "1995-01-03"
+    end_time: "1986-01-03" # "1995-01-03"
   - start_time: "1995-01-03"
-    end_time: "2005-01-03"
+    end_time: "1996-01-03" # "2005-01-03"
   - start_time: "2004-10-05"
-    end_time: "2014-10-05"
+    end_time: "2005-10-05" # "2014-10-05"
 data_stride: [1]
 steps: [4]
 step_transition: []

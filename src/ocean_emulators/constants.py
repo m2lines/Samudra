@@ -12,8 +12,8 @@ from ocean_emulators.utils.multiton import Multiton
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 Grid = Float[torch.Tensor, "180 360"]
 Input = Float[Grid, "*batch input_vars"]  # equivalent to "*batch input_vars lat lon"
-Boundary = Float[Grid, "*batch BOUNDARY_VARS"]
-# A note from jaxtyping (why we can't do "input_vars+BOUNDARY_VARS"):
+Boundary = Float[Grid, "*batch boundary_vars"]
+# A note from jaxtyping (why we can't do "input_vars+boundary_vars"):
 #   In practice you should usually only use symbolic axes in annotations
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
@@ -111,7 +111,7 @@ BOUNDARY_VARS: dict[str, BoundaryVarsStr] = {
     "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
 }
 
-default_metadata = {
+DEFAULT_METADATA = {
     "thetao": {
         "long_name": "Sea Water Potential Temperature",
         "units": r"\degree C",
@@ -165,10 +165,10 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
                 "units": data[var].units,
             }
         except AttributeError:
-            if var in default_metadata.keys():
-                metadata[str(var)] = default_metadata[str(var)]
-            elif str(var).split("_")[0] in default_metadata.keys():
-                metadata[str(var)] = default_metadata[str(var).split("_")[0]]
+            if var in DEFAULT_METADATA.keys():
+                metadata[str(var)] = DEFAULT_METADATA[str(var)]
+            elif str(var).split("_")[0] in DEFAULT_METADATA.keys():
+                metadata[str(var)] = DEFAULT_METADATA[str(var).split("_")[0]]
             else:
                 logging.info(f"{var} does not have any default metadata")
                 metadata[str(var)] = {

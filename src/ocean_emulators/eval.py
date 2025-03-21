@@ -3,7 +3,6 @@ import datetime
 import logging
 import os
 import time
-import traceback
 
 import torch
 import xarray as xr
@@ -294,8 +293,8 @@ def main():
     try:
         Evaluator.run()
     except Exception as e:
-        # log traceback
-        logging.error(traceback.format_exc())
+        # Log the exception with traceback
+        logging.exception(e)
         raise e
 
 

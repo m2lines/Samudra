@@ -7,7 +7,6 @@ import datetime
 import logging
 import os
 import time
-import traceback
 import warnings
 from functools import partial
 from pathlib import Path
@@ -809,8 +808,8 @@ def main():
     try:
         trainer.run()
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
-        logging.error(traceback.format_exc())
+        logging.exception(e)
+        raise e
 
 
 if __name__ == "__main__":

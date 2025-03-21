@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742576458190,
+  "lastUpdate": 1742586952645,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -809,6 +809,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18481124039439273",
             "extra": "mean: 117.88003613939993 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "763edcb8ac6f77dae876b94f33cfa928c0c370bf",
+          "message": "Speed up tests (#136)\n\nCuts test time on my machine from 1:45 to :40. This does change the\nbenchmark test run, I could break out a separate config for that if\ndesired to keep it consistent. WDYT @alxmrs?\n\nBefore:\n```\n==================================================================================== slowest durations =====================================================================================\n67.17s call     tests/test_trainer.py::test_trainer__mini_2step[train_cm4_2step.test.yaml-cpu]\n6.48s call     tests/test_datasets.py::test__data_is_not_zeros[train_cm4.test.yaml-cpu-train]\n6.42s call     tests/test_datasets.py::test_train__data_shape[train_cm4.test.yaml-cpu]\n6.26s call     tests/test_datasets.py::test_train__loads_correct_number_of_samples[train_cm4.test.yaml-cpu]\n2.57s call     tests/test_datasets.py::test_inference__data_is_not_zero[train_cm4.test.yaml-cpu]\n2.48s call     tests/test_datasets.py::test__data_is_not_zeros[train_cm4.test.yaml-cpu-val]\n2.41s call     tests/test_datasets.py::test_inference__data_shape[train_cm4.test.yaml-cpu]\n2.37s call     tests/test_datasets.py::test_val__data_shape[train_cm4.test.yaml-cpu]\n2.23s call     tests/test_datasets.py::test_val__loads_correct_number_of_samples[train_cm4.test.yaml-cpu]\n1.86s setup    tests/test_datasets.py::test_test_util__data_source_roundtrip[train_cm4.test.yaml-cpu]\n1.61s setup    tests/test_datasets.py::test_test_util__data_source_roundtrip[train_cm4_2step.test.yaml-cpu]\n0.79s setup    tests/test_datasets.py::test_train__loads_correct_number_of_samples[train_cm4.test.yaml-cpu]\n0.36s call     tests/test_datasets.py::test_test_util__data_source_roundtrip[train_cm4.test.yaml-cpu]\n0.28s setup    tests/test_datasets.py::test_train__loads_correct_number_of_samples[train_cm4_2step.test.yaml-cpu]\n0.14s teardown tests/test_trainer.py::test_trainer__mini_2step[train_cm4_2step.test.yaml-cpu]\n\n(65 durations < 0.005s hidden.  Use -vv to show these durations.)\n========================================================== 16 passed, 16 skipped, 52 deselected, 17 warnings in 104.09s (0:01:44) ==========================================================\npytest -m 'not cuda and not manual' --durations=0  326.39s user 636.78s system 914% cpu 1:45.30 total'\n```\n\nAfter:\n```\n==================================================================================== slowest durations =====================================================================================\n18.48s call     tests/test_trainer.py::test_trainer__mini_2step[train_cm4_2step.test.yaml-cpu]\n2.46s call     tests/test_datasets.py::test_train__data_shape[train_cm4.test.yaml-cpu]\n2.40s call     tests/test_datasets.py::test__data_is_not_zeros[train_cm4.test.yaml-cpu-train]\n2.27s call     tests/test_datasets.py::test_train__loads_correct_number_of_samples[train_cm4.test.yaml-cpu]\n1.80s call     tests/test_datasets.py::test_val__loads_correct_number_of_samples[train_cm4.test.yaml-cpu]\n1.78s call     tests/test_datasets.py::test__data_is_not_zeros[train_cm4.test.yaml-cpu-val]\n1.76s call     tests/test_datasets.py::test_inference__data_is_not_zero[train_cm4.test.yaml-cpu]\n1.75s call     tests/test_datasets.py::test_val__data_shape[train_cm4.test.yaml-cpu]\n1.65s call     tests/test_datasets.py::test_inference__data_shape[train_cm4.test.yaml-cpu]\n1.26s setup    tests/test_datasets.py::test_test_util__data_source_roundtrip[train_cm4.test.yaml-cpu]\n0.92s setup    tests/test_datasets.py::test_test_util__data_source_roundtrip[train_cm4_2step.test.yaml-cpu]\n0.86s setup    tests/test_datasets.py::test_train__loads_correct_number_of_samples[train_cm4.test.yaml-cpu]\n0.66s call     tests/test_datasets.py::test_test_util__data_source_roundtrip[train_cm4.test.yaml-cpu]\n0.28s setup    tests/test_datasets.py::test_train__loads_correct_number_of_samples[train_cm4_2step.test.yaml-cpu]\n0.08s teardown tests/test_trainer.py::test_trainer__mini_2step[train_cm4_2step.test.yaml-cpu]\n\n(65 durations < 0.005s hidden.  Use -vv to show these durations.)\n=============================================================== 16 passed, 16 skipped, 52 deselected, 15 warnings in 39.08s ================================================================\npytest -m 'not cuda and not manual' --durations=0  138.88s user 226.06s system 906% cpu 40.267 total\n```",
+          "timestamp": "2025-03-21T15:20:21-04:00",
+          "tree_id": "e460bec79b4d8cf9088e7c58c454adada17e6b62",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/763edcb8ac6f77dae876b94f33cfa928c0c370bf"
+        },
+        "date": 1742586951730,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.06895847041618705,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10562074025887465",
+            "extra": "mean: 14.501481746399985 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.19087705689517837,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09720028754913404",
+            "extra": "mean: 5.238974323399998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.16990271529585044,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1201586284574341",
+            "extra": "mean: 5.885721121400013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.008225420629993558,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1301129745222928",
+            "extra": "mean: 121.57432974960007 sec\nrounds: 5"
           }
         ]
       }

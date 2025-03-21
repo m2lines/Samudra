@@ -242,6 +242,11 @@ class TrainData:
     def get_label(self, step: int) -> Label:
         return self.td_dict[step][1]
 
+    def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
+        input, _ = self.td_dict[step]
+        input[:, : self.output_channels] = prognostic
+        return input
+
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
         return self.td_dict[step]

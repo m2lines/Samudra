@@ -38,9 +38,9 @@ class MultitonScope:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        assert Multiton._current_scope is self.scope, (
-            "MultitonScope.__exit__ called without matching __enter__"
-        )
+        assert (
+            Multiton._current_scope is self.scope
+        ), "MultitonScope.__exit__ called without matching __enter__"
         Multiton._current_scope = self.previous_scope
 
 

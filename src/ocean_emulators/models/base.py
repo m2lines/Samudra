@@ -40,9 +40,7 @@ class BaseModel(torch.nn.Module):
             if step == 0:
                 input_tensor = train_data.get_initial_input()
             else:
-                # TODO(jder): this function seems to be unused, resolve
-                # as part of https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
-                input_tensor = train_data.merge_prognostic_and_boundary(  # type: ignore[attr-defined]
+                input_tensor = train_data.merge_prognostic_and_boundary(
                     prognostic=outputs[-1], step=step
                 )
 

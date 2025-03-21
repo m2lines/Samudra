@@ -12,6 +12,7 @@ from typing_extensions import Self
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
+from ocean_emulators.utils.multiton import MultitonScope
 
 
 @dataclasses.dataclass
@@ -355,28 +356,44 @@ def train_config(
             trainer.experiment,
             cluster_data_dir=os.path.join(tmpdir, "cluster_data"),
         )
-        test_data_trainer = dataclasses.replace(
+        test_data_config = dataclasses.replace(
             trainer,
             data=data_config,
             experiment=experiment_config,
             backend=backend,
         )
 
+        # Create a fresh scope to use in any tests using this config
+        # (see set_scope below)
+        scope = MultitonScope()
+        setattr(test_data_config, "_multiton_scope", scope)
+
         # After contextmanager closes, all test data will be automatically cleaned up.
-        yield test_data_trainer
+        yield test_data_config
 
 
-# This micro-fixture is cached by pytest. Thus, we don't have to change
-# the factory methods that throw errors during double initialization.
 @pytest.fixture(scope="session")
 def trainer_pair(train_config: TrainConfig):
     # Import needs to be here in order to prevent a gnarly jaxtyping bug:
     # See https://github.com/patrick-kidger/jaxtyping/issues/306
     from ocean_emulators.train_3D import Trainer
 
-    trainer = Trainer(train_config)
+    # NB fixtures still need to do this "by hand" since set_scope
+    # doesn't run at session-scope time
+    with getattr(train_config, "_multiton_scope"):
+        trainer = Trainer(train_config)
 
-    # cur_step will set the number of pairs in the input/output sample
-    trainer.init_data_loaders(cur_step=train_config.steps[0])
+        # cur_step will set the number of pairs in the input/output sample
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
 
     return train_config, trainer
+
+
+@pytest.fixture(autouse=True, scope="function")
+def set_scope(train_config: TrainConfig):
+    """Automatically sets up the correct Multiton scope for each test.
+
+    NB you must still do this manually for session-scoped fixtures.
+    """
+    with getattr(train_config, "_multiton_scope"):
+        yield

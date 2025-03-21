@@ -1,11 +1,13 @@
 import logging
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Mapping
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import wandb
 from wandb.data_types import WBValue
+
+from ocean_emulators.utils.multiton import Multiton
 
 # Metrics supported by wandb -- probably there are more possible types too
 Metrics = Mapping[str, float | torch.Tensor | WBValue]
@@ -14,31 +16,7 @@ Metrics = Mapping[str, float | torch.Tensor | WBValue]
 MetricsDict = Dict[str, float | torch.Tensor | WBValue]
 
 
-class WandBLogger:
-    _instance: Optional["WandBLogger"] = None
-
-    def __new__(cls, *args, **kwargs) -> "WandBLogger":
-        # Prevent direct instantiation
-        raise TypeError(
-            "WandBLogger cannot be instantiated directly. Use init_instance() instead."
-        )
-
-    @classmethod
-    def get_instance(cls) -> "WandBLogger":
-        if cls._instance is None:
-            raise ValueError("WandBLogger not initialized")
-        return cls._instance
-
-    @classmethod
-    def init_instance(cls) -> "WandBLogger":
-        if cls._instance is not None:
-            raise ValueError("WandBLogger already initialized")
-
-        instance = super().__new__(cls)
-        instance._initialize()
-        cls._instance = instance
-        return cls._instance
-
+class WandBLogger(Multiton):
     def _initialize(self):
         self._enabled = False
         self._initialized = False

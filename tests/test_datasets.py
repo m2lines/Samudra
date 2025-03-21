@@ -106,7 +106,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lat=np.array([90.00]),
     lng=np.array([360.0]),
     days_since_start=np.array([999]),
-    start_day=datetime.datetime(2000, 5, 1),
+    start_day=datetime.date(2000, 5, 1),
     calendar="noleap",
 )
 @example(

@@ -693,8 +693,8 @@ class Trainer:
         save_best_checkpoint = False
         if v_loss <= self.best_val_loss:
             logging.info(
-                f"Epoch validation loss ({v_loss}) is lower than "
-                f"previous best validation loss ({self.best_val_loss})."
+                f"Epoch validation loss ({v_loss:.3f}) is lower than "
+                f"previous best validation loss ({self.best_val_loss:.3f})."
             )
             logging.info(
                 "Saving lowest validation loss checkpoint to "
@@ -704,8 +704,8 @@ class Trainer:
             save_best_checkpoint = True  # wait until inference error is updated
         if inf_loss is not None and (inf_loss <= self.best_inf_loss):
             logging.info(
-                f"Epoch inference error ({inf_loss}) is lower than "
-                f"previous best inference error ({self.best_inf_loss})."
+                f"Epoch inference error ({inf_loss:.3f}) is lower than "
+                f"previous best inference error ({self.best_inf_loss:.3f})."
             )
             logging.info(
                 "Saving lowest inference error checkpoint to "
@@ -727,9 +727,7 @@ class Trainer:
 
     def save_checkpoint(self, epoch, checkpoint_path):
         checkpoint = {
-            "model": self.model.module.state_dict()
-            if using_gpu()
-            else self.model.state_dict(),
+            "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "epoch": epoch,
             "best_val_loss": self.best_val_loss,

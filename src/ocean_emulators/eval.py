@@ -30,10 +30,12 @@ from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import is_main_process, set_seed
 from ocean_emulators.utils.logging import handle_logging, handle_warnings
 from ocean_emulators.utils.model import get_model_summary
+from ocean_emulators.utils.multiton import scoped
 from ocean_emulators.utils.wandb import WandBLogger
 
 
 class Eval:
+    @scoped
     def __init__(self, cfg: EvalConfig) -> None:
         cfg.prepare_output_dirs()
 
@@ -207,9 +209,11 @@ class Eval:
             long_rollout=True,
         )
 
+    @scoped
     def run(self) -> None:
         start_time = time.time()
-        inf_stats = self.standalone_inference()
+        with self.tensor_map, self.normalize, self.wandb_logger:
+            inf_stats = self.standalone_inference()
         time_elapsed = time.time() - start_time
 
         log_stats = {

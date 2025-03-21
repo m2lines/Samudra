@@ -237,13 +237,13 @@ class DataSourceDims:
             (DataSourceDims, int) - Parsed dims and data_var index.
         """
         encoded = da.to_numpy().view(np.uint64)
-        assert (
-            len(encoded.shape) == 3
-        ), "DataArray must have (time, lat, lng) dimensions."
+        assert len(encoded.shape) == 3, (
+            "DataArray must have (time, lat, lng) dimensions."
+        )
 
-        assert np.all(
-            cls._header_field.decode_from(encoded) == cls._header_value
-        ), "Data did not come from `encode`. "
+        assert np.all(cls._header_field.decode_from(encoded) == cls._header_value), (
+            "Data did not come from `encode`. "
+        )
 
         scalar = encoded.flat[0].view(np.uint64)
         tim_dim = encoded[:, 0, 0]
@@ -366,8 +366,6 @@ def train_config(
         yield test_data_trainer
 
 
-# This micro-fixture is cached by pytest. Thus, we don't have to change
-# the factory methods that throw errors during double initialization.
 @pytest.fixture(scope="session")
 def trainer_pair(train_config: TrainConfig):
     # Import needs to be here in order to prevent a gnarly jaxtyping bug:

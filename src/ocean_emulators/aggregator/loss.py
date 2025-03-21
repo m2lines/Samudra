@@ -1,11 +1,12 @@
-from typing import Dict, Optional
+from typing import Dict
 
 import torch
 
 from ocean_emulators.constants import TensorMap
+from ocean_emulators.utils.multiton import Multiton
 
 
-class LossAggregator:
+class LossAggregator(Multiton):
     """
     Aggregates loss metrics for different depths and variables.
 
@@ -13,32 +14,7 @@ class LossAggregator:
     that are initialized every epoch.
     """
 
-    _instance: Optional["LossAggregator"] = None
-
-    def __new__(cls, *args, **kwargs) -> "LossAggregator":
-        # Prevent direct instantiation
-        raise TypeError(
-            "LossAggregator cannot be instantiated directly. "
-            "Use init_instance() instead."
-        )
-
-    @classmethod
-    def get_instance(cls) -> "LossAggregator":
-        if cls._instance is None:
-            raise ValueError("LossAggregator not initialized")
-        return cls._instance
-
-    @classmethod
-    def init_instance(cls, loss_scale: Dict[str, float] = {}) -> "LossAggregator":
-        if cls._instance is not None:
-            raise ValueError("LossAggregator already initialized")
-
-        instance = super().__new__(cls)
-        instance._initialize(loss_scale)
-        cls._instance = instance
-        return cls._instance
-
-    def _initialize(self, loss_scale: Dict[str, float]):
+    def _initialize(self, loss_scale: Dict[str, float] = {}):
         self.tensor_map = TensorMap.get_instance()
         self.loss_scale = loss_scale
 

@@ -6,6 +6,7 @@ import itertools
 import cftime
 import numpy as np
 import pytest
+import torch
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
@@ -53,13 +54,13 @@ def td_loader_pair(request, train_loader_pair, val_loader_pair) -> LoaderPair:
         return val_loader_pair
 
 
-def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
+def extract_sample_arrays(td: TrainData) -> tuple[torch.Tensor, torch.Tensor]:
     """Extract underlying X, y pairs from TrainData object."""
     steps = len(td)
-    x_arrays = [td.get_input(s).numpy(force=True) for s in range(steps)]
-    y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
+    x_arrays = [td.get_input(s) for s in range(steps)]
+    y_arrays = [td.get_label(s) for s in range(steps)]
 
-    return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
+    return torch.stack(x_arrays, dim=0), torch.stack(y_arrays, dim=0)
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):
@@ -271,9 +272,11 @@ def test__data_is_not_zeros(td_loader_pair: LoaderPair):
 
     for sample in loader:
         X, y = extract_sample_arrays(sample)
-        assert np.count_nonzero(np.zeros(X.shape)) == 0, "Sanity check: Zero is zero."
-        assert np.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
-        assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
+        assert (
+            torch.count_nonzero(torch.zeros(X.shape)) == 0
+        ), "Sanity check: Zero is zero."
+        assert torch.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
+        assert torch.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
 
 
 def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):

@@ -27,6 +27,6 @@ def test_models_have_same_weights(model1_path, model2_path):
     model1_state_dict = load_model_weights(model1_path)
     model2_state_dict = load_model_weights(model2_path)
 
-    assert compare_model_weights(
-        model1_state_dict, model2_state_dict
-    ), "The models have different weights!"
+    assert compare_model_weights(model1_state_dict, model2_state_dict), (
+        "The models have different weights!"
+    )

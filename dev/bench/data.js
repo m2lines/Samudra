@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742576456275,
+  "lastUpdate": 1742576458190,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1419,6 +1419,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.8065705436120311",
             "extra": "mean: 89.47918216780003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e37711d4d1f172bf499d0f6d2fd39029fb23f4bd",
+          "message": "Restore benchmarks to old behavior (#135)\n\nThis was a silly bug but after looking at this we probably want to leave\nthem separate so the benchmark web format doesn't change.",
+          "timestamp": "2025-03-21T09:24:29-07:00",
+          "tree_id": "4c5e2fa60fb5dda47a5c12e2d6803b748ab7676f",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/e37711d4d1f172bf499d0f6d2fd39029fb23f4bd"
+        },
+        "date": 1742576457377,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-train]",
+            "value": 0.19089439244279183,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3426076267989491",
+            "extra": "mean: 5.2384985604000125 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-val]",
+            "value": 0.41617666726426783,
+            "unit": "iter/sec",
+            "range": "stddev: 0.061276922170954234",
+            "extra": "mean: 2.4028257196000142 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cuda]",
+            "value": 0.1636092985271038,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07870947796219925",
+            "extra": "mean: 6.112122043199998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cuda]",
+            "value": 0.011514881760466143,
+            "unit": "iter/sec",
+            "range": "stddev: 0.543457370684461",
+            "extra": "mean: 86.84413967959999 sec\nrounds: 5"
           }
         ]
       }

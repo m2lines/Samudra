@@ -123,7 +123,6 @@ def get_norm_unnorm_dicts(
     return data_dict, data_unnorm_dict
 
 
-# TODO: Repetitive code. Refactor
 class Normalize(Multiton):
     def _initialize(
         self,

@@ -88,7 +88,11 @@ def vector_of(max_vec_size: int, min_vec_size=1):
         shape=vector_of(50),
         elements=st.integers(min_value=0, max_value=999),
     ),
-    start_day=st.datetimes(),
+    start_day=st.datetimes(
+        min_value=datetime.datetime(
+            1900, 1, 1
+        ),  # to quiet cftime warning about year < 0
+    ),
     calendar=st.sampled_from(["noleap", "standard"]),
 )
 @example(
@@ -140,7 +144,9 @@ def test_test_util__data_source_roundtrip(
     start_day: datetime.datetime,
     calendar: str,
 ) -> None:
-    start_day_cf = cftime.datetime.fromordinal(start_day.toordinal(), calendar=calendar)
+    start_day_cf = cftime.datetime(
+        start_day.year, start_day.month, start_day.day, hour=12, calendar=calendar
+    )
 
     # start
     dims_uncoded = DataSourceDims(

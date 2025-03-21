@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742524622683,
+  "lastUpdate": 1742524627076,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1211,6 +1211,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.568414207761383",
             "extra": "mean: 87.9870885674 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d84192f5b04080375647ef2929d9c9c5313a504a",
+          "message": "Restore missing function (#131)",
+          "timestamp": "2025-03-20T21:59:35-04:00",
+          "tree_id": "8db37413cbea31929537d2bb59230a31e6956af0",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/d84192f5b04080375647ef2929d9c9c5313a504a"
+        },
+        "date": 1742524626297,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-train]",
+            "value": 0.18078555476696706,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3401281043368643",
+            "extra": "mean: 5.53141539039998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cuda-val]",
+            "value": 0.3958579906166685,
+            "unit": "iter/sec",
+            "range": "stddev: 0.048476780761183974",
+            "extra": "mean: 2.5261584298000344 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda]",
+            "value": 0.1550344972459677,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13953052679821082",
+            "extra": "mean: 6.450177333200008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda]",
+            "value": 0.010456419583935823,
+            "unit": "iter/sec",
+            "range": "stddev: 1.123087082054234",
+            "extra": "mean: 95.63502994239998 sec\nrounds: 5"
           }
         ]
       }

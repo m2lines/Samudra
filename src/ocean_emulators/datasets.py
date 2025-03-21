@@ -22,7 +22,7 @@ from ocean_emulators.constants import (
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device, using_gpu
 
-Example = tuple[TotalInput, Label]
+Example = list[TotalInput | Label]
 
 
 class InferenceDataset(Dataset):
@@ -230,7 +230,7 @@ class TrainData:
         self.steps = 0
 
     def insert(self, input_: TotalInput, label: Label):
-        self.td_dict[self.steps] = (input_, label)
+        self.td_dict[self.steps] = [input_, label]
         self.steps += 1
 
     def get_initial_input(self) -> TotalInput:
@@ -256,10 +256,10 @@ class TrainData:
 
     def to(self, device: torch.device) -> None:
         for step in self.td_dict:
-            self.td_dict[step] = (
+            self.td_dict[step] = [
                 self.td_dict[step][0].to(device),
                 self.td_dict[step][1].to(device),
-            )
+            ]
 
 
 class TrainDataset(Dataset):

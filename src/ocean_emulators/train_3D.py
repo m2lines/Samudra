@@ -29,11 +29,11 @@ from ocean_emulators.aggregator import Aggregator, LossAggregator
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
-    EXTRA_VARS,
-    INPT_VARS,
-    ExtraVars,
+    BOUNDARY_VARS,
+    PROGNOSTIC_VARS,
+    BoundaryVarsStr,
     Grid,
-    InputVars,
+    PrognosticVarsStr,
     TensorMap,
     construct_metadata,
 )
@@ -96,27 +96,29 @@ class Trainer:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
-        # Getting input, extra input and output
-        self.inputs: InputVars = INPT_VARS[cfg.experiment.prognostic_vars_key]
-        self.extra_in: ExtraVars = EXTRA_VARS[cfg.experiment.boundary_vars_key]
+        # Getting prognostic and boundary variables
+        self.prognostic_vars_str: PrognosticVarsStr = PROGNOSTIC_VARS[
+            cfg.experiment.prognostic_vars_key
+        ]
+        self.boundary_vars_str: BoundaryVarsStr = BOUNDARY_VARS[
+            cfg.experiment.boundary_vars_key
+        ]
 
         levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:
             self.levels = 19
-        elif "2D" in levels:
-            self.levels = 1
         else:
             self.levels = int(levels)
 
-        str_in = ", ".join([i for i in self.inputs])
-        str_ext = ", ".join([i for i in self.extra_in])
+        str_prognostics = ", ".join([i for i in self.prognostic_vars_str])
+        str_boundaries = ", ".join([i for i in self.boundary_vars_str])
 
-        logging.info(f"inputs: {str_in}")
-        logging.info(f"extra inputs: {str_ext}")
-        logging.info(f"levels: {self.levels}")
+        logging.info(f"Prognostic variables: {str_prognostics}")
+        logging.info(f"Boundary variables: {str_boundaries}")
+        logging.info(f"Levels: {self.levels}")
 
-        self.N_atm = len(self.extra_in)
-        self.N_in = len(self.inputs)
+        self.N_atm = len(self.boundary_vars_str)
+        self.N_in = len(self.prognostic_vars_str)
 
         self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_atm)
         self.num_out = int((cfg.data.hist + 1) * self.N_in)
@@ -125,8 +127,8 @@ class Trainer:
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
-        logging.info(f"Number of inputs: {self.num_in}")
-        logging.info(f"Number of outputs: {self.num_out}")
+        logging.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
+        logging.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
         assert isinstance(cfg.steps, list)
@@ -172,9 +174,9 @@ class Trainer:
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.inputs, cfg.data.hist
+            self.data, self.prognostic_vars_str, cfg.data.hist
         )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.inputs, 0)
+        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_vars_str, 0)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -182,8 +184,8 @@ class Trainer:
         self.normalize = Normalize.init_instance(
             data_mean=self.data_mean,
             data_std=self.data_std,
-            inputs_str=self.inputs,
-            extra_in_str=self.extra_in,
+            prognostic_vars_str=self.prognostic_vars_str,
+            boundary_vars_str=self.boundary_vars_str,
             wet_mask=wet_without_hist,
         )
 
@@ -238,7 +240,10 @@ class Trainer:
                 consolidated=True,
             )
             scale = torch.from_numpy(
-                (self.data_std[self.inputs] / scaling_residuals[self.inputs])
+                (
+                    self.data_std[self.prognostic_vars_str]
+                    / scaling_residuals[self.prognostic_vars_str]
+                )
                 .compute()
                 .to_array()
                 .to_numpy()
@@ -356,8 +361,8 @@ class Trainer:
             )
             inference_dataset = InferenceDataset(
                 data=inference_data,
-                inputs_str=self.inputs,
-                extra_in_str=self.extra_in,
+                prognostic_vars_str=self.prognostic_vars_str,
+                boundary_vars_str=self.boundary_vars_str,
                 wet=self.wet,
                 wet_surface=self.wet_surface,
                 hist=self.hist,
@@ -617,8 +622,8 @@ class Trainer:
                             self.train_times.end_time,
                         )
                     ),
-                    inputs_str=self.inputs,
-                    extra_in_str=self.extra_in,
+                    prognostic_vars_str=self.prognostic_vars_str,
+                    boundary_vars_str=self.boundary_vars_str,
                     wet=self.wet,
                     wet_surface=self.wet_surface,
                     hist=self.hist,
@@ -638,8 +643,8 @@ class Trainer:
                             self.val_times.end_time,
                         )
                     ),
-                    inputs_str=self.inputs,
-                    extra_in_str=self.extra_in,
+                    prognostic_vars_str=self.prognostic_vars_str,
+                    boundary_vars_str=self.boundary_vars_str,
                     wet=self.wet,
                     wet_surface=self.wet_surface,
                     hist=self.hist,

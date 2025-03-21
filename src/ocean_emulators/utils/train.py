@@ -14,10 +14,10 @@ def pairwise(iterable):
 
 
 def collate_train_data(data: Sequence[TrainData]) -> TrainData:
-    output_channels = data[0].output_channels
+    num_prognostic_channels = data[0].num_prognostic_channels
     steps = len(data[0])
 
-    batched_data = TrainData(output_channels)
+    batched_data = TrainData(num_prognostic_channels)
 
     for step in range(steps):
         input = torch.stack([d.get_input(step) for d in data])

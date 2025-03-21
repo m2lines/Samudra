@@ -18,9 +18,9 @@ experiment:
   cluster_data_dir: null
   wandb:
     mode: online
-    project: ocean_emu_om4_reviews
-    entity: suryadheeshjith
-    group: samudra-inference-long
+    project: ocean-emulators
+    entity: m2lines
+    group: samudra-eval-om4
   network: Samudra
   prognostic_vars_key: 3D_all
   boundary_vars_key: 3D_all_hfds_anom

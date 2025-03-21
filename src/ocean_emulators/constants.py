@@ -12,8 +12,8 @@ from ocean_emulators.utils.multiton import Multiton
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 Grid = Float[torch.Tensor, "180 360"]
 Input = Float[Grid, "*batch input_vars"]  # equivalent to "*batch input_vars lat lon"
-Extra = Float[Grid, "*batch extra_vars"]
-# A note from jaxtyping (why we can't do "input_vars+extra_vars"):
+Boundary = Float[Grid, "*batch BOUNDARY_VARS"]
+# A note from jaxtyping (why we can't do "input_vars+BOUNDARY_VARS"):
 #   In practice you should usually only use symbolic axes in annotations
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
@@ -23,7 +23,7 @@ Label = Float[Grid, "*batch output_vars"]
 GridMask = Bool[torch.Tensor, "180 360"]
 InputMask = Bool[GridMask, "input_vars"]
 
-# Experiment inputs and outputs
+# Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels
 # and all 2D variables do not have any digits / underscores in their names
 DEPTH_LEVELS = [
@@ -92,8 +92,8 @@ MASK_VARS = [
     "mask_18",
 ]
 
-InputVars = list[str]
-INPT_VARS: dict[str, InputVars] = {
+PrognosticVarsStr = list[str]
+PROGNOSTIC_VARS: dict[str, PrognosticVarsStr] = {
     "3D_5": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
     ]
@@ -103,22 +103,11 @@ INPT_VARS: dict[str, InputVars] = {
     ]
     + ["zos"],
 }
-ExtraVars = list[str]
-EXTRA_VARS: dict[str, ExtraVars] = {
+BoundaryVarsStr = list[str]
+BOUNDARY_VARS: dict[str, BoundaryVarsStr] = {
     "3D_5": ["tauuo", "tauvo", "hfds"],
     "3D_all": ["tauuo", "tauvo", "hfds"],
     "3D_all_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
-}
-OutputVars = list[str]
-OUT_VARS: dict[str, OutputVars] = {
-    "3D_5": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
-    ]
-    + ["zos"],
-    "3D_all": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
-    ]
-    + ["zos"],
 }
 
 default_metadata = {
@@ -204,7 +193,7 @@ class TensorMap(Multiton):
 
         self.VAR_SET_2D = []
         self.VAR_SET_3D = []
-        for out in OUT_VARS[prognostic_vars_key]:
+        for out in PROGNOSTIC_VARS[prognostic_vars_key]:
             var_split = out.split("_")
             if len(var_split) == 1:
                 self.VAR_SET_2D.append(var_split[0])
@@ -214,12 +203,12 @@ class TensorMap(Multiton):
         # Consistent order of variables
         self.VAR_SET = list(
             dict.fromkeys(
-                ([out.split("_")[0] for out in OUT_VARS[prognostic_vars_key]])
+                ([out.split("_")[0] for out in PROGNOSTIC_VARS[prognostic_vars_key]])
             )
         )
         self.DEPTH_SET = DEPTH_I_LEVELS
-        self.outputs = OUT_VARS[prognostic_vars_key]
-        self.extras = EXTRA_VARS[boundary_vars_key]
+        self.prognostic_vars_str = PROGNOSTIC_VARS[prognostic_vars_key]
+        self.boundary_vars_str = BOUNDARY_VARS[boundary_vars_key]
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()
@@ -227,7 +216,7 @@ class TensorMap(Multiton):
     def _populate_var_3d_idx(self):
         for kt in self.VAR_SET:
             self.VAR_3D_IDX[kt] = torch.tensor([])
-            for i, k in enumerate(self.outputs):
+            for i, k in enumerate(self.prognostic_vars_str):
                 if kt in k:
                     self.VAR_3D_IDX[kt] = torch.cat(
                         [self.VAR_3D_IDX[kt], torch.tensor([i])]
@@ -237,7 +226,7 @@ class TensorMap(Multiton):
     def _populate_dp_3d_idx(self):
         for d in self.DEPTH_SET:
             self.DP_3D_IDX[d] = torch.tensor([])
-            for i, k in enumerate(self.outputs):
+            for i, k in enumerate(self.prognostic_vars_str):
                 k_split = k.split("_")
                 if len(k_split) == 1:
                     continue

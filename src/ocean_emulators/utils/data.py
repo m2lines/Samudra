@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 import cftime
 import numpy as np
@@ -19,6 +19,7 @@ from ocean_emulators.constants import (
     OutputVars,
     TensorMap,
 )
+from ocean_emulators.utils.multiton import Multiton
 
 
 def extract_wet_mask(
@@ -195,42 +196,7 @@ def validate_data(
 
 
 # TODO: Repetitive code. Refactor
-class Normalize:
-    _instance: Optional["Normalize"] = None
-
-    def __new__(cls, *args, **kwargs) -> "Normalize":
-        # Prevent direct instantiation
-        raise TypeError(
-            "Normalize cannot be instantiated directly. Use init_instance() instead."
-        )
-
-    @classmethod
-    def get_instance(cls) -> "Normalize":
-        if cls._instance is None:
-            raise ValueError("Normalize not initialized")
-        return cls._instance
-
-    @classmethod
-    def init_instance(
-        cls,
-        data_mean: xr.Dataset,
-        data_std: xr.Dataset,
-        inputs_str: InputVars,
-        extra_in_str: ExtraVars,
-        outputs_str: OutputVars,
-        wet_mask: torch.Tensor,
-    ) -> "Normalize":
-        """Initialize the singleton instance with normalization parameters."""
-        if cls._instance is not None:
-            raise ValueError("Normalize already initialized")
-
-        instance = super().__new__(cls)
-        instance._initialize(
-            data_mean, data_std, inputs_str, extra_in_str, outputs_str, wet_mask
-        )
-        cls._instance = instance
-        return cls._instance
-
+class Normalize(Multiton):
     def _initialize(
         self,
         data_mean: xr.Dataset,

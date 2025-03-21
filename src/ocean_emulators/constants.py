@@ -1,9 +1,11 @@
 import logging
-from typing import Dict, Optional
+from typing import Dict
 
 import torch
 import xarray as xr
 from jaxtyping import Bool, Float
+
+from ocean_emulators.utils.multiton import Multiton
 
 # Common Type Aliases
 # See "Existing jaxtyping annotations" section of
@@ -269,31 +271,7 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
 
 
 # TODO(#95): See if this can be removed and replaced.
-class TensorMap:
-    _instance: Optional["TensorMap"] = None
-
-    def __new__(cls, *args, **kwargs) -> "TensorMap":
-        # Prevent direct instantiation
-        raise TypeError(
-            "TensorMap cannot be instantiated directly. Use init_instance() instead."
-        )
-
-    @classmethod
-    def get_instance(cls) -> "TensorMap":
-        if cls._instance is None:
-            raise ValueError("TensorMap not initialized")
-        return cls._instance
-
-    @classmethod
-    def init_instance(cls, exp_num: str, exp_num_extra: str) -> "TensorMap":
-        if cls._instance is not None:
-            raise ValueError("TensorMap already initialized")
-
-        instance = super().__new__(cls)
-        instance._initialize(exp_num, exp_num_extra)
-        cls._instance = instance
-        return cls._instance
-
+class TensorMap(Multiton):
     def _initialize(self, exp_num: str, exp_num_extra: str):
         """
         Maps input variables / depth levels to their indices in the input tensor.

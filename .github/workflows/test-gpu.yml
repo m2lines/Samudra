@@ -67,4 +67,4 @@ jobs:
         run: uv sync --locked --dev --all-extras
 
       - name: Run pytest
-        run: uv run --locked pytest -v -m "not manual"
+        run: uv run --locked pytest -v -m "not manual and cuda"

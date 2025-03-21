@@ -3,7 +3,7 @@
 # Assumes you have activated the emulator conda environment and
 # set the CLUSTER_NAME and OCEAN_DATA_DIR environment variables
 set -e
-CONFIG_PATH=configs/train_cm4.yaml
+CONFIG_PATH=configs/train_om4.yaml
 
 echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR
 echo 'Using config file:' $CONFIG_PATH
@@ -12,4 +12,4 @@ echo 'Using config file:' $CONFIG_PATH
 TMP_CONFIG_PATH=/tmp/config_temp.yaml
 sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $TMP_CONFIG_PATH
 
-torchrun src/train_3D.py --config $TMP_CONFIG_PATH --subname "test"
+uv run torchrun -m src.ocean_emulators.train_3D --config $TMP_CONFIG_PATH --subname "test"

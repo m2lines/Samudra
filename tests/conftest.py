@@ -356,15 +356,20 @@ def train_config(
             trainer.experiment,
             cluster_data_dir=os.path.join(tmpdir, "cluster_data"),
         )
-        test_data_trainer = dataclasses.replace(
+        test_data_config = dataclasses.replace(
             trainer,
             data=data_config,
             experiment=experiment_config,
             backend=backend,
         )
 
+        # Create a fresh scope to use in any tests using this config
+        # (see set_scope below)
+        scope = MultitonScope()
+        setattr(test_data_config, "_multiton_scope", scope)
+
         # After contextmanager closes, all test data will be automatically cleaned up.
-        yield test_data_trainer
+        yield test_data_config
 
 
 @pytest.fixture(scope="session")
@@ -373,10 +378,9 @@ def trainer_pair(train_config: TrainConfig):
     # See https://github.com/patrick-kidger/jaxtyping/issues/306
     from ocean_emulators.train_3D import Trainer
 
-    scope = MultitonScope()
-    setattr(train_config, "_multiton_scope", scope)
-
-    with scope:
+    # NB fixtures still need to do this "by hand" since set_scope
+    # doesn't run at session-scope time
+    with getattr(train_config, "_multiton_scope"):
         trainer = Trainer(train_config)
 
         # cur_step will set the number of pairs in the input/output sample

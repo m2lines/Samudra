@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742590537835,
+  "lastUpdate": 1742590539627,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1627,6 +1627,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9783622752292289",
             "extra": "mean: 90.65082299340001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3e60b05c5c81f03626e4cfac64f593f57ddcba0d",
+          "message": "Update ruff to avoid fighting with VS Code version (#137)\n\nThese keep flipping back and forth for me since the VS Code extension\nversion is more recent.",
+          "timestamp": "2025-03-21T16:20:22-04:00",
+          "tree_id": "93de6f752a78e8021c83006d784af175ab86c07a",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/3e60b05c5c81f03626e4cfac64f593f57ddcba0d"
+        },
+        "date": 1742590538841,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-train]",
+            "value": 0.18522225042818355,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3699769829993322",
+            "extra": "mean: 5.398919393799997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-val]",
+            "value": 0.4099613699304605,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027624606223565273",
+            "extra": "mean: 2.439254215999972 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cuda]",
+            "value": 0.16248715919185935,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12679921705164654",
+            "extra": "mean: 6.154332471399994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cuda]",
+            "value": 0.011283811944055994,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5983125529445893",
+            "extra": "mean: 88.62253332099999 sec\nrounds: 5"
           }
         ]
       }

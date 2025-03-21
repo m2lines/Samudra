@@ -1,3 +1,9 @@
+"""
+The code in this directory is directly inspired by the ACE project by AI2.
+
+See the original repository at: https://github.com/ai2cm/ace/tree/39133c18524cda85965486ecdc8cb64aac06f4c3/fme/fme/ace/aggregator
+"""
+
 from typing import Dict
 
 import torch

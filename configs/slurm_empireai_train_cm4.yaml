@@ -24,9 +24,8 @@ training:
   scheduler: true
   loss: mse
   network: Samudra
-  exp_num_in: 3D_noFast_all
-  exp_num_extra: 3D_all
-  exp_num_out: 3D_noFast_all
+  prognostic_vars_key: 3D_noFast_all
+  boundary_vars_key: 3D_all
   finetune: false
   resume_ckpt_path: null
 

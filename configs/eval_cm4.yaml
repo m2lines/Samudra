@@ -22,9 +22,8 @@ experiment:
     entity: ai2cm
     group: samudra-inference-2in2out
   network: Samudra
-  exp_num_in: 3D_all
-  exp_num_extra: 3D_all
-  exp_num_out: 3D_all
+  prognostic_vars_key: 3D_all
+  boundary_vars_key: 3D_all
 
 data:
   data_path: cm4_piControl_ocean_200yr_full_chunked.zarr

@@ -203,7 +203,6 @@ class Normalize(Multiton):
         data_std: xr.Dataset,
         inputs_str: InputVars,
         extra_in_str: ExtraVars,
-        outputs_str: OutputVars,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
@@ -211,8 +210,8 @@ class Normalize(Multiton):
         self.inputs_std = data_std[inputs_str]
         self.extras_mean = data_mean[extra_in_str]
         self.extras_std = data_std[extra_in_str]
-        self.outputs_mean = data_mean[outputs_str]
-        self.outputs_std = data_std[outputs_str]
+        self.outputs_mean = data_mean[inputs_str]
+        self.outputs_std = data_std[inputs_str]
         self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access

@@ -188,10 +188,10 @@ def test_train__data_shape(train_loader_pair: LoaderPair):
     batch_size = cfg.batch_size
     hist = cfg.data.hist + 1
 
-    input_var_dim = len(INPT_VARS[exp.exp_num_in]) * hist + len(
-        EXTRA_VARS[exp.exp_num_extra]
+    input_var_dim = len(INPT_VARS[exp.prognostic_vars_key]) * hist + len(
+        EXTRA_VARS[exp.boundary_vars_key]
     )
-    output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
+    output_var_dim = len(OUT_VARS[exp.prognostic_vars_key]) * hist
 
     for sample in loader:
         X, y = extract_sample_arrays(sample)
@@ -216,10 +216,10 @@ def test_val__data_shape(val_loader_pair: LoaderPair):
     batch_size = cfg.batch_size
     hist = cfg.data.hist + 1
 
-    input_var_dim = len(INPT_VARS[exp.exp_num_in]) * hist + len(
-        EXTRA_VARS[exp.exp_num_extra]
+    input_var_dim = len(INPT_VARS[exp.prognostic_vars_key]) * hist + len(
+        EXTRA_VARS[exp.boundary_vars_key]
     )
-    output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
+    output_var_dim = len(OUT_VARS[exp.prognostic_vars_key]) * hist
 
     num_samples = len(loader)
     for i, sample in enumerate(loader):
@@ -254,10 +254,10 @@ def test_inference__data_shape(inference_loader_pair: LoaderPair):
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
-    input_var_dim = len(INPT_VARS[exp.exp_num_in]) * hist + len(
-        EXTRA_VARS[exp.exp_num_extra]
+    input_var_dim = len(INPT_VARS[exp.prognostic_vars_key]) * hist + len(
+        EXTRA_VARS[exp.boundary_vars_key]
     )
-    output_var_dim = len(OUT_VARS[cfg.experiment.exp_num_out]) * hist
+    output_var_dim = len(OUT_VARS[exp.prognostic_vars_key]) * hist
 
     for sample in loader:
         inference_dataset, n = sample

@@ -31,11 +31,9 @@ from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
     EXTRA_VARS,
     INPT_VARS,
-    OUT_VARS,
     ExtraVars,
     Grid,
     InputVars,
-    OutputVars,
     TensorMap,
     construct_metadata,
 )
@@ -99,16 +97,10 @@ class Trainer:
         set_seed(cfg.experiment.rand_seed)
 
         # Getting input, extra input and output
-        self.inputs: InputVars = INPT_VARS[cfg.experiment.exp_num_in]
-        self.extra_in: ExtraVars = EXTRA_VARS[cfg.experiment.exp_num_extra]
-        self.outputs: OutputVars = OUT_VARS[cfg.experiment.exp_num_out]
+        self.inputs: InputVars = INPT_VARS[cfg.experiment.prognostic_vars_key]
+        self.extra_in: ExtraVars = EXTRA_VARS[cfg.experiment.boundary_vars_key]
 
-        # TODO: The codebase currently contains code that depends on this
-        assert (
-            self.inputs == self.outputs
-        ), "Input and output variables must be the same"
-
-        levels = cfg.experiment.exp_num_in.split("_")[-1]
+        levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:
             self.levels = 19
         elif "2D" in levels:
@@ -118,23 +110,19 @@ class Trainer:
 
         str_in = ", ".join([i for i in self.inputs])
         str_ext = ", ".join([i for i in self.extra_in])
-        str_out = ", ".join([i for i in self.outputs])
 
         logging.info(f"inputs: {str_in}")
         logging.info(f"extra inputs: {str_ext}")
-        logging.info(f"outputs: {str_out}")
         logging.info(f"levels: {self.levels}")
 
         self.N_atm = len(self.extra_in)
         self.N_in = len(self.inputs)
-        self.N_extra = self.N_atm  # Number of atmosphere variables
-        self.N_out = len(self.outputs)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
-        self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
+        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_atm)
+        self.num_out = int((cfg.data.hist + 1) * self.N_in)
 
         self.tensor_map = TensorMap.init_instance(
-            cfg.experiment.exp_num_in, cfg.experiment.exp_num_extra
+            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
         logging.info(f"Number of inputs: {self.num_in}")
@@ -184,20 +172,19 @@ class Trainer:
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.outputs, cfg.data.hist
+            self.data, self.inputs, cfg.data.hist
         )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
+        wet_without_hist, _ = extract_wet_mask(self.data, self.inputs, 0)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
-            self.data_mean,
-            self.data_std,
-            self.inputs,
-            self.extra_in,
-            self.outputs,
-            wet_without_hist,
+            data_mean=self.data_mean,
+            data_std=self.data_std,
+            inputs_str=self.inputs,
+            extra_in_str=self.extra_in,
+            wet_mask=wet_without_hist,
         )
 
         # Model
@@ -251,7 +238,7 @@ class Trainer:
                 consolidated=True,
             )
             scale = torch.from_numpy(
-                (self.data_std[self.outputs] / scaling_residuals[self.outputs])
+                (self.data_std[self.inputs] / scaling_residuals[self.inputs])
                 .compute()
                 .to_array()
                 .to_numpy()
@@ -368,13 +355,12 @@ class Trainer:
                 )
             )
             inference_dataset = InferenceDataset(
-                inference_data,
-                self.inputs,
-                self.extra_in,
-                self.outputs,
-                self.wet,
-                self.wet_surface,
-                self.hist,
+                data=inference_data,
+                inputs_str=self.inputs,
+                extra_in_str=self.extra_in,
+                wet=self.wet,
+                wet_surface=self.wet_surface,
+                hist=self.hist,
                 long_rollout=True,
             )
 
@@ -625,20 +611,19 @@ class Trainer:
         train_data: ConcatDataset = ConcatDataset(
             [
                 TrainDataset(
-                    self.data.sel(
+                    data=self.data.sel(
                         time=slice(
                             self.train_times.start_time,
                             self.train_times.end_time,
                         )
                     ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
-                    self.wet,
-                    self.wet_surface,
-                    self.hist,
-                    cur_step,
-                    stride,
+                    inputs_str=self.inputs,
+                    extra_in_str=self.extra_in,
+                    wet=self.wet,
+                    wet_surface=self.wet_surface,
+                    hist=self.hist,
+                    steps=cur_step,
+                    stride=stride,
                 )
                 for stride in self.data_stride
             ]
@@ -647,20 +632,19 @@ class Trainer:
         val_data: ConcatDataset = ConcatDataset(
             [
                 TrainDataset(
-                    self.data.sel(
+                    data=self.data.sel(
                         time=slice(
                             self.val_times.start_time,
                             self.val_times.end_time,
                         )
                     ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
-                    self.wet,
-                    self.wet_surface,
-                    self.hist,
-                    1,  # current_step set to 1 for validation
-                    stride,
+                    inputs_str=self.inputs,
+                    extra_in_str=self.extra_in,
+                    wet=self.wet,
+                    wet_surface=self.wet_surface,
+                    hist=self.hist,
+                    steps=1,  # current_step set to 1 for validation
+                    stride=stride,
                 )
                 for stride in self.data_stride
             ]

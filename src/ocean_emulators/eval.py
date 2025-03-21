@@ -50,14 +50,14 @@ class Eval:
         set_seed(cfg.experiment.rand_seed)
 
         # Getting input, extra input and output
-        self.inputs = INPT_VARS[cfg.experiment.exp_num_in]
-        self.extra_in = EXTRA_VARS[cfg.experiment.exp_num_extra]
+        self.inputs = INPT_VARS[cfg.experiment.prognostic_vars_key]
+        self.extra_in = EXTRA_VARS[cfg.experiment.boundary_vars_key]
         self.outputs = OUT_VARS[cfg.experiment.exp_num_out]
 
         assert self.inputs == self.outputs, "Input and output "
         "variables must be the same"
 
-        levels = cfg.experiment.exp_num_in.split("_")[-1]
+        levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:
             self.levels = 19
         elif "2D" in levels:
@@ -83,7 +83,7 @@ class Eval:
         self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
 
         self.tensor_map = TensorMap.init_instance(
-            cfg.experiment.exp_num_in, cfg.experiment.exp_num_extra
+            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
         logging.info(f"Number of inputs: {self.num_in}")

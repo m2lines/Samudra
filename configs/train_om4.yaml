@@ -41,14 +41,13 @@ experiment:
   gantry: false
   cluster_data_dir: null
   wandb:
-    mode: online
+    mode: disabled
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
   network: Samudra
-  exp_num_in: 3D_all
-  exp_num_extra: 3D_all_hfds_anom
-  exp_num_out: 3D_all
+  prognostic_vars_key: 3D_all
+  boundary_vars_key: 3D_all_hfds_anom
 data:
   data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies
   data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means

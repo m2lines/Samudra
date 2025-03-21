@@ -16,7 +16,6 @@ from ocean_emulators.constants import (
     InputMask,
     InputVars,
     Label,
-    OutputVars,
     TotalInput,
 )
 from ocean_emulators.utils.data import Normalize
@@ -44,7 +43,6 @@ class InferenceDataset(Dataset):
         data,
         inputs_str,
         extra_in_str,
-        outputs_str,
         wet,
         wet_surface,
         hist,
@@ -55,8 +53,8 @@ class InferenceDataset(Dataset):
 
         self.hist = hist
 
-        self._outputs = data[outputs_str]
-        self.output_channels = (hist + 1) * len(outputs_str)
+        self._outputs = data[inputs_str]
+        self.output_channels = (hist + 1) * len(inputs_str)
         self._inputs_no_extra = data[inputs_str]
         self._extras = data[extra_in_str]
 
@@ -287,7 +285,6 @@ class TrainDataset(Dataset):
         data: xr.Dataset,
         inputs_str: InputVars,
         extra_in_str: ExtraVars,
-        outputs_str: OutputVars,
         wet: InputMask,
         wet_surface: GridMask,
         hist: int,
@@ -301,8 +298,8 @@ class TrainDataset(Dataset):
         self.steps: int = steps
         self.stride: int = stride
 
-        self._outputs: xr.Dataset = data[outputs_str]
-        self.num_output_channels: int = (hist + 1) * len(outputs_str)
+        self._outputs: xr.Dataset = data[inputs_str]
+        self.num_output_channels: int = (hist + 1) * len(inputs_str)
         self._inputs_no_extra: xr.Dataset = data[inputs_str]
         self._extras: xr.Dataset = data[extra_in_str]
 

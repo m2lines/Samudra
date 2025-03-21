@@ -22,9 +22,8 @@ experiment:
     entity: suryadheeshjith
     group: samudra-inference-long
   network: Samudra
-  exp_num_in: 3D_all
-  exp_num_extra: 3D_all_hfds_anom
-  exp_num_out: 3D_all
+  prognostic_vars_key: 3D_all
+  boundary_vars_key: 3D_all_hfds_anom
 
 data:
   data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_104_years_2014_netzerohfds_detrended # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_1990_netzerohfds

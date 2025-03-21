@@ -89,9 +89,8 @@ class ExperimentConfig:
 
     # Model configuration
     network: str = "Samudra"
-    exp_num_in: str = "3D_all"
-    exp_num_extra: str = "3D_all"
-    exp_num_out: str = "3D_all"
+    prognostic_vars_key: str = "3D_all"
+    boundary_vars_key: str = "3D_all"
 
     def __post_init__(self):
         timestamp = datetime.now().strftime("%Y-%m-%d")

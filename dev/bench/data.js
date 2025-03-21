@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742501584804,
+  "lastUpdate": 1742524622683,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -653,6 +653,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3398654410476008",
             "extra": "mean: 119.27019903679995 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d84192f5b04080375647ef2929d9c9c5313a504a",
+          "message": "Restore missing function (#131)",
+          "timestamp": "2025-03-20T21:59:35-04:00",
+          "tree_id": "8db37413cbea31929537d2bb59230a31e6956af0",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/d84192f5b04080375647ef2929d9c9c5313a504a"
+        },
+        "date": 1742524621749,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-train]",
+            "value": 0.06501608976774323,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13250071066471172",
+            "extra": "mean: 15.380808098 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[cpu-val]",
+            "value": 0.17984825253694336,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08954489225997446",
+            "extra": "mean: 5.560243071000014 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu]",
+            "value": 0.16611422123234867,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0939620964614289",
+            "extra": "mean: 6.0199541771999865 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu]",
+            "value": 0.007744701107258786,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14222873978908288",
+            "extra": "mean: 129.1205414064 sec\nrounds: 5"
           }
         ]
       }

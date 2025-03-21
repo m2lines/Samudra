@@ -176,9 +176,9 @@ def test_test_util__data_source_roundtrip(
 def test_train__loads_correct_number_of_samples(train_loader_pair: LoaderPair):
     cfg, loader = train_loader_pair
     n_samples = 13
-    assert (
-        len(list(loader)) == n_samples
-    ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
+    assert len(list(loader)) == n_samples, (
+        f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
+    )
 
 
 def test_train__data_shape(train_loader_pair: LoaderPair):
@@ -204,9 +204,9 @@ def test_train__data_shape(train_loader_pair: LoaderPair):
 def test_val__loads_correct_number_of_samples(val_loader_pair):
     cfg, loader = val_loader_pair
     n_samples = 5
-    assert (
-        len(list(loader)) == n_samples
-    ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
+    assert len(list(loader)) == n_samples, (
+        f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
+    )
 
 
 def test_val__data_shape(val_loader_pair: LoaderPair):
@@ -242,9 +242,9 @@ def test_val__data_shape(val_loader_pair: LoaderPair):
 def test_inference__loads_correct_number_of_samples(inference_loader_pair: LoaderPair):
     cfg, loader = inference_loader_pair
     n_samples = 1
-    assert (
-        len(list(loader)) == n_samples
-    ), f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
+    assert len(list(loader)) == n_samples, (
+        f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
+    )
 
 
 def test_inference__data_shape(inference_loader_pair: LoaderPair):
@@ -282,15 +282,15 @@ def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
     for sample in loader:
         dataset, n = sample
         for X, y in dataset:
-            assert (
-                np.count_nonzero(np.zeros(X.shape)) == 0
-            ), "Sanity check: Zero is zero."
-            assert (
-                np.count_nonzero(X.numpy()) != 0
-            ), "Input data should not be a zeros matrix!"
-            assert (
-                np.count_nonzero(y.numpy()) != 0
-            ), "Label data should not be a zeros matrix!"
+            assert np.count_nonzero(np.zeros(X.shape)) == 0, (
+                "Sanity check: Zero is zero."
+            )
+            assert np.count_nonzero(X.numpy()) != 0, (
+                "Input data should not be a zeros matrix!"
+            )
+            assert np.count_nonzero(y.numpy()) != 0, (
+                "Label data should not be a zeros matrix!"
+            )
 
 
 @pytest.mark.manual

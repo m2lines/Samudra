@@ -1,4 +1,3 @@
-import functools
 from abc import ABC
 
 
@@ -43,25 +42,6 @@ class MultitonScope:
             Multiton._current_scope is self.scope
         ), "MultitonScope.__exit__ called without matching __enter__"
         Multiton._current_scope = self.previous_scope
-
-
-def scope_for(object) -> MultitonScope:
-    """Retrieves the scope associated with the @scoped decorator for an object."""
-    if getattr(object, "_multiton_scope", None) is None:
-        object._multiton_scope = MultitonScope()
-    return object._multiton_scope
-
-
-def scoped(func):
-    """Decorator which binds a multiton scope to an instance method."""
-
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        scope = scope_for(self)
-        with scope:
-            return func(self, *args, **kwargs)
-
-    return wrapper
 
 
 class Multiton(ABC):

@@ -12,7 +12,7 @@ from typing_extensions import Self
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
-from ocean_emulators.utils.multiton import scope_for
+from ocean_emulators.utils.multiton import MultitonScope
 
 
 @dataclasses.dataclass
@@ -373,7 +373,10 @@ def trainer_pair(train_config: TrainConfig):
     # See https://github.com/patrick-kidger/jaxtyping/issues/306
     from ocean_emulators.train_3D import Trainer
 
-    with scope_for(train_config):
+    scope = MultitonScope()
+    setattr(train_config, "_multiton_scope", scope)
+
+    with scope:
         trainer = Trainer(train_config)
 
         # cur_step will set the number of pairs in the input/output sample
@@ -388,5 +391,5 @@ def set_scope(train_config: TrainConfig):
 
     NB you must still do this manually for session-scoped fixtures.
     """
-    with scope_for(train_config):
+    with getattr(train_config, "_multiton_scope"):
         yield

@@ -209,8 +209,7 @@ class Eval:
 
     def run(self) -> None:
         start_time = time.time()
-        with self.tensor_map, self.normalize, self.wandb_logger:
-            inf_stats = self.standalone_inference()
+        inf_stats = self.standalone_inference()
         time_elapsed = time.time() - start_time
 
         log_stats = {

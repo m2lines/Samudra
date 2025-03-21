@@ -164,12 +164,12 @@ class Trainer:
             self.data = xr.open_mfdataset(
                 os.path.join(self.data_dir, self.data_path),
                 engine="netcdf4",
-                chunks={"time": 1, "lat": 180, "lon": 360},
+                chunks={"time": 700, "lat": 180, "lon": 360},
             )
         else:
             self.data = xr.open_zarr(
                 os.path.join(self.data_dir, self.data_path),
-                chunks={},
+                chunks=dict(time=700),
                 consolidated=True,
             )
         self.data_mean = xr.open_dataset(

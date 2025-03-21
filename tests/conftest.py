@@ -370,7 +370,6 @@ def data_source() -> DataSource:
         for lev in range(len(c.DEPTH_I_LEVELS))
     }
     ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
-    ds = ds.chunk({"time": 700})
 
     return DataSource(data=ds, means=ds.mean(), stds=ds.std())
 

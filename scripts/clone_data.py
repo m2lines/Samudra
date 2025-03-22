@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "xarray[io]",
-#   "zarr>=3",
+#   "zarr<3",
 #   "dask",
 #   "requests",
 #   "aiohttp",
@@ -15,22 +15,33 @@
 import argparse
 import os
 import pathlib
-from typing import Any
 
 import dask
 import dask.diagnostics
-import numcodecs
-import numcodecs.zarr3
 import xarray as xr
+from xarray.backends.common import robust_getitem
 
 DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 
 
-def main(dest_root: str, time_slice: slice, upgrade_zarr: bool = False) -> None:
+class DatasetOpener:
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def __getitem__(self, target):
+        return xr.open_dataset(target, **self.kwargs)
+
+
+def main(dest_root: str, time_slice: slice, write_time_chunks: int) -> None:
     """Clones slice of Samudra data at the `dest_root` directory."""
     # Ensure the path/to/dest exists
     if not dest_root.startswith("gs://"):
         pathlib.Path(dest_root).mkdir(parents=True, exist_ok=True)
+
+    output_chunks = dict(time=write_time_chunks)
+
+    chunked_opener = DatasetOpener(engine="zarr", chunks={"time": 700})
+    zarr_opener = DatasetOpener(engine="zarr", chunks={})
 
     for name, dest_fmt in [
         ("OM4", "zarr"),
@@ -40,27 +51,16 @@ def main(dest_root: str, time_slice: slice, upgrade_zarr: bool = False) -> None:
         dest = os.path.join(dest_root, name)
         target = DATA_ROOT + name
 
+        # Open Xarray Datasets with retries + exponential backoff.
         if name == "OM4":
-            data = xr.open_dataset(target, engine="zarr", chunks={"time": 700})
+            data = robust_getitem(chunked_opener, target)
             data = data.isel(time=time_slice)
         else:
-            data = xr.open_dataset(target, engine="zarr", chunks={})
-
-        kwargs: dict[str, Any] = {}
-        if upgrade_zarr:
-            kwargs["zarr_format"] = 3
-            # Bug in Zarr v3 Codecs; using a workaround:
-            # https://github.com/pydata/xarray/issues/9987#issuecomment-2631471771
-            kwargs["encoding"] = {
-                v: {"compressors": [numcodecs.zarr3.Blosc()]}
-                for v in data.data_vars.keys()
-            }
+            data = robust_getitem(zarr_opener, target)
 
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":
-                data.chunk(dict(time=1)).to_zarr(
-                    dest + ".zarr", consolidated=False, **kwargs
-                )
+                data.chunk(output_chunks).to_zarr(dest + ".zarr")
             else:
                 data.to_netcdf(dest + ".nc")
 
@@ -82,8 +82,8 @@ if __name__ == "__main__":
         default=None,
         help="end index for data.isel() along time dimension.",
     )
-    parser.add_argument("--migrate_to_zarr_v3", action="store_true")
+    parser.add_argument("--write_time_chunks", type=int, default=1)
     args = parser.parse_args()
 
     time_range = slice(args.time_start, args.time_end)
-    main(args.dest, time_slice=time_range, upgrade_zarr=args.migrate_to_zarr_v3)
+    main(args.dest, time_slice=time_range, write_time_chunks=args.write_time_chunks)

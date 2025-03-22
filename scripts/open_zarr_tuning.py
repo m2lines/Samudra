@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "xarray[io]",
-#   "zarr>=3",   # Zarr v2 --> change to `zarr<3`; Zarr v3 --> change to `zarr>=3`.
+#   "zarr<3",   # Zarr v2 --> change to `zarr<3`; Zarr v3 --> change to `zarr>=3`.
 #   "dask",
 #   "requests",
 #   "aiohttp",
@@ -27,7 +27,7 @@ import time
 from typing import Any
 
 import xarray as xr
-import zarr
+import zarr  # type: ignore
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/OM4"
 
@@ -42,8 +42,8 @@ def main(args: argparse.Namespace) -> float:
 
     write_kwargs: dict[str, Any] = dict(consolidated=False)
     if zarr.__version__.startswith("3"):
-        import numcodecs
-        import numcodecs.zarr3
+        import numcodecs  # type: ignore
+        import numcodecs.zarr3  # type: ignore
 
         # Bug in Zarr v3 Codecs; using a workaround:
         # https://github.com/pydata/xarray/issues/9987#issuecomment-2631471771

@@ -10,7 +10,7 @@ import time
 import warnings
 from functools import partial
 from pathlib import Path
-from typing import Union
+from typing import Any, Callable, Sequence, Union
 
 import dask
 import numpy as np
@@ -33,11 +33,18 @@ from ocean_emulators.constants import (
     PROGNOSTIC_VARS,
     BoundaryVarNames,
     Grid,
+    LoaderVersion,
     PrognosticVarNames,
     TensorMap,
     construct_metadata,
 )
-from ocean_emulators.datasets import InferenceDataset, InferenceDatasets, TrainDataset
+from ocean_emulators.datasets import (
+    InferenceDataset,
+    InferenceDatasets,
+    OM4Dataset,
+    TrainData,
+    TrainDataset,
+)
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper, TrainOutput, ValOutput
 from ocean_emulators.utils.data import (
@@ -67,7 +74,11 @@ from ocean_emulators.utils.loss import (
     decomposed_mse_scaled,
 )
 from ocean_emulators.utils.model import get_model_summary
-from ocean_emulators.utils.train import collate_inference_data, collate_train_data
+from ocean_emulators.utils.train import (
+    collate_inference_data,
+    collate_om4,
+    collate_train_data,
+)
 from ocean_emulators.utils.wandb import WandBLogger
 
 
@@ -138,6 +149,7 @@ class Trainer:
 
         # Dataloaders
         logging.info(f"Loading data")
+        self.loader_version = LoaderVersion(cfg.data.loader_version)
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
@@ -605,49 +617,82 @@ class Trainer:
             cur_step: Current training step size
         """
         # Create datasets
-        train_data: ConcatDataset = ConcatDataset(
-            [
-                TrainDataset(
-                    data=self.data.sel(
-                        time=get_time_slice(
-                            self.train_times,
-                            time_delta=self.time_delta,
-                            hist=self.hist,
-                        )[0]
-                    ),
-                    prognostic_var_names=self.prognostic_var_names,
-                    boundary_var_names=self.boundary_var_names,
-                    wet=self.wet,
-                    wet_surface=self.wet_surface,
-                    hist=self.hist,
-                    steps=cur_step,
-                    stride=stride,
-                )
-                for stride in self.data_stride
-            ]
-        )
 
-        val_data: ConcatDataset = ConcatDataset(
-            [
-                TrainDataset(
-                    data=self.data.sel(
-                        time=get_time_slice(
-                            self.val_times,
-                            time_delta=self.time_delta,
+        train_slice = get_time_slice(
+            self.train_times, time_delta=self.time_delta, hist=self.hist
+        )[0]
+
+        val_slice = get_time_slice(
+            self.val_times,
+            time_delta=self.time_delta,
+            hist=self.hist,
+        )[0]
+
+        match self.loader_version:
+            case TrainDataset.FLAG:
+                train_data: ConcatDataset = ConcatDataset(
+                    [
+                        TrainDataset(
+                            self.data.sel(time=train_slice),
+                            prognostic_var_names=self.prognostic_var_names,
+                            boundary_var_names=self.boundary_var_names,
+                            wet=self.wet,
+                            wet_surface=self.wet_surface,
                             hist=self.hist,
-                        )[0]
-                    ),
-                    prognostic_var_names=self.prognostic_var_names,
-                    boundary_var_names=self.boundary_var_names,
-                    wet=self.wet,
-                    wet_surface=self.wet_surface,
-                    hist=self.hist,
-                    steps=1,  # current_step set to 1 for validation
-                    stride=stride,
+                            steps=cur_step,
+                            stride=stride,
+                        )
+                        for stride in self.data_stride
+                    ]
                 )
-                for stride in self.data_stride
-            ]
-        )
+
+                val_data: ConcatDataset = ConcatDataset(
+                    [
+                        TrainDataset(
+                            self.data.sel(time=val_slice),
+                            prognostic_var_names=self.prognostic_var_names,
+                            boundary_var_names=self.boundary_var_names,
+                            wet=self.wet,
+                            wet_surface=self.wet_surface,
+                            hist=self.hist,
+                            steps=1,  # current_step set to 1 for validation
+                            stride=stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+            case OM4Dataset.FLAG:
+                train_data = ConcatDataset(
+                    [
+                        OM4Dataset(
+                            self.data.sel(time=train_slice),
+                            self.prognostic_var_names,
+                            self.boundary_var_names,
+                            self.hist,
+                            cur_step,
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+
+                val_data = ConcatDataset(
+                    [
+                        OM4Dataset(
+                            self.data.sel(time=val_slice),
+                            self.prognostic_var_names,
+                            self.boundary_var_names,
+                            self.hist,
+                            1,  # current_step set to 1 for validation
+                            stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+            case _:
+                raise NotImplementedError(
+                    f"Loader version {self.loader_version} not supported."
+                )
 
         logging.info("Instantiating torch loaders")
 
@@ -658,6 +703,17 @@ class Trainer:
             self.train_sampler = RandomSampler(train_data)
             self.val_sampler = RandomSampler(val_data)
 
+        match self.loader_version:
+            case TrainDataset.FLAG:
+                collate_fn: Callable[[Sequence[Any]], TrainData] = collate_train_data
+            case OM4Dataset.FLAG:
+                collate_fn = collate_om4
+            case _:
+                raise NotImplementedError(
+                    f"Collate function not defined for loader version "
+                    f"{self.loader_version}"
+                )
+
         # Create data loaders
         self.train_loader = DataLoader(
             train_data,
@@ -666,7 +722,7 @@ class Trainer:
             num_workers=self.num_workers,
             pin_memory=self.pin_mem,
             drop_last=True,
-            collate_fn=collate_train_data,
+            collate_fn=collate_fn,
         )
 
         self.val_loader = DataLoader(
@@ -676,7 +732,7 @@ class Trainer:
             num_workers=self.num_workers,
             pin_memory=self.pin_mem,
             drop_last=False,
-            collate_fn=collate_train_data,
+            collate_fn=collate_fn,
         )
 
     def save_checkpoint(self, epoch, v_loss, inf_loss):

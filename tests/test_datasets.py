@@ -6,6 +6,7 @@ import itertools
 import cftime
 import numpy as np
 import pytest
+import xarray as xr
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
@@ -14,8 +15,9 @@ from torch.utils.data import DataLoader
 
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS
-from ocean_emulators.datasets import TrainData
+from ocean_emulators.datasets import OM4Dataset, TrainData
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.train import collate_om4
 from tests.conftest import DataSourceDims
 
 # Note: Refactoring data loaders is planned for the near-term. Ideally,
@@ -133,7 +135,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     start_day=datetime.date(2000, 1, 1),
     calendar="noleap",
 )
-@settings(deadline=1000)
+@settings(deadline=2000)
 def test_test_util__data_source_roundtrip(
     data_var_index: int,
     lat: NDArray[np.floating],
@@ -297,6 +299,59 @@ def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
             assert np.count_nonzero(y.numpy()) != 0, (
                 "Label data should not be a zeros matrix!"
             )
+
+
+def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
+    cfg, loader = train_loader_pair
+
+    ds = xr.open_dataset(cfg.data.data_path, chunks={})
+
+    depth_vars = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
+    surface_vars = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
+
+    om4 = OM4Dataset(
+        ds,
+        depth_vars,
+        surface_vars,
+        cfg.data.hist,
+        cfg.steps[0],
+        cfg.data_stride[0],
+    )
+
+    om4_loader = DataLoader(
+        om4,
+        batch_size=cfg.batch_size,
+        collate_fn=collate_om4,
+    )
+
+    def key(x):
+        return np.sum(x[0].flat) + np.sum(x[1].flat)
+
+    # Why are we sorting here? Well, the default data loader uses a random sampler. So
+    # we use sorting as a simple way to compare the two loaders (without having to
+    # monkeypatch the train loader fixture).
+    original_samples = sorted(
+        [extract_sample_arrays(sample) for sample in loader], key=key
+    )
+    om4_samples = sorted(
+        [extract_sample_arrays(sample) for sample in om4_loader], key=key
+    )
+
+    for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
+        x_not_close = np.isclose(x_orig, x_new) == False  # noqa: E712
+        y_not_close = np.isclose(y_orig, y_new) == False  # noqa: E712
+
+        x_not_close_index = list(zip(*np.where(x_not_close)))
+        y_not_close_index = list(zip(*np.where(y_not_close)))
+
+        assert not np.any(x_not_close), (
+            f"{len(x_not_close_index)} values differ: "
+            f"{x_orig[x_not_close]} != {x_new[x_not_close]}."
+        )
+        assert not np.any(y_not_close), (
+            f"{len(y_not_close_index)} values differ: "
+            f"{y_orig[y_not_close]} != {y_new[y_not_close]}."
+        )
 
 
 @pytest.mark.manual

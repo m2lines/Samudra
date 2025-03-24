@@ -38,7 +38,9 @@ class Corrector(torch.nn.Module):
             fts_reshaped = rearrange(fts_reshaped, "n hist c h w -> (n hist) c h w")
 
             # unnormalize
-            unnormalized_fts = self.normalize.unnormalize_tensor_outputs(fts_reshaped)
+            unnormalized_fts = self.normalize.unnormalize_tensor_prognostic(
+                fts_reshaped
+            )
 
             # apply relu
             indices = self.non_neg_indices.to(unnormalized_fts.device)
@@ -47,7 +49,7 @@ class Corrector(torch.nn.Module):
                 unnormalized_fts[:, indices, :, :]
             )
             # renormalize
-            fts_reshaped_relued = self.normalize.normalize_tensor_outputs(
+            fts_reshaped_relued = self.normalize.normalize_tensor_prognostic(
                 unnormalized_fts
             )
             fts_reshaped_relued = rearrange(
@@ -60,7 +62,7 @@ class Corrector(torch.nn.Module):
             )
 
             # assert
-            # fts_norm = self.normalize.normalize_tensor_outputs(
+            # fts_norm = self.normalize.normalize_tensor_prognostic(
             # unnormalized_fts_cloned
             # )
             # fts_norm = rearrange(

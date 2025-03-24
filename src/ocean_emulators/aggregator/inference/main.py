@@ -24,7 +24,7 @@ class InferenceEvaluatorAggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
-        output_channels: int,
+        num_prognostic_channels: int,
         record_step_20: bool = True,
         log_global_mean_time_series: bool = True,
         log_global_mean_norm_time_series: bool = True,
@@ -37,7 +37,7 @@ class InferenceEvaluatorAggregator:
                 used in generating logged image captions.
             hist: Number of timesteps of history.
             area_weights: Area weights for the data.
-            output_channels: Number of output channels in the data.
+            num_prognostic_channels: Number of prognostic channels in the data.
             record_step_20: Whether to record the mean of the 20th steps.
             log_global_mean_time_series: Whether to log global mean time series metrics.
             log_global_mean_norm_time_series: Whether to log the normalized global mean
@@ -90,7 +90,7 @@ class InferenceEvaluatorAggregator:
         }
         self._n_timesteps_seen = 0
         self._normalize = Normalize.get_instance()
-        self.output_channels = output_channels
+        self.num_prognostic_channels = num_prognostic_channels
         self.hist = hist
 
     @property
@@ -106,13 +106,13 @@ class InferenceEvaluatorAggregator:
         target_norm_dict, target_unnorm_dict = get_norm_unnorm_dicts(
             data.target,
             input_type="target",
-            output_channels=self.output_channels,
+            num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
         gen_norm_dict, gen_unnorm_dict = get_norm_unnorm_dicts(
             data.prediction,
             input_type="input",
-            output_channels=self.output_channels,
+            num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
 
@@ -152,7 +152,7 @@ class InferenceEvaluatorAggregator:
         data_norm_dict, data_unnorm_dict = get_norm_unnorm_dicts(
             initial_prognostic,
             input_type="input",
-            output_channels=self.output_channels,
+            num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
         for aggregator_name in ["mean", "mean_norm"]:
@@ -221,11 +221,11 @@ class InferenceAggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
-        output_channels: int,
+        num_prognostic_channels: int,
         log_global_mean_time_series: bool = True,
     ):
         self._log_time_series = log_global_mean_time_series
-        self.output_channels = output_channels
+        self.num_prognostic_channels = num_prognostic_channels
         self.hist = hist
         aggregators: Dict[str, SingleTargetMeanAggregator | TimeMeanAggregator] = {}
         if log_global_mean_time_series:
@@ -260,7 +260,7 @@ class InferenceAggregator:
         _, data_unnorm_dict = get_norm_unnorm_dicts(
             data.data,
             input_type="gen",
-            output_channels=self.output_channels,
+            num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
 
@@ -289,7 +289,7 @@ class InferenceAggregator:
         _, data_unnorm_dict = get_norm_unnorm_dicts(
             initial_prognostic,
             input_type="input",
-            output_channels=self.output_channels,
+            num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
         if "mean" in self._aggregators:

@@ -1,3 +1,4 @@
+
 # A config file to test training.
 # Used in automated tests.
 debug: false
@@ -37,21 +38,20 @@ experiment:
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
-  network: convnextunet
-  exp_num_in: "3D_5"
-  exp_num_extra: "3D_5"
-  exp_num_out: "3D_5"
+  network: Samudra
+  prognostic_vars_key: thermo_dynamic_5
+  boundary_vars_key: tau_hfds
 data:
   data_path: fake/path/to/data
   data_means_path: fake/path/to/means
   data_stds_path: fake/path/to/stds
   scaling_residuals_file: null
-  depth_mode: all
   time_delta: 5
   num_workers: 4
   hist: 0
 
-unet:
+
+samudra:
   ch_width: [2, 3]
   n_out: 4
   dilation: [1, 2]

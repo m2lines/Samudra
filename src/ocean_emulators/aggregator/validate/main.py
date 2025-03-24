@@ -21,7 +21,7 @@ class ValidateAggregator(TrainAggregator):
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
-        output_channels: int,
+        num_prognostic_channels: int,
     ):
         super().__init__()
 
@@ -34,7 +34,7 @@ class ValidateAggregator(TrainAggregator):
         self.normalize = Normalize.get_instance()
         self._loss_scaling = LossAggregator.get_instance().loss_scale
         self.hist = hist
-        self.output_channels = output_channels
+        self.num_prognostic_channels = num_prognostic_channels
 
     # TODO(jder): we could remove this by moving from inheritance
     # to composition with the TrainAggregator functionality.
@@ -55,20 +55,20 @@ class ValidateAggregator(TrainAggregator):
         target_data_dict, target_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.target_data,
             input_type="target",
-            output_channels=self.output_channels,
+            num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
 
         gen_data_dict, gen_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.gen_data,
             input_type="gen",
-            output_channels=self.output_channels,
+            num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
         input_data_dict, input_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.input_data,
             input_type="input",
-            output_channels=self.output_channels,
+            num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
 

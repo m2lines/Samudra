@@ -11,17 +11,19 @@ from ocean_emulators.utils.multiton import Multiton
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 Grid = Float[torch.Tensor, "180 360"]
-Input = Float[Grid, "*batch input_vars"]  # equivalent to "*batch input_vars lat lon"
+Prognostic = Float[
+    Grid, "*batch prognostic_vars"
+]  # equivalent to "*batch prognostic_vars lat lon"
 Boundary = Float[Grid, "*batch boundary_vars"]
-# A note from jaxtyping (why we can't do "input_vars+boundary_vars"):
+# A note from jaxtyping (why we can't do "prognostic_vars+boundary_vars"):
 #   In practice you should usually only use symbolic axes in annotations
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
-TotalInput = Float[Grid, "*batch total_vars"]
-Label = Float[Grid, "*batch output_vars"]
+Input = Float[Grid, "*batch total_vars"]
+Label = Float[Grid, "*batch prognostic_vars"]
 
 GridMask = Bool[torch.Tensor, "180 360"]
-InputMask = Bool[GridMask, "input_vars"]
+InputMask = Bool[GridMask, "prognostic_vars"]
 
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=samudra-train-8GPUS-1Node
-#SBATCH --output=train_3D/logs/slurm-%j.out
-#SBATCH --error=train_3D/logs/slurm-%j.err
+#SBATCH --output=train/logs/slurm-%j.out
+#SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --partition=nyu
 #SBATCH --mem=110G
 #SBATCH --nodes=1
@@ -30,6 +30,6 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 
 # Run the training script
 srun --cpu-bind=cores \
-     python src/train_3D.py \
+     python src/train.py \
      --config configs/slurm_empireai_train_cm4.yaml \
      --subname $SLURM_JOB_NAME

@@ -9,6 +9,7 @@
 #   "aiohttp",
 #   "gcsfs",
 #   "numcodecs>=0.15",
+#   "tenacity",
 # ]
 # ///
 
@@ -19,17 +20,14 @@ import pathlib
 import dask
 import dask.diagnostics
 import xarray as xr
-from xarray.backends.common import robust_getitem
+from tenacity import retry
 
 DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 
 
-class DatasetOpener:
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    def __getitem__(self, target):
-        return xr.open_dataset(target, **self.kwargs)
+@retry
+def robust_open_dataset(target: str, **kwargs) -> xr.Dataset:
+    return xr.open_dataset(target, **kwargs)
 
 
 def main(dest_root: str, time_slice: slice, write_time_chunks: int) -> None:
@@ -39,9 +37,6 @@ def main(dest_root: str, time_slice: slice, write_time_chunks: int) -> None:
         pathlib.Path(dest_root).mkdir(parents=True, exist_ok=True)
 
     output_chunks = dict(time=write_time_chunks)
-
-    chunked_opener = DatasetOpener(engine="zarr", chunks={"time": 700})
-    zarr_opener = DatasetOpener(engine="zarr", chunks={})
 
     for name, dest_fmt in [
         ("OM4", "zarr"),
@@ -53,10 +48,10 @@ def main(dest_root: str, time_slice: slice, write_time_chunks: int) -> None:
 
         # Open Xarray Datasets with retries + exponential backoff.
         if name == "OM4":
-            data = robust_getitem(chunked_opener, source)
+            data = robust_open_dataset(source, engine="zarr", chunks={"time": 700})
             data = data.isel(time=time_slice)
         else:
-            data = robust_getitem(zarr_opener, source)
+            data = robust_open_dataset(source, engine="zarr", chunks={})
 
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":

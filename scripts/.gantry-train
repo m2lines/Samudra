@@ -29,4 +29,4 @@ gantry run \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
     --install "pip install -r requirements.txt" \
-    -- torchrun --nproc_per_node $N_GPUS src/train_3D.py --config $CONFIG_PATH --subname $JOB_NAME
+    -- torchrun --nproc_per_node $N_GPUS src/train.py --config $CONFIG_PATH --subname $JOB_NAME

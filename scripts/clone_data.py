@@ -30,20 +30,25 @@ def robust_open_dataset(target: str, **kwargs) -> xr.Dataset:
     return xr.open_dataset(target, **kwargs)
 
 
-def main(dest_root: str, time_slice: slice, write_time_chunks: int) -> None:
+def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
+    return xr.Dataset()
+
+
+def main(args: argparse.Namespace) -> None:
     """Clones slice of Samudra data at the `dest_root` directory."""
     # Ensure the path/to/dest exists
-    if not dest_root.startswith("gs://"):
-        pathlib.Path(dest_root).mkdir(parents=True, exist_ok=True)
+    if not args.dest.startswith("gs://"):
+        pathlib.Path(args.dest).mkdir(parents=True, exist_ok=True)
 
-    output_chunks = dict(time=write_time_chunks)
+    time_slice = slice(args.time_start, args.time_end)
+    output_chunks = dict(time=args.write_time_chunks)
 
     for name, dest_fmt in [
         ("OM4", "zarr"),
         ("OM4_means", "netcdf"),
         ("OM4_stds", "netcdf"),
     ]:
-        dest = os.path.join(dest_root, name)
+        dest = os.path.join(args.dest, name)
         source = DATA_ROOT + name
 
         # Open Xarray Datasets with retries + exponential backoff.
@@ -77,8 +82,7 @@ if __name__ == "__main__":
         default=None,
         help="end index for data.isel() along time dimension.",
     )
-    parser.add_argument("--write_time_chunks", type=int, default=1)
-    args = parser.parse_args()
+    parser.add_argument("--write_time_chunks", type=int, default=10)
+    parser.add_argument("--compact_variables", action="store_true")
 
-    time_range = slice(args.time_start, args.time_end)
-    main(args.dest, time_slice=time_range, write_time_chunks=args.write_time_chunks)
+    main(parser.parse_args())

@@ -70,11 +70,11 @@ class Eval:
         logging.info(f"Boundary variables: {str_boundaries}")
         logging.info(f"Levels: {self.levels}")
 
-        self.N_atm = len(self.boundary_var_names)
-        self.N_in = len(self.prognostic_var_names)
+        self.N_bound = len(self.boundary_var_names)
+        self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_atm)
-        self.num_out = int((cfg.data.hist + 1) * self.N_in)
+        self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
+        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key

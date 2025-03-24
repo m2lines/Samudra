@@ -12,7 +12,7 @@ from ocean_emulators.constants import (
     BoundaryVarsStr,
     Grid,
     GridMask,
-    InputMask,
+    PrognosticMask,
     PrognosticVarNames,
     TensorMap,
 )
@@ -21,7 +21,7 @@ from ocean_emulators.utils.multiton import Multiton
 
 def extract_wet_mask(
     data: xr.Dataset, prognostic_var_names: PrognosticVarNames, hist: int
-) -> tuple[InputMask, GridMask]:
+) -> tuple[PrognosticMask, GridMask]:
     """A mask for where the oceans are. Water is wet."""
     wet_mask = data[MASK_VARS]
     if "time" in wet_mask.dims:

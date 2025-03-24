@@ -13,8 +13,8 @@ from ocean_emulators.constants import (
     BoundaryVarsStr,
     GridMask,
     Input,
-    InputMask,
     Prognostic,
+    PrognosticMask,
     PrognosticVarNames,
 )
 from ocean_emulators.utils.data import Normalize
@@ -285,7 +285,7 @@ class TrainDataset(Dataset):
         data: xr.Dataset,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarsStr,
-        wet: InputMask,
+        wet: PrognosticMask,
         wet_surface: GridMask,
         hist: int,
         steps: int,

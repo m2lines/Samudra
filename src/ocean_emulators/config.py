@@ -8,6 +8,8 @@ import yaml
 from dacite import Config as DaciteConfig
 from dacite import from_dict
 
+from ocean_emulators.constants import LoaderVersion
+
 
 @dataclass
 class WandBConfig:
@@ -34,6 +36,7 @@ class DataConfig:
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1
+    loader_version: LoaderVersion = LoaderVersion.OM4_EAGER
 
 
 @dataclass

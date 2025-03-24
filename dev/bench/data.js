@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742824205951,
+  "lastUpdate": 1742824208134,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1731,6 +1731,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5983125529445893",
             "extra": "mean: 88.62253332099999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c4abfac895fd2788eac49061755d0c5aa406aa0",
+          "message": "Resolve CFTime warning (#139)\n\nThe underlying [warning\n](https://github.com/Unidata/cftime/blob/eab0212df73decd5a420adaae7938b942d131c95/src/cftime/_cftime.pyx#L1151)\nwas due to us passing a date with year < 0 for a calendar that doesn't\nsupport that.\n\nThis was for 2 reasons: first, we had no minimum in the possible\ngenerated dates and second because the fromordinal function we were\nusing takes the number of days since year -4713 (yes, negative four\nthousand years BCE) but the python datetime toordinal produces the\nnumber of days since year 1. So, we have a minimum now and we are using\na conversion function which is a little less silly.\n\nFixes #112",
+          "timestamp": "2025-03-24T09:08:43-04:00",
+          "tree_id": "5da7886abe8dc19aaef0095065bae2d814b441f4",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/0c4abfac895fd2788eac49061755d0c5aa406aa0"
+        },
+        "date": 1742824207251,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-train]",
+            "value": 0.17135109607620952,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4265057691279516",
+            "extra": "mean: 5.835970839400079 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-val]",
+            "value": 0.38862911173253434,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022200079304087607",
+            "extra": "mean: 2.5731474297999286 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cuda]",
+            "value": 0.14804940483196855,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13284364178961677",
+            "extra": "mean: 6.754501993000031 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cuda]",
+            "value": 0.010017219201281952,
+            "unit": "iter/sec",
+            "range": "stddev: 2.482006448489079",
+            "extra": "mean: 99.82810397840004 sec\nrounds: 5"
           }
         ]
       }

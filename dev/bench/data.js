@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742841055254,
+  "lastUpdate": 1742841057197,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1939,6 +1939,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5754198441006614",
             "extra": "mean: 91.07286228200005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9799852f5388729098c91ceba1ac5b3551e6af9e",
+          "message": "Wrote an Xarray-based OM4 Dataloader. (#123)\n\nFixes #119. This new loader is behind a feature flag. After I manually\nprofile the new loader, I will make a follow-up PR to make this one the\ndefault.",
+          "timestamp": "2025-03-24T10:52:58-07:00",
+          "tree_id": "e4c10fbc9947ac98469f38c568fbe31e8bd30dbc",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/9799852f5388729098c91ceba1ac5b3551e6af9e"
+        },
+        "date": 1742841056373,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-train]",
+            "value": 0.17218306580625672,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3637772068949323",
+            "extra": "mean: 5.807772066999997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-val]",
+            "value": 0.39026110779863565,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017209378356344316",
+            "extra": "mean: 2.562387027599925 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cuda]",
+            "value": 0.148040046577813,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09404192597159702",
+            "extra": "mean: 6.754928974400036 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cuda]",
+            "value": 0.01015980460054561,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5470538620160127",
+            "extra": "mean: 98.42708982280006 sec\nrounds: 5"
           }
         ]
       }

@@ -92,8 +92,8 @@ MASK_VARS = [
     "mask_18",
 ]
 
-PrognosticVarsStr = list[str]
-PROGNOSTIC_VARS: dict[str, PrognosticVarsStr] = {
+PrognosticVarNames = list[str]
+PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
     "thermo_dynamic_5": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
     ]
@@ -158,8 +158,8 @@ class TensorMap(Multiton):
             )
         )
         self.DEPTH_SET = DEPTH_I_LEVELS
-        self.prognostic_vars_str = PROGNOSTIC_VARS[prognostic_vars_key]
-        self.boundary_vars_str = BOUNDARY_VARS[boundary_vars_key]
+        self.prognostic_var_names = PROGNOSTIC_VARS[prognostic_vars_key]
+        self.boundary_var_names = BOUNDARY_VARS[boundary_vars_key]
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()
@@ -167,7 +167,7 @@ class TensorMap(Multiton):
     def _populate_var_3d_idx(self):
         for kt in self.VAR_SET:
             self.VAR_3D_IDX[kt] = torch.tensor([])
-            for i, k in enumerate(self.prognostic_vars_str):
+            for i, k in enumerate(self.prognostic_var_names):
                 if kt in k:
                     self.VAR_3D_IDX[kt] = torch.cat(
                         [self.VAR_3D_IDX[kt], torch.tensor([i])]
@@ -177,7 +177,7 @@ class TensorMap(Multiton):
     def _populate_dp_3d_idx(self):
         for d in self.DEPTH_SET:
             self.DP_3D_IDX[d] = torch.tensor([])
-            for i, k in enumerate(self.prognostic_vars_str):
+            for i, k in enumerate(self.prognostic_var_names):
                 k_split = k.split("_")
                 if len(k_split) == 1:
                     continue

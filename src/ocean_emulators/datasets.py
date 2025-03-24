@@ -15,7 +15,7 @@ from ocean_emulators.constants import (
     Input,
     InputMask,
     Label,
-    PrognosticVarsStr,
+    PrognosticVarNames,
     TotalInput,
 )
 from ocean_emulators.utils.data import Normalize
@@ -41,8 +41,8 @@ class InferenceDataset(Dataset):
     def __init__(
         self,
         data,
-        prognostic_vars_str,
-        boundary_vars_str,
+        prognostic_var_names,
+        boundary_var_names,
         wet,
         wet_surface,
         hist,
@@ -53,9 +53,9 @@ class InferenceDataset(Dataset):
 
         self.hist = hist
 
-        self.num_prognostic_channels = (hist + 1) * len(prognostic_vars_str)
-        self._prognostic_vars = data[prognostic_vars_str]
-        self._boundary_vars = data[boundary_vars_str]
+        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        self._prognostic_vars = data[prognostic_var_names]
+        self._boundary_vars = data[boundary_var_names]
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -284,8 +284,8 @@ class TrainDataset(Dataset):
     def __init__(
         self,
         data: xr.Dataset,
-        prognostic_vars_str: PrognosticVarsStr,
-        boundary_vars_str: BoundaryVarsStr,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarsStr,
         wet: InputMask,
         wet_surface: GridMask,
         hist: int,
@@ -299,9 +299,9 @@ class TrainDataset(Dataset):
         self.steps: int = steps
         self.stride: int = stride
 
-        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_vars_str)
-        self._prognostic_vars: xr.Dataset = data[prognostic_vars_str]
-        self._boundary_vars: xr.Dataset = data[boundary_vars_str]
+        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
+        self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
+        self._boundary_vars: xr.Dataset = data[boundary_var_names]
 
         # This class will be used only for training
         total_steps: int = 2 * self.hist + 2

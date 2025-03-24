@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742837089279,
+  "lastUpdate": 1742841055254,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1017,6 +1017,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.12853033699078015",
             "extra": "mean: 123.25879322579999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9799852f5388729098c91ceba1ac5b3551e6af9e",
+          "message": "Wrote an Xarray-based OM4 Dataloader. (#123)\n\nFixes #119. This new loader is behind a feature flag. After I manually\nprofile the new loader, I will make a follow-up PR to make this one the\ndefault.",
+          "timestamp": "2025-03-24T10:52:58-07:00",
+          "tree_id": "e4c10fbc9947ac98469f38c568fbe31e8bd30dbc",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/9799852f5388729098c91ceba1ac5b3551e6af9e"
+        },
+        "date": 1742841054274,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.06638999034847015,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12375218936370307",
+            "extra": "mean: 15.062511603799976 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.1882575890750037,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10893222612356636",
+            "extra": "mean: 5.311870851599986 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.17137026453511092,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10718736856648822",
+            "extra": "mean: 5.835318062400006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.007689739785678892,
+            "unit": "iter/sec",
+            "range": "stddev: 4.689125988061758",
+            "extra": "mean: 130.04341211419998 sec\nrounds: 5"
           }
         ]
       }

@@ -35,12 +35,16 @@ def collate_om4(examples: Sequence[Example]) -> TrainData:
     inputs_batch = xr.concat([x.to_array() for x, _ in examples], dim="step")
     labels_batch = xr.concat([y.to_array() for _, y in examples], dim="step")
 
-    inputs = inputs_batch.compute().einops.rearrange(
-        "step window (time variable) lat lon"
-    )
-    labels = labels_batch.compute().einops.rearrange(
-        "step window (time variable) lat lon"
-    )
+    # TODO(alxmrs): Tune dask parallelization
+    # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
+    inputs = inputs_batch.einops.rearrange(
+        "step window (time variable) lat lon",
+        dask="allowed",
+    ).compute()
+    labels = labels_batch.einops.rearrange(
+        "step window (time variable) lat lon",
+        dask="allowed",
+    ).compute()
 
     input_tensor = torch.from_numpy(inputs.to_numpy())
     labels_tensor = torch.from_numpy(labels.to_numpy())

@@ -106,8 +106,8 @@ PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
     "thermo_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
     + ["zos"],
 }
-BoundaryVarsStr = list[str]
-BOUNDARY_VARS: dict[str, BoundaryVarsStr] = {
+BoundaryVarNames = list[str]
+BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
     "tau_hfds": ["tauuo", "tauvo", "hfds"],
     "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
 }

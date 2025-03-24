@@ -11,7 +11,7 @@ from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
-    BoundaryVarsStr,
+    BoundaryVarNames,
     Grid,
     GridMask,
     PrognosticMask,
@@ -184,7 +184,7 @@ def validate_data(
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()
-    for var in tensor_map.boundary_vars_str:
+    for var in tensor_map.boundary_var_names:
         if var.endswith("_anomalies"):
             base_var = var.replace("_anomalies", "")
             if var not in data.variables and base_var in data.variables:
@@ -201,7 +201,7 @@ class Normalize(Multiton):
         data_mean: xr.Dataset,
         data_std: xr.Dataset,
         prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarsStr,
+        boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""

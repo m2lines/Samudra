@@ -22,7 +22,7 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 Input = Float[Grid, "*batch total_vars"]
 
 GridMask = Bool[torch.Tensor, "180 360"]
-InputMask = Bool[GridMask, "prognostic_vars"]
+PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels

@@ -9,14 +9,13 @@ from jaxtyping import Float
 from torch.utils.data import Dataset
 
 from ocean_emulators.constants import (
-    Extra,
-    ExtraVars,
+    Boundary,
+    BoundaryVarsStr,
     GridMask,
     Input,
     InputMask,
-    InputVars,
     Label,
-    OutputVars,
+    PrognosticVarsStr,
     TotalInput,
 )
 from ocean_emulators.utils.data import Normalize
@@ -42,9 +41,8 @@ class InferenceDataset(Dataset):
     def __init__(
         self,
         data,
-        inputs_str,
-        extra_in_str,
-        outputs_str,
+        prognostic_vars_str,
+        boundary_vars_str,
         wet,
         wet_surface,
         hist,
@@ -55,10 +53,9 @@ class InferenceDataset(Dataset):
 
         self.hist = hist
 
-        self._outputs = data[outputs_str]
-        self.output_channels = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra = data[inputs_str]
-        self._extras = data[extra_in_str]
+        self.num_prognostic_channels = (hist + 1) * len(prognostic_vars_str)
+        self._prognostic_vars = data[prognostic_vars_str]
+        self._boundary_vars = data[boundary_vars_str]
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -101,7 +98,7 @@ class InferenceDataset(Dataset):
     @property
     def initial_prognostic(self):
         data = self.__getitem__(0)[0]
-        return data[:, : self.output_channels]
+        return data[:, : self.num_prognostic_channels]
 
     def inference_target(self, step: int):
         return self.__getitem__(step)[1]
@@ -112,7 +109,7 @@ class InferenceDataset(Dataset):
 
     # TODO: This is a placeholder for now since time returned is incorrect
     def get_input_time(self, step: int):
-        return self._inputs_no_extra.time[step]
+        return self._prognostic_vars.time[step]
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         x_index = self._get_x_index(step)
@@ -153,10 +150,10 @@ class InferenceDataset(Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
-        data_in = self._inputs_no_extra.isel(time=x_index).isel(
+        data_in = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in = Normalize.get_instance().normalize_inputs(
+        data_in = Normalize.get_instance().normalize_prognostic(
             data_in
         )  # TODO: Weird error when I get_instance in init
         data_in = (
@@ -179,7 +176,7 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary = self._boundary_vars.isel(time=x_index).isel(time=self.hist)
         data_in_boundary = Normalize.get_instance().normalize_boundary(data_in_boundary)
         data_in_boundary = (
             data_in_boundary.to_array()
@@ -191,8 +188,10 @@ class InferenceDataset(Dataset):
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label = self._outputs.isel(time=x_index).isel(time=slice(self.hist + 1, None))
-        label = Normalize.get_instance().normalize_outputs(label)
+        label = self._prognostic_vars.isel(time=x_index).isel(
+            time=slice(self.hist + 1, None)
+        )
+        label = Normalize.get_instance().normalize_prognostic(label)
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -208,7 +207,7 @@ class InferenceDataset(Dataset):
         return label
 
     def get_coords_dict(self):
-        return {co: self._inputs_no_extra[co] for co in self._inputs_no_extra.coords}
+        return {co: self._prognostic_vars[co] for co in self._prognostic_vars.coords}
 
 
 class InferenceDatasets(Dataset):
@@ -224,9 +223,9 @@ class InferenceDatasets(Dataset):
 
 
 class TrainData:
-    def __init__(self, output_channels: int):
+    def __init__(self, num_prognostic_channels: int):
         self.td_dict: dict[int, Example] = {}
-        self.output_channels = output_channels
+        self.num_prognostic_channels = num_prognostic_channels
         self.steps = 0
 
     def insert(self, input_: TotalInput, label: Label):
@@ -244,7 +243,7 @@ class TrainData:
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         input, _ = self.td_dict[step]
-        input[:, : self.output_channels] = prognostic
+        input[:, : self.num_prognostic_channels] = prognostic
         return input
 
     def __getitem__(self, step: int) -> Example:
@@ -285,9 +284,8 @@ class TrainDataset(Dataset):
     def __init__(
         self,
         data: xr.Dataset,
-        inputs_str: InputVars,
-        extra_in_str: ExtraVars,
-        outputs_str: OutputVars,
+        prognostic_vars_str: PrognosticVarsStr,
+        boundary_vars_str: BoundaryVarsStr,
         wet: InputMask,
         wet_surface: GridMask,
         hist: int,
@@ -301,10 +299,9 @@ class TrainDataset(Dataset):
         self.steps: int = steps
         self.stride: int = stride
 
-        self._outputs: xr.Dataset = data[outputs_str]
-        self.num_output_channels: int = (hist + 1) * len(outputs_str)
-        self._inputs_no_extra: xr.Dataset = data[inputs_str]
-        self._extras: xr.Dataset = data[extra_in_str]
+        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_vars_str)
+        self._prognostic_vars: xr.Dataset = data[prognostic_vars_str]
+        self._boundary_vars: xr.Dataset = data[boundary_vars_str]
 
         # This class will be used only for training
         total_steps: int = 2 * self.hist + 2
@@ -340,21 +337,22 @@ class TrainDataset(Dataset):
         # Normalize
         logging.info("Normalizing inputs")
         self.normalize = Normalize.get_instance()
-        self._inputs_no_extra = self.normalize.normalize_inputs(self._inputs_no_extra)
-        self._extras = self.normalize.normalize_boundary(self._extras)
-        self._outputs = self.normalize.normalize_outputs(self._outputs)
+        self._prognostic_vars = self.normalize.normalize_prognostic(
+            self._prognostic_vars
+        )
+        self._boundary_vars = self.normalize.normalize_boundary(self._boundary_vars)
 
     def __len__(self) -> int:
         return self.size
 
     def __getitem__(self, idx: int):
-        TD = TrainData(self.num_output_channels)
+        TD = TrainData(self.num_prognostic_channels)
         prev_rolling_idx = None
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
 
             data_in: Input = self._get_input(x_index)
-            data_in_boundary: Extra = self._get_boundary(x_index)
+            data_in_boundary: Boundary = self._get_boundary(x_index)
 
             data_combined: TotalInput = torch.cat(
                 (data_in, data_in_boundary), dim=1
@@ -400,7 +398,7 @@ class TrainDataset(Dataset):
 
     def _get_input(self, x_index) -> Input:
         # TODO(jder): nicer typing
-        data_in: Any = self._inputs_no_extra.isel(time=x_index).isel(
+        data_in: Any = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
         data_in = (
@@ -417,7 +415,7 @@ class TrainDataset(Dataset):
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
-    def _get_boundary(self, x_index) -> Extra:
+    def _get_boundary(self, x_index) -> Boundary:
         """
         This function returns the boundary condition for the current time step.
 
@@ -425,7 +423,9 @@ class TrainDataset(Dataset):
         the input.
         """
         # TODO(jder): nicer typing
-        data_in_boundary: Any = self._extras.isel(time=x_index).isel(time=self.hist)
+        data_in_boundary: Any = self._boundary_vars.isel(time=x_index).isel(
+            time=self.hist
+        )
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -437,7 +437,7 @@ class TrainDataset(Dataset):
 
     def _get_label(self, x_index) -> Label:
         # TODO(jder): nicer typing
-        label: Any = self._outputs.isel(time=x_index).isel(
+        label: Any = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)
         )
         label = (

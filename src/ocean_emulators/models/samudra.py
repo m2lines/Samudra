@@ -18,7 +18,7 @@ from ocean_emulators.models.modules.factory import (
 from ocean_emulators.utils.train import pairwise
 
 
-class UNet(BaseModel):
+class Samudra(BaseModel):
     def __init__(self, config, hist, wet):
         super().__init__(
             ch_width=config.ch_width,

@@ -7,7 +7,6 @@ import datetime
 import logging
 import os
 import time
-import traceback
 import warnings
 from functools import partial
 from pathlib import Path
@@ -30,18 +29,16 @@ from ocean_emulators.aggregator import Aggregator, LossAggregator
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
-    EXTRA_VARS,
-    INPT_VARS,
-    OUT_VARS,
-    ExtraVars,
+    BOUNDARY_VARS,
+    PROGNOSTIC_VARS,
+    BoundaryVarsStr,
     Grid,
-    InputVars,
-    OutputVars,
+    PrognosticVarsStr,
     TensorMap,
     construct_metadata,
 )
 from ocean_emulators.datasets import InferenceDataset, InferenceDatasets, TrainDataset
-from ocean_emulators.models.unet import UNet
+from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper, TrainOutput, ValOutput
 from ocean_emulators.utils.data import (
     Normalize,
@@ -75,7 +72,7 @@ from ocean_emulators.utils.wandb import WandBLogger
 
 
 class Trainer:
-    model: UNet | nn.parallel.DistributedDataParallel
+    model: Samudra | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
@@ -98,62 +95,49 @@ class Trainer:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
-        # Getting input, extra input and output
-        self.inputs: InputVars = INPT_VARS[cfg.experiment.exp_num_in]
-        self.extra_in: ExtraVars = EXTRA_VARS[cfg.experiment.exp_num_extra]
-        self.outputs: OutputVars = OUT_VARS[cfg.experiment.exp_num_out]
+        # Getting prognostic and boundary variables
+        self.prognostic_vars_str: PrognosticVarsStr = PROGNOSTIC_VARS[
+            cfg.experiment.prognostic_vars_key
+        ]
+        self.boundary_vars_str: BoundaryVarsStr = BOUNDARY_VARS[
+            cfg.experiment.boundary_vars_key
+        ]
 
-        # TODO: The codebase currently contains code that depends on this
-        assert self.inputs == self.outputs, (
-            "Input and output variables must be the same"
-        )
-
-        levels = cfg.experiment.exp_num_in.split("_")[-1]
+        levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:
             self.levels = 19
-        elif "2D" in levels:
-            self.levels = 1
         else:
             self.levels = int(levels)
 
-        str_in = ", ".join([i for i in self.inputs])
-        str_ext = ", ".join([i for i in self.extra_in])
-        str_out = ", ".join([i for i in self.outputs])
+        str_prognostics = ", ".join([i for i in self.prognostic_vars_str])
+        str_boundaries = ", ".join([i for i in self.boundary_vars_str])
 
-        logging.info(f"inputs: {str_in}")
-        logging.info(f"extra inputs: {str_ext}")
-        logging.info(f"outputs: {str_out}")
-        logging.info(f"levels: {self.levels}")
+        logging.info(f"Prognostic variables: {str_prognostics}")
+        logging.info(f"Boundary variables: {str_boundaries}")
+        logging.info(f"Levels: {self.levels}")
 
-        self.N_atm = len(self.extra_in)
-        self.N_in = len(self.inputs)
-        self.N_extra = self.N_atm  # Number of atmosphere variables
-        self.N_out = len(self.outputs)
+        self.N_atm = len(self.boundary_vars_str)
+        self.N_in = len(self.prognostic_vars_str)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_extra)
-        self.num_out = int((cfg.data.hist + 1) * len(self.outputs))
+        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_atm)
+        self.num_out = int((cfg.data.hist + 1) * self.N_in)
 
-        self.tensor_map = TensorMap.init_instance(cfg.experiment.exp_num_out)
+        self.tensor_map = TensorMap.init_instance(
+            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
+        )
 
-        logging.info(f"Number of inputs: {self.num_in}")
-        logging.info(f"Number of outputs: {self.num_out}")
+        logging.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
+        logging.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
         assert isinstance(cfg.steps, list)
         assert isinstance(cfg.step_transition, list)
         assert len(cfg.step_transition) == len(cfg.steps) - 1
         max_steps = str(cfg.steps[-1])
-        self.str_video = (
-            "steps_"
-            + max_steps
-            + "_"
-            + cfg.data.depth_mode
-            + "_Lateral_Data_025_no_smooth"
-        )
+        self.str_video = "steps_" + max_steps + "_" + "_Lateral_Data_025_no_smooth"
 
         # Dataloaders
         logging.info(f"Loading data")
-        assert cfg.data.depth_mode == "surface" or cfg.data.depth_mode == "all"
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
@@ -161,64 +145,65 @@ class Trainer:
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         if "*" in self.data_path:
-            self.data = xr.open_mfdataset(
+            data = xr.open_mfdataset(
                 os.path.join(self.data_dir, self.data_path),
                 engine="netcdf4",
                 chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            self.data = xr.open_zarr(
+            data = xr.open_zarr(
                 os.path.join(self.data_dir, self.data_path),
                 chunks={},
                 consolidated=True,
             )
-        self.data_mean = xr.open_dataset(
+        data_mean = xr.open_dataset(
             os.path.join(self.data_dir, self.data_means_path),
-            engine="netcdf4",
+            engine="netcdf4" if self.data_means_path.endswith(".nc") else "zarr",
             chunks={},
         )
-        self.data_std = xr.open_dataset(
+        data_std = xr.open_dataset(
             os.path.join(self.data_dir, self.data_stds_path),
-            engine="netcdf4",
+            engine="netcdf4" if self.data_stds_path.endswith(".nc") else "zarr",
             chunks={},
         )
 
+        self.data, self.data_mean, self.data_std = (data, data_mean, data_std)
+
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.outputs, cfg.data.hist
+            self.data, self.prognostic_vars_str, cfg.data.hist
         )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.outputs, 0)
+        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_vars_str, 0)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
-            self.data_mean,
-            self.data_std,
-            self.inputs,
-            self.extra_in,
-            self.outputs,
-            wet_without_hist,
+            data_mean=self.data_mean,
+            data_std=self.data_std,
+            prognostic_vars_str=self.prognostic_vars_str,
+            boundary_vars_str=self.boundary_vars_str,
+            wet_mask=wet_without_hist,
         )
 
         # Model
         logging.info(f"Getting model {cfg.experiment.network}")
-        if "convnextunet" == cfg.experiment.network:
-            if cfg.unet.ch_width[0] != self.num_in:
+        if "Samudra" == cfg.experiment.network:
+            if cfg.samudra.ch_width[0] != self.num_in:
                 logging.info(
                     f"NOTE: Changing input channels to match data "
-                    f"{cfg.unet.ch_width[0]}->{self.num_in}"
+                    f"{cfg.samudra.ch_width[0]}->{self.num_in}"
                 )
-                cfg.unet.ch_width[0] = self.num_in
-            if cfg.unet.n_out != self.num_out:
+                cfg.samudra.ch_width[0] = self.num_in
+            if cfg.samudra.n_out != self.num_out:
                 logging.info(
                     f"NOTE: Changing output channels to match data "
-                    f"{cfg.unet.n_out}->{self.num_out}"
+                    f"{cfg.samudra.n_out}->{self.num_out}"
                 )
-                cfg.unet.n_out = self.num_out
-            model = UNet(cfg.unet, hist=cfg.data.hist, wet=self.wet.to(self.device)).to(
-                self.device
-            )
+                cfg.samudra.n_out = self.num_out
+            model = Samudra(
+                cfg.samudra, hist=cfg.data.hist, wet=self.wet.to(self.device)
+            ).to(self.device)
         else:
             raise NotImplementedError
 
@@ -252,7 +237,10 @@ class Trainer:
                 consolidated=True,
             )
             scale = torch.from_numpy(
-                (self.data_std[self.outputs] / scaling_residuals[self.outputs])
+                (
+                    self.data_std[self.prognostic_vars_str]
+                    / scaling_residuals[self.prognostic_vars_str]
+                )
                 .compute()
                 .to_array()
                 .to_numpy()
@@ -364,13 +352,12 @@ class Trainer:
             )
             inference_data = self.data.sel(time=time_slice_with_initial_condition)
             inference_dataset = InferenceDataset(
-                inference_data,
-                self.inputs,
-                self.extra_in,
-                self.outputs,
-                self.wet,
-                self.wet_surface,
-                self.hist,
+                data=inference_data,
+                prognostic_vars_str=self.prognostic_vars_str,
+                boundary_vars_str=self.boundary_vars_str,
+                wet=self.wet,
+                wet_surface=self.wet_surface,
+                hist=self.hist,
                 long_rollout=True,
             )
 
@@ -621,21 +608,20 @@ class Trainer:
         train_data: ConcatDataset = ConcatDataset(
             [
                 TrainDataset(
-                    self.data.sel(
+                    data=self.data.sel(
                         time=get_time_slice(
                             self.train_times,
                             time_delta=self.time_delta,
                             hist=self.hist,
                         )[0]
                     ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
-                    self.wet,
-                    self.wet_surface,
-                    self.hist,
-                    cur_step,
-                    stride,
+                    prognostic_vars_str=self.prognostic_vars_str,
+                    boundary_vars_str=self.boundary_vars_str,
+                    wet=self.wet,
+                    wet_surface=self.wet_surface,
+                    hist=self.hist,
+                    steps=cur_step,
+                    stride=stride,
                 )
                 for stride in self.data_stride
             ]
@@ -644,21 +630,20 @@ class Trainer:
         val_data: ConcatDataset = ConcatDataset(
             [
                 TrainDataset(
-                    self.data.sel(
+                    data=self.data.sel(
                         time=get_time_slice(
                             self.val_times,
                             time_delta=self.time_delta,
                             hist=self.hist,
                         )[0]
                     ),
-                    self.inputs,
-                    self.extra_in,
-                    self.outputs,
-                    self.wet,
-                    self.wet_surface,
-                    self.hist,
-                    1,  # current_step set to 1 for validation
-                    stride,
+                    prognostic_vars_str=self.prognostic_vars_str,
+                    boundary_vars_str=self.boundary_vars_str,
+                    wet=self.wet,
+                    wet_surface=self.wet_surface,
+                    hist=self.hist,
+                    steps=1,  # current_step set to 1 for validation
+                    stride=stride,
                 )
                 for stride in self.data_stride
             ]
@@ -799,8 +784,8 @@ def main():
     try:
         trainer.run()
     except Exception as e:
-        logging.error(f"An error occurred: {e}")
-        logging.error(traceback.format_exc())
+        logging.exception(e)
+        raise e
 
 
 if __name__ == "__main__":

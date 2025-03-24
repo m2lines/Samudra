@@ -26,9 +26,6 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 Input: TypeAlias = Float[Grid, "*batch total_vars"]
 Label: TypeAlias = Prognostic
 
-GridMask = Bool[torch.Tensor, "180 360"]
-PrognosticMask = Bool[GridMask, "prognostic_vars"]
-
 Example = tuple[Input, Label] | tuple[xr.Dataset, xr.Dataset]
 
 GridMask = Bool[Array, "180 360"]

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742824208134,
+  "lastUpdate": 1742837087408,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -965,6 +965,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.6514650812859053",
             "extra": "mean: 135.58572482120005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eb98afdfdc4bf7a30a52d911c8ea63e0256e15f2",
+          "message": "March refactor - renaming (#141)\n\n* Bunch of renaming and removal of unused experiment configs in\nconstants. The most important rename here is inputs -> prognostic, extra\n-> boundary and removal of output variables names/keys since they are\nthe same as input variables. This functionality is okay for now since\nthe codebase depends on this fact. I don't see a near future where this\nis going to change.\n* The scripts for training on gantry, empire ai etc. may not work and I\nam planning to fix that in a later PR\n\nFollowing Draft PR #134 \n\nCloses issue #80",
+          "timestamp": "2025-03-24T12:48:06-04:00",
+          "tree_id": "59391f69030ea4c0c6afe39efe1c8505d88b171d",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/eb98afdfdc4bf7a30a52d911c8ea63e0256e15f2"
+        },
+        "date": 1742837086487,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.06763295617984809,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0963179671467952",
+            "extra": "mean: 14.785691125799996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.18655951594202988,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09631010720272",
+            "extra": "mean: 5.360219739799993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.1706063409341989,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0850553650681752",
+            "extra": "mean: 5.861446852000006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.008113011443881997,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12853033699078015",
+            "extra": "mean: 123.25879322579999 sec\nrounds: 5"
           }
         ]
       }

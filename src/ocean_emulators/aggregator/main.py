@@ -1,3 +1,9 @@
+"""
+The code in this directory is directly inspired by the ACE project by AI2.
+
+See the original repository at: https://github.com/ai2cm/ace/tree/39133c18524cda85965486ecdc8cb64aac06f4c3/fme/fme/ace/aggregator
+"""
+
 from typing import Dict
 
 import torch
@@ -17,13 +23,13 @@ class Aggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
-        output_channels: int,
+        num_prognostic_channels: int,
     ) -> ValidateAggregator:
         return ValidateAggregator(
             metadata=metadata,
             hist=hist,
             area_weights=area_weights,
-            output_channels=output_channels,
+            num_prognostic_channels=num_prognostic_channels,
         )
 
     @staticmethod
@@ -32,14 +38,14 @@ class Aggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
-        output_channels: int,
+        num_prognostic_channels: int,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
             hist=hist,
             area_weights=area_weights,
-            output_channels=output_channels,
+            num_prognostic_channels=num_prognostic_channels,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
@@ -51,14 +57,14 @@ class Aggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
-        output_channels: int,
+        num_prognostic_channels: int,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
             hist=hist,
             area_weights=area_weights,
-            output_channels=output_channels,
+            num_prognostic_channels=num_prognostic_channels,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,

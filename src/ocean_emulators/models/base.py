@@ -24,7 +24,7 @@ class BaseModel(torch.nn.Module):
         self.pred_residuals = pred_residuals
         self.hist = hist
         self.input_channels = ch_width[0]
-        self.output_channels = n_out
+        self.num_prognostic_channels = n_out
 
     def forward_once(self, fts):
         raise NotImplementedError()
@@ -49,7 +49,7 @@ class BaseModel(torch.nn.Module):
                 pred = (
                     input_tensor[
                         :,
-                        : self.output_channels,
+                        : self.num_prognostic_channels,
                     ]  # Residuals on last state in input
                     + decodings
                 )  # Residual prediction
@@ -108,7 +108,7 @@ class BaseModel(torch.nn.Module):
                 pred = (
                     input_tensor[
                         0,
-                        : self.output_channels,
+                        : self.num_prognostic_channels,
                     ].to(  # Residuals on last state in input
                         device=get_device()
                     )

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=samudra-maskstos-perlmutter
-#SBATCH --output=train_3D/logs/slurm-%j.out
-#SBATCH --error=train_3D/logs/slurm-%j.err
+#SBATCH --output=train/logs/slurm-%j.out
+#SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g
 #SBATCH --account=m4874
 #SBATCH --qos=regular
@@ -32,6 +32,6 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 
 # Run the training script
 srun --cpu-bind=cores \
-     python src/train_3D.py \
+     python src/train.py \
      --config configs/slurm_perlmutter_train_cm4.yaml \
      --subname $SLURM_JOB_NAME

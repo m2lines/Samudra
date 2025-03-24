@@ -618,7 +618,7 @@ class Trainer:
         # Create datasets
 
         train_slice = get_time_slice(
-            data=self.train_times, time_delta=self.time_delta, hist=self.hist
+            self.train_times, time_delta=self.time_delta, hist=self.hist
         )[0]
 
         val_slice = get_time_slice(
@@ -633,8 +633,7 @@ class Trainer:
                     [
                         TrainDataset(
                             self.data.sel(time=train_slice),
-                            prognostic_var_names=
-                            self.prognostic_var_names,
+                            prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
                             wet_surface=self.wet_surface,

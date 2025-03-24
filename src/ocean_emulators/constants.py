@@ -168,8 +168,8 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
         except AttributeError:
             if var in DEFAULT_METADATA.keys():
                 metadata[str(var)] = DEFAULT_METADATA[str(var)]
-            elif str(var).split("_")[0] in DEFAULT_METADATA.keys():
-                metadata[str(var)] = DEFAULT_METADATA[str(var).split("_")[0]]
+            elif (key := str(var).split("_")[0]) in DEFAULT_METADATA.keys():
+                metadata[str(var)] = DEFAULT_METADATA[key]
             else:
                 logging.info(f"{var} does not have any default metadata")
                 metadata[str(var)] = {

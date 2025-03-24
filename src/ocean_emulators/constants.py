@@ -138,8 +138,8 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
 
 
 LOADER_FLAGS = [
-    "Eager-TrainData-OM4-Loader",
-    "Lazy-Xarray-OM4-Loader",
+    "om4-eager",
+    "om4-lazy",
 ]
 
 

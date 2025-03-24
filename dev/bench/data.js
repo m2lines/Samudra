@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742590539627,
+  "lastUpdate": 1742824205951,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -913,6 +913,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.46817362021820524",
             "extra": "mean: 119.9101356694 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c4abfac895fd2788eac49061755d0c5aa406aa0",
+          "message": "Resolve CFTime warning (#139)\n\nThe underlying [warning\n](https://github.com/Unidata/cftime/blob/eab0212df73decd5a420adaae7938b942d131c95/src/cftime/_cftime.pyx#L1151)\nwas due to us passing a date with year < 0 for a calendar that doesn't\nsupport that.\n\nThis was for 2 reasons: first, we had no minimum in the possible\ngenerated dates and second because the fromordinal function we were\nusing takes the number of days since year -4713 (yes, negative four\nthousand years BCE) but the python datetime toordinal produces the\nnumber of days since year 1. So, we have a minimum now and we are using\na conversion function which is a little less silly.\n\nFixes #112",
+          "timestamp": "2025-03-24T09:08:43-04:00",
+          "tree_id": "5da7886abe8dc19aaef0095065bae2d814b441f4",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/0c4abfac895fd2788eac49061755d0c5aa406aa0"
+        },
+        "date": 1742824204965,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.06205709284086216,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12453614106018021",
+            "extra": "mean: 16.114193466400014 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.1707943356537342,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10951997899555739",
+            "extra": "mean: 5.854995109600031 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.1579723372091907,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11583030001867972",
+            "extra": "mean: 6.330222225399984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.007375407708434811,
+            "unit": "iter/sec",
+            "range": "stddev: 1.6514650812859053",
+            "extra": "mean: 135.58572482120005 sec\nrounds: 5"
           }
         ]
       }

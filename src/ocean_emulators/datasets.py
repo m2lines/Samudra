@@ -9,12 +9,12 @@ from jaxtyping import Float, Integer
 from torch.utils.data import Dataset
 
 from ocean_emulators.constants import (
-    LOADER_FLAGS,
     Boundary,
     BoundaryVarNames,
     Example,
     GridMask,
     Input,
+    LoaderVersion,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
@@ -26,7 +26,7 @@ from ocean_emulators.utils.device import get_device, using_gpu
 class OM4Dataset(Dataset):
     """A `torch.Dataset` for Zarr-backed OM4 data."""
 
-    FLAG = LOADER_FLAGS[1]
+    FLAG = LoaderVersion.OM4_LAZY
 
     def __init__(
         self,
@@ -411,7 +411,7 @@ class TrainDataset(Dataset):
             step=3->[[9, 10, 11], [12, 13, 14]]
     """
 
-    FLAG = LOADER_FLAGS[0]
+    FLAG = LoaderVersion.OM4_EAGER
 
     def __init__(
         self,

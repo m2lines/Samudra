@@ -1,3 +1,4 @@
+import enum
 import logging
 from typing import Dict, TypeAlias, TypeVar
 
@@ -137,10 +138,9 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
     return metadata
 
 
-LOADER_FLAGS = [
-    "om4-eager",
-    "om4-lazy",
-]
+class LoaderVersion(enum.Enum):
+    OM4_EAGER = "om4-eager"
+    OM4_LAZY = "om4-lazy"
 
 
 # TODO(#95): See if this can be removed and replaced.

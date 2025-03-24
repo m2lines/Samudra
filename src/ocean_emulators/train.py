@@ -33,6 +33,7 @@ from ocean_emulators.constants import (
     PROGNOSTIC_VARS,
     BoundaryVarNames,
     Grid,
+    LoaderVersion,
     PrognosticVarNames,
     TensorMap,
     construct_metadata,
@@ -148,7 +149,7 @@ class Trainer:
 
         # Dataloaders
         logging.info(f"Loading data")
-        self.loader_version = cfg.data.loader_version
+        self.loader_version = LoaderVersion(cfg.data.loader_version)
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path

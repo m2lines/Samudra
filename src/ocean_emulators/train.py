@@ -394,8 +394,8 @@ class Trainer:
         )
 
     def run(self) -> None:
-        self.best_val_loss = torch.tensor(1e8)
-        self.best_inf_loss = torch.tensor(1e8)
+        self.best_val_loss = 1e8
+        self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")
 
         start_time = time.time()
@@ -674,7 +674,7 @@ class Trainer:
             collate_fn=collate_train_data,
         )
 
-    def save_all_checkpoints(self, epoch, v_loss, inf_loss):
+    def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         save_best_checkpoint = False
         if v_loss <= self.best_val_loss:
             logging.info(

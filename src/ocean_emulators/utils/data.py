@@ -7,6 +7,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 
+from ocean_emulators.config import TimeConfig
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
@@ -55,7 +56,7 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
     return weights
 
 
-def get_inference_steps(time_config, time_delta=5, hist=1):
+def get_inference_steps(time_config: TimeConfig, time_delta: int = 5, hist: int = 1):
     """
     Get the number of inference/rollout steps for the given time configuration.
 

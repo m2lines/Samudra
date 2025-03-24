@@ -9,7 +9,7 @@ from einops import rearrange
 from ocean_emulators import config
 from ocean_emulators.constants import (
     MASK_VARS,
-    BoundaryVarsStr,
+    BoundaryVarNames,
     Grid,
     GridMask,
     PrognosticMask,
@@ -129,7 +129,7 @@ class Normalize(Multiton):
         data_mean: xr.Dataset,
         data_std: xr.Dataset,
         prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarsStr,
+        boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""

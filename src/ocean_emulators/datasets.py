@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 
 from ocean_emulators.constants import (
     Boundary,
-    BoundaryVarsStr,
+    BoundaryVarNames,
     GridMask,
     Input,
     Prognostic,
@@ -284,7 +284,7 @@ class TrainDataset(Dataset):
         self,
         data: xr.Dataset,
         prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarsStr,
+        boundary_var_names: BoundaryVarNames,
         wet: PrognosticMask,
         wet_surface: GridMask,
         hist: int,

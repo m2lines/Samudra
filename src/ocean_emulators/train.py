@@ -31,7 +31,7 @@ from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
-    BoundaryVarsStr,
+    BoundaryVarNames,
     Grid,
     PrognosticVarNames,
     TensorMap,
@@ -99,7 +99,7 @@ class Trainer:
         self.prognostic_var_names: PrognosticVarNames = PROGNOSTIC_VARS[
             cfg.experiment.prognostic_vars_key
         ]
-        self.boundary_var_names: BoundaryVarsStr = BOUNDARY_VARS[
+        self.boundary_var_names: BoundaryVarNames = BOUNDARY_VARS[
             cfg.experiment.boundary_vars_key
         ]
 

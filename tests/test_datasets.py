@@ -75,13 +75,13 @@ def vector_of(max_vec_size: int, min_vec_size=1):
 @given(
     data_var_index=st.integers(min_value=0, max_value=255),
     lat=arrays(
-        dtype=np.float64,
+        dtype=np.float16,
         shape=vector_of(50),
         elements=st.floats(-90.0, 90.0, allow_nan=False, allow_infinity=False),
         unique=True,
     ),
     lng=arrays(
-        dtype=np.float64,
+        dtype=np.float16,
         shape=vector_of(50),
         elements=st.floats(0, 360.0, allow_nan=False, allow_infinity=False),
         unique=True,

@@ -20,7 +20,6 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
 Input = Float[Grid, "*batch total_vars"]
-Label = Float[Grid, "*batch prognostic_vars"]
 
 GridMask = Bool[torch.Tensor, "180 360"]
 InputMask = Bool[GridMask, "prognostic_vars"]

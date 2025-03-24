@@ -15,14 +15,14 @@ from ocean_emulators.constants import (
     Grid,
     GridMask,
     InputMask,
-    PrognosticVarsStr,
+    PrognosticVarNames,
     TensorMap,
 )
 from ocean_emulators.utils.multiton import Multiton
 
 
 def extract_wet_mask(
-    data: xr.Dataset, prognostic_vars_str: PrognosticVarsStr, hist: int
+    data: xr.Dataset, prognostic_var_names: PrognosticVarNames, hist: int
 ) -> tuple[InputMask, GridMask]:
     """A mask for where the oceans are. Water is wet."""
     wet_mask = data[MASK_VARS]
@@ -34,7 +34,7 @@ def extract_wet_mask(
         wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
 
     depth_ind = []
-    for var_depth_i in prognostic_vars_str:
+    for var_depth_i in prognostic_var_names:
         var_split = var_depth_i.split("_")
         if len(var_split) == 1:
             depth_ind.append(0)
@@ -88,9 +88,9 @@ def get_inference_steps(time_config, time_delta=5, hist=1):
 def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tensor]:
     tensor_map = TensorMap.get_instance()
     assert tensor_out.ndim == 5
-    assert tensor_out.shape[2] == len(tensor_map.prognostic_vars_str)
+    assert tensor_out.shape[2] == len(tensor_map.prognostic_var_names)
     out_dict = {}
-    for i, var in enumerate(tensor_map.prognostic_vars_str):
+    for i, var in enumerate(tensor_map.prognostic_var_names):
         out_dict[var] = tensor_out[:, :, i]
     return out_dict
 
@@ -200,15 +200,15 @@ class Normalize(Multiton):
         self,
         data_mean: xr.Dataset,
         data_std: xr.Dataset,
-        prognostic_vars_str: PrognosticVarsStr,
-        boundary_vars_str: BoundaryVarsStr,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarsStr,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        self.prognostic_mean = data_mean[prognostic_vars_str]
-        self.prognostic_std = data_std[prognostic_vars_str]
-        self.boundary_mean = data_mean[boundary_vars_str]
-        self.boundary_std = data_std[boundary_vars_str]
+        self.prognostic_mean = data_mean[prognostic_var_names]
+        self.prognostic_std = data_std[prognostic_var_names]
+        self.boundary_mean = data_mean[boundary_var_names]
+        self.boundary_std = data_std[boundary_var_names]
         self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access

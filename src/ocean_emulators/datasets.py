@@ -14,14 +14,13 @@ from ocean_emulators.constants import (
     GridMask,
     Input,
     InputMask,
-    Label,
-    PrognosticVarsStr,
-    TotalInput,
+    Prognostic,
+    PrognosticVarNames,
 )
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device, using_gpu
 
-Example = tuple[TotalInput, Label]
+Example = tuple[Input, Prognostic]
 
 
 class InferenceDataset(Dataset):
@@ -41,8 +40,8 @@ class InferenceDataset(Dataset):
     def __init__(
         self,
         data,
-        prognostic_vars_str,
-        boundary_vars_str,
+        prognostic_var_names,
+        boundary_var_names,
         wet,
         wet_surface,
         hist,
@@ -53,9 +52,9 @@ class InferenceDataset(Dataset):
 
         self.hist = hist
 
-        self.num_prognostic_channels = (hist + 1) * len(prognostic_vars_str)
-        self._prognostic_vars = data[prognostic_vars_str]
-        self._boundary_vars = data[boundary_vars_str]
+        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        self._prognostic_vars = data[prognostic_var_names]
+        self._boundary_vars = data[boundary_var_names]
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -228,17 +227,17 @@ class TrainData:
         self.num_prognostic_channels = num_prognostic_channels
         self.steps = 0
 
-    def insert(self, input_: TotalInput, label: Label):
+    def insert(self, input_: Input, label: Prognostic):
         self.td_dict[self.steps] = (input_, label)
         self.steps += 1
 
-    def get_initial_input(self) -> TotalInput:
+    def get_initial_input(self) -> Input:
         return self.td_dict[0][0]
 
-    def get_input(self, step: int) -> TotalInput:
+    def get_input(self, step: int) -> Input:
         return self.td_dict[step][0]
 
-    def get_label(self, step: int) -> Label:
+    def get_label(self, step: int) -> Prognostic:
         return self.td_dict[step][1]
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
@@ -284,8 +283,8 @@ class TrainDataset(Dataset):
     def __init__(
         self,
         data: xr.Dataset,
-        prognostic_vars_str: PrognosticVarsStr,
-        boundary_vars_str: BoundaryVarsStr,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarsStr,
         wet: InputMask,
         wet_surface: GridMask,
         hist: int,
@@ -299,9 +298,9 @@ class TrainDataset(Dataset):
         self.steps: int = steps
         self.stride: int = stride
 
-        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_vars_str)
-        self._prognostic_vars: xr.Dataset = data[prognostic_vars_str]
-        self._boundary_vars: xr.Dataset = data[boundary_vars_str]
+        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
+        self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
+        self._boundary_vars: xr.Dataset = data[boundary_var_names]
 
         # This class will be used only for training
         total_steps: int = 2 * self.hist + 2
@@ -351,14 +350,14 @@ class TrainDataset(Dataset):
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
 
-            data_in: Input = self._get_input(x_index)
+            data_in: Prognostic = self._get_input(x_index)
             data_in_boundary: Boundary = self._get_boundary(x_index)
 
-            data_combined: TotalInput = torch.cat(
+            data_combined: Input = torch.cat(
                 (data_in, data_in_boundary), dim=1
             ).squeeze()
 
-            label: Label = self._get_label(x_index)
+            label: Prognostic = self._get_label(x_index)
 
             TD.insert(
                 input_=data_combined,
@@ -396,7 +395,7 @@ class TrainDataset(Dataset):
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index
 
-    def _get_input(self, x_index) -> Input:
+    def _get_input(self, x_index) -> Prognostic:
         # TODO(jder): nicer typing
         data_in: Any = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
@@ -435,7 +434,7 @@ class TrainDataset(Dataset):
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
-    def _get_label(self, x_index) -> Label:
+    def _get_label(self, x_index) -> Prognostic:
         # TODO(jder): nicer typing
         label: Any = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)

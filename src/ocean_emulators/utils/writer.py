@@ -48,7 +48,7 @@ class ZarrWriter:
         ds = xr.Dataset(
             data_vars={
                 var: (["time", "lat", "lon"], self.buffer[:, i, :, :].cpu().numpy())
-                for i, var in enumerate(self.tensor_map.prognostic_vars_str)
+                for i, var in enumerate(self.tensor_map.prognostic_var_names)
             },
             coords=coords,
         )

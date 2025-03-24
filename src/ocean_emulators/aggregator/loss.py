@@ -42,6 +42,6 @@ class LossAggregator(Multiton):
         self, label: str, loss_per_channel: torch.Tensor
     ) -> Dict[str, torch.Tensor]:
         metrics = {}
-        for i, channel in enumerate(self.tensor_map.prognostic_vars_str):
+        for i, channel in enumerate(self.tensor_map.prognostic_var_names):
             metrics[f"{label}/loss/channel/{channel}_loss"] = loss_per_channel[i]
         return metrics

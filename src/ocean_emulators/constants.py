@@ -11,17 +11,18 @@ from ocean_emulators.utils.multiton import Multiton
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 Grid = Float[torch.Tensor, "180 360"]
-Input = Float[Grid, "*batch input_vars"]  # equivalent to "*batch input_vars lat lon"
+Prognostic = Float[
+    Grid, "*batch prognostic_vars"
+]  # equivalent to "*batch prognostic_vars lat lon"
 Boundary = Float[Grid, "*batch boundary_vars"]
-# A note from jaxtyping (why we can't do "input_vars+boundary_vars"):
+# A note from jaxtyping (why we can't do "prognostic_vars+boundary_vars"):
 #   In practice you should usually only use symbolic axes in annotations
 #   for return types, referring only to axes annotated for arguments.
 # So, we'll leave this default and use symbolic axes locally.
-TotalInput = Float[Grid, "*batch total_vars"]
-Label = Float[Grid, "*batch output_vars"]
+Input = Float[Grid, "*batch total_vars"]
 
 GridMask = Bool[torch.Tensor, "180 360"]
-InputMask = Bool[GridMask, "input_vars"]
+InputMask = Bool[GridMask, "prognostic_vars"]
 
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels
@@ -92,8 +93,8 @@ MASK_VARS = [
     "mask_18",
 ]
 
-PrognosticVarsStr = list[str]
-PROGNOSTIC_VARS: dict[str, PrognosticVarsStr] = {
+PrognosticVarNames = list[str]
+PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
     "thermo_dynamic_5": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
     ]
@@ -208,8 +209,8 @@ class TensorMap(Multiton):
             )
         )
         self.DEPTH_SET = DEPTH_I_LEVELS
-        self.prognostic_vars_str = PROGNOSTIC_VARS[prognostic_vars_key]
-        self.boundary_vars_str = BOUNDARY_VARS[boundary_vars_key]
+        self.prognostic_var_names = PROGNOSTIC_VARS[prognostic_vars_key]
+        self.boundary_var_names = BOUNDARY_VARS[boundary_vars_key]
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()
@@ -217,7 +218,7 @@ class TensorMap(Multiton):
     def _populate_var_3d_idx(self):
         for kt in self.VAR_SET:
             self.VAR_3D_IDX[kt] = torch.tensor([])
-            for i, k in enumerate(self.prognostic_vars_str):
+            for i, k in enumerate(self.prognostic_var_names):
                 if kt in k:
                     self.VAR_3D_IDX[kt] = torch.cat(
                         [self.VAR_3D_IDX[kt], torch.tensor([i])]
@@ -227,7 +228,7 @@ class TensorMap(Multiton):
     def _populate_dp_3d_idx(self):
         for d in self.DEPTH_SET:
             self.DP_3D_IDX[d] = torch.tensor([])
-            for i, k in enumerate(self.prognostic_vars_str):
+            for i, k in enumerate(self.prognostic_var_names):
                 k_split = k.split("_")
                 if len(k_split) == 1:
                     continue

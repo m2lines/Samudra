@@ -14,7 +14,7 @@ from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
     BoundaryVarsStr,
-    PrognosticVarsStr,
+    PrognosticVarNames,
     TensorMap,
     construct_metadata,
 )
@@ -51,10 +51,10 @@ class Eval:
         set_seed(cfg.experiment.rand_seed)
 
         # Getting prognostic and boundary variables
-        self.prognostic_vars_str: PrognosticVarsStr = PROGNOSTIC_VARS[
+        self.prognostic_var_names: PrognosticVarNames = PROGNOSTIC_VARS[
             cfg.experiment.prognostic_vars_key
         ]
-        self.boundary_vars_str: BoundaryVarsStr = BOUNDARY_VARS[
+        self.boundary_var_names: BoundaryVarsStr = BOUNDARY_VARS[
             cfg.experiment.boundary_vars_key
         ]
 
@@ -64,18 +64,18 @@ class Eval:
         else:
             self.levels = int(levels)
 
-        str_prognostics = ", ".join([i for i in self.prognostic_vars_str])
-        str_boundaries = ", ".join([i for i in self.boundary_vars_str])
+        str_prognostics = ", ".join([i for i in self.prognostic_var_names])
+        str_boundaries = ", ".join([i for i in self.boundary_var_names])
 
         logging.info(f"Prognostic variables: {str_prognostics}")
         logging.info(f"Boundary variables: {str_boundaries}")
         logging.info(f"Levels: {self.levels}")
 
-        self.N_atm = len(self.boundary_vars_str)
-        self.N_in = len(self.prognostic_vars_str)
+        self.N_bound = len(self.boundary_var_names)
+        self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_in + self.N_atm)
-        self.num_out = int((cfg.data.hist + 1) * self.N_in)
+        self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
+        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
@@ -117,17 +117,17 @@ class Eval:
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.prognostic_vars_str, cfg.data.hist
+            self.data, self.prognostic_var_names, cfg.data.hist
         )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_vars_str, 0)
+        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_var_names, 0)
         self.area_weights = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
             data_mean=self.data_mean,
             data_std=self.data_std,
-            prognostic_vars_str=self.prognostic_vars_str,
-            boundary_vars_str=self.boundary_vars_str,
+            prognostic_var_names=self.prognostic_var_names,
+            boundary_var_names=self.boundary_var_names,
             wet_mask=wet_without_hist,
         )
 
@@ -201,8 +201,8 @@ class Eval:
         )
         self.inference_dataset = InferenceDataset(
             data=inference_data,
-            prognostic_vars_str=self.prognostic_vars_str,
-            boundary_vars_str=self.boundary_vars_str,
+            prognostic_var_names=self.prognostic_var_names,
+            boundary_var_names=self.boundary_var_names,
             wet=self.wet,
             wet_surface=self.wet_surface,
             hist=self.hist,

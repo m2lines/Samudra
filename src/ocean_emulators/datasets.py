@@ -66,6 +66,9 @@ class OM4Dataset(Dataset):
 
         # TODO(alxmrs): When we want to support inference later on, we will need to
         #  calculate different steps.
+        if self.is_inference:
+            raise NotImplementedError("does not (yet) support inference.")
+
         total_steps: int = 2 * self.hist + 2
         # Calculate the number of windows
         num_windows = data.time.size - (total_steps - 1) * self.stride

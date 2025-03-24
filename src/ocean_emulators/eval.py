@@ -24,8 +24,9 @@ from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
     Normalize,
     extract_wet_mask,
-    get_time_slice,
+    get_inference_steps,
     spherical_area_weights,
+    validate_data,
 )
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import is_main_process, set_seed
@@ -110,7 +111,9 @@ class Eval:
             chunks={},
         )
 
-        self.data, self.data_mean, self.data_std = (data, data_mean, data_std)
+        self.data, self.data_mean, self.data_std = validate_data(
+            data, data_mean, data_std
+        )
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -185,12 +188,17 @@ class Eval:
         self.init_inference_store()
 
     def init_inference_store(self):
-        time_slice_with_initial_condition, self.num_time_steps = get_time_slice(
+        self.num_time_steps = get_inference_steps(
             self.inference_time,
             time_delta=self.time_delta,
             hist=self.hist,
         )
-        inference_data = self.data.sel(time=time_slice_with_initial_condition)
+        inference_data = self.data.sel(
+            time=slice(
+                self.inference_time.start_time,
+                self.inference_time.end_time,
+            )
+        )
         self.inference_dataset = InferenceDataset(
             data=inference_data,
             prognostic_vars_str=self.prognostic_vars_str,
@@ -273,7 +281,13 @@ def main():
     handle_warnings()
 
     Evaluator = Eval(cfg)
-    Evaluator.run()
+
+    try:
+        Evaluator.run()
+    except Exception as e:
+        # Log the exception with traceback
+        logging.exception(e)
+        raise e
 
 
 if __name__ == "__main__":

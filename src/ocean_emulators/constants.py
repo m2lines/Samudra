@@ -111,6 +111,50 @@ BOUNDARY_VARS: dict[str, BoundaryVarsStr] = {
     "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
 }
 
+DEFAULT_METADATA = {
+    "thetao": {
+        "long_name": "Sea Water Potential Temperature",
+        "units": r"\degree C",
+    },
+    "so": {
+        "long_name": "Sea Water Salinity",
+        "units": "psu",
+    },
+    "uo": {
+        "long_name": "Sea Water X Velocity",
+        "units": "m/s",
+    },
+    "vo": {
+        "long_name": "Sea Water Y Velocity",
+        "units": "m/s",
+    },
+    "zos": {
+        "long_name": "Sea surface height above geoid",
+        "units": "m",
+    },
+    "tos": {
+        "long_name": "Sea surface temperature",
+        "units": r"\degree C",
+    },
+    "tauuo": {
+        "long_name": "Surface Downward X Stress",
+        "units": "N/m^2",
+    },
+    "tauvo": {
+        "long_name": "Surface Downward Y Stress",
+        "units": "N/m^2",
+    },
+    "hfds": {
+        "long_name": "Surface ocean heat flux from "
+        "SW+LW+latent+sensible+masstransfer+frazil+seaice_melt_heat",
+        "units": "W/m^2",
+    },
+    "hfds_anomalies": {
+        "long_name": "hfds anomalies",
+        "units": "W/m^2",
+    },
+}
+
 
 def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
     metadata = {}
@@ -121,11 +165,17 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
                 "units": data[var].units,
             }
         except AttributeError:
-            logging.info(f"{var} has no long_name or units attribute")
-            metadata[str(var)] = {
-                "long_name": "Unknown",
-                "units": "Unknown",
-            }
+            if var in DEFAULT_METADATA.keys():
+                metadata[str(var)] = DEFAULT_METADATA[str(var)]
+            elif str(var).split("_")[0] in DEFAULT_METADATA.keys():
+                metadata[str(var)] = DEFAULT_METADATA[str(var).split("_")[0]]
+            else:
+                logging.info(f"{var} does not have any default metadata")
+                metadata[str(var)] = {
+                    "long_name": "Unknown",
+                    "units": "Unknown",
+                }
+
     return metadata
 
 

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742841057197,
+  "lastUpdate": 1742854460336,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1069,6 +1069,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 4.689125988061758",
             "extra": "mean: 130.04341211419998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e7a3cfffeef70b46b06c94bbcca028da122d9162",
+          "message": "uv script to prototype Zarr opening + update to Zarr cloning script. (#111)\n\n# Experiments\n\nSo far, it looks like we _should_ be using Zarr v2 + time_chunks=700, as\nthis is the fastest way to open this particular dataset!\n\n## Opening Remote OM4 data\n```\n# Zarr v2 (I think this uses consolidated=True by default!)\nuv run scripts/open_zarr_tuning.py                        \n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=2.18.4,xarray-version=2025.1.2\nELAPSED: 7.5452s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=None, time_chunks=None)\n\n# Zarr v2 + time=10\nuv run scripts/open_zarr_tuning.py --time_chunks=10\n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=2.18.4,xarray-version=2025.1.2\nELAPSED: 7.1839s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=None, time_chunks=10)\n\n# Zarr v2 + time=100\nuv run scripts/open_zarr_tuning.py --time_chunks=100\n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=2.18.4,xarray-version=2025.1.2\nELAPSED: 7.1952s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=None, time_chunks=100)\n\n# Zarr v2 + time=700\nuv run scripts/open_zarr_tuning.py --time_chunks=700\n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=2.18.4,xarray-version=2025.1.2\nELAPSED: 7.0575s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=None, time_chunks=700)\n\n\n\n# Zarr v3 (defaults)\nuv run scripts/open_zarr_tuning.py \n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=3.0.5,xarray-version=2025.1.2\nELAPSED: 11.2039s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=10, time_chunks=None)\n\n# Zarr v3 + manually setting `consolidated=True`\n uv run scripts/open_zarr_tuning.py \n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=3.0.5,xarray-version=2025.1.2\nELAPSED: 11.2342s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=10, time_chunks=None)\n\n# Zarr v3 + concurrency=50\nuv run scripts/open_zarr_tuning.py --zarr_concurrency=50\n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=3.0.5,xarray-version=2025.1.2\nELAPSED: 10.9889s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=50, time_chunks=None)\n\n# Zarr v3 + concurrency=100\nuv run scripts/open_zarr_tuning.py --zarr_concurrency=100\n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=3.0.5,xarray-version=2025.1.2\nELAPSED: 11.0583s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=100, time_chunks=None)\n\n# Zarr v3 + time=10\nuv run scripts/open_zarr_tuning.py --time_chunks=10   \n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=3.0.5,xarray-version=2025.1.2\nELAPSED: 10.9641s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=10, time_chunks=10)\n\n# Zarr v3 + time=100\nuv run scripts/open_zarr_tuning.py --time_chunks=100\n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=3.0.5,xarray-version=2025.1.2\nELAPSED: 10.7012s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=10, time_chunks=100)\n\n# Zarr v3 + time=700\nuv run scripts/open_zarr_tuning.py --time_chunks=700\n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=3.0.5,xarray-version=2025.1.2\nELAPSED: 10.7541s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=10, time_chunks=700)\n\n# Zarr v3 + time=700 + concurrency=100\nuv run scripts/open_zarr_tuning.py --time_chunks=700 --zarr_concurrency=100\n3.11.11 (main, Jan 14 2025, 23:36:41) [Clang 19.1.6 ]\nzarr-version=3.0.5,xarray-version=2025.1.2\nELAPSED: 10.7544s. Config: Namespace(target=None, n_iters=8, zarr_concurrency=100, time_chunks=700)\n```\n\n**TBD: Opening locally cloned OM4 data...**",
+          "timestamp": "2025-03-24T14:36:33-07:00",
+          "tree_id": "56a3d2bdbe750aa8daa38384211e433ea10c0a3a",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/e7a3cfffeef70b46b06c94bbcca028da122d9162"
+        },
+        "date": 1742854459328,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.06876749219873958,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09713369215957661",
+            "extra": "mean: 14.541754658000002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.191268375757793,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08011467813971818",
+            "extra": "mean: 5.2282558266000025 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.17293424888685172,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0813211960834321",
+            "extra": "mean: 5.782544559199982 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.008194592413365854,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8788788767632002",
+            "extra": "mean: 122.03169475139998 sec\nrounds: 5"
           }
         ]
       }

@@ -49,14 +49,14 @@ def main(dest_root: str, time_slice: slice, write_time_chunks: int) -> None:
         ("OM4_stds", "netcdf"),
     ]:
         dest = os.path.join(dest_root, name)
-        target = DATA_ROOT + name
+        source = DATA_ROOT + name
 
         # Open Xarray Datasets with retries + exponential backoff.
         if name == "OM4":
-            data = robust_getitem(chunked_opener, target)
+            data = robust_getitem(chunked_opener, source)
             data = data.isel(time=time_slice)
         else:
-            data = robust_getitem(zarr_opener, target)
+            data = robust_getitem(zarr_opener, source)
 
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":

@@ -33,8 +33,8 @@ REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/OM4"
 
 
 def main(args: argparse.Namespace) -> float:
-    """Calculates elapsed time to open Zarr target over several iterations."""
-    target = args.target or REMOTE_DATA
+    """Calculates elapsed time to open Zarr source over several iterations."""
+    source = args.source or REMOTE_DATA
 
     chunks = {}
     if tc := args.time_chunks:
@@ -54,10 +54,10 @@ def main(args: argparse.Namespace) -> float:
         # Zarr v3 has a runtime config contextmanager.
         if zc := args.zarr_concurrency:
             with zarr.config.set({"async.concurrency": zc}):
-                ds = xr.open_zarr(target, chunks=chunks, consolidated=True)
+                ds = xr.open_zarr(source, chunks=chunks, consolidated=True)
         # Zarr v2 does not.
         else:
-            ds = xr.open_zarr(target, chunks=chunks, consolidated=True)
+            ds = xr.open_zarr(source, chunks=chunks, consolidated=True)
 
         if args.write_test_data:
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -69,8 +69,8 @@ def main(args: argparse.Namespace) -> float:
     return end_time - start_time
 
 
-def Target(candidate: str) -> pathlib.Path | str:
-    """Target can either be a local file or a remote URL."""
+def Source(candidate: str) -> pathlib.Path | str:
+    """Data Source can either be a local file or a remote URL."""
     if "://" in candidate:
         return candidate
     return pathlib.Path(candidate)
@@ -78,7 +78,7 @@ def Target(candidate: str) -> pathlib.Path | str:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Experiments to tune OpenZarr")
-    parser.add_argument("--target", type=Target, default=None)
+    parser.add_argument("--source", type=Source, default=None)
     parser.add_argument("--n_iters", type=int, default=8)
     parser.add_argument(
         "--zarr_concurrency",

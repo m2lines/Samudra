@@ -20,6 +20,7 @@ train_unet_old
 train_swin
 notebooks/temp
 temp
+train
 train_3D
 token.txt
 profile-logs/

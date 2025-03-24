@@ -193,12 +193,7 @@ class Eval:
             time_delta=self.time_delta,
             hist=self.hist,
         )
-        inference_data = self.data.sel(
-            time=slice(
-                self.inference_time.start_time,
-                self.inference_time.end_time,
-            )
-        )
+        inference_data = self.data.sel(time=self.inference_time.time_slice)
         self.inference_dataset = InferenceDataset(
             data=inference_data,
             prognostic_var_names=self.prognostic_var_names,

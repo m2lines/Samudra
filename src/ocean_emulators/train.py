@@ -357,12 +357,7 @@ class Trainer:
                 time_delta=self.time_delta,
                 hist=self.hist,
             )
-            inference_data = self.data.sel(
-                time=slice(
-                    self.inference_times[i].start_time,
-                    self.inference_times[i].end_time,
-                )
-            )
+            inference_data = self.data.sel(time=self.inference_times[i].time_slice)
             inference_dataset = InferenceDataset(
                 data=inference_data,
                 prognostic_var_names=self.prognostic_var_names,
@@ -620,12 +615,7 @@ class Trainer:
         train_data: ConcatDataset = ConcatDataset(
             [
                 TrainDataset(
-                    data=self.data.sel(
-                        time=slice(
-                            self.train_times.start_time,
-                            self.train_times.end_time,
-                        )
-                    ),
+                    data=self.data.sel(time=self.train_times.time_slice),
                     prognostic_var_names=self.prognostic_var_names,
                     boundary_var_names=self.boundary_var_names,
                     wet=self.wet,
@@ -641,12 +631,7 @@ class Trainer:
         val_data: ConcatDataset = ConcatDataset(
             [
                 TrainDataset(
-                    data=self.data.sel(
-                        time=slice(
-                            self.val_times.start_time,
-                            self.val_times.end_time,
-                        )
-                    ),
+                    data=self.data.sel(time=self.val_times.time_slice),
                     prognostic_var_names=self.prognostic_var_names,
                     boundary_var_names=self.boundary_var_names,
                     wet=self.wet,

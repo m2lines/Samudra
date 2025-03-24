@@ -51,6 +51,7 @@ dev = [
   "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",
   "snakeviz>=2.2.2",
+  "tenacity>=9",
   "types-pyyaml>=6.0.12.20241230",
 ]
 

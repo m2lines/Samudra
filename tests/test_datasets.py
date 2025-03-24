@@ -306,15 +306,13 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
 
     ds = xr.open_dataset(cfg.data.data_path, chunks={})
 
-    input_vars = INPT_VARS[cfg.experiment.exp_num_in]
-    extra_vars = EXTRA_VARS[cfg.experiment.exp_num_extra]
-    output_vars = OUT_VARS[cfg.experiment.exp_num_out]
+    depth_vars = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
+    surface_vars = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
     om4 = OM4Dataset(
         ds,
-        input_vars,
-        extra_vars,
-        output_vars,
+        depth_vars,
+        surface_vars,
         cfg.data.hist,
         cfg.steps[0],
         cfg.data_stride[0],

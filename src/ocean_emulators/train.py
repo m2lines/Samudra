@@ -667,7 +667,6 @@ class Trainer:
                             self.data.sel(time=train_slice),
                             self.prognostic_var_names,
                             self.boundary_var_names,
-                            self.prognostic_var_names,
                             self.hist,
                             cur_step,
                             stride,
@@ -682,7 +681,6 @@ class Trainer:
                             self.data.sel(time=val_slice),
                             self.prognostic_var_names,
                             self.boundary_var_names,
-                            self.prognostic_var_names,
                             self.hist,
                             1,  # current_step set to 1 for validation
                             stride,

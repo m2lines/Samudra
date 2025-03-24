@@ -31,9 +31,8 @@ class OM4Dataset(Dataset):
     def __init__(
         self,
         data: xr.Dataset,
-        input_vars: PrognosticVarNames,
-        extra_vars: BoundaryVarNames,
-        output_vars: PrognosticVarNames,  # TODO(alxmrs): rm
+        depth_vars: PrognosticVarNames,
+        surface_vars: BoundaryVarNames,
         hist: int,
         steps: int,
         stride: int = 1,
@@ -42,20 +41,17 @@ class OM4Dataset(Dataset):
         # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
         data = unflatten_masks(data)
 
-        input_ = data[input_vars]
-        extra_ = data[extra_vars]
-        output_ = data[output_vars]
+        depths_ = data[depth_vars]
+        surface_ = data[surface_vars]
 
         # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
         norm = Normalize.get_instance()
-        norm_input = norm.normalize_inputs(input_)
-        norm_extra = norm.normalize_boundary(extra_)
-        norm_output = norm.normalize_outputs(output_)
+        norm_depths = norm.normalize_prognostic(depths_)
+        norm_surface = norm.normalize_boundary(surface_)
 
         # Set non-ocean areas to zero.
-        self.input = mask(norm_input, data.wetmask)
-        self.extra = mask(norm_extra, data.wetmask)
-        self.output = mask(norm_output, data.wetmask)
+        self.depths = mask(norm_depths, data.wetmask)
+        self.surface = mask(norm_surface, data.wetmask)
 
         self.hist: int = hist
         self.steps: int = steps
@@ -135,13 +131,15 @@ class OM4Dataset(Dataset):
             # This point in time splits the training data and the label data!
             time_split = self.hist + 1
 
-            prognostic = self.input.isel(time=window).isel(time=slice(None, time_split))
-            boundary = self.extra.isel(time=window).isel(time=self.hist)
+            prognostic = self.depths.isel(time=window).isel(
+                time=slice(None, time_split)
+            )
+            boundary = self.surface.isel(time=window).isel(time=self.hist)
             input_ = xr.merge(
                 [prognostic, boundary], compat="no_conflicts"
             )  # Combines variables.
 
-            label = self.output.isel(time=window).isel(time=slice(time_split, None))
+            label = self.depths.isel(time=window).isel(time=slice(time_split, None))
 
             inputs.append(input_)
             labels.append(label)

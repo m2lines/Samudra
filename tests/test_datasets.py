@@ -139,7 +139,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     start_day=datetime.date(2000, 1, 1),
     calendar="noleap",
 )
-@settings(deadline=2000)
+@settings(deadline=1000)
 def test_test_util__data_source_roundtrip(
     data_var_index: int,
     lat: NDArray[np.floating],

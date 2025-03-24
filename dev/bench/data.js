@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742837087408,
+  "lastUpdate": 1742837089279,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1835,6 +1835,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.482006448489079",
             "extra": "mean: 99.82810397840004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "eb98afdfdc4bf7a30a52d911c8ea63e0256e15f2",
+          "message": "March refactor - renaming (#141)\n\n* Bunch of renaming and removal of unused experiment configs in\nconstants. The most important rename here is inputs -> prognostic, extra\n-> boundary and removal of output variables names/keys since they are\nthe same as input variables. This functionality is okay for now since\nthe codebase depends on this fact. I don't see a near future where this\nis going to change.\n* The scripts for training on gantry, empire ai etc. may not work and I\nam planning to fix that in a later PR\n\nFollowing Draft PR #134 \n\nCloses issue #80",
+          "timestamp": "2025-03-24T12:48:06-04:00",
+          "tree_id": "59391f69030ea4c0c6afe39efe1c8505d88b171d",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/eb98afdfdc4bf7a30a52d911c8ea63e0256e15f2"
+        },
+        "date": 1742837088463,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-train]",
+            "value": 0.18141295538540508,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4410208124203638",
+            "extra": "mean: 5.512285480800074 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-val]",
+            "value": 0.40290182828266446,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07414456138204527",
+            "extra": "mean: 2.481994197599988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cuda]",
+            "value": 0.15999076494395098,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09727689425106809",
+            "extra": "mean: 6.250360765199957 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cuda]",
+            "value": 0.010980219298517023,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5754198441006614",
+            "extra": "mean: 91.07286228200005 sec\nrounds: 5"
           }
         ]
       }

@@ -2,7 +2,6 @@
 # - resubmit jobs / preempted job safety
 # - better stepper module and a cleaner model module
 # - cleaner dataset modules
-import argparse
 import datetime
 import logging
 import os
@@ -13,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Sequence, Union
 
 import dask
+import draccus
 import numpy as np
 import torch
 import torch.nn as nn
@@ -813,29 +813,14 @@ class Trainer:
         self.wandb_logger.finish()
 
 
-def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, required=True, help="Path to config YAML file"
-    )
-    parser.add_argument(
-        "--subname", type=str, required=False, help="Subname for the run", default=""
-    )
-    args = parser.parse_args()
-
-    overrides = {}
-    if args.subname:
-        overrides["sub_name"] = args.subname
-
-    # Load config from YAML
-    cfg = TrainConfig.from_yaml(args.config, overrides)
+@draccus.wrap()
+def main(cfg: TrainConfig):
     cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg)
     handle_warnings()
 
-    trainer = Trainer(cfg)
+    trainer = cfg.build()
 
     try:
         trainer.run()

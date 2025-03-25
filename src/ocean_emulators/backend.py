@@ -2,13 +2,9 @@ import logging
 
 import torch
 
-from ocean_emulators.config import (
-    DistributedConfig,
-    EvalBackendConfig,
-    TrainBackendConfig,
-)
+from ocean_emulators.config import EvalBackendConfig, TrainBackendConfig
 from ocean_emulators.utils.device import set_device
-from ocean_emulators.utils.distributed import init_distributed_mode
+from ocean_emulators.utils.distributed import DistributedConfig, init_distributed_mode
 
 
 def init_train_backend(

@@ -44,12 +44,7 @@ experiment:
   sub_name: local_cm4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
-  gantry: false
-  cluster_data_dir: null
-  wandb:
-    mode: disabled
-    project: 3D_ocean_emu_CM4
-    entity: suryadheeshjith
+  data_dir: null
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
@@ -61,7 +56,6 @@ data:
   time_delta: 5
   num_workers: 4
   hist: 0
-
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]

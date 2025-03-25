@@ -1,21 +1,61 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from os import PathLike
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
-
-import yaml
-from dacite import Config as DaciteConfig
-from dacite import from_dict
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from ocean_emulators.constants import LoaderVersion
+
+if TYPE_CHECKING:
+    from ocean_emulators.eval import Eval
+    from ocean_emulators.train import Trainer
+
+
+# See backend.py for how these are turned into concrete devices
+class TrainBackendConfig(Enum):
+    CPU = "cpu"
+    CUDA = "cuda"
+    NCCL = "nccl"
+    AUTO = "auto"
+
+
+class BlockType(Enum):
+    conv_next_block = "conv_next_block"
+    conv_block = "conv_block"
+
+
+class BlockNorm(Enum):
+    batch = "batch"
+    instance = "instance"
+    layer = "layer"
+
+
+class BlockActivation(Enum):
+    relu = "relu"
+    gelu = "gelu"
+    capped_gelu = "capped_gelu"
+
+
+class DownSampleBlockType(Enum):
+    avg_pool = "avg_pool"
+    max_pool = "max_pool"
+
+
+class UpSampleBlockType(Enum):
+    bilinear_upsample = "bilinear_upsample"
+    transposed_conv = "transposed_conv"
+
+
+class EvalBackendConfig(Enum):
+    cpu = "cpu"
+    cuda = "cuda"
+    auto = "auto"
 
 
 @dataclass
 class WandBConfig:
-    mode: str = "disabled"  # online, disabled
-    project: str = "3D_ocean_emu_CM4"
-    entity: str = "suryadheeshjith"
+    project: str
+    entity: str
     group: Optional[str] = None
     tags: Optional[List[str]] = None
     notes: Optional[str] = None
@@ -29,9 +69,9 @@ class TimeConfig:
 
 @dataclass
 class DataConfig:
-    data_path: str = "CM4_5daily_v0.4.0"
-    data_means_path: str = "CM4_5daily_v0.4.0_means"
-    data_stds_path: str = "CM4_5daily_v0.4.0_stds"
+    data_path: str
+    data_means_path: str
+    data_stds_path: str
     scaling_residuals_file: Optional[str] = None
     time_delta: int = 5
     num_workers: int = 4
@@ -41,11 +81,11 @@ class DataConfig:
 
 @dataclass
 class BlockConfig:
-    block_type: str = "conv_next_block"  # conv_next_block, conv_block
+    block_type: BlockType = "conv_next_block"
     kernel_size: int = 3
-    activation: str = "capped_gelu"  # relu, gelu, capped_gelu
+    activation: BlockActivation = "capped_gelu"
     upscale_factor: int = 4
-    norm: str = "batch"  # batch, instance, layer
+    norm: BlockNorm = "batch"
 
 
 @dataclass
@@ -67,28 +107,18 @@ class SamudraConfig:
     # Block configurations
     core_block: BlockConfig = field(default_factory=BlockConfig)
     corrector: CorrectorConfig = field(default_factory=CorrectorConfig)
-    down_sampling_block: str = "avg_pool"  # avg_pool, max_pool
-    up_sampling_block: str = "bilinear_upsample"  # bilinear_upsample, transposed_conv
-
-
-@dataclass
-class DistributedConfig:
-    dist_url: Optional[str] = None
-    world_size: Optional[int] = None
-    rank: Optional[int] = None
-    gpu: Optional[int] = None
-    dist_backend: Optional[str] = None
+    down_sampling_block: DownSampleBlockType = "avg_pool"
+    up_sampling_block: UpSampleBlockType = "bilinear_upsample"
 
 
 @dataclass
 class ExperimentConfig:
-    base_name: str = "train"
-    sub_name: str = "cm4_samudra"
+    base_name: str
+    sub_name: str
+    data_dir: str  # Root directory which data paths can be relative to
     rand_seed: int = 1
     base_output_dir: str = "train"
-    gantry: bool = False
-    cluster_data_dir: str = "/"
-    wandb: WandBConfig = field(default_factory=WandBConfig)
+    wandb: WandBConfig | None = None  # None means disabled
 
     # Model configuration
     network: str = "Samudra"
@@ -98,18 +128,11 @@ class ExperimentConfig:
     boundary_vars_key: str = "tau_hfds"
 
     def __post_init__(self):
+        # TODO(jder): remove
         timestamp = datetime.now().strftime("%Y-%m-%d")
         self.name = f"{timestamp}-{self.base_name}"
         self.output_dir = Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
         self.nets_dir = self.output_dir / "saved_nets"
-        if self.gantry:
-            self.data_dir = Path("/")
-        else:
-            self.data_dir = Path(self.cluster_data_dir)
-
-
-# See backend.py for how these are turned into concrete devices
-TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 
 
 @dataclass
@@ -147,66 +170,14 @@ class TrainConfig:
     data: DataConfig = field(default_factory=DataConfig)
     samudra: SamudraConfig = field(default_factory=SamudraConfig)
 
-    @classmethod
-    def from_yaml(
-        cls, yaml_path: str | PathLike, overrides: Optional[Dict[str, Any]] = None
-    ) -> "TrainConfig":
-        """Load config from YAML with strict validation using dacite."""
-        with open(yaml_path, "r") as f:
-            config_dict = yaml.safe_load(f)
+    def build(self) -> "Trainer":
+        from ocean_emulators.train import Trainer
 
-        # TODO: This is a hack to allow for overrides of the sub_name
-        if overrides and "sub_name" in overrides.keys():
-            config_dict["experiment"]["sub_name"] = overrides["sub_name"]
-
-        return from_dict(
-            data_class=cls,
-            data=config_dict,
-            config=DaciteConfig(strict=True, check_types=True, cast=[Path]),
-        )
-
-    def save_yaml(self, save_path: str):
-        """Save config to YAML file."""
-        config_dict = {
-            "debug": self.debug,
-            "disk_mode": self.disk_mode,
-            "pin_mem": self.pin_mem,
-            "save_freq": self.save_freq,
-            "epochs": self.epochs,
-            "batch_size": self.batch_size,
-            "learning_rate": self.learning_rate,
-            "scheduler": self.scheduler,
-            "loss": self.loss,
-            "finetune": self.finetune,
-            "resume_ckpt_path": self.resume_ckpt_path,
-            "backend": self.backend,
-            "data_percent": self.data_percent,
-            "data_stride": self.data_stride,
-            "steps": self.steps,
-            "step_transition": self.step_transition,
-            "inference_epochs": self.inference_epochs,
-            "train": self.train.__dict__,
-            "val": self.val.__dict__,
-            "inference": [t.__dict__ for t in self.inference],
-            "experiment": self.experiment.__dict__,
-            "data": self.data.__dict__,
-            "samudra": {
-                **self.samudra.__dict__,
-                "core_block": self.samudra.core_block.__dict__,
-                "corrector": self.samudra.corrector.__dict__,
-            },
-        }
-
-        with open(save_path, "w") as f:
-            yaml.dump(config_dict, f, default_flow_style=False)
+        Trainer(self)
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
-
-
-# See backend.py for how these are turned into concrete devices
-EvalBackendConfig = Literal["cpu", "cuda", "auto"]
 
 
 @dataclass
@@ -228,50 +199,10 @@ class EvalConfig:
     data: DataConfig = field(default_factory=DataConfig)
     samudra: SamudraConfig = field(default_factory=SamudraConfig)
 
-    @classmethod
-    def from_yaml(
-        cls, yaml_path: str, overrides: Optional[Dict[str, Any]] = None
-    ) -> "EvalConfig":
-        """Load config from YAML with strict validation using dacite."""
-        with open(yaml_path, "r") as f:
-            config_dict = yaml.safe_load(f)
+    def build(self) -> "Eval":
+        from ocean_emulators.eval import Eval
 
-        # Handle sub_name override if provided
-        if overrides:
-            if "sub_name" in overrides.keys():
-                config_dict["experiment"]["sub_name"] = overrides["sub_name"]
-            if "ckpt_path" in overrides.keys():
-                config_dict["ckpt_path"] = overrides["ckpt_path"]
-            if "save_zarr" in overrides.keys():
-                config_dict["save_zarr"] = overrides["save_zarr"]
-
-        return from_dict(
-            data_class=cls,
-            data=config_dict,
-            config=DaciteConfig(strict=True, check_types=True, cast=[Path]),
-        )
-
-    def save_yaml(self, save_path: str):
-        """Save config to YAML file."""
-        config_dict = {
-            "debug": self.debug,
-            "save_zarr": self.save_zarr,
-            "disk_mode": self.disk_mode,
-            "ckpt_path": self.ckpt_path,
-            "num_model_steps_forward": self.num_model_steps_forward,
-            "record_every": self.record_every,
-            "inference": self.inference.__dict__,
-            "experiment": self.experiment.__dict__,
-            "data": self.data.__dict__,
-            "samudra": {
-                **self.samudra.__dict__,
-                "core_block": self.samudra.core_block.__dict__,
-                "corrector": self.samudra.corrector.__dict__,
-            },
-        }
-
-        with open(save_path, "w") as f:
-            yaml.dump(config_dict, f, default_flow_style=False)
+        Eval(self)
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

@@ -3,13 +3,22 @@ import datetime
 import logging
 import os
 import random
+from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 
-from ocean_emulators.config import DistributedConfig
+
+@dataclass
+class DistributedConfig:
+    dist_url: Optional[str] = None
+    world_size: Optional[int] = None
+    rank: Optional[int] = None
+    gpu: Optional[int] = None
+    dist_backend: Optional[str] = None
 
 
 def set_seed(seed):

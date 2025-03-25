@@ -26,6 +26,10 @@ class TimeConfig:
     start_time: str
     end_time: str
 
+    @property
+    def time_slice(self) -> slice:
+        return slice(self.start_time, self.end_time)
+
 
 @dataclass
 class DataConfig:

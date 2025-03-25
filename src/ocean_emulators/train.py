@@ -675,7 +675,7 @@ class Trainer:
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
-        save_best_checkpoint = False
+        is_best_val_loss = False
         if v_loss <= self.best_val_loss:
             logging.info(
                 f"Epoch validation loss ({v_loss:.3f}) is lower than "
@@ -686,7 +686,7 @@ class Trainer:
                 f"{self.ckpt_paths.best_validation_checkpoint_path}"
             )
             self.best_val_loss = v_loss
-            save_best_checkpoint = True  # wait until inference error is updated
+            is_best_val_loss = True  # wait until inference error is updated
         if inf_loss is not None and (inf_loss <= self.best_inf_loss):
             logging.info(
                 f"Epoch inference error ({inf_loss:.3f}) is lower than "
@@ -698,7 +698,7 @@ class Trainer:
             )
             self.best_inf_loss = inf_loss
             self.save_checkpoint(epoch, self.ckpt_paths.best_inference_checkpoint_path)
-        if save_best_checkpoint:
+        if is_best_val_loss:
             self.save_checkpoint(epoch, self.ckpt_paths.best_validation_checkpoint_path)
 
         logging.info(

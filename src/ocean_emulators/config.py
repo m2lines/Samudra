@@ -26,8 +26,9 @@ class TimeConfig:
     start_time: str
     end_time: str
 
-    def __post_init__(self):
-        self.time_slice = slice(self.start_time, self.end_time)
+    @property
+    def time_slice(self) -> slice:
+        return slice(self.start_time, self.end_time)
 
 
 @dataclass

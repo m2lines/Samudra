@@ -1,4 +1,5 @@
 from itertools import tee
+from pathlib import Path
 from typing import Sequence, Tuple
 
 import torch
@@ -64,3 +65,23 @@ def collate_inference_data(
     # TODO: There is probably a better way to do inference batching
     assert len(data) == 1, "Inference batch size must be 1"
     return data[0][0], data[0][1]
+
+
+class CheckpointPaths:
+    def __init__(self, checkpoint_dir: Path):
+        self.checkpoint_dir = checkpoint_dir
+
+    @property
+    def latest_checkpoint_path(self) -> Path:
+        return self.checkpoint_dir / "ckpt.pt"
+
+    def latest_checkpoint_path_with_epoch(self, epoch: int) -> Path:
+        return self.checkpoint_dir / f"ckpt_{epoch}.pt"
+
+    @property
+    def best_inference_checkpoint_path(self) -> Path:
+        return self.checkpoint_dir / "best_inference_ckpt.pt"
+
+    @property
+    def best_validation_checkpoint_path(self) -> Path:
+        return self.checkpoint_dir / "best_validation_ckpt.pt"

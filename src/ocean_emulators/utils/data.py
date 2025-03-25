@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Tuple
+from typing import Dict
 
 import cftime
 import numpy as np
@@ -118,23 +118,36 @@ def get_norm_unnorm_dicts(
     return data_dict, data_unnorm_dict
 
 
-def compute_anomalies(data: xr.Dataset, var: str) -> xr.Dataset:
+def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:
+    """Get the variables that need to be computed for anomalies."""
+    return tuple([var for var in var_names if var.endswith("_anomalies")])
+
+
+def compute_anomalies(data: xr.Dataset, anomalies_vars: tuple[str, ...]) -> xr.Dataset:
     """
-    Compute the anomalies of a data variable.
+    Compute anomalies for the given variables.
     """
-    climatology = data[var].groupby("time.dayofyear").mean("time").compute()
-    # Remove the seasonal cycle (climatology) from the detrended data
-    day_of_year = data[var]["time"].dt.dayofyear
-    data[var + "_anomalies"] = (
-        data[var] - climatology.sel(dayofyear=day_of_year)
-    ).compute()
-    return data
+    data_copy = data.copy()
+    for var in anomalies_vars:
+        base_var = var.replace("_anomalies", "")
+        if var not in data_copy.variables and base_var in data_copy.variables:
+            logging.info(f"Computing anomalies for {base_var}")
+            climatology = (
+                data_copy[base_var].groupby("time.dayofyear").mean("time").compute()
+            )
+            # Remove the seasonal cycle (climatology) from the detrended data
+            day_of_year = data[base_var]["time"].dt.dayofyear
+            data_copy[var] = (
+                data_copy[base_var] - climatology.sel(dayofyear=day_of_year)
+            ).compute()
+    return data_copy
 
 
 def rename_vars(data: xr.Dataset) -> xr.Dataset:
     """
     Rename variables if required.
     """
+    data_copy = data.copy()
     for var in data.variables:
         # OM4 data format has variables in the form: var_lev_depthlevel
         # ex. so_lev_1040_0. We need to convert into var_depthlevelidx
@@ -144,55 +157,58 @@ def rename_vars(data: xr.Dataset) -> xr.Dataset:
             var = var_split[0]
             lev_in_depth = float(var_split[1].replace("_", "."))
             lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
-            data = data.rename({var_str: var + "_" + str(lev_in_depth_idx)})
-    return data
+            data_copy = data_copy.rename({var_str: var + "_" + str(lev_in_depth_idx)})
+    return data_copy
 
 
 def validate_data(
     data: xr.Dataset,
     data_mean: xr.Dataset,
     data_std: xr.Dataset,
-) -> Tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """
     Validate the data such that we have the correct format for training.
     """
+    data_copy = data.copy()
+    data_mean_copy = data_mean.copy()
+    data_std_copy = data_std.copy()
+
     # Check if Mask variables exist
-    if MASK_VARS[0] not in data.variables:
-        assert "wetmask" in data.variables, "Wet mask cannot be constructed without "
+    if MASK_VARS[0] not in data_copy.variables:
+        assert "wetmask" in data_copy.variables, (
+            "Wet mask cannot be constructed without "
+        )
         "either the wetmask variable or the level-wise masks"
 
         # Construct the mask variables
-        wet_mask = data["wetmask"]
+        wet_mask = data_copy["wetmask"]
         for i, lev in enumerate(DEPTH_I_LEVELS):
             assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
-            data[f"mask_{lev}"] = wet_mask.isel(lev=i)
+            data_copy[f"mask_{lev}"] = wet_mask.isel(lev=i)
 
-        data = data.drop_vars("wetmask")
+        data_copy = data_copy.drop_vars("wetmask")
 
     # Check if data variables are in the right format
     # This check is to ensure we convert data to the correct format
-    data = rename_vars(data)
-    data_mean = rename_vars(data_mean)
-    data_std = rename_vars(data_std)
+    data_copy = rename_vars(data_copy)
+    data_mean_copy = rename_vars(data_mean_copy)
+    data_std_copy = rename_vars(data_std_copy)
 
     # OM4 data has coordinates we don't need
     # We drop them and rename x, y dimensions to lon, lat
-    if "lat" not in data.dims:
+    if "lat" not in data_copy.dims:
         # Drop unnecessary coordinates and rename dimensions
-        data = data.drop_vars(
+        data_copy = data_copy.drop_vars(
             ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
         ).rename({"x": "lon", "y": "lat"})
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()
-    for var in tensor_map.boundary_var_names:
-        if var.endswith("_anomalies"):
-            base_var = var.replace("_anomalies", "")
-            if var not in data.variables and base_var in data.variables:
-                logging.info(f"Computing anomalies for {base_var}")
-                data = compute_anomalies(data, base_var)
+    anomalies_vars = get_anomalies_vars(tensor_map.boundary_var_names)
+    if anomalies_vars:
+        data_copy = compute_anomalies(data_copy, anomalies_vars)
 
-    return data, data_mean, data_std
+    return data_copy, data_mean_copy, data_std_copy
 
 
 # TODO: Repetitive code. Refactor

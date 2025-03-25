@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742937068131,
+  "lastUpdate": 1742937069971,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2355,6 +2355,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6891541074005118",
             "extra": "mean: 93.00997810700001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37788f5c24aed9807dfdf0686896146d4265f6e4",
+          "message": "Omitting filtering by guaranteeing inputs are unique. (#143)\n\nFixing #140 by making omitting slow step (`itertools.product`), instead\nguaranteeing that all inputs are unique.",
+          "timestamp": "2025-03-25T13:35:00-07:00",
+          "tree_id": "a326a105eab36c3d8e73baf0d530fc9affde4aa5",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/37788f5c24aed9807dfdf0686896146d4265f6e4"
+        },
+        "date": 1742937069163,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-train]",
+            "value": 0.18536194094971292,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4009785218001505",
+            "extra": "mean: 5.39485071680001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-val]",
+            "value": 0.41540435553890254,
+            "unit": "iter/sec",
+            "range": "stddev: 0.023581894720292457",
+            "extra": "mean: 2.407293006600048 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cuda]",
+            "value": 0.1627187741038636,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0795927567533129",
+            "extra": "mean: 6.145572356399998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cuda]",
+            "value": 0.010851301581809048,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3749149058532742",
+            "extra": "mean: 92.1548435882 sec\nrounds: 5"
           }
         ]
       }

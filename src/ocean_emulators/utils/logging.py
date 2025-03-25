@@ -1,6 +1,7 @@
 import datetime
 import logging
 import resource
+import sys
 import time
 import traceback
 import warnings
@@ -11,26 +12,35 @@ import torch
 
 def handle_logging(cfg):
     # Set up logging
-    if cfg.debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(cfg.experiment.output_dir / "experiment.log"),
-            logging.StreamHandler(),
-        ],
+    logger = logging.getLogger()  # Use the root logger or specify a name if needed
+    logger.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
+
+    # STDOUT handler
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
+    stdout_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     )
+    logger.addHandler(stdout_handler)
+
+    # Add experiment log file handler
+    experiment_log_path = cfg.experiment.output_dir / "experiment.log"
+    experiment_handler = logging.FileHandler(experiment_log_path)
+    experiment_handler = logging.FileHandler(experiment_log_path)
+    experiment_handler.setLevel(logging.INFO)  # Capture info and above
+    experiment_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(experiment_handler)
 
     # Add separate error log file handler
-    error_handler = logging.FileHandler(cfg.experiment.output_dir / "error.log")
+    error_log_path = cfg.experiment.output_dir / "error.log"
+    error_handler = logging.FileHandler(error_log_path)
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
     error_handler.setFormatter(
         logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     )
-    logging.getLogger().addHandler(error_handler)
+    logger.addHandler(error_handler)
 
 
 def handle_warnings():

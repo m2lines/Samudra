@@ -184,8 +184,6 @@ class WandBLogger(Multiton):
         # Loss per input variable
         if all(x is not None for x in [var_indices, var_set]):
             for k in var_set:
-                if k == "zos":  # Skip zos variable
-                    continue
                 self.log(
                     {
                         "eval/per_var/" + k + "_loss": torch.mean(

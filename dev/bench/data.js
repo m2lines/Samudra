@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742931914613,
+  "lastUpdate": 1742931916545,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2147,6 +2147,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7458540900687095",
             "extra": "mean: 89.75532276879994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "06969612418c78fecfc8dc05ba9961002ba600da",
+          "message": "March refactors - functionality (#142)\n\n* Ability to train on OM4 or CM4\n* Added metadata\n* Reduced checkpointing\n* Removed unnecessary zos check in wandblogger\n* Logger fix\n* Logging in eval fix\n* Train/val/inference time range extraction fix\n\nFollowing Draft PR\nhttps://github.com/suryadheeshjith/Ocean_Emulator/pull/134\n\nCloses Issues #116 , #74 , #80 , #101 , #69 , #59\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2025-03-25T15:06:28-04:00",
+          "tree_id": "a27cae05f25dc0e2e6be4ca3871e69b9b9e23994",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/06969612418c78fecfc8dc05ba9961002ba600da"
+        },
+        "date": 1742931915686,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-train]",
+            "value": 0.17571772056983503,
+            "unit": "iter/sec",
+            "range": "stddev: 0.32915506286354274",
+            "extra": "mean: 5.690945664199944 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-val]",
+            "value": 0.3928828723607619,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06008406996243891",
+            "extra": "mean: 2.5452878462000172 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cuda]",
+            "value": 0.15337995394234802,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08503130243647936",
+            "extra": "mean: 6.519756814999937 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cuda]",
+            "value": 0.010034233363195574,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0515166233986755",
+            "extra": "mean: 99.65883429300001 sec\nrounds: 5"
           }
         ]
       }

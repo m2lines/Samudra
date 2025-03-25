@@ -223,7 +223,7 @@ def compute_anomalies(data: xr.Dataset, anomalies_vars: tuple[str, ...]) -> xr.D
                 data_copy[base_var].groupby("time.dayofyear").mean("time").compute()
             )
             # Remove the seasonal cycle (climatology) from the detrended data
-            day_of_year = data[base_var]["time"].dt.dayofyear
+            day_of_year = data_copy[base_var]["time"].dt.dayofyear
             data_copy[var] = (
                 data_copy[base_var] - climatology.sel(dayofyear=day_of_year)
             ).compute()

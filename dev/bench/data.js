@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742932709943,
+  "lastUpdate": 1742932711885,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2251,6 +2251,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.0515166233986755",
             "extra": "mean: 99.65883429300001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8ff6f801a7256089e93d1070d14fa90f0480978a",
+          "message": "Jaxtyping minimum version is 0.3.0 (#145)",
+          "timestamp": "2025-03-25T12:22:10-07:00",
+          "tree_id": "05230b73a3ca241651392c77b448e702b9de684b",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/8ff6f801a7256089e93d1070d14fa90f0480978a"
+        },
+        "date": 1742932711021,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-train]",
+            "value": 0.18355986679274755,
+            "unit": "iter/sec",
+            "range": "stddev: 0.34770127002845364",
+            "extra": "mean: 5.447813933799989 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cuda-val]",
+            "value": 0.41264129645426734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027961544463990285",
+            "extra": "mean: 2.4234123161999834 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cuda]",
+            "value": 0.16187829435746734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07574942748941199",
+            "extra": "mean: 6.177480458199989 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cuda]",
+            "value": 0.010751534624054914,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6891541074005118",
+            "extra": "mean: 93.00997810700001 sec\nrounds: 5"
           }
         ]
       }

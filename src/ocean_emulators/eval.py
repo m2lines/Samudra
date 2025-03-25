@@ -281,7 +281,7 @@ def main():
         Evaluator.run()
     except Exception as e:
         # Log the exception with traceback
-        logging.exception(e)
+        logging.exception("Evaluation failed with an exception")
         raise e
 
 

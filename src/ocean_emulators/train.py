@@ -775,7 +775,7 @@ def main():
     try:
         trainer.run()
     except Exception as e:
-        logging.exception(e)
+        logging.exception("Evaluation failed with an exception")
         raise e
 
 

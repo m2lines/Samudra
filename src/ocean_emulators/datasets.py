@@ -19,7 +19,13 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import Normalize, mask, unflatten_masks
+from ocean_emulators.utils.data import (
+    Normalize,
+    mask,
+    rename_coords,
+    rename_vars,
+    unflatten_masks,
+)
 from ocean_emulators.utils.device import get_device, using_gpu
 
 
@@ -38,20 +44,23 @@ class OM4Dataset(Dataset):
         stride: int = 1,
         is_inference: bool = False,
     ) -> None:
-        # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
-        data = unflatten_masks(data)
+        # Ensure that the input data is in the correct format. This means:
+        # - Rename variables to match the `PrognosticVarNames` and `BoundaryVarNames`.
+        # - Extract a `wetmask` DataArray that is alone a `lev` dimension.
+        # - Drop unnecessary coordinates and make sure `x`/`y` are `lon`/`lat`.
+        data_ = data.pipe(rename_vars).pipe(unflatten_masks).pipe(rename_coords)
 
-        _prognostic = data[prognostic_var_names]
-        _boundary = data[boundary_var_names]
+        prognostic = data_[prognostic_var_names]
+        boundary = data_[boundary_var_names]
 
         # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
         norm = Normalize.get_instance()
-        norm_prognostic = norm.normalize_prognostic(_prognostic)
-        norm_boundary = norm.normalize_boundary(_boundary)
+        norm_prognostic = norm.normalize_prognostic(prognostic)
+        norm_boundary = norm.normalize_boundary(boundary)
 
         # Set non-ocean areas to zero.
-        self.prognostic = mask(norm_prognostic, data.wetmask)
-        self.boundary = mask(norm_boundary, data.wetmask)
+        self.prognostic = mask(norm_prognostic, data_.wetmask)
+        self.boundary = mask(norm_boundary, data_.wetmask)
 
         self.hist: int = hist
         self.steps: int = steps

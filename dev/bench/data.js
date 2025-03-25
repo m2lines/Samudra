@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742932711885,
+  "lastUpdate": 1742937068131,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1225,6 +1225,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5388581939941012",
             "extra": "mean: 124.80492647100004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37788f5c24aed9807dfdf0686896146d4265f6e4",
+          "message": "Omitting filtering by guaranteeing inputs are unique. (#143)\n\nFixing #140 by making omitting slow step (`itertools.product`), instead\nguaranteeing that all inputs are unique.",
+          "timestamp": "2025-03-25T13:35:00-07:00",
+          "tree_id": "a326a105eab36c3d8e73baf0d530fc9affde4aa5",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/37788f5c24aed9807dfdf0686896146d4265f6e4"
+        },
+        "date": 1742937067189,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.06885437482683969,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0847332161354219",
+            "extra": "mean: 14.523405411999999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.18988259495163673,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10284596631609669",
+            "extra": "mean: 5.266412123000009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.17246449418571344,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08907192237461768",
+            "extra": "mean: 5.7982949170000095 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.00805028901506674,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2577031009398641",
+            "extra": "mean: 124.21914270760001 sec\nrounds: 5"
           }
         ]
       }

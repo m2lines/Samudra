@@ -23,18 +23,21 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
+  "aiohttp>=3.11.13",
   "cftime>=1.6.4.post1",
   "dacite>=1.9.2",
   "dask>=2025.2",
   "einops>=0.8.1",
   "jaxtyping>=0.2.38",
   "matplotlib>=3.10.1",
-  "numpy>=1.26.4,<2",     # There is some incompatibility between a dependency and numpy 2+
+  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
   "pyyaml>=6.0.2",
+  "requests>=2.32.3",
   "torch~=2.2.1",
   "torchinfo>=1.8",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
+  "xarray-einstats[einops]>=0.8",
   "zarr<3",
 ]
 
@@ -48,6 +51,7 @@ dev = [
   "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",
   "snakeviz>=2.2.2",
+  "tenacity>=9",
   "types-pyyaml>=6.0.12.20241230",
 ]
 

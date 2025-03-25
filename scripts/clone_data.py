@@ -94,8 +94,6 @@ def main(args: argparse.Namespace) -> None:
         else:
             data = robust_open_dataset(source, engine="zarr", chunks={})
 
-        data.load()
-
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":
                 data.chunk(output_chunks).to_zarr(dest + ".zarr")

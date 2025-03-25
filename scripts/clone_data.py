@@ -9,7 +9,7 @@
 #   "aiohttp",
 #   "gcsfs",
 #   "numcodecs>=0.15",
-#   "tenacity",
+#   "aiohttp-retry",
 # ]
 # ///
 
@@ -20,15 +20,29 @@ from collections import defaultdict
 
 import dask
 import dask.diagnostics
+import fsspec
 import xarray as xr
-from tenacity import retry
+from aiohttp_retry import ExponentialRetry, RetryClient
+from fsspec.implementations.http import get_client
 
 DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 
+_STATUSES = {x for x in range(100, 600)}
+_STATUSES.discard(200)
+_STATUSES.discard(429)
 
-@retry
+
+async def _robust_get_client(**kwargs):
+    options = ExponentialRetry(attempts=5, statuses=_STATUSES)
+    return RetryClient(
+        await get_client(**kwargs), raise_for_status=True, retry_options=options
+    )
+
+
 def robust_open_dataset(target: str, **kwargs) -> xr.Dataset:
-    return xr.open_dataset(target, **kwargs)
+    fs = fsspec.filesystem("http", get_client=_robust_get_client)
+    mapper = fs.get_mapper(target)
+    return xr.open_dataset(mapper, **kwargs)
 
 
 def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
@@ -79,6 +93,8 @@ def main(args: argparse.Namespace) -> None:
                 data = compact_dataset(data)
         else:
             data = robust_open_dataset(source, engine="zarr", chunks={})
+
+        data.load()
 
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":

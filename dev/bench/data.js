@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742854462199,
+  "lastUpdate": 1742931914613,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1121,6 +1121,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.8788788767632002",
             "extra": "mean: 122.03169475139998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "06969612418c78fecfc8dc05ba9961002ba600da",
+          "message": "March refactors - functionality (#142)\n\n* Ability to train on OM4 or CM4\n* Added metadata\n* Reduced checkpointing\n* Removed unnecessary zos check in wandblogger\n* Logger fix\n* Logging in eval fix\n* Train/val/inference time range extraction fix\n\nFollowing Draft PR\nhttps://github.com/suryadheeshjith/Ocean_Emulator/pull/134\n\nCloses Issues #116 , #74 , #80 , #101 , #69 , #59\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2025-03-25T15:06:28-04:00",
+          "tree_id": "a27cae05f25dc0e2e6be4ca3871e69b9b9e23994",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/06969612418c78fecfc8dc05ba9961002ba600da"
+        },
+        "date": 1742931913645,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.06482969318918327,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13672058912403892",
+            "extra": "mean: 15.42503058100001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.17849006001453624,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13974848701115505",
+            "extra": "mean: 5.602552881199995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.16069923339358813,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0824668727926253",
+            "extra": "mean: 6.2228050432000375 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.007492071814673759,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0706218304741464",
+            "extra": "mean: 133.47442800019994 sec\nrounds: 5"
           }
         ]
       }

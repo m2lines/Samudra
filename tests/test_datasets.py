@@ -65,6 +65,11 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
 
 
+def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
+    ds = xr.open_zarr(os.path.join(cfg.experiment.data_dir, cfg.data.data_path))
+    return ds.sel(time=time_slice).time.size - (cfg.data.hist + 1)
+
+
 def vector_of(max_vec_size: int, min_vec_size=1):
     """A hypothesis helper: generates vector array shapes."""
     return st.lists(
@@ -180,11 +185,9 @@ def test_test_util__data_source_roundtrip(
     assert decoded_var_index == data_var_index
 
 
-# TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
-#  Changing the "hist" parameter breaks this test.
 def test_train__loads_correct_number_of_samples(train_loader_pair: LoaderPair):
     cfg, loader = train_loader_pair
-    n_samples = 13
+    n_samples = calc_num_samples(cfg, cfg.train.time_slice)
     assert len(list(loader)) == n_samples, (
         f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
     )
@@ -208,11 +211,9 @@ def test_train__data_shape(train_loader_pair: LoaderPair):
         assert y.shape == (cfg.steps[0], batch_size, output_var_dim, 180, 360)
 
 
-# TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
-#  Changing the "hist" parameter breaks this test.
 def test_val__loads_correct_number_of_samples(val_loader_pair):
     cfg, loader = val_loader_pair
-    n_samples = 5
+    n_samples = calc_num_samples(cfg, cfg.val.time_slice)
     assert len(list(loader)) == n_samples, (
         f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
     )

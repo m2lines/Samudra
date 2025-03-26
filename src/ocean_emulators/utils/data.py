@@ -259,20 +259,6 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-def rename_coords(data: xr.Dataset) -> xr.Dataset:
-    """Standardize dataset coordinates; prefer "lat"/"lon" over "y"/"x"."""
-    data_copy = data.copy()
-    # OM4 data has coordinates we don't need
-    # We drop them and rename x, y dimensions to lon, lat
-    if "lat" not in data_copy.dims:
-        # Drop unnecessary coordinates and rename dimensions
-        data_copy = data_copy.drop_vars(
-            ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
-        ).rename({"x": "lon", "y": "lat"})
-
-    return data_copy
-
-
 def validate_data(
     data: xr.Dataset,
     data_mean: xr.Dataset,

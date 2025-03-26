@@ -39,7 +39,7 @@ class OM4Dataset(Dataset):
         is_inference: bool = False,
     ) -> None:
         # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
-        data_ = data.pipe(unflatten_masks)
+        data_ = unflatten_masks(data)
 
         prognostic = data_[prognostic_var_names]
         boundary = data_[boundary_var_names]

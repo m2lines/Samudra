@@ -276,6 +276,7 @@ def test_inference__data_shape(inference_loader_pair: LoaderPair):
             assert y.shape == (batch_size, output_var_dim, 180, 360)
 
 
+@pytest.mark.all_configs
 def test__data_is_not_zeros(td_loader_pair: LoaderPair):
     cfg, loader = td_loader_pair
 

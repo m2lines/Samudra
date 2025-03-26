@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742937069971,
+  "lastUpdate": 1743014900178,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1277,6 +1277,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2577031009398641",
             "extra": "mean: 124.21914270760001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "327bc7c42465a7ccd6821b255cd1bd0b1bf1cd45",
+          "message": "Fixes to the lazy data loader given more realistic data. (#148)\n\nExtracted some pre-conditions from the `validate_data` function into\nsmaller parts and applying some of them to all input from the current\ndata loader.\n\nIn addition, I've caught a minor issue in this loader's collate_fn as\nwell as my new data loader test.\n\nThis fixes were found during #128.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-03-26T11:08:24-07:00",
+          "tree_id": "7be8460bf295353bf8588e337751cb3c8f65bde1",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/327bc7c42465a7ccd6821b255cd1bd0b1bf1cd45"
+        },
+        "date": 1743014899125,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.06061484922652249,
+            "unit": "iter/sec",
+            "range": "stddev: 0.222510901749197",
+            "extra": "mean: 16.497607645000006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.17060904545627875,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10910546080145367",
+            "extra": "mean: 5.861353935400018 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.15469816710082626,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11614681502382321",
+            "extra": "mean: 6.464200699600008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.007276253430666181,
+            "unit": "iter/sec",
+            "range": "stddev: 2.091037949685462",
+            "extra": "mean: 137.43336588379995 sec\nrounds: 5"
           }
         ]
       }

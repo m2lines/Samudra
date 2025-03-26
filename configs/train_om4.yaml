@@ -39,7 +39,7 @@ experiment:
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
-  cluster_data_dir: null
+  cluster_data_dir: /home/alxmrs/data0326/
   wandb:
     mode: disabled
     project: ocean-emulators
@@ -49,13 +49,14 @@ experiment:
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 data:
-  data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies
-  data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
-  data_stds_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_stds
+  data_path: OM4.zarr
+  data_means_path: OM4_means.nc
+  data_stds_path: OM4_stds.nc
   scaling_residuals_file: null
   time_delta: 5
   num_workers: 4
   hist: 1
+  loader_version: om4-lazy
 
 
 samudra:

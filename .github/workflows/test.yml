@@ -16,6 +16,17 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
+      - name: Cache test data
+        uses: actions/cache@v3
+        with:
+          path: .data_cache/
+          # Invalidate the data cache every time the conftest.py file changes.
+          key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py') }}
+          # If an exact cache isn't found, fall back to previous cache.
+          restore-keys: |
+            ${{ runner.os }}-test-data-
+
+
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@v5
 

@@ -395,7 +395,7 @@ def retry_with_backoff(
 
 @pytest.fixture(scope="session", params=["simulated", "remote-om4"])
 def data_source(request, pytestconfig) -> DataSource:
-    """Returns in-memory `xarray.Dataset`s for tests."""
+    """Returns remote and in-memory `xarray.Dataset`s for tests."""
     # Use cached data if available.
     if cached_data := maybe_read_cache(cache_dir(pytestconfig), request.param):
         return cached_data

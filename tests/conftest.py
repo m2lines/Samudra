@@ -387,7 +387,7 @@ def retry_with_backoff(
                 raise
             wait_time = (2**attempt) + random.uniform(0, 1)
             print(
-                f"Server disconnected. Retrying in {wait_time:.2f}s "
+                f"{catch}. Retrying in {wait_time:.2f}s "
                 f"(attempt {attempt + 1}/{max_retries})"
             )
             time.sleep(wait_time)

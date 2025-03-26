@@ -16,6 +16,7 @@ from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS
 from ocean_emulators.datasets import OM4Dataset, TrainData
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.data import validate_data
 from ocean_emulators.utils.train import collate_om4
 from tests.conftest import DataSourceDims
 
@@ -308,8 +309,10 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
     depth_vars = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     surface_vars = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
+    val_ds, _, _ = validate_data(ds, xr.Dataset(), xr.Dataset())
+
     om4 = OM4Dataset(
-        ds,
+        val_ds.sel(time=cfg.train.time_slice),
         depth_vars,
         surface_vars,
         cfg.data.hist,

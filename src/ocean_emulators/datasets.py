@@ -38,20 +38,20 @@ class OM4Dataset(Dataset):
         stride: int = 1,
         is_inference: bool = False,
     ) -> None:
-        # Ensure that there is a `wetmask` DataArray with a supported `lev` dimension.
-        data = unflatten_masks(data)
+        # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
+        data_ = unflatten_masks(data)
 
-        _prognostic = data[prognostic_var_names]
-        _boundary = data[boundary_var_names]
+        prognostic = data_[prognostic_var_names]
+        boundary = data_[boundary_var_names]
 
         # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
         norm = Normalize.get_instance()
-        norm_prognostic = norm.normalize_prognostic(_prognostic)
-        norm_boundary = norm.normalize_boundary(_boundary)
+        norm_prognostic = norm.normalize_prognostic(prognostic)
+        norm_boundary = norm.normalize_boundary(boundary)
 
         # Set non-ocean areas to zero.
-        self.prognostic = mask(norm_prognostic, data.wetmask)
-        self.boundary = mask(norm_boundary, data.wetmask)
+        self.prognostic = mask(norm_prognostic, data_.wetmask)
+        self.boundary = mask(norm_boundary, data_.wetmask)
 
         self.hist: int = hist
         self.steps: int = steps

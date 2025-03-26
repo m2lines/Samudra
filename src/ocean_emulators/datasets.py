@@ -50,8 +50,8 @@ class OM4Dataset(Dataset):
         # - Drop unnecessary coordinates and make sure `x`/`y` are `lon`/`lat`.
         data_ = (
             data.copy()
-            .pipe(vars_as_level_index)
             .pipe(unflatten_masks)
+            .pipe(vars_as_level_index)
             .pipe(coords_as_lat_lon)
         )
 

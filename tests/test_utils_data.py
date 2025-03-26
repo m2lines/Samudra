@@ -22,7 +22,7 @@ def test_mask_roundtrip(data_source):
 
 
 def test_mask__zeros_data(data_source):
-    data = data_source.data
+    data = with_level_index_vars(data_source.data)
 
     unflattened = unflatten_masks(data)
     masked = mask(unflattened, unflattened.wetmask)

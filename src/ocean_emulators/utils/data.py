@@ -106,7 +106,7 @@ def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
         # If the name has four tokens, then it definitely is at some depth level (i.e.,
         # not at the surface).
         if len(tokens) >= 4:  # OM4 data format (e.g., {variable}_lev_{level}_{decimal})
-            raise ValueError("please call `rename_vars` before masking!")
+            raise ValueError("please call `vars_as_level_index` before masking!")
         # If it has two tokens, then it _maybe_ at the surface.
         elif len(tokens) == 2:  # output_vars format (e.g., {variable}_{level})
             _, level = tokens

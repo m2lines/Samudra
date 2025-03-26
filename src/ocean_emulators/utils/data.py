@@ -225,25 +225,27 @@ def compute_anomalies(data: xr.Dataset, anomalies_vars: tuple[str, ...]) -> xr.D
     return data_copy
 
 
-def rename_vars(data: xr.Dataset) -> xr.Dataset:
+def vars_as_level_index(data: xr.Dataset) -> xr.Dataset:
     """
-    Rename variables if required.
+    Ensure variable names use a depth level index, not depth level value.
     """
     data_copy = data.copy()
+
     for var in data.variables:
-        # OM4 data format has variables in the form: var_lev_depthlevel
-        # ex. so_lev_1040_0. We need to convert into var_depthlevelidx
+        # OM4 data format has variables in the form: var_lev_{depthlevel}
+        # ex. so_lev_1040_0. We need to convert into var_{depthlevelidx}
         var_str = str(var)
         if "_lev_" in var_str:
             var_split = var_str.split("_lev_")
             var = var_split[0]
             lev_in_depth = float(var_split[1].replace("_", "."))
             lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
-            data_copy = data_copy.rename({var_str: var + "_" + str(lev_in_depth_idx)})
+            data_copy = data_copy.rename({var_str: f"{var}_{lev_in_depth_idx!s}"})
+
     return data_copy
 
 
-def rename_coords(data: xr.Dataset) -> xr.Dataset:
+def coords_as_lat_lon(data: xr.Dataset) -> xr.Dataset:
     """Standardize dataset coordinates; prefer "lat"/"lon" over "y"/"x"."""
     data_copy = data.copy()
     # OM4 data has coordinates we don't need
@@ -265,12 +267,17 @@ def validate_data(
     """
     Validate the data such that we have the correct format for training.
     """
-    data_copy = data.copy().pipe(flatten_masks).pipe(rename_vars).pipe(rename_coords)
+    data_copy = (
+        data.copy()
+        .pipe(flatten_masks)
+        .pipe(vars_as_level_index)
+        .pipe(coords_as_lat_lon)
+    )
 
     # Check if data variables are in the right format
     # This check is to ensure we convert data to the correct format
-    data_mean_copy = rename_vars(data_mean.copy())
-    data_std_copy = rename_vars(data_std.copy())
+    data_mean_copy = vars_as_level_index(data_mean.copy())
+    data_std_copy = vars_as_level_index(data_std.copy())
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()

@@ -21,10 +21,10 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.utils.data import (
     Normalize,
+    coords_as_lat_lon,
     mask,
-    rename_coords,
-    rename_vars,
     unflatten_masks,
+    vars_as_level_index,
 )
 from ocean_emulators.utils.device import get_device, using_gpu
 
@@ -48,7 +48,12 @@ class OM4Dataset(Dataset):
         # - Rename variables to match the `PrognosticVarNames` and `BoundaryVarNames`.
         # - Extract a `wetmask` DataArray that is alone a `lev` dimension.
         # - Drop unnecessary coordinates and make sure `x`/`y` are `lon`/`lat`.
-        data_ = data.pipe(rename_vars).pipe(unflatten_masks).pipe(rename_coords)
+        data_ = (
+            data.copy()
+            .pipe(vars_as_level_index)
+            .pipe(unflatten_masks)
+            .pipe(coords_as_lat_lon)
+        )
 
         prognostic = data_[prognostic_var_names]
         boundary = data_[boundary_var_names]

@@ -19,13 +19,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import (
-    Normalize,
-    mask,
-    rename_coords,
-    rename_vars,
-    unflatten_masks,
-)
+from ocean_emulators.utils.data import Normalize, mask, unflatten_masks
 from ocean_emulators.utils.device import get_device, using_gpu
 
 

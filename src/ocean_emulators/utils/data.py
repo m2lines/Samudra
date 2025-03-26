@@ -106,7 +106,7 @@ def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
         # If the name has four tokens, then it definitely is at some depth level (i.e.,
         # not at the surface).
         if len(tokens) >= 4:  # OM4 data format (e.g., {variable}_lev_{level}_{decimal})
-            raise ValueError("please call `vars_as_level_index` before masking!")
+            raise ValueError("please call `with_level_index_vars` before masking!")
         # If it has two tokens, then it _maybe_ at the surface.
         elif len(tokens) == 2:  # output_vars format (e.g., {variable}_{level})
             _, level = tokens
@@ -225,7 +225,7 @@ def compute_anomalies(data: xr.Dataset, anomalies_vars: tuple[str, ...]) -> xr.D
     return data_copy
 
 
-def vars_as_level_index(data: xr.Dataset) -> xr.Dataset:
+def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
     """
     Ensure variable names use a depth level index, not depth level value.
     """
@@ -245,7 +245,7 @@ def vars_as_level_index(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-def coords_as_lat_lon(data: xr.Dataset) -> xr.Dataset:
+def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     """Standardize dataset coordinates; prefer "lat"/"lon" over "y"/"x"."""
     data_copy = data.copy()
     # OM4 data has coordinates we don't need
@@ -270,14 +270,14 @@ def validate_data(
     data_copy = (
         data.copy()
         .pipe(flatten_masks)
-        .pipe(vars_as_level_index)
-        .pipe(coords_as_lat_lon)
+        .pipe(with_level_index_vars)
+        .pipe(with_lat_lon_coords)
     )
 
     # Check if data variables are in the right format
     # This check is to ensure we convert data to the correct format
-    data_mean_copy = vars_as_level_index(data_mean.copy())
-    data_std_copy = vars_as_level_index(data_std.copy())
+    data_mean_copy = with_level_index_vars(data_mean.copy())
+    data_std_copy = with_level_index_vars(data_std.copy())
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()

@@ -8,7 +8,7 @@ from ocean_emulators.utils.data import (
     flatten_masks,
     mask,
     unflatten_masks,
-    vars_as_level_index,
+    with_level_index_vars,
 )
 
 
@@ -50,7 +50,7 @@ def test_rename_vars():
     )
 
     # Apply rename_vars
-    renamed_ds = vars_as_level_index(ds)
+    renamed_ds = with_level_index_vars(ds)
 
     # Test that variables are renamed correctly
     assert "so_11" in renamed_ds.variables  # 1040.0 is at index 11 in DEPTH_LEVELS
@@ -87,7 +87,7 @@ def test_rename_vars_invalid_depth():
 
     # Should raise ValueError because 9999.0 is not in DEPTH_LEVELS
     with pytest.raises(ValueError):
-        vars_as_level_index(ds)
+        with_level_index_vars(ds)
 
 
 def test_compute_anomalies():

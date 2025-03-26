@@ -309,7 +309,7 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
     surface_vars = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
     om4 = OM4Dataset(
-        ds,
+        ds.sel(time=cfg.train.time_slice),
         depth_vars,
         surface_vars,
         cfg.data.hist,

@@ -19,7 +19,7 @@ train:
   end_time: "1975-09-25"
 val:
   start_time: "1975-10-20"
-  end_time: "1975-11-15"
+  end_time: "1975-11-20"
 inference:
   - start_time: "1975-10-30"
     end_time: "1975-12-20"

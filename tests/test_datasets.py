@@ -67,12 +67,11 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
 
 def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
     ds = xr.open_zarr(os.path.join(cfg.experiment.data_dir, cfg.data.data_path))
+    ds_size = ds.sel(time=time_slice).time.size
     steps = cfg.steps[0]
     stride = cfg.data_stride[0]
     hist = cfg.data.hist
-    return (
-        ds.sel(time=time_slice).time.size - steps * (hist + 1) * stride - hist * stride
-    )
+    return ds_size - steps * (hist + 1) * stride - hist * stride
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):

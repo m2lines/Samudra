@@ -285,7 +285,7 @@ def loader_version(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
-@pytest.fixture(scope="session", params=[0, 1])
+@pytest.fixture(scope="session", params=[0, 1, 2])
 def history(request: pytest.FixtureRequest) -> int:
     return request.param
 

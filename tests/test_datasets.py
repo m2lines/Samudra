@@ -67,7 +67,12 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
 
 def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
     ds = xr.open_zarr(os.path.join(cfg.experiment.data_dir, cfg.data.data_path))
-    return ds.sel(time=time_slice).time.size - (cfg.data.hist + 1)
+    steps = cfg.steps[0]
+    stride = cfg.data_stride[0]
+    hist = cfg.data.hist
+    return (
+        ds.sel(time=time_slice).time.size - steps * (hist + 1) * stride - hist * stride
+    )
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):
@@ -185,6 +190,7 @@ def test_test_util__data_source_roundtrip(
     assert decoded_var_index == data_var_index
 
 
+@pytest.mark.all_configs
 def test_train__loads_correct_number_of_samples(train_loader_pair: LoaderPair):
     cfg, loader = train_loader_pair
     n_samples = calc_num_samples(cfg, cfg.train.time_slice)

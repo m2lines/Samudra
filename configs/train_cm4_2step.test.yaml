@@ -22,7 +22,7 @@ val:
   end_time: "1975-11-10"
 inference:
   - start_time: "1975-10-30"
-    end_time: "1975-11-15"
+    end_time: "1975-12-15"
 data_stride: [1]
 steps: [2]
 step_transition: []

@@ -139,7 +139,7 @@ class OM4Dataset(Dataset):
             )
             boundary = self.boundary.isel(time=window).isel(time=self.hist)
             input_ = xr.merge(
-                [prognostic, boundary], compat="no_conflicts"
+                [prognostic, boundary], compat="override", join="override"
             )  # Combines variables.
 
             label = self.prognostic.isel(time=window).isel(time=slice(time_split, None))

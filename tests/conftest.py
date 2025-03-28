@@ -17,8 +17,8 @@ from ocean_emulators.config import TrainBackendConfig, TrainConfig
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
-DEFAULT_CONFIG = "train_cm4.test.yaml"
-ALL_CONFIGS = [DEFAULT_CONFIG, "train_cm4_2step.test.yaml"]
+DEFAULT_CONFIG = "train_default.test.yaml"
+ALL_CONFIGS = [DEFAULT_CONFIG, "train_default_2step.test.yaml"]
 
 
 @dataclasses.dataclass

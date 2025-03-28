@@ -15,13 +15,13 @@ inference_epochs: [-1]
 data_percent: 1.0
 train:
   start_time: '1975-08-15'
-  end_time: '1975-10-20'
+  end_time: '1975-10-25'
 val:
   start_time: '1975-10-20'
-  end_time: '1975-11-20'
+  end_time: '1975-11-25'
 inference:
   - start_time: '1975-11-20'
-    end_time: '1975-12-15'
+    end_time: '1975-12-20'
 data_stride: [1]
 steps: [1]
 step_transition: []

@@ -55,7 +55,7 @@ def collate_om4(examples: Sequence[Example]) -> TrainData:
     labels_tensor = torch.from_numpy(labels.to_numpy())
 
     # TODO(#126): Remove TrainData interface (eventually)
-    batch = TrainData(labels[0].shape[2])  # len(prognostic_vars)
+    batch = TrainData(labels.shape[2])  # len(prognostic_vars)
     steps = input_tensor.shape[0]
     for step in range(steps):
         batch.insert(input_tensor[step], labels_tensor[step])

@@ -27,13 +27,9 @@ from fsspec.implementations.http import get_client
 
 DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 
-_STATUSES = {x for x in range(100, 600)}
-_STATUSES.discard(200)
-_STATUSES.discard(429)
-
 
 async def _robust_get_client(**kwargs):
-    options = ExponentialRetry(attempts=5, statuses=_STATUSES)
+    options = ExponentialRetry(attempts=5)
     return RetryClient(
         await get_client(**kwargs), raise_for_status=True, retry_options=options
     )

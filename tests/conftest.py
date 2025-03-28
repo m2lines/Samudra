@@ -393,7 +393,7 @@ def retry_with_backoff(
             time.sleep(wait_time)
 
 
-@pytest.fixture(scope="session", params=["simulated", "remote-om4"])
+@pytest.fixture(scope="session", params=["mock", "remote-om4"])
 def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     # Use cached data if available.
@@ -401,7 +401,7 @@ def data_source(request, pytestconfig) -> DataSource:
         return cached_data
 
     match request.param:
-        case "simulated":
+        case "mock":
             time_range = xr.cftime_range(
                 "1975-08-05", "1975-12-31", freq="5D", calendar="noleap"
             )
@@ -435,7 +435,7 @@ def data_source(request, pytestconfig) -> DataSource:
         case "remote-om4":
             # The chunk-size should be about the same as the size of the time slice
             # for optimal download time. In local experiments, this time range (which
-            # matches the simulated data) is about 30 items.
+            # matches the mock data) is about 30 items.
 
             data = retry_with_backoff(
                 (

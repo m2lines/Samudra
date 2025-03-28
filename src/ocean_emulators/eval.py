@@ -156,7 +156,7 @@ class Eval:
         get_model_summary(model, self.num_in)
 
         self.model = model
-        self.model = self.load_checkpoint(cfg.ckpt_path)
+        self.load_checkpoint(cfg.ckpt_path)
 
         self.network = cfg.experiment.network
 

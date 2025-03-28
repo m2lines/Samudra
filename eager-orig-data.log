@@ -1,0 +1,225 @@
+2025-03-28 20:53:05,258 - INFO - auto backend detected CUDA
+2025-03-28 20:53:05,259 - INFO - Failed to initialize distributed mode, running on single node.
+Traceback (most recent call last):
+  File "/home/alxmrs/Ocean_Emulator/src/ocean_emulators/backend.py", line 32, in init_train_backend
+    dist_cfg = init_distributed_mode()
+               ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alxmrs/Ocean_Emulator/src/ocean_emulators/utils/distributed.py", line 99, in init_distributed_mode
+    raise RuntimeError(
+RuntimeError: Distributed mode requires SLURM or RANK environment variables; did you mean to use `torchrun`?
+2025-03-28 20:53:05,296 - INFO - Prognostic variables: uo_0, uo_1, uo_2, uo_3, uo_4, uo_5, uo_6, uo_7, uo_8, uo_9, uo_10, uo_11, uo_12, uo_13, uo_14, uo_15, uo_16, uo_17, uo_18, vo_0, vo_1, vo_2, vo_3, vo_4, vo_5, vo_6, vo_7, vo_8, vo_9, vo_10, vo_11, vo_12, vo_13, vo_14, vo_15, vo_16, vo_17, vo_18, thetao_0, thetao_1, thetao_2, thetao_3, thetao_4, thetao_5, thetao_6, thetao_7, thetao_8, thetao_9, thetao_10, thetao_11, thetao_12, thetao_13, thetao_14, thetao_15, thetao_16, thetao_17, thetao_18, so_0, so_1, so_2, so_3, so_4, so_5, so_6, so_7, so_8, so_9, so_10, so_11, so_12, so_13, so_14, so_15, so_16, so_17, so_18, zos
+2025-03-28 20:53:05,297 - INFO - Boundary variables: tauuo, tauvo, hfds, hfds_anomalies
+2025-03-28 20:53:05,297 - INFO - Levels: 19
+2025-03-28 20:53:05,301 - INFO - Number of inputs (prognostic + boundary): 158
+2025-03-28 20:53:05,302 - INFO - Number of outputs (prognostic): 154
+2025-03-28 20:53:05,302 - INFO - Loading data
+2025-03-28 20:53:05,932 - INFO - areacello does not have any default metadata
+2025-03-28 20:53:05,932 - INFO - dz does not have any default metadata
+2025-03-28 20:53:05,932 - INFO - lev does not have any default metadata
+2025-03-28 20:53:05,932 - INFO - ocean_fraction does not have any default metadata
+2025-03-28 20:53:05,933 - INFO - time does not have any default metadata
+2025-03-28 20:53:05,934 - INFO - mask_0 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_1 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_2 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_3 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_4 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_5 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_6 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_7 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_8 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_9 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_10 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_11 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_12 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_13 does not have any default metadata
+2025-03-28 20:53:05,935 - INFO - mask_14 does not have any default metadata
+2025-03-28 20:53:05,936 - INFO - mask_15 does not have any default metadata
+2025-03-28 20:53:05,936 - INFO - mask_16 does not have any default metadata
+2025-03-28 20:53:05,936 - INFO - mask_17 does not have any default metadata
+2025-03-28 20:53:05,936 - INFO - mask_18 does not have any default metadata
+2025-03-28 20:53:06,286 - INFO - Getting model Samudra
+2025-03-28 20:53:06,286 - INFO - NOTE: Changing input channels to match data 157->158
+2025-03-28 20:53:06,286 - INFO - NOTE: Changing output channels to match data 77->154
+2025-03-28 20:53:07,392 - INFO - Number of parameters: 135142266
+=================================================================
+Layer (type:depth-idx)                   Param #
+=================================================================
+Samudra                                  --
+├─ModuleList: 1-1                        --
+│    └─ConvNeXtBlock: 2-1                --
+│    │    └─Conv2d: 3-1                  31,800
+│    │    └─Sequential: 3-2              4,623,912
+│    └─AvgPool: 2-2                      --
+│    │    └─AvgPool2d: 3-3               --
+│    └─ConvNeXtBlock: 2-3                --
+│    │    └─Conv2d: 3-4                  50,250
+│    │    └─Sequential: 3-5              7,405,050
+│    └─AvgPool: 2-4                      --
+│    │    └─AvgPool2d: 3-6               --
+│    └─ConvNeXtBlock: 2-5                --
+│    │    └─Conv2d: 3-7                  75,300
+│    │    └─Sequential: 3-8              11,556,300
+│    └─AvgPool: 2-6                      --
+│    │    └─AvgPool2d: 3-9               --
+│    └─ConvNeXtBlock: 2-7                --
+│    │    └─Conv2d: 3-10                 120,400
+│    │    └─Sequential: 3-11             16,687,600
+│    └─AvgPool: 2-8                      --
+│    │    └─AvgPool2d: 3-12              --
+│    └─ConvNeXtBlock: 2-9                --
+│    │    └─Sequential: 3-13             29,450,000
+│    └─BilinearUpsample: 2-10            --
+│    │    └─Upsample: 3-14               --
+│    └─ConvNeXtBlock: 2-11               --
+│    │    └─Conv2d: 3-15                 120,300
+│    │    └─Sequential: 3-16             29,289,900
+│    └─BilinearUpsample: 2-12            --
+│    │    └─Upsample: 3-17               --
+│    └─ConvNeXtBlock: 2-13               --
+│    │    └─Conv2d: 3-18                 75,250
+│    │    └─Sequential: 3-19             16,507,450
+│    └─BilinearUpsample: 2-14            --
+│    │    └─Upsample: 3-20               --
+│    └─ConvNeXtBlock: 2-15               --
+│    │    └─Conv2d: 3-21                 50,200
+│    │    └─Sequential: 3-22             11,456,200
+│    └─BilinearUpsample: 2-16            --
+│    │    └─Upsample: 3-23               --
+│    └─ConvNeXtBlock: 2-17               --
+│    │    └─Sequential: 3-24             7,365,000
+│    └─Conv2d: 2-18                      277,354
+├─Corrector: 1-2                         --
+=================================================================
+Total params: 135,142,266
+Trainable params: 135,142,266
+Non-trainable params: 0
+=================================================================
+2025-03-28 20:53:07,399 - INFO - =================================================================
+Layer (type:depth-idx)                   Param #
+=================================================================
+Samudra                                  --
+├─ModuleList: 1-1                        --
+│    └─ConvNeXtBlock: 2-1                --
+│    │    └─Conv2d: 3-1                  31,800
+│    │    └─Sequential: 3-2              4,623,912
+│    └─AvgPool: 2-2                      --
+│    │    └─AvgPool2d: 3-3               --
+│    └─ConvNeXtBlock: 2-3                --
+│    │    └─Conv2d: 3-4                  50,250
+│    │    └─Sequential: 3-5              7,405,050
+│    └─AvgPool: 2-4                      --
+│    │    └─AvgPool2d: 3-6               --
+│    └─ConvNeXtBlock: 2-5                --
+│    │    └─Conv2d: 3-7                  75,300
+│    │    └─Sequential: 3-8              11,556,300
+│    └─AvgPool: 2-6                      --
+│    │    └─AvgPool2d: 3-9               --
+│    └─ConvNeXtBlock: 2-7                --
+│    │    └─Conv2d: 3-10                 120,400
+│    │    └─Sequential: 3-11             16,687,600
+│    └─AvgPool: 2-8                      --
+│    │    └─AvgPool2d: 3-12              --
+│    └─ConvNeXtBlock: 2-9                --
+│    │    └─Sequential: 3-13             29,450,000
+│    └─BilinearUpsample: 2-10            --
+│    │    └─Upsample: 3-14               --
+│    └─ConvNeXtBlock: 2-11               --
+│    │    └─Conv2d: 3-15                 120,300
+│    │    └─Sequential: 3-16             29,289,900
+│    └─BilinearUpsample: 2-12            --
+│    │    └─Upsample: 3-17               --
+│    └─ConvNeXtBlock: 2-13               --
+│    │    └─Conv2d: 3-18                 75,250
+│    │    └─Sequential: 3-19             16,507,450
+│    └─BilinearUpsample: 2-14            --
+│    │    └─Upsample: 3-20               --
+│    └─ConvNeXtBlock: 2-15               --
+│    │    └─Conv2d: 3-21                 50,200
+│    │    └─Sequential: 3-22             11,456,200
+│    └─BilinearUpsample: 2-16            --
+│    │    └─Upsample: 3-23               --
+│    └─ConvNeXtBlock: 2-17               --
+│    │    └─Sequential: 3-24             7,365,000
+│    └─Conv2d: 2-18                      277,354
+├─Corrector: 1-2                         --
+=================================================================
+Total params: 135,142,266
+Trainable params: 135,142,266
+Non-trainable params: 0
+=================================================================
+2025-03-28 20:53:07,401 - INFO - Using decomposed mse loss
+2025-03-28 20:53:08,460 - INFO - Number of processes: 1, preferably use 8
+2025-03-28 20:53:08,571 - INFO - Long rollout will use input at time 1975-01-03 12:00:00 and produce output at 1975-01-13 12:00:00
+2025-03-28 20:53:08,582 - INFO - Starting training at step 4
+2025-03-28 20:53:08,582 - INFO - using loader version: LoaderVersion.OM4_EAGER
+2025-03-28 20:53:11,998 - INFO - Normalizing inputs
+2025-03-28 20:53:12,754 - INFO - Normalizing inputs
+2025-03-28 20:53:13,323 - INFO - Instantiating torch loaders
+2025-03-28 20:53:32,997 - INFO - Training Epoch: [1]  [   0/2821]  eta: 15:24:53  lr: 0.000200  loss: 2.8905 (2.8905)  time: 19.672(19.672)  data: 12.487(12.487)  max cpu mem: 1775  max gpu mem: 32192
+2025-03-28 20:53:33,657 - INFO - Training Epoch: [1]  [   1/2821]  eta: 7:57:46  lr: 0.000200  loss: 2.8905 (2.9700)  time: 0.659(0.659)  data: 0.000(0.000)  max cpu mem: 1850  max gpu mem: 32192
+2025-03-28 20:53:34,319 - INFO - Training Epoch: [1]  [   2/2821]  eta: 5:28:45  lr: 0.000200  loss: 3.0496 (3.0526)  time: 0.661(0.661)  data: 0.000(0.000)  max cpu mem: 1853  max gpu mem: 32192
+2025-03-28 20:53:34,984 - INFO - Training Epoch: [1]  [   3/2821]  eta: 4:14:16  lr: 0.000200  loss: 2.8905 (2.9405)  time: 0.664(0.664)  data: 0.000(0.000)  max cpu mem: 1853  max gpu mem: 32192
+2025-03-28 20:53:37,086 - INFO - Training Epoch: [1]  [   4/2821]  eta: 3:43:04  lr: 0.000200  loss: 2.8905 (2.7812)  time: 2.101(2.101)  data: 1.439(1.439)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:37,749 - INFO - Training Epoch: [1]  [   5/2821]  eta: 3:11:00  lr: 0.000200  loss: 2.6043 (2.6007)  time: 0.662(0.662)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:38,419 - INFO - Training Epoch: [1]  [   6/2821]  eta: 2:48:08  lr: 0.000200  loss: 2.6043 (2.4417)  time: 0.669(0.669)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:39,079 - INFO - Training Epoch: [1]  [   7/2821]  eta: 2:30:56  lr: 0.000200  loss: 2.1441 (2.3068)  time: 0.659(0.659)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:47,861 - INFO - Training Epoch: [1]  [   8/2821]  eta: 2:59:52  lr: 0.000200  loss: 2.1441 (2.1861)  time: 8.781(8.781)  data: 8.089(8.089)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:48,522 - INFO - Training Epoch: [1]  [   9/2821]  eta: 2:44:55  lr: 0.000200  loss: 1.6983 (2.0880)  time: 0.660(0.660)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:49,182 - INFO - Training Epoch: [1]  [  10/2821]  eta: 2:32:40  lr: 0.000200  loss: 1.6983 (1.9963)  time: 0.659(0.659)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:49,851 - INFO - Training Epoch: [1]  [  11/2821]  eta: 2:22:30  lr: 0.000200  loss: 1.4878 (1.9127)  time: 0.668(0.668)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:58,309 - INFO - Training Epoch: [1]  [  12/2821]  eta: 2:41:57  lr: 0.000200  loss: 1.4878 (1.8383)  time: 8.457(8.457)  data: 7.775(7.775)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:58,964 - INFO - Training Epoch: [1]  [  13/2821]  eta: 2:32:31  lr: 0.000200  loss: 1.3624 (1.7671)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:53:59,625 - INFO - Training Epoch: [1]  [  14/2821]  eta: 2:24:21  lr: 0.000200  loss: 1.3624 (1.7038)  time: 0.660(0.660)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:00,281 - INFO - Training Epoch: [1]  [  15/2821]  eta: 2:17:12  lr: 0.000200  loss: 1.2200 (1.6456)  time: 0.656(0.656)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:08,843 - INFO - Training Epoch: [1]  [  16/2821]  eta: 2:32:38  lr: 0.000200  loss: 1.2200 (1.5989)  time: 8.561(8.561)  data: 7.867(7.867)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:09,501 - INFO - Training Epoch: [1]  [  17/2821]  eta: 2:25:48  lr: 0.000200  loss: 1.2058 (1.5500)  time: 0.657(0.657)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:10,157 - INFO - Training Epoch: [1]  [  18/2821]  eta: 2:19:41  lr: 0.000200  loss: 1.2058 (1.5077)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:10,811 - INFO - Training Epoch: [1]  [  19/2821]  eta: 2:14:11  lr: 0.000200  loss: 1.0791 (1.4667)  time: 0.654(0.654)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:19,399 - INFO - Training Epoch: [1]  [  20/2821]  eta: 2:26:50  lr: 0.000200  loss: 0.9926 (1.4283)  time: 8.587(8.587)  data: 7.904(7.904)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:20,055 - INFO - Training Epoch: [1]  [  21/2821]  eta: 2:21:30  lr: 0.000200  loss: 0.9461 (1.3929)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:20,714 - INFO - Training Epoch: [1]  [  22/2821]  eta: 2:16:38  lr: 0.000200  loss: 0.8524 (1.3606)  time: 0.659(0.659)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:21,370 - INFO - Training Epoch: [1]  [  23/2821]  eta: 2:12:10  lr: 0.000200  loss: 0.8407 (1.3288)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:30,096 - INFO - Training Epoch: [1]  [  24/2821]  eta: 2:23:06  lr: 0.000200  loss: 0.8177 (1.3001)  time: 8.725(8.725)  data: 8.048(8.048)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:30,750 - INFO - Training Epoch: [1]  [  25/2821]  eta: 2:18:43  lr: 0.000200  loss: 0.7731 (1.2722)  time: 0.653(0.653)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:31,404 - INFO - Training Epoch: [1]  [  26/2821]  eta: 2:14:40  lr: 0.000200  loss: 0.7476 (1.2457)  time: 0.653(0.653)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:32,066 - INFO - Training Epoch: [1]  [  27/2821]  eta: 2:10:54  lr: 0.000200  loss: 0.7175 (1.2225)  time: 0.661(0.661)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:41,102 - INFO - Training Epoch: [1]  [  28/2821]  eta: 2:20:51  lr: 0.000200  loss: 0.6873 (1.1989)  time: 9.035(9.035)  data: 8.321(8.321)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:41,756 - INFO - Training Epoch: [1]  [  29/2821]  eta: 2:17:07  lr: 0.000200  loss: 0.6605 (1.1767)  time: 0.654(0.654)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:42,412 - INFO - Training Epoch: [1]  [  30/2821]  eta: 2:13:38  lr: 0.000200  loss: 0.6514 (1.1563)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:43,067 - INFO - Training Epoch: [1]  [  31/2821]  eta: 2:10:22  lr: 0.000200  loss: 0.6485 (1.1363)  time: 0.654(0.654)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:51,180 - INFO - Training Epoch: [1]  [  32/2821]  eta: 2:17:48  lr: 0.000200  loss: 0.6113 (1.1193)  time: 8.113(8.113)  data: 7.419(7.419)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:51,834 - INFO - Training Epoch: [1]  [  33/2821]  eta: 2:14:35  lr: 0.000200  loss: 0.5966 (1.1008)  time: 0.653(0.653)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:52,489 - INFO - Training Epoch: [1]  [  34/2821]  eta: 2:11:34  lr: 0.000200  loss: 0.5964 (1.0826)  time: 0.654(0.654)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:54:53,149 - INFO - Training Epoch: [1]  [  35/2821]  eta: 2:08:42  lr: 0.000200  loss: 0.5763 (1.0664)  time: 0.659(0.659)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:01,558 - INFO - Training Epoch: [1]  [  36/2821]  eta: 2:15:44  lr: 0.000200  loss: 0.5753 (1.0502)  time: 8.408(8.408)  data: 7.713(7.713)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:02,858 - INFO - Training Epoch: [1]  [  37/2821]  eta: 2:13:42  lr: 0.000200  loss: 0.5547 (1.0353)  time: 1.299(1.299)  data: 0.630(0.630)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:03,525 - INFO - Training Epoch: [1]  [  38/2821]  eta: 2:11:01  lr: 0.000200  loss: 0.5454 (1.0220)  time: 0.666(0.666)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:04,188 - INFO - Training Epoch: [1]  [  39/2821]  eta: 2:08:28  lr: 0.000200  loss: 0.5404 (1.0099)  time: 0.662(0.662)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:13,014 - INFO - Training Epoch: [1]  [  40/2821]  eta: 2:15:16  lr: 0.000200  loss: 0.5375 (0.9971)  time: 8.825(8.825)  data: 8.121(8.121)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:13,971 - INFO - Training Epoch: [1]  [  41/2821]  eta: 2:13:03  lr: 0.000200  loss: 0.5375 (0.9864)  time: 0.956(0.956)  data: 0.302(0.302)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:14,628 - INFO - Training Epoch: [1]  [  42/2821]  eta: 2:10:37  lr: 0.000200  loss: 0.5313 (0.9748)  time: 0.656(0.656)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:15,284 - INFO - Training Epoch: [1]  [  43/2821]  eta: 2:08:17  lr: 0.000200  loss: 0.5169 (0.9631)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:23,557 - INFO - Training Epoch: [1]  [  44/2821]  eta: 2:13:54  lr: 0.000200  loss: 0.5160 (0.9521)  time: 8.272(8.272)  data: 7.559(7.559)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:24,748 - INFO - Training Epoch: [1]  [  45/2821]  eta: 2:12:08  lr: 0.000200  loss: 0.4998 (0.9412)  time: 1.191(1.191)  data: 0.523(0.523)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:25,407 - INFO - Training Epoch: [1]  [  46/2821]  eta: 2:09:56  lr: 0.000200  loss: 0.4880 (0.9304)  time: 0.658(0.658)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:26,065 - INFO - Training Epoch: [1]  [  47/2821]  eta: 2:07:48  lr: 0.000200  loss: 0.4842 (0.9201)  time: 0.657(0.657)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:34,933 - INFO - Training Epoch: [1]  [  48/2821]  eta: 2:13:31  lr: 0.000200  loss: 0.4842 (0.9113)  time: 8.867(8.867)  data: 8.161(8.161)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:35,773 - INFO - Training Epoch: [1]  [  49/2821]  eta: 2:11:35  lr: 0.000200  loss: 0.4838 (0.9015)  time: 0.839(0.839)  data: 0.138(0.138)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:36,429 - INFO - Training Epoch: [1]  [  50/2821]  eta: 2:09:33  lr: 0.000200  loss: 0.4836 (0.8932)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:37,088 - INFO - Training Epoch: [1]  [  51/2821]  eta: 2:07:35  lr: 0.000200  loss: 0.4836 (0.8854)  time: 0.658(0.658)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:46,021 - INFO - Training Epoch: [1]  [  52/2821]  eta: 2:12:55  lr: 0.000200  loss: 0.4751 (0.8770)  time: 8.932(8.932)  data: 8.238(8.238)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:46,774 - INFO - Training Epoch: [1]  [  53/2821]  eta: 2:11:03  lr: 0.000200  loss: 0.4751 (0.8699)  time: 0.752(0.752)  data: 0.091(0.091)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:47,470 - INFO - Training Epoch: [1]  [  54/2821]  eta: 2:09:12  lr: 0.000200  loss: 0.4751 (0.8622)  time: 0.694(0.694)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:48,160 - INFO - Training Epoch: [1]  [  55/2821]  eta: 2:07:25  lr: 0.000200  loss: 0.4677 (0.8546)  time: 0.689(0.689)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:57,358 - INFO - Training Epoch: [1]  [  56/2821]  eta: 2:12:34  lr: 0.000200  loss: 0.4677 (0.8474)  time: 9.198(9.198)  data: 8.520(8.520)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:58,047 - INFO - Training Epoch: [1]  [  57/2821]  eta: 2:10:47  lr: 0.000200  loss: 0.4624 (0.8395)  time: 0.688(0.688)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:58,702 - INFO - Training Epoch: [1]  [  58/2821]  eta: 2:09:02  lr: 0.000200  loss: 0.4612 (0.8331)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:55:59,361 - INFO - Training Epoch: [1]  [  59/2821]  eta: 2:07:20  lr: 0.000200  loss: 0.4492 (0.8261)  time: 0.658(0.658)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:09,483 - INFO - Training Epoch: [1]  [  60/2821]  eta: 2:12:51  lr: 0.000200  loss: 0.4459 (0.8193)  time: 10.121(10.121)  data: 9.405(9.405)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:10,181 - INFO - Training Epoch: [1]  [  61/2821]  eta: 2:11:10  lr: 0.000200  loss: 0.4443 (0.8130)  time: 0.696(0.696)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:10,876 - INFO - Training Epoch: [1]  [  62/2821]  eta: 2:09:33  lr: 0.000200  loss: 0.4406 (0.8065)  time: 0.695(0.695)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:11,537 - INFO - Training Epoch: [1]  [  63/2821]  eta: 2:07:57  lr: 0.000200  loss: 0.4380 (0.8005)  time: 0.659(0.659)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:21,933 - INFO - Training Epoch: [1]  [  64/2821]  eta: 2:13:17  lr: 0.000200  loss: 0.4379 (0.7940)  time: 10.396(10.396)  data: 9.697(9.697)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:22,590 - INFO - Training Epoch: [1]  [  65/2821]  eta: 2:11:40  lr: 0.000200  loss: 0.4342 (0.7885)  time: 0.656(0.656)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:23,249 - INFO - Training Epoch: [1]  [  66/2821]  eta: 2:10:07  lr: 0.000200  loss: 0.4327 (0.7827)  time: 0.658(0.658)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:23,905 - INFO - Training Epoch: [1]  [  67/2821]  eta: 2:08:36  lr: 0.000200  loss: 0.4270 (0.7772)  time: 0.656(0.656)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192

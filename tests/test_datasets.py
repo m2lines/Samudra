@@ -1,7 +1,6 @@
 """Test core Datasets and DataLoaders."""
 
 import datetime
-import itertools
 
 import cftime
 import numpy as np
@@ -17,6 +16,7 @@ from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS
 from ocean_emulators.datasets import OM4Dataset, TrainData
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.data import validate_data
 from ocean_emulators.utils.train import collate_om4
 from tests.conftest import DataSourceDims
 
@@ -76,19 +76,24 @@ def vector_of(max_vec_size: int, min_vec_size=1):
 @given(
     data_var_index=st.integers(min_value=0, max_value=255),
     lat=arrays(
-        dtype=np.float64,
+        dtype=np.float16,
         shape=vector_of(50),
-        elements=st.floats(-90.0, 90.0, allow_nan=False, allow_infinity=False),
+        elements=st.floats(
+            -90.0, 90.0, allow_nan=False, allow_infinity=False, width=16
+        ),
+        unique=True,
     ),
     lng=arrays(
-        dtype=np.float64,
+        dtype=np.float16,
         shape=vector_of(50),
-        elements=st.floats(0, 360.0, allow_nan=False, allow_infinity=False),
+        elements=st.floats(0, 360.0, allow_nan=False, allow_infinity=False, width=16),
+        unique=True,
     ),
     days_since_start=arrays(
         dtype=np.int32,
         shape=vector_of(50),
         elements=st.integers(min_value=0, max_value=999),
+        unique=True,
     ),
     start_day=st.dates(
         min_value=datetime.date(1900, 1, 1),  # to quiet cftime warning about year < 0
@@ -135,7 +140,7 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     start_day=datetime.date(2000, 1, 1),
     calendar="noleap",
 )
-@settings(deadline=2000)
+@settings(deadline=1000)
 def test_test_util__data_source_roundtrip(
     data_var_index: int,
     lat: NDArray[np.floating],
@@ -160,17 +165,12 @@ def test_test_util__data_source_roundtrip(
     # intermediate representation: `xarray.DataArray`
     da = dims_uncoded.encode(data_var_index)
 
-    # Additional property: If the inputs are unique, then the outputs should be unique.
-    inputs = itertools.product(*[v.values for v in dims_uncoded.to_coords().values()])
-    # The cross product of the input values maps on to one output coordinate.
-    inputs_are_unique = len(set(inputs)) == len(list(inputs))
-    if inputs_are_unique:
-        unique, counts = np.unique(da.values.flatten(), return_counts=True)
-        duplicates, num_dups = unique[counts > 1], counts[counts > 1]
-        assert len(unique) == da.size, (
-            f"All values are unique. frequency of duplicates: "
-            f"{list(zip(duplicates, num_dups))}"
-        )
+    unique, counts = np.unique(da.values.flatten(), return_counts=True)
+    duplicates, num_dups = unique[counts > 1], counts[counts > 1]
+    assert len(unique) == da.size, (
+        f"All values are unique. frequency of duplicates: "
+        f"{list(zip(duplicates, num_dups))}"
+    )
 
     # end
     dims_decoded, decoded_var_index = DataSourceDims.decode(da)
@@ -309,8 +309,10 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
     depth_vars = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     surface_vars = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
+    val_ds, _, _ = validate_data(ds, xr.Dataset(), xr.Dataset())
+
     om4 = OM4Dataset(
-        ds,
+        val_ds.sel(time=cfg.train.time_slice),
         depth_vars,
         surface_vars,
         cfg.data.hist,

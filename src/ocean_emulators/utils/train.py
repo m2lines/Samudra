@@ -6,7 +6,7 @@ import torch
 import xarray as xr
 from xarray_einstats.einops import rearrange  # noqa: F401
 
-from ocean_emulators.constants import Example
+from ocean_emulators.constants import Example, Input, Prognostic
 from ocean_emulators.datasets import InferenceDataset, TrainData
 
 
@@ -38,11 +38,11 @@ def collate_om4(examples: Sequence[Example]) -> TrainData:
 
     # TODO(alxmrs): Tune dask parallelization
     # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
-    inputs = inputs_batch.einops.rearrange(
+    inputs: Input = inputs_batch.einops.rearrange(
         "step window (time variable) lat lon",
         dask="allowed",
     ).compute()
-    labels = labels_batch.einops.rearrange(
+    labels: Prognostic = labels_batch.einops.rearrange(
         "step window (time variable) lat lon",
         dask="allowed",
     ).compute()
@@ -51,7 +51,7 @@ def collate_om4(examples: Sequence[Example]) -> TrainData:
     labels_tensor = torch.from_numpy(labels.to_numpy())
 
     # TODO(#126): Remove TrainData interface (eventually)
-    batch = TrainData(inputs[0].shape[2])
+    batch = TrainData(labels[0].shape[2])  # len(prognostic_vars)
     steps = input_tensor.shape[0]
     for step in range(steps):
         batch.insert(input_tensor[step], labels_tensor[step])

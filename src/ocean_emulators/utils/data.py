@@ -106,12 +106,7 @@ def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
         # If the name has four tokens, then it definitely is at some depth level (i.e.,
         # not at the surface).
         if len(tokens) >= 4:  # OM4 data format (e.g., {variable}_lev_{level}_{decimal})
-            # TODO(alxmrs): Is the OM4 data wrong? Is preprocessing done somewhere?
-            # In this format, "level" is a member of DEPTH_LEVELS, _not_ DEPTH_I_LEVELS.
-            # Thus, we need to convert it to the corresponding DEPTH_I_LEVELS index.
-            _, _, level, *_ = tokens
-            closest_level = min(DEPTH_LEVELS, key=lambda x: abs(x - float(level)))
-            level = DEPTH_I_LEVELS[DEPTH_LEVELS.index(closest_level)]
+            raise ValueError("please call `with_level_index_vars` before masking!")
         # If it has two tokens, then it _maybe_ at the surface.
         elif len(tokens) == 2:  # output_vars format (e.g., {variable}_{level})
             _, level = tokens
@@ -230,21 +225,37 @@ def compute_anomalies(data: xr.Dataset, anomalies_vars: tuple[str, ...]) -> xr.D
     return data_copy
 
 
-def rename_vars(data: xr.Dataset) -> xr.Dataset:
+def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
     """
-    Rename variables if required.
+    Ensure variable names use a depth level index, not depth level value.
     """
     data_copy = data.copy()
+
     for var in data.variables:
-        # OM4 data format has variables in the form: var_lev_depthlevel
-        # ex. so_lev_1040_0. We need to convert into var_depthlevelidx
+        # OM4 data format has variables in the form: var_lev_{depthlevel}
+        # ex. so_lev_1040_0. We need to convert into var_{depthlevelidx}
         var_str = str(var)
         if "_lev_" in var_str:
             var_split = var_str.split("_lev_")
             var = var_split[0]
             lev_in_depth = float(var_split[1].replace("_", "."))
             lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
-            data_copy = data_copy.rename({var_str: var + "_" + str(lev_in_depth_idx)})
+            data_copy = data_copy.rename({var_str: f"{var}_{lev_in_depth_idx!s}"})
+
+    return data_copy
+
+
+def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
+    """Standardize dataset coordinates; prefer "lat"/"lon" over "y"/"x"."""
+    data_copy = data.copy()
+    # OM4 data has coordinates we don't need
+    # We drop them and rename x, y dimensions to lon, lat
+    if "lat" not in data_copy.dims:
+        # Drop unnecessary coordinates and rename dimensions
+        data_copy = data_copy.drop_vars(
+            ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
+        ).rename({"x": "lon", "y": "lat"})
+
     return data_copy
 
 
@@ -256,38 +267,17 @@ def validate_data(
     """
     Validate the data such that we have the correct format for training.
     """
-    data_copy = data.copy()
-    data_mean_copy = data_mean.copy()
-    data_std_copy = data_std.copy()
-
-    # Check if Mask variables exist
-    if MASK_VARS[0] not in data_copy.variables:
-        assert "wetmask" in data_copy.variables, (
-            "Wet mask cannot be constructed without "
-        )
-        "either the wetmask variable or the level-wise masks"
-
-        # Construct the mask variables
-        wet_mask = data_copy["wetmask"]
-        for i, lev in enumerate(DEPTH_I_LEVELS):
-            assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
-            data_copy[f"mask_{lev}"] = wet_mask.isel(lev=i)
-
-        data_copy = data_copy.drop_vars("wetmask")
+    data_copy = (
+        data.copy()
+        .pipe(flatten_masks)
+        .pipe(with_level_index_vars)
+        .pipe(with_lat_lon_coords)
+    )
 
     # Check if data variables are in the right format
     # This check is to ensure we convert data to the correct format
-    data_copy = rename_vars(data_copy)
-    data_mean_copy = rename_vars(data_mean_copy)
-    data_std_copy = rename_vars(data_std_copy)
-
-    # OM4 data has coordinates we don't need
-    # We drop them and rename x, y dimensions to lon, lat
-    if "lat" not in data_copy.dims:
-        # Drop unnecessary coordinates and rename dimensions
-        data_copy = data_copy.drop_vars(
-            ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
-        ).rename({"x": "lon", "y": "lat"})
+    data_mean_copy = with_level_index_vars(data_mean.copy())
+    data_std_copy = with_level_index_vars(data_std.copy())
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()

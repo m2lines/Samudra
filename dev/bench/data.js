@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743133809589,
+  "lastUpdate": 1743133811388,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2695,6 +2695,86 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 3.9415473300042096",
             "extra": "mean: 95.52539849119998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35bb5cb6d97abb0e8bd9df99bc4af91c01d511f3",
+          "message": "Adding remote data to tests + caching test data (#128)\n\nThis PR addressed part of #146. It adds ~30 days worth of OM4 to the\ntest data sources. To make this more performant, we add a local data\ncaching mechanism.",
+          "timestamp": "2025-03-27T19:50:56-07:00",
+          "tree_id": "8ff73fc05cbb1d2c6577ae342ab1a27d86f553e2",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/35bb5cb6d97abb0e8bd9df99bc4af91c01d511f3"
+        },
+        "date": 1743133810569,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cuda-train]",
+            "value": 0.18280927747655967,
+            "unit": "iter/sec",
+            "range": "stddev: 0.26232602664626126",
+            "extra": "mean: 5.470181895600035 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cuda-val]",
+            "value": 0.3988792253552795,
+            "unit": "iter/sec",
+            "range": "stddev: 0.039388244808652946",
+            "extra": "mean: 2.507024523799919 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-cuda]",
+            "value": 0.1604045193837981,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05409982026471947",
+            "extra": "mean: 6.234238310999899 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-cuda]",
+            "value": 0.01059191873946944,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6166140697946135",
+            "extra": "mean: 94.41160044720009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cuda-train]",
+            "value": 0.6075289821813089,
+            "unit": "iter/sec",
+            "range": "stddev: 0.016233660541422182",
+            "extra": "mean: 1.6460120082000684 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cuda-val]",
+            "value": 0.8853941751183447,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05973942124164683",
+            "extra": "mean: 1.1294404549999855 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-cuda]",
+            "value": 0.3601557582751241,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15071982701821962",
+            "extra": "mean: 2.776576458999989 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-cuda]",
+            "value": 0.013482744247303122,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19963597071093725",
+            "extra": "mean: 74.16887702220001 sec\nrounds: 5"
           }
         ]
       }

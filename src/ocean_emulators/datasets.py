@@ -51,8 +51,8 @@ class OM4Dataset(Dataset):
         norm_boundary = norm.normalize_boundary(boundary)
 
         # Set non-ocean areas to zero.
-        self.prognostic = mask(norm_prognostic, data_.wetmask).compute()
-        self.boundary = mask(norm_boundary, data_.wetmask).compute()
+        self.prognostic = mask(norm_prognostic, data_.wetmask)
+        self.boundary = mask(norm_boundary, data_.wetmask)
 
         self.hist: int = hist
         self.steps: int = steps

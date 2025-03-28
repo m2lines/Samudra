@@ -223,3 +223,37 @@ Non-trainable params: 0
 2025-03-28 20:56:22,590 - INFO - Training Epoch: [1]  [  65/2821]  eta: 2:11:40  lr: 0.000200  loss: 0.4342 (0.7885)  time: 0.656(0.656)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
 2025-03-28 20:56:23,249 - INFO - Training Epoch: [1]  [  66/2821]  eta: 2:10:07  lr: 0.000200  loss: 0.4327 (0.7827)  time: 0.658(0.658)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
 2025-03-28 20:56:23,905 - INFO - Training Epoch: [1]  [  67/2821]  eta: 2:08:36  lr: 0.000200  loss: 0.4270 (0.7772)  time: 0.656(0.656)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:34,277 - INFO - Training Epoch: [1]  [  68/2821]  eta: 2:13:35  lr: 0.000200  loss: 0.4254 (0.7717)  time: 10.371(10.371)  data: 9.686(9.686)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:34,937 - INFO - Training Epoch: [1]  [  69/2821]  eta: 2:12:03  lr: 0.000200  loss: 0.4254 (0.7667)  time: 0.659(0.659)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:35,592 - INFO - Training Epoch: [1]  [  70/2821]  eta: 2:10:34  lr: 0.000200  loss: 0.4254 (0.7619)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+2025-03-28 20:56:36,248 - INFO - Training Epoch: [1]  [  71/2821]  eta: 2:09:08  lr: 0.000200  loss: 0.4221 (0.7568)  time: 0.655(0.655)  data: 0.000(0.000)  max cpu mem: 1855  max gpu mem: 32192
+Traceback (most recent call last):
+  File "/home/alxmrs/Ocean_Emulator/src/ocean_emulators/train.py", line 838, in <module>
+    main()
+  File "/home/alxmrs/Ocean_Emulator/src/ocean_emulators/train.py", line 831, in main
+    trainer.run()
+  File "/home/alxmrs/Ocean_Emulator/src/ocean_emulators/train.py", line 423, in run
+    train_stats = self.train_one_epoch(epoch)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alxmrs/Ocean_Emulator/src/ocean_emulators/train.py", line 479, in train_one_epoch
+    for data_iter_step, data in enumerate(
+  File "/home/alxmrs/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 171, in log_every
+    for obj in iterable:
+  File "/home/alxmrs/Ocean_Emulator/.venv/lib/python3.11/site-packages/torch/utils/data/dataloader.py", line 631, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "/home/alxmrs/Ocean_Emulator/.venv/lib/python3.11/site-packages/torch/utils/data/dataloader.py", line 1329, in _next_data
+    idx, data = self._get_data()
+                ^^^^^^^^^^^^^^^^
+  File "/home/alxmrs/Ocean_Emulator/.venv/lib/python3.11/site-packages/torch/utils/data/dataloader.py", line 1285, in _get_data
+    success, data = self._try_get_data()
+                    ^^^^^^^^^^^^^^^^^^^^
+  File "/home/alxmrs/Ocean_Emulator/.venv/lib/python3.11/site-packages/torch/utils/data/dataloader.py", line 1133, in _try_get_data
+    data = self._data_queue.get(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alxmrs/.local/share/uv/python/cpython-3.11.11-linux-x86_64-gnu/lib/python3.11/queue.py", line 180, in get
+    self.not_empty.wait(remaining)
+  File "/home/alxmrs/.local/share/uv/python/cpython-3.11.11-linux-x86_64-gnu/lib/python3.11/threading.py", line 331, in wait
+    gotit = waiter.acquire(True, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

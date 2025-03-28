@@ -10,6 +10,7 @@
 #   "gcsfs",
 #   "numcodecs>=0.15",
 #   "aiohttp-retry",
+#   "distributed",
 # ]
 # ///
 
@@ -23,6 +24,7 @@ import dask.diagnostics
 import fsspec
 import xarray as xr
 from aiohttp_retry import ExponentialRetry, RetryClient
+from dask.distributed import LocalCluster
 from fsspec.implementations.http import get_client
 
 DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -66,6 +68,10 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
 
 def main(args: argparse.Namespace) -> None:
     """Clones slice of Samudra data at the `dest_root` directory."""
+    if args.local_cluster:
+        cluster = LocalCluster()
+        client = cluster.get_client()  # noqa: F841
+
     # Ensure the path/to/dest exists
     if not args.dest.startswith("gs://") and not args.dest.startswith("s3://"):
         pathlib.Path(args.dest).mkdir(parents=True, exist_ok=True)
@@ -116,5 +122,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--write_time_chunks", type=int, default=10)
     parser.add_argument("--compact_variables", action="store_true")
+    parser.add_argument("--local_cluster", action="store_true")
 
     main(parser.parse_args())

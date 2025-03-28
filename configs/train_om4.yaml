@@ -56,7 +56,7 @@ data:
   time_delta: 5
   num_workers: 4
   hist: 1
-  loader_version: om4-eager
+  loader_version: om4-lazy
 
 
 samudra:

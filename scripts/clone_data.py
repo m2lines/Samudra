@@ -11,6 +11,7 @@
 #   "numcodecs>=0.15",
 #   "aiohttp-retry",
 #   "distributed",
+#   "tenacity",
 # ]
 # ///
 
@@ -21,26 +22,16 @@ from collections import defaultdict
 
 import dask
 import dask.diagnostics
-import fsspec
 import xarray as xr
-from aiohttp_retry import ExponentialRetry, RetryClient
 from dask.distributed import LocalCluster
-from fsspec.implementations.http import get_client
+from tenacity import retry
 
 DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 
 
-async def _robust_get_client(**kwargs):
-    options = ExponentialRetry(attempts=5)
-    return RetryClient(
-        await get_client(**kwargs), raise_for_status=True, retry_options=options
-    )
-
-
+@retry
 def robust_open_dataset(target: str, **kwargs) -> xr.Dataset:
-    fs = fsspec.filesystem("http", get_client=_robust_get_client)
-    mapper = fs.get_mapper(target)
-    return xr.open_dataset(mapper, **kwargs)
+    return xr.open_dataset(target, **kwargs)
 
 
 def compact_dataset(ds: xr.Dataset) -> xr.Dataset:

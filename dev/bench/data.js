@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743133811388,
+  "lastUpdate": 1743137133200,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1461,6 +1461,86 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.31712113113160606",
             "extra": "mean: 87.43119442640004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2ad42a381a36e40aca79d4469f684f623c13e041",
+          "message": "Eval checkpoint load fix (#153)\n\nNeeded to remove the \"module.\" component in the keys of the checkpoint",
+          "timestamp": "2025-03-27T23:47:47-04:00",
+          "tree_id": "865556090eff2ac4bc7c3aa24b17056c9b7db012",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/2ad42a381a36e40aca79d4469f684f623c13e041"
+        },
+        "date": 1743137132280,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cpu-train]",
+            "value": 0.06794325076375798,
+            "unit": "iter/sec",
+            "range": "stddev: 0.16028859771807827",
+            "extra": "mean: 14.718165362399997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cpu-val]",
+            "value": 0.18711830662166187,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10656089705694066",
+            "extra": "mean: 5.344212536199995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-cpu]",
+            "value": 0.1675220435464086,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12278085469542117",
+            "extra": "mean: 5.9693636659999925 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-cpu]",
+            "value": 0.007795256660479932,
+            "unit": "iter/sec",
+            "range": "stddev: 1.4429334330298083",
+            "extra": "mean: 128.28313980600004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cpu-train]",
+            "value": 0.29776166262333736,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10557283858820266",
+            "extra": "mean: 3.3583907047999673 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cpu-val]",
+            "value": 0.6461851442525958,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10749916164905914",
+            "extra": "mean: 1.547544088399991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-cpu]",
+            "value": 0.41901897276526695,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10860597012621588",
+            "extra": "mean: 2.3865267803999815 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-cpu]",
+            "value": 0.011334912164607002,
+            "unit": "iter/sec",
+            "range": "stddev: 1.00216817341911",
+            "extra": "mean: 88.22300389080002 sec\nrounds: 5"
           }
         ]
       }

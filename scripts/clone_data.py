@@ -9,7 +9,6 @@
 #   "aiohttp",
 #   "gcsfs",
 #   "numcodecs>=0.15",
-#   "aiohttp-retry",
 #   "distributed",
 #   "tenacity",
 # ]

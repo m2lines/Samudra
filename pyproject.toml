@@ -44,7 +44,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-  "aiohttp-retry>=2.9.1",
   "beartype>=0.20",
   "fsspec>=2025.3",
   "hypothesis[numpy]>=6.127.2",

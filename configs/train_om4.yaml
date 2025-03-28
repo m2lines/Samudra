@@ -39,7 +39,7 @@ experiment:
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
-  cluster_data_dir: /home/alxmrs/data0326
+  cluster_data_dir: /home/alxmrs/Ocean_Emulator/.data_cache/samudra/
   wandb:
     mode: disabled
     project: ocean-emulators
@@ -56,7 +56,7 @@ data:
   time_delta: 5
   num_workers: 4
   hist: 1
-  loader_version: om4-lazy
+  loader_version: om4-eager
 
 
 samudra:

@@ -33,3 +33,4 @@ output.log
 .benchmarks/
 .hypothesis/
 .vscode/
+.data_cache/

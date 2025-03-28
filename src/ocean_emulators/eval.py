@@ -185,12 +185,12 @@ class Eval:
         self.model_path = cfg.ckpt_path
         self.init_inference_store()
 
-    def load_checkpoint(self, ckpt_path):
-        checkpoint = torch.load(ckpt_path, map_location=torch.device("cuda"))
+    def load_checkpoint(self, ckpt_path: str):
+        checkpoint = torch.load(ckpt_path, map_location=torch.device(self.device))
         model_state_dict = checkpoint["model"]
         new_state_dict = OrderedDict()
         for k, v in model_state_dict.items():
-            name = k[7:]  # remove `module.`
+            name = k.removeprefix("module.")
             new_state_dict[name] = v
         self.model.load_state_dict(new_state_dict)
 

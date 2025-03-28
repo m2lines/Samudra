@@ -621,6 +621,7 @@ class Trainer:
             cur_step: Current training step size
         """
         # Create datasets
+        logging.info(f"using loader version: {self.loader_version}")
         match self.loader_version:
             case TrainDataset.FLAG:
                 train_data: ConcatDataset = ConcatDataset(

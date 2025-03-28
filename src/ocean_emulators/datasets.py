@@ -7,6 +7,7 @@ import xarray as xr
 from einops import rearrange
 from jaxtyping import Float, Integer
 from torch.utils.data import Dataset
+from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
     Boundary,
@@ -134,13 +135,38 @@ class OM4Dataset(Dataset):
             # This point in time splits the training data and the label data!
             time_split = self.hist + 1
 
-            prognostic = self.prognostic.isel(time=window).isel(
-                time=slice(None, time_split)
-            )
-            boundary = self.boundary.isel(time=window).isel(time=self.hist)
-            input_ = prognostic.update(boundary)
+            # TODO(alxmrs): Tune dask parallelization
+            # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
 
-            label = self.prognostic.isel(time=window).isel(time=slice(time_split, None))
+            prognostic = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(None, time_split))
+                .to_array(name="prognostic")
+                .einops.rearrange("window (time variable)=var lat lon", dask="allowed")
+                .drop_vars("var", errors="ignore")
+            )
+            boundary = (
+                self.boundary.isel(time=window)
+                .isel(time=self.hist)
+                .to_array("var", "boundary")
+                .transpose("window", "var", "lat", "lon")
+                .drop_vars("var", errors="ignore")
+            )
+            # Combine prognostic and boundary data
+            input_ = xr.concat([prognostic, boundary], dim="var").rename(
+                {"var": "variable"}
+            )
+
+            label = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(time_split, None))
+                .to_array()
+                .einops.rearrange(
+                    "window (time variable)=var lat lon",
+                    dask="allowed",
+                )
+                .rename({"var": "variable"})
+            )
 
             inputs.append(input_)
             labels.append(label)

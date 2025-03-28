@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743014901985,
+  "lastUpdate": 1743127550909,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1329,6 +1329,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.091037949685462",
             "extra": "mean: 137.43336588379995 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53dae35e99b6fd0a2f1e5dd6173b0806544dd52a",
+          "message": "Fix parsing of loader_version config parameter. (#149)",
+          "timestamp": "2025-03-27T18:26:22-07:00",
+          "tree_id": "076bc5392b6347a05971318063e112b0a7b62512",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/53dae35e99b6fd0a2f1e5dd6173b0806544dd52a"
+        },
+        "date": 1743127549935,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-train]",
+            "value": 0.062092479881305236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.749451776676905",
+            "extra": "mean: 16.105009848400005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_cm4.test.yaml-cpu-val]",
+            "value": 0.1772498771628218,
+            "unit": "iter/sec",
+            "range": "stddev: 0.33776207944805897",
+            "extra": "mean: 5.6417528520000015 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_cm4.test.yaml-cpu]",
+            "value": 0.15106705380623353,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1227987465445997",
+            "extra": "mean: 6.619577034200006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_cm4.test.yaml-cpu]",
+            "value": 0.007145199523872609,
+            "unit": "iter/sec",
+            "range": "stddev: 1.9720871657693768",
+            "extra": "mean: 139.9541043828 sec\nrounds: 5"
           }
         ]
       }

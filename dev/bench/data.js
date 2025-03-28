@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743127552700,
+  "lastUpdate": 1743133809589,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1381,6 +1381,86 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.9720871657693768",
             "extra": "mean: 139.9541043828 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "35bb5cb6d97abb0e8bd9df99bc4af91c01d511f3",
+          "message": "Adding remote data to tests + caching test data (#128)\n\nThis PR addressed part of #146. It adds ~30 days worth of OM4 to the\ntest data sources. To make this more performant, we add a local data\ncaching mechanism.",
+          "timestamp": "2025-03-27T19:50:56-07:00",
+          "tree_id": "8ff73fc05cbb1d2c6577ae342ab1a27d86f553e2",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/35bb5cb6d97abb0e8bd9df99bc4af91c01d511f3"
+        },
+        "date": 1743133808661,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cpu-train]",
+            "value": 0.06805100074389493,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19215561630474054",
+            "extra": "mean: 14.694861046400012 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cpu-val]",
+            "value": 0.18759282828272913,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11261888546933578",
+            "extra": "mean: 5.330694190999975 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-cpu]",
+            "value": 0.17140512915221195,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09309060590109618",
+            "extra": "mean: 5.834131131000026 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-cpu]",
+            "value": 0.00789744144958315,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14038154000028777",
+            "extra": "mean: 126.62328760320001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cpu-train]",
+            "value": 0.2951618389086693,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08509378358749765",
+            "extra": "mean: 3.3879718451998997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cpu-val]",
+            "value": 0.6455542309365162,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10568591807117317",
+            "extra": "mean: 1.5490565348000018 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-cpu]",
+            "value": 0.41771067633595405,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10534094180730513",
+            "extra": "mean: 2.394001534200015 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-cpu]",
+            "value": 0.011437565351366717,
+            "unit": "iter/sec",
+            "range": "stddev: 0.31712113113160606",
+            "extra": "mean: 87.43119442640004 sec\nrounds: 5"
           }
         ]
       }

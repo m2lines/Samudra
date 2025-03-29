@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743137135134,
+  "lastUpdate": 1743207055142,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1541,6 +1541,86 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.00216817341911",
             "extra": "mean: 88.22300389080002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0758666ad441442670f5e33a10e8ef92af72bbab",
+          "message": "Compact data during clone. (#144)\n\nAdded an option to data cloning script to compact variables. Here is\nwhat a sample output looks like:\n\n```\n<xarray.Dataset> Size: 74GB\nDimensions:         (y: 180, x: 360, lev: 19, time: 3504, y_b: 181, x_b: 361)\nCoordinates:\n    areacello       (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>\n    dz              (lev) int64 152B dask.array<chunksize=(19,), meta=np.ndarray>\n    lat             (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>\n    lat_b           (y_b, x_b) float64 523kB dask.array<chunksize=(91, 361), meta=np.ndarray>\n  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03\n    lon             (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>\n    lon_b           (y_b, x_b) float64 523kB dask.array<chunksize=(91, 361), meta=np.ndarray>\n    ocean_fraction  (lev, y, x) float64 10MB dask.array<chunksize=(19, 180, 360), meta=np.ndarray>\n  * time            (time) object 28kB 1975-01-03 12:00:00 ... 2022-12-29 12:...\n    wetmask         (lev, y, x) bool 1MB dask.array<chunksize=(19, 90, 360), meta=np.ndarray>\n  * x               (x) float64 3kB 0.5 1.5 2.5 3.5 ... 356.5 357.5 358.5 359.5\n  * y               (y) float64 1kB -89.24 -88.25 -87.25 ... 87.25 88.25 89.24\nDimensions without coordinates: y_b, x_b\nData variables:\n    hfds            (time, y, x) float32 908MB dask.array<chunksize=(50, 180, 360), meta=np.ndarray>\n    hfds_anomalies  (time, y, x) float32 908MB dask.array<chunksize=(50, 180, 360), meta=np.ndarray>\n    tauuo           (time, y, x) float32 908MB dask.array<chunksize=(50, 180, 360), meta=np.ndarray>\n    tauvo           (time, y, x) float32 908MB dask.array<chunksize=(50, 180, 360), meta=np.ndarray>\n    zos             (time, y, x) float32 908MB dask.array<chunksize=(50, 180, 360), meta=np.ndarray>\n    so              (lev, time, y, x) float32 17GB dask.array<chunksize=(19, 50, 180, 360), meta=np.ndarray>\n    thetao          (lev, time, y, x) float32 17GB dask.array<chunksize=(19, 50, 180, 360), meta=np.ndarray>\n    uo              (lev, time, y, x) float32 17GB dask.array<chunksize=(19, 50, 180, 360), meta=np.ndarray>\n    vo              (lev, time, y, x) float32 17GB dask.array<chunksize=(19, 50, 180, 360), meta=np.ndarray\n```\n\nThis script defaults to reading all levels as one chunk. This makes the\nrecommended chunking heuristic ~50-60 time chunks.",
+          "timestamp": "2025-03-28T16:06:31-07:00",
+          "tree_id": "ac7374803b7284f28d81ea158e8bc0ca2ebc066e",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/0758666ad441442670f5e33a10e8ef92af72bbab"
+        },
+        "date": 1743207054236,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cpu-train]",
+            "value": 0.06192602190338845,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7589353782252718",
+            "extra": "mean: 16.148300330999984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cpu-val]",
+            "value": 0.1681211673664407,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13651723575993333",
+            "extra": "mean: 5.948090984999988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-cpu]",
+            "value": 0.1494440737945972,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18540199846759348",
+            "extra": "mean: 6.691466410200019 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-cpu]",
+            "value": 0.0069497983045991776,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2284333043143579",
+            "extra": "mean: 143.8890678796 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cpu-train]",
+            "value": 0.26727826736650434,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12045102909618449",
+            "extra": "mean: 3.7414190455999687 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cpu-val]",
+            "value": 0.5736334994156672,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11864015642253276",
+            "extra": "mean: 1.7432733636000193 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-cpu]",
+            "value": 0.36233614588532514,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13414870199404172",
+            "extra": "mean: 2.759868181399952 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-cpu]",
+            "value": 0.01009885693706528,
+            "unit": "iter/sec",
+            "range": "stddev: 0.38875234504013834",
+            "extra": "mean: 99.02110765920001 sec\nrounds: 5"
           }
         ]
       }

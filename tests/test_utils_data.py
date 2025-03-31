@@ -22,7 +22,7 @@ def test_mask_roundtrip(data_source):
 
 
 def test_mask__zeros_data(data_source):
-    data = data_source.data
+    data = with_level_index_vars(data_source.data)
 
     unflattened = unflatten_masks(data)
     masked = mask(unflattened, unflattened.wetmask)
@@ -115,9 +115,11 @@ def test_compute_anomalies():
             "lon": [0],
         },
     )
+    ds_mean = ds.mean().compute()
+    ds_std = ds.std().compute()
 
     # compute anomalies
-    anomalies = compute_anomalies(ds, ("thetao_0_anomalies",))
+    anomalies, _, _ = compute_anomalies(ds, ds_mean, ds_std, ("thetao_0_anomalies",))
     anomalies_np = anomalies["thetao_0_anomalies"].to_numpy()
     anomalies_np_flat = anomalies_np[0][0]
 

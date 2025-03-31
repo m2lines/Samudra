@@ -15,14 +15,14 @@ resume_ckpt_path: null
 inference_epochs: [-1]
 data_percent: 1.0
 train:
-  start_time: "1969-08-15"
-  end_time: "1969-09-20"
+  start_time: "1975-08-15"
+  end_time: "1975-09-25"
 val:
-  start_time: "1969-10-20"
-  end_time: "1969-10-30"
+  start_time: "1975-10-20"
+  end_time: "1975-11-20"
 inference:
-  - start_time: "1969-10-30"
-    end_time: "1969-11-15"
+  - start_time: "1975-10-30"
+    end_time: "1975-12-20"
 data_stride: [1]
 steps: [2]
 step_transition: []
@@ -41,10 +41,11 @@ experiment:
   network: Samudra
   prognostic_vars_key: thermo_dynamic_5
   boundary_vars_key: tau_hfds
+  cluster_data_dir: .data_cache/
 data:
-  data_path: fake/path/to/data
-  data_means_path: fake/path/to/means
-  data_stds_path: fake/path/to/stds
+  data_path: data.zarr
+  data_means_path: means.nc
+  data_stds_path: stds.nc
   scaling_residuals_file: null
   time_delta: 5
   num_workers: 4

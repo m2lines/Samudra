@@ -1,6 +1,7 @@
 """Test core Datasets and DataLoaders."""
 
 import datetime
+import os
 
 import cftime
 import numpy as np
@@ -62,6 +63,17 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
 
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
+
+
+def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
+    ds = xr.open_zarr(os.path.join(cfg.experiment.data_dir, cfg.data.data_path))
+
+    data_size = ds.sel(time=time_slice).time.size
+    steps = cfg.steps[0]
+    hist = cfg.data.hist
+    stride = cfg.data_stride[0]
+
+    return data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):
@@ -179,11 +191,10 @@ def test_test_util__data_source_roundtrip(
     assert decoded_var_index == data_var_index
 
 
-# TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
-#  Changing the "hist" parameter breaks this test.
+@pytest.mark.all_configs
 def test_train__loads_correct_number_of_samples(train_loader_pair: LoaderPair):
     cfg, loader = train_loader_pair
-    n_samples = 13
+    n_samples = calc_num_samples(cfg, cfg.train.time_slice)
     assert len(list(loader)) == n_samples, (
         f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
     )
@@ -207,11 +218,9 @@ def test_train__data_shape(train_loader_pair: LoaderPair):
         assert y.shape == (cfg.steps[0], batch_size, output_var_dim, 180, 360)
 
 
-# TODO(alxmrs): How can we determine `n_samples` from the input config? Timeslice?
-#  Changing the "hist" parameter breaks this test.
 def test_val__loads_correct_number_of_samples(val_loader_pair):
     cfg, loader = val_loader_pair
-    n_samples = 5
+    n_samples = calc_num_samples(cfg, cfg.val.time_slice)
     assert len(list(loader)) == n_samples, (
         f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
     )
@@ -274,6 +283,7 @@ def test_inference__data_shape(inference_loader_pair: LoaderPair):
             assert y.shape == (batch_size, output_var_dim, 180, 360)
 
 
+@pytest.mark.all_configs
 def test__data_is_not_zeros(td_loader_pair: LoaderPair):
     cfg, loader = td_loader_pair
 
@@ -301,20 +311,22 @@ def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
             )
 
 
+@pytest.mark.all_configs
 def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
     cfg, loader = train_loader_pair
 
-    ds = xr.open_dataset(cfg.data.data_path, chunks={})
+    data_path = os.path.join(cfg.experiment.data_dir, cfg.data.data_path)
+    ds = xr.open_dataset(data_path, chunks={})
 
-    depth_vars = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
-    surface_vars = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
+    prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
+    boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
     val_ds, _, _ = validate_data(ds, xr.Dataset(), xr.Dataset())
 
     om4 = OM4Dataset(
         val_ds.sel(time=cfg.train.time_slice),
-        depth_vars,
-        surface_vars,
+        prognostic,
+        boundary,
         cfg.data.hist,
         cfg.steps[0],
         cfg.data_stride[0],

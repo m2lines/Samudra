@@ -45,6 +45,7 @@ dependencies = [
 [dependency-groups]
 dev = [
   "beartype>=0.20",
+  "fsspec>=2025.3",
   "hypothesis[numpy]>=6.127.2",
   "ipykernel>=6.29.5",
   "mypy>=1.15",
@@ -91,5 +92,5 @@ addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = [ "cftime.*", "scipy.*" ]
+module = [ "cftime.*", "scipy.*", "fsspec.*" ]
 follow_untyped_imports = true

@@ -3,6 +3,7 @@ import datetime
 import logging
 import os
 import time
+from collections import OrderedDict
 
 import torch
 import xarray as xr
@@ -154,11 +155,8 @@ class Eval:
 
         get_model_summary(model, self.num_in)
 
-        model.load_state_dict(
-            torch.load(cfg.ckpt_path, map_location=torch.device("cuda"))["model"]
-        )
-
         self.model = model
+        self.load_checkpoint(cfg.ckpt_path)
 
         self.network = cfg.experiment.network
 
@@ -186,6 +184,15 @@ class Eval:
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
         self.init_inference_store()
+
+    def load_checkpoint(self, ckpt_path: str):
+        checkpoint = torch.load(ckpt_path, map_location=torch.device(self.device))
+        model_state_dict = checkpoint["model"]
+        new_state_dict = OrderedDict()
+        for k, v in model_state_dict.items():
+            name = k.removeprefix("module.")
+            new_state_dict[name] = v
+        self.model.load_state_dict(new_state_dict)
 
     def init_inference_store(self):
         self.num_time_steps = get_inference_steps(

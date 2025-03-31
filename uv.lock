@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12' and sys_platform == 'linux'",
@@ -1345,6 +1344,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "beartype" },
+    { name = "fsspec" },
     { name = "hypothesis", extra = ["numpy"] },
     { name = "ipykernel" },
     { name = "mypy" },
@@ -1380,6 +1380,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "beartype", specifier = ">=0.20" },
+    { name = "fsspec", specifier = ">=2025.3" },
     { name = "hypothesis", extras = ["numpy"], specifier = ">=6.127.2" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "mypy", specifier = ">=1.15" },

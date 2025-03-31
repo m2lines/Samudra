@@ -205,11 +205,18 @@ def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:
     return tuple([var for var in var_names if var.endswith("_anomalies")])
 
 
-def compute_anomalies(data: xr.Dataset, anomalies_vars: tuple[str, ...]) -> xr.Dataset:
+def compute_anomalies(
+    data: xr.Dataset,
+    data_mean: xr.Dataset,
+    data_std: xr.Dataset,
+    anomalies_vars: tuple[str, ...],
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """
     Compute anomalies for the given variables.
     """
     data_copy = data.copy()
+    data_mean_copy = data_mean.copy()
+    data_std_copy = data_std.copy()
     for var in anomalies_vars:
         base_var = var.replace("_anomalies", "")
         if var not in data_copy.variables and base_var in data_copy.variables:
@@ -222,7 +229,10 @@ def compute_anomalies(data: xr.Dataset, anomalies_vars: tuple[str, ...]) -> xr.D
             data_copy[var] = (
                 data_copy[base_var] - climatology.sel(dayofyear=day_of_year)
             ).compute()
-    return data_copy
+            data_copy = data_copy.drop(["dayofyear"])
+            data_mean_copy[var] = data_copy[var].mean().compute()
+            data_std_copy[var] = data_copy[var].std().compute()
+    return data_copy, data_mean_copy, data_std_copy
 
 
 def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
@@ -283,7 +293,9 @@ def validate_data(
     tensor_map = TensorMap.get_instance()
     anomalies_vars = get_anomalies_vars(tensor_map.boundary_var_names)
     if anomalies_vars:
-        data_copy = compute_anomalies(data_copy, anomalies_vars)
+        data_copy, data_mean_copy, data_std_copy = compute_anomalies(
+            data_copy, data_mean_copy, data_std_copy, anomalies_vars
+        )
 
     return data_copy, data_mean_copy, data_std_copy
 

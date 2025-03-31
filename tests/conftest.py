@@ -280,6 +280,16 @@ def config_name(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
+@pytest.fixture(scope="session", params=[str(e.value) for e in c.LoaderVersion])
+def loader_version(request: pytest.FixtureRequest) -> str:
+    return request.param
+
+
+@pytest.fixture(scope="session", params=[0, 1, 2])
+def history(request: pytest.FixtureRequest) -> int:
+    return request.param
+
+
 @pytest.fixture(autouse=True)
 def check_skip_configs(request, config_name):
     """Decide if we run a test given only_configs and all_configs marks.
@@ -470,6 +480,8 @@ def train_config(
     data_source: DataSource,
     pytestconfig: pytest.Config,
     config_name: str,
+    loader_version: str,
+    history: int,
     backend: TrainBackendConfig,
 ) -> TrainConfig:
     # Write test data to the cache directory if they aren't already there.
@@ -478,12 +490,18 @@ def train_config(
 
     # Open default training script; modify it as necessary.
     trainer = TrainConfig.from_yaml(pytestconfig.rootpath / "configs" / config_name)
+    data_config = dataclasses.replace(
+        trainer.data,
+        hist=history,
+        loader_version=loader_version,
+    )
     experiment_config = dataclasses.replace(
         trainer.experiment,
         cluster_data_dir=str(cache / data_source.name),
     )
     test_data_config = dataclasses.replace(
         trainer,
+        data=data_config,
         experiment=experiment_config,
         backend=backend,
     )

@@ -33,25 +33,29 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
 
 def collate_om4(examples: Sequence[Example]) -> TrainData:
     """Combine several deferred Examples into single a `torch.Tensor` example pair."""
-    inputs_batch = xr.concat([x.to_array() for x, _ in examples], dim="step")
-    labels_batch = xr.concat([y.to_array() for _, y in examples], dim="step")
+    inputs_batch = xr.concat([x for x, _ in examples], dim="step")
+    labels_batch = xr.concat([y for _, y in examples], dim="step")
 
-    # TODO(alxmrs): Tune dask parallelization
-    # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
-    inputs: Input = inputs_batch.einops.rearrange(
-        "step window (time variable) lat lon",
-        dask="allowed",
+    inputs: Input = inputs_batch.transpose(
+        "step",
+        "window",
+        "variable",
+        "lat",
+        "lon",
     ).compute()
-    labels: Prognostic = labels_batch.einops.rearrange(
-        "step window (time variable) lat lon",
-        dask="allowed",
+    labels: Prognostic = labels_batch.transpose(
+        "step",
+        "window",
+        "variable",
+        "lat",
+        "lon",
     ).compute()
 
     input_tensor = torch.from_numpy(inputs.to_numpy())
     labels_tensor = torch.from_numpy(labels.to_numpy())
 
     # TODO(#126): Remove TrainData interface (eventually)
-    batch = TrainData(labels[0].shape[2])  # len(prognostic_vars)
+    batch = TrainData(labels.shape[2])  # len(prognostic_vars)
     steps = input_tensor.shape[0]
     for step in range(steps):
         batch.insert(input_tensor[step], labels_tensor[step])

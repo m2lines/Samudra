@@ -47,8 +47,11 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
 
     for base_var, vars_ in var_groups.items():
         sorted_vars = sorted(vars_, key=_parse_level)
+        levels = [_parse_level(var) for var in sorted_vars]
+        if hasattr(data, "lev"):
+            levels = data.lev.values
         da = xr.concat([data[var] for var in sorted_vars], dim="lev").assign_coords(
-            lev=("lev", data.lev.values)
+            lev=("lev", levels)
         )
         data[base_var] = da
         data = data.drop_vars(vars_)
@@ -81,10 +84,11 @@ def main(args: argparse.Namespace) -> None:
         if name == "OM4":
             data = robust_open_dataset(source, engine="zarr", chunks={"time": 700})
             data = data.isel(time=time_slice)
-            if args.compact_variables:
-                data = compact_dataset(data)
         else:
             data = robust_open_dataset(source, engine="zarr", chunks={})
+
+        if args.compact_variables:
+            data = compact_dataset(data)
 
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":

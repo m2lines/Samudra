@@ -115,9 +115,11 @@ def test_compute_anomalies():
             "lon": [0],
         },
     )
+    ds_mean = ds.mean().compute()
+    ds_std = ds.std().compute()
 
     # compute anomalies
-    anomalies = compute_anomalies(ds, ("thetao_0_anomalies",))
+    anomalies, _, _ = compute_anomalies(ds, ds_mean, ds_std, ("thetao_0_anomalies",))
     anomalies_np = anomalies["thetao_0_anomalies"].to_numpy()
     anomalies_np_flat = anomalies_np[0][0]
 

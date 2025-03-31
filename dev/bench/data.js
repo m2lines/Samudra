@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743441488663,
+  "lastUpdate": 1743441490541,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3175,6 +3175,86 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.213538404103135",
             "extra": "mean: 84.25752072920004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a773fdcc8ee50509195476702df0d0cd9a7e40e7",
+          "message": "Fixed anomalies statistics for anomalies use (#156)\n\nNeed to compute statistics when you compute anomalies before training",
+          "timestamp": "2025-03-31T12:20:49-04:00",
+          "tree_id": "9229b9d38ddf3fb9bf752c7e6e5c4abc50f59abc",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/a773fdcc8ee50509195476702df0d0cd9a7e40e7"
+        },
+        "date": 1743441489718,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cuda-train]",
+            "value": 0.18393634568741343,
+            "unit": "iter/sec",
+            "range": "stddev: 0.377816839153439",
+            "extra": "mean: 5.436663408000004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-cuda-val]",
+            "value": 0.40472848183673604,
+            "unit": "iter/sec",
+            "range": "stddev: 0.035738735535776556",
+            "extra": "mean: 2.4707922592000613 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-cuda]",
+            "value": 0.16047418519551168,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08253076355662128",
+            "extra": "mean: 6.231531873999939 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-cuda]",
+            "value": 0.010708562401713272,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6844408452845111",
+            "extra": "mean: 93.38321639139994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cuda-train]",
+            "value": 0.7517593907274467,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10720141882926944",
+            "extra": "mean: 1.3302128478000668 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-cuda-val]",
+            "value": 1.3433228617322615,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0067342571639314635",
+            "extra": "mean: 744.4226763999723 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-cuda]",
+            "value": 0.36411352972993577,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14329487267451257",
+            "extra": "mean: 2.746396160400036 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-cuda]",
+            "value": 0.01361312948794102,
+            "unit": "iter/sec",
+            "range": "stddev: 0.207279111604258",
+            "extra": "mean: 73.45849467499993 sec\nrounds: 5"
           }
         ]
       }

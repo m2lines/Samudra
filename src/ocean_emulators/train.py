@@ -16,6 +16,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
+from dask.distributed import LocalCluster
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -656,6 +657,9 @@ class Trainer:
                     ]
                 )
             case OM4Dataset.FLAG:
+                cluster = LocalCluster()
+                client = cluster.get_client()  # noqa: F841
+
                 train_data = ConcatDataset(
                     [
                         OM4Dataset(

@@ -163,6 +163,10 @@ class OM4Dataset(Dataset):
         return input_, label
 
 
+class CompactOM4Dataset(OM4Dataset):
+    pass
+
+
 class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 

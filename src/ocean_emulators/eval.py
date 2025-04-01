@@ -75,7 +75,7 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
+        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(

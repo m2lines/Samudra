@@ -12,13 +12,13 @@ from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
-from torch.utils.data import DataLoader
+from torch.utils.data import ConcatDataset, DataLoader
 
 from ocean_emulators.config import TrainConfig
-from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS
+from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS, TensorMap
 from ocean_emulators.datasets import OM4Dataset, TrainData, TrainDataset
 from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import Normalize, validate_data
+from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_om4, collate_train_data
 from tests.conftest import DataSourceDims
@@ -30,16 +30,71 @@ LoaderPair = tuple[TrainConfig, DataLoader]
 TrainPair = tuple[TrainConfig, Trainer]
 
 
-@pytest.fixture
-def train_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
-    cfg, trainer = trainer_pair
-    return cfg, trainer.train_loader
+def _make_loader(cfg, time_slice, drop_last=True):
+    ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks={})
+    ds_means = xr.open_dataset(
+        cfg.experiment.data_dir / cfg.data.data_means_path, chunks={}
+    )
+    ds_stds = xr.open_dataset(
+        cfg.experiment.data_dir / cfg.data.data_stds_path, chunks={}
+    )
+
+    prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
+    boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
+
+    try:
+        TensorMap.get_instance()
+    except ValueError:
+        TensorMap.init_instance(
+            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
+        )
+
+    val_ds, val_means, val_stds = validate_data(ds, ds_means, ds_stds)
+    wet, wet_surface = extract_wet_mask(val_ds, prognostic, cfg.data.hist)
+
+    try:
+        Normalize.get_instance()
+    except ValueError:
+        Normalize.init_instance(val_means, val_stds, prognostic, boundary, wet)
+
+    data: ConcatDataset[TrainDataset] = ConcatDataset(
+        [
+            TrainDataset(
+                data=val_ds.sel(time=time_slice),
+                prognostic_var_names=prognostic,
+                boundary_var_names=boundary,
+                wet=wet,
+                wet_surface=wet_surface,
+                hist=cfg.data.hist,
+                steps=cfg.steps[0],
+                stride=stride,
+            )
+            for stride in cfg.data_stride
+        ]
+    )
+
+    loader = DataLoader(
+        data,
+        batch_size=cfg.batch_size,
+        drop_last=drop_last,
+        collate_fn=collate_train_data,
+    )
+
+    return loader
 
 
 @pytest.fixture
-def val_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
-    cfg, trainer = trainer_pair
-    return cfg, trainer.val_loader
+def train_loader_pair(train_config) -> LoaderPair:
+    train_loader = _make_loader(train_config, train_config.train.time_slice)
+    return train_config, train_loader
+
+
+@pytest.fixture
+def val_loader_pair(train_config) -> LoaderPair:
+    val_loader = _make_loader(
+        train_config, train_config.val.time_slice, drop_last=False
+    )
+    return train_config, val_loader
 
 
 @pytest.fixture

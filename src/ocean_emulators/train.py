@@ -49,10 +49,12 @@ from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper, TrainOutput, ValOutput
 from ocean_emulators.utils.data import (
     Normalize,
+    compute_anomalies,
     extract_wet_mask,
     get_inference_steps,
     spherical_area_weights,
     validate_data,
+    with_lat_lon_coords,
 )
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
@@ -187,9 +189,17 @@ class Trainer:
             chunks=chunks,
         )
 
-        self.data, self.data_mean, self.data_std = validate_data(
-            data, data_mean, data_std
-        )
+        if self.loader_version != LoaderVersion.OM4_COMPACT:
+            self.data, self.data_mean, self.data_std = validate_data(
+                data, data_mean, data_std
+            )
+        else:
+            data_ = with_lat_lon_coords(data)
+            data_mean_ = with_lat_lon_coords(data_mean)
+            data_std_ = with_lat_lon_coords(data_std)
+            self.data, self.data_mean, self.data_std = compute_anomalies(
+                data_, data_mean_, data_std_, ("hfds_anomalies",)
+            )
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(

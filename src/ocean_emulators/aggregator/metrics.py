@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 
 
-def weighted_mean(
+def weighted_mean_with_nan_as_zero(
     tensor: torch.Tensor,
     weights: Optional[torch.Tensor] = None,
     dim: tuple[int, ...] = (-2, -1),
@@ -27,6 +27,33 @@ def weighted_mean(
     return (tensor * weights).sum(dim=dim, keepdim=keepdim) / weights.expand(
         tensor.shape
     ).sum(dim=dim, keepdim=keepdim)
+
+
+def weighted_mean(
+    tensor: torch.Tensor,
+    weights: Optional[torch.Tensor] = None,
+    dim: tuple[int, ...] = (-2, -1),
+    keepdim: bool = False,
+) -> torch.Tensor:
+    """Computes the weighted mean across the specified list of dimensions.
+
+    Args:
+        tensor: torch.Tensor
+        weights: Weights to apply to the mean.
+        dim: Dimensions to compute the mean over.
+        keepdim: Whether the output tensor has `dim` retained or not.
+
+    Returns:
+        a tensor of the weighted mean averaged over the specified dimensions `dim`.
+    """
+    if weights is None:
+        return tensor.nanmean(dim=dim, keepdim=keepdim)
+
+    weights = weights.to(tensor.device)
+    denom = torch.where(torch.isnan(tensor), 0.0, weights.expand(tensor.shape)).sum(
+        dim=dim, keepdim=keepdim
+    )
+    return (tensor * weights).nansum(dim=dim, keepdim=keepdim) / denom
 
 
 def area_weighted_mean(

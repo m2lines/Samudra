@@ -194,7 +194,7 @@ def get_norm_unnorm_dicts(
     # Get normalized dict
     data_dict = convert_tensor_out_to_dict(data_reshaped)
     # Unnormalize
-    data_unnorm = normalize.unnormalize_tensor_prognostic(data_reshaped)
+    data_unnorm = normalize.unnormalize_tensor_prognostic(data_reshaped, apply_nan=True)
     # Get unnormalized dict
     data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
     return data_dict, data_unnorm_dict
@@ -348,12 +348,6 @@ class Normalize(Multiton):
             norm = norm.fillna(fill_value)
         return norm
 
-    def unnormalize_prognostic(self, data: xr.Dataset) -> xr.Dataset:
-        """Unnormalize prognostic dataset."""
-        data_unnorm = data * self.prognostic_std + self.prognostic_mean
-        data_unnorm = data_unnorm * xr.DataArray(self._wet_mask_np)
-        return data_unnorm
-
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
     ) -> torch.Tensor:
@@ -370,9 +364,12 @@ class Normalize(Multiton):
         norm = (data - tensor_mean) / tensor_std
         if fill_nan:
             norm = norm.nan_to_num(nan=fill_value)
+        norm = norm.to(data.dtype)
         return norm
 
-    def unnormalize_tensor_prognostic(self, data: torch.Tensor) -> torch.Tensor:
+    def unnormalize_tensor_prognostic(
+        self, data: torch.Tensor, apply_nan=False
+    ) -> torch.Tensor:
         """Unnormalize prognostic tensor."""
         tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
@@ -389,25 +386,11 @@ class Normalize(Multiton):
             raise ValueError(f"Invalid data shape: {data.shape}")
 
         unnorm = data * tensor_std + tensor_mean
-        unnorm = unnorm * self.wet_mask.to(data.device)
+        if apply_nan:
+            unnorm = torch.where(
+                self.wet_mask.to(data.device) == 0, float("nan"), unnorm
+            )
+        else:
+            unnorm = unnorm * self.wet_mask.to(data.device)
+        unnorm = unnorm.to(data.dtype)
         return unnorm
-
-    def normalize_numpy_prognostic(
-        self, data: np.ndarray, fill_nan=True, fill_value=0.0
-    ) -> np.ndarray:
-        """Normalize prognostic numpy array."""
-        if data.ndim == 3:
-            norm = (data - self._prognostic_mean_np) / self._prognostic_std_np
-        elif data.ndim == 4:
-            norm = (
-                data - self._prognostic_mean_np.reshape(1, -1, 1, 1)
-            ) / self._prognostic_std_np.reshape(1, -1, 1, 1)
-        if fill_nan:
-            norm = norm.fillna(fill_value)
-        return norm
-
-    def unnormalize_numpy_prognostic(self, data: np.ndarray) -> np.ndarray:
-        """Unnormalize prognostic numpy array."""
-        data_unnorm = data * self._prognostic_std_np + self._prognostic_mean_np
-        data_unnorm = data_unnorm * self._wet_mask_np
-        return data_unnorm

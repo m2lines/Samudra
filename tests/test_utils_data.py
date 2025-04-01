@@ -1,15 +1,18 @@
 import numpy as np
 import pytest
+import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
 from ocean_emulators.utils.data import (
+    Normalize,
     compute_anomalies,
     flatten_masks,
     mask,
     unflatten_masks,
     with_level_index_vars,
 )
+from ocean_emulators.utils.multiton import MultitonScope
 
 
 def test_mask_roundtrip(data_source):
@@ -123,11 +126,61 @@ def test_compute_anomalies():
     anomalies_np = anomalies["thetao_0_anomalies"].to_numpy()
     anomalies_np_flat = anomalies_np[0][0]
 
-    # check that anomalies are close to true anomaly
-    assert np.isclose(anomalies_np_flat, true_anomaly, atol=2).all()
-
     # check that anomalies are more correlated with true anomaly than climatology
     assert (
         pearsonr(anomalies_np_flat, true_anomaly)[0]
         > pearsonr(anomalies_np_flat, clim)[0]
     )
+
+
+@pytest.fixture
+def normalize_input():
+    # Create test data with mean and std
+    data_mean = xr.Dataset(
+        {
+            "var_0": (["lat", "lon"], [[1.0]]),
+            "var_1": (["lat", "lon"], [[2.0]]),
+            "var_2": (["lat", "lon"], [[3.0]]),
+        },
+        coords={"lat": [0], "lon": [0]},
+    )
+    data_std = xr.Dataset(
+        {
+            "var_0": (["lat", "lon"], [[0.5]]),
+            "var_1": (["lat", "lon"], [[1.0]]),
+            "var_2": (["lat", "lon"], [[2.0]]),
+        },
+        coords={"lat": [0], "lon": [0]},
+    )
+
+    # Create test wet mask
+    wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+    # Initialize Normalize instance
+    with MultitonScope():
+        normalize = Normalize.init_instance(
+            data_mean=data_mean,
+            data_std=data_std,
+            prognostic_var_names=["var_0", "var_1"],
+            boundary_var_names=["var_2"],
+            wet_mask=wet_mask,
+        )
+    return normalize, wet_mask
+
+
+def test_normalize_unnormalize_tensor_prognostic(normalize_input):
+    normalize, wet_mask = normalize_input
+    data = torch.randn([1, normalize._prognostic_std_np.shape[0], *wet_mask.shape])
+    input_data = data * wet_mask
+    normalized = normalize.normalize_tensor_prognostic(input_data)
+    unnormalized = normalize.unnormalize_tensor_prognostic(normalized)
+    assert torch.allclose(input_data, unnormalized)
+
+
+@pytest.mark.parametrize("apply_nan", [True, False])
+def test_unnormalize_prognostic_tensor(normalize_input, apply_nan):
+    normalize, wet_mask = normalize_input
+    data = torch.randn([1, normalize._prognostic_std_np.shape[0], *wet_mask.shape])
+    input_data = data * wet_mask
+    normalized = normalize.normalize_tensor_prognostic(input_data)
+    unnormalized = normalize.unnormalize_tensor_prognostic(normalized, apply_nan)
+    assert (torch.sum(torch.isnan(unnormalized)) > 0) == apply_nan

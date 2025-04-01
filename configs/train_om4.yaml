@@ -47,7 +47,7 @@ experiment:
     group: samudra-train-om4
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
-  boundary_vars_key: tau_hfds_hfds_anom
+  boundary_vars_key: tau_hfds
 data:
   data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies
   data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
@@ -76,3 +76,8 @@ samudra:
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"
+
+  corrector:
+    non_negative_corrector_names:
+      - "so"
+    ocean_heat_corrector: true

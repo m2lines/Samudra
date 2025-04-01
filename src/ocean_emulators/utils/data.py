@@ -309,6 +309,7 @@ class Normalize(Multiton):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
+        wet_mask_surface: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
         self.prognostic_mean = data_mean[prognostic_var_names]
@@ -316,6 +317,7 @@ class Normalize(Multiton):
         self.boundary_mean = data_mean[boundary_var_names]
         self.boundary_std = data_std[boundary_var_names]
         self.wet_mask = wet_mask
+        self.wet_mask_surface = wet_mask_surface
 
         # Pre-compute numpy arrays for faster access
         self._prognostic_mean_np = (
@@ -392,5 +394,33 @@ class Normalize(Multiton):
             )
         else:
             unnorm = unnorm * self.wet_mask.to(data.device)
+        unnorm = unnorm.to(data.dtype)
+        return unnorm
+
+    def unnormalize_tensor_boundary(
+        self, data: torch.Tensor, apply_nan=False
+    ) -> torch.Tensor:
+        """Unnormalize boundary tensor."""
+        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device)
+        tensor_std = self._to_tensor(self._boundary_std_np, data.device)
+
+        if data.ndim == 4:
+            assert data.shape[1] == self._boundary_mean_np.shape[0]
+            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, -1, 1, 1])
+        elif data.ndim == 5:
+            assert data.shape[2] == self._boundary_mean_np.shape[0]
+            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
+        else:
+            raise ValueError(f"Invalid data shape: {data.shape}")
+
+        unnorm = data * tensor_std + tensor_mean
+        if apply_nan:
+            unnorm = torch.where(
+                self.wet_mask.to(data.device) == 0, float("nan"), unnorm
+            )
+        else:
+            unnorm = unnorm * self.wet_mask_surface.to(data.device)
         unnorm = unnorm.to(data.dtype)
         return unnorm

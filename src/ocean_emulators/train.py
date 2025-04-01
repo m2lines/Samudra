@@ -199,6 +199,7 @@ class Trainer:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=wet_without_hist,
+            wet_mask_surface=self.wet_surface,
         )
 
         # Model
@@ -217,7 +218,10 @@ class Trainer:
                 )
                 cfg.samudra.n_out = self.num_out
             model = Samudra(
-                cfg.samudra, hist=cfg.data.hist, wet=self.wet.to(self.device)
+                cfg.samudra,
+                hist=cfg.data.hist,
+                wet=self.wet.to(self.device),
+                area_weights=self.area_weights,
             ).to(self.device)
         else:
             raise NotImplementedError

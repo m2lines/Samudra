@@ -55,6 +55,7 @@ class BlockConfig:
 @dataclass
 class CorrectorConfig:
     non_negative_corrector_names: Optional[List[str]] = None
+    ocean_heat_corrector: bool = False
 
 
 @dataclass

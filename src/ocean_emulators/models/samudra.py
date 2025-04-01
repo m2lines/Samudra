@@ -19,7 +19,7 @@ from ocean_emulators.utils.train import pairwise
 
 
 class Samudra(BaseModel):
-    def __init__(self, config, hist, wet):
+    def __init__(self, config, hist, wet, area_weights):
         super().__init__(
             ch_width=config.ch_width,
             n_out=config.n_out,
@@ -125,10 +125,11 @@ class Samudra(BaseModel):
         layers.append(nn.Conv2d(b, config.n_out, config.last_kernel_size))
 
         self.layers = nn.ModuleList(layers)
-        self.corrector = Corrector(config.corrector, hist)
+        self.corrector = Corrector(config.corrector, hist, area_weights)
         self.num_steps = int(len(config.ch_width) - 1)
 
     def forward_once(self, fts):
+        fts_input = fts.clone()
         temp: list[torch.Tensor] = []
         for i in range(self.num_steps):
             temp.append(torch.zeros_like(fts))
@@ -165,5 +166,5 @@ class Samudra(BaseModel):
                     fts = nn.functional.pad(fts, pads)
                     fts += temp[int(2 * self.num_steps - count - 1)]
                     count += 1
-        fts = self.corrector(fts)
+        fts = self.corrector(fts_input, fts)
         return torch.where(self.wet, fts, 0.0)

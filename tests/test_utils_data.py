@@ -163,6 +163,7 @@ def normalize_input():
             prognostic_var_names=["var_0", "var_1"],
             boundary_var_names=["var_2"],
             wet_mask=wet_mask,
+            wet_mask_surface=wet_mask,
         )
     return normalize, wet_mask
 

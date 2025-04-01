@@ -89,7 +89,7 @@ class OM4Dataset(Dataset):
     # TODO(#124): Vectorize `step`
     def window_from(
         self, idx: int | slice, step: int
-    ) -> Integer[xr.Variable, "window time"]:
+    ) -> Integer[xr.DataArray, "window time"]:
         """Coalesce index values to a window of the input data."""
         # First, parse int inputs as a slice.
         if isinstance(idx, int):
@@ -119,61 +119,47 @@ class OM4Dataset(Dataset):
         if idx.stop is None:
             idx = slice(idx.start, len(self), idx.step)
 
-        window_index = self.rolling_indices.isel(window=idx)
-        window = xr.Variable(["window", "time"], window_index)
-
-        return window
+        return self.rolling_indices.isel(window=idx)
 
     def __getitem__(self, idx: int) -> Example:
-        inputs = []
-        labels = []
+        windows = [self.window_from(idx, step) for step in range(self.steps)]
+        window = xr.concat(windows, dim="window")
 
-        # TODO(#124): Vectorize this operation! Or, is it fine because it's lazy?
-        for step in range(self.steps):
-            window = self.window_from(idx, step)
+        # This point in time splits the training data and the label data!
+        time_split = self.hist + 1
 
-            # This point in time splits the training data and the label data!
-            time_split = self.hist + 1
+        # TODO(alxmrs): Tune dask parallelization
+        # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
 
-            # TODO(alxmrs): Tune dask parallelization
-            # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
+        prognostic = (
+            self.prognostic.isel(time=window)
+            .isel(time=slice(None, time_split))
+            .to_array(name="prognostic")
+            .einops.rearrange("window (time variable)=var lat lon", dask="allowed")
+            .drop_vars("var", errors="ignore")
+        )
+        boundary = (
+            self.boundary.isel(time=window)
+            .isel(time=self.hist)
+            .to_array("var", "boundary")
+            .transpose("window", "var", "lat", "lon")
+            .drop_vars("var", errors="ignore")
+        )
+        # Combine prognostic and boundary data
+        input_ = xr.concat([prognostic, boundary], dim="var").rename(
+            {"var": "variable"}
+        )
 
-            prognostic = (
-                self.prognostic.isel(time=window)
-                .isel(time=slice(None, time_split))
-                .to_array(name="prognostic")
-                .einops.rearrange("window (time variable)=var lat lon", dask="allowed")
-                .drop_vars("var", errors="ignore")
+        label = (
+            self.prognostic.isel(time=window)
+            .isel(time=slice(time_split, None))
+            .to_array()
+            .einops.rearrange(
+                "window (time variable)=var lat lon",
+                dask="allowed",
             )
-            boundary = (
-                self.boundary.isel(time=window)
-                .isel(time=self.hist)
-                .to_array("var", "boundary")
-                .transpose("window", "var", "lat", "lon")
-                .drop_vars("var", errors="ignore")
-            )
-            # Combine prognostic and boundary data
-            input_ = xr.concat([prognostic, boundary], dim="var").rename(
-                {"var": "variable"}
-            )
-
-            label = (
-                self.prognostic.isel(time=window)
-                .isel(time=slice(time_split, None))
-                .to_array()
-                .einops.rearrange(
-                    "window (time variable)=var lat lon",
-                    dask="allowed",
-                )
-                .rename({"var": "variable"})
-            )
-
-            inputs.append(input_)
-            labels.append(label)
-
-        # Combines data along a new dimension "step"
-        input_ = xr.concat(inputs, dim="step")
-        label = xr.concat(labels, dim="step")
+            .rename({"var": "variable"})
+        )
 
         return input_, label
 

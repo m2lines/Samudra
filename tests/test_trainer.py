@@ -2,7 +2,18 @@ import logging
 
 import pytest
 
+from ocean_emulators.config import TrainConfig
 from tests.test_datasets import TrainPair
+
+
+@pytest.fixture(autouse=True, scope="function")
+def set_scope(train_config: TrainConfig):
+    """Automatically sets up the correct Multiton scope for each test.
+
+    NB you must still do this manually for session-scoped fixtures.
+    """
+    with getattr(train_config, "_multiton_scope"):
+        yield
 
 
 @pytest.mark.manual

@@ -529,13 +529,3 @@ def trainer_pair(train_config: TrainConfig):
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
     return train_config, trainer
-
-
-@pytest.fixture(autouse=True, scope="function")
-def set_scope(train_config: TrainConfig):
-    """Automatically sets up the correct Multiton scope for each test.
-
-    NB you must still do this manually for session-scoped fixtures.
-    """
-    with getattr(train_config, "_multiton_scope"):
-        yield

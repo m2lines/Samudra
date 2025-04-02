@@ -86,7 +86,6 @@ class OM4Dataset(Dataset):
     def __len__(self) -> int:
         return self._size
 
-    # TODO(#124): Vectorize `step`
     def window_from(
         self, idx: int | slice, step: int
     ) -> Integer[xr.DataArray, "window time"]:

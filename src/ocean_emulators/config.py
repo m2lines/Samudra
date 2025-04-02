@@ -37,6 +37,7 @@ class DataConfig:
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
     scaling_residuals_file: Optional[str] = None
+    static_data_paths: Optional[Dict[str, str]] = None
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1

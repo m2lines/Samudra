@@ -19,7 +19,7 @@ from ocean_emulators.utils.train import pairwise
 
 
 class Samudra(BaseModel):
-    def __init__(self, config, hist, wet, area_weights):
+    def __init__(self, config, hist, wet, area_weights, static_data):
         super().__init__(
             ch_width=config.ch_width,
             n_out=config.n_out,
@@ -28,6 +28,7 @@ class Samudra(BaseModel):
             pred_residuals=config.pred_residuals,
             last_kernel_size=config.last_kernel_size,
             pad=config.pad,
+            static_data=static_data,
         )
 
         # Get activation class
@@ -125,7 +126,7 @@ class Samudra(BaseModel):
         layers.append(nn.Conv2d(b, config.n_out, config.last_kernel_size))
 
         self.layers = nn.ModuleList(layers)
-        self.corrector = Corrector(config.corrector, hist, area_weights)
+        self.corrector = Corrector(config.corrector, hist, area_weights, static_data)
         self.num_steps = int(len(config.ch_width) - 1)
 
     def forward_once(self, fts):

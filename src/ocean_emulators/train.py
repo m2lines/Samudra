@@ -48,6 +48,7 @@ from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper, TrainOutput, ValOutput
 from ocean_emulators.utils.data import (
     Normalize,
+    augment_static_data,
     extract_wet_mask,
     get_inference_steps,
     spherical_area_weights,
@@ -180,9 +181,16 @@ class Trainer:
             chunks={},
         )
 
+        data = augment_static_data(data, cfg.data.static_data_paths, self.data_dir)
+
         self.data, self.data_mean, self.data_std = validate_data(
             data, data_mean, data_std
         )
+        self.static_data: xr.Dataset | None = None
+        if cfg.data.static_data_paths is not None:
+            self.static_data = self.data[list(cfg.data.static_data_paths.keys())]
+        else:
+            self.static_data = None
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -222,6 +230,7 @@ class Trainer:
                 hist=cfg.data.hist,
                 wet=self.wet.to(self.device),
                 area_weights=self.area_weights,
+                static_data=self.static_data,
             ).to(self.device)
         else:
             raise NotImplementedError

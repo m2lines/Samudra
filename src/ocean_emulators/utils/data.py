@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 from typing import Dict
 
 import cftime
@@ -271,6 +272,30 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
+def augment_static_data(
+    data: xr.Dataset, static_data_paths: Dict[str, str] | None, data_dir: Path
+) -> xr.Dataset:
+    """Augment the data with static data."""
+    data_copy = data.copy()
+    if static_data_paths is None:
+        return data_copy
+    for var, path in static_data_paths.items():
+        static_data = xr.open_zarr(data_dir / path)
+        # check if static data already in data
+        var_name = list(static_data.data_vars)[0]
+        assert var_name == var, (
+            f"Static data variable name {var_name} does not match {var}"
+        )
+        if var_name in data.variables:
+            continue
+        # Assuming the static data is coming from CM4 data
+        if "lat" in static_data.dims and "lat" not in data.dims:
+            static_data = static_data.rename({"lat": "y", "lon": "x"})
+        ds2_aligned, ds1_aligned = xr.align(data_copy, static_data, join="exact")
+        data_copy = xr.merge([ds1_aligned, ds2_aligned])
+    return data_copy
+
+
 def validate_data(
     data: xr.Dataset,
     data_mean: xr.Dataset,
@@ -417,6 +442,8 @@ class Normalize(Multiton):
             raise ValueError(f"Invalid data shape: {data.shape}")
 
         unnorm = data * tensor_std + tensor_mean
-        unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
+        unnorm = torch.where(
+            self.wet_mask_surface.to(data.device) == 0, fill_value, unnorm
+        )
         unnorm = unnorm.to(data.dtype)
         return unnorm

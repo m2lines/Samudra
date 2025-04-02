@@ -1,8 +1,9 @@
 from functools import partial
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 import torch
+import xarray as xr
 from einops import rearrange
 from torch import Tensor
 
@@ -133,6 +134,31 @@ class ReLUCorrector(BaseCorrector):
         return fts
 
 
+def compute_ocean_heat_content(
+    T: Tensor, dz: Tensor, area_weighted_func: Callable
+) -> Tuple[Tensor, Tensor]:
+    """Compute the global heat content of the ocean.
+
+    Args:
+        T: Temperature tensor of shape (batch_size, depth, height, width)
+        dz: Depth tensor of shape (depth,)
+        area_weighted_func: Area weighted function
+
+    Returns:
+        Global heat content tensor of shape (batch_size,)
+    """
+    # Compute heat content per layer
+    HC_t = RHO_0 * CP_SW * T * dz.view(1, -1, 1, 1)
+
+    # Column integrated heat content
+    total_HC_t = torch.sum(HC_t, dim=1)
+
+    # Sum over depth to get total heat content
+    global_HC_t = area_weighted_func(total_HC_t)  # (batch,) [J]
+
+    return global_HC_t, HC_t
+
+
 class OceanHeatCorrector(BaseCorrector):
     """
     Applies a correction to potential temperature to conserve
@@ -149,6 +175,8 @@ class OceanHeatCorrector(BaseCorrector):
         area_weights: torch.Tensor,
         tensor_map: TensorMap,
         normalize: Normalize,
+        hfgeou_tensor: torch.Tensor,
+        sea_surface_fraction_tensor: torch.Tensor,
     ):
         super().__init__(hist, tensor_map, normalize)
         # Area weights are not on the correct scale.
@@ -164,6 +192,8 @@ class OceanHeatCorrector(BaseCorrector):
         self.thetao_idx = self.thetao_idx.to(get_device())
         self.hfds_idx = self.hfds_idx.to(get_device())
         self.dz = self.dz.to(get_device())
+        self.hfgeou_tensor = hfgeou_tensor.to(get_device())
+        self.sea_surface_fraction_tensor = sea_surface_fraction_tensor.to(get_device())
 
     def forward(self, fts_input_boundary: Tensor, fts: Tensor) -> Tensor:
         fts_input_boundary = fts_input_boundary.detach()
@@ -183,25 +213,31 @@ class OceanHeatCorrector(BaseCorrector):
         # Extract the boundary variables
         surface_heat_flux = fts_boundary[:, self.hfds_idx].squeeze(1)
 
-        # Compute heat content per layer
-        HC_t0 = RHO_0 * CP_SW * T_input * self.dz.view(1, -1, 1, 1)
-        HC_t1 = RHO_0 * CP_SW * T_pred * self.dz.view(1, -1, 1, 1)
-
-        # Column integrated heat content
-        total_HC_t0 = torch.sum(HC_t0, dim=1)
-        total_HC_t1 = torch.sum(HC_t1, dim=1)
-
-        # Sum over depth to get total heat content
-        global_HC_t0 = self.area_weighted_func(total_HC_t0)  # (batch,) [J]
-        global_HC_t1 = self.area_weighted_func(total_HC_t1)
+        global_HC_t0, HC_t0 = compute_ocean_heat_content(
+            T_input, self.dz, self.area_weighted_func
+        )
+        global_HC_t1, HC_t1 = compute_ocean_heat_content(
+            T_pred, self.dz, self.area_weighted_func
+        )
 
         # Expected change in heat content from surface flux
-        dHC_expected = self.area_weighted_func(surface_heat_flux) * N_SECONDS  # [J]
+        dHC_expected = (
+            self.area_weighted_func(
+                surface_heat_flux * self.sea_surface_fraction_tensor
+            )
+            * N_SECONDS
+        )  # [J]
+
+        # Apply geothermal heat flux
+        dHC_expected += self.area_weighted_func(self.hfgeou_tensor) * N_SECONDS
 
         HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
-        HC_t1_corrected = HC_t1 * HC_correct_ratio.view(-1, 1, 1, 1)
 
-        T_corrected = HC_t1_corrected / (RHO_0 * CP_SW * self.dz.view(1, -1, 1, 1))
+        # This seems redundant, so skipping it
+        # HC_t1_corrected = HC_t1 * HC_correct_ratio.view(-1, 1, 1, 1)
+        # T_corrected = HC_t1_corrected / (RHO_0 * CP_SW * self.dz.view(1, -1, 1, 1))
+
+        T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1)
 
         fts[:, self.thetao_idx] = T_corrected
 
@@ -214,7 +250,13 @@ class OceanHeatCorrector(BaseCorrector):
 class Corrector(torch.nn.Module):
     """Applies a sequence of corrections to input tensors based on configuration."""
 
-    def __init__(self, config, hist: int, area_weights: torch.Tensor):
+    def __init__(
+        self,
+        config,
+        hist: int,
+        area_weights: torch.Tensor,
+        static_data: xr.Dataset | None,
+    ):
         """
         Corrector class that applies a sequence of corrections to input tensors based
         on configuration.
@@ -223,6 +265,7 @@ class Corrector(torch.nn.Module):
             config: Configuration object containing corrector settings
             hist: History length for temporal data
             area_weights: Area weights for area weighting
+            static_data: Static data for corrections
         """
         super().__init__()
         self.tensor_map: TensorMap = TensorMap.get_instance()
@@ -245,12 +288,29 @@ class Corrector(torch.nn.Module):
             )
 
         if hasattr(config, "ocean_heat_corrector") and config.ocean_heat_corrector:
+            assert static_data is not None, (
+                "Static data is required for ocean heat corrector"
+            )
+            assert "hfgeou" in static_data.data_vars, (
+                "hfgeou is required for ocean heat corrector"
+            )
+            assert "sea_surface_fraction" in static_data.data_vars, (
+                "sea_surface_fraction is required for ocean heat corrector"
+            )
+            hfgeou = static_data["hfgeou"]
+            sea_surface_fraction = static_data["sea_surface_fraction"]
+            hfgeou_tensor = torch.from_numpy(hfgeou.to_numpy())
+            sea_surface_fraction_tensor = torch.from_numpy(
+                sea_surface_fraction.to_numpy()
+            )
             correctors.append(
                 OceanHeatCorrector(
                     hist=hist,
                     area_weights=area_weights,
                     tensor_map=self.tensor_map,
                     normalize=self.normalize,
+                    hfgeou_tensor=hfgeou_tensor,
+                    sea_surface_fraction_tensor=sea_surface_fraction_tensor,
                 )
             )
 

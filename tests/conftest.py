@@ -530,7 +530,7 @@ def _session_scope_trainer_pair(
 
 @pytest.fixture(scope="function")
 def trainer_pair(
-    _session_scope_trainer_pair: tuple[TrainConfig, "Trainer"], request, config_name
+    _session_scope_trainer_pair: tuple[TrainConfig, "Trainer"], request, config_name: str
 ) -> Generator[tuple[TrainConfig, "Trainer"], None, None]:
     """Provides a config and trainer for tests.
 

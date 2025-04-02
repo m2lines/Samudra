@@ -83,6 +83,12 @@ class OM4Dataset(Dataset):
             indices_da + stride * window_dim
         )
 
+        windows = [
+            [self.window_from(idx, step) for step in range(self.steps)]
+            for idx in range(self._size)
+        ]
+        self.windows = xr.combine_nested(windows, concat_dim=["index", "step"])
+
     def __len__(self) -> int:
         return self._size
 
@@ -121,8 +127,7 @@ class OM4Dataset(Dataset):
         return self.rolling_indices.isel(window=idx)
 
     def __getitem__(self, idx: int) -> Example:
-        windows = [self.window_from(idx, step) for step in range(self.steps)]
-        window = xr.concat(windows, dim="step")
+        window = self.windows.isel(index=idx)
 
         # This point in time splits the training data and the label data!
         time_split = self.hist + 1

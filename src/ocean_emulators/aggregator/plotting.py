@@ -10,8 +10,8 @@ from ocean_emulators.utils.wandb import WandBLogger
 
 
 def get_cmap_limits(data: np.ndarray, diverging=False) -> Tuple[float, float]:
-    vmin = data.min()
-    vmax = data.max()
+    vmin = np.nanmin(data)
+    vmax = np.nanmax(data)
     if diverging:
         vmax = max(abs(vmin), abs(vmax))
         vmin = -vmax
@@ -27,8 +27,8 @@ def plot_imshow(
     use_colorbar: bool = True,
 ) -> Figure:
     """Plot a 2D array using imshow, ensuring figure size is same as array size."""
-    min_ = np.min(data) if vmin is None else vmin
-    max_ = np.max(data) if vmax is None else vmax
+    min_ = np.nanmin(data) if vmin is None else vmin
+    max_ = np.nanmax(data) if vmax is None else vmax
 
     if flip_lat:
         lat_dim = -2
@@ -66,8 +66,8 @@ def plot_paneled_data(
     vmax = -np.inf
     for row in data:
         for arr in row:
-            vmin = min(vmin, np.min(arr))
-            vmax = max(vmax, np.max(arr))
+            vmin = min(vmin, np.nanmin(arr))
+            vmax = max(vmax, np.nanmax(arr))
     if diverging:
         vmax = max(abs(vmin), abs(vmax))
         vmin = -vmax

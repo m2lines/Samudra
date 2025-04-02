@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 import pytest
 import torch
@@ -172,15 +174,15 @@ def test_normalize_unnormalize_tensor_prognostic(normalize_input):
     data = torch.randn([1, normalize._prognostic_std_np.shape[0], *wet_mask.shape])
     input_data = data * wet_mask
     normalized = normalize.normalize_tensor_prognostic(input_data)
-    unnormalized = normalize.unnormalize_tensor_prognostic(normalized)
+    unnormalized = normalize.unnormalize_tensor_prognostic(normalized, fill_value=0.0)
     assert torch.allclose(input_data, unnormalized)
 
 
-@pytest.mark.parametrize("apply_nan", [True, False])
-def test_unnormalize_prognostic_tensor(normalize_input, apply_nan):
+@pytest.mark.parametrize("fill_value", [float("nan"), 0.0])
+def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
     normalize, wet_mask = normalize_input
     data = torch.randn([1, normalize._prognostic_std_np.shape[0], *wet_mask.shape])
     input_data = data * wet_mask
     normalized = normalize.normalize_tensor_prognostic(input_data)
-    unnormalized = normalize.unnormalize_tensor_prognostic(normalized, apply_nan)
-    assert (torch.sum(torch.isnan(unnormalized)) > 0) == apply_nan
+    unnormalized = normalize.unnormalize_tensor_prognostic(normalized, fill_value)
+    assert (torch.sum(torch.isnan(unnormalized)) > 0) == (math.isnan(fill_value))

@@ -194,7 +194,9 @@ def get_norm_unnorm_dicts(
     # Get normalized dict
     data_dict = convert_tensor_out_to_dict(data_reshaped)
     # Unnormalize
-    data_unnorm = normalize.unnormalize_tensor_prognostic(data_reshaped, apply_nan=True)
+    data_unnorm = normalize.unnormalize_tensor_prognostic(
+        data_reshaped, fill_value=float("nan")
+    )
     # Get unnormalized dict
     data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
     return data_dict, data_unnorm_dict
@@ -368,9 +370,9 @@ class Normalize(Multiton):
         return norm
 
     def unnormalize_tensor_prognostic(
-        self, data: torch.Tensor, apply_nan=False
+        self, data: torch.Tensor, fill_value=float("nan")
     ) -> torch.Tensor:
-        """Unnormalize prognostic tensor."""
+        """Unnormalize prognostic tensor and apply fill value to land cells."""
         tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
 
@@ -386,11 +388,6 @@ class Normalize(Multiton):
             raise ValueError(f"Invalid data shape: {data.shape}")
 
         unnorm = data * tensor_std + tensor_mean
-        if apply_nan:
-            unnorm = torch.where(
-                self.wet_mask.to(data.device) == 0, float("nan"), unnorm
-            )
-        else:
-            unnorm = unnorm * self.wet_mask.to(data.device)
+        unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
         unnorm = unnorm.to(data.dtype)
         return unnorm

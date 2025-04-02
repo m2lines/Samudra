@@ -43,7 +43,7 @@ class BaseCorrector(torch.nn.Module):
     def _unnormalize_fts_prognostic(self, fts: Tensor) -> Tensor:
         # Corrector is run in float64 to avoid precision loss
         fts = fts.to(torch.float64)
-        return self.normalize.unnormalize_tensor_prognostic(fts)
+        return self.normalize.unnormalize_tensor_prognostic(fts, fill_value=0.0)
 
     def _normalize_fts_prognostic(self, fts: Tensor) -> Tensor:
         fts = self.normalize.normalize_tensor_prognostic(fts)

@@ -40,7 +40,7 @@ experiment:
   cluster_data_dir: /pscratch/sd/s/suryad/data
   wandb:
     mode: online
-    project: ocean-emulator
+    project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
   network: Samudra

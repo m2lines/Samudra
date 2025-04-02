@@ -1,17 +1,17 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-train-om4-thermo-ohc-corrector-test
+#SBATCH --job-name=samudra-train-om4-thermo-ohc-corrector
 #SBATCH --output=train/logs/slurm-%j.out
 #SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g
 #SBATCH --account=m4874
-#SBATCH --qos=debug
+#SBATCH --qos=regular
 #SBATCH --mem=110G
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-task=1
 #SBATCH --gpu-bind=none     # This ensures all GPUs are visible to all tasks
-#SBATCH --time=00:20:00
+#SBATCH --time=20:00:00
 
 set -e
 

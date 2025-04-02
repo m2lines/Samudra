@@ -123,7 +123,7 @@ class OM4Dataset(Dataset):
 
     def __getitem__(self, idx: int) -> Example:
         windows = [self.window_from(idx, step) for step in range(self.steps)]
-        window = xr.concat(windows, dim="window")
+        window = xr.concat(windows, dim="step")
 
         # This point in time splits the training data and the label data!
         time_split = self.hist + 1
@@ -135,14 +135,14 @@ class OM4Dataset(Dataset):
             self.prognostic.isel(time=window)
             .isel(time=slice(None, time_split))
             .to_array(name="prognostic")
-            .einops.rearrange("window (time variable)=var lat lon", dask="allowed")
+            .einops.rearrange("step window (time variable)=var lat lon", dask="allowed")
             .drop_vars("var", errors="ignore")
         )
         boundary = (
             self.boundary.isel(time=window)
             .isel(time=self.hist)
             .to_array("var", "boundary")
-            .transpose("window", "var", "lat", "lon")
+            .transpose("step", "window", "var", "lat", "lon")
             .drop_vars("var", errors="ignore")
         )
         # Combine prognostic and boundary data
@@ -155,7 +155,7 @@ class OM4Dataset(Dataset):
             .isel(time=slice(time_split, None))
             .to_array()
             .einops.rearrange(
-                "window (time variable)=var lat lon",
+                "step window (time variable)=var lat lon",
                 dask="allowed",
             )
             .rename({"var": "variable"})

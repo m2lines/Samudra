@@ -399,7 +399,7 @@ class Normalize(Multiton):
         return unnorm
 
     def unnormalize_tensor_boundary(
-        self, data: torch.Tensor, apply_nan=False
+        self, data: torch.Tensor, fill_value=float("nan")
     ) -> torch.Tensor:
         """Unnormalize boundary tensor."""
         tensor_mean = self._to_tensor(self._boundary_mean_np, data.device)
@@ -417,11 +417,6 @@ class Normalize(Multiton):
             raise ValueError(f"Invalid data shape: {data.shape}")
 
         unnorm = data * tensor_std + tensor_mean
-        if apply_nan:
-            unnorm = torch.where(
-                self.wet_mask.to(data.device) == 0, float("nan"), unnorm
-            )
-        else:
-            unnorm = unnorm * self.wet_mask_surface.to(data.device)
+        unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
         unnorm = unnorm.to(data.dtype)
         return unnorm

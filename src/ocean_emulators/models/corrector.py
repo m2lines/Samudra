@@ -55,7 +55,9 @@ class BaseCorrector(torch.nn.Module):
         # Corrector is run in float64 to avoid precision loss
         fts = self._unnormalize_fts_prognostic(fts)
         fts_boundary = fts_boundary.to(torch.float64)
-        fts_boundary = self.normalize.unnormalize_tensor_boundary(fts_boundary)
+        fts_boundary = self.normalize.unnormalize_tensor_boundary(
+            fts_boundary, fill_value=0.0
+        )
 
         return fts, fts_boundary
 

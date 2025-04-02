@@ -139,9 +139,9 @@ class OM4Dataset(Dataset):
         )
         boundary = (
             self.boundary.isel(time=window)
-            .isel(time=self.hist)
-            .to_array("var", "boundary")
-            .transpose("step", "window", "var", "lat", "lon")
+            .isel(time=slice(None, time_split))
+            .to_array()
+            .einops.rearrange("step window (time variable)=var lat lon", dask="allowed")
             .drop_vars("var", errors="ignore")
         )
         # Combine prognostic and boundary data

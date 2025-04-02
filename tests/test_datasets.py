@@ -207,9 +207,10 @@ def test_train__data_shape(train_loader_pair: LoaderPair):
     batch_size = cfg.batch_size
     hist = cfg.data.hist + 1
 
-    input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-        BOUNDARY_VARS[exp.boundary_vars_key]
-    )
+    input_var_dim = (
+        len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
+        + len(BOUNDARY_VARS[exp.boundary_vars_key])
+    ) * hist
     output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
 
     for sample in loader:
@@ -233,9 +234,10 @@ def test_val__data_shape(val_loader_pair: LoaderPair):
     batch_size = cfg.batch_size
     hist = cfg.data.hist + 1
 
-    input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-        BOUNDARY_VARS[exp.boundary_vars_key]
-    )
+    input_var_dim = (
+        len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
+        + len(BOUNDARY_VARS[exp.boundary_vars_key])
+    ) * hist
     output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
 
     num_samples = len(loader)
@@ -271,9 +273,10 @@ def test_inference__data_shape(inference_loader_pair: LoaderPair):
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
-    input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-        BOUNDARY_VARS[exp.boundary_vars_key]
-    )
+    input_var_dim = (
+        len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
+        + len(BOUNDARY_VARS[exp.boundary_vars_key])
+    ) * hist
     output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
 
     for sample in loader:

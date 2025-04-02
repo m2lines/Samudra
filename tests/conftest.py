@@ -531,7 +531,7 @@ def trainer_pair(train_config: TrainConfig):
     return train_config, trainer
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=False, scope="function")
 def set_scope(train_config: TrainConfig):
     """Automatically sets up the correct Multiton scope for each test.
 

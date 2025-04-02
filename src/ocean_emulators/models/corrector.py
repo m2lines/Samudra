@@ -15,11 +15,11 @@ from ocean_emulators.utils.device import get_device
 class BaseCorrector(torch.nn.Module):
     """Base class for tensor correction modules."""
 
-    def __init__(self, hist: int):
+    def __init__(self, hist: int, tensor_map: TensorMap, normalize: Normalize):
         super().__init__()
-        self.tensor_map: TensorMap = TensorMap.get_instance()
-        self.normalize = Normalize.get_instance()
         self.hist = hist
+        self.tensor_map = tensor_map
+        self.normalize = normalize
         self.num_prognostic_channels = len(self.tensor_map.prognostic_var_names)
 
     def _rearrange_fts(self, fts: Tensor) -> Tensor:
@@ -77,8 +77,14 @@ class ReLUCorrector(BaseCorrector):
     Applies ReLU correction to specified tensor channels.
     """
 
-    def __init__(self, non_negative_corrector_names: Optional[List[str]], hist: int):
-        super().__init__(hist)
+    def __init__(
+        self,
+        non_negative_corrector_names: Optional[List[str]],
+        hist: int,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+    ):
+        super().__init__(hist, tensor_map, normalize)
         self.non_negative_corrector_names = non_negative_corrector_names
         if self.non_negative_corrector_names is not None:
             self.non_neg_indices = torch.cat(
@@ -135,8 +141,14 @@ class OceanHeatCorrector(BaseCorrector):
     input step.
     """
 
-    def __init__(self, hist: int, area_weights: torch.Tensor):
-        super().__init__(hist)
+    def __init__(
+        self,
+        hist: int,
+        area_weights: torch.Tensor,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+    ):
+        super().__init__(hist, tensor_map, normalize)
         # Area weights are not on the correct scale.
         self.area_weights = area_weights
         self.area_weighted_func = partial(
@@ -211,6 +223,8 @@ class Corrector(torch.nn.Module):
             area_weights: Area weights for area weighting
         """
         super().__init__()
+        self.tensor_map: TensorMap = TensorMap.get_instance()
+        self.normalize = Normalize.get_instance()
 
         correctors: List[BaseCorrector] = []
 
@@ -223,11 +237,20 @@ class Corrector(torch.nn.Module):
                 ReLUCorrector(
                     non_negative_corrector_names=config.non_negative_corrector_names,
                     hist=hist,
+                    tensor_map=self.tensor_map,
+                    normalize=self.normalize,
                 )
             )
 
         if hasattr(config, "ocean_heat_corrector") and config.ocean_heat_corrector:
-            correctors.append(OceanHeatCorrector(hist=hist, area_weights=area_weights))
+            correctors.append(
+                OceanHeatCorrector(
+                    hist=hist,
+                    area_weights=area_weights,
+                    tensor_map=self.tensor_map,
+                    normalize=self.normalize,
+                )
+            )
 
         self.correctors = torch.nn.ModuleList(correctors)
 

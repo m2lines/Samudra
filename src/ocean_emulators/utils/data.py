@@ -377,11 +377,15 @@ class Normalize(Multiton):
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
 
         if data.ndim == 4:
-            assert data.shape[1] == self._prognostic_mean_np.shape[0]
+            assert data.shape[1] == self._prognostic_mean_np.shape[0], (
+                f"{data.shape[1]} != {self._prognostic_mean_np.shape[0]}"
+            )
             tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
             tensor_std = tensor_std.reshape([1, -1, 1, 1])
         elif data.ndim == 5:
-            assert data.shape[2] == self._prognostic_mean_np.shape[0]
+            assert data.shape[2] == self._prognostic_mean_np.shape[0], (
+                f"{data.shape[2]} != {self._prognostic_mean_np.shape[0]}"
+            )
             tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
             tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
         else:

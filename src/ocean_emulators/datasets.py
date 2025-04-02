@@ -38,21 +38,16 @@ class OM4Dataset(Dataset):
         steps: int,
         stride: int = 1,
         is_inference: bool = False,
+        is_compact: bool = False,
     ) -> None:
-        # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
-        data_ = unflatten_masks(data)
-
-        prognostic = data_[prognostic_var_names]
-        boundary = data_[boundary_var_names]
-
-        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
-        norm = Normalize.get_instance()
-        norm_prognostic = norm.normalize_prognostic(prognostic)
-        norm_boundary = norm.normalize_boundary(boundary)
-
-        # Set non-ocean areas to zero.
-        self.prognostic = mask(norm_prognostic, data_.wetmask)
-        self.boundary = mask(norm_boundary, data_.wetmask)
+        self.prognostic, self.boundary = self.prepare_data(
+            data, prognostic_var_names, boundary_var_names
+        )
+        if is_compact:
+            self.prognostic_einsum = "step window (time variable lev)=var lat lon"
+        else:
+            self.prognostic_einsum = "step window (time variable)=var lat lon"
+        self.boundary_einsum = "step window var lat lon"
 
         self.hist: int = hist
         self.steps: int = steps
@@ -82,6 +77,28 @@ class OM4Dataset(Dataset):
         self.rolling_indices: Integer[xr.DataArray, "step time"] = (
             indices_da + stride * window_dim
         )
+
+    # TODO(alxmrs): Put back into init!
+    def prepare_data(
+        self, data, prognostic_var_names, boundary_var_names
+    ) -> tuple[xr.Dataset, xr.Dataset]:
+        """Initialize loader datasets."""
+        # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
+        data_ = unflatten_masks(data)
+
+        prognostic = data_[prognostic_var_names]
+        boundary = data_[boundary_var_names]
+
+        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
+        norm = Normalize.get_instance()
+        norm_prognostic = norm.normalize_prognostic(prognostic)
+        norm_boundary = norm.normalize_boundary(boundary)
+
+        # Set non-ocean areas to zero.
+        prognostic = mask(norm_prognostic, data_.wetmask)
+        boundary = mask(norm_boundary, data_.wetmask)
+
+        return prognostic, boundary
 
     def __len__(self) -> int:
         return self._size
@@ -161,10 +178,6 @@ class OM4Dataset(Dataset):
         )
 
         return input_, label
-
-
-class CompactOM4Dataset(OM4Dataset):
-    pass
 
 
 class InferenceDataset(Dataset):

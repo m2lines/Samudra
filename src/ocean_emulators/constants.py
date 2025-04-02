@@ -190,7 +190,6 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
 class LoaderVersion(enum.Enum):
     OM4_EAGER = "om4-eager"
     OM4_LAZY = "om4-lazy"
-    OM4_COMPACT = "om4-compact"
 
 
 # TODO(#95): See if this can be removed and replaced.

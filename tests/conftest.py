@@ -348,7 +348,7 @@ def backend(request) -> TrainBackendConfig:
     return request.param
 
 
-@pytest.fixture(scope="session", params=["mock", "remote-om4"])
+@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
 def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     # Use cached data if available.
@@ -416,8 +416,9 @@ def data_source(request, pytestconfig) -> DataSource:
                 means=means,
                 stds=stds,
             )
+        # TODO(alxmrs): Add method to download remote data and compact it for tests.
         case _:
-            raise ValueError(f"Unknown data source: {request.param}.")
+            raise NotImplementedError(f"Unknown data source: {request.param}.")
 
 
 @pytest.fixture(scope="session")

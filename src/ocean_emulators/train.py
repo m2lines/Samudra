@@ -166,7 +166,7 @@ class Trainer:
         else:
             data = xr.open_zarr(
                 os.path.join(self.data_dir, self.data_path),
-                chunks={},
+                chunks=None,
                 consolidated=True,
             )
         data_mean = xr.open_dataset(

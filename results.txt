@@ -209,3 +209,85 @@ big-lazy-4-workers-vectorized
 2025-04-02 19:09:27,527 - INFO - Training Epoch: [1]  [  38/1325]  eta: 0:23:42  lr: 0.000100  loss: 1.5707 (2.6715)  time: 0.861(0.861)  data: 0.000(0.000)  max cpu mem: 1953  max gpu mem: 34880
 2025-04-02 19:09:28,402 - INFO - Training Epoch: [1]  [  39/1325]  eta: 0:23:34  lr: 0.000100  loss: 1.5147 (2.6368)  time: 0.874(0.874)  data: 0.000(0.000)  max cpu mem: 1953  max gpu mem: 34880
 2025-04-02 19:09:29,273 - INFO - Training Epoch: [1]  [  40/1325]  eta: 0:23:25  lr: 0.000100  loss: 1.5111 (2.6040)  time: 0.870(0.870)  data: 0.000(0.000)  max cpu mem: 1953  max gpu mem: 34880
+
+big-baseline-hist1
+
+2025-04-02 19:56:33,446 - INFO - Training Epoch: [1]  [   0/1323]  eta: 4:25:38  lr: 0.000100  loss: 3.3895 (3.3895)  time: 12.047(12.047)  data: 5.341(5.341)  max cpu mem: 1749  max gpu mem: 33981
+2025-04-02 19:56:39,606 - INFO - Training Epoch: [1]  [   1/1323]  eta: 3:20:33  lr: 0.000100  loss: 3.1239 (3.2567)  time: 6.159(6.159)  data: 5.270(5.270)  max cpu mem: 2178  max gpu mem: 33981
+2025-04-02 19:56:45,762 - INFO - Training Epoch: [1]  [   2/1323]  eta: 2:58:46  lr: 0.000100  loss: 3.1239 (3.1293)  time: 6.155(6.155)  data: 5.289(5.289)  max cpu mem: 2221  max gpu mem: 33981
+2025-04-02 19:56:52,255 - INFO - Training Epoch: [1]  [   3/1323]  eta: 2:49:41  lr: 0.000100  loss: 2.8745 (2.9576)  time: 6.492(6.492)  data: 5.620(5.620)  max cpu mem: 2221  max gpu mem: 33981
+2025-04-02 19:56:58,441 - INFO - Training Epoch: [1]  [   4/1323]  eta: 2:42:50  lr: 0.000100  loss: 2.8745 (2.8487)  time: 6.185(6.185)  data: 5.322(5.322)  max cpu mem: 2221  max gpu mem: 33981
+2025-04-02 19:57:04,590 - INFO - Training Epoch: [1]  [   5/1323]  eta: 2:38:06  lr: 0.000100  loss: 2.4425 (2.6651)  time: 6.149(6.149)  data: 5.260(5.260)  max cpu mem: 2230  max gpu mem: 33981
+2025-04-02 19:57:10,818 - INFO - Training Epoch: [1]  [   6/1323]  eta: 2:34:56  lr: 0.000100  loss: 2.4425 (2.5241)  time: 6.226(6.226)  data: 5.347(5.347)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:57:17,028 - INFO - Training Epoch: [1]  [   7/1323]  eta: 2:32:29  lr: 0.000100  loss: 2.4131 (2.3955)  time: 6.210(6.210)  data: 5.327(5.327)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:57:23,496 - INFO - Training Epoch: [1]  [   8/1323]  eta: 2:31:12  lr: 0.000100  loss: 2.4131 (2.2785)  time: 6.467(6.467)  data: 5.590(5.590)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:57:29,684 - INFO - Training Epoch: [1]  [   9/1323]  eta: 2:29:31  lr: 0.000100  loss: 1.7472 (2.1628)  time: 6.187(6.187)  data: 5.302(5.302)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:57:35,949 - INFO - Training Epoch: [1]  [  10/1323]  eta: 2:28:17  lr: 0.000100  loss: 1.7472 (2.0576)  time: 6.265(6.265)  data: 5.387(5.387)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:57:42,219 - INFO - Training Epoch: [1]  [  11/1323]  eta: 2:27:15  lr: 0.000100  loss: 1.6783 (1.9728)  time: 6.269(6.269)  data: 5.397(5.397)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:57:48,436 - INFO - Training Epoch: [1]  [  12/1323]  eta: 2:26:16  lr: 0.000100  loss: 1.6783 (1.8926)  time: 6.216(6.216)  data: 5.343(5.343)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:57:54,793 - INFO - Training Epoch: [1]  [  13/1323]  eta: 2:25:37  lr: 0.000100  loss: 1.4952 (1.8155)  time: 6.356(6.356)  data: 5.469(5.469)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:01,108 - INFO - Training Epoch: [1]  [  14/1323]  eta: 2:25:00  lr: 0.000100  loss: 1.4952 (1.7479)  time: 6.314(6.314)  data: 5.443(5.443)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:07,440 - INFO - Training Epoch: [1]  [  15/1323]  eta: 2:24:27  lr: 0.000100  loss: 1.3423 (1.6847)  time: 6.331(6.331)  data: 5.447(5.447)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:13,752 - INFO - Training Epoch: [1]  [  16/1323]  eta: 2:23:56  lr: 0.000100  loss: 1.3423 (1.6258)  time: 6.311(6.311)  data: 5.426(5.426)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:19,919 - INFO - Training Epoch: [1]  [  17/1323]  eta: 2:23:18  lr: 0.000100  loss: 1.1214 (1.5806)  time: 6.166(6.166)  data: 5.278(5.278)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:26,454 - INFO - Training Epoch: [1]  [  18/1323]  eta: 2:23:08  lr: 0.000100  loss: 1.1214 (1.5417)  time: 6.534(6.534)  data: 5.654(5.654)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:32,783 - INFO - Training Epoch: [1]  [  19/1323]  eta: 2:22:45  lr: 0.000100  loss: 1.0400 (1.4988)  time: 6.328(6.328)  data: 5.442(5.442)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:39,105 - INFO - Training Epoch: [1]  [  20/1323]  eta: 2:22:23  lr: 0.000100  loss: 1.0054 (1.4639)  time: 6.321(6.321)  data: 5.449(5.449)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:45,262 - INFO - Training Epoch: [1]  [  21/1323]  eta: 2:21:52  lr: 0.000100  loss: 0.9304 (1.4283)  time: 6.156(6.156)  data: 5.273(5.273)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:51,575 - INFO - Training Epoch: [1]  [  22/1323]  eta: 2:21:33  lr: 0.000100  loss: 0.8416 (1.3934)  time: 6.312(6.312)  data: 5.443(5.443)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:58:58,147 - INFO - Training Epoch: [1]  [  23/1323]  eta: 2:21:29  lr: 0.000100  loss: 0.8131 (1.3625)  time: 6.571(6.571)  data: 5.678(5.678)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:04,443 - INFO - Training Epoch: [1]  [  24/1323]  eta: 2:21:10  lr: 0.000100  loss: 0.8129 (1.3318)  time: 6.295(6.295)  data: 5.426(5.426)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:10,627 - INFO - Training Epoch: [1]  [  25/1323]  eta: 2:20:47  lr: 0.000100  loss: 0.8015 (1.3064)  time: 6.183(6.183)  data: 5.306(5.306)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:16,934 - INFO - Training Epoch: [1]  [  26/1323]  eta: 2:20:31  lr: 0.000100  loss: 0.7662 (1.2825)  time: 6.307(6.307)  data: 5.441(5.441)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:23,186 - INFO - Training Epoch: [1]  [  27/1323]  eta: 2:20:13  lr: 0.000100  loss: 0.7364 (1.2573)  time: 6.251(6.251)  data: 5.390(5.390)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:29,753 - INFO - Training Epoch: [1]  [  28/1323]  eta: 2:20:09  lr: 0.000100  loss: 0.6833 (1.2341)  time: 6.566(6.566)  data: 5.694(5.694)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:35,791 - INFO - Training Epoch: [1]  [  29/1323]  eta: 2:19:43  lr: 0.000100  loss: 0.6832 (1.2123)  time: 6.037(6.037)  data: 5.168(5.168)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:42,170 - INFO - Training Epoch: [1]  [  30/1323]  eta: 2:19:32  lr: 0.000100  loss: 0.6804 (1.1905)  time: 6.378(6.378)  data: 5.499(5.499)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:48,565 - INFO - Training Epoch: [1]  [  31/1323]  eta: 2:19:23  lr: 0.000100  loss: 0.6713 (1.1708)  time: 6.394(6.394)  data: 5.508(5.508)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 19:59:54,837 - INFO - Training Epoch: [1]  [  32/1323]  eta: 2:19:08  lr: 0.000100  loss: 0.6600 (1.1518)  time: 6.271(6.271)  data: 5.381(5.381)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 20:00:01,451 - INFO - Training Epoch: [1]  [  33/1323]  eta: 2:19:07  lr: 0.000100  loss: 0.6513 (1.1346)  time: 6.614(6.614)  data: 5.732(5.732)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 20:00:07,763 - INFO - Training Epoch: [1]  [  34/1323]  eta: 2:18:55  lr: 0.000100  loss: 0.6257 (1.1167)  time: 6.311(6.311)  data: 5.444(5.444)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 20:00:14,323 - INFO - Training Epoch: [1]  [  35/1323]  eta: 2:18:52  lr: 0.000100  loss: 0.5966 (1.1005)  time: 6.559(6.559)  data: 5.676(5.676)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 20:00:20,946 - INFO - Training Epoch: [1]  [  36/1323]  eta: 2:18:51  lr: 0.000100  loss: 0.5866 (1.0846)  time: 6.621(6.621)  data: 5.737(5.737)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 20:00:27,946 - INFO - Training Epoch: [1]  [  37/1323]  eta: 2:19:02  lr: 0.000100  loss: 0.5784 (1.0707)  time: 7.000(7.000)  data: 6.117(6.117)  max cpu mem: 2251  max gpu mem: 33981
+2025-04-02 20:00:34,874 - INFO - Training Epoch: [1]  [  38/1323]  eta: 2:19:10  lr: 0.000100  loss: 0.5760 (1.0551)  time: 6.927(6.927)  data: 6.042(6.042)  max cpu mem: 2251  max gpu mem: 33981
+
+big-lazy-unvectorized-hist1
+
+
+big-lazy-vectorized-hist1
+2025-04-02 19:52:02,698 - INFO - Training Epoch: [1]  [   0/1323]  eta: 3:51:46  lr: 0.000100  loss: 6.7259 (6.7259)  time: 10.511(10.511)  data: 5.211(5.211)  max cpu mem: 1850  max gpu mem: 36380
+2025-04-02 19:52:09,015 - INFO - Training Epoch: [1]  [   1/1323]  eta: 3:05:22  lr: 0.000100  loss: 6.3127 (6.5193)  time: 6.316(6.316)  data: 5.379(5.379)  max cpu mem: 2128  max gpu mem: 36380
+2025-04-02 19:52:14,622 - INFO - Training Epoch: [1]  [   2/1323]  eta: 2:44:37  lr: 0.000100  loss: 6.3127 (6.1392)  time: 5.606(5.606)  data: 4.676(4.676)  max cpu mem: 2131  max gpu mem: 36380
+2025-04-02 19:52:20,761 - INFO - Training Epoch: [1]  [   3/1323]  eta: 2:37:08  lr: 0.000100  loss: 5.4468 (5.9661)  time: 6.139(6.139)  data: 5.231(5.231)  max cpu mem: 2133  max gpu mem: 36380
+2025-04-02 19:52:26,134 - INFO - Training Epoch: [1]  [   4/1323]  eta: 2:29:14  lr: 0.000100  loss: 5.4468 (5.7370)  time: 5.372(5.372)  data: 4.452(4.452)  max cpu mem: 2135  max gpu mem: 36380
+2025-04-02 19:52:32,486 - INFO - Training Epoch: [1]  [   5/1323]  eta: 2:27:31  lr: 0.000100  loss: 5.3790 (5.4146)  time: 6.351(6.351)  data: 5.412(5.412)  max cpu mem: 2136  max gpu mem: 36380
+2025-04-02 19:52:38,842 - INFO - Training Epoch: [1]  [   6/1323]  eta: 2:26:16  lr: 0.000100  loss: 5.3790 (5.2176)  time: 6.356(6.356)  data: 5.445(5.445)  max cpu mem: 2136  max gpu mem: 36380
+2025-04-02 19:52:44,389 - INFO - Training Epoch: [1]  [   7/1323]  eta: 2:23:06  lr: 0.000100  loss: 4.8207 (4.9898)  time: 5.546(5.546)  data: 4.609(4.609)  max cpu mem: 2137  max gpu mem: 36380
+2025-04-02 19:52:50,696 - INFO - Training Epoch: [1]  [   8/1323]  eta: 2:22:27  lr: 0.000100  loss: 4.8207 (4.7837)  time: 6.306(6.306)  data: 5.393(5.393)  max cpu mem: 2137  max gpu mem: 36380
+2025-04-02 19:52:57,162 - INFO - Training Epoch: [1]  [   9/1323]  eta: 2:22:16  lr: 0.000100  loss: 4.0351 (4.5851)  time: 6.466(6.466)  data: 5.554(5.554)  max cpu mem: 2137  max gpu mem: 36380
+2025-04-02 19:53:02,716 - INFO - Training Epoch: [1]  [  10/1323]  eta: 2:20:17  lr: 0.000100  loss: 4.0351 (4.3966)  time: 5.553(5.553)  data: 4.631(4.631)  max cpu mem: 2141  max gpu mem: 36380
+2025-04-02 19:53:09,144 - INFO - Training Epoch: [1]  [  11/1323]  eta: 2:20:12  lr: 0.000100  loss: 3.8026 (4.2481)  time: 6.427(6.427)  data: 5.503(5.503)  max cpu mem: 2144  max gpu mem: 36380
+2025-04-02 19:53:14,813 - INFO - Training Epoch: [1]  [  12/1323]  eta: 2:18:51  lr: 0.000100  loss: 3.8026 (4.1011)  time: 5.668(5.668)  data: 4.755(4.755)  max cpu mem: 2145  max gpu mem: 36380
+2025-04-02 19:53:21,043 - INFO - Training Epoch: [1]  [  13/1323]  eta: 2:18:33  lr: 0.000100  loss: 3.3957 (3.9579)  time: 6.228(6.228)  data: 5.317(5.317)  max cpu mem: 2145  max gpu mem: 36380
+2025-04-02 19:53:27,459 - INFO - Training Epoch: [1]  [  14/1323]  eta: 2:18:32  lr: 0.000100  loss: 3.3957 (3.8374)  time: 6.415(6.415)  data: 5.504(5.504)  max cpu mem: 2145  max gpu mem: 36380
+2025-04-02 19:53:33,126 - INFO - Training Epoch: [1]  [  15/1323]  eta: 2:17:30  lr: 0.000100  loss: 3.1349 (3.7208)  time: 5.667(5.667)  data: 4.758(4.758)  max cpu mem: 2145  max gpu mem: 36380
+2025-04-02 19:53:39,573 - INFO - Training Epoch: [1]  [  16/1323]  eta: 2:17:34  lr: 0.000100  loss: 3.1349 (3.6086)  time: 6.446(6.446)  data: 5.531(5.531)  max cpu mem: 2145  max gpu mem: 36380
+2025-04-02 19:53:45,948 - INFO - Training Epoch: [1]  [  17/1323]  eta: 2:17:32  lr: 0.000100  loss: 2.7978 (3.5308)  time: 6.374(6.374)  data: 5.458(5.458)  max cpu mem: 2145  max gpu mem: 36380
+2025-04-02 19:53:51,387 - INFO - Training Epoch: [1]  [  18/1323]  eta: 2:16:25  lr: 0.000100  loss: 2.7978 (3.4580)  time: 5.438(5.438)  data: 4.523(4.523)  max cpu mem: 2145  max gpu mem: 36380
+2025-04-02 19:53:57,714 - INFO - Training Epoch: [1]  [  19/1323]  eta: 2:16:23  lr: 0.000100  loss: 2.6142 (3.3797)  time: 6.326(6.326)  data: 5.384(5.384)  max cpu mem: 2148  max gpu mem: 36380
+2025-04-02 19:54:03,943 - INFO - Training Epoch: [1]  [  20/1323]  eta: 2:16:14  lr: 0.000100  loss: 2.5115 (3.3166)  time: 6.228(6.228)  data: 5.295(5.295)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:09,081 - INFO - Training Epoch: [1]  [  21/1323]  eta: 2:15:00  lr: 0.000100  loss: 2.3379 (3.2501)  time: 5.137(5.137)  data: 4.224(4.224)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:15,289 - INFO - Training Epoch: [1]  [  22/1323]  eta: 2:14:53  lr: 0.000100  loss: 2.2074 (3.1837)  time: 6.208(6.208)  data: 5.289(5.289)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:20,865 - INFO - Training Epoch: [1]  [  23/1323]  eta: 2:14:12  lr: 0.000100  loss: 2.1508 (3.1255)  time: 5.575(5.575)  data: 4.639(4.639)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:27,087 - INFO - Training Epoch: [1]  [  24/1323]  eta: 2:14:07  lr: 0.000100  loss: 2.1478 (3.0634)  time: 6.221(6.221)  data: 5.281(5.281)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:33,556 - INFO - Training Epoch: [1]  [  25/1323]  eta: 2:14:14  lr: 0.000100  loss: 2.0960 (3.0106)  time: 6.468(6.468)  data: 5.551(5.551)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:38,899 - INFO - Training Epoch: [1]  [  26/1323]  eta: 2:13:27  lr: 0.000100  loss: 2.0541 (2.9586)  time: 5.343(5.343)  data: 4.412(4.412)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:44,875 - INFO - Training Epoch: [1]  [  27/1323]  eta: 2:13:11  lr: 0.000100  loss: 1.9709 (2.9080)  time: 5.975(5.975)  data: 5.066(5.066)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:50,208 - INFO - Training Epoch: [1]  [  28/1323]  eta: 2:12:28  lr: 0.000100  loss: 1.8922 (2.8651)  time: 5.332(5.332)  data: 4.392(4.392)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:54:56,390 - INFO - Training Epoch: [1]  [  29/1323]  eta: 2:12:24  lr: 0.000100  loss: 1.8537 (2.8210)  time: 6.181(6.181)  data: 5.251(5.251)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:55:02,737 - INFO - Training Epoch: [1]  [  30/1323]  eta: 2:12:26  lr: 0.000100  loss: 1.8143 (2.7773)  time: 6.347(6.347)  data: 5.432(5.432)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:55:08,191 - INFO - Training Epoch: [1]  [  31/1323]  eta: 2:11:52  lr: 0.000100  loss: 1.7880 (2.7389)  time: 5.453(5.453)  data: 4.542(4.542)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:55:14,612 - INFO - Training Epoch: [1]  [  32/1323]  eta: 2:11:57  lr: 0.000100  loss: 1.7221 (2.7034)  time: 6.420(6.420)  data: 5.509(5.509)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:55:20,837 - INFO - Training Epoch: [1]  [  33/1323]  eta: 2:11:55  lr: 0.000100  loss: 1.6921 (2.6679)  time: 6.224(6.224)  data: 5.314(5.314)  max cpu mem: 2149  max gpu mem: 36380
+2025-04-02 19:55:26,307 - INFO - Training Epoch: [1]  [  34/1323]  eta: 2:11:24  lr: 0.000100  loss: 1.6648 (2.6274)  time: 5.469(5.469)  data: 4.552(4.552)  max cpu mem: 2149  max gpu mem: 36380

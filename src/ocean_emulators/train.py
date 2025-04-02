@@ -3,6 +3,7 @@
 # - better stepper module and a cleaner model module
 # - cleaner dataset modules
 import argparse
+import contextlib
 import datetime
 import logging
 import os
@@ -60,6 +61,7 @@ from ocean_emulators.utils.distributed import (
     is_main_process,
     set_seed,
 )
+from ocean_emulators.utils.ema import EMATracker
 from ocean_emulators.utils.logging import (
     MetricLogger,
     SmoothedValue,
@@ -313,8 +315,12 @@ class Trainer:
                 device_ids=[self.distributed.gpu],
             )
 
+        # EMA
+        self._ema = EMATracker(self.model)
+
         # Training
         self.epochs = cfg.epochs
+        self.validate_using_ema = cfg.validate_using_ema
         self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
@@ -529,7 +535,6 @@ class Trainer:
 
         return train_aggregator.get_logs()
 
-    @torch.no_grad()
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
@@ -539,45 +544,46 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
 
-        for data_iter_step, data in enumerate(
-            metric_logger.log_every(self.val_loader, 1, header)
-        ):
-            if self.debug and (data_iter_step + 1) % 5 == 0:
-                break
+        with torch.no_grad(), self._validation_context():
+            for data_iter_step, data in enumerate(
+                metric_logger.log_every(self.val_loader, 1, header)
+            ):
+                if self.debug and (data_iter_step + 1) % 5 == 0:
+                    break
 
-            data.to(self.device)
-            VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
-            val_aggregator.record_validation_batch(VO)
-            metric_logger.update(loss=VO.loss)
+                data.to(self.device)
+                VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
+                val_aggregator.record_validation_batch(VO)
+                metric_logger.update(loss=VO.loss)
 
         return val_aggregator.get_logs(label="val")
 
-    @torch.no_grad()
     def inference_one_epoch(self, epoch):
         self.model.eval()
 
-        for data_iter_step, (inference_dataset, num_steps) in enumerate(
-            self.inference_loader
-        ):
-            inf_aggregator = Aggregator.get_inline_inference_aggregator(
-                num_steps,
-                self.metadata,
-                self.hist,
-                self.area_weights,
-                self.num_out,
-            )
+        with torch.no_grad(), self._validation_context():
+            for data_iter_step, (inference_dataset, num_steps) in enumerate(
+                self.inference_loader
+            ):
+                inf_aggregator = Aggregator.get_inline_inference_aggregator(
+                    num_steps,
+                    self.metadata,
+                    self.hist,
+                    self.area_weights,
+                    self.num_out,
+                )
 
-            Stepper.inference(
                 # TODO(jder): we need the underlying model so we can use forward_once;
                 # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
-                model=self.model.module
-                if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
-                else self.model,
-                dataset=inference_dataset,
-                inf_aggregator=inf_aggregator,
-                epoch=epoch,
-                num_model_steps_forward=num_steps,
-            )
+                Stepper.inference(
+                    model=self.model.module
+                    if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+                    else self.model,
+                    dataset=inference_dataset,
+                    inf_aggregator=inf_aggregator,
+                    epoch=epoch,
+                    num_model_steps_forward=num_steps,
+                )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}
 
@@ -729,31 +735,41 @@ class Trainer:
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
-        is_best_val_loss = False
-        if v_loss <= self.best_val_loss:
-            logging.info(
-                f"Epoch validation loss ({v_loss:.3f}) is lower than "
-                f"previous best validation loss ({self.best_val_loss:.3f})."
-            )
-            logging.info(
-                "Saving lowest validation loss checkpoint to "
-                f"{self.ckpt_paths.best_validation_checkpoint_path}"
-            )
-            self.best_val_loss = v_loss
-            is_best_val_loss = True  # wait until inference error is updated
-        if inf_loss is not None and (inf_loss <= self.best_inf_loss):
-            logging.info(
-                f"Epoch inference error ({inf_loss:.3f}) is lower than "
-                f"previous best inference error ({self.best_inf_loss:.3f})."
-            )
-            logging.info(
-                "Saving lowest inference error checkpoint to "
-                f"{self.ckpt_paths.best_inference_checkpoint_path}"
-            )
-            self.best_inf_loss = inf_loss
-            self.save_checkpoint(epoch, self.ckpt_paths.best_inference_checkpoint_path)
-        if is_best_val_loss:
-            self.save_checkpoint(epoch, self.ckpt_paths.best_validation_checkpoint_path)
+        if self.validate_using_ema:
+            best_checkpoint_context = self._ema_context
+        else:
+            best_checkpoint_context = contextlib.nullcontext  # type: ignore
+
+        with best_checkpoint_context():
+            is_best_val_loss = False
+            if v_loss <= self.best_val_loss:
+                logging.info(
+                    f"Epoch validation loss ({v_loss:.3f}) is lower than "
+                    f"previous best validation loss ({self.best_val_loss:.3f})."
+                )
+                logging.info(
+                    "Saving lowest validation loss checkpoint to "
+                    f"{self.ckpt_paths.best_validation_checkpoint_path}"
+                )
+                self.best_val_loss = v_loss
+                is_best_val_loss = True  # wait until inference error is updated
+            if inf_loss is not None and (inf_loss <= self.best_inf_loss):
+                logging.info(
+                    f"Epoch inference error ({inf_loss:.3f}) is lower than "
+                    f"previous best inference error ({self.best_inf_loss:.3f})."
+                )
+                logging.info(
+                    "Saving lowest inference error checkpoint to "
+                    f"{self.ckpt_paths.best_inference_checkpoint_path}"
+                )
+                self.best_inf_loss = inf_loss
+                self.save_checkpoint(
+                    epoch, self.ckpt_paths.best_inference_checkpoint_path
+                )
+            if is_best_val_loss:
+                self.save_checkpoint(
+                    epoch, self.ckpt_paths.best_validation_checkpoint_path
+                )
 
         logging.info(
             f"Saving latest checkpoint to {self.ckpt_paths.latest_checkpoint_path}"
@@ -764,6 +780,12 @@ class Trainer:
                 epoch, self.ckpt_paths.latest_checkpoint_path_with_epoch(epoch)
             )
 
+        with self._ema_context():
+            logging.info(
+                f"Saving latest EMA checkpoint to {self.ckpt_paths.ema_checkpoint_path}"
+            )
+            self.save_checkpoint(epoch, self.ckpt_paths.ema_checkpoint_path)
+
     def save_checkpoint(self, epoch, checkpoint_path):
         checkpoint = {
             "model": self.model.state_dict(),
@@ -771,6 +793,7 @@ class Trainer:
             "epoch": epoch,
             "best_val_loss": self.best_val_loss,
             "best_inf_loss": self.best_inf_loss,
+            "ema": self._ema.get_state(),
         }
         if self.scheduler:
             checkpoint["scheduler"] = self.scheduler.state_dict()
@@ -794,9 +817,45 @@ class Trainer:
             logging.info(f"Wandb id: {self.wandb_id}")
             logging.info(f"Wandb name: {self.wandb_name}")
             logging.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
+            self._ema = EMATracker.from_state(checkpoint["ema"], self.model)
+            self.best_val_loss = checkpoint["best_val_loss"]
+            self.best_inf_loss = checkpoint["best_inf_loss"]
 
     def is_wandb_enabled(self):
         return self.wandb_logger.enabled and is_main_process()
+
+    @contextlib.contextmanager
+    def _validation_context(self):
+        """
+        The context for running validation.
+        In this context, the stepper uses the EMA model if
+        `self.validate_using_ema` is True.
+        """
+        if self.validate_using_ema:
+            with self._ema_context():
+                yield
+        else:
+            yield
+
+    @contextlib.contextmanager
+    def _ema_context(self):
+        """
+        A context where the stepper uses the EMA model.
+        """
+        self._ema.store(
+            parameters=self.model.parameters()
+            if using_gpu()
+            else self.model.parameters()
+        )
+        self._ema.copy_to(model=self.model)
+        try:
+            yield
+        finally:
+            self._ema.restore(
+                parameters=self.model.parameters()
+                if using_gpu()
+                else self.model.parameters()
+            )
 
     def finish(self):
         self.wandb_logger.finish()

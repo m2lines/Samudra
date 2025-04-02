@@ -130,6 +130,7 @@ class TrainConfig:
     finetune: bool = False
     resume_ckpt_path: Optional[str] = None
     debug: bool = False
+    validate_using_ema: bool = True
     backend: TrainBackendConfig = "auto"
 
     # Data parameters at root level
@@ -183,6 +184,7 @@ class TrainConfig:
             "loss": self.loss,
             "finetune": self.finetune,
             "resume_ckpt_path": self.resume_ckpt_path,
+            "validate_using_ema": self.validate_using_ema,
             "backend": self.backend,
             "data_percent": self.data_percent,
             "data_stride": self.data_stride,

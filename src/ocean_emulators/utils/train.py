@@ -87,5 +87,9 @@ class CheckpointPaths:
         return self.checkpoint_dir / "best_inference_ckpt.pt"
 
     @property
+    def ema_checkpoint_path(self) -> Path:
+        return self.checkpoint_dir / "ema_ckpt.pt"
+
+    @property
     def best_validation_checkpoint_path(self) -> Path:
         return self.checkpoint_dir / "best_validation_ckpt.pt"

@@ -92,13 +92,23 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
 
 def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
     """Apply a wetmask (areas of the ocean) to all variables in the dataset."""
-    # I revised on this via Project Pythia's tutorial:
-    #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
     data_ = data.copy()
 
     wetmask = wetmask.astype(bool)
     surface_mask = wetmask.isel(lev=0)
 
+    # Compact data uses `lev` as a ocean depth dimension.
+    is_compact = all(v in data_ for v in ["so", "uo", "vo", "thetao"])
+    if is_compact:
+        for name, da in data_.items():
+            if "lev" in da.dims:
+                data_[name] = da.where(wetmask, 0.0)
+            else:
+                data_[name] = da.where(surface_mask, 0.0)
+        return data_
+
+    level = "-1"
+    # Data is not "compact", i.e. levels are encoded as data_vars.
     for name, da in data_.items():
         # Parse the level index info from the variable name.
         is_surface = False

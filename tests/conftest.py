@@ -2,7 +2,7 @@ import dataclasses
 import pathlib
 import random
 import time
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar, Generator
 
 import cftime
 import numpy as np
@@ -15,6 +15,9 @@ from typing_extensions import Self
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
 from ocean_emulators.utils.multiton import MultitonScope
+
+if TYPE_CHECKING:
+    from ocean_emulators.train import Trainer
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "train_default.test.yaml"
@@ -285,22 +288,15 @@ def loader_version(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
-@pytest.fixture(scope="session", params=[0, 1, 2])
+@pytest.fixture(scope="session", params=[0, 1, 2], ids=lambda x: f"hist{x}")
 def history(request: pytest.FixtureRequest) -> int:
     return request.param
 
 
-@pytest.fixture(autouse=True)
 def check_skip_configs(request, config_name):
-    """Decide if we run a test given only_configs and all_configs marks.
+    """Skip this test depending on how it's configured.
 
-    * If there is an only_configs mark, that overrides all_configs.
-      We run all configs in only_configs in that case.
-    * If there is no only_configs mark, and there is an all_configs mark,
-      we run all configs.
-    * If there is no only_configs or all_configs mark, we run the test for the
-      default config.
-
+    See `trainer_pair` for more details.
     """
     only_configs = request.node.get_closest_marker("only_configs")
     if only_configs:
@@ -346,9 +342,6 @@ def model2_path(request):
 
 
 # Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
-# TODO(jder): Note that due to singletons, we can't use both cuda and non-cuda
-# tests in the same test run. You should run the tests separately.
-# See https://github.com/suryadheeshjith/Ocean_Emulator/issues/87
 @pytest.fixture(
     params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
 )
@@ -476,53 +469,57 @@ def data_source(request, pytestconfig) -> DataSource:
 
 
 @pytest.fixture(scope="session")
-def train_config(
+def _session_scope_trainer_pair(
     data_source: DataSource,
     pytestconfig: pytest.Config,
     config_name: str,
     loader_version: str,
     history: int,
     backend: TrainBackendConfig,
-) -> TrainConfig:
+) -> tuple[TrainConfig, "Trainer"]:
+    """
+    This fixture is used to create a config/trainer pair for each possible
+    configuration.
+
+    This is session-scoped so that the config/trainer pair is created once per
+    configuration, then trainer_pair will set up the Multiton scope and skip rules
+    for each test at a per-function level.
+    """
+    # Import needs to be here in order to prevent a gnarly jaxtyping bug:
+    # See https://github.com/patrick-kidger/jaxtyping/issues/306
+    from ocean_emulators.train import Trainer
+
     # Write test data to the cache directory if they aren't already there.
     cache = cache_dir(pytestconfig)
     maybe_write_cache(cache, data_source)
 
     # Open default training script; modify it as necessary.
-    trainer = TrainConfig.from_yaml(pytestconfig.rootpath / "configs" / config_name)
+    train_config = TrainConfig.from_yaml(
+        pytestconfig.rootpath / "configs" / config_name
+    )
     data_config = dataclasses.replace(
-        trainer.data,
+        train_config.data,
         hist=history,
         loader_version=loader_version,
     )
     experiment_config = dataclasses.replace(
-        trainer.experiment,
+        train_config.experiment,
         cluster_data_dir=str(cache / data_source.name),
     )
-    test_data_config = dataclasses.replace(
-        trainer,
+    train_config = dataclasses.replace(
+        train_config,
         data=data_config,
         experiment=experiment_config,
         backend=backend,
     )
 
     # Create a fresh scope to use in any tests using this config
-    # (see set_scope below)
     scope = MultitonScope()
-    setattr(test_data_config, "_multiton_scope", scope)
+    setattr(train_config, "_multiton_scope", scope)
 
-    return test_data_config
-
-
-@pytest.fixture(scope="session")
-def trainer_pair(train_config: TrainConfig):
-    # Import needs to be here in order to prevent a gnarly jaxtyping bug:
-    # See https://github.com/patrick-kidger/jaxtyping/issues/306
-    from ocean_emulators.train import Trainer
-
-    # NB fixtures still need to do this "by hand" since set_scope
-    # doesn't run at session-scope time
-    with getattr(train_config, "_multiton_scope"):
+    # NB session-scoped fixtures still need to do this "by hand" since
+    # trainer_pair doesn't run at session-scope time
+    with scope:
         trainer = Trainer(train_config)
 
         # cur_step will set the number of pairs in the input/output sample
@@ -531,11 +528,41 @@ def trainer_pair(train_config: TrainConfig):
     return train_config, trainer
 
 
-@pytest.fixture(autouse=True, scope="function")
-def set_scope(train_config: TrainConfig):
-    """Automatically sets up the correct Multiton scope for each test.
+@pytest.fixture(scope="function")
+def trainer_pair(
+    _session_scope_trainer_pair: tuple[TrainConfig, "Trainer"], request, config_name
+) -> Generator[tuple[TrainConfig, "Trainer"], None, None]:
+    """Provides a config and trainer for tests.
 
-    NB you must still do this manually for session-scoped fixtures.
+    This fixture sets up the correct Multiton scope and skipping rules for this
+    config/trainer pair.
+
+    By default tests are run with one config. You can run them for multiple
+    configs by marking them with `only_configs` or `all_configs`.
+
+    eg:
+
+    @pytest.mark.only_configs(
+        "train_default.test.yaml",
+        "train_default_2step.test.yaml",
+    )
+    def test_something(trainer_pair):
+        ...
+
+    @pytest.mark.all_configs
+    def test_something_else(trainer_pair):
+        ...
+
+    * If there is an only_configs mark, that overrides all_configs.
+      We run all configs in only_configs in that case.
+    * If there is no only_configs mark, and there is an all_configs mark,
+      we run all configs.
+    * If there is no only_configs or all_configs mark, we run the test for the
+      default config.
+
     """
-    with getattr(train_config, "_multiton_scope"):
-        yield
+    check_skip_configs(request, config_name)
+    config, trainer = _session_scope_trainer_pair
+
+    with getattr(config, "_multiton_scope"):
+        yield config, trainer

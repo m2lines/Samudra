@@ -148,7 +148,9 @@ def compute_ocean_heat_content(
         Global heat content tensor of shape (batch_size,)
     """
     # Compute heat content per layer
-    HC_t = RHO_0 * CP_SW * T * dz.view(1, -1, 1, 1)
+    HC_t = (
+        RHO_0 * CP_SW * T * dz.view(1, -1, 1, 1)
+    )  # Multiplying with constants might be redundant
 
     # Column integrated heat content
     total_HC_t = torch.sum(HC_t, dim=1)

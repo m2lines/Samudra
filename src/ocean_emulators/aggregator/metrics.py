@@ -11,6 +11,9 @@ def weighted_mean(
 ) -> torch.Tensor:
     """Computes the weighted mean across the specified list of dimensions.
 
+    This function treats NaNs as land cells and does not include them in the
+    computation.
+
     Args:
         tensor: torch.Tensor
         weights: Weights to apply to the mean.
@@ -21,12 +24,13 @@ def weighted_mean(
         a tensor of the weighted mean averaged over the specified dimensions `dim`.
     """
     if weights is None:
-        return tensor.mean(dim=dim, keepdim=keepdim)
+        return tensor.nanmean(dim=dim, keepdim=keepdim)
 
     weights = weights.to(tensor.device)
-    return (tensor * weights).sum(dim=dim, keepdim=keepdim) / weights.expand(
-        tensor.shape
-    ).sum(dim=dim, keepdim=keepdim)
+    denom = torch.where(torch.isnan(tensor), 0.0, weights.expand(tensor.shape)).sum(
+        dim=dim, keepdim=keepdim
+    )
+    return (tensor * weights).nansum(dim=dim, keepdim=keepdim) / denom
 
 
 def area_weighted_mean(

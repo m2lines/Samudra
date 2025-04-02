@@ -39,7 +39,7 @@ class Corrector(torch.nn.Module):
 
             # unnormalize
             unnormalized_fts = self.normalize.unnormalize_tensor_prognostic(
-                fts_reshaped
+                fts_reshaped, fill_value=0.0
             )
 
             # apply relu

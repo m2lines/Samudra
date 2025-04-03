@@ -158,6 +158,11 @@ class Trainer:
         self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
+        if cfg.data.use_dask:
+            chunks: dict[str, int] | None = {}
+        else:
+            chunks = None
+
         if "*" in self.data_path:
             data = xr.open_mfdataset(
                 os.path.join(self.data_dir, self.data_path),
@@ -167,18 +172,18 @@ class Trainer:
         else:
             data = xr.open_zarr(
                 os.path.join(self.data_dir, self.data_path),
-                chunks={},
+                chunks=chunks,
                 consolidated=True,
             )
         data_mean = xr.open_dataset(
             os.path.join(self.data_dir, self.data_means_path),
             engine="netcdf4" if self.data_means_path.endswith(".nc") else "zarr",
-            chunks={},
+            chunks=chunks,
         )
         data_std = xr.open_dataset(
             os.path.join(self.data_dir, self.data_stds_path),
             engine="netcdf4" if self.data_stds_path.endswith(".nc") else "zarr",
-            chunks={},
+            chunks=chunks,
         )
 
         if cfg.data.static_data_paths is not None:

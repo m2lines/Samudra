@@ -287,6 +287,8 @@ def augment_static_data(
             f"Static data variable name {var_name} does not match {var}"
         )
         if var_name in data.variables:
+            if "time" in data[var_name].dims:
+                data[var_name] = data[var_name].isel(time=0)
             continue
         # Assuming the static data is coming from CM4 data
         if "lat" in static_data.dims and "lat" not in data.dims:

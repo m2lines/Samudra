@@ -113,7 +113,8 @@ class Eval:
             chunks={},
         )
 
-        data = augment_static_data(data, cfg.data.static_data_paths, self.data_dir)
+        if cfg.data.static_data_paths is not None:
+            data = augment_static_data(data, cfg.data.static_data_paths, self.data_dir)
 
         self.data, self.data_mean, self.data_std = validate_data(
             data, data_mean, data_std

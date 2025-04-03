@@ -48,9 +48,9 @@ experiment:
   cluster_data_dir: /pscratch/sd/s/suryad/data
   wandb:
     mode: online
-    project: ocean-emulator
-    entity: ai2cm
-    group: samudra-train-2in2out
+    project: ocean-emulators
+    entity: m2lines
+    group: samudra-train-cm4-opt
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
@@ -63,6 +63,8 @@ data:
   time_delta: 5
   num_workers: 4
   hist: 1
+  loader_version: "om4-eager"
+  use_dask: false
 
 
 samudra:

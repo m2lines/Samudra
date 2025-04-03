@@ -496,6 +496,7 @@ class Trainer:
             data.to(self.device)
             TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
             TO.loss.backward()
+            self._ema(model=self.model)
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
@@ -518,6 +519,7 @@ class Trainer:
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
+                    "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
                     **self.loss_aggregator.get_channel_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),

@@ -66,6 +66,7 @@ class EMATracker:
 
         self._module_name_to_ema_name = {}
         self.decay = torch.tensor(decay, dtype=torch.float32)
+        self.cur_decay = torch.tensor(decay, dtype=torch.float32)
         self._faster_decay_at_start = faster_decay_at_start
         self.num_updates = torch.tensor(0, dtype=torch.int)
 
@@ -98,7 +99,7 @@ class EMATracker:
             decay = torch.min(
                 self.decay, (1 + self.num_updates) / (10 + self.num_updates)
             )
-
+        self.cur_decay = decay
         with torch.no_grad():
             module_parameters = dict(model.named_parameters())
 

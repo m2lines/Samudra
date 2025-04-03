@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743709290242,
+  "lastUpdate": 1743709291913,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4335,6 +4335,366 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.1789118845064819",
             "extra": "mean: 106.19986688479985 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "648cd211c95f934b7a03d4ebc68440bfb7ed3499",
+          "message": "Turn off dask by default (#168)\n\nAccording to [results\nhere](https://github.com/suryadheeshjith/Ocean_Emulator/issues/105#issuecomment-2773940880),\nturning off dask is 20x faster for the eager data loader and 10x faster\nfor the lazy data loader. This disables dask by default but you can\ntoggle it back on.",
+          "timestamp": "2025-04-03T11:56:34-04:00",
+          "tree_id": "738bcd88d7610dcd35c276699c47fe9c082c881e",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/648cd211c95f934b7a03d4ebc68440bfb7ed3499"
+        },
+        "date": 1743709291198,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist0-cuda-train]",
+            "value": 2.6848317860471522,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01442662316110582",
+            "extra": "mean: 372.4628132000362 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist0-cuda-val]",
+            "value": 3.963376128011508,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006010305992428696",
+            "extra": "mean: 252.31014360015251 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-eager-hist0-cuda]",
+            "value": 0.3777031693942022,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0165590088033409",
+            "extra": "mean: 2.647581701800118 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-eager-hist0-cuda]",
+            "value": 0.014589835220523146,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3615070200147524",
+            "extra": "mean: 68.54087005679995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist1-cuda-train]",
+            "value": 1.3851267495874746,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017585489933673176",
+            "extra": "mean: 721.9555901998319 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist1-cuda-val]",
+            "value": 2.152927700845969,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00813546165749744",
+            "extra": "mean: 464.48378159984713 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-eager-hist1-cuda]",
+            "value": 0.45863752906976496,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01671743989826334",
+            "extra": "mean: 2.180371070000001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-eager-hist1-cuda]",
+            "value": 0.014403390991189152,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1000413555073187",
+            "extra": "mean: 69.42809513479988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist1-cuda-train]",
+            "value": 1.333845569513277,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011384606817363025",
+            "extra": "mean: 749.7119778003253 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist1-cuda-val]",
+            "value": 1.9130998630022098,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01805633720150815",
+            "extra": "mean: 522.7118664002774 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-lazy-hist1-cuda]",
+            "value": 0.454141888292495,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02777683984363791",
+            "extra": "mean: 2.2019549963995813 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-lazy-hist1-cuda]",
+            "value": 0.014160833074377994,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0686059591695372",
+            "extra": "mean: 70.6173143025997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist1-cuda-train]",
+            "value": 1.8317413675823158,
+            "unit": "iter/sec",
+            "range": "stddev: 0.019794721451138912",
+            "extra": "mean: 545.9285998000269 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist1-cuda-val]",
+            "value": 2.221715062933647,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010010727924564774",
+            "extra": "mean: 450.1027231995977 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist1-cuda]",
+            "value": 0.5297360271779478,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02562575674675363",
+            "extra": "mean: 1.8877326605994313 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-lazy-hist1-cuda]",
+            "value": 0.014133312038125566,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7579340531106379",
+            "extra": "mean: 70.75482359000016 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist2-cuda-train]",
+            "value": 1.5429005873580897,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005384231256791398",
+            "extra": "mean: 648.1298978000268 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist2-cuda-val]",
+            "value": 2.275770764415048,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010336688279188024",
+            "extra": "mean: 439.41156799992314 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist2-cuda]",
+            "value": 0.6296861293696048,
+            "unit": "iter/sec",
+            "range": "stddev: 0.007871334288412",
+            "extra": "mean: 1.588092786800189 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-lazy-hist2-cuda]",
+            "value": 0.014282009956711271,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3957511239697317",
+            "extra": "mean: 70.01815591999984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist2-cuda-train]",
+            "value": 1.5159755038848632,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01378454490503976",
+            "extra": "mean: 659.6412655992026 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist2-cuda-val]",
+            "value": 2.3057926219071385,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008315942673734271",
+            "extra": "mean: 433.69034600036684 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist2-cuda]",
+            "value": 0.6263983245616993,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004298838457392428",
+            "extra": "mean: 1.5964282801996887 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-eager-hist2-cuda]",
+            "value": 0.014320257493577689,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23580242619836553",
+            "extra": "mean: 69.83114657320075 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist2-cuda-train]",
+            "value": 1.098359733803807,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017611359073640406",
+            "extra": "mean: 910.4485253996245 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist2-cuda-val]",
+            "value": 1.6131606284814037,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004471190353792699",
+            "extra": "mean: 619.9010701999214 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-lazy-hist2-cuda]",
+            "value": 0.5186590651515599,
+            "unit": "iter/sec",
+            "range": "stddev: 0.026296768637114255",
+            "extra": "mean: 1.928048822799974 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-lazy-hist2-cuda]",
+            "value": 0.013942044595413254,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1372267590449953",
+            "extra": "mean: 71.72549141960044 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist2-cuda-train]",
+            "value": 1.0572585331407107,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010030119193207333",
+            "extra": "mean: 945.8424487995217 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist2-cuda-val]",
+            "value": 1.7416322989699315,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00708886649180496",
+            "extra": "mean: 574.1740093999397 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-eager-hist2-cuda]",
+            "value": 0.5288164912987564,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01112416778774798",
+            "extra": "mean: 1.8910151563995896 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-eager-hist2-cuda]",
+            "value": 0.013829228972325988,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0386784637465938",
+            "extra": "mean: 72.31061124240004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist0-cuda-train]",
+            "value": 2.169866481175926,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011160155802174646",
+            "extra": "mean: 460.85784940005396 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist0-cuda-val]",
+            "value": 2.731909086442494,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018081311643700967",
+            "extra": "mean: 366.0443918000965 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist0-cuda]",
+            "value": 0.44161512803800673,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006273664445216681",
+            "extra": "mean: 2.2644151807995514 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-lazy-hist0-cuda]",
+            "value": 0.014353741383920279,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13884986109154027",
+            "extra": "mean: 69.6682469924006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist1-cuda-train]",
+            "value": 1.8426208163411573,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013530695607010852",
+            "extra": "mean: 542.7052549996006 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist1-cuda-val]",
+            "value": 2.2312040053438427,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018316173579638474",
+            "extra": "mean: 448.18851060008456 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist1-cuda]",
+            "value": 0.5327913594923396,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013514372178847047",
+            "extra": "mean: 1.8769073150000621 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-eager-hist1-cuda]",
+            "value": 0.014340045613761008,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3127707779909071",
+            "extra": "mean: 69.73478515580027 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist0-cuda-train]",
+            "value": 2.235058700752479,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018867648924759593",
+            "extra": "mean: 447.41554200045357 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist0-cuda-val]",
+            "value": 2.8860715236974506,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006689654213858681",
+            "extra": "mean: 346.49175939994166 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist0-cuda]",
+            "value": 0.4414074978459466,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005829856641247325",
+            "extra": "mean: 2.2654803211997203 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-eager-hist0-cuda]",
+            "value": 0.014075317573736163,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5745316937734435",
+            "extra": "mean: 71.04635435479977 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist0-cuda-train]",
+            "value": 1.7502482760431544,
+            "unit": "iter/sec",
+            "range": "stddev: 0.016500122398773832",
+            "extra": "mean: 571.3475132000895 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist0-cuda-val]",
+            "value": 2.308074476532776,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011348476654509082",
+            "extra": "mean: 433.261582400155 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-lazy-hist0-cuda]",
+            "value": 0.35702483613133207,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0230684973050089",
+            "extra": "mean: 2.8009255905999453 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-lazy-hist0-cuda]",
+            "value": 0.014151217822142782,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1270972512796247",
+            "extra": "mean: 70.66529627119962 sec\nrounds: 5"
           }
         ]
       }

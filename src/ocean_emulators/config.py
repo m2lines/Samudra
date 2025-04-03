@@ -130,7 +130,7 @@ class TrainConfig:
     finetune: bool = False
     resume_ckpt_path: Optional[str] = None
     debug: bool = False
-    validate_using_ema: bool = True
+    test_using_ema: bool = True
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True
     backend: TrainBackendConfig = "auto"
@@ -186,7 +186,7 @@ class TrainConfig:
             "loss": self.loss,
             "finetune": self.finetune,
             "resume_ckpt_path": self.resume_ckpt_path,
-            "validate_using_ema": self.validate_using_ema,
+            "test_using_ema": self.test_using_ema,
             "ema_decay": self.ema_decay,
             "faster_decay_at_start": self.faster_decay_at_start,
             "backend": self.backend,

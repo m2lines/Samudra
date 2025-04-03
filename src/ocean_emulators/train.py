@@ -324,7 +324,7 @@ class Trainer:
 
         # Training
         self.epochs = cfg.epochs
-        self.validate_using_ema = cfg.validate_using_ema
+        self.test_using_ema = cfg.test_using_ema
         self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
@@ -741,12 +741,7 @@ class Trainer:
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
-        if self.validate_using_ema:
-            best_checkpoint_context = self._ema_context
-        else:
-            best_checkpoint_context = contextlib.nullcontext  # type: ignore
-
-        with best_checkpoint_context():
+        with self._validation_context():
             is_best_val_loss = False
             if v_loss <= self.best_val_loss:
                 logging.info(
@@ -835,9 +830,9 @@ class Trainer:
         """
         The context for running validation.
         In this context, the stepper uses the EMA model if
-        `self.validate_using_ema` is True.
+        `self.test_using_ema` is True.
         """
-        if self.validate_using_ema:
+        if self.test_using_ema:
             with self._ema_context():
                 yield
         else:

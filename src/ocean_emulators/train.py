@@ -550,7 +550,7 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
 
-        with torch.no_grad(), self._validation_context():
+        with torch.no_grad(), self._test_context():
             for data_iter_step, data in enumerate(
                 metric_logger.log_every(self.val_loader, 1, header)
             ):
@@ -567,7 +567,7 @@ class Trainer:
     def inference_one_epoch(self, epoch):
         self.model.eval()
 
-        with torch.no_grad(), self._validation_context():
+        with torch.no_grad(), self._test_context():
             for data_iter_step, (inference_dataset, num_steps) in enumerate(
                 self.inference_loader
             ):
@@ -741,7 +741,7 @@ class Trainer:
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
-        with self._validation_context():
+        with self._test_context():
             is_best_val_loss = False
             if v_loss <= self.best_val_loss:
                 logging.info(
@@ -826,9 +826,9 @@ class Trainer:
         return self.wandb_logger.enabled and is_main_process()
 
     @contextlib.contextmanager
-    def _validation_context(self):
+    def _test_context(self):
         """
-        The context for running validation.
+        The context for running validation/inference.
         In this context, the stepper uses the EMA model if
         `self.test_using_ema` is True.
         """

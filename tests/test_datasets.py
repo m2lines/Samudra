@@ -6,6 +6,7 @@ import os
 import cftime
 import numpy as np
 import pytest
+import torch
 import xarray as xr
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
@@ -15,10 +16,11 @@ from torch.utils.data import DataLoader
 
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS
-from ocean_emulators.datasets import OM4Dataset, TrainData
+from ocean_emulators.datasets import OM4Dataset, TrainData, TrainDataset
 from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import validate_data
-from ocean_emulators.utils.train import collate_om4
+from ocean_emulators.utils.data import Normalize, validate_data
+from ocean_emulators.utils.multiton import MultitonScope
+from ocean_emulators.utils.train import collate_om4, collate_train_data
 from tests.conftest import DataSourceDims
 
 # Note: Refactoring data loaders is planned for the near-term. Ideally,
@@ -366,6 +368,83 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
             f"{len(y_not_close_index)} values differ: "
             f"{y_orig[y_not_close]} != {y_new[y_not_close]}."
         )
+
+
+@pytest.fixture
+def traindataset_input():
+    # Create data
+    coords = {"time": range(10), "lat": range(2), "lon": range(2)}
+    data_array = torch.ones(4, 10, 2, 2)  # [vars, time, lat, lon]
+
+    data = xr.Dataset(
+        {
+            name: xr.DataArray(
+                data_array[i], dims=["time", "lat", "lon"], coords=coords
+            )
+            for i, name in enumerate(
+                ["prognostic1", "prognostic2", "boundary1", "boundary2"]
+            )
+        }
+    )
+    prognostic_var_names = ["prognostic1", "prognostic2"]
+    boundary_var_names = ["boundary1", "boundary2"]
+
+    # Create test data with mean and std
+    data_mean = xr.Dataset(
+        {
+            "prognostic1": 0.0,
+            "prognostic2": 0.0,
+            "boundary1": 0.0,
+            "boundary2": 0.0,
+        },
+        coords={"lat": [0], "lon": [0]},
+    )
+    data_std = xr.Dataset(
+        {
+            "prognostic1": 1.0,
+            "prognostic2": 1.0,
+            "boundary1": 1.0,
+            "boundary2": 1.0,
+        },
+        coords={"lat": [0], "lon": [0]},
+    )
+
+    wet = torch.ones(2, 2, 2)
+    wet_surface = torch.ones(2, 2)
+
+    # Initialize Normalize instance
+    with MultitonScope():
+        _ = Normalize.init_instance(
+            data_mean=data_mean,
+            data_std=data_std,
+            prognostic_var_names=["prognostic1", "prognostic2"],
+            boundary_var_names=["boundary1", "boundary2"],
+            wet_mask=wet,
+        )
+        traindataset = TrainDataset(
+            data=data,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            wet=wet,
+            wet_surface=wet_surface,
+            hist=0,
+            steps=2,
+            stride=1,
+        )
+
+    return traindataset
+
+
+def test_train_dataset(traindataset_input):
+    traindataset = traindataset_input
+    td = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
+    pred = torch.randn_like(td.get_label(0)) * 0.1
+
+    inp1 = td.get_input(1).clone()
+    td.merge_prognostic_and_boundary(pred, 1)
+
+    td_new = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
+    assert torch.equal(td_new.get_input(1), inp1)
 
 
 @pytest.mark.manual

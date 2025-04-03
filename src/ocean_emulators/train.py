@@ -316,7 +316,11 @@ class Trainer:
             )
 
         # EMA
-        self._ema = EMATracker(self.model)
+        self._ema = EMATracker(
+            self.model,
+            decay=cfg.ema_decay,
+            faster_decay_at_start=cfg.faster_decay_at_start,
+        )
 
         # Training
         self.epochs = cfg.epochs

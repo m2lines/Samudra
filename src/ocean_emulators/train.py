@@ -842,20 +842,12 @@ class Trainer:
         """
         A context where the stepper uses the EMA model.
         """
-        self._ema.store(
-            parameters=self.model.parameters()
-            if using_gpu()
-            else self.model.parameters()
-        )
+        self._ema.store(parameters=self.model.parameters())
         self._ema.copy_to(model=self.model)
         try:
             yield
         finally:
-            self._ema.restore(
-                parameters=self.model.parameters()
-                if using_gpu()
-                else self.model.parameters()
-            )
+            self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
         self.wandb_logger.finish()

@@ -108,6 +108,7 @@ class EMATracker:
                     self._ema_params[ema_name] = self._ema_params[ema_name].type_as(
                         module_parameters[key]
                     )
+                    # EMA_params = decay * EMA_params + (1 - decay) * model_params
                     self._ema_params[ema_name].sub_(
                         (1.0 - decay)
                         * (self._ema_params[ema_name] - module_parameters[key])

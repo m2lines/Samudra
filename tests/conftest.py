@@ -300,15 +300,16 @@ def check_skip_configs(request, config_name):
     """
     only_configs = request.node.get_closest_marker("only_configs")
     if only_configs:
+        for desired_config in only_configs.args:
+            if desired_config not in ALL_CONFIGS:
+                raise ValueError(
+                    f"Test config {desired_config} is not"
+                    f" in the list of all configs: {ALL_CONFIGS}"
+                )
         if config_name not in only_configs.args:
             pytest.skip(
                 f"Skipping test for {config_name} because"
                 f" it is not in {only_configs.args}"
-            )
-        if config_name not in ALL_CONFIGS:
-            raise ValueError(
-                f"Test config {config_name} is not"
-                f" in the list of all configs: {ALL_CONFIGS}"
             )
     else:
         all_configs = request.node.get_closest_marker("all_configs")

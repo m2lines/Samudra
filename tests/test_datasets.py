@@ -354,6 +354,9 @@ def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
     )
 
     for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
+        assert x_orig.dtype == x_new.dtype, "Input data types do not match."
+        assert y_orig.dtype == y_new.dtype, "Output data types do not match."
+
         x_not_close = np.isclose(x_orig, x_new) == False  # noqa: E712
         y_not_close = np.isclose(y_orig, y_new) == False  # noqa: E712
 

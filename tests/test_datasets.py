@@ -415,7 +415,7 @@ def traindataset_input():
     wet = torch.ones(2, 2, 2)
     wet_surface = torch.ones(2, 2)
 
-    # Initialize Normalize instance
+    # Initialize and yield within the MultitonScope
     with MultitonScope():
         _ = Normalize.init_instance(
             data_mean=data_mean,
@@ -434,8 +434,7 @@ def traindataset_input():
             steps=2,
             stride=1,
         )
-
-    return traindataset
+        yield traindataset
 
 
 def test_train_dataset(traindataset_input):

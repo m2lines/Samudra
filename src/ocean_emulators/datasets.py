@@ -382,8 +382,9 @@ class TrainData:
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         input, _ = self.td_dict[step]
-        input[:, : self.num_prognostic_channels] = prognostic
-        return input
+        merged = input.clone()
+        merged[:, : self.num_prognostic_channels] = prognostic
+        return merged
 
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""

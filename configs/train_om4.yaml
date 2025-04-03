@@ -8,9 +8,6 @@ batch_size: 4
 learning_rate: 0.0002
 scheduler: true
 loss: mse
-validate_using_ema: true
-ema_decay: 0.999
-faster_decay_at_start: true
 finetune: false
 resume_ckpt_path: null
 inference_epochs: [-1]

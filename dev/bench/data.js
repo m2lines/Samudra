@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743709291913,
+  "lastUpdate": 1743723097494,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2421,6 +2421,366 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7011178396201121",
             "extra": "mean: 79.74252999400014 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a2e57c158589e0447799a389b24b96a2d207fa61",
+          "message": "Datasets test for TrainData + Test fix (#172)\n\n- Just a test for traindata ensuring underlying data is not manipulated\nby TrainData. Added a test just in case (even with #169 )\n- Removed lat/lon coords in tests data statistics",
+          "timestamp": "2025-04-03T15:49:40-04:00",
+          "tree_id": "df76883e78482679bd1224e1c34d6eae0c7291e5",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/a2e57c158589e0447799a389b24b96a2d207fa61"
+        },
+        "date": 1743723096481,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist0-cpu-train]",
+            "value": 2.3046649487454043,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008319316368729634",
+            "extra": "mean: 433.9025508000077 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist0-cpu-val]",
+            "value": 5.159718315085358,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004061035584811636",
+            "extra": "mean: 193.8090296666625 msec\nrounds: 6"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-eager-hist0-cpu]",
+            "value": 0.4199549174146207,
+            "unit": "iter/sec",
+            "range": "stddev: 0.015241762992303603",
+            "extra": "mean: 2.3812079786000027 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-eager-hist0-cpu]",
+            "value": 0.013780429625430437,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9719831568910111",
+            "extra": "mean: 72.5666780486 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist2-cpu-train]",
+            "value": 1.816238086126111,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003011183620581127",
+            "extra": "mean: 550.5886081999961 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist2-cpu-val]",
+            "value": 6.033005114442061,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001970787726316305",
+            "extra": "mean: 165.7548735714077 msec\nrounds: 7"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist2-cpu]",
+            "value": 1.0346638584046415,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006259813809238659",
+            "extra": "mean: 966.497468600005 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-lazy-hist2-cpu]",
+            "value": 0.011934752481395264,
+            "unit": "iter/sec",
+            "range": "stddev: 0.35322470675388595",
+            "extra": "mean: 83.78891825020006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist2-cpu-train]",
+            "value": 2.278989819694713,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0020666559687070895",
+            "extra": "mean: 438.7909025999761 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist2-cpu-val]",
+            "value": 7.568635811984987,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009767489050589273",
+            "extra": "mean: 132.12420637501054 msec\nrounds: 8"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist2-cpu]",
+            "value": 1.0404597459335234,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012444452357588628",
+            "extra": "mean: 961.113588400076 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-eager-hist2-cpu]",
+            "value": 0.012035969151689797,
+            "unit": "iter/sec",
+            "range": "stddev: 0.48442475962795206",
+            "extra": "mean: 83.08429403540008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist2-cpu-train]",
+            "value": 1.0076111865743025,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08972411233033846",
+            "extra": "mean: 992.4463060000562 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist2-cpu-val]",
+            "value": 5.294150221656049,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0010852472834202238",
+            "extra": "mean: 188.88772666658346 msec\nrounds: 6"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-lazy-hist2-cpu]",
+            "value": 0.7909479580026444,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0024690967830099503",
+            "extra": "mean: 1.2643056851999064 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-lazy-hist2-cpu]",
+            "value": 0.011818212795849133,
+            "unit": "iter/sec",
+            "range": "stddev: 2.048503422962624",
+            "extra": "mean: 84.6151628232 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist2-cpu-train]",
+            "value": 1.2010578579393771,
+            "unit": "iter/sec",
+            "range": "stddev: 0.012429173183269323",
+            "extra": "mean: 832.599356800074 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist2-cpu-val]",
+            "value": 6.10221478258071,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006467198007637629",
+            "extra": "mean: 163.87492666672188 msec\nrounds: 6"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-eager-hist2-cpu]",
+            "value": 0.7865706618705802,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002385470197239957",
+            "extra": "mean: 1.2713415951999196 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-eager-hist2-cpu]",
+            "value": 0.011676579917162193,
+            "unit": "iter/sec",
+            "range": "stddev: 1.393219263315863",
+            "extra": "mean: 85.64151550320003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist1-cpu-train]",
+            "value": 1.9671838017805516,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0035737511115565756",
+            "extra": "mean: 508.340907999991 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist1-cpu-val]",
+            "value": 4.590548770516635,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00315457338821973",
+            "extra": "mean: 217.83887939991473 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist1-cpu]",
+            "value": 0.7497772599954103,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002333916938316887",
+            "extra": "mean: 1.3337294332000966 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-lazy-hist1-cpu]",
+            "value": 0.012930228790527316,
+            "unit": "iter/sec",
+            "range": "stddev: 0.37414876772283717",
+            "extra": "mean: 77.33815203119994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist0-cpu-train]",
+            "value": 2.7089800479139563,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002332214537380244",
+            "extra": "mean: 369.1426228000637 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist0-cpu-val]",
+            "value": 5.43799945135778,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0018404544299682184",
+            "extra": "mean: 183.89115500008302 msec\nrounds: 6"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-lazy-hist0-cpu]",
+            "value": 0.5438318365074576,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006458956604591762",
+            "extra": "mean: 1.8388037126000198 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-lazy-hist0-cpu]",
+            "value": 0.013507006544359362,
+            "unit": "iter/sec",
+            "range": "stddev: 0.47230464594834287",
+            "extra": "mean: 74.03564932880026 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist1-cpu-train]",
+            "value": 2.6109110919674663,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00225578182290232",
+            "extra": "mean: 383.0080630001248 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist1-cpu-val]",
+            "value": 6.35665940985046,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0017725668806457102",
+            "extra": "mean: 157.3153342855481 msec\nrounds: 7"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist1-cpu]",
+            "value": 0.7495609858783625,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001820322700812295",
+            "extra": "mean: 1.334114260000024 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-eager-hist1-cpu]",
+            "value": 0.013034197097660686,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4767015081967856",
+            "extra": "mean: 76.72125812640006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist0-cpu-train]",
+            "value": 3.9848401728646734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006143164049840425",
+            "extra": "mean: 250.95109380035862 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist0-cpu-val]",
+            "value": 8.042685540118809,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0016031198687020578",
+            "extra": "mean: 124.33657825010869 msec\nrounds: 8"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-remote-om4-om4-eager-hist0-cpu]",
+            "value": 0.5434210835798051,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0030086294072002692",
+            "extra": "mean: 1.8401935998001135 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-remote-om4-om4-eager-hist0-cpu]",
+            "value": 0.013649835757811795,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23384093796145294",
+            "extra": "mean: 73.26095476480005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist1-cpu-train]",
+            "value": 1.0715966458513633,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002588183340748011",
+            "extra": "mean: 933.1869448000361 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist1-cpu-val]",
+            "value": 3.211186668677036,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001279191854367144",
+            "extra": "mean: 311.41135760008183 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-lazy-hist1-cpu]",
+            "value": 0.6110474331927593,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004150308452839695",
+            "extra": "mean: 1.6365341635999358 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-lazy-hist1-cpu]",
+            "value": 0.01286855910700248,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5537441318679758",
+            "extra": "mean: 77.70877778040013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist0-cpu-train]",
+            "value": 1.9562578307633718,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002514582703351867",
+            "extra": "mean: 511.1800623999443 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-lazy-hist0-cpu-val]",
+            "value": 4.544014349024898,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0020510345897050775",
+            "extra": "mean: 220.06972759991186 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-lazy-hist0-cpu]",
+            "value": 0.42700484105530356,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006159300583448119",
+            "extra": "mean: 2.341893823799728 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-lazy-hist0-cpu]",
+            "value": 0.013529717037333404,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1314941739605824",
+            "extra": "mean: 73.91137576939983 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist1-cpu-train]",
+            "value": 1.4273471839199796,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005795321796077921",
+            "extra": "mean: 700.6003943999531 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[train_default.test.yaml-mock-om4-eager-hist1-cpu-val]",
+            "value": 4.266042811485909,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001678600622943959",
+            "extra": "mean: 234.40927440005908 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[train_default.test.yaml-mock-om4-eager-hist1-cpu]",
+            "value": 0.6118428207794882,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0021569591269245667",
+            "extra": "mean: 1.634406690800097 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[train_default.test.yaml-mock-om4-eager-hist1-cpu]",
+            "value": 0.012948517162228184,
+            "unit": "iter/sec",
+            "range": "stddev: 0.505580160478684",
+            "extra": "mean: 77.22892030579969 sec\nrounds: 5"
           }
         ]
       }

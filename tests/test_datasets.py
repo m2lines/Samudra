@@ -276,7 +276,7 @@ def test_loader__data_shape(train_config, history, loader_version):
 
         assert len(samples) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
-            f"got {len(loader)}."
+            f"got {len(samples)}."
         )
 
         for sample in samples:

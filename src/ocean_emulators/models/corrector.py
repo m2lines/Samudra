@@ -164,6 +164,8 @@ class OceanHeatCorrector(BaseCorrector):
     Applies a correction to potential temperature to conserve
     ocean heat content.
 
+    Following this document - https://www.overleaf.com/project/67ed705406995df4c185e6b6
+
     This class relies in input bounjdary conditions. Thus, we would
     need to supply the boundary conditions for each corresponding
     input step.

@@ -197,6 +197,10 @@ class OceanHeatCorrector(BaseCorrector):
         self.hfgeou_tensor = hfgeou_tensor.to(get_device())
         self.sea_surface_fraction_tensor = sea_surface_fraction_tensor.to(get_device())
 
+        self.dHC_geothermal = (
+            self.area_weighted_func(self.hfgeou_tensor) * SECONDS_PER_5DAY
+        )
+
     def forward(self, fts_input_boundary: Tensor, fts: Tensor) -> Tensor:
         fts_input_boundary = fts_input_boundary.detach()
 
@@ -231,7 +235,7 @@ class OceanHeatCorrector(BaseCorrector):
         )  # [J]
 
         # Apply geothermal heat flux
-        dHC_expected += self.area_weighted_func(self.hfgeou_tensor) * SECONDS_PER_5DAY
+        dHC_expected += self.dHC_geothermal
 
         HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
 

@@ -460,11 +460,7 @@ def trainer_pair(
     request,
     config_name: str,
 ) -> Generator[tuple[TrainConfig, Trainer], None, None]:
-    """Provides a config and trainer for tests.
-
-    This fixture sets up the correct Multiton scope and skipping rules for this
-    config/trainer pair.
-    """
+    """Provides a state-scoped config and trainer for tests."""
     with MultitonScope():
         trainer = Trainer(train_config)
 

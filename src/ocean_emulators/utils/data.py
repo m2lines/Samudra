@@ -139,18 +139,18 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
     return weights
 
 
-def get_inference_steps(time_config: TimeConfig, time_delta: int = 5, hist: int = 1):
+def get_inference_steps(time_config: TimeConfig, hist: int = 1):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
     Args:
         time_config: Time configuration
-        time_delta: Time delta in days
         hist: Number of rollout steps
 
     Returns:
         num_steps: Number of rollout steps
     """
+    time_delta = 5
     start_time_str = time_config.start_time
     start_year, start_month, start_day = start_time_str.split("-")
     start_time = cftime.DatetimeNoLeap(

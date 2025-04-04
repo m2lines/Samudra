@@ -43,7 +43,6 @@ class DataConfig:
             "hfgeou": "cm4_geothermal_hf_fixed.zarr",
         }
     )
-    time_delta: int = 5
     num_workers: int = 4
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_EAGER.value)

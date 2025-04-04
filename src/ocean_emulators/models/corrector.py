@@ -8,7 +8,7 @@ from einops import rearrange
 from torch import Tensor
 
 from ocean_emulators.aggregator.metrics import area_weighted_sum
-from ocean_emulators.constants import CP_SW, N_SECONDS, RHO_0, TensorMap
+from ocean_emulators.constants import CP_SW, RHO_0, SECONDS_PER_5DAY, TensorMap
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device
 
@@ -225,11 +225,11 @@ class OceanHeatCorrector(BaseCorrector):
             self.area_weighted_func(
                 surface_heat_flux * self.sea_surface_fraction_tensor
             )
-            * N_SECONDS
+            * SECONDS_PER_5DAY
         )  # [J]
 
         # Apply geothermal heat flux
-        dHC_expected += self.area_weighted_func(self.hfgeou_tensor) * N_SECONDS
+        dHC_expected += self.area_weighted_func(self.hfgeou_tensor) * SECONDS_PER_5DAY
 
         HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
 

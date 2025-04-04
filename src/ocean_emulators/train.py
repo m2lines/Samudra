@@ -359,7 +359,6 @@ class Trainer:
         self.val_times = cfg.val
         self.inference_times = cfg.inference
         self.inference_epochs = cfg.inference_epochs
-        self.time_delta: int = cfg.data.time_delta
         self.num_batches_seen = 0
         self.ckpt_paths = CheckpointPaths(self.nets_dir)
 
@@ -392,7 +391,6 @@ class Trainer:
         for i in range(num_splits):
             num_time_steps = get_inference_steps(
                 self.inference_times[i],
-                time_delta=self.time_delta,
                 hist=self.hist,
             )
             inference_data = self.data.sel(time=self.inference_times[i].time_slice)

@@ -5,7 +5,7 @@ set -e
 git branch -r --contains $(git rev-parse HEAD) | grep -q . || { echo "Error: Commit not found on remote."; exit 1; }
 SCRIPT_PATH=$(git rev-parse --show-prefix)  # relative to the root of the repository
 
-JOB_NAME="samudra-train-cm4-thermodynamic-instancenorm-withoutema-test5"  # recommended but not required to change this
+JOB_NAME="samudra-train-cm4-thermodynamic-instancenorm-withoutema"  # recommended but not required to change this
 CONFIG_PATH="configs/gantry_train_cm4.yaml"
 
 echo 'Using config file:' $CONFIG_PATH
@@ -39,4 +39,4 @@ gantry run \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
     --install "pip install uv" \
-    -- uv run torchrun --nproc_per_node $N_GPUS src/train.py --config $CONFIG_PATH --subname $JOB_NAME
+    -- uv run torchrun --nproc_per_node $N_GPUS src/ocean_emulators/train.py --config $CONFIG_PATH --subname $JOB_NAME

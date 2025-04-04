@@ -326,9 +326,7 @@ def test_inference__data_shape(inference_loader_pair):
 
 
 def test__data_is_not_zeros(train_config):
-    cfg = train_config
-
-    with make_loader(cfg) as loader:
+    with make_loader(train_config) as loader:
         for sample in loader:
             X, y = extract_sample_arrays(sample)
             assert np.count_nonzero(np.zeros(X.shape)) == 0, (
@@ -356,11 +354,9 @@ def test_inference__data_is_not_zero(inference_loader_pair):
 
 
 def test_om4__is_equal_to_v1_data_loader(train_config):
-    cfg = train_config
-
     with (
-        make_loader(cfg) as loader,
-        make_loader(cfg, version=LoaderVersion.OM4_LAZY) as om4_loader,
+        make_loader(train_config) as loader,
+        make_loader(train_config, version=LoaderVersion.OM4_LAZY) as om4_loader,
     ):
 
         def key(x):

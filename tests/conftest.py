@@ -14,11 +14,10 @@ from typing_extensions import Self
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
-from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
 
 if TYPE_CHECKING:
-    pass
+    from ocean_emulators.train import Trainer
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "train_default.test.yaml"

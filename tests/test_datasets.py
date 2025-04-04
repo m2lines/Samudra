@@ -250,21 +250,10 @@ def test_test_util__data_source_roundtrip(
     assert decoded_var_index == data_var_index
 
 
-def test_train__loads_correct_number_of_samples(train_config, history):
-    cfg = train_config
-    cfg.data.hist = history
-    with make_loader(train_config) as loader:
-        n_samples = calc_num_samples(cfg, cfg.train.time_slice)
-        assert len(list(loader)) == n_samples, (
-            f"Current config {cfg} only supports {n_samples} examples; "
-            f"got {len(loader)}."
-        )
-
-
-def test_train__data_shape(train_config, history):
+def test_loader__data_shape(train_config, history, loader_version):
     train_config.data.hist = history
 
-    with make_loader(train_config) as loader:
+    with make_loader(train_config, version=loader_version) as loader:
         exp = train_config.experiment
         batch_size = train_config.batch_size
         hist = train_config.data.hist + 1
@@ -274,7 +263,15 @@ def test_train__data_shape(train_config, history):
         )
         output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
 
-        for sample in loader:
+        n_samples = calc_num_samples(train_config, train_config.train.time_slice)
+        samples = list(loader)
+
+        assert len(samples) == n_samples, (
+            f"Current config {train_config} only supports {n_samples} examples; "
+            f"got {len(loader)}."
+        )
+
+        for sample in samples:
             X, y = extract_sample_arrays(sample)
             assert X.shape == (
                 train_config.steps[0],
@@ -292,51 +289,6 @@ def test_train__data_shape(train_config, history):
             )
 
 
-def test_val__loads_correct_number_of_samples(train_config):
-    cfg = train_config
-    cfg.steps = [1]  # steps are 1 during validation.
-    with make_loader(cfg, cfg.val.time_slice) as loader:
-        n_samples = calc_num_samples(cfg, cfg.val.time_slice)
-        assert len(list(loader)) == n_samples, (
-            f"Current config {cfg} only supports {n_samples} examples; "
-            f"got {len(loader)}."
-        )
-
-
-def test_val__data_shape(train_config, history):
-    cfg = train_config
-    cfg.steps = [1]  # steps are 1 during validation.
-    cfg.data.hist = history
-
-    with make_loader(cfg, cfg.val.time_slice) as loader:
-        exp = cfg.experiment
-        batch_size = cfg.batch_size
-        hist = cfg.data.hist + 1
-
-        input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-            BOUNDARY_VARS[exp.boundary_vars_key]
-        )
-        output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
-
-        num_samples = len(loader)
-        for i, sample in enumerate(loader):
-            X, y = extract_sample_arrays(sample)
-
-            assert X.shape[0] == 1  # validation always has 1 step
-            # Last validation batch may have fewer samples
-            assert X.shape[1] == batch_size or (
-                i == num_samples - 1 and X.shape[1] < batch_size
-            )
-            assert X.shape[2:] == (input_var_dim, 180, 360)
-
-            assert y.shape[0] == 1
-            assert y.shape[1] == batch_size or (
-                i == num_samples - 1 and y.shape[1] < batch_size
-            )
-            assert y.shape[2:] == (output_var_dim, 180, 360)
-
-
-@pytest.mark.all_configs
 def test__data_is_not_zeros(train_config):
     cfg = train_config
 

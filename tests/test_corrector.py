@@ -20,17 +20,17 @@ def corrector_init():
     # Create test data with mean and std
     data_mean = xr.Dataset(
         {
-            "var_0": (["lat", "lon"], [[0.0]]),
-            "var_1": (["lat", "lon"], [[0.0]]),
-            "var_2": (["lat", "lon"], [[0.0]]),
+            "var_0": 0.0,
+            "var_1": 0.0,
+            "var_2": 0.0,
         },
         coords={"lat": [0], "lon": [0]},
     )
     data_std = xr.Dataset(
         {
-            "var_0": (["lat", "lon"], [[1.0]]),
-            "var_1": (["lat", "lon"], [[1.0]]),
-            "var_2": (["lat", "lon"], [[1.0]]),
+            "var_0": 1.0,
+            "var_1": 1.0,
+            "var_2": 1.0,
         },
         coords={"lat": [0], "lon": [0]},
     )
@@ -128,19 +128,19 @@ def ocean_heat_init():
     # Create test data with mean and std
     data_mean = xr.Dataset(
         {
-            "thetao_0": (["lat", "lon"], [[0.0]]),
-            "thetao_1": (["lat", "lon"], [[0.0]]),
-            "thetao_2": (["lat", "lon"], [[0.0]]),
-            "hfds": (["lat", "lon"], [[0.0]]),
+            "thetao_0": 0.0,
+            "thetao_1": 0.0,
+            "thetao_2": 0.0,
+            "hfds": 0.0,
         },
         coords={"lat": [0], "lon": [0]},
     )
     data_std = xr.Dataset(
         {
-            "thetao_0": (["lat", "lon"], [[1.0]]),
-            "thetao_1": (["lat", "lon"], [[1.0]]),
-            "thetao_2": (["lat", "lon"], [[1.0]]),
-            "hfds": (["lat", "lon"], [[1.0]]),
+            "thetao_0": 1.0,
+            "thetao_1": 1.0,
+            "thetao_2": 1.0,
+            "hfds": 1.0,
         },
         coords={"lat": [0], "lon": [0]},
     )

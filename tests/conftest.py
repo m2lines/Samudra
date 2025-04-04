@@ -459,7 +459,7 @@ def trainer_pair(
     train_config,
     request,
     config_name: str,
-) -> Generator[tuple[TrainConfig, "Trainer"], None, None]:
+) -> Generator[tuple[TrainConfig, Trainer], None, None]:
     """Provides a config and trainer for tests.
 
     This fixture sets up the correct Multiton scope and skipping rules for this

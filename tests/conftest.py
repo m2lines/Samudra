@@ -519,7 +519,7 @@ def trainer_pair(
     This fixture sets up the correct Multiton scope and skipping rules for this
     config/trainer pair.
 
-    By default tests are run with one config. You can run them for multiple
+    By default, tests are run with one config. You can run them for multiple
     configs by marking them with `only_configs` or `all_configs`.
 
     eg:
@@ -544,17 +544,13 @@ def trainer_pair(
 
     """
     check_skip_configs(request, config_name)
-    # Create a fresh scope to use in any tests using this config
-    scope = MultitonScope()
-
-    config = train_config
 
     # NB session-scoped fixtures still need to do this "by hand" since
     # trainer_pair doesn't run at session-scope time
-    with scope:
+    with MultitonScope():
         trainer = Trainer(train_config)
 
         # cur_step will set the number of pairs in the input/output sample
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
-        yield config, trainer
+        yield train_config, trainer

@@ -121,9 +121,6 @@ def make_loader(
 
 
 @pytest.fixture
-@pytest.mark.parametrize(
-    "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
-)
 def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoader]:
     cfg, trainer = trainer_pair
     return cfg, trainer.inference_loader
@@ -316,7 +313,7 @@ def test_inference__data_shape(inference_loader_pair):
     output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
 
     samples = list(loader)
-    assert samples == 1, (
+    assert len(samples) == 1, (
         f"Current config {cfg} only supports 1 examples for inference; "
         f"got {len(samples)}."
     )

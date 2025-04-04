@@ -423,7 +423,6 @@ def traindataset_input():
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],
             wet_mask=wet,
-            wet_mask_surface=wet_surface,
         )
         traindataset = TrainDataset(
             data=data,

@@ -24,6 +24,34 @@ DEFAULT_CONFIG = "train_default.test.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "train_default_2step.test.yaml"]
 
 
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        # Filter out excessive benchmark combinations
+        if "benchmark" in item.fixturenames:
+            desired_params = {
+                "history": 0,
+                "data_source": "mock",
+                "td_loader_pair": "train",  # fixture only present in test_datasets
+            }
+
+            # Only process tests that have parameterized fixtures
+            if not hasattr(item, "callspec") or not hasattr(item.callspec, "params"):
+                continue
+
+            # Check if this test item has parameters that don't match the desired ones
+            # Add skip marker to benchmark tests that don't match.
+            for param, desired_value in desired_params.items():
+                if param in item.fixturenames and param in item.callspec.params:
+                    current_value = item.callspec.params[param]
+                    if current_value != desired_value:
+                        skip_reason = (
+                            f"Skipping benchmark with {param}={current_value}, "
+                            f"only running with {param}={desired_value}"
+                        )
+                        item.add_marker(pytest.mark.skip(reason=skip_reason))
+                        break
+
+
 @dataclasses.dataclass
 class DataSource:
     """In-memory `xarray.Dataset`s needed for tests."""

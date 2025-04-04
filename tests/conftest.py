@@ -276,29 +276,6 @@ class DataSourceDims:
         return data_source, data_var_index
 
 
-@pytest.fixture(scope="session", params=ALL_CONFIGS)
-def config_name(request: pytest.FixtureRequest) -> str:
-    return request.param
-
-
-@pytest.fixture(scope="session", params=[str(e.value) for e in c.LoaderVersion])
-def loader_version(request: pytest.FixtureRequest) -> str:
-    return request.param
-
-
-@pytest.fixture(scope="session", params=[0, 1], ids=lambda x: f"hist{x}")
-def history(request: pytest.FixtureRequest) -> int:
-    return request.param
-
-
-# Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
-@pytest.fixture(
-    params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
-)
-def backend(request) -> TrainBackendConfig:
-    return request.param
-
-
 def maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource | None:
     """Open a cached DataSource from a cache directory if it exists."""
     cache = cache_root / cache_name
@@ -344,6 +321,29 @@ def retry_with_backoff(
                 f"(attempt {attempt + 1}/{max_retries})"
             )
             time.sleep(wait_time)
+
+
+@pytest.fixture(scope="session", params=ALL_CONFIGS)
+def config_name(request: pytest.FixtureRequest) -> str:
+    return request.param
+
+
+@pytest.fixture(scope="session", params=[str(e.value) for e in c.LoaderVersion])
+def loader_version(request: pytest.FixtureRequest) -> str:
+    return request.param
+
+
+@pytest.fixture(scope="session", params=[0, 1], ids=lambda x: f"hist{x}")
+def history(request: pytest.FixtureRequest) -> int:
+    return request.param
+
+
+# Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
+@pytest.fixture(
+    params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
+)
+def backend(request) -> TrainBackendConfig:
+    return request.param
 
 
 @pytest.fixture(scope="session", params=["mock", "remote-om4"])

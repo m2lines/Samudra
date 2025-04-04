@@ -21,6 +21,8 @@ REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "train_default.test.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "train_default_2step.test.yaml"]
 
+TrainPair = tuple[TrainConfig, Trainer]
+
 
 @dataclasses.dataclass
 class DataSource:

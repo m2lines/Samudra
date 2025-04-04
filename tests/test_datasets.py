@@ -29,13 +29,16 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
-from ocean_emulators.train import Trainer
 from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_om4, collate_train_data
-from tests.conftest import DEFAULT_CONFIG, DataSourceDims
+from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair
 
-TrainPair = tuple[TrainConfig, Trainer]
+
+@pytest.fixture
+def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoader]:
+    cfg, trainer = trainer_pair
+    return cfg, trainer.inference_loader
 
 
 @contextlib.contextmanager
@@ -118,12 +121,6 @@ def make_loader(
         )
 
         yield loader
-
-
-@pytest.fixture
-def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoader]:
-    cfg, trainer = trainer_pair
-    return cfg, trainer.inference_loader
 
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:

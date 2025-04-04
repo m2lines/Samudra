@@ -2,8 +2,7 @@ import logging
 
 import pytest
 
-from tests.conftest import DEFAULT_CONFIG
-from tests.test_datasets import TrainPair
+from tests.conftest import DEFAULT_CONFIG, TrainPair
 
 
 @pytest.mark.manual

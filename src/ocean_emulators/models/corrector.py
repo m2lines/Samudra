@@ -23,22 +23,18 @@ class BaseCorrector(torch.nn.Module):
         self.normalize = normalize
         self.num_prognostic_channels = len(self.tensor_map.prognostic_var_names)
 
-    def _rearrange_fts(self, fts: Tensor) -> Tensor:
+    def _flatten_hist(self, fts: Tensor) -> Tensor:
         return rearrange(fts, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1)
 
-    def _rearrange_fts_with_boundary(self, fts: Tensor) -> Tuple[Tensor, Tensor]:
+    def _flatten_input(self, fts: Tensor) -> Tuple[Tensor, Tensor]:
         fts_input = fts[:, : (self.hist + 1) * self.num_prognostic_channels]
-        fts_input = rearrange(
-            fts_input, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1
-        )
+        fts_input = self._flatten_hist(fts_input)
 
         fts_boundary = fts[:, (self.hist + 1) * self.num_prognostic_channels :]
-        fts_boundary = rearrange(
-            fts_boundary, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1
-        )
+        fts_boundary = self._flatten_hist(fts_boundary)
         return fts_input, fts_boundary
 
-    def _inv_rearrange_fts(self, fts: Tensor) -> Tensor:
+    def _unflatten_hist(self, fts: Tensor) -> Tensor:
         return rearrange(fts, "(n hist) c h w -> n (hist c) h w", hist=self.hist + 1)
 
     def _unnormalize_fts_prognostic(self, fts: Tensor) -> Tensor:
@@ -50,7 +46,7 @@ class BaseCorrector(torch.nn.Module):
         fts = self.normalize.normalize_tensor_prognostic(fts)
         return fts.to(torch.float32)
 
-    def _unnormalize_fts_prognostic_with_boundary(
+    def _unnormalize_fts_input(
         self, fts: Tensor, fts_boundary: Tensor
     ) -> Tuple[Tensor, Tensor]:
         # Corrector is run in float64 to avoid precision loss
@@ -128,9 +124,9 @@ class ReLUCorrector(BaseCorrector):
             Corrected output tensor of the same shape
         """
         if not torch.isnan(self.non_neg_indices).all():
-            fts = self._rearrange_fts(fts)
+            fts = self._flatten_hist(fts)
             fts = self._apply_relu_correction(fts)
-            fts = self._inv_rearrange_fts(fts)
+            fts = self._unflatten_hist(fts)
         return fts
 
 
@@ -204,13 +200,11 @@ class OceanHeatCorrector(BaseCorrector):
     def forward(self, fts_input_boundary: Tensor, fts: Tensor) -> Tensor:
         fts_input_boundary = fts_input_boundary.detach()
 
-        fts = self._rearrange_fts(fts)
+        fts = self._flatten_hist(fts)
         fts = self._unnormalize_fts_prognostic(fts)
 
-        fts_input, fts_boundary = self._rearrange_fts_with_boundary(fts_input_boundary)
-        fts_input, fts_boundary = self._unnormalize_fts_prognostic_with_boundary(
-            fts_input, fts_boundary
-        )
+        fts_input, fts_boundary = self._flatten_input(fts_input_boundary)
+        fts_input, fts_boundary = self._unnormalize_fts_input(fts_input, fts_boundary)
 
         # The input and output mapping of the variables are the same
         T_input = fts_input[:, self.thetao_idx]  # (batch, depth, lat, lon)
@@ -248,7 +242,7 @@ class OceanHeatCorrector(BaseCorrector):
         fts[:, self.thetao_idx] = T_corrected
 
         fts = self._normalize_fts_prognostic(fts)
-        fts = self._inv_rearrange_fts(fts)
+        fts = self._unflatten_hist(fts)
 
         return fts
 

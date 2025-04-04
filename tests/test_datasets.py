@@ -23,7 +23,12 @@ from ocean_emulators.constants import (
     LoaderVersion,
     TensorMap,
 )
-from ocean_emulators.datasets import OM4Dataset, TrainData, TrainDataset
+from ocean_emulators.datasets import (
+    InferenceDataset,
+    OM4Dataset,
+    TrainData,
+    TrainDataset,
+)
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
 from ocean_emulators.utils.multiton import MultitonScope
@@ -71,7 +76,7 @@ def make_loader(
 
         match version:
             case LoaderVersion.OM4_EAGER:
-                data: ConcatDataset[TrainDataset] = ConcatDataset(
+                data: ConcatDataset | InferenceDataset = ConcatDataset(
                     [
                         TrainDataset(
                             data=ds_.sel(time=time_slice),
@@ -113,6 +118,15 @@ def make_loader(
         )
 
         yield loader
+
+
+@pytest.fixture
+@pytest.mark.parametrize(
+    "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
+)
+def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoader]:
+    cfg, trainer = trainer_pair
+    return cfg, trainer.inference_loader
 
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
@@ -289,6 +303,31 @@ def test_loader__data_shape(train_config, history, loader_version):
             )
 
 
+def test_inference__data_shape(inference_loader_pair):
+    cfg, loader = inference_loader_pair
+
+    exp = cfg.experiment
+    batch_size = 1  # Inference always uses batch size 1
+    hist = cfg.data.hist + 1
+
+    input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
+        BOUNDARY_VARS[exp.boundary_vars_key]
+    )
+    output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
+
+    samples = list(loader)
+    assert samples == 1, (
+        f"Current config {cfg} only supports 1 examples for inference; "
+        f"got {len(samples)}."
+    )
+
+    for sample in samples:
+        inference_dataset, n = sample
+        for X, y in inference_dataset:
+            assert X.shape == (batch_size, input_var_dim, 180, 360)
+            assert y.shape == (batch_size, output_var_dim, 180, 360)
+
+
 def test__data_is_not_zeros(train_config):
     cfg = train_config
 
@@ -302,7 +341,23 @@ def test__data_is_not_zeros(train_config):
             assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
 
 
-@pytest.mark.all_configs
+def test_inference__data_is_not_zero(inference_loader_pair):
+    cfg, loader = inference_loader_pair
+
+    for sample in loader:
+        dataset, n = sample
+        for X, y in dataset:
+            assert np.count_nonzero(np.zeros(X.shape)) == 0, (
+                "Sanity check: Zero is zero."
+            )
+            assert np.count_nonzero(X.numpy()) != 0, (
+                "Input data should not be a zeros matrix!"
+            )
+            assert np.count_nonzero(y.numpy()) != 0, (
+                "Label data should not be a zeros matrix!"
+            )
+
+
 def test_om4__is_equal_to_v1_data_loader(train_config):
     cfg = train_config
 
@@ -433,3 +488,18 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
         def bench():
             for sample in loader:
                 _ = sample
+
+
+@pytest.mark.manual
+@pytest.mark.parametrize(
+    "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
+)
+def test_profile__inference_loader__1gb(inference_loader_pair, benchmark):
+    cfg, loader = inference_loader_pair
+
+    @benchmark
+    def bench():
+        for sample in loader:
+            dataset, n = sample
+            for X, y in dataset:
+                _, _ = X, y

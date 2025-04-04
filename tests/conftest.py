@@ -2,7 +2,7 @@ import dataclasses
 import pathlib
 import random
 import time
-from typing import TYPE_CHECKING, ClassVar, Generator
+from typing import ClassVar, Generator
 
 import cftime
 import numpy as np
@@ -14,10 +14,8 @@ from typing_extensions import Self
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
+from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
-
-if TYPE_CHECKING:
-    from ocean_emulators.train import Trainer
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "train_default.test.yaml"
@@ -293,55 +291,6 @@ def history(request: pytest.FixtureRequest) -> int:
     return request.param
 
 
-def check_skip_configs(request, config_name):
-    """Skip this test depending on how it's configured.
-
-    See `trainer_pair` for more details.
-    """
-    only_configs = request.node.get_closest_marker("only_configs")
-    if only_configs:
-        for desired_config in only_configs.args:
-            if desired_config not in ALL_CONFIGS:
-                raise ValueError(
-                    f"Test config {desired_config} is not"
-                    f" in the list of all configs: {ALL_CONFIGS}"
-                )
-        if config_name not in only_configs.args:
-            pytest.skip(
-                f"Skipping test for {config_name} because"
-                f" it is not in {only_configs.args}"
-            )
-    else:
-        all_configs = request.node.get_closest_marker("all_configs")
-        if all_configs is None:
-            # If the test is not marked with all_configs, skip all configs except
-            # the default config.
-            if config_name != DEFAULT_CONFIG:
-                pytest.skip(
-                    f"Skipping test for {config_name}"
-                    " because it is not marked with all_configs"
-                )
-
-
-def pytest_addoption(parser):
-    parser.addoption(
-        "--model1", action="store", help="Path to the first model .pt file"
-    )
-    parser.addoption(
-        "--model2", action="store", help="Path to the second model .pt file"
-    )
-
-
-@pytest.fixture
-def model1_path(request):
-    return request.config.getoption("--model1")
-
-
-@pytest.fixture
-def model2_path(request):
-    return request.config.getoption("--model2")
-
-
 # Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
 @pytest.fixture(
     params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
@@ -515,35 +464,7 @@ def trainer_pair(
 
     This fixture sets up the correct Multiton scope and skipping rules for this
     config/trainer pair.
-
-    By default, tests are run with one config. You can run them for multiple
-    configs by marking them with `only_configs` or `all_configs`.
-
-    eg:
-
-    @pytest.mark.only_configs(
-        "train_default.test.yaml",
-        "train_default_2step.test.yaml",
-    )
-    def test_something(trainer_pair):
-        ...
-
-    @pytest.mark.all_configs
-    def test_something_else(trainer_pair):
-        ...
-
-    * If there is an only_configs mark, that overrides all_configs.
-      We run all configs in only_configs in that case.
-    * If there is no only_configs mark, and there is an all_configs mark,
-      we run all configs.
-    * If there is no only_configs or all_configs mark, we run the test for the
-      default config.
-
     """
-    check_skip_configs(request, config_name)
-
-    # NB session-scoped fixtures still need to do this "by hand" since
-    # trainer_pair doesn't run at session-scope time
     with MultitonScope():
         trainer = Trainer(train_config)
 

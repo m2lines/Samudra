@@ -28,7 +28,7 @@ from ocean_emulators.train import Trainer
 from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_om4, collate_train_data
-from tests.conftest import DataSourceDims
+from tests.conftest import DEFAULT_CONFIG, DataSourceDims
 
 TrainPair = tuple[TrainConfig, Trainer]
 
@@ -470,7 +470,9 @@ def test_train_dataset(traindataset_input):
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize("data_source", ["mock"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
+)
 def test_profile__loader__1gb(train_config, loader_version, benchmark):
     cfg = train_config
 

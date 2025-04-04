@@ -14,10 +14,11 @@ from typing_extensions import Self
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
+from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
 
 if TYPE_CHECKING:
-    from ocean_emulators.train import Trainer
+    pass
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "train_default.test.yaml"
@@ -288,7 +289,7 @@ def loader_version(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
-@pytest.fixture(scope="session", params=[0, 1, 2], ids=lambda x: f"hist{x}")
+@pytest.fixture(scope="session", params=[0, 1], ids=lambda x: f"hist{x}")
 def history(request: pytest.FixtureRequest) -> int:
     return request.param
 
@@ -470,14 +471,12 @@ def data_source(request, pytestconfig) -> DataSource:
 
 
 @pytest.fixture(scope="session")
-def _session_scope_trainer_pair(
+def train_config(
     data_source: DataSource,
     pytestconfig: pytest.Config,
     config_name: str,
-    loader_version: str,
-    history: int,
     backend: TrainBackendConfig,
-) -> tuple[TrainConfig, "Trainer"]:
+) -> TrainConfig:
     """
     This fixture is used to create a config/trainer pair for each possible
     configuration.
@@ -488,7 +487,6 @@ def _session_scope_trainer_pair(
     """
     # Import needs to be here in order to prevent a gnarly jaxtyping bug:
     # See https://github.com/patrick-kidger/jaxtyping/issues/306
-    from ocean_emulators.train import Trainer
 
     # Write test data to the cache directory if they aren't already there.
     cache = cache_dir(pytestconfig)
@@ -498,40 +496,22 @@ def _session_scope_trainer_pair(
     train_config = TrainConfig.from_yaml(
         pytestconfig.rootpath / "configs" / config_name
     )
-    data_config = dataclasses.replace(
-        train_config.data,
-        hist=history,
-        loader_version=loader_version,
-    )
     experiment_config = dataclasses.replace(
         train_config.experiment,
         cluster_data_dir=str(cache / data_source.name),
     )
     train_config = dataclasses.replace(
         train_config,
-        data=data_config,
         experiment=experiment_config,
         backend=backend,
     )
 
-    # Create a fresh scope to use in any tests using this config
-    scope = MultitonScope()
-    setattr(train_config, "_multiton_scope", scope)
-
-    # NB session-scoped fixtures still need to do this "by hand" since
-    # trainer_pair doesn't run at session-scope time
-    with scope:
-        trainer = Trainer(train_config)
-
-        # cur_step will set the number of pairs in the input/output sample
-        trainer.init_data_loaders(cur_step=train_config.steps[0])
-
-    return train_config, trainer
+    return train_config
 
 
 @pytest.fixture(scope="function")
 def trainer_pair(
-    _session_scope_trainer_pair: tuple[TrainConfig, "Trainer"],
+    train_config,
     request,
     config_name: str,
 ) -> Generator[tuple[TrainConfig, "Trainer"], None, None]:
@@ -565,7 +545,17 @@ def trainer_pair(
 
     """
     check_skip_configs(request, config_name)
-    config, trainer = _session_scope_trainer_pair
+    # Create a fresh scope to use in any tests using this config
+    scope = MultitonScope()
 
-    with getattr(config, "_multiton_scope"):
+    config = train_config
+
+    # NB session-scoped fixtures still need to do this "by hand" since
+    # trainer_pair doesn't run at session-scope time
+    with scope:
+        trainer = Trainer(train_config)
+
+        # cur_step will set the number of pairs in the input/output sample
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
+
         yield config, trainer

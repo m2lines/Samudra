@@ -1,7 +1,9 @@
 """Test core Datasets and DataLoaders."""
 
+import contextlib
 import datetime
 import os
+from typing import Callable, Generator
 
 import cftime
 import numpy as np
@@ -15,7 +17,12 @@ from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
 from ocean_emulators.config import TrainConfig
-from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS, TensorMap
+from ocean_emulators.constants import (
+    BOUNDARY_VARS,
+    PROGNOSTIC_VARS,
+    LoaderVersion,
+    TensorMap,
+)
 from ocean_emulators.datasets import OM4Dataset, TrainData, TrainDataset
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
@@ -23,14 +30,19 @@ from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_om4, collate_train_data
 from tests.conftest import DataSourceDims
 
-# Note: Refactoring data loaders is planned for the near-term. Ideally,
-# these fixtures allow us to isolate data loader tests from their setup.
-
-LoaderPair = tuple[TrainConfig, DataLoader]
 TrainPair = tuple[TrainConfig, Trainer]
 
 
-def _make_loader(cfg, time_slice, drop_last=True):
+@contextlib.contextmanager
+def make_loader(
+    cfg,
+    time_slice: slice | None = None,
+    drop_last: bool = True,
+    version: LoaderVersion = LoaderVersion.OM4_EAGER,
+) -> Generator[DataLoader, None, None]:
+    if time_slice is None:
+        time_slice = cfg.train.time_slice
+
     ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks={})
     ds_means = xr.open_dataset(
         cfg.experiment.data_dir / cfg.data.data_means_path, chunks={}
@@ -49,68 +61,56 @@ def _make_loader(cfg, time_slice, drop_last=True):
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
-    val_ds, val_means, val_stds = validate_data(ds, ds_means, ds_stds)
-    wet, wet_surface = extract_wet_mask(val_ds, prognostic, cfg.data.hist)
+    ds_, means_, stds_ = validate_data(ds, ds_means, ds_stds)
+    wet, wet_surface = extract_wet_mask(ds_, prognostic, cfg.data.hist)
 
-    try:
-        Normalize.get_instance()
-    except ValueError:
-        Normalize.init_instance(val_means, val_stds, prognostic, boundary, wet)
+    with MultitonScope():
+        Normalize.init_instance(means_, stds_, prognostic, boundary, wet)
 
-    data: ConcatDataset[TrainDataset] = ConcatDataset(
-        [
-            TrainDataset(
-                data=val_ds.sel(time=time_slice),
-                prognostic_var_names=prognostic,
-                boundary_var_names=boundary,
-                wet=wet,
-                wet_surface=wet_surface,
-                hist=cfg.data.hist,
-                steps=cfg.steps[0],
-                stride=stride,
-            )
-            for stride in cfg.data_stride
-        ]
-    )
+        match version:
+            case LoaderVersion.OM4_EAGER:
+                data: ConcatDataset[TrainDataset] = ConcatDataset(
+                    [
+                        TrainDataset(
+                            data=ds_.sel(time=time_slice),
+                            prognostic_var_names=prognostic,
+                            boundary_var_names=boundary,
+                            wet=wet,
+                            wet_surface=wet_surface,
+                            hist=cfg.data.hist,
+                            steps=cfg.steps[0],
+                            stride=stride,
+                        )
+                        for stride in cfg.data_stride
+                    ]
+                )
+                collate_fn: Callable = collate_train_data
+            case LoaderVersion.OM4_LAZY:
+                data = ConcatDataset(
+                    [
+                        OM4Dataset(
+                            data=ds_.sel(time=time_slice),
+                            prognostic_var_names=prognostic,
+                            boundary_var_names=boundary,
+                            hist=cfg.data.hist,
+                            steps=cfg.steps[0],
+                            stride=stride,
+                        )
+                        for stride in cfg.data_stride
+                    ]
+                )
+                collate_fn = collate_om4
+            case _:
+                raise ValueError(f"Unknown loader version: {version}")
 
-    loader = DataLoader(
-        data,
-        batch_size=cfg.batch_size,
-        drop_last=drop_last,
-        collate_fn=collate_train_data,
-    )
+        loader = DataLoader(
+            data,
+            batch_size=cfg.batch_size,
+            drop_last=drop_last,
+            collate_fn=collate_fn,
+        )
 
-    return loader
-
-
-@pytest.fixture
-def train_loader_pair(train_config) -> LoaderPair:
-    train_loader = _make_loader(train_config, train_config.train.time_slice)
-    return train_config, train_loader
-
-
-@pytest.fixture
-def val_loader_pair(train_config) -> LoaderPair:
-    val_loader = _make_loader(
-        train_config, train_config.val.time_slice, drop_last=False
-    )
-    return train_config, val_loader
-
-
-@pytest.fixture
-def inference_loader_pair(trainer_pair: TrainPair) -> LoaderPair:
-    cfg, trainer = trainer_pair
-    return cfg, trainer.inference_loader
-
-
-# The Inference loader is not included here because it doesn't store data
-# in a `TrainData` object.
-@pytest.fixture(params=["train", "val"])
-def td_loader_pair(request, train_loader_pair, val_loader_pair) -> LoaderPair:
-    if request.param == "train":
-        return train_loader_pair
-    else:
-        return val_loader_pair
+        yield loader
 
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
@@ -249,183 +249,146 @@ def test_test_util__data_source_roundtrip(
 
 
 @pytest.mark.all_configs
-def test_train__loads_correct_number_of_samples(train_loader_pair: LoaderPair):
-    cfg, loader = train_loader_pair
-    n_samples = calc_num_samples(cfg, cfg.train.time_slice)
-    assert len(list(loader)) == n_samples, (
-        f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
-    )
-
-
-def test_train__data_shape(train_loader_pair: LoaderPair):
-    cfg, loader = train_loader_pair
-
-    exp = cfg.experiment
-    batch_size = cfg.batch_size
-    hist = cfg.data.hist + 1
-
-    input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-        BOUNDARY_VARS[exp.boundary_vars_key]
-    )
-    output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
-
-    for sample in loader:
-        X, y = extract_sample_arrays(sample)
-        assert X.shape == (cfg.steps[0], batch_size, input_var_dim, 180, 360)
-        assert y.shape == (cfg.steps[0], batch_size, output_var_dim, 180, 360)
-
-
-def test_val__loads_correct_number_of_samples(val_loader_pair):
-    cfg, loader = val_loader_pair
-    n_samples = calc_num_samples(cfg, cfg.val.time_slice)
-    assert len(list(loader)) == n_samples, (
-        f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
-    )
-
-
-def test_val__data_shape(val_loader_pair: LoaderPair):
-    cfg, loader = val_loader_pair
-
-    exp = cfg.experiment
-    batch_size = cfg.batch_size
-    hist = cfg.data.hist + 1
-
-    input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-        BOUNDARY_VARS[exp.boundary_vars_key]
-    )
-    output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
-
-    num_samples = len(loader)
-    for i, sample in enumerate(loader):
-        X, y = extract_sample_arrays(sample)
-
-        assert X.shape[0] == 1  # validation always has 1 step
-        # Last validation batch may have fewer samples
-        assert X.shape[1] == batch_size or (
-            i == num_samples - 1 and X.shape[1] < batch_size
+def test_train__loads_correct_number_of_samples(train_config, history):
+    cfg = train_config
+    cfg.data.hist = history
+    with make_loader(train_config) as loader:
+        n_samples = calc_num_samples(cfg, cfg.train.time_slice)
+        assert len(list(loader)) == n_samples, (
+            f"Current config {cfg} only supports {n_samples} examples; "
+            f"got {len(loader)}."
         )
-        assert X.shape[2:] == (input_var_dim, 180, 360)
 
-        assert y.shape[0] == 1
-        assert y.shape[1] == batch_size or (
-            i == num_samples - 1 and y.shape[1] < batch_size
+
+def test_train__data_shape(train_config, history):
+    train_config.data.hist = history
+
+    with make_loader(train_config) as loader:
+        exp = train_config.experiment
+        batch_size = train_config.batch_size
+        hist = train_config.data.hist + 1
+
+        input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
+            BOUNDARY_VARS[exp.boundary_vars_key]
         )
-        assert y.shape[2:] == (output_var_dim, 180, 360)
+        output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
+
+        for sample in loader:
+            X, y = extract_sample_arrays(sample)
+            assert X.shape == (
+                train_config.steps[0],
+                batch_size,
+                input_var_dim,
+                180,
+                360,
+            )
+            assert y.shape == (
+                train_config.steps[0],
+                batch_size,
+                output_var_dim,
+                180,
+                360,
+            )
 
 
-def test_inference__loads_correct_number_of_samples(inference_loader_pair: LoaderPair):
-    cfg, loader = inference_loader_pair
-    n_samples = 1
-    assert len(list(loader)) == n_samples, (
-        f"Current config {cfg} only supports {n_samples} examples; got {len(loader)}."
-    )
+def test_val__loads_correct_number_of_samples(train_config):
+    cfg = train_config
+    cfg.steps = [1]  # steps are 1 during validation.
+    with make_loader(cfg, cfg.val.time_slice) as loader:
+        n_samples = calc_num_samples(cfg, cfg.val.time_slice)
+        assert len(list(loader)) == n_samples, (
+            f"Current config {cfg} only supports {n_samples} examples; "
+            f"got {len(loader)}."
+        )
 
 
-def test_inference__data_shape(inference_loader_pair: LoaderPair):
-    cfg, loader = inference_loader_pair
+def test_val__data_shape(train_config, history):
+    cfg = train_config
+    cfg.steps = [1]  # steps are 1 during validation.
+    cfg.data.hist = history
 
-    exp = cfg.experiment
-    batch_size = 1  # Inference always uses batch size 1
-    hist = cfg.data.hist + 1
+    with make_loader(cfg, cfg.val.time_slice) as loader:
+        exp = cfg.experiment
+        batch_size = cfg.batch_size
+        hist = cfg.data.hist + 1
 
-    input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-        BOUNDARY_VARS[exp.boundary_vars_key]
-    )
-    output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
+        input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
+            BOUNDARY_VARS[exp.boundary_vars_key]
+        )
+        output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
 
-    for sample in loader:
-        inference_dataset, n = sample
-        for X, y in inference_dataset:
-            assert X.shape == (batch_size, input_var_dim, 180, 360)
-            assert y.shape == (batch_size, output_var_dim, 180, 360)
+        num_samples = len(loader)
+        for i, sample in enumerate(loader):
+            X, y = extract_sample_arrays(sample)
+
+            assert X.shape[0] == 1  # validation always has 1 step
+            # Last validation batch may have fewer samples
+            assert X.shape[1] == batch_size or (
+                i == num_samples - 1 and X.shape[1] < batch_size
+            )
+            assert X.shape[2:] == (input_var_dim, 180, 360)
+
+            assert y.shape[0] == 1
+            assert y.shape[1] == batch_size or (
+                i == num_samples - 1 and y.shape[1] < batch_size
+            )
+            assert y.shape[2:] == (output_var_dim, 180, 360)
 
 
 @pytest.mark.all_configs
-def test__data_is_not_zeros(td_loader_pair: LoaderPair):
-    cfg, loader = td_loader_pair
+def test__data_is_not_zeros(train_config):
+    cfg = train_config
 
-    for sample in loader:
-        X, y = extract_sample_arrays(sample)
-        assert np.count_nonzero(np.zeros(X.shape)) == 0, "Sanity check: Zero is zero."
-        assert np.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
-        assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
-
-
-def test_inference__data_is_not_zero(inference_loader_pair: LoaderPair):
-    cfg, loader = inference_loader_pair
-
-    for sample in loader:
-        dataset, n = sample
-        for X, y in dataset:
+    with make_loader(cfg) as loader:
+        for sample in loader:
+            X, y = extract_sample_arrays(sample)
             assert np.count_nonzero(np.zeros(X.shape)) == 0, (
                 "Sanity check: Zero is zero."
             )
-            assert np.count_nonzero(X.numpy()) != 0, (
-                "Input data should not be a zeros matrix!"
-            )
-            assert np.count_nonzero(y.numpy()) != 0, (
-                "Label data should not be a zeros matrix!"
-            )
+            assert np.count_nonzero(X) != 0, "Input data should not be a zeros matrix!"
+            assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
 
 
 @pytest.mark.all_configs
-def test_om4__is_equal_to_v1_data_loader(train_loader_pair: LoaderPair):
-    cfg, loader = train_loader_pair
+def test_om4__is_equal_to_v1_data_loader(train_config):
+    cfg = train_config
 
-    data_path = os.path.join(cfg.experiment.data_dir, cfg.data.data_path)
-    ds = xr.open_dataset(data_path, chunks={})
+    with (
+        make_loader(cfg) as loader,
+        make_loader(cfg, version=LoaderVersion.OM4_LAZY) as om4_loader,
+    ):
 
-    prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
-    boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
+        def key(x):
+            return np.sum(x[0].flat) + np.sum(x[1].flat)
 
-    val_ds, _, _ = validate_data(ds, xr.Dataset(), xr.Dataset())
-
-    om4 = OM4Dataset(
-        val_ds.sel(time=cfg.train.time_slice),
-        prognostic,
-        boundary,
-        cfg.data.hist,
-        cfg.steps[0],
-        cfg.data_stride[0],
-    )
-
-    om4_loader = DataLoader(
-        om4,
-        batch_size=cfg.batch_size,
-        collate_fn=collate_om4,
-    )
-
-    def key(x):
-        return np.sum(x[0].flat) + np.sum(x[1].flat)
-
-    # Why are we sorting here? Well, the default data loader uses a random sampler. So
-    # we use sorting as a simple way to compare the two loaders (without having to
-    # monkeypatch the train loader fixture).
-    original_samples = sorted(
-        [extract_sample_arrays(sample) for sample in loader], key=key
-    )
-    om4_samples = sorted(
-        [extract_sample_arrays(sample) for sample in om4_loader], key=key
-    )
-
-    for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
-        assert x_orig.dtype == x_new.dtype, "Input data types do not match."
-        assert y_orig.dtype == y_new.dtype, "Output data types do not match."
-
-        x_not_close = np.isclose(x_orig, x_new) == False  # noqa: E712
-        y_not_close = np.isclose(y_orig, y_new) == False  # noqa: E712
-
-        x_not_close_index = list(zip(*np.where(x_not_close)))
-        y_not_close_index = list(zip(*np.where(y_not_close)))
-
-        assert not np.any(x_not_close), (
-            f"{len(x_not_close_index)} values differ: "
-            f"{x_orig[x_not_close]} != {x_new[x_not_close]}."
+        # Why are we sorting here? Well, the default data loader uses a random sampler.
+        # So we use sorting as a simple way to compare the two loaders (without having
+        # to monkeypatch the train loader fixture).
+        original_samples = sorted(
+            [extract_sample_arrays(sample) for sample in loader], key=key
         )
-        assert not np.any(y_not_close), (
-            f"{len(y_not_close_index)} values differ: "
-            f"{y_orig[y_not_close]} != {y_new[y_not_close]}."
+        om4_samples = sorted(
+            [extract_sample_arrays(sample) for sample in om4_loader], key=key
         )
+
+        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
+            assert x_orig.dtype == x_new.dtype, "Input data types do not match."
+            assert y_orig.dtype == y_new.dtype, "Output data types do not match."
+
+            x_not_close = np.isclose(x_orig, x_new) == False  # noqa: E712
+            y_not_close = np.isclose(y_orig, y_new) == False  # noqa: E712
+
+            x_not_close_index = list(zip(*np.where(x_not_close)))
+            y_not_close_index = list(zip(*np.where(y_not_close)))
+
+            assert not np.any(x_not_close), (
+                f"{len(x_not_close_index)} values differ: "
+                f"{x_orig[x_not_close]} != {x_new[x_not_close]}."
+            )
+            assert not np.any(y_not_close), (
+                f"{len(y_not_close_index)} values differ: "
+                f"{y_orig[y_not_close]} != {y_new[y_not_close]}."
+            )
 
 
 @pytest.fixture
@@ -505,22 +468,12 @@ def test_train_dataset(traindataset_input):
 
 
 @pytest.mark.manual
-def test_profile__loader__1gb(td_loader_pair: LoaderPair, benchmark):
-    cfg, loader = td_loader_pair
+def test_profile__loader__1gb(train_config, benchmark, loader_version):
+    cfg = train_config
 
-    @benchmark
-    def bench():
-        for sample in loader:
-            _ = sample
+    with make_loader(cfg, version=loader_version) as loader:
 
-
-@pytest.mark.manual
-def test_profile__inference_loader__1gb(inference_loader_pair: LoaderPair, benchmark):
-    cfg, loader = inference_loader_pair
-
-    @benchmark
-    def bench():
-        for sample in loader:
-            dataset, n = sample
-            for X, y in dataset:
-                _, _ = X, y
+        @benchmark
+        def bench():
+            for sample in loader:
+                _ = sample

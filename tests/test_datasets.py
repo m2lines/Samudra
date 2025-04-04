@@ -250,7 +250,6 @@ def test_test_util__data_source_roundtrip(
     assert decoded_var_index == data_var_index
 
 
-@pytest.mark.all_configs
 def test_train__loads_correct_number_of_samples(train_config, history):
     cfg = train_config
     cfg.data.hist = history

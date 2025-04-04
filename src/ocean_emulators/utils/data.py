@@ -102,7 +102,7 @@ def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
     if is_compact:
         for name, da in data_.items():
             if "lev" in da.dims:
-                data_[name] = da.where(wetmask, 0.0)
+                data_[name] = da.where(wetmask.sel(lev=da.lev), 0.0)
             else:
                 data_[name] = da.where(surface_mask, 0.0)
         return data_
@@ -312,6 +312,31 @@ def validate_data(
     return data_copy, data_mean_copy, data_std_copy
 
 
+def filter_compact_prognostic(
+    data: xr.Dataset, prognostic_var_names: PrognosticVarNames
+) -> xr.Dataset:
+    # Parse levels and variables from name-mangled prognostic variable names.
+    data_ = data.copy()
+
+    levels = []
+    prog_vars = []
+    for i, var in enumerate(prognostic_var_names):
+        if "_" not in var:
+            prog_vars.append(var)
+            continue
+
+        tokens = var.split("_")
+        v, l = tokens[0], int(tokens[1])
+        prog_vars.append(v)
+        # Only collect levels on the first pass!
+        if l not in levels:
+            levels.append(l)
+
+    prognostic = data_[prog_vars].isel(lev=levels)
+
+    return prognostic
+
+
 # TODO: Repetitive code. Refactor
 class Normalize(Multiton):
     def _initialize(
@@ -321,10 +346,19 @@ class Normalize(Multiton):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
+        is_compact: bool = False,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        self.prognostic_mean = data_mean[prognostic_var_names]
-        self.prognostic_std = data_std[prognostic_var_names]
+        if is_compact:
+            self.prognostic_mean = filter_compact_prognostic(
+                data_mean, prognostic_var_names
+            )
+            self.prognostic_std = filter_compact_prognostic(
+                data_std, prognostic_var_names
+            )
+        else:
+            self.prognostic_mean = data_mean[prognostic_var_names]
+            self.prognostic_std = data_std[prognostic_var_names]
         self.boundary_mean = data_mean[boundary_var_names]
         self.boundary_std = data_std[boundary_var_names]
         self.wet_mask = wet_mask

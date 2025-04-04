@@ -132,7 +132,7 @@ class ReLUCorrector(BaseCorrector):
 
 def compute_ocean_heat_content(
     T: Tensor, dz: Tensor, area_weighted_func: Callable
-) -> Tuple[Tensor, Tensor]:
+) -> Tensor:
     """Compute the global heat content of the ocean.
 
     Args:
@@ -152,7 +152,7 @@ def compute_ocean_heat_content(
     # Sum over depth to get total heat content
     global_HC_t = area_weighted_func(total_HC_t)  # (batch,) [J]
 
-    return global_HC_t, HC_t
+    return global_HC_t
 
 
 class OceanHeatCorrector(BaseCorrector):
@@ -213,10 +213,10 @@ class OceanHeatCorrector(BaseCorrector):
         # Extract the boundary variables
         surface_heat_flux = fts_boundary[:, self.hfds_idx].squeeze(1)
 
-        global_HC_t0, HC_t0 = compute_ocean_heat_content(
+        global_HC_t0 = compute_ocean_heat_content(
             T_input, self.dz, self.area_weighted_func
         )
-        global_HC_t1, HC_t1 = compute_ocean_heat_content(
+        global_HC_t1 = compute_ocean_heat_content(
             T_pred, self.dz, self.area_weighted_func
         )
 
@@ -232,10 +232,6 @@ class OceanHeatCorrector(BaseCorrector):
         dHC_expected += self.dHC_geothermal
 
         HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
-
-        # This seems redundant, so skipping it
-        # HC_t1_corrected = HC_t1 * HC_correct_ratio.view(-1, 1, 1, 1)
-        # T_corrected = HC_t1_corrected / (RHO_0 * CP_SW * self.dz.view(1, -1, 1, 1))
 
         T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1)
 

@@ -41,15 +41,17 @@ def pytest_collection_modifyitems(config, items):
             # Check if this test item has parameters that don't match the desired ones
             # Add skip marker to benchmark tests that don't match.
             for param, desired_value in desired_params.items():
-                if param in item.fixturenames and param in item.callspec.params:
-                    current_value = item.callspec.params[param]
-                    if current_value != desired_value:
-                        skip_reason = (
-                            f"Skipping benchmark with {param}={current_value}, "
-                            f"only running with {param}={desired_value}"
-                        )
-                        item.add_marker(pytest.mark.skip(reason=skip_reason))
-                        break
+                if param not in item.fixturenames or param not in item.callspec.params:
+                    continue
+
+                current_value = item.callspec.params[param]
+                if current_value != desired_value:
+                    skip_reason = (
+                        f"Skipping benchmark with {param}={current_value}, "
+                        f"only running with {param}={desired_value}"
+                    )
+                    item.add_marker(pytest.mark.skip(reason=skip_reason))
+                    break
 
 
 @dataclasses.dataclass
@@ -568,7 +570,7 @@ def trainer_pair(
     This fixture sets up the correct Multiton scope and skipping rules for this
     config/trainer pair.
 
-    By default tests are run with one config. You can run them for multiple
+    By default, tests are run with one config. You can run them for multiple
     configs by marking them with `only_configs` or `all_configs`.
 
     eg:

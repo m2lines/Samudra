@@ -6,8 +6,7 @@ git branch -r --contains $(git rev-parse HEAD) | grep -q . || { echo "Error: Com
 SCRIPT_PATH=$(git rev-parse --show-prefix)  # relative to the root of the repository
 
 JOB_NAME="samudra-train-cm4-thermodynamic-instancenorm-withoutema-test3"  # recommended but not required to change this
-CONFIG_FILENAME="configs/gantry_train_cm4.yaml"
-CONFIG_PATH=$SCRIPT_PATH/$CONFIG_FILENAME
+CONFIG_PATH="configs/gantry_train_cm4.yaml"
 
 echo 'Using config file:' $CONFIG_PATH
  # since we use a service account API key for wandb, we use the beaker username to set the wandb username

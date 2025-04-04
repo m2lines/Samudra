@@ -264,7 +264,7 @@ def test_loader__data_shape(train_config, history, loader_version):
     with make_loader(train_config, version=loader_version) as loader:
         exp = train_config.experiment
         batch_size = train_config.batch_size
-        hist = train_config.data.hist + 1
+        hist = history + 1
 
         input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
             BOUNDARY_VARS[exp.boundary_vars_key]

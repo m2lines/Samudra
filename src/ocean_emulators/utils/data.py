@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Mapping
 
 import cftime
 import numpy as np
@@ -273,7 +273,7 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
 
 
 def augment_static_data(
-    data: xr.Dataset, static_data_paths: Dict[str, str | None], data_dir: Path
+    data: xr.Dataset, static_data_paths: Mapping[str, str | None], data_dir: Path
 ) -> xr.Dataset:
     """Augment the data with static data."""
     data_copy = data.copy()

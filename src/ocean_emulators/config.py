@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import yaml
 from dacite import Config as DaciteConfig
@@ -37,7 +37,12 @@ class DataConfig:
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
     scaling_residuals_file: Optional[str] = None
-    static_data_paths: Optional[Dict[str, str | None]] = None
+    static_data_paths: Optional[Mapping[str, str | None]] = field(
+        default_factory=lambda: {
+            "sea_surface_fraction": "cm4_sea_surface_fraction_fixed.zarr",
+            "hfgeou": "cm4_geothermal_hf_fixed.zarr",
+        }
+    )
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1

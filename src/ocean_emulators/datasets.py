@@ -594,3 +594,172 @@ class TrainDataset(Dataset):
         label = torch.from_numpy(label).float()
         label = torch.where(self.wet, label, 0.0)
         return label
+
+
+class TorchTrainDataset(Dataset):
+    """
+    This class is used for training and validation.
+
+    It creates rolling indices to keep track of histories/past states. But different
+    from InferenceDataset, as it creates rolling indices based on stride. By default,
+    the sliding window / stride is 1.
+
+    We make use of TrainData class to store a single sample.
+
+    For example,
+    Hist=0 ; TD: step=0->[0, 1]; step=1->[1, 2]; step=2->[2, 3]; step=3->[3, 4]
+    Hist=1 ; TD: step=0->[[0, 1], [2, 3]]; step=1->[[2, 3], [4, 5]];
+            step=2->[[4, 5], [6, 7]]; step=3->[[6, 7], [8, 9]]
+    Hist=2 ; TD: step=0->[[0, 1, 2], [3, 4, 5]];
+            step=1->[[3, 4, 5], [6, 7, 8]];
+            step=2->[[6, 7, 8], [9, 10, 11]];
+            step=3->[[9, 10, 11], [12, 13, 14]]
+    """
+
+    FLAG = LoaderVersion.OM4_TORCH
+
+    def __init__(
+        self,
+        data: xr.Dataset,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
+        wet: PrognosticMask,
+        wet_surface: GridMask,
+        hist: int,
+        steps: int,
+        stride: int = 1,
+    ):
+        super().__init__()
+        self.device = get_device()
+
+        self.hist: int = hist
+        self.steps: int = steps
+        self.stride: int = stride
+
+        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
+        self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
+        self._boundary_vars: xr.Dataset = data[boundary_var_names]
+
+        # This class will be used only for training
+        total_steps: int = 2 * self.hist + 2
+
+        # Calculate the number of windows
+        num_windows = data.time.size - (total_steps - 1) * self.stride
+
+        # Create base indices
+        indices = np.arange(num_windows)
+        indices_da = xr.DataArray(indices, dims=["window_dim"])
+
+        # Create window dimension
+        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
+
+        # Construct rolling indices
+        self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
+            indices_da + stride * window_dim
+        )
+
+        self.wet = wet.bool()
+        self.wet_surface = wet_surface.bool()
+
+        self.size: int = (
+            data.time.size
+            - self.steps * (self.hist + 1) * self.stride
+            - self.hist * self.stride
+        )
+
+        if using_gpu():
+            self.wet = self.wet.pin_memory()
+            self.wet_surface = self.wet_surface.pin_memory()
+
+    def __len__(self) -> int:
+        return self.size
+
+    def __getitem__(self, idx: int):
+        TD = TrainData(self.num_prognostic_channels)
+        prev_rolling_idx = None
+        for step in range(self.steps):
+            x_index = self._get_x_index(idx, step, prev_rolling_idx)
+
+            prognostic_all = torch.from_numpy(
+                self._prognostic_vars.isel(time=x_index)
+                .to_array()
+                .transpose(
+                    "variable", "time", "lat", "lon"
+                )  # this should be a no-op, for documentation
+                .to_numpy()
+            )
+            boundary = torch.from_numpy(
+                self._boundary_vars.isel(time=x_index)
+                .isel(time=self.hist, drop=True)
+                .to_array()
+                .transpose("variable", "lat", "lon")
+                .to_numpy()
+            )
+
+            input_, label = self._get_input_and_label(prognostic_all, boundary)
+
+            TD.insert(
+                input_=input_,
+                label=label,
+            )
+
+        return TD
+
+    def _get_input_and_label(
+        self,
+        # time includes (self.hist + 1) past steps and the (label) future steps
+        prognostic_all: Float[torch.Tensor, "variable time lat lon"],
+        boundary: Float[torch.Tensor, "variable lat lon"],
+    ) -> tuple[Input, Prognostic]:
+        normalize = Normalize.get_instance()
+
+        # grab past steps and prep for model
+        input_ = self._prep_prognostic_steps(prognostic_all[:, : self.hist + 1, :, :])
+
+        # add in boundary to final input
+        boundary = normalize.normalize_tensor_boundary(boundary).float()
+        boundary = torch.where(self.wet_surface, boundary, 0.0)
+        total_input = torch.cat((input_, boundary), dim=0)
+
+        # grab future steps, repeat as we do for input
+        label = self._prep_prognostic_steps(prognostic_all[:, self.hist + 1 :, :, :])
+        return total_input, label
+
+    def _prep_prognostic_steps(
+        self, prognostic_steps: Float[torch.Tensor, "variable time lat lon"]
+    ) -> Input:
+        normalize = Normalize.get_instance()
+        prognostic_steps = rearrange(
+            prognostic_steps,
+            "variable time lat lon -> time variable lat lon",
+        )
+
+        # normalize expects variables in second dimension
+        prognostic_steps = normalize.normalize_tensor_prognostic(
+            prognostic_steps
+        ).float()
+
+        # flatten time and variable dimensions into a set of channels for model
+        prognostic_steps = rearrange(
+            prognostic_steps,
+            "time variable lat lon -> (time variable) lat lon",
+        )
+
+        # post-normalize, mask out values where there is no ocean
+        prognostic_steps = torch.where(self.wet, prognostic_steps, 0.0)
+
+        return prognostic_steps
+
+    def _get_x_index(
+        self, idx: int, step: int, prev_rolling_idx: int | None
+    ) -> xr.Variable:
+        assert isinstance(idx, int)
+        if idx < 0:
+            raise IndexError("Sorry, negative indexing is not supported!")
+        if idx >= len(self):
+            raise IndexError("Index out of range")
+
+        window_index = idx + step * (self.hist + 1) * self.stride
+        rolling_idx = self.rolling_indices.isel(window_dim=window_index, drop=True)
+        x_index = xr.Variable(["time"], rolling_idx)
+        return x_index

@@ -473,8 +473,9 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
 
         @benchmark
         def bench():
-            for sample in loader:
-                _ = sample
+            indices = np.random.randint(0, len(loader), size=len(loader))
+            for idx in indices:
+                _ = loader.dataset[int(idx)]
 
 
 @pytest.mark.manual

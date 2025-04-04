@@ -20,7 +20,12 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import Normalize, mask, unflatten_masks
+from ocean_emulators.utils.data import (
+    Normalize,
+    filter_compact_prognostic,
+    mask,
+    unflatten_masks,
+)
 from ocean_emulators.utils.device import get_device, using_gpu
 
 
@@ -43,16 +48,11 @@ class OM4Dataset(Dataset):
         self.prognostic, self.boundary = self.prepare_data(
             data, prognostic_var_names, boundary_var_names
         )
-        if is_compact:
-            self.prognostic_einsum = "step window (time variable lev)=var lat lon"
-        else:
-            self.prognostic_einsum = "step window (time variable)=var lat lon"
-        self.boundary_einsum = "step window var lat lon"
-
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
         self.is_inference: bool = is_inference
+        self.is_compact: bool = is_compact
 
         self._size: int = (
             data.time.size
@@ -86,7 +86,7 @@ class OM4Dataset(Dataset):
         # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
         data_ = unflatten_masks(data)
 
-        prognostic = data_[prognostic_var_names]
+        prognostic = filter_compact_prognostic(data_, prognostic_var_names)
         boundary = data_[boundary_var_names]
 
         # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
@@ -147,34 +147,83 @@ class OM4Dataset(Dataset):
         # TODO(alxmrs): Tune dask parallelization
         # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
 
-        prognostic = (
-            self.prognostic.isel(time=window)
-            .isel(time=slice(None, time_split))
-            .to_array(name="prognostic")
-            .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
-            .drop_vars("var", errors="ignore")
-        )
+        if self.is_compact:
+            with_lev = [v for v in self.prognostic if "lev" in self.prognostic[v].dims]
+            without_lev = [
+                v for v in self.prognostic if "lev" not in self.prognostic[v].dims
+            ]
+
+            label_without_lev = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(time_split, None))[without_lev]
+                .to_array()
+                .einops.rearrange(
+                    "step window (time variable)=var lat lon", dask="allowed"
+                )
+                .rename({"var": "variable"})
+            )
+            label_with_lev = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(time_split, None))[with_lev]
+                .to_array()
+                .einops.rearrange(
+                    "step window (time variable lev)=var lat lon", dask="allowed"
+                )
+                .rename({"var": "variable"})
+            )
+            label = xr.concat([label_without_lev, label_with_lev], dim="variable")
+            prognostic_withot_lev = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(None, time_split))[without_lev]
+                .to_array(name="prognostic")
+                .einops.rearrange(
+                    "step window (time variable)=var lat lon", dask="allowed"
+                )
+                .drop_vars("var", errors="ignore")
+            )
+            prognostic_with_lev = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(None, time_split))[with_lev]
+                .to_array(name="prognostic")
+                .einops.rearrange(
+                    "step window (time variable lev)=var lat lon", dask="allowed"
+                )
+                .drop_vars("var", errors="ignore")
+            )
+            prognostic = xr.concat(
+                [prognostic_withot_lev, prognostic_with_lev], dim="var"
+            )
+
+        else:
+            label = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(time_split, None))
+                .to_array()
+                .einops.rearrange(
+                    "step window (time variable)=var lat lon", dask="allowed"
+                )
+                .rename({"var": "variable"})
+            )
+
+            prognostic = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(None, time_split))
+                .to_array(name="prognostic")
+                .einops.rearrange(
+                    "step window (time variable)=var lat lon", dask="allowed"
+                )
+                .drop_vars("var", errors="ignore")
+            )
         boundary = (
             self.boundary.isel(time=window)
             .isel(time=self.hist)
             .to_array("var", "boundary")
-            .transpose("step", "var", "lat", "lon")
+            .einops.rearrange(self.boundary_einsum, dask="allowed")
             .drop_vars("var", errors="ignore")
         )
         # Combine prognostic and boundary data
         input_ = xr.concat([prognostic, boundary], dim="var").rename(
             {"var": "variable"}
-        )
-
-        label = (
-            self.prognostic.isel(time=window)
-            .isel(time=slice(time_split, None))
-            .to_array()
-            .einops.rearrange(
-                "step (time variable)=var lat lon",
-                dask="allowed",
-            )
-            .rename({"var": "variable"})
         )
 
         return input_, label
@@ -203,6 +252,7 @@ class InferenceDataset(Dataset):
         wet_surface,
         hist,
         long_rollout,
+        is_compact=False,
     ):
         super().__init__()
         self.device = get_device()
@@ -210,7 +260,13 @@ class InferenceDataset(Dataset):
         self.hist = hist
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        self._prognostic_vars = data[prognostic_var_names]
+
+        if is_compact:
+            self._prognostic_vars = filter_compact_prognostic(
+                data, prognostic_var_names
+            )
+        else:
+            self._prognostic_vars = data[prognostic_var_names]
         self._boundary_vars = data[boundary_var_names]
 
         time_indices = np.arange(data.time.size)

@@ -484,9 +484,6 @@ def train_config(
     configuration, then trainer_pair will set up the Multiton scope and skip rules
     for each test at a per-function level.
     """
-    # Import needs to be here in order to prevent a gnarly jaxtyping bug:
-    # See https://github.com/patrick-kidger/jaxtyping/issues/306
-
     # Write test data to the cache directory if they aren't already there.
     cache = cache_dir(pytestconfig)
     maybe_write_cache(cache, data_source)

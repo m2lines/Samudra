@@ -21,7 +21,8 @@ gantry run \
     --name $JOB_NAME \
     --description 'Training Samudra with CM4' \
     --workspace ai2/ace \
-    --priority normal \
+    --priority high \
+    --not-preemptible \
     --cluster ai2/saturn-cirrascale \
     --cluster ai2/jupiter-cirrascale-2 \
     --cluster ai2/ceres-cirrascale \

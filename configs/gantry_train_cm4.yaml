@@ -11,7 +11,6 @@ finetune: false
 resume_ckpt_path: null
 inference_epochs: [-1]
 data_percent: 1.0
-test_using_ema: false
 train:
   start_time: "0151-01-06"
   end_time: "0306-01-01"
@@ -84,7 +83,7 @@ samudra:
   corrector:
     non_negative_corrector_names:
       - "so"
-    ocean_heat_corrector: false
+    ocean_heat_corrector: true
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

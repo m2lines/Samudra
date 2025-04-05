@@ -50,7 +50,7 @@ experiment:
     mode: online
     project: ocean-emulator
     entity: ai2cm
-    group: samudra-train-2in2out
+    group: samudra-train-1in1out
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
@@ -62,7 +62,7 @@ data:
   scaling_residuals_file: null
   time_delta: 5
   num_workers: 4
-  hist: 1
+  hist: 0
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]
@@ -83,7 +83,7 @@ samudra:
   corrector:
     non_negative_corrector_names:
       - "so"
-    ocean_heat_corrector: true
+    ocean_heat_corrector: false
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

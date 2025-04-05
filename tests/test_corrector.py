@@ -188,11 +188,13 @@ def test_ocean_heat_content(ocean_heat_init):
     area_weights = torch.ones(wet_mask.shape).to(get_device())
     area_weighted_func = partial(area_weighted_sum, area_weights=area_weights)
 
-    global_HC_t, HC_t = compute_ocean_heat_content(T, dz, area_weighted_func)
+    global_HC_t = compute_ocean_heat_content(T, dz, area_weighted_func)
+    """
+    Global heat = RHO * CP * T * int(dz) * int(area) * mask
+     = 1035 * 3992 * 1 * (1+2+4) * (4-1)
+     = 86766120
+    """
     assert global_HC_t == 86766120
-    assert HC_t[0, 0, 0, 0] == 4131720
-    assert HC_t[0, 1, 0, 0] == 8263440
-    assert HC_t[0, 2, 0, 0] == 16526880
 
 
 def test_ocean_heat_corrector(ocean_heat_init):
@@ -213,6 +215,8 @@ def test_ocean_heat_corrector(ocean_heat_init):
     pred_tensor = pred_tensor * wet_mask
     output = corrector(input_tensor, pred_tensor)
 
+    # Global heat = RHO * CP * T * int(dz) * int(area) * mask
+    # Total next step heat = Global heat + Heat flux from atmosphere and sea floor
     total_next_step_heat = 86766120 + 3024000
     pred_heat = 86766120
     ratio = total_next_step_heat / pred_heat

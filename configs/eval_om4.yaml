@@ -20,15 +20,15 @@ experiment:
     mode: online
     project: ocean-emulators
     entity: m2lines
-    group: samudra-eval-om4
+    group: samudra-cm4-eval-om4
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 
 data:
-  data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_104_years_2014_netzerohfds_detrended # 3D_data_OM4_5daily_v0.2.1_with_hfds_anom_100_years_1990_netzerohfds
-  data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
-  data_stds_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_stds
+  data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies
+  data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering_with_hfds_anomalies.nc
+  data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field_with_hfds_anomalies.nc
   scaling_residuals_file: null
   time_delta: 5
   num_workers: 4

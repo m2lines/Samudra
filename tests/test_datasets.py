@@ -308,7 +308,7 @@ def test_inference__data_shape(inference_loader_pair):
 
     samples = list(loader)
     assert len(samples) == 1, (
-        f"Current config {cfg} only supports 1 examples for inference; "
+        f"Current config {cfg.inference!r} only supports 1 examples for inference; "
         f"got {len(samples)}."
     )
 

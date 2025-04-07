@@ -200,3 +200,9 @@ Non-trainable params: 0
 2025-04-07 23:46:36,174 - INFO - Training Epoch: [1]  [  63/2821]  eta: 2:30:58  lr: 0.000200  loss: 0.7253 (1.0476)  time: 0.663(0.663)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
 2025-04-07 23:46:36,838 - INFO - Training Epoch: [1]  [  64/2821]  eta: 2:29:03  lr: 0.000200  loss: 0.7198 (1.0419)  time: 0.663(0.663)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
 2025-04-07 23:46:37,502 - INFO - Training Epoch: [1]  [  65/2821]  eta: 2:27:12  lr: 0.000200  loss: 0.7191 (1.0370)  time: 0.662(0.662)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:46:45,193 - INFO - Training Epoch: [1]  [  66/2821]  eta: 2:30:13  lr: 0.000200  loss: 0.7191 (1.0317)  time: 7.690(7.690)  data: 6.996(6.996)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:46:45,890 - INFO - Training Epoch: [1]  [  67/2821]  eta: 2:28:26  lr: 0.000200  loss: 0.7173 (1.0269)  time: 0.696(0.696)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:46:46,664 - INFO - Training Epoch: [1]  [  68/2821]  eta: 2:26:44  lr: 0.000200  loss: 0.7116 (1.0220)  time: 0.773(0.773)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:46:47,554 - INFO - Training Epoch: [1]  [  69/2821]  eta: 2:25:10  lr: 0.000200  loss: 0.7116 (1.0174)  time: 0.878(0.878)  data: 0.009(0.009)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:46:56,240 - INFO - Training Epoch: [1]  [  70/2821]  eta: 2:28:41  lr: 0.000200  loss: 0.7052 (1.0130)  time: 8.685(8.685)  data: 7.967(7.967)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:46:56,904 - INFO - Training Epoch: [1]  [  71/2821]  eta: 2:26:59  lr: 0.000200  loss: 0.7050 (1.0085)  time: 0.663(0.663)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822

@@ -257,12 +257,14 @@ def test_loader__data_shape(train_config, history, loader_version):
     with make_loader(train_config, version=loader_version) as loader:
         exp = train_config.experiment
         batch_size = train_config.batch_size
-        hist = history + 1
+        num_input_timesteps = history + 1
 
-        input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-            BOUNDARY_VARS[exp.boundary_vars_key]
+        input_var_dim = len(
+            PROGNOSTIC_VARS[exp.prognostic_vars_key]
+        ) * num_input_timesteps + len(BOUNDARY_VARS[exp.boundary_vars_key])
+        output_var_dim = (
+            len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_input_timesteps
         )
-        output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
 
         n_samples = calc_num_samples(train_config, train_config.train.time_slice)
         samples = list(loader)

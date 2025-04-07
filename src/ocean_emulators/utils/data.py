@@ -92,13 +92,23 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
 
 def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
     """Apply a wetmask (areas of the ocean) to all variables in the dataset."""
-    # I revised on this via Project Pythia's tutorial:
-    #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
     data_ = data.copy()
 
     wetmask = wetmask.astype(bool)
     surface_mask = wetmask.isel(lev=0)
 
+    # Compact data uses `lev` as a ocean depth dimension.
+    is_compact = all(v in data_ for v in ["so", "uo", "vo", "thetao"])
+    if is_compact:
+        for name, da in data_.items():
+            if "lev" in da.dims:
+                data_[name] = da.where(wetmask.sel(lev=da.lev), 0.0)
+            else:
+                data_[name] = da.where(surface_mask, 0.0)
+        return data_
+
+    level = "-1"
+    # Data is not "compact", i.e. levels are encoded as data_vars.
     for name, da in data_.items():
         # Parse the level index info from the variable name.
         is_surface = False
@@ -194,7 +204,9 @@ def get_norm_unnorm_dicts(
     # Get normalized dict
     data_dict = convert_tensor_out_to_dict(data_reshaped)
     # Unnormalize
-    data_unnorm = normalize.unnormalize_tensor_prognostic(data_reshaped)
+    data_unnorm = normalize.unnormalize_tensor_prognostic(
+        data_reshaped, fill_value=float("nan")
+    )
     # Get unnormalized dict
     data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
     return data_dict, data_unnorm_dict
@@ -273,10 +285,19 @@ def validate_data(
     data: xr.Dataset,
     data_mean: xr.Dataset,
     data_std: xr.Dataset,
+    is_compact: bool = False,
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """
     Validate the data such that we have the correct format for training.
     """
+    if is_compact:
+        data_ = with_lat_lon_coords(data)
+        data_copy, data_mean_copy, data_std_copy = compute_anomalies(
+            data_, data_mean, data_std, ("hfds_anomalies",)
+        )
+
+        return data_copy, data_mean_copy, data_std_copy
+
     data_copy = (
         data.copy()
         .pipe(flatten_masks)
@@ -300,6 +321,36 @@ def validate_data(
     return data_copy, data_mean_copy, data_std_copy
 
 
+def is_compact(data: xr.Dataset) -> bool:
+    """Check if the dataset is in compact format."""
+    return all(v in data for v in ["so", "uo", "vo", "thetao"])
+
+
+def filter_compact_prognostic(
+    data: xr.Dataset, prognostic_var_names: PrognosticVarNames
+) -> xr.Dataset:
+    # Parse levels and variables from name-mangled prognostic variable names.
+    data_ = data.copy()
+
+    levels = []
+    prog_vars = []
+    for i, var in enumerate(prognostic_var_names):
+        if "_" not in var:
+            prog_vars.append(var)
+            continue
+
+        tokens = var.split("_")
+        v, level = tokens[0], int(tokens[1])
+        prog_vars.append(v)
+        # Only collect levels on the first pass!
+        if level not in levels:
+            levels.append(level)
+
+    prognostic = data_[prog_vars].isel(lev=levels)
+
+    return prognostic
+
+
 # TODO: Repetitive code. Refactor
 class Normalize(Multiton):
     def _initialize(
@@ -309,10 +360,19 @@ class Normalize(Multiton):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
+        is_compact: bool = False,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        self.prognostic_mean = data_mean[prognostic_var_names]
-        self.prognostic_std = data_std[prognostic_var_names]
+        if is_compact:
+            self.prognostic_mean = filter_compact_prognostic(
+                data_mean, prognostic_var_names
+            )
+            self.prognostic_std = filter_compact_prognostic(
+                data_std, prognostic_var_names
+            )
+        else:
+            self.prognostic_mean = data_mean[prognostic_var_names]
+            self.prognostic_std = data_std[prognostic_var_names]
         self.boundary_mean = data_mean[boundary_var_names]
         self.boundary_std = data_std[boundary_var_names]
         self.wet_mask = wet_mask
@@ -348,12 +408,6 @@ class Normalize(Multiton):
             norm = norm.fillna(fill_value)
         return norm
 
-    def unnormalize_prognostic(self, data: xr.Dataset) -> xr.Dataset:
-        """Unnormalize prognostic dataset."""
-        data_unnorm = data * self.prognostic_std + self.prognostic_mean
-        data_unnorm = data_unnorm * xr.DataArray(self._wet_mask_np)
-        return data_unnorm
-
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
     ) -> torch.Tensor:
@@ -370,10 +424,13 @@ class Normalize(Multiton):
         norm = (data - tensor_mean) / tensor_std
         if fill_nan:
             norm = norm.nan_to_num(nan=fill_value)
+        norm = norm.to(data.dtype)
         return norm
 
-    def unnormalize_tensor_prognostic(self, data: torch.Tensor) -> torch.Tensor:
-        """Unnormalize prognostic tensor."""
+    def unnormalize_tensor_prognostic(
+        self, data: torch.Tensor, fill_value=float("nan")
+    ) -> torch.Tensor:
+        """Unnormalize prognostic tensor and apply fill value to land cells."""
         tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
 
@@ -389,25 +446,6 @@ class Normalize(Multiton):
             raise ValueError(f"Invalid data shape: {data.shape}")
 
         unnorm = data * tensor_std + tensor_mean
-        unnorm = unnorm * self.wet_mask.to(data.device)
+        unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
+        unnorm = unnorm.to(data.dtype)
         return unnorm
-
-    def normalize_numpy_prognostic(
-        self, data: np.ndarray, fill_nan=True, fill_value=0.0
-    ) -> np.ndarray:
-        """Normalize prognostic numpy array."""
-        if data.ndim == 3:
-            norm = (data - self._prognostic_mean_np) / self._prognostic_std_np
-        elif data.ndim == 4:
-            norm = (
-                data - self._prognostic_mean_np.reshape(1, -1, 1, 1)
-            ) / self._prognostic_std_np.reshape(1, -1, 1, 1)
-        if fill_nan:
-            norm = norm.fillna(fill_value)
-        return norm
-
-    def unnormalize_numpy_prognostic(self, data: np.ndarray) -> np.ndarray:
-        """Unnormalize prognostic numpy array."""
-        data_unnorm = data * self._prognostic_std_np + self._prognostic_mean_np
-        data_unnorm = data_unnorm * self._wet_mask_np
-        return data_unnorm

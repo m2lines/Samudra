@@ -31,7 +31,9 @@ class ZarrWriter:
         pred_tensor = IO.prediction
         pred_tensor = pred_tensor.squeeze(0)
         pred_tensor = rearrange(pred_tensor, "(n c) h w -> n c h w", n=self.hist + 1)
-        pred_tensor = self.normalize.unnormalize_tensor_prognostic(pred_tensor)
+        pred_tensor = self.normalize.unnormalize_tensor_prognostic(
+            pred_tensor, fill_value=0.0
+        )
         if self.buffer is None:
             self.buffer = pred_tensor
         else:

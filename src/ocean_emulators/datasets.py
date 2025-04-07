@@ -20,7 +20,13 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import Normalize, mask, unflatten_masks
+from ocean_emulators.utils.data import (
+    Normalize,
+    filter_compact_prognostic,
+    is_compact,
+    mask,
+    unflatten_masks,
+)
 from ocean_emulators.utils.device import get_device, using_gpu
 
 
@@ -39,25 +45,11 @@ class OM4Dataset(Dataset):
         stride: int = 1,
         is_inference: bool = False,
     ) -> None:
-        # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
-        data_ = unflatten_masks(data)
-
-        prognostic = data_[prognostic_var_names]
-        boundary = data_[boundary_var_names]
-
-        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
-        norm = Normalize.get_instance()
-        norm_prognostic = norm.normalize_prognostic(prognostic)
-        norm_boundary = norm.normalize_boundary(boundary)
-
-        # Set non-ocean areas to zero.
-        self.prognostic = mask(norm_prognostic, data_.wetmask).compute()
-        self.boundary = mask(norm_boundary, data_.wetmask).compute()
-
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
         self.is_inference: bool = is_inference
+        self.is_compact: bool = is_compact(data)
 
         self._size: int = (
             data.time.size
@@ -70,26 +62,53 @@ class OM4Dataset(Dataset):
         if self.is_inference:
             raise NotImplementedError("does not (yet) support inference.")
 
+        self.prognostic, self.boundary = self.prepare_data(
+            data, prognostic_var_names, boundary_var_names
+        )
+
         total_steps: int = 2 * self.hist + 2
         # Calculate the number of windows
         num_windows = data.time.size - (total_steps - 1) * self.stride
         # Create base indices
         indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["window"])
+        indices_da = xr.DataArray(indices, dims=["step"])
         # Create window dimension
         window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
         # Construct rolling indices
-        self.rolling_indices: Integer[xr.DataArray, "window time"] = (
+        self.rolling_indices: Integer[xr.DataArray, "step time"] = (
             indices_da + stride * window_dim
         )
+
+    # TODO(alxmrs): Put back into init!
+    def prepare_data(
+        self, data, prognostic_var_names, boundary_var_names
+    ) -> tuple[xr.Dataset, xr.Dataset]:
+        """Initialize loader datasets."""
+        # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
+        data_ = unflatten_masks(data)
+        if self.is_compact:
+            prognostic = filter_compact_prognostic(data_, prognostic_var_names)
+        else:
+            prognostic = data_[prognostic_var_names]
+        boundary = data_[boundary_var_names]
+
+        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
+        norm = Normalize.get_instance()
+        norm_prognostic = norm.normalize_prognostic(prognostic)
+        norm_boundary = norm.normalize_boundary(boundary)
+
+        # Set non-ocean areas to zero.
+        prognostic = mask(norm_prognostic, data_.wetmask)
+        boundary = mask(norm_boundary, data_.wetmask)
+
+        return prognostic, boundary
 
     def __len__(self) -> int:
         return self._size
 
-    # TODO(#124): Vectorize `step`
     def window_from(
         self, idx: int | slice, step: int
-    ) -> Integer[xr.Variable, "window time"]:
+    ) -> Integer[xr.DataArray, "step time"]:
         """Coalesce index values to a window of the input data."""
         # First, parse int inputs as a slice.
         if isinstance(idx, int):
@@ -119,61 +138,88 @@ class OM4Dataset(Dataset):
         if idx.stop is None:
             idx = slice(idx.start, len(self), idx.step)
 
-        window_index = self.rolling_indices.isel(window=idx)
-        window = xr.Variable(["window", "time"], window_index)
-
-        return window
+        return self.rolling_indices.isel(step=idx)
 
     def __getitem__(self, idx: int) -> Example:
-        inputs = []
-        labels = []
+        windows = [self.window_from(idx, step) for step in range(self.steps)]
+        window = xr.concat(windows, dim="step")
 
-        # TODO(#124): Vectorize this operation! Or, is it fine because it's lazy?
-        for step in range(self.steps):
-            window = self.window_from(idx, step)
+        # This point in time splits the training data and the label data!
+        time_split = self.hist + 1
 
-            # This point in time splits the training data and the label data!
-            time_split = self.hist + 1
+        # TODO(alxmrs): Tune dask parallelization
+        # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
 
-            # TODO(alxmrs): Tune dask parallelization
-            # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
+        if self.is_compact:
+            with_lev = [v for v in self.prognostic if "lev" in self.prognostic[v].dims]
+            without_lev = [
+                v for v in self.prognostic if "lev" not in self.prognostic[v].dims
+            ]
+
+            label_without_lev = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(time_split, None))[without_lev]
+                .to_array()
+                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
+                .rename({"var": "variable"})
+            )
+            label_with_lev = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(time_split, None))[with_lev]
+                .to_array()
+                .einops.rearrange(
+                    "step (time variable lev)=var lat lon", dask="allowed"
+                )
+                .rename({"var": "variable"})
+            )
+            label = xr.concat([label_without_lev, label_with_lev], dim="variable")
+            prognostic_withot_lev = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(None, time_split))[without_lev]
+                .to_array(name="prognostic")
+                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
+                .drop_vars("var", errors="ignore")
+            )
+            prognostic_with_lev = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(None, time_split))[with_lev]
+                .to_array(name="prognostic")
+                .einops.rearrange(
+                    "step (time variable lev)=var lat lon", dask="allowed"
+                )
+                .drop_vars("var", errors="ignore")
+            )
+            prognostic = xr.concat(
+                [prognostic_withot_lev, prognostic_with_lev], dim="var"
+            )
+
+        else:
+            label = (
+                self.prognostic.isel(time=window)
+                .isel(time=slice(time_split, None))
+                .to_array()
+                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
+                .rename({"var": "variable"})
+            )
 
             prognostic = (
                 self.prognostic.isel(time=window)
                 .isel(time=slice(None, time_split))
                 .to_array(name="prognostic")
-                .einops.rearrange("window (time variable)=var lat lon", dask="allowed")
+                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
                 .drop_vars("var", errors="ignore")
             )
-            boundary = (
-                self.boundary.isel(time=window)
-                .isel(time=self.hist)
-                .to_array("var", "boundary")
-                .transpose("window", "var", "lat", "lon")
-                .drop_vars("var", errors="ignore")
-            )
-            # Combine prognostic and boundary data
-            input_ = xr.concat([prognostic, boundary], dim="var").rename(
-                {"var": "variable"}
-            )
-
-            label = (
-                self.prognostic.isel(time=window)
-                .isel(time=slice(time_split, None))
-                .to_array()
-                .einops.rearrange(
-                    "window (time variable)=var lat lon",
-                    dask="allowed",
-                )
-                .rename({"var": "variable"})
-            )
-
-            inputs.append(input_)
-            labels.append(label)
-
-        # Combines data along a new dimension "step"
-        input_ = xr.concat(inputs, dim="step")
-        label = xr.concat(labels, dim="step")
+        boundary = (
+            self.boundary.isel(time=window)
+            .isel(time=self.hist)
+            .to_array("var", "boundary")
+            .einops.rearrange("step var lat lon", dask="allowed")
+            .drop_vars("var", errors="ignore")
+        )
+        # Combine prognostic and boundary data
+        input_ = xr.concat([prognostic, boundary], dim="var").rename(
+            {"var": "variable"}
+        )
 
         return input_, label
 
@@ -201,6 +247,7 @@ class InferenceDataset(Dataset):
         wet_surface,
         hist,
         long_rollout,
+        is_compact=False,
     ):
         super().__init__()
         self.device = get_device()
@@ -208,7 +255,13 @@ class InferenceDataset(Dataset):
         self.hist = hist
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        self._prognostic_vars = data[prognostic_var_names]
+
+        if is_compact:
+            self._prognostic_vars = filter_compact_prognostic(
+                data, prognostic_var_names
+            )
+        else:
+            self._prognostic_vars = data[prognostic_var_names]
         self._boundary_vars = data[boundary_var_names]
 
         time_indices = np.arange(data.time.size)
@@ -397,8 +450,9 @@ class TrainData:
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         input, _ = self.td_dict[step]
-        input[:, : self.num_prognostic_channels] = prognostic
-        return input
+        merged = input.clone()
+        merged[:, : self.num_prognostic_channels] = prognostic
+        return merged
 
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""

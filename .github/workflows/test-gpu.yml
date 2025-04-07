@@ -10,6 +10,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   create-runner:
     runs-on: ubuntu-latest
@@ -77,4 +81,4 @@ jobs:
         run: uv sync --locked --dev --all-extras
 
       - name: Run pytest
-        run: uv run --locked pytest -v -m "not manual and cuda"
+        run: uv run --locked pytest -n 2 -v -m "not manual and cuda"

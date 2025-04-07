@@ -640,7 +640,7 @@ class TorchTrainDataset(Dataset):
         self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
         self._boundary_vars: xr.Dataset = data[boundary_var_names]
 
-        # This class will be used only for training
+        # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
 
         # Calculate the number of windows
@@ -676,9 +676,8 @@ class TorchTrainDataset(Dataset):
 
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
-        prev_rolling_idx = None
         for step in range(self.steps):
-            x_index = self._get_x_index(idx, step, prev_rolling_idx)
+            x_index = self._get_x_index(idx, step)
 
             prognostic_all = torch.from_numpy(
                 self._prognostic_vars.isel(time=x_index)
@@ -750,9 +749,7 @@ class TorchTrainDataset(Dataset):
 
         return prognostic_steps
 
-    def _get_x_index(
-        self, idx: int, step: int, prev_rolling_idx: int | None
-    ) -> xr.Variable:
+    def _get_x_index(self, idx: int, step: int) -> xr.Variable:
         assert isinstance(idx, int)
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")

@@ -62,17 +62,12 @@ def make_loader(
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
-    try:
-        TensorMap.get_instance()
-    except ValueError:
+    with MultitonScope():
         TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
-
-    ds_, means_, stds_ = validate_data(ds, ds_means, ds_stds)
-    wet, wet_surface = extract_wet_mask(ds_, prognostic, cfg.data.hist)
-
-    with MultitonScope():
+        ds_, means_, stds_ = validate_data(ds, ds_means, ds_stds)
+        wet, wet_surface = extract_wet_mask(ds_, prognostic, cfg.data.hist)
         Normalize.init_instance(means_, stds_, prognostic, boundary, wet)
 
         match version:

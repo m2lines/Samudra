@@ -330,8 +330,8 @@ def config_name(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
-@pytest.fixture(scope="session", params=[str(e.value) for e in c.LoaderVersion])
-def loader_version(request: pytest.FixtureRequest) -> str:
+@pytest.fixture(scope="session", params=[e for e in c.LoaderVersion])
+def loader_version(request: pytest.FixtureRequest) -> c.LoaderVersion:
     return request.param
 
 

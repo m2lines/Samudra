@@ -50,8 +50,6 @@ def make_loader(
 ) -> Generator[DataLoader, None, None]:
     if time_slice is None:
         time_slice = cfg.train.time_slice
-    if isinstance(version, str):
-        version = LoaderVersion(version)
 
     ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks={})
     ds_means = xr.open_dataset(

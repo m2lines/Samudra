@@ -64,6 +64,9 @@ def make_loader(
         chunks = None
 
     ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks=chunks)
+
+    if is_compact(ds) and version == LoaderVersion.OM4_EAGER:
+        pytest.skip("Eager loader is not supported for compact data.")
     ds_means = xr.open_dataset(
         cfg.experiment.data_dir / cfg.data.data_means_path, chunks=chunks
     )
@@ -326,6 +329,7 @@ def test_loader__data_shape(train_config, history, loader_version):
             )
 
 
+@pytest.mark.parametrize("data_source", ["mock", "remote-om4"], indirect=True)
 def test_inference__data_shape(inference_loader_pair):
     cfg, loader = inference_loader_pair
 
@@ -362,6 +366,7 @@ def test__data_is_not_zeros(train_config):
             assert np.count_nonzero(y) != 0, "Label data should not be a zeros matrix!"
 
 
+@pytest.mark.parametrize("data_source", ["mock", "remote-om4"], indirect=True)
 def test_inference__data_is_not_zero(inference_loader_pair):
     cfg, loader = inference_loader_pair
 

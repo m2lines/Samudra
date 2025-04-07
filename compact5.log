@@ -206,3 +206,13 @@ Non-trainable params: 0
 2025-04-07 23:46:47,554 - INFO - Training Epoch: [1]  [  69/2821]  eta: 2:25:10  lr: 0.000200  loss: 0.7116 (1.0174)  time: 0.878(0.878)  data: 0.009(0.009)  max cpu mem: 1952  max gpu mem: 32822
 2025-04-07 23:46:56,240 - INFO - Training Epoch: [1]  [  70/2821]  eta: 2:28:41  lr: 0.000200  loss: 0.7052 (1.0130)  time: 8.685(8.685)  data: 7.967(7.967)  max cpu mem: 1952  max gpu mem: 32822
 2025-04-07 23:46:56,904 - INFO - Training Epoch: [1]  [  71/2821]  eta: 2:26:59  lr: 0.000200  loss: 0.7050 (1.0085)  time: 0.663(0.663)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:05,451 - INFO - Training Epoch: [1]  [  72/2821]  eta: 2:30:17  lr: 0.000200  loss: 0.7026 (1.0036)  time: 8.546(8.546)  data: 7.856(7.856)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:06,121 - INFO - Training Epoch: [1]  [  73/2821]  eta: 2:28:36  lr: 0.000200  loss: 0.7026 (0.9996)  time: 0.669(0.669)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:06,823 - INFO - Training Epoch: [1]  [  74/2821]  eta: 2:27:00  lr: 0.000200  loss: 0.7001 (0.9950)  time: 0.700(0.700)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:13,028 - INFO - Training Epoch: [1]  [  75/2821]  eta: 2:28:45  lr: 0.000200  loss: 0.6941 (0.9908)  time: 6.204(6.204)  data: 5.497(5.497)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:14,939 - INFO - Training Epoch: [1]  [  76/2821]  eta: 2:27:54  lr: 0.000200  loss: 0.6941 (0.9870)  time: 1.911(1.911)  data: 1.217(1.217)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:15,615 - INFO - Training Epoch: [1]  [  77/2821]  eta: 2:26:21  lr: 0.000200  loss: 0.6941 (0.9828)  time: 0.675(0.675)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:16,285 - INFO - Training Epoch: [1]  [  78/2821]  eta: 2:24:50  lr: 0.000200  loss: 0.6879 (0.9784)  time: 0.669(0.669)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:30,184 - INFO - Training Epoch: [1]  [  79/2821]  eta: 2:30:54  lr: 0.000200  loss: 0.6879 (0.9749)  time: 13.898(13.898)  data: 13.216(13.216)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:30,846 - INFO - Training Epoch: [1]  [  80/2821]  eta: 2:29:21  lr: 0.000200  loss: 0.6879 (0.9714)  time: 0.661(0.661)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822
+2025-04-07 23:47:31,514 - INFO - Training Epoch: [1]  [  81/2821]  eta: 2:27:51  lr: 0.000200  loss: 0.6861 (0.9679)  time: 0.668(0.668)  data: 0.000(0.000)  max cpu mem: 1952  max gpu mem: 32822

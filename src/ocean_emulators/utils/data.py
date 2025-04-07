@@ -285,10 +285,19 @@ def validate_data(
     data: xr.Dataset,
     data_mean: xr.Dataset,
     data_std: xr.Dataset,
+    is_compact: bool = False,
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """
     Validate the data such that we have the correct format for training.
     """
+    if is_compact:
+        data_ = with_lat_lon_coords(data)
+        data_copy, data_mean_copy, data_std_copy = compute_anomalies(
+            data_, data_mean, data_std, ("hfds_anomalies",)
+        )
+
+        return data_copy, data_mean_copy, data_std_copy
+
     data_copy = (
         data.copy()
         .pipe(flatten_masks)
@@ -312,6 +321,11 @@ def validate_data(
     return data_copy, data_mean_copy, data_std_copy
 
 
+def is_compact(data: xr.Dataset) -> bool:
+    """Check if the dataset is in compact format."""
+    return all(v in data for v in ["so", "uo", "vo", "thetao"])
+
+
 def filter_compact_prognostic(
     data: xr.Dataset, prognostic_var_names: PrognosticVarNames
 ) -> xr.Dataset:
@@ -326,11 +340,11 @@ def filter_compact_prognostic(
             continue
 
         tokens = var.split("_")
-        v, l = tokens[0], int(tokens[1])
+        v, level = tokens[0], int(tokens[1])
         prog_vars.append(v)
         # Only collect levels on the first pass!
-        if l not in levels:
-            levels.append(l)
+        if level not in levels:
+            levels.append(level)
 
     prognostic = data_[prog_vars].isel(lev=levels)
 

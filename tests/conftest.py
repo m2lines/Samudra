@@ -2,7 +2,7 @@ import dataclasses
 import pathlib
 import random
 import time
-from typing import TYPE_CHECKING, ClassVar, Generator
+from typing import ClassVar, Generator
 
 import cftime
 import numpy as np
@@ -14,14 +14,14 @@ from typing_extensions import Self
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
+from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
-
-if TYPE_CHECKING:
-    from ocean_emulators.train import Trainer
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "train_default.test.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "train_default_2step.test.yaml"]
+
+TrainPair = tuple[TrainConfig, Trainer]
 
 
 @dataclasses.dataclass
@@ -278,78 +278,6 @@ class DataSourceDims:
         return data_source, data_var_index
 
 
-@pytest.fixture(scope="session", params=ALL_CONFIGS)
-def config_name(request: pytest.FixtureRequest) -> str:
-    return request.param
-
-
-@pytest.fixture(scope="session", params=[str(e.value) for e in c.LoaderVersion])
-def loader_version(request: pytest.FixtureRequest) -> str:
-    return request.param
-
-
-@pytest.fixture(scope="session", params=[0, 1, 2], ids=lambda x: f"hist{x}")
-def history(request: pytest.FixtureRequest) -> int:
-    return request.param
-
-
-def check_skip_configs(request, config_name):
-    """Skip this test depending on how it's configured.
-
-    See `trainer_pair` for more details.
-    """
-    only_configs = request.node.get_closest_marker("only_configs")
-    if only_configs:
-        for desired_config in only_configs.args:
-            if desired_config not in ALL_CONFIGS:
-                raise ValueError(
-                    f"Test config {desired_config} is not"
-                    f" in the list of all configs: {ALL_CONFIGS}"
-                )
-        if config_name not in only_configs.args:
-            pytest.skip(
-                f"Skipping test for {config_name} because"
-                f" it is not in {only_configs.args}"
-            )
-    else:
-        all_configs = request.node.get_closest_marker("all_configs")
-        if all_configs is None:
-            # If the test is not marked with all_configs, skip all configs except
-            # the default config.
-            if config_name != DEFAULT_CONFIG:
-                pytest.skip(
-                    f"Skipping test for {config_name}"
-                    " because it is not marked with all_configs"
-                )
-
-
-def pytest_addoption(parser):
-    parser.addoption(
-        "--model1", action="store", help="Path to the first model .pt file"
-    )
-    parser.addoption(
-        "--model2", action="store", help="Path to the second model .pt file"
-    )
-
-
-@pytest.fixture
-def model1_path(request):
-    return request.config.getoption("--model1")
-
-
-@pytest.fixture
-def model2_path(request):
-    return request.config.getoption("--model2")
-
-
-# Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
-@pytest.fixture(
-    params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
-)
-def backend(request) -> TrainBackendConfig:
-    return request.param
-
-
 def maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource | None:
     """Open a cached DataSource from a cache directory if it exists."""
     cache = cache_root / cache_name
@@ -395,6 +323,29 @@ def retry_with_backoff(
                 f"(attempt {attempt + 1}/{max_retries})"
             )
             time.sleep(wait_time)
+
+
+@pytest.fixture(scope="session", params=ALL_CONFIGS)
+def config_name(request: pytest.FixtureRequest) -> str:
+    return request.param
+
+
+@pytest.fixture(scope="session", params=[e for e in c.LoaderVersion])
+def loader_version(request: pytest.FixtureRequest) -> c.LoaderVersion:
+    return request.param
+
+
+@pytest.fixture(scope="session", params=[0, 1], ids=lambda x: f"hist{x}")
+def history(request: pytest.FixtureRequest) -> int:
+    return request.param
+
+
+# Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
+@pytest.fixture(
+    params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
+)
+def backend(request) -> TrainBackendConfig:
+    return request.param
 
 
 @pytest.fixture(scope="session", params=["mock", "remote-om4"])
@@ -470,14 +421,12 @@ def data_source(request, pytestconfig) -> DataSource:
 
 
 @pytest.fixture(scope="session")
-def _session_scope_trainer_pair(
+def train_config(
     data_source: DataSource,
     pytestconfig: pytest.Config,
     config_name: str,
-    loader_version: str,
-    history: int,
     backend: TrainBackendConfig,
-) -> tuple[TrainConfig, "Trainer"]:
+) -> TrainConfig:
     """
     This fixture is used to create a config/trainer pair for each possible
     configuration.
@@ -486,10 +435,6 @@ def _session_scope_trainer_pair(
     configuration, then trainer_pair will set up the Multiton scope and skip rules
     for each test at a per-function level.
     """
-    # Import needs to be here in order to prevent a gnarly jaxtyping bug:
-    # See https://github.com/patrick-kidger/jaxtyping/issues/306
-    from ocean_emulators.train import Trainer
-
     # Write test data to the cache directory if they aren't already there.
     cache = cache_dir(pytestconfig)
     maybe_write_cache(cache, data_source)
@@ -498,74 +443,30 @@ def _session_scope_trainer_pair(
     train_config = TrainConfig.from_yaml(
         pytestconfig.rootpath / "configs" / config_name
     )
-    data_config = dataclasses.replace(
-        train_config.data,
-        hist=history,
-        loader_version=loader_version,
-    )
     experiment_config = dataclasses.replace(
         train_config.experiment,
         cluster_data_dir=str(cache / data_source.name),
     )
     train_config = dataclasses.replace(
         train_config,
-        data=data_config,
         experiment=experiment_config,
         backend=backend,
     )
 
-    # Create a fresh scope to use in any tests using this config
-    scope = MultitonScope()
-    setattr(train_config, "_multiton_scope", scope)
+    return train_config
 
-    # NB session-scoped fixtures still need to do this "by hand" since
-    # trainer_pair doesn't run at session-scope time
-    with scope:
+
+@pytest.fixture(scope="function")
+def trainer_pair(
+    train_config,
+    request,
+    config_name: str,
+) -> Generator[tuple[TrainConfig, Trainer], None, None]:
+    """Provides a state-scoped config and trainer for tests."""
+    with MultitonScope():
         trainer = Trainer(train_config)
 
         # cur_step will set the number of pairs in the input/output sample
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
-    return train_config, trainer
-
-
-@pytest.fixture(scope="function")
-def trainer_pair(
-    _session_scope_trainer_pair: tuple[TrainConfig, "Trainer"],
-    request,
-    config_name: str,
-) -> Generator[tuple[TrainConfig, "Trainer"], None, None]:
-    """Provides a config and trainer for tests.
-
-    This fixture sets up the correct Multiton scope and skipping rules for this
-    config/trainer pair.
-
-    By default tests are run with one config. You can run them for multiple
-    configs by marking them with `only_configs` or `all_configs`.
-
-    eg:
-
-    @pytest.mark.only_configs(
-        "train_default.test.yaml",
-        "train_default_2step.test.yaml",
-    )
-    def test_something(trainer_pair):
-        ...
-
-    @pytest.mark.all_configs
-    def test_something_else(trainer_pair):
-        ...
-
-    * If there is an only_configs mark, that overrides all_configs.
-      We run all configs in only_configs in that case.
-    * If there is no only_configs mark, and there is an all_configs mark,
-      we run all configs.
-    * If there is no only_configs or all_configs mark, we run the test for the
-      default config.
-
-    """
-    check_skip_configs(request, config_name)
-    config, trainer = _session_scope_trainer_pair
-
-    with getattr(config, "_multiton_scope"):
-        yield config, trainer
+        yield train_config, trainer

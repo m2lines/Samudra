@@ -27,7 +27,6 @@ dependencies = [
   "cftime>=1.6.4.post1",
   "dacite>=1.9.2",
   "dask>=2025.2",
-  "distributed>=2025.2",
   "einops>=0.8.1",
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",

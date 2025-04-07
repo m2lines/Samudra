@@ -29,7 +29,12 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
-from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
+from ocean_emulators.utils.data import (
+    Normalize,
+    extract_wet_mask,
+    is_compact,
+    validate_data,
+)
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_om4, collate_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair
@@ -66,9 +71,12 @@ def make_loader(
         TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
-        ds_, means_, stds_ = validate_data(ds, ds_means, ds_stds)
+        ds_, means_, stds_ = validate_data(ds, ds_means, ds_stds, is_compact(ds))
         wet, wet_surface = extract_wet_mask(ds_, prognostic, cfg.data.hist)
-        Normalize.init_instance(means_, stds_, prognostic, boundary, wet)
+        wet_without_hist, _ = extract_wet_mask(ds_, prognostic, 0)
+        Normalize.init_instance(
+            means_, stds_, prognostic, boundary, wet_without_hist, is_compact(ds)
+        )
 
         match version:
             case LoaderVersion.OM4_EAGER:

@@ -23,6 +23,7 @@ from ocean_emulators.constants import (
 from ocean_emulators.utils.data import (
     Normalize,
     filter_compact_prognostic,
+    is_compact,
     mask,
     unflatten_masks,
 )
@@ -43,16 +44,12 @@ class OM4Dataset(Dataset):
         steps: int,
         stride: int = 1,
         is_inference: bool = False,
-        is_compact: bool = False,
     ) -> None:
-        self.prognostic, self.boundary = self.prepare_data(
-            data, prognostic_var_names, boundary_var_names
-        )
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
         self.is_inference: bool = is_inference
-        self.is_compact: bool = is_compact
+        self.is_compact: bool = is_compact(data)
 
         self._size: int = (
             data.time.size
@@ -64,6 +61,10 @@ class OM4Dataset(Dataset):
         #  calculate different steps.
         if self.is_inference:
             raise NotImplementedError("does not (yet) support inference.")
+
+        self.prognostic, self.boundary = self.prepare_data(
+            data, prognostic_var_names, boundary_var_names
+        )
 
         total_steps: int = 2 * self.hist + 2
         # Calculate the number of windows
@@ -85,8 +86,10 @@ class OM4Dataset(Dataset):
         """Initialize loader datasets."""
         # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
         data_ = unflatten_masks(data)
-
-        prognostic = filter_compact_prognostic(data_, prognostic_var_names)
+        if self.is_compact:
+            prognostic = filter_compact_prognostic(data_, prognostic_var_names)
+        else:
+            prognostic = data_[prognostic_var_names]
         boundary = data_[boundary_var_names]
 
         # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
@@ -157,9 +160,7 @@ class OM4Dataset(Dataset):
                 self.prognostic.isel(time=window)
                 .isel(time=slice(time_split, None))[without_lev]
                 .to_array()
-                .einops.rearrange(
-                    "step window (time variable)=var lat lon", dask="allowed"
-                )
+                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
                 .rename({"var": "variable"})
             )
             label_with_lev = (
@@ -167,7 +168,7 @@ class OM4Dataset(Dataset):
                 .isel(time=slice(time_split, None))[with_lev]
                 .to_array()
                 .einops.rearrange(
-                    "step window (time variable lev)=var lat lon", dask="allowed"
+                    "step (time variable lev)=var lat lon", dask="allowed"
                 )
                 .rename({"var": "variable"})
             )
@@ -176,9 +177,7 @@ class OM4Dataset(Dataset):
                 self.prognostic.isel(time=window)
                 .isel(time=slice(None, time_split))[without_lev]
                 .to_array(name="prognostic")
-                .einops.rearrange(
-                    "step window (time variable)=var lat lon", dask="allowed"
-                )
+                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
                 .drop_vars("var", errors="ignore")
             )
             prognostic_with_lev = (
@@ -186,7 +185,7 @@ class OM4Dataset(Dataset):
                 .isel(time=slice(None, time_split))[with_lev]
                 .to_array(name="prognostic")
                 .einops.rearrange(
-                    "step window (time variable lev)=var lat lon", dask="allowed"
+                    "step (time variable lev)=var lat lon", dask="allowed"
                 )
                 .drop_vars("var", errors="ignore")
             )
@@ -199,9 +198,7 @@ class OM4Dataset(Dataset):
                 self.prognostic.isel(time=window)
                 .isel(time=slice(time_split, None))
                 .to_array()
-                .einops.rearrange(
-                    "step window (time variable)=var lat lon", dask="allowed"
-                )
+                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
                 .rename({"var": "variable"})
             )
 
@@ -209,16 +206,14 @@ class OM4Dataset(Dataset):
                 self.prognostic.isel(time=window)
                 .isel(time=slice(None, time_split))
                 .to_array(name="prognostic")
-                .einops.rearrange(
-                    "step window (time variable)=var lat lon", dask="allowed"
-                )
+                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
                 .drop_vars("var", errors="ignore")
             )
         boundary = (
             self.boundary.isel(time=window)
             .isel(time=self.hist)
             .to_array("var", "boundary")
-            .einops.rearrange(self.boundary_einsum, dask="allowed")
+            .einops.rearrange("step var lat lon", dask="allowed")
             .drop_vars("var", errors="ignore")
         )
         # Combine prognostic and boundary data

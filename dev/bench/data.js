@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744131308921,
+  "lastUpdate": 1744134655427,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3193,6 +3193,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.0187477121762014",
             "extra": "mean: 140.22488481559992 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "15f367623238390035d81215398ef9e75100fa6a",
+          "message": "Torch-first data loader without dask (#178)\n\nI did some profiling and continue to see a huge amount of time spent in\nxarray indexing. I built a dataloader which goes as quickly as possible\ninto (CPU) torch and does not use dask. On my laptop this is 3x faster\nthan the eager data loader, and on my test GPU machine it's about 5x\nfaster in the data loader benchmarks. Also seems to eliminate any\nwaiting for data on my GPU machine with 4 workers when running with\nbatch size == 2.",
+          "timestamp": "2025-04-08T13:09:10-04:00",
+          "tree_id": "528cef2823966e8e35a9ade9ef153d4a66ead93d",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/15f367623238390035d81215398ef9e75100fa6a"
+        },
+        "date": 1744134654401,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.1964656921019934,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6569722111700642",
+            "extra": "mean: 5.089947202999997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cpu-mock-train_default.test.yaml]",
+            "value": 0.5285101690921249,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08281959057327175",
+            "extra": "mean: 1.8921111805999886 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.05483215258736427,
+            "unit": "iter/sec",
+            "range": "stddev: 1.3622184130786024",
+            "extra": "mean: 18.237474781000003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.1386892461082167,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09775715987708272",
+            "extra": "mean: 7.210364379799989 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007324764178857834,
+            "unit": "iter/sec",
+            "range": "stddev: 0.37396371121412264",
+            "extra": "mean: 136.52316655960004 sec\nrounds: 5"
           }
         ]
       }

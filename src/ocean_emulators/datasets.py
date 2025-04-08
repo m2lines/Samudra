@@ -22,6 +22,7 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.utils.data import (
     Normalize,
+    conditional_rearrange,
     filter_compact_prognostic,
     is_compact,
     mask,
@@ -151,48 +152,17 @@ class OM4Dataset(Dataset):
         # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
 
         if self.is_compact:
-            with_lev = [v for v in self.prognostic if "lev" in self.prognostic[v].dims]
-            without_lev = [
-                v for v in self.prognostic if "lev" not in self.prognostic[v].dims
-            ]
+            label = conditional_rearrange(
+                self.prognostic.isel(time=window).isel(time=slice(time_split, None)),
+                "step (time variable lev)=var lat lon",
+                concat_dim="var",
+            ).rename({"var": "variable"})
 
-            label_without_lev = (
-                self.prognostic.isel(time=window)
-                .isel(time=slice(time_split, None))[without_lev]
-                .to_array()
-                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
-                .rename({"var": "variable"})
+            prognostic = conditional_rearrange(
+                self.prognostic.isel(time=window).isel(time=slice(None, time_split)),
+                "step (time variable lev)=var lat lon",
+                concat_dim="var",
             )
-            label_with_lev = (
-                self.prognostic.isel(time=window)
-                .isel(time=slice(time_split, None))[with_lev]
-                .to_array()
-                .einops.rearrange(
-                    "step (time variable lev)=var lat lon", dask="allowed"
-                )
-                .rename({"var": "variable"})
-            )
-            label = xr.concat([label_without_lev, label_with_lev], dim="variable")
-            prognostic_withot_lev = (
-                self.prognostic.isel(time=window)
-                .isel(time=slice(None, time_split))[without_lev]
-                .to_array(name="prognostic")
-                .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
-                .drop_vars("var", errors="ignore")
-            )
-            prognostic_with_lev = (
-                self.prognostic.isel(time=window)
-                .isel(time=slice(None, time_split))[with_lev]
-                .to_array(name="prognostic")
-                .einops.rearrange(
-                    "step (time variable lev)=var lat lon", dask="allowed"
-                )
-                .drop_vars("var", errors="ignore")
-            )
-            prognostic = xr.concat(
-                [prognostic_withot_lev, prognostic_with_lev], dim="var"
-            )
-
         else:
             label = (
                 self.prognostic.isel(time=window)

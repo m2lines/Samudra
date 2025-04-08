@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
+from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.config import TimeConfig
 from ocean_emulators.constants import (
@@ -139,6 +140,30 @@ def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
         data_[name] = da.where(wetmask.sel(lev=lev), 0.0)
 
     return data_
+
+
+def conditional_rearrange(
+    data: xr.Dataset, pattern: str, except_dim="lev", concat_dim="variable"
+) -> xr.DataArray:
+    assert except_dim in pattern, f"{except_dim} must be in the pattern."
+    data_ = data.copy()
+
+    vars_with_dim = [v for v in data_ if except_dim in data_[v].dims]
+    vars_without_dim = [v for v in data_ if except_dim not in data_[v].dims]
+
+    data_with_dim = (
+        data_[vars_with_dim]
+        .to_array()
+        .einops.rearrange(pattern, dask="allowed")
+        .drop_vars(concat_dim, errors="ignore")
+    )
+    data_without_dim = (
+        data_[vars_without_dim]
+        .to_array()
+        .einops.rearrange(pattern.replace(except_dim, ""), dask="allowed")
+        .drop_vars(concat_dim, errors="ignore")
+    )
+    return xr.concat([data_without_dim, data_with_dim], dim=concat_dim)
 
 
 def compact_dataset(ds: xr.Dataset) -> xr.Dataset:

@@ -15,6 +15,7 @@ from typing_extensions import Self
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.data import compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -387,7 +388,7 @@ def data_source(request, pytestconfig) -> DataSource:
             return DataSource(
                 name=request.param, data=ds, means=ds.mean(), stds=ds.std()
             )
-        case "remote-om4":
+        case "remote-om4" | "compact":
             # The chunk-size should be about the same as the size of the time slice
             # for optimal download time. In local experiments, this time range (which
             # matches the mock data) is about 30 items.
@@ -410,13 +411,17 @@ def data_source(request, pytestconfig) -> DataSource:
                 ).compute()
             )
 
+            if request.param == "compact":
+                data = compact_dataset(data)
+                means = compact_dataset(means)
+                stds = compact_dataset(stds)
+
             return DataSource(
                 name=request.param,
                 data=data,
                 means=means,
                 stds=stds,
             )
-        # TODO(alxmrs): Add method to download remote data and compact it for tests.
         case _:
             raise NotImplementedError(f"Unknown data source: {request.param}.")
 

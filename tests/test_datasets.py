@@ -26,6 +26,7 @@ from ocean_emulators.constants import (
 from ocean_emulators.datasets import (
     InferenceDataset,
     OM4Dataset,
+    TorchTrainDataset,
     TrainData,
     TrainDataset,
 )
@@ -51,12 +52,18 @@ def make_loader(
     if time_slice is None:
         time_slice = cfg.train.time_slice
 
-    ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks={})
+    use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+    if use_dask:
+        chunks: dict[str, int] | None = {}
+    else:
+        chunks = None
+
+    ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks=chunks)
     ds_means = xr.open_dataset(
-        cfg.experiment.data_dir / cfg.data.data_means_path, chunks={}
+        cfg.experiment.data_dir / cfg.data.data_means_path, chunks=chunks
     )
     ds_stds = xr.open_dataset(
-        cfg.experiment.data_dir / cfg.data.data_stds_path, chunks={}
+        cfg.experiment.data_dir / cfg.data.data_stds_path, chunks=chunks
     )
 
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
@@ -103,6 +110,23 @@ def make_loader(
                     ]
                 )
                 collate_fn = collate_om4
+            case LoaderVersion.OM4_TORCH:
+                data = ConcatDataset(
+                    [
+                        TorchTrainDataset(
+                            data=ds_.sel(time=time_slice),
+                            prognostic_var_names=prognostic,
+                            boundary_var_names=boundary,
+                            wet=wet,
+                            wet_surface=wet_surface,
+                            hist=cfg.data.hist,
+                            steps=cfg.steps[0],
+                            stride=stride,
+                        )
+                        for stride in cfg.data_stride
+                    ]
+                )
+                collate_fn = collate_train_data
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
 
@@ -347,10 +371,17 @@ def test_inference__data_is_not_zero(inference_loader_pair):
             )
 
 
-def test_om4__is_equal_to_v1_data_loader(train_config):
+ORIGINAL_LOADER_VERSION = LoaderVersion.OM4_EAGER
+
+
+@pytest.mark.parametrize(
+    "loader_version", [v for v in LoaderVersion if v != ORIGINAL_LOADER_VERSION]
+)
+@pytest.mark.parametrize("data_source", ["mock"], indirect=True)
+def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
     with (
-        make_loader(train_config) as loader,
-        make_loader(train_config, version=LoaderVersion.OM4_LAZY) as om4_loader,
+        make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader,
+        make_loader(train_config, version=loader_version) as test_loader,
     ):
 
         def key(x):
@@ -360,10 +391,10 @@ def test_om4__is_equal_to_v1_data_loader(train_config):
         # So we use sorting as a simple way to compare the two loaders (without having
         # to monkeypatch the train loader fixture).
         original_samples = sorted(
-            [extract_sample_arrays(sample) for sample in loader], key=key
+            [extract_sample_arrays(sample) for sample in original_loader], key=key
         )
         om4_samples = sorted(
-            [extract_sample_arrays(sample) for sample in om4_loader], key=key
+            [extract_sample_arrays(sample) for sample in test_loader], key=key
         )
 
         for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):

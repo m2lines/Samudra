@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744131306938,
+  "lastUpdate": 1744131308921,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5827,6 +5827,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.09236420485193854",
             "extra": "mean: 69.6630461033994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e66d0ec12f83862c56dbec7a14241671fb8a3846",
+          "message": "Update base image to speed up CI, give instructions on how to do this (#184)\n\nWe could consider just making this always be the latest image but that\nwould also be a bit brittle.\n\nYou can see the first \"install nvidia drivers\" step takes about 2\nminutes extra here\nhttps://github.com/suryadheeshjith/Ocean_Emulator/actions/runs/14336583301/job/40185301143\nbecause it's waiting for automated upgrades to complete; this should\nreduce that.",
+          "timestamp": "2025-04-08T12:08:32-04:00",
+          "tree_id": "e526de0cff987379e6476caf723380fe57e4d866",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/e66d0ec12f83862c56dbec7a14241671fb8a3846"
+        },
+        "date": 1744131308094,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cuda-mock-train_default.test.yaml]",
+            "value": 0.044275393355207256,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12827653345777282",
+            "extra": "mean: 22.58590888120002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.052955064477822264,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07573439840784779",
+            "extra": "mean: 18.883935084599944 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.12803112689151508,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1314979355463288",
+            "extra": "mean: 7.810600627200074 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.009752624069660031,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4590864300302267",
+            "extra": "mean: 102.53650636560005 sec\nrounds: 5"
           }
         ]
       }

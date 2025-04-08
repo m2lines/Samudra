@@ -22,7 +22,8 @@ from collections import defaultdict
 import dask
 import dask.diagnostics
 import xarray as xr
-from dask.distributed import LocalCluster
+
+# from dask.distributed import LocalCluster
 from tenacity import retry
 
 DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -61,9 +62,9 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
 
 def main(args: argparse.Namespace) -> None:
     """Clones slice of Samudra data at the `dest_root` directory."""
-    if args.local_cluster:
-        cluster = LocalCluster()
-        client = cluster.get_client()  # noqa: F841
+    # if args.local_cluster:
+    #     cluster = LocalCluster()
+    #     client = cluster.get_client()  # noqa: F841
 
     # Ensure the path/to/dest exists
     if not args.dest.startswith("gs://") and not args.dest.startswith("s3://"):

@@ -64,9 +64,9 @@ def make_loader(
         chunks = None
 
     ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks=chunks)
+    if is_compact(ds) and version != LoaderVersion.OM4_LAZY:
+        pytest.skip("Only the lazy loader supports compact data.")
 
-    if is_compact(ds) and version == LoaderVersion.OM4_EAGER:
-        pytest.skip("Eager loader is not supported for compact data.")
     ds_means = xr.open_dataset(
         cfg.experiment.data_dir / cfg.data.data_means_path, chunks=chunks
     )

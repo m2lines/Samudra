@@ -290,10 +290,11 @@ class Trainer:
             raise NotImplementedError
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
-        # self.optimizer = torch.optim.AdamW(
-        #     self.model.parameters(), lr=cfg.learning_rate, fused=True
-        # )
+        # self.optimizer = torch.optim.Adam(self.model.parameters(),
+        # lr=cfg.learning_rate)
+        self.optimizer = torch.optim.AdamW(
+            self.model.parameters(), lr=cfg.learning_rate, fused=True
+        )
 
         # Scheduler
         self.scheduler = None

@@ -125,9 +125,9 @@ MASK_VARS = [
     "mask_18",
 ]
 
-RHO_0 = 1035.0
-CP_SW = 3992.0
-N_SECONDS = 5 * 24 * 60 * 60  # 5 day average
+RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
+CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
+SECONDS_PER_5DAY = 5 * 24 * 60 * 60  # 5 day average
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {

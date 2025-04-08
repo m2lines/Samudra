@@ -113,7 +113,8 @@ class Eval:
             chunks={},
         )
 
-        data = augment_static_data(data, cfg.data.static_data_paths, self.data_dir)
+        if cfg.data.static_data_paths is not None:
+            data = augment_static_data(data, cfg.data.static_data_paths, self.data_dir)
 
         self.data, self.data_mean, self.data_std = validate_data(
             data, data_mean, data_std
@@ -192,7 +193,6 @@ class Eval:
         self.debug = cfg.debug
         self.num_workers = cfg.data.num_workers
         self.inference_time = cfg.inference
-        self.time_delta = cfg.data.time_delta
         self.record_every = cfg.record_every
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
@@ -211,7 +211,6 @@ class Eval:
     def init_inference_store(self):
         self.num_time_steps = get_inference_steps(
             self.inference_time,
-            time_delta=self.time_delta,
             hist=self.hist,
         )
         inference_data = self.data.sel(time=self.inference_time.time_slice)

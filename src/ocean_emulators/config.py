@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
 
 import yaml
 from dacite import Config as DaciteConfig
@@ -37,11 +37,11 @@ class DataConfig:
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
     scaling_residuals_file: Optional[str] = None
-    static_data_paths: Optional[Dict[str, str]] = None
-    time_delta: int = 5
+    static_data_paths: Optional[Mapping[str, str | None]] = None
     num_workers: int = 4
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_EAGER.value)
+    use_dask: bool = True
 
 
 @dataclass
@@ -132,6 +132,9 @@ class TrainConfig:
     finetune: bool = False
     resume_ckpt_path: Optional[str] = None
     debug: bool = False
+    test_using_ema: bool = True
+    ema_decay: float = 0.999
+    faster_decay_at_start: bool = True
     backend: TrainBackendConfig = "auto"
 
     # Data parameters at root level
@@ -185,6 +188,9 @@ class TrainConfig:
             "loss": self.loss,
             "finetune": self.finetune,
             "resume_ckpt_path": self.resume_ckpt_path,
+            "test_using_ema": self.test_using_ema,
+            "ema_decay": self.ema_decay,
+            "faster_decay_at_start": self.faster_decay_at_start,
             "backend": self.backend,
             "data_percent": self.data_percent,
             "data_stride": self.data_stride,

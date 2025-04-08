@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Mapping
 
 import cftime
 import numpy as np
@@ -139,18 +139,18 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
     return weights
 
 
-def get_inference_steps(time_config: TimeConfig, time_delta: int = 5, hist: int = 1):
+def get_inference_steps(time_config: TimeConfig, hist: int = 1):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
     Args:
         time_config: Time configuration
-        time_delta: Time delta in days
         hist: Number of rollout steps
 
     Returns:
         num_steps: Number of rollout steps
     """
+    time_delta = 5
     start_time_str = time_config.start_time
     start_year, start_month, start_day = start_time_str.split("-")
     start_time = cftime.DatetimeNoLeap(
@@ -273,21 +273,26 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
 
 
 def augment_static_data(
-    data: xr.Dataset, static_data_paths: Dict[str, str] | None, data_dir: Path
+    data: xr.Dataset, static_data_paths: Mapping[str, str | None], data_dir: Path
 ) -> xr.Dataset:
     """Augment the data with static data."""
     data_copy = data.copy()
-    if static_data_paths is None:
-        return data_copy
     for var, path in static_data_paths.items():
+        if path is None:  # indicates data already present
+            assert var in data_copy.variables, (
+                f"Path not provided would assume static data variable {var} "
+                "already present in data. "
+                "Please provide the path to the static data variable."
+            )
+            if "time" in data_copy[var].dims:
+                data_copy[var] = data_copy[var].isel(time=0)
+            continue
         static_data = xr.open_zarr(data_dir / path)
         # check if static data already in data
         var_name = list(static_data.data_vars)[0]
         assert var_name == var, (
             f"Static data variable name {var_name} does not match {var}"
         )
-        if var_name in data.variables:
-            continue
         # Assuming the static data is coming from CM4 data
         if "lat" in static_data.dims and "lat" not in data.dims:
             static_data = static_data.rename({"lat": "y", "lon": "x"})

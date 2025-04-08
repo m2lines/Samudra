@@ -75,11 +75,11 @@ class OM4Dataset(Dataset):
         num_windows = data.time.size - (total_steps - 1) * self.stride
         # Create base indices
         indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["window"])
+        indices_da = xr.DataArray(indices, dims=["step"])
         # Create window dimension
         window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
         # Construct rolling indices
-        self.rolling_indices: Integer[xr.DataArray, "window time"] = (
+        self.rolling_indices: Integer[xr.DataArray, "step time"] = (
             indices_da + stride * window_dim
         )
 
@@ -88,7 +88,7 @@ class OM4Dataset(Dataset):
 
     def window_from(
         self, idx: int | slice, step: int
-    ) -> Integer[xr.DataArray, "window time"]:
+    ) -> Integer[xr.DataArray, "step time"]:
         """Coalesce index values to a window of the input data."""
         # First, parse int inputs as a slice.
         if isinstance(idx, int):
@@ -118,7 +118,7 @@ class OM4Dataset(Dataset):
         if idx.stop is None:
             idx = slice(idx.start, len(self), idx.step)
 
-        return self.rolling_indices.isel(window=idx)
+        return self.rolling_indices.isel(step=idx)
 
     def __getitem__(self, idx: int) -> Example:
         windows = [self.window_from(idx, step) for step in range(self.steps)]
@@ -134,14 +134,14 @@ class OM4Dataset(Dataset):
             self.prognostic.isel(time=window)
             .isel(time=slice(None, time_split))
             .to_array(name="prognostic")
-            .einops.rearrange("step window (time variable)=var lat lon", dask="allowed")
+            .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
             .drop_vars("var", errors="ignore")
         )
         boundary = (
             self.boundary.isel(time=window)
             .isel(time=slice(None, time_split))
             .to_array()
-            .einops.rearrange("step window (time variable)=var lat lon", dask="allowed")
+            .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
             .drop_vars("var", errors="ignore")
         )
         # Combine prognostic and boundary data
@@ -154,7 +154,7 @@ class OM4Dataset(Dataset):
             .isel(time=slice(time_split, None))
             .to_array()
             .einops.rearrange(
-                "step window (time variable)=var lat lon",
+                "step (time variable)=var lat lon",
                 dask="allowed",
             )
             .rename({"var": "variable"})
@@ -389,8 +389,9 @@ class TrainData:
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         input, _ = self.td_dict[step]
-        input[:, : self.num_prognostic_channels] = prognostic
-        return input
+        merged = input.clone()
+        merged[:, : self.num_prognostic_channels] = prognostic
+        return merged
 
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""

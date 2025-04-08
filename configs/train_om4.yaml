@@ -56,7 +56,6 @@ data:
     sea_surface_fraction: cm4_sea_surface_fraction_fixed.zarr
     hfgeou: cm4_geothermal_hf_fixed.zarr
   scaling_residuals_file: null
-  time_delta: 5
   num_workers: 4
   hist: 1
 

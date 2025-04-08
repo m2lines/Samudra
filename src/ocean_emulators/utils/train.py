@@ -33,26 +33,26 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
 
 def collate_om4(examples: Sequence[Example]) -> TrainData:
     """Combine several deferred Examples into single a `torch.Tensor` example pair."""
-    inputs_batch = xr.concat([x for x, _ in examples], dim="step")
-    labels_batch = xr.concat([y for _, y in examples], dim="step")
+    inputs_batch = xr.concat([x for x, _ in examples], dim="batch")
+    labels_batch = xr.concat([y for _, y in examples], dim="batch")
 
     inputs: Input = inputs_batch.transpose(
         "step",
-        "window",
+        "batch",
         "variable",
         "lat",
         "lon",
     ).compute()
     labels: Prognostic = labels_batch.transpose(
         "step",
-        "window",
+        "batch",
         "variable",
         "lat",
         "lon",
     ).compute()
 
-    input_tensor = torch.from_numpy(inputs.to_numpy())
-    labels_tensor = torch.from_numpy(labels.to_numpy())
+    input_tensor = torch.from_numpy(inputs.to_numpy()).float()
+    labels_tensor = torch.from_numpy(labels.to_numpy()).float()
 
     # TODO(#126): Remove TrainData interface (eventually)
     batch = TrainData(labels.shape[2])  # len(prognostic_vars)
@@ -85,6 +85,10 @@ class CheckpointPaths:
     @property
     def best_inference_checkpoint_path(self) -> Path:
         return self.checkpoint_dir / "best_inference_ckpt.pt"
+
+    @property
+    def ema_checkpoint_path(self) -> Path:
+        return self.checkpoint_dir / "ema_ckpt.pt"
 
     @property
     def best_validation_checkpoint_path(self) -> Path:

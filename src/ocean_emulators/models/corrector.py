@@ -8,7 +8,7 @@ from einops import rearrange
 from torch import Tensor
 
 from ocean_emulators.aggregator.metrics import area_weighted_sum
-from ocean_emulators.constants import CP_SW, N_SECONDS, RHO_0, TensorMap
+from ocean_emulators.constants import CP_SW, RHO_0, SECONDS_PER_5DAY, TensorMap
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device
 
@@ -23,22 +23,18 @@ class BaseCorrector(torch.nn.Module):
         self.normalize = normalize
         self.num_prognostic_channels = len(self.tensor_map.prognostic_var_names)
 
-    def _rearrange_fts(self, fts: Tensor) -> Tensor:
+    def _flatten_hist(self, fts: Tensor) -> Tensor:
         return rearrange(fts, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1)
 
-    def _rearrange_fts_with_boundary(self, fts: Tensor) -> Tuple[Tensor, Tensor]:
+    def _flatten_input(self, fts: Tensor) -> Tuple[Tensor, Tensor]:
         fts_input = fts[:, : (self.hist + 1) * self.num_prognostic_channels]
-        fts_input = rearrange(
-            fts_input, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1
-        )
+        fts_input = self._flatten_hist(fts_input)
 
         fts_boundary = fts[:, (self.hist + 1) * self.num_prognostic_channels :]
-        fts_boundary = rearrange(
-            fts_boundary, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1
-        )
+        fts_boundary = self._flatten_hist(fts_boundary)
         return fts_input, fts_boundary
 
-    def _inv_rearrange_fts(self, fts: Tensor) -> Tensor:
+    def _unflatten_hist(self, fts: Tensor) -> Tensor:
         return rearrange(fts, "(n hist) c h w -> n (hist c) h w", hist=self.hist + 1)
 
     def _unnormalize_fts_prognostic(self, fts: Tensor) -> Tensor:
@@ -50,7 +46,7 @@ class BaseCorrector(torch.nn.Module):
         fts = self.normalize.normalize_tensor_prognostic(fts)
         return fts.to(torch.float32)
 
-    def _unnormalize_fts_prognostic_with_boundary(
+    def _unnormalize_fts_input(
         self, fts: Tensor, fts_boundary: Tensor
     ) -> Tuple[Tensor, Tensor]:
         # Corrector is run in float64 to avoid precision loss
@@ -128,15 +124,15 @@ class ReLUCorrector(BaseCorrector):
             Corrected output tensor of the same shape
         """
         if not torch.isnan(self.non_neg_indices).all():
-            fts = self._rearrange_fts(fts)
+            fts = self._flatten_hist(fts)
             fts = self._apply_relu_correction(fts)
-            fts = self._inv_rearrange_fts(fts)
+            fts = self._unflatten_hist(fts)
         return fts
 
 
 def compute_ocean_heat_content(
     T: Tensor, dz: Tensor, area_weighted_func: Callable
-) -> Tuple[Tensor, Tensor]:
+) -> Tensor:
     """Compute the global heat content of the ocean.
 
     Args:
@@ -156,13 +152,15 @@ def compute_ocean_heat_content(
     # Sum over depth to get total heat content
     global_HC_t = area_weighted_func(total_HC_t)  # (batch,) [J]
 
-    return global_HC_t, HC_t
+    return global_HC_t
 
 
 class OceanHeatCorrector(BaseCorrector):
     """
     Applies a correction to potential temperature to conserve
     ocean heat content.
+
+    Following this document - https://www.overleaf.com/project/67ed705406995df4c185e6b6
 
     This class relies in input bounjdary conditions. Thus, we would
     need to supply the boundary conditions for each corresponding
@@ -195,16 +193,18 @@ class OceanHeatCorrector(BaseCorrector):
         self.hfgeou_tensor = hfgeou_tensor.to(get_device())
         self.sea_surface_fraction_tensor = sea_surface_fraction_tensor.to(get_device())
 
+        self.dHC_geothermal = (
+            self.area_weighted_func(self.hfgeou_tensor) * SECONDS_PER_5DAY
+        )
+
     def forward(self, fts_input_boundary: Tensor, fts: Tensor) -> Tensor:
         fts_input_boundary = fts_input_boundary.detach()
 
-        fts = self._rearrange_fts(fts)
+        fts = self._flatten_hist(fts)
         fts = self._unnormalize_fts_prognostic(fts)
 
-        fts_input, fts_boundary = self._rearrange_fts_with_boundary(fts_input_boundary)
-        fts_input, fts_boundary = self._unnormalize_fts_prognostic_with_boundary(
-            fts_input, fts_boundary
-        )
+        fts_input, fts_boundary = self._flatten_input(fts_input_boundary)
+        fts_input, fts_boundary = self._unnormalize_fts_input(fts_input, fts_boundary)
 
         # The input and output mapping of the variables are the same
         T_input = fts_input[:, self.thetao_idx]  # (batch, depth, lat, lon)
@@ -213,10 +213,10 @@ class OceanHeatCorrector(BaseCorrector):
         # Extract the boundary variables
         surface_heat_flux = fts_boundary[:, self.hfds_idx].squeeze(1)
 
-        global_HC_t0, HC_t0 = compute_ocean_heat_content(
+        global_HC_t0 = compute_ocean_heat_content(
             T_input, self.dz, self.area_weighted_func
         )
-        global_HC_t1, HC_t1 = compute_ocean_heat_content(
+        global_HC_t1 = compute_ocean_heat_content(
             T_pred, self.dz, self.area_weighted_func
         )
 
@@ -225,24 +225,20 @@ class OceanHeatCorrector(BaseCorrector):
             self.area_weighted_func(
                 surface_heat_flux * self.sea_surface_fraction_tensor
             )
-            * N_SECONDS
+            * SECONDS_PER_5DAY
         )  # [J]
 
         # Apply geothermal heat flux
-        dHC_expected += self.area_weighted_func(self.hfgeou_tensor) * N_SECONDS
+        dHC_expected += self.dHC_geothermal
 
         HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
-
-        # This seems redundant, so skipping it
-        # HC_t1_corrected = HC_t1 * HC_correct_ratio.view(-1, 1, 1, 1)
-        # T_corrected = HC_t1_corrected / (RHO_0 * CP_SW * self.dz.view(1, -1, 1, 1))
 
         T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1)
 
         fts[:, self.thetao_idx] = T_corrected
 
         fts = self._normalize_fts_prognostic(fts)
-        fts = self._inv_rearrange_fts(fts)
+        fts = self._unflatten_hist(fts)
 
         return fts
 

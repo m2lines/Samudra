@@ -42,6 +42,7 @@ from ocean_emulators.datasets import (
     InferenceDataset,
     InferenceDatasets,
     OM4Dataset,
+    TorchTrainDataset,
     TrainData,
     TrainDataset,
 )
@@ -159,7 +160,8 @@ class Trainer:
         self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        if cfg.data.use_dask:
+        self.use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+        if self.use_dask:
             chunks: dict[str, int] | None = {}
         else:
             chunks = None
@@ -699,6 +701,39 @@ class Trainer:
                         for stride in self.data_stride
                     ]
                 )
+            case TorchTrainDataset.FLAG:
+                train_data = ConcatDataset(
+                    [
+                        TorchTrainDataset(
+                            data=self.data.sel(time=self.train_times.time_slice),
+                            prognostic_var_names=self.prognostic_var_names,
+                            boundary_var_names=self.boundary_var_names,
+                            wet=self.wet,
+                            wet_surface=self.wet_surface,
+                            hist=self.hist,
+                            steps=cur_step,
+                            stride=stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+
+                val_data = ConcatDataset(
+                    [
+                        TorchTrainDataset(
+                            data=self.data.sel(time=self.val_times.time_slice),
+                            prognostic_var_names=self.prognostic_var_names,
+                            boundary_var_names=self.boundary_var_names,
+                            wet=self.wet,
+                            wet_surface=self.wet_surface,
+                            hist=self.hist,
+                            steps=1,  # current_step set to 1 for validation
+                            stride=stride,
+                        )
+                        for stride in self.data_stride
+                    ]
+                )
+
             case _:
                 raise NotImplementedError(
                     f"Loader version {self.loader_version} not supported."
@@ -718,6 +753,8 @@ class Trainer:
                 collate_fn: Callable[[Sequence[Any]], TrainData] = collate_train_data
             case OM4Dataset.FLAG:
                 collate_fn = collate_om4
+            case TorchTrainDataset.FLAG:
+                collate_fn = collate_train_data
             case _:
                 raise NotImplementedError(
                     f"Collate function not defined for loader version "

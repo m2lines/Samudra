@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-train-om4-thermo-ohc-corrector
+#SBATCH --job-name=samudra-train-om4-thermo-ohc-corrector-fixed
 #SBATCH --output=train/logs/slurm-%j.out
 #SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g

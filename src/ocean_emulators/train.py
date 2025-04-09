@@ -917,7 +917,7 @@ def main():
     cfg = TrainConfig.from_yaml(args.config, overrides)
     cfg.prepare_output_dirs()  # we do this first so logging can use them
 
-    listener = handle_logging(cfg)
+    handle_logging(cfg)
     handle_warnings()
 
     trainer = Trainer(cfg)
@@ -926,10 +926,7 @@ def main():
         trainer.run()
     except Exception as e:
         logger.exception("Evaluation failed with an exception")
-        listener.stop()
         raise e
-
-    listener.stop()
 
 
 if __name__ == "__main__":

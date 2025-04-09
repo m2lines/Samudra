@@ -1,59 +1,46 @@
 import datetime
 import logging
-import queue
 import resource
 import sys
 import time
 import traceback
 import warnings
 from collections import defaultdict, deque
-from logging.handlers import QueueHandler, QueueListener
 
 import torch
 
 
-def handle_logging(cfg) -> QueueListener:
+def handle_logging(cfg):
     # Set up logging
     logger = logging.getLogger()  # Use the root logger or specify a name if needed
     logger.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
-    fmt = logging.Formatter(
-        "%(threadName)s - %(asctime)s - %(levelname)s - %(message)s"
-    )
-
-    # Background thread logger.
-    # Based on Python's logging cookbook
-    #   https://docs.python.org/3/howto/logging-cookbook.html#dealing-with-handlers-that-block
-    q: queue.Queue = queue.Queue(-1)  # no limit on size
-    queue_handler = QueueHandler(q)
-    logger.addHandler(queue_handler)
-
-    handlers: list[logging.Handler] = []
 
     # STDOUT handler
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
-    stdout_handler.setFormatter(fmt)
+    stdout_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(stdout_handler)
 
     # Add experiment log file handler
     experiment_log_path = cfg.experiment.output_dir / "experiment.log"
     experiment_handler = logging.FileHandler(experiment_log_path)
+    experiment_handler = logging.FileHandler(experiment_log_path)
     experiment_handler.setLevel(logging.INFO)  # Capture info and above
-    experiment_handler.setFormatter(fmt)
-    handlers.append(experiment_handler)
+    experiment_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(experiment_handler)
 
     # Add separate error log file handler
     error_log_path = cfg.experiment.output_dir / "error.log"
     error_handler = logging.FileHandler(error_log_path)
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
-    error_handler.setFormatter(fmt)
-    handlers.append(error_handler)
-
-    # This listener spawns an internal thread for processing log messages.
-    listener = QueueListener(q, *handlers)
-    listener.start()
-
-    return listener
+    error_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(error_handler)
 
 
 def handle_warnings():

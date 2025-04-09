@@ -424,7 +424,7 @@ class Trainer:
         self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")
 
-        start_time = time.time()
+        start_time = time.perf_counter()
         for epoch in range(self.start_epoch, self.epochs + 1):
             # Iterative step training
             if epoch == self.start_epoch or epoch in self.step_transition:
@@ -436,15 +436,15 @@ class Trainer:
             if isinstance(self.val_sampler, DistributedSampler):
                 self.val_sampler.set_epoch(epoch)
 
-            start_epoch_train_time = time.time()
+            start_epoch_train_time = time.perf_counter()
             train_stats = self.train_one_epoch(epoch)
-            end_epoch_train_time = time.time()
+            end_epoch_train_time = time.perf_counter()
             val_stats = self.validate_one_epoch(epoch)
-            end_epoch_val_time = time.time()
+            end_epoch_val_time = time.perf_counter()
 
             if -1 in self.inference_epochs or epoch in self.inference_epochs:
                 inf_stats = self.inference_one_epoch(epoch)
-                end_epoch_inf_time = time.time()
+                end_epoch_inf_time = time.perf_counter()
             else:
                 inf_stats = {}
                 end_epoch_inf_time = None
@@ -461,7 +461,7 @@ class Trainer:
             if is_main_process():
                 self.save_all_checkpoints(epoch, v_loss, inf_loss)
 
-            time_elapsed = time.time() - start_epoch_train_time
+            time_elapsed = time.perf_counter() - start_epoch_train_time
 
             log_stats = {
                 **train_stats,
@@ -481,7 +481,7 @@ class Trainer:
             if is_main_process():
                 self.wandb_logger.log(log_stats, step=self.num_batches_seen)
 
-        total_time = time.time() - start_time
+        total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logging.info(f"Training time {total_time_str}")
         self.finish()

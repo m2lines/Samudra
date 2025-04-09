@@ -149,8 +149,8 @@ class MetricLogger(object):
         i = 0
         if not header:
             header = ""
-        start_time = time.time()
-        end = time.time()
+        start_time = time.perf_counter()
+        end = time.perf_counter()
         iter_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
         data_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
         space_fmt = ":" + str(len(str(len(iterable)))) + "d"
@@ -169,9 +169,9 @@ class MetricLogger(object):
         KB = 1024.0
         MB = 1024.0 * 1024.0
         for obj in iterable:
-            data_time.update(time.time() - end)
+            data_time.update(time.perf_counter() - end)
             yield obj
-            iter_time.update(time.time() - end)
+            iter_time.update(time.perf_counter() - end)
             if i % print_freq == 0 or i == len(iterable) - 1:
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
@@ -207,8 +207,8 @@ class MetricLogger(object):
                         )
                     )
             i += 1
-            end = time.time()
-        total_time = time.time() - start_time
+            end = time.perf_counter()
+        total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logging.info(
             "{} Total time: {} ({:.4f} s / it)".format(

@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any
 
 import numpy as np
@@ -22,6 +23,147 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.device import get_device, using_gpu
+
+logger = logging.getLogger(__name__)
+
+
+class OM4Dataset(Dataset):
+    """A `torch.Dataset` for Zarr-backed OM4 data."""
+
+    FLAG = LoaderVersion.OM4_LAZY
+
+    def __init__(
+        self,
+        data: xr.Dataset,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
+        hist: int,
+        steps: int,
+        stride: int = 1,
+        is_inference: bool = False,
+    ) -> None:
+        # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
+        data_ = unflatten_masks(data)
+
+        prognostic = data_[prognostic_var_names]
+        boundary = data_[boundary_var_names]
+
+        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
+        norm = Normalize.get_instance()
+        norm_prognostic = norm.normalize_prognostic(prognostic)
+        norm_boundary = norm.normalize_boundary(boundary)
+
+        # Set non-ocean areas to zero.
+        self.prognostic = mask(norm_prognostic, data_.wetmask)
+        self.boundary = mask(norm_boundary, data_.wetmask)
+
+        self.hist: int = hist
+        self.steps: int = steps
+        self.stride: int = stride
+        self.is_inference: bool = is_inference
+
+        self._size: int = (
+            data.time.size
+            - self.steps * (self.hist + 1) * self.stride
+            - self.hist * self.stride
+        )
+
+        # TODO(alxmrs): When we want to support inference later on, we will need to
+        #  calculate different steps.
+        if self.is_inference:
+            raise NotImplementedError("does not (yet) support inference.")
+
+        total_steps: int = 2 * self.hist + 2
+        # Calculate the number of windows
+        num_windows = data.time.size - (total_steps - 1) * self.stride
+        # Create base indices
+        indices = np.arange(num_windows)
+        indices_da = xr.DataArray(indices, dims=["step"])
+        # Create window dimension
+        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
+        # Construct rolling indices
+        self.rolling_indices: Integer[xr.DataArray, "step time"] = (
+            indices_da + stride * window_dim
+        )
+
+    def __len__(self) -> int:
+        return self._size
+
+    def window_from(
+        self, idx: int | slice, step: int
+    ) -> Integer[xr.DataArray, "step time"]:
+        """Coalesce index values to a window of the input data."""
+        # First, parse int inputs as a slice.
+        if isinstance(idx, int):
+            if idx < 0 or idx >= len(self):
+                raise IndexError(
+                    f"index {idx!r} out of bounds. Must be between 0 and {len(self)}."
+                )
+
+            if not self.is_inference:
+                idx = idx + step * (self.hist + 1) * self.stride
+            idx = slice(idx, idx + 1, 1)
+
+        # Validate and normalize all slices.
+        if self.is_inference:
+            if idx.start < 0 or idx.stop < 0 or idx.step < 0:
+                raise IndexError(
+                    f"index {idx!r} invalid: negative values not supported."
+                )
+            if idx.start > self._size or idx.stop > self._size:
+                raise IndexError(
+                    f"index {idx!r} out of bounds. "
+                    f"All bounds must be less than or equal to {len(self)}."
+                )
+
+        if idx.start is None:
+            idx = slice(0, idx.stop, idx.step)
+        if idx.stop is None:
+            idx = slice(idx.start, len(self), idx.step)
+
+        return self.rolling_indices.isel(step=idx)
+
+    def __getitem__(self, idx: int) -> Example:
+        windows = [self.window_from(idx, step) for step in range(self.steps)]
+        window = xr.concat(windows, dim="step")
+
+        # This point in time splits the training data and the label data!
+        time_split = self.hist + 1
+
+        # TODO(alxmrs): Tune dask parallelization
+        # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
+
+        prognostic = (
+            self.prognostic.isel(time=window)
+            .isel(time=slice(None, time_split))
+            .to_array(name="prognostic")
+            .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
+            .drop_vars("var", errors="ignore")
+        )
+        boundary = (
+            self.boundary.isel(time=window)
+            .isel(time=self.hist)
+            .to_array("var", "boundary")
+            .transpose("step", "var", "lat", "lon")
+            .drop_vars("var", errors="ignore")
+        )
+        # Combine prognostic and boundary data
+        input_ = xr.concat([prognostic, boundary], dim="var").rename(
+            {"var": "variable"}
+        )
+
+        label = (
+            self.prognostic.isel(time=window)
+            .isel(time=slice(time_split, None))
+            .to_array()
+            .einops.rearrange(
+                "step (time variable)=var lat lon",
+                dask="allowed",
+            )
+            .rename({"var": "variable"})
+        )
+
+        return input_, label
 
 
 class InferenceDataset(Dataset):
@@ -50,6 +192,7 @@ class InferenceDataset(Dataset):
         masked_fill_value,
         long_rollout,
     ):
+        loader_start = time.perf_counter()
         super().__init__()
         self.device = get_device()
 
@@ -95,6 +238,11 @@ class InferenceDataset(Dataset):
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
 
+        logger.info(
+            "[InferenceDataset] initialized in %.2f seconds",
+            time.perf_counter() - loader_start,
+        )
+
     def __len__(self):
         return self.size
 
@@ -132,11 +280,17 @@ class InferenceDataset(Dataset):
         return data
 
     def __getitem__(self, idx):
+        get_start = time.perf_counter()
         x_index = self._get_x_index(idx)
         data_in = self._get_prognostic(x_index)
         data_in_boundary = self._get_boundary(x_index)
         data_in = torch.cat((data_in, data_in_boundary), dim=1)
         label = self._get_label(x_index)
+
+        logger.debug(
+            "[InferenceDataset] get_item took %.5f seconds",
+            time.perf_counter() - get_start,
+        )
         return (data_in, label)
 
     def _get_x_index(self, idx):
@@ -335,6 +489,7 @@ class TrainDataset(Dataset):
         masked_fill_value: float,
         stride: int = 1,
     ):
+        loader_start = time.perf_counter()
         super().__init__()
         self.device = get_device()
 
@@ -380,10 +535,16 @@ class TrainDataset(Dataset):
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
 
+        logger.info(
+            "[TrainDataset] initialized in %.2f seconds",
+            time.perf_counter() - loader_start,
+            )
+
     def __len__(self) -> int:
         return self.size
 
     def __getitem__(self, idx: int):
+        get_start = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
         prev_rolling_idx = None
         for step in range(self.steps):
@@ -403,6 +564,9 @@ class TrainDataset(Dataset):
                 label=label,
             )
 
+        logger.debug(
+            "[TrainDataset] get_item took %.5f seconds", time.perf_counter() - get_start
+        )
         return TD
 
     def _get_x_index(
@@ -541,6 +705,7 @@ class TorchTrainDataset(Dataset):
         masked_fill_value: float,
         stride: int = 1,
     ):
+        loader_start = time.perf_counter()
         super().__init__()
         self.device = get_device()
 
@@ -586,10 +751,16 @@ class TorchTrainDataset(Dataset):
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
 
+        logger.info(
+            "[TorchTrainDataset] initialized in %.2f seconds",
+            time.perf_counter() - loader_start,
+        )
+
     def __len__(self) -> int:
         return self.size
 
     def __getitem__(self, idx: int):
+        get_start = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
         x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]
         x_index = xr.concat(x_indexes, dim="step")
@@ -616,6 +787,10 @@ class TorchTrainDataset(Dataset):
                 label=label[i],
             )
 
+        logger.debug(
+            "[TorchTrainDataset] get_item took %.5f seconds",
+            time.perf_counter() - get_start,
+        )
         return TD
 
     def _get_input_and_label(

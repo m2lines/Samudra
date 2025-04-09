@@ -172,37 +172,17 @@ class MetricLogger(object):
             if i % print_freq == 0 or i == len(iterable) - 1:
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+                named_metrics = dict(
+                    eta=eta_string,
+                    meters=str(self),
+                    time=str(iter_time),
+                    data=str(data_time),
+                    cpu_memory=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / KB,
+                )
                 if torch.cuda.is_available():
-                    logging.info(
-                        log_msg.format(
-                            i,
-                            len(iterable),
-                            eta=eta_string,
-                            meters=str(self),
-                            time=str(iter_time),
-                            data=str(data_time),
-                            cpu_memory=resource.getrusage(
-                                resource.RUSAGE_SELF
-                            ).ru_maxrss
-                            / KB,
-                            gpu_memory=torch.cuda.max_memory_allocated() / MB,
-                        )
-                    )
-                else:
-                    logging.info(
-                        log_msg.format(
-                            i,
-                            len(iterable),
-                            eta=eta_string,
-                            meters=str(self),
-                            time=str(iter_time),
-                            data=str(data_time),
-                            cpu_memory=resource.getrusage(
-                                resource.RUSAGE_SELF
-                            ).ru_maxrss
-                            / KB,
-                        )
-                    )
+                    named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
+
+                logging.info(log_msg.format(i, len(iterable), **named_metrics))
             i += 1
             end = time.time()
         total_time = time.time() - start_time

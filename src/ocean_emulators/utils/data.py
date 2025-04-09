@@ -420,6 +420,9 @@ class Normalize(Multiton):
         if data.ndim == 3:
             tensor_mean = tensor_mean.reshape([-1, 1, 1])
             tensor_std = tensor_std.reshape([-1, 1, 1])
+        elif data.ndim == 4:
+            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, -1, 1, 1])
         else:
             raise ValueError(f"Invalid data shape: {data.shape}")
 

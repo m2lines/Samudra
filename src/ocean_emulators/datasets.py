@@ -681,30 +681,32 @@ class TorchTrainDataset(Dataset):
 
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
-        for step in range(self.steps):
-            x_index = self._get_x_index(idx, step)
+        x_index = xr.concat(
+            [self._get_x_index(idx, step) for step in range(self.steps)], dim="step"
+        )
 
-            prognostic_all = torch.from_numpy(
-                self._prognostic_vars.isel(time=x_index)
-                .to_array()
-                .transpose(
-                    "variable", "time", "lat", "lon"
-                )  # this should be a no-op, for documentation
-                .to_numpy()
-            )
-            boundary = torch.from_numpy(
-                self._boundary_vars.isel(time=x_index)
-                .isel(time=self.hist, drop=True)
-                .to_array()
-                .transpose("variable", "lat", "lon")
-                .to_numpy()
-            )
+        prognostic_all = torch.from_numpy(
+            self._prognostic_vars.isel(time=x_index)
+            .to_array()
+            .transpose(
+                "step", "variable", "time", "lat", "lon"
+            )  # this should be a no-op, for documentation
+            .to_numpy()
+        )
+        boundary = torch.from_numpy(
+            self._boundary_vars.isel(time=x_index)
+            .isel(time=self.hist, drop=True)
+            .to_array()
+            .transpose("step", "variable", "lat", "lon")
+            .to_numpy()
+        )
 
-            input_, label = self._get_input_and_label(prognostic_all, boundary)
+        input_, label = self._get_input_and_label(prognostic_all, boundary)
 
+        for i in range(input_.shape[0]):
             TD.insert(
-                input_=input_,
-                label=label,
+                input_=input_[i],
+                label=label[i],
             )
 
         return TD
@@ -712,13 +714,15 @@ class TorchTrainDataset(Dataset):
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        prognostic_all: Float[torch.Tensor, "variable time lat lon"],
-        boundary: Float[torch.Tensor, "variable lat lon"],
+        prognostic_all: Float[torch.Tensor, "step variable time lat lon"],
+        boundary: Float[torch.Tensor, "step variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         normalize = Normalize.get_instance()
 
         # grab past steps and prep for model
-        input_ = self._prep_prognostic_steps(prognostic_all[:, : self.hist + 1, :, :])
+        input_ = self._prep_prognostic_steps(
+            prognostic_all[:, :, : self.hist + 1, :, :]
+        )
 
         # add in boundary to final input
         boundary = normalize.normalize_tensor_boundary(boundary).float()
@@ -726,16 +730,16 @@ class TorchTrainDataset(Dataset):
         total_input = torch.cat((input_, boundary), dim=0)
 
         # grab future steps, repeat as we do for input
-        label = self._prep_prognostic_steps(prognostic_all[:, self.hist + 1 :, :, :])
+        label = self._prep_prognostic_steps(prognostic_all[:, :, self.hist + 1 :, :, :])
         return total_input, label
 
     def _prep_prognostic_steps(
-        self, prognostic_steps: Float[torch.Tensor, "variable time lat lon"]
+        self, prognostic_steps: Float[torch.Tensor, "step variable time lat lon"]
     ) -> Input:
         normalize = Normalize.get_instance()
         prognostic_steps = rearrange(
             prognostic_steps,
-            "variable time lat lon -> time variable lat lon",
+            "step variable time lat lon -> time step variable lat lon",
         )
 
         # normalize expects variables in second dimension
@@ -746,7 +750,7 @@ class TorchTrainDataset(Dataset):
         # flatten time and variable dimensions into a set of channels for model
         prognostic_steps = rearrange(
             prognostic_steps,
-            "time variable lat lon -> (time variable) lat lon",
+            "time step variable lat lon -> step (time variable) lat lon",
         )
 
         # post-normalize, mask out values where there is no ocean
@@ -754,7 +758,7 @@ class TorchTrainDataset(Dataset):
 
         return prognostic_steps
 
-    def _get_x_index(self, idx: int, step: int) -> xr.Variable:
+    def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
         assert isinstance(idx, int)
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")
@@ -762,6 +766,4 @@ class TorchTrainDataset(Dataset):
             raise IndexError("Index out of range")
 
         window_index = idx + step * (self.hist + 1) * self.stride
-        rolling_idx = self.rolling_indices.isel(window_dim=window_index, drop=True)
-        x_index = xr.Variable(["time"], rolling_idx)
-        return x_index
+        return self.rolling_indices.isel(window_dim=window_index, drop=True)

@@ -141,7 +141,7 @@ def test_loaders(data_init):
         assert torch.allclose(gt_label, torch_label)
         assert torch.allclose(gt_label, lazy_label)
 
-    # TODO: Collated Test
+    # TODO: Multiple IndexCollated Test
 
     # TODO: Parameter-Sweep Test
 

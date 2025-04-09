@@ -538,6 +538,8 @@ class Trainer:
                     **self.loss_aggregator.get_variable_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
+                    "train/batch/data_load_time": metric_logger.meters["data_time"],
+                    "train/batch/data_iter_time": metric_logger.meters["iter_time"],
                 }
 
             self.wandb_logger.log(metrics, step=self.num_batches_seen)

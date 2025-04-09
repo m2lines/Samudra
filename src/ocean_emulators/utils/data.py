@@ -412,28 +412,33 @@ class Normalize(Multiton):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
-        is_compact: bool = False,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        if is_compact:
+        if is_compact(data_mean) and is_compact(data_std):
             self.prognostic_mean = filter_compact_prognostic(
                 data_mean, prognostic_var_names
             )
             self.prognostic_std = filter_compact_prognostic(
                 data_std, prognostic_var_names
             )
+            prog_mean_array = conditional_rearrange(
+                self.prognostic_mean, "(variable lev)=var", concat_dim="var"
+            ).rename({"var": "variable"})
+            prog_std_array = conditional_rearrange(
+                self.prognostic_std, "(variable lev)=var", concat_dim="var"
+            ).rename({"var": "variable"})
         else:
             self.prognostic_mean = data_mean[prognostic_var_names]
             self.prognostic_std = data_std[prognostic_var_names]
+            prog_mean_array = self.prognostic_mean.to_array()
+            prog_std_array = self.prognostic_std.to_array()
         self.boundary_mean = data_mean[boundary_var_names]
         self.boundary_std = data_std[boundary_var_names]
         self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access
-        self._prognostic_mean_np = (
-            self.prognostic_mean.to_array().to_numpy().reshape(-1)
-        )
-        self._prognostic_std_np = self.prognostic_std.to_array().to_numpy().reshape(-1)
+        self._prognostic_mean_np = prog_mean_array.to_numpy().reshape(-1)
+        self._prognostic_std_np = prog_std_array.to_numpy().reshape(-1)
         self._boundary_mean_np = self.boundary_mean.to_array().to_numpy().reshape(-1)
         self._boundary_std_np = self.boundary_std.to_array().to_numpy().reshape(-1)
         self._wet_mask_np = self.wet_mask.numpy()

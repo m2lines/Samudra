@@ -28,3 +28,17 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     trainer.run()
+
+
+@pytest.mark.manual
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("compact", "train_default_lazy.test.yaml")],
+    indirect=True,
+)
+def test_trainer__validate_one__compact(trainer_pair: TrainPair, caplog):
+    _, trainer = trainer_pair
+
+    epoch = 1
+    trainer.init_data_loaders(trainer.get_current_step(epoch))
+    trainer.validate_one_epoch(epoch)

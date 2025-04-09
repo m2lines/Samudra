@@ -1,0 +1,72 @@
+# A config file to test training.
+# Used in automated tests.
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 2
+batch_size: 1
+learning_rate: 0.0001
+scheduler: false
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: [-1]
+data_percent: 1.0
+train:
+  start_time: '1975-08-15'
+  end_time: '1975-10-25'
+val:
+  start_time: '1975-10-20'
+  end_time: '1975-11-25'
+inference:
+  - start_time: '1975-11-20'
+    end_time: '1975-12-20'
+data_stride: [1]
+steps: [1]
+step_transition: []
+backend: auto
+
+experiment:
+  base_name: train
+  sub_name: test
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: ocean-emulators
+    entity: m2lines
+    group: samudra-train-om4
+  network: Samudra
+  prognostic_vars_key: thermo_dynamic_5
+  boundary_vars_key: tau_hfds
+  cluster_data_dir: .data_cache/
+data:
+  data_path: data.zarr
+  data_means_path: means.nc
+  data_stds_path: stds.nc
+  scaling_residuals_file: null
+  time_delta: 5
+  num_workers: 4
+  hist: 0
+  loader_version: 'om4-lazy'
+
+
+samudra:
+  ch_width: [2, 3]
+  n_out: 4
+  dilation: [1, 2]
+  n_layers: [1, 1]
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: "circular"
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "bilinear_upsample"

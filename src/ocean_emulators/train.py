@@ -216,7 +216,6 @@ class Trainer:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=wet_without_hist,
-            is_compact=self.data_is_compact,
         )
 
         # Model

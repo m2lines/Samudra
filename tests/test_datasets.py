@@ -383,26 +383,18 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
         make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader,
         make_loader(train_config, version=loader_version) as test_loader,
     ):
-
-        def key(x):
-            return np.sum(x[0].flat) + np.sum(x[1].flat)
-
         # Why are we sorting here? Well, the default data loader uses a random sampler.
         # So we use sorting as a simple way to compare the two loaders (without having
         # to monkeypatch the train loader fixture).
-        original_samples = sorted(
-            [extract_sample_arrays(sample) for sample in original_loader], key=key
-        )
-        om4_samples = sorted(
-            [extract_sample_arrays(sample) for sample in test_loader], key=key
-        )
+        original_samples = [extract_sample_arrays(sample) for sample in original_loader]
+        om4_samples = [extract_sample_arrays(sample) for sample in test_loader]
 
         for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
             assert x_orig.dtype == x_new.dtype, "Input data types do not match."
             assert y_orig.dtype == y_new.dtype, "Output data types do not match."
 
-            x_not_close = np.isclose(x_orig, x_new) == False  # noqa: E712
-            y_not_close = np.isclose(y_orig, y_new) == False  # noqa: E712
+            x_not_close = np.equal(x_orig, x_new) == False  # noqa: E712
+            y_not_close = np.equal(y_orig, y_new) == False  # noqa: E712
 
             x_not_close_index = list(zip(*np.where(x_not_close)))
             y_not_close_index = list(zip(*np.where(y_not_close)))

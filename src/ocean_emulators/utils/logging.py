@@ -14,13 +14,12 @@ def handle_logging(cfg):
     # Set up logging
     logger = logging.getLogger()  # Use the root logger or specify a name if needed
     logger.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
+    fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(module)s - %(message)s")
 
     # STDOUT handler
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
-    stdout_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    )
+    stdout_handler.setFormatter(fmt)
     logger.addHandler(stdout_handler)
 
     # Add experiment log file handler
@@ -28,18 +27,14 @@ def handle_logging(cfg):
     experiment_handler = logging.FileHandler(experiment_log_path)
     experiment_handler = logging.FileHandler(experiment_log_path)
     experiment_handler.setLevel(logging.INFO)  # Capture info and above
-    experiment_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    )
+    experiment_handler.setFormatter(fmt)
     logger.addHandler(experiment_handler)
 
     # Add separate error log file handler
     error_log_path = cfg.experiment.output_dir / "error.log"
     error_handler = logging.FileHandler(error_log_path)
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
-    error_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    )
+    error_handler.setFormatter(fmt)
     logger.addHandler(error_handler)
 
 

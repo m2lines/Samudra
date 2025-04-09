@@ -35,6 +35,8 @@ from ocean_emulators.utils.logging import handle_logging, handle_warnings
 from ocean_emulators.utils.model import get_model_summary
 from ocean_emulators.utils.wandb import WandBLogger
 
+logger = logging.getLogger(__name__)
+
 
 class Eval:
     def __init__(self, cfg: EvalConfig) -> None:
@@ -68,9 +70,9 @@ class Eval:
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
 
-        logging.info(f"Prognostic variables: {str_prognostics}")
-        logging.info(f"Boundary variables: {str_boundaries}")
-        logging.info(f"Levels: {self.levels}")
+        logger.info(f"Prognostic variables: {str_prognostics}")
+        logger.info(f"Boundary variables: {str_boundaries}")
+        logger.info(f"Levels: {self.levels}")
 
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
@@ -82,11 +84,11 @@ class Eval:
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
-        logging.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
-        logging.info(f"Number of outputs (prognostic): {self.num_out}")
+        logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
+        logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
-        logging.info(f"Loading data")
+        logger.info(f"Loading data")
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
         self.data_means_path = cfg.data.data_means_path
@@ -133,16 +135,16 @@ class Eval:
         )
 
         # Model
-        logging.info(f"Getting model {cfg.experiment.network}")
+        logger.info(f"Getting model {cfg.experiment.network}")
         if "Samudra" == cfg.experiment.network:
             if cfg.samudra.ch_width[0] != self.num_in:
-                logging.info(
+                logger.info(
                     f"NOTE: Changing input channels to match data "
                     f"{cfg.samudra.ch_width[0]}->{self.num_in}"
                 )
                 cfg.samudra.ch_width[0] = self.num_in
             if cfg.samudra.n_out != self.num_out:
-                logging.info(
+                logger.info(
                     f"NOTE: Changing output channels to match data "
                     f"{cfg.samudra.n_out}->{self.num_out}"
                 )
@@ -226,7 +228,7 @@ class Eval:
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info(f"Eval time (Including wandb logging) {total_time_str}")
+        logger.info(f"Eval time (Including wandb logging) {total_time_str}")
         self.finish()
 
     @torch.no_grad()
@@ -288,7 +290,7 @@ def main():
         Evaluator.run()
     except Exception as e:
         # Log the exception with traceback
-        logging.exception("Evaluation failed with an exception")
+        logger.exception("Evaluation failed with an exception")
         raise e
 
 

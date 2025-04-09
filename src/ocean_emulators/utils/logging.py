@@ -150,6 +150,8 @@ class MetricLogger:
         end = time.perf_counter()
         iter_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
         data_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
+        self.meters["iter_time"] = iter_time
+        self.meters["data_time"] = data_time
         space_fmt = ":" + str(len(str(len(iterable)))) + "d"
         log_msg_list: list[str] = [
             header,

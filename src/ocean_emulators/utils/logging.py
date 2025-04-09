@@ -33,7 +33,7 @@ def handle_logging(cfg) -> QueueListener:
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
     stdout_handler.setFormatter(fmt)
-    handlers.append(stdout_handler)
+    logger.addHandler(stdout_handler)
 
     # Add experiment log file handler
     experiment_log_path = cfg.experiment.output_dir / "experiment.log"

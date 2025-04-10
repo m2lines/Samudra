@@ -1,5 +1,4 @@
-
-debug: true
+debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
@@ -20,34 +19,34 @@ val:
   end_time: "2014-10-05"
 inference:
   - start_time: "1975-01-03"
-    end_time: "1976-01-03" # "1985-01-03"
+    end_time: "1985-01-03"
   - start_time: "1985-01-03"
-    end_time: "1986-01-03" # "1995-01-03"
+    end_time: "1995-01-03"
   - start_time: "1995-01-03"
-    end_time: "1996-01-03" # "2005-01-03"
+    end_time: "2005-01-03"
   - start_time: "2004-10-05"
-    end_time: "2005-10-05" # "2014-10-05"
+    end_time: "2014-10-05"
 data_stride: [1]
 steps: [4]
 step_transition: []
-
 backend: auto
 
 experiment:
   base_name: train
-  sub_name: local_om4_samudra
-  rand_seed: 15
-  base_output_dir: .LOCAL
+  sub_name: om4_samudra
+  rand_seed: 5
+  base_output_dir: train
   gantry: false
-  cluster_data_dir: null
+  cluster_data_dir: /pscratch/sd/s/suryad/data
   wandb:
     mode: online
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
   network: Samudra
-  prognostic_vars_key: thermo_dynamic_all
+  prognostic_vars_key: thermo_all
   boundary_vars_key: tau_hfds_hfds_anom
+
 data:
   data_path: OM4_compact.zarr
   data_means_path: OM4_means_compact.nc
@@ -57,6 +56,7 @@ data:
   num_workers: 4
   hist: 1
   loader_version: om4-lazy
+
 samudra:
   ch_width: [157, 200, 250, 300, 400]
   n_out: 77

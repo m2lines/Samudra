@@ -357,7 +357,7 @@ class InferenceDataset(Dataset):
         data_in = Normalize.get_instance().normalize_prognostic(
             data_in
         )  # TODO: Weird error when I get_instance in init
-        if is_compact(data_in):
+        if is_compact(self._prognostic_vars):
             data_in = (
                 conditional_rearrange(
                     data_in,

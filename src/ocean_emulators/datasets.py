@@ -357,15 +357,27 @@ class InferenceDataset(Dataset):
         data_in = Normalize.get_instance().normalize_prognostic(
             data_in
         )  # TODO: Weird error when I get_instance in init
-        data_in = (
-            data_in.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-        data_in = rearrange(
-            data_in,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
+        if is_compact(data_in):
+            data_in = (
+                conditional_rearrange(
+                    data_in,
+                    "window_dim (time variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            data_in = (
+                data_in.to_array()
+                .transpose("window_dim", "time", "variable", "lat", "lon")
+                .to_numpy()
+            )
+            data_in = rearrange(
+                data_in,
+                "window_dim time variable lat lon -> "
+                "window_dim (time variable) lat lon",
+            )
         data_in = torch.from_numpy(data_in).float()
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
@@ -379,11 +391,22 @@ class InferenceDataset(Dataset):
         """
         data_in_boundary = self._boundary_vars.isel(time=x_index).isel(time=self.hist)
         data_in_boundary = Normalize.get_instance().normalize_boundary(data_in_boundary)
-        data_in_boundary = (
-            data_in_boundary.to_array()
-            .transpose("window_dim", "variable", "lat", "lon")
-            .to_numpy()
-        )
+        if is_compact(data_in_boundary):
+            data_in_boundary = (
+                conditional_rearrange(
+                    data_in_boundary,
+                    "window_dim (variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            data_in_boundary = (
+                data_in_boundary.to_array()
+                .transpose("window_dim", "variable", "lat", "lon")
+                .to_numpy()
+            )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
@@ -393,15 +416,27 @@ class InferenceDataset(Dataset):
             time=slice(self.hist + 1, None)
         )
         label = Normalize.get_instance().normalize_prognostic(label)
-        label = (
-            label.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-        label = rearrange(
-            label,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
+        if is_compact(label):
+            label = (
+                conditional_rearrange(
+                    label,
+                    "window_dim (time variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            label = (
+                label.to_array()
+                .transpose("window_dim", "time", "variable", "lat", "lon")
+                .to_numpy()
+            )
+            label = rearrange(
+                label,
+                "window_dim time variable lat lon -> "
+                "window_dim (time variable) lat lon",
+            )
         label = torch.from_numpy(label).float()
         # label = label * self.wet
         label = torch.where(self.wet, label, 0.0)

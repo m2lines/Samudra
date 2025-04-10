@@ -36,9 +36,8 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
     [("compact", "train_default_lazy.test.yaml")],
     indirect=True,
 )
-def test_trainer__validate_one__compact(trainer_pair: TrainPair, caplog):
+def test_trainer__compact(trainer_pair: TrainPair, caplog):
+    caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
 
-    epoch = 1
-    trainer.init_data_loaders(trainer.get_current_step(epoch))
-    trainer.validate_one_epoch(epoch)
+    trainer.run()

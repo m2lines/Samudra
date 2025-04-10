@@ -522,6 +522,8 @@ class Trainer:
                         "data_time"
                     ].value,
                 }
+                if (iter_time := metric_logger.meters["iter_time"]).count != 0:
+                    metrics["train/batch/iter_time"] = iter_time.value
 
             self.wandb_logger.log(metrics, step=self.num_batches_seen)
 

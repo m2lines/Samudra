@@ -195,6 +195,7 @@ class InferenceDataset(Dataset):
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
         self._prognostic_vars = data[prognostic_var_names]
         self._boundary_vars = data[boundary_var_names]
+        self._times = data.time
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -236,19 +237,23 @@ class InferenceDataset(Dataset):
 
     @property
     def initial_prognostic(self):
-        data = self.__getitem__(0)[0]
-        return data[:, : self.num_prognostic_channels]
+        x_index = self._get_x_index(0)
+        data_in = self._get_prognostic(x_index)
+        return data_in
 
-    def inference_target(self, step: int):
-        return self.__getitem__(step)[1]
+    def inference_target(self, step: int | slice):
+        x_index = self._get_x_index(step)
+        label = self._get_label(x_index)
+        return label
 
     def get_initial_input(self):
         data = self.__getitem__(0)[0]
         return data
 
     # TODO: This is a placeholder for now since time returned is incorrect
-    def get_input_time(self, step: int):
-        return self._prognostic_vars.time[step]
+    def get_input_time(self, step: int | slice):
+        x_index = self._get_x_index(step)
+        return self._times[x_index]
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         x_index = self._get_x_index(step)
@@ -266,16 +271,20 @@ class InferenceDataset(Dataset):
 
     def _get_x_index(self, idx):
         if isinstance(idx, slice):
-            if idx.start < 0 or idx.stop < 0 or idx.step < 0:
+            if (
+                (idx.start and idx.start < 0)
+                or (idx.stop and idx.stop < 0)
+                or (idx.step and idx.step < 0)
+            ):
                 raise IndexError("Sorry, negative indexing is not supported!")
-            elif idx.start >= self.size or idx.stop >= self.size:
-                raise IndexError(f"Index {idx} out of range with size {self.size}")
             elif idx.start is None and idx.stop is None:
                 idx = slice(0, self.size, idx.step)
             elif idx.start is None:
                 idx = slice(0, idx.stop, idx.step)
             elif idx.stop is None:
                 idx = slice(idx.start, self.size, idx.step)
+            elif idx.step is None:
+                idx = slice(idx.start, idx.stop, 1)
         elif isinstance(idx, int):
             if idx < 0:
                 raise IndexError("Sorry, negative indexing is not supported!")

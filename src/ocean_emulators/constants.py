@@ -102,6 +102,7 @@ MASK_VARS = [
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
+    "thetao_surface": [f"thetao_{DEPTH_I_LEVELS[0]}"],
     "thermo_dynamic_5": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
     ]
@@ -115,6 +116,7 @@ PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
 }
 BoundaryVarNames = list[str]
 BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
+    "hfds": ["hfds"],
     "tau_hfds": ["tauuo", "tauvo", "hfds"],
     "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
 }

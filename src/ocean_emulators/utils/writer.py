@@ -29,8 +29,9 @@ class ZarrWriter:
 
     def record_batch(self, IO: InfOutput):
         pred_tensor = IO.prediction
-        pred_tensor = pred_tensor.squeeze(0)
-        pred_tensor = rearrange(pred_tensor, "(n c) h w -> n c h w", n=self.hist + 1)
+        pred_tensor = rearrange(
+            pred_tensor, "n (hi c) h w -> (n hi) c h w", hi=self.hist + 1
+        )
         pred_tensor = self.normalize.unnormalize_tensor_prognostic(
             pred_tensor, fill_value=0.0
         )

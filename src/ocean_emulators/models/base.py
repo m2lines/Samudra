@@ -104,7 +104,7 @@ class BaseModel(torch.nn.Module):
                 )
             else:
                 input_tensor = dataset.merge_prognostic_and_boundary(
-                    prognostic=pred_tensor[-1].unsqueeze(0),
+                    prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
 

@@ -96,7 +96,7 @@ class Stepper:
                 num_steps_list = [num_model_steps]
 
         num_loops = len(num_steps_list)
-        initial_prognostic = None
+        initial_prognostic = dataset.initial_prognostic
         step = 0
         for loop, num_steps in enumerate(num_steps_list):
             logging.info(

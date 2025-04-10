@@ -79,11 +79,12 @@ class BaseModel(torch.nn.Module):
     def inference(
         self,
         dataset: InferenceDataset,
-        initial_prognostic=None,
+        initial_prognostic: torch.Tensor,
         steps_completed=0,
         num_steps=None,
         epoch=None,
     ) -> InfOutput:
+        print(num_steps)
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
@@ -94,10 +95,7 @@ class BaseModel(torch.nn.Module):
                 f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
                 f"of {steps_completed + num_steps - 1}."
             )
-            if step == 0 and steps_completed == 0:
-                input_tensor = dataset.get_initial_input().to(device=get_device())
-
-            elif step == 0 and steps_completed > 0:
+            if step == 0:
                 input_tensor = dataset.merge_prognostic_and_boundary(
                     prognostic=initial_prognostic,
                     step=steps_completed,
@@ -121,6 +119,9 @@ class BaseModel(torch.nn.Module):
                 )
             else:
                 pred = decodings
+
+            print(pred.shape)
+            print(pred_tensor[step].shape)
 
             pred_tensor[step] = pred
 

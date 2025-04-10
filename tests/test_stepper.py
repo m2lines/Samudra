@@ -151,7 +151,10 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
     )
 
     model.eval()
-    IO = model.inference(inference_dataset, num_steps=num_steps, epoch=0)
+    initial_prognostic = inference_dataset.initial_prognostic
+    IO = model.inference(
+        inference_dataset, initial_prognostic, num_steps=num_steps, epoch=0
+    )
     prediction = IO.prediction
     target = IO.target
 
@@ -225,3 +228,6 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
         device=merged_input_tensor.device,
     )
     assert torch.equal(merged_input_tensor.flatten(), expected_merged_input)
+
+
+# TODO: Add test for time returned

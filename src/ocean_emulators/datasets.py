@@ -350,7 +350,6 @@ class InferenceDataset(Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         label = torch.from_numpy(label).float()
-        # label = label * self.wet
         label = torch.where(self.wet, label, 0.0)
         return label
 

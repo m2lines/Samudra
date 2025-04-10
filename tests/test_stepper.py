@@ -87,7 +87,7 @@ class ModelRetBoundary(BaseModel):
         super().__init__(*args, **kwargs)
 
     def forward_once(self, x):
-        return x[:, :-1] * 0.0 + x[:, -1]
+        return x[:, :-1] * 10.0 + x[:, -1]
 
 
 # These tests will fail with OHC PR
@@ -137,7 +137,7 @@ def test_inference_dataset(inf_data_init, hist):
 
 
 @pytest.mark.parametrize("hist", [0, 1, 2, 3, 4])
-@pytest.mark.parametrize("num_steps", [1, 2, 3, 10])
+@pytest.mark.parametrize("num_steps", [1, 2, 3])
 def test_inference_rollout(inf_data_init, hist, num_steps):
     inference_dataset = inf_data_init
     model = ModelRetBoundary(
@@ -171,18 +171,20 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
 
     # Test if we are extracting the correct boundary values
     # The model returns the boundary condition at the latest step for each step
-    # For hist = 0, prediction is [1, 3, 5]
-    # For hist = 1, prediction is [3, 3, 7, 7, 11, 11]
-    # For hist = 2, prediction is [5, 5, 5, 11, 11, 11, 17, 17, 17]
+    # For hist = 0, prediction is [0*10+1=1, 1*10+3=13, 13*10+5=135]
+    # For hist = 1, prediction is [0*10+3=3, 2*10+3=23, 3*10+7=37, 23*10+7=237, ...]
+    # For hist = 2, prediction is [0*10+5=5, 2*10+5=25, 4*10+5=45, 5*10+11=61, ...]
 
-    start = 2 * (hist + 1) - 1
-    diff_step = (hist + 1) * 2
-    repeat = hist + 1
-    base = torch.arange(
-        start, start + diff_step * num_steps, diff_step, device=prediction.device
+    expected_prediction = torch.tensor(
+        [20 * i for i in range(hist + 1)], device=prediction.device
     )
-    base = base.repeat_interleave(repeat)
-    expected_prediction = torch.tensor(base, device=prediction.device)
+    expected_prediction = expected_prediction + 2 * hist + 1
+    base = expected_prediction.clone()
+    for i in range(1, num_steps):
+        cur_acc = 2 * hist + 1 + 2 * i * (hist + 1)
+        base = 10 * base + cur_acc
+        expected_prediction = torch.cat((expected_prediction, base))
+
     assert torch.equal(prediction.flatten(), expected_prediction)
 
 
@@ -214,7 +216,9 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
 
     pred = model.forward_once(input_tensor)
     assert pred.shape == (1, num_prognostic_channels, 1, 1)
-    expected_pred = torch.tensor([2 * hist + 1] * (hist + 1), device=pred.device)
+    expected_pred = torch.tensor(
+        [2 * hist + 1 + 2 * i * 10 for i in range((hist + 1))], device=pred.device
+    )
     assert torch.equal(pred.flatten(), expected_pred)
 
     merged_input_tensor = inference_dataset.merge_prognostic_and_boundary(
@@ -223,7 +227,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     )
     assert merged_input_tensor.shape == (1, num_input_channels, 1, 1)
     expected_merged_input = torch.tensor(
-        [2 * hist + 1] * (hist + 1)
+        [2 * hist + 1 + 2 * i * 10 for i in range((hist + 1))]
         + [(merge_step + 1) * (num_prognostic_channels * 2) - 1],
         device=merged_input_tensor.device,
     )

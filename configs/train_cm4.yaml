@@ -60,7 +60,7 @@ data:
   scaling_residuals_file: null
   time_delta: 5
   num_workers: 4
-  hist: 0
+  hist: 1
 
 
 samudra:

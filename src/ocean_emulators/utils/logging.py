@@ -14,13 +14,12 @@ def handle_logging(cfg):
     # Set up logging
     logger = logging.getLogger()  # Use the root logger or specify a name if needed
     logger.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
+    fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(module)s - %(message)s")
 
     # STDOUT handler
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
-    stdout_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    )
+    stdout_handler.setFormatter(fmt)
     logger.addHandler(stdout_handler)
 
     # Add experiment log file handler
@@ -28,18 +27,14 @@ def handle_logging(cfg):
     experiment_handler = logging.FileHandler(experiment_log_path)
     experiment_handler = logging.FileHandler(experiment_log_path)
     experiment_handler.setLevel(logging.INFO)  # Capture info and above
-    experiment_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    )
+    experiment_handler.setFormatter(fmt)
     logger.addHandler(experiment_handler)
 
     # Add separate error log file handler
     error_log_path = cfg.experiment.output_dir / "error.log"
     error_handler = logging.FileHandler(error_log_path)
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
-    error_handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    )
+    error_handler.setFormatter(fmt)
     logger.addHandler(error_handler)
 
 
@@ -153,6 +148,8 @@ class MetricLogger(object):
         end = time.time()
         iter_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
         data_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
+        self.meters["iter_time"] = iter_time
+        self.meters["data_time"] = data_time
         space_fmt = ":" + str(len(str(len(iterable)))) + "d"
         log_msg_list: list[str] = [
             header,
@@ -175,37 +172,17 @@ class MetricLogger(object):
             if i % print_freq == 0 or i == len(iterable) - 1:
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+                named_metrics = dict(
+                    eta=eta_string,
+                    meters=str(self),
+                    time=str(iter_time),
+                    data=str(data_time),
+                    cpu_memory=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / KB,
+                )
                 if torch.cuda.is_available():
-                    logging.info(
-                        log_msg.format(
-                            i,
-                            len(iterable),
-                            eta=eta_string,
-                            meters=str(self),
-                            time=str(iter_time),
-                            data=str(data_time),
-                            cpu_memory=resource.getrusage(
-                                resource.RUSAGE_SELF
-                            ).ru_maxrss
-                            / KB,
-                            gpu_memory=torch.cuda.max_memory_allocated() / MB,
-                        )
-                    )
-                else:
-                    logging.info(
-                        log_msg.format(
-                            i,
-                            len(iterable),
-                            eta=eta_string,
-                            meters=str(self),
-                            time=str(iter_time),
-                            data=str(data_time),
-                            cpu_memory=resource.getrusage(
-                                resource.RUSAGE_SELF
-                            ).ru_maxrss
-                            / KB,
-                        )
-                    )
+                    named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
+
+                logging.info(log_msg.format(i, len(iterable), **named_metrics))
             i += 1
             end = time.time()
         total_time = time.time() - start_time

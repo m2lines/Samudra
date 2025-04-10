@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any
 
 import numpy as np
@@ -30,6 +31,8 @@ from ocean_emulators.utils.data import (
 )
 from ocean_emulators.utils.device import get_device, using_gpu
 
+logger = logging.getLogger(__name__)
+
 
 class OM4Dataset(Dataset):
     """A `torch.Dataset` for Zarr-backed OM4 data."""
@@ -46,6 +49,7 @@ class OM4Dataset(Dataset):
         stride: int = 1,
         is_inference: bool = False,
     ) -> None:
+        loader_start = time.perf_counter()
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
@@ -78,6 +82,10 @@ class OM4Dataset(Dataset):
         # Construct rolling indices
         self.rolling_indices: Integer[xr.DataArray, "step time"] = (
             indices_da + stride * window_dim
+        )
+        logger.info(
+            "[OM4Dataset] initialized in %.2f seconds",
+            time.perf_counter() - loader_start,
         )
 
     # TODO(alxmrs): Put back into init!
@@ -142,6 +150,7 @@ class OM4Dataset(Dataset):
         return self.rolling_indices.isel(step=idx)
 
     def __getitem__(self, idx: int) -> Example:
+        get_start = time.perf_counter()
         windows = [self.window_from(idx, step) for step in range(self.steps)]
         window = xr.concat(windows, dim="step")
 
@@ -191,6 +200,9 @@ class OM4Dataset(Dataset):
             {"var": "variable"}
         )
 
+        logger.debug(
+            "[OM4Dataset] get_item took %.5f seconds", time.perf_counter() - get_start
+        )
         return input_, label
 
 
@@ -219,6 +231,7 @@ class InferenceDataset(Dataset):
         long_rollout,
         is_compact=False,
     ):
+        loader_start = time.perf_counter()
         super().__init__()
         self.device = get_device()
 
@@ -269,6 +282,11 @@ class InferenceDataset(Dataset):
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
 
+        logger.info(
+            "[InferenceDataset] initialized in %.2f seconds",
+            time.perf_counter() - loader_start,
+        )
+
     def __len__(self):
         return self.size
 
@@ -295,11 +313,17 @@ class InferenceDataset(Dataset):
         return data
 
     def __getitem__(self, idx):
+        get_start = time.perf_counter()
         x_index = self._get_x_index(idx)
         data_in = self._get_prognostic(x_index)
         data_in_boundary = self._get_boundary(x_index)
         data_in = torch.cat((data_in, data_in_boundary), dim=1)
         label = self._get_label(x_index)
+
+        logger.debug(
+            "[InferenceDataset] get_item took %.5f seconds",
+            time.perf_counter() - get_start,
+        )
         return (data_in, label)
 
     def _get_x_index(self, idx):
@@ -472,6 +496,7 @@ class TrainDataset(Dataset):
         steps: int,
         stride: int = 1,
     ):
+        loader_start = time.perf_counter()
         super().__init__()
         self.device = get_device()
 
@@ -522,10 +547,16 @@ class TrainDataset(Dataset):
         )
         self._boundary_vars = self.normalize.normalize_boundary(self._boundary_vars)
 
+        logger.info(
+            "[TrainDataset] initialized in %.2f seconds",
+            time.perf_counter() - loader_start,
+        )
+
     def __len__(self) -> int:
         return self.size
 
     def __getitem__(self, idx: int):
+        get_start = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
         prev_rolling_idx = None
         for step in range(self.steps):
@@ -545,6 +576,9 @@ class TrainDataset(Dataset):
                 label=label,
             )
 
+        logger.debug(
+            "[TrainDataset] get_item took %.5f seconds", time.perf_counter() - get_start
+        )
         return TD
 
     def _get_x_index(
@@ -667,6 +701,7 @@ class TorchTrainDataset(Dataset):
         steps: int,
         stride: int = 1,
     ):
+        loader_start = time.perf_counter()
         super().__init__()
         self.device = get_device()
 
@@ -709,10 +744,16 @@ class TorchTrainDataset(Dataset):
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
 
+        logger.info(
+            "[TorchTrainDataset] initialized in %.2f seconds",
+            time.perf_counter() - loader_start,
+        )
+
     def __len__(self) -> int:
         return self.size
 
     def __getitem__(self, idx: int):
+        get_start = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
@@ -740,6 +781,10 @@ class TorchTrainDataset(Dataset):
                 label=label,
             )
 
+        logger.debug(
+            "[TorchTrainDataset] get_item took %.5f seconds",
+            time.perf_counter() - get_start,
+        )
         return TD
 
     def _get_input_and_label(

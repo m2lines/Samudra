@@ -86,6 +86,8 @@ from ocean_emulators.utils.train import (
 )
 from ocean_emulators.utils.wandb import WandBLogger
 
+logger = logging.getLogger(__name__)
+
 
 class Trainer:
     model: Samudra | nn.parallel.DistributedDataParallel
@@ -128,9 +130,9 @@ class Trainer:
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
 
-        logging.info(f"Prognostic variables: {str_prognostics}")
-        logging.info(f"Boundary variables: {str_boundaries}")
-        logging.info(f"Levels: {self.levels}")
+        logger.info(f"Prognostic variables: {str_prognostics}")
+        logger.info(f"Boundary variables: {str_boundaries}")
+        logger.info(f"Levels: {self.levels}")
 
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
@@ -142,8 +144,8 @@ class Trainer:
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
-        logging.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
-        logging.info(f"Number of outputs (prognostic): {self.num_out}")
+        logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
+        logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
         assert isinstance(cfg.steps, list)
@@ -153,7 +155,7 @@ class Trainer:
         self.str_video = "steps_" + max_steps + "_" + "_Lateral_Data_025_no_smooth"
 
         # Dataloaders
-        logging.info(f"Loading data")
+        logger.info(f"Loading data")
         self.loader_version = LoaderVersion(cfg.data.loader_version)
         self.data_dir = cfg.experiment.data_dir
         self.data_path = cfg.data.data_path
@@ -219,16 +221,16 @@ class Trainer:
         )
 
         # Model
-        logging.info(f"Getting model {cfg.experiment.network}")
+        logger.info(f"Getting model {cfg.experiment.network}")
         if "Samudra" == cfg.experiment.network:
             if cfg.samudra.ch_width[0] != self.num_in:
-                logging.info(
+                logger.info(
                     f"NOTE: Changing input channels to match data "
                     f"{cfg.samudra.ch_width[0]}->{self.num_in}"
                 )
                 cfg.samudra.ch_width[0] = self.num_in
             if cfg.samudra.n_out != self.num_out:
-                logging.info(
+                logger.info(
                     f"NOTE: Changing output channels to match data "
                     f"{cfg.samudra.n_out}->{self.num_out}"
                 )
@@ -247,19 +249,19 @@ class Trainer:
 
         # Loss function
         if cfg.loss == "mse":
-            logging.info("Using decomposed mse loss")
+            logger.info("Using decomposed mse loss")
             self.loss_fn = decomposed_mse
         elif cfg.loss == "mse_diff_weighted":
             assert cfg.data.hist == 1  # TEMP
-            logging.info("Using decomposed mse loss with weighted diff")
+            logger.info("Using decomposed mse loss with weighted diff")
             self.loss_fn = decomposed_mse_diff_weighted
         elif cfg.loss == "mse_cos_weighted":
-            logging.info("Using decomposed mse loss with weighted cos")
+            logger.info("Using decomposed mse loss with weighted cos")
             area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device=self.device)
             self.loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
         elif cfg.loss == "mse_residual_scaled":
-            logging.info("Using decomposed mse loss with scaled residuals")
+            logger.info("Using decomposed mse loss with scaled residuals")
             assert self.scaling_residuals_file is not None, (
                 "With loss of 'mse_residual_scaled' you"
                 " must supply a scaling_residuals_file"
@@ -280,7 +282,7 @@ class Trainer:
             scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
             self.loss_fn = partial(decomposed_mse_scaled, scaling=scale)
         elif cfg.loss == "mse_mae":
-            logging.info("Using decomposed mse loss with mae")
+            logger.info("Using decomposed mse loss with mae")
             self.loss_fn = decomposed_mse_mae
         else:
             raise NotImplementedError
@@ -378,7 +380,7 @@ class Trainer:
         # Determine number of processes based on device
         if using_gpu():
             num_splits = get_world_size()
-            logging.info(f"Number of processes: {num_splits}, preferably use 8")
+            logger.info(f"Number of processes: {num_splits}, preferably use 8")
         else:
             num_splits = 1
 
@@ -462,10 +464,10 @@ class Trainer:
             v_loss = val_stats["val/mean/loss"]
             inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
 
-            logging.info(f"Achieved Train Loss = {train_loss:.3f}")
-            logging.info(f"Achieved Validation Loss = {v_loss:.3f}")
+            logger.info(f"Achieved Train Loss = {train_loss:.3f}")
+            logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
             if inf_loss is not None:
-                logging.info(f"Achieved Inference Loss = {inf_loss:.3f}")
+                logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
             if is_main_process():
                 self.save_all_checkpoints(epoch, v_loss, inf_loss)
@@ -492,7 +494,7 @@ class Trainer:
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info(f"Training time {total_time_str}")
+        logger.info(f"Training time {total_time_str}")
         self.finish()
 
     def train_one_epoch(self, epoch):
@@ -545,6 +547,8 @@ class Trainer:
                     **self.loss_aggregator.get_variable_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
+                    "train/batch/data_load_time": metric_logger.meters["data_time"],
+                    "train/batch/data_iter_time": metric_logger.meters["iter_time"],
                 }
 
             self.wandb_logger.log(metrics, step=self.num_batches_seen)
@@ -630,7 +634,7 @@ class Trainer:
             if cur_step is None:
                 cur_step = self.steps[-1]
                 cur_step_idx = len(self.steps) - 1
-            logging.info(f"Starting training at step {cur_step}")
+            logger.info(f"Starting training at step {cur_step}")
         else:
             # Transition to next step
             cur_step_idx = next(
@@ -638,7 +642,7 @@ class Trainer:
             )
             cur_step_idx += 1
             cur_step = self.steps[cur_step_idx]
-            logging.info(f"Transitioning to step {cur_step}")
+            logger.info(f"Transitioning to step {cur_step}")
 
         return cur_step
 
@@ -748,7 +752,7 @@ class Trainer:
                     f"Loader version {self.loader_version} not supported."
                 )
 
-        logging.info("Instantiating torch loaders")
+        logger.info("Instantiating torch loaders")
 
         if self.distributed is not None:
             self.train_sampler = DistributedSampler(train_data, shuffle=True)
@@ -795,22 +799,22 @@ class Trainer:
         with self._test_context():
             is_best_val_loss = False
             if v_loss <= self.best_val_loss:
-                logging.info(
+                logger.info(
                     f"Epoch validation loss ({v_loss:.3f}) is lower than "
                     f"previous best validation loss ({self.best_val_loss:.3f})."
                 )
-                logging.info(
+                logger.info(
                     "Saving lowest validation loss checkpoint to "
                     f"{self.ckpt_paths.best_validation_checkpoint_path}"
                 )
                 self.best_val_loss = v_loss
                 is_best_val_loss = True  # wait until inference error is updated
             if inf_loss is not None and (inf_loss <= self.best_inf_loss):
-                logging.info(
+                logger.info(
                     f"Epoch inference error ({inf_loss:.3f}) is lower than "
                     f"previous best inference error ({self.best_inf_loss:.3f})."
                 )
-                logging.info(
+                logger.info(
                     "Saving lowest inference error checkpoint to "
                     f"{self.ckpt_paths.best_inference_checkpoint_path}"
                 )
@@ -823,7 +827,7 @@ class Trainer:
                     epoch, self.ckpt_paths.best_validation_checkpoint_path
                 )
 
-        logging.info(
+        logger.info(
             f"Saving latest checkpoint to {self.ckpt_paths.latest_checkpoint_path}"
         )
         self.save_checkpoint(epoch, self.ckpt_paths.latest_checkpoint_path)
@@ -833,7 +837,7 @@ class Trainer:
             )
 
         with self._ema_context():
-            logging.info(
+            logger.info(
                 f"Saving latest EMA checkpoint to {self.ckpt_paths.ema_checkpoint_path}"
             )
             self.save_checkpoint(epoch, self.ckpt_paths.ema_checkpoint_path)
@@ -853,7 +857,7 @@ class Trainer:
         torch.save(checkpoint, checkpoint_path)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
-        logging.info(f"Loaded checkpoint from {checkpoint_path}")
+        logger.info(f"Loaded checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path)
         if finetune:
             self.model.load_state_dict(checkpoint["model"])
@@ -865,9 +869,9 @@ class Trainer:
             self.wandb_id = checkpoint["wandb_id"]
             self.wandb_name = checkpoint["wandb_name"]
 
-            logging.info(f"Start Epoch: {self.start_epoch}")
-            logging.info(f"Wandb id: {self.wandb_id}")
-            logging.info(f"Wandb name: {self.wandb_name}")
+            logger.info(f"Start Epoch: {self.start_epoch}")
+            logger.info(f"Wandb id: {self.wandb_id}")
+            logger.info(f"Wandb name: {self.wandb_name}")
             logging.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
             self._ema = EMATracker.from_state(checkpoint["ema"], self.model)
             self.best_val_loss = checkpoint["best_val_loss"]
@@ -932,7 +936,7 @@ def main():
     try:
         trainer.run()
     except Exception as e:
-        logging.exception("Evaluation failed with an exception")
+        logger.exception("Evaluation failed with an exception")
         raise e
 
 

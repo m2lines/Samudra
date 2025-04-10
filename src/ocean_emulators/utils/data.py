@@ -190,7 +190,8 @@ def get_norm_unnorm_dicts(
         data = data[:, :num_prognostic_channels]
 
     # Separate history from channels
-    data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
+    data_reshaped = rearrange(data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1)
+    data_reshaped = data_reshaped.unsqueeze(0)  # batch dim for minimal code-change
     # Get normalized dict
     data_dict = convert_tensor_out_to_dict(data_reshaped)
     # Unnormalize

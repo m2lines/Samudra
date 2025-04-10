@@ -7,6 +7,7 @@ import torch
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.utils.device import get_device
+from ocean_emulators.utils.model import InfOutput
 
 
 class BaseModel(torch.nn.Module):
@@ -82,8 +83,12 @@ class BaseModel(torch.nn.Module):
         steps_completed=0,
         num_steps=None,
         epoch=None,
-    ) -> list[torch.Tensor]:
-        outputs: list[torch.Tensor] = []
+    ) -> InfOutput:
+        out_shape = (num_steps, *dataset[0][1].shape[1:])
+
+        pred_tensor = torch.zeros(out_shape, device=get_device())
+        initial_time = dataset.get_input_time(steps_completed)
+
         for step in range(num_steps):
             logging.info(
                 f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
@@ -99,7 +104,7 @@ class BaseModel(torch.nn.Module):
                 )
             else:
                 input_tensor = dataset.merge_prognostic_and_boundary(
-                    prognostic=outputs[-1],
+                    prognostic=pred_tensor[-1].unsqueeze(0),
                     step=steps_completed + step,
                 )
 
@@ -117,6 +122,11 @@ class BaseModel(torch.nn.Module):
             else:
                 pred = decodings
 
-            outputs.append(pred)
+            pred_tensor[step] = pred
 
-        return outputs
+        target_tensor = dataset.inference_target(
+            slice(steps_completed, steps_completed + num_steps)
+        ).to(device=get_device())
+
+        IO = InfOutput(pred_tensor, target_tensor, initial_time)
+        return IO

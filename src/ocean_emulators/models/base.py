@@ -88,6 +88,7 @@ class BaseModel(torch.nn.Module):
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
         initial_time = dataset.get_input_time(steps_completed)
+        initial_prognostic = initial_prognostic.to(get_device())
 
         for step in range(num_steps):
             logging.info(

@@ -28,3 +28,15 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     trainer.run()
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("remote-om4", "train_default_wblogs.test.yaml")],
+    indirect=True,
+)
+def test_trainer__mini_2step__log_overhead(trainer_pair: TrainPair, caplog):
+    caplog.set_level(logging.INFO)
+    _, trainer = trainer_pair
+
+    trainer.run()

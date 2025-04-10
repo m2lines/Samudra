@@ -6,7 +6,6 @@ from ocean_emulators.aggregator.loss import LossAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
-from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
 from ocean_emulators.utils.model import ValOutput
@@ -25,8 +24,9 @@ class ValidateAggregator(TrainAggregator):
     ):
         super().__init__()
 
+        # SnapshotAggregator causes such significant performance issues. Please
+        # fix before adding back!
         val_aggregators: dict[str, ValidateSubAggregator] = {
-            "snapshot": SnapshotAggregator(metadata, hist),
             "mean_map": MapAggregator(metadata, hist),
             "reduced": MeanAggregator(area_weights, hist),
         }

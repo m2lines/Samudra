@@ -87,6 +87,7 @@ class SnapshotAggregator(ValidateSubAggregator):
                 else:
                     diverging = False
                 caption = self._get_caption(key, name)
+                # WARNING: THESE PLOTS CAUSE SUBSTANTIAL MEMORY/PERFORMANCE ISSUES!
                 wandb_image = plot_paneled_data(data, diverging, caption=caption)
                 image_logs[f"image-{key}/{name}"] = wandb_image
         image_logs = {f"{label}/{key}": image_logs[key] for key in image_logs}

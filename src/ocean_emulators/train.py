@@ -597,7 +597,7 @@ class Trainer:
                     dataset=inference_dataset,
                     inf_aggregator=inf_aggregator,
                     epoch=epoch,
-                    num_model_steps_forward=num_steps,
+                    num_model_steps_forward=num_steps // 2,
                 )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

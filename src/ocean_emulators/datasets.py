@@ -277,14 +277,14 @@ class InferenceDataset(Dataset):
                 or (idx.step and idx.step < 0)
             ):
                 raise IndexError("Sorry, negative indexing is not supported!")
-            elif idx.start is None and idx.stop is None:
+            if idx.step is None:
+                idx = slice(idx.start, idx.stop, 1)
+            if idx.start is None and idx.stop is None:
                 idx = slice(0, self.size, idx.step)
             elif idx.start is None:
                 idx = slice(0, idx.stop, idx.step)
             elif idx.stop is None:
                 idx = slice(idx.start, self.size, idx.step)
-            elif idx.step is None:
-                idx = slice(idx.start, idx.stop, 1)
         elif isinstance(idx, int):
             if idx < 0:
                 raise IndexError("Sorry, negative indexing is not supported!")

@@ -84,7 +84,6 @@ class BaseModel(torch.nn.Module):
         num_steps=None,
         epoch=None,
     ) -> InfOutput:
-        print(num_steps)
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
@@ -119,9 +118,6 @@ class BaseModel(torch.nn.Module):
                 )
             else:
                 pred = decodings
-
-            print(pred.shape)
-            print(pred_tensor[step].shape)
 
             pred_tensor[step] = pred
 

@@ -234,4 +234,25 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     assert torch.equal(merged_input_tensor.flatten(), expected_merged_input)
 
 
-# TODO: Add test for time returned
+@pytest.mark.parametrize("hist", [0, 1, 2, 3])
+@pytest.mark.parametrize("num_steps", [1, 2, 3])
+@pytest.mark.parametrize("start_time", [0, 6, 15])
+def test_inference_rollout_time(inf_data_init, hist, num_steps, start_time):
+    inference_dataset = inf_data_init
+    target_time = inference_dataset.get_target_time(start_time, num_steps)
+
+    # Base time
+    # Hist = 0, start_time = 0, base_time = 1
+    # Hist = 0, start_time = 1, base_time = 2
+    # Hist = 1, start_time = 0, base_time = 2
+    # Hist = 1, start_time = 2, base_time = 6
+    # Hist = 2, start_time = 0, base_time = 3
+    base_time = (start_time + 1) * (hist + 1)
+    times = [i for i in range(base_time, base_time + num_steps * (hist + 1))]
+    expected_target_time = xr.DataArray(
+        data=times,
+        dims=["time"],
+        coords={"time": times},
+    )
+    assert target_time.size == expected_target_time.size
+    assert target_time.equals(expected_target_time)

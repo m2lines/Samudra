@@ -250,10 +250,17 @@ class InferenceDataset(Dataset):
         data = self.__getitem__(0)[0]
         return data
 
-    # TODO: This is a placeholder for now since time returned is incorrect
-    def get_input_time(self, step: int | slice):
-        x_index = self._get_x_index(step)
-        return self._times[x_index]
+    def get_target_time(self, start_step: int, num_steps: int):
+        x_index = self._get_x_index(start_step)
+        batch_index = x_index.values[0]
+        steps_predicted = len(batch_index) // 2
+        start_target_index = batch_index[steps_predicted]
+
+        return self._times.isel(
+            time=slice(
+                start_target_index, start_target_index + num_steps * steps_predicted
+            )
+        )
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         x_index = self._get_x_index(step)

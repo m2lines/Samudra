@@ -21,6 +21,7 @@ class ZarrWriter:
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
         self.hist = hist
         self.buffer: torch.Tensor | None = None
+        self.time_buffer: xr.DataArray | None = None
         self.coords = coords
         self.model_path = model_path
 
@@ -29,6 +30,7 @@ class ZarrWriter:
 
     def record_batch(self, IO: InfOutput):
         pred_tensor = IO.prediction
+        pred_time = IO.time
         pred_tensor = rearrange(
             pred_tensor, "n (hi c) h w -> (n hi) c h w", hi=self.hist + 1
         )
@@ -40,14 +42,21 @@ class ZarrWriter:
         else:
             self.buffer = torch.cat([self.buffer, pred_tensor], dim=0)
 
+        if self.time_buffer is None:
+            self.time_buffer = pred_time
+        else:
+            self.time_buffer = xr.concat([self.time_buffer, pred_time], dim="time")
+
     def write(self):
         # Write to zarr
         if self.buffer is None:
             raise ValueError("No tensor to write")
 
+        if self.time_buffer is None:
+            raise ValueError("No time buffer to write")
+
         coords: Dict[str, Any] = {k: v for k, v in self.coords.items()}
-        # TODO: Replace by actual time so I dont need to fix this downstream
-        coords["time"] = range(self.buffer.shape[0])
+        coords["time"] = self.time_buffer
         ds = xr.Dataset(
             data_vars={
                 var: (["time", "lat", "lon"], self.buffer[:, i, :, :].cpu().numpy())
@@ -68,3 +77,4 @@ class ZarrWriter:
 
         # Reset
         self.buffer = None
+        self.time_buffer = None

@@ -87,8 +87,8 @@ class BaseModel(torch.nn.Module):
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
-        initial_time = dataset.get_input_time(steps_completed)
         initial_prognostic = initial_prognostic.to(get_device())
+        target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
             logging.info(
@@ -126,5 +126,5 @@ class BaseModel(torch.nn.Module):
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
 
-        IO = InfOutput(pred_tensor, target_tensor, initial_time)
+        IO = InfOutput(pred_tensor, target_tensor, target_time)
         return IO

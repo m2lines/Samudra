@@ -181,7 +181,6 @@ class Eval:
         self.num_workers = cfg.data.num_workers
         self.inference_time = cfg.inference
         self.time_delta = cfg.data.time_delta
-        self.record_every = cfg.record_every
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
@@ -250,7 +249,6 @@ class Eval:
             output_dir=self.output_dir,
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
-            record_every=self.record_every,
             save_zarr=self.save_zarr,
         )
         logs = inf_aggregator.get_summary_logs()

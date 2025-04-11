@@ -1,23 +1,22 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-maskstos-perlmutter
+#SBATCH --job-name=samudra-perlmutter-om4-speed-inlineinf-torch
 #SBATCH --output=train/logs/slurm-%j.out
 #SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g
 #SBATCH --account=m4874
-#SBATCH --qos=regular
+#SBATCH --qos=debug
 #SBATCH --mem=110G
-#SBATCH --nodes=4
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=2
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-task=1
 #SBATCH --gpu-bind=none     # This ensures all GPUs are visible to all tasks
-#SBATCH --time=48:00:00
+#SBATCH --time=00:20:00
 
 set -e
 
 # Load conda environment
-module load conda
-conda activate emulator
+source .venv/bin/activate
 
 # Set master node information
 export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
@@ -32,6 +31,6 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 
 # Run the training script
 srun --cpu-bind=cores \
-     python src/train.py \
-     --config configs/slurm_perlmutter_train_cm4.yaml \
+     python src/ocean_emulators/train.py \
+     --config configs/slurm_perlmutter_train_om4.yaml \
      --subname $SLURM_JOB_NAME

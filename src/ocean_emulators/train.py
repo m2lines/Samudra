@@ -30,6 +30,7 @@ from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
+    MAX_TRAIN_MODEL_STEPS_FORWARD,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
     Grid,
@@ -352,6 +353,9 @@ class Trainer:
         self.time_delta: int = cfg.data.time_delta
         self.num_batches_seen = 0
         self.ckpt_paths = CheckpointPaths(self.nets_dir)
+        self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
+            self.hist + 1
+        )
 
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
@@ -597,7 +601,9 @@ class Trainer:
                     dataset=inference_dataset,
                     inf_aggregator=inf_aggregator,
                     epoch=epoch,
-                    num_model_steps_forward=num_steps,
+                    num_model_steps_forward=min(
+                        num_steps // 2, self.max_train_model_steps_forward
+                    ),
                 )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

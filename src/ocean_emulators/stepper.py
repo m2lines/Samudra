@@ -1,13 +1,13 @@
 import logging
 from os import PathLike
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 
 import torch
 
 from ocean_emulators.aggregator import InferenceEvaluatorAggregator
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.utils.model import InfOutput, TrainOutput, ValOutput
+from ocean_emulators.utils.model import TrainOutput, ValOutput
 from ocean_emulators.utils.wandb import get_record_to_wandb
 from ocean_emulators.utils.writer import ZarrWriter
 
@@ -56,7 +56,6 @@ class Stepper:
         output_dir: Optional[str | PathLike] = None,
         model_path: Optional[str | PathLike] = None,
         num_model_steps_forward: int = 200,
-        record_every: int = 10,
         save_zarr: bool = False,
     ) -> None:
         if save_zarr:
@@ -97,14 +96,14 @@ class Stepper:
                 num_steps_list = [num_model_steps]
 
         num_loops = len(num_steps_list)
-        initial_prognostic = None
+        initial_prognostic = dataset.initial_prognostic
         step = 0
         for loop, num_steps in enumerate(num_steps_list):
             logging.info(
                 f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
                 f"Stepping {num_steps} steps forward."
             )
-            outs = model.inference(
+            IO = model.inference(
                 dataset,
                 initial_prognostic=initial_prognostic,
                 steps_completed=step,
@@ -112,36 +111,14 @@ class Stepper:
                 epoch=epoch,
             )
             # Setting initial prognostic for next loop
-            initial_prognostic = outs[-1].clone()
+            initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
+            if writer:
+                logging.info(f"Writing to zarr...")
+                writer.record_batch(IO)
+                writer.write()
 
-            all_logs: list[Dict[str, float | int | str]] = []
-            for i in range(num_steps):
-                logging.info(
-                    f"Inference [epoch {epoch}]: recording output window {i + step} of "
-                    f"{num_model_steps - 1}."
-                )
-                IO = InfOutput(
-                    prediction=outs[i],
-                    target=dataset.inference_target(step + i).to(
-                        outs[i].device
-                    ),  # TODO: Pack with input
-                    time=dataset.get_input_time(step + i),
-                )  # time-dependent aggs dont work, time is incorrect as well
-                if writer:
-                    writer.record_batch(IO)
-                logs = inf_aggregator.record_batch(IO)
-                all_logs.extend(logs)
-                if (i + 1) % record_every == 0:
-                    logging.info(f"Inference [epoch {epoch}]: wandb logging...")
-                    record_logs(all_logs)
-                    if writer:
-                        writer.write()
-                    all_logs = []
-
-            if len(all_logs) > 0:
-                logging.info(f"Inference [epoch {epoch}]: wandb logging...")
-                record_logs(all_logs)
-                if writer:
-                    writer.write()
-
+            logging.info(f"Recording logs...")
+            logs = inf_aggregator.record_batch(IO)
+            logging.info(f"Logging to wandb...")
+            record_logs(logs)
             step += num_steps

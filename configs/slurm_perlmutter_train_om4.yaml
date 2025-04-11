@@ -1,27 +1,50 @@
-
-debug: true
-save_zarr: true
+debug: false
 disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 70
+batch_size: 4
+learning_rate: 0.0002
+scheduler: true
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: [-1]
+data_percent: 1.0
+train:
+  start_time: "1975-01-03"
+  end_time: "2013-10-05"
+val:
+  start_time: "2013-10-05"
+  end_time: "2014-10-05"
 inference:
-  start_time: "2014-10-10"
-  end_time: "2022-12-24"
-ckpt_path: /this/path/does/not/exist # Fill in script
-num_model_steps_forward: -1
+  - start_time: "1975-01-03"
+    end_time: "1985-01-03"
+  - start_time: "1985-01-03"
+    end_time: "1995-01-03"
+  - start_time: "1995-01-03"
+    end_time: "2005-01-03"
+  - start_time: "2004-10-05"
+    end_time: "2014-10-05"
+data_stride: [1]
+steps: [4]
+step_transition: []
+backend: auto
 
 experiment:
-  base_name: eval
-  sub_name: local_om4_samudra
-  rand_seed: 15
-  base_output_dir: .LOCAL
+  base_name: train
+  sub_name: om4_samudra
+  rand_seed: 5
+  base_output_dir: train
   gantry: false
-  cluster_data_dir: null
+  cluster_data_dir: /pscratch/sd/s/suryad/data
   wandb:
     mode: online
     project: ocean-emulators
     entity: m2lines
-    group: samudra-eval-om4
+    group: samudra-train-om4
   network: Samudra
-  prognostic_vars_key: thermo_dynamic_all
+  prognostic_vars_key: thermo_all
   boundary_vars_key: tau_hfds_hfds_anom
 
 data:
@@ -32,7 +55,7 @@ data:
   time_delta: 5
   num_workers: 4
   hist: 1
-
+  loader_version: om4-torch
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]

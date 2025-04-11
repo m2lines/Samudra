@@ -7,6 +7,7 @@ import xarray as xr
 from scipy.stats import pearsonr
 
 from ocean_emulators.utils.data import (
+    DataSource,
     Normalize,
     compute_anomalies,
     flatten_masks,
@@ -124,7 +125,11 @@ def test_compute_anomalies():
     ds_std = ds.std().compute()
 
     # compute anomalies
-    anomalies, _, _ = compute_anomalies(ds, ds_mean, ds_std, ("thetao_0_anomalies",))
+
+    anom = compute_anomalies(
+        DataSource("test", ds, ds_mean, ds_std), ("thetao_0_anomalies",)
+    )
+    anomalies = anom.data
     anomalies_np = anomalies["thetao_0_anomalies"].to_numpy()
     anomalies_np_flat = anomalies_np[0][0]
 

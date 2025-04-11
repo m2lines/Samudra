@@ -30,7 +30,12 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
-from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
+from ocean_emulators.utils.data import (
+    DataSource,
+    Normalize,
+    extract_wet_mask,
+    validate_data,
+)
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_om4, collate_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair
@@ -52,20 +57,7 @@ def make_loader(
     if time_slice is None:
         time_slice = cfg.train.time_slice
 
-    use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
-    if use_dask:
-        chunks: dict[str, int] | None = {}
-    else:
-        chunks = None
-
-    ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks=chunks)
-    ds_means = xr.open_dataset(
-        cfg.experiment.data_dir / cfg.data.data_means_path, chunks=chunks
-    )
-    ds_stds = xr.open_dataset(
-        cfg.experiment.data_dir / cfg.data.data_stds_path, chunks=chunks
-    )
-
+    raw = DataSource.from_config(cfg)
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
@@ -73,16 +65,16 @@ def make_loader(
         TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
-        ds_, means_, stds_ = validate_data(ds, ds_means, ds_stds)
-        wet, wet_surface = extract_wet_mask(ds_, prognostic, cfg.data.hist)
-        Normalize.init_instance(means_, stds_, prognostic, boundary, wet)
+        val = validate_data(raw)
+        wet, wet_surface = extract_wet_mask(val.data, prognostic, cfg.data.hist)
+        Normalize.init_instance(val.means, val.stds, prognostic, boundary, wet)
 
         match version:
             case LoaderVersion.OM4_EAGER:
                 data: ConcatDataset | InferenceDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=ds_.sel(time=time_slice),
+                            data=val.data.sel(time=time_slice),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,
@@ -99,7 +91,7 @@ def make_loader(
                 data = ConcatDataset(
                     [
                         OM4Dataset(
-                            data=ds_.sel(time=time_slice),
+                            data=val.data.sel(time=time_slice),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             hist=cfg.data.hist,
@@ -114,7 +106,7 @@ def make_loader(
                 data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=ds_.sel(time=time_slice),
+                            data=val.data.sel(time=time_slice),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,

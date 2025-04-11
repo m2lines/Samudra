@@ -1,5 +1,6 @@
+import dataclasses
 import logging
-from typing import Dict
+from typing import Any, Dict, Self
 
 import cftime
 import numpy as np
@@ -7,7 +8,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from ocean_emulators.config import TimeConfig
+from ocean_emulators.config import TimeConfig, TrainConfig
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
@@ -15,11 +16,63 @@ from ocean_emulators.constants import (
     BoundaryVarNames,
     Grid,
     GridMask,
+    LoaderVersion,
     PrognosticMask,
     PrognosticVarNames,
     TensorMap,
 )
 from ocean_emulators.utils.multiton import Multiton
+
+
+@dataclasses.dataclass
+class DataSource:
+    """Data source for the model."""
+
+    name: str
+    data: xr.Dataset
+    means: xr.Dataset
+    stds: xr.Dataset
+
+    def copy(self, new_name: str | None = None) -> Self:
+        """Return a copy (of underlying `xr.Dataset`) of the DataSource."""
+        return dataclasses.replace(
+            self,
+            name=new_name or self.name,
+            data=self.data.copy(),
+            means=self.means.copy(),
+            stds=self.stds.copy(),
+        )
+
+    @classmethod
+    def from_config(cls, cfg: TrainConfig) -> Self:
+        use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+        if use_dask:
+            chunks: dict[str, int] | None = {}
+        else:
+            chunks = None
+
+        root = cfg.experiment.data_dir
+
+        if "*" in cfg.data.data_path:
+            kwargs: dict[str, Any] = dict(
+                engine="netcdf4", chunks={"time": 1, "lat": 180, "lon": 360}
+            )
+        else:
+            kwargs = dict(chunks=chunks, consolidated=True)
+        data = xr.open_dataset(root / cfg.data.data_path, **kwargs)
+
+        means = xr.open_dataset(
+            root / cfg.data.data_means_path,
+            engine="netcdf4" if cfg.data.data_means_path.endswith(".nc") else "zarr",
+            chunks=chunks,
+        )
+        stds = xr.open_dataset(
+            root / cfg.data.data_stds_path,
+            engine="netcdf4" if cfg.data.data_stds_path.endswith(".nc") else "zarr",
+            chunks=chunks,
+        )
+
+        return cls(name="raw", data=data, means=means, stds=stds)
 
 
 def extract_wet_mask(
@@ -214,33 +267,30 @@ def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:
 
 
 def compute_anomalies(
-    data: xr.Dataset,
-    data_mean: xr.Dataset,
-    data_std: xr.Dataset,
-    anomalies_vars: tuple[str, ...],
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    data_src: DataSource, anomalies_vars: tuple[str, ...]
+) -> DataSource:
     """
     Compute anomalies for the given variables.
     """
-    data_copy = data.copy()
-    data_mean_copy = data_mean.copy()
-    data_std_copy = data_std.copy()
+    src = data_src.copy(data_src.name + "_anomalies")
+
     for var in anomalies_vars:
         base_var = var.replace("_anomalies", "")
-        if var not in data_copy.variables and base_var in data_copy.variables:
+        if var not in src.data.variables and base_var in src.data.variables:
             logging.info(f"Computing anomalies for {base_var}")
             climatology = (
-                data_copy[base_var].groupby("time.dayofyear").mean("time").compute()
+                src.data[base_var].groupby("time.dayofyear").mean("time").compute()
             )
             # Remove the seasonal cycle (climatology) from the detrended data
-            day_of_year = data_copy[base_var]["time"].dt.dayofyear
-            data_copy[var] = (
-                data_copy[base_var] - climatology.sel(dayofyear=day_of_year)
+            day_of_year = src.data[base_var]["time"].dt.dayofyear
+            src.data[var] = (
+                src.data[base_var] - climatology.sel(dayofyear=day_of_year)
             ).compute()
-            data_copy = data_copy.drop(["dayofyear"])
-            data_mean_copy[var] = data_copy[var].mean().compute()
-            data_std_copy[var] = data_copy[var].std().compute()
-    return data_copy, data_mean_copy, data_std_copy
+            src.data = src.data.drop(["dayofyear"])
+            src.means[var] = src.data[var].mean().compute()
+            src.stds[var] = src.data[var].std().compute()
+
+    return src
 
 
 def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
@@ -277,35 +327,30 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-def validate_data(
-    data: xr.Dataset,
-    data_mean: xr.Dataset,
-    data_std: xr.Dataset,
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+def validate_data(src: DataSource) -> DataSource:
     """
     Validate the data such that we have the correct format for training.
     """
-    data_copy = (
-        data.copy()
-        .pipe(flatten_masks)
+    src_ = src.copy("validated")
+
+    src_.data = (
+        src_.data.pipe(flatten_masks)
         .pipe(with_level_index_vars)
         .pipe(with_lat_lon_coords)
     )
 
     # Check if data variables are in the right format
     # This check is to ensure we convert data to the correct format
-    data_mean_copy = with_level_index_vars(data_mean.copy())
-    data_std_copy = with_level_index_vars(data_std.copy())
+    src_.means = with_level_index_vars(src_.means)
+    src_.stds = with_level_index_vars(src_.stds)
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()
     anomalies_vars = get_anomalies_vars(tensor_map.boundary_var_names)
-    if anomalies_vars:
-        data_copy, data_mean_copy, data_std_copy = compute_anomalies(
-            data_copy, data_mean_copy, data_std_copy, anomalies_vars
-        )
 
-    return data_copy, data_mean_copy, data_std_copy
+    out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
+
+    return out
 
 
 # TODO: Repetitive code. Refactor

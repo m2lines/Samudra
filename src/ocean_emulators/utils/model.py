@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import torch
+import xarray as xr
 from torchinfo import summary
 
 
@@ -38,7 +39,7 @@ class InfOutput:
         self,
         prediction: torch.Tensor,
         target: torch.Tensor,
-        time: torch.Tensor,
+        time: xr.DataArray,
     ):
         self.prediction = prediction
         self.target = target

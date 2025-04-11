@@ -3,7 +3,7 @@
 # Assumes you have activated the emulator conda environment and
 # set the CLUSTER_NAME and OCEAN_DATA_DIR environment variables
 set -e
-CONFIG_PATH=configs/train_om4.yaml
+CONFIG_PATH=configs/train_cm4.yaml
 
 echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR
 echo 'Using config file:' $CONFIG_PATH

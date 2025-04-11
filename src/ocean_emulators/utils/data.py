@@ -180,6 +180,7 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tens
 
 def get_norm_unnorm_dicts(
     data: torch.Tensor,
+    long_rollout: bool,
     input_type: str = "target",
     num_prognostic_channels: int = 0,
     hist: int = 1,
@@ -190,8 +191,12 @@ def get_norm_unnorm_dicts(
         data = data[:, :num_prognostic_channels]
 
     # Separate history from channels
-    data_reshaped = rearrange(data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1)
-    data_reshaped = data_reshaped.unsqueeze(0)  # batch dim for minimal code-change
+    if long_rollout:
+        data_reshaped = rearrange(data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1)
+        data_reshaped = data_reshaped.unsqueeze(0)  # add artificial batch dim
+    else:
+        data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
+
     # Get normalized dict
     data_dict = convert_tensor_out_to_dict(data_reshaped)
     # Unnormalize

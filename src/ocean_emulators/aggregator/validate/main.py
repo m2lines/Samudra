@@ -52,8 +52,11 @@ class ValidateAggregator(TrainAggregator):
         if len(batch.gen_data) == 0:
             raise ValueError("No data in gen_data")
 
+        assert batch.target_data.shape == batch.gen_data.shape
+        assert batch.target_data.shape[1] == self.num_prognostic_channels
         target_data_dict, target_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.target_data,
+            long_rollout=False,
             input_type="target",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
@@ -61,12 +64,14 @@ class ValidateAggregator(TrainAggregator):
 
         gen_data_dict, gen_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.gen_data,
+            long_rollout=False,
             input_type="gen",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
         input_data_dict, input_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.input_data,
+            long_rollout=False,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,

@@ -279,9 +279,9 @@ class InferenceDataset(Dataset):
     def _get_x_index(self, idx):
         if isinstance(idx, slice):
             if (
-                (idx.start and idx.start < 0)
-                or (idx.stop and idx.stop < 0)
-                or (idx.step and idx.step < 0)
+                (idx.start is not None and idx.start < 0)
+                or (idx.stop is not None and idx.stop < 0)
+                or (idx.step is not None and idx.step < 0)
             ):
                 raise IndexError("Sorry, negative indexing is not supported!")
             if idx.step is None:

@@ -24,6 +24,7 @@ from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
+    DataSource,
     Normalize,
     extract_wet_mask,
     get_inference_steps,
@@ -118,9 +119,9 @@ class Eval:
             chunks={},
         )
 
-        self.data, self.data_mean, self.data_std = validate_data(
-            data, data_mean, data_std
-        )
+        raw_data = DataSource(name="raw", data=data, means=data_mean, stds=data_std)
+        val = validate_data(raw_data)
+        self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(

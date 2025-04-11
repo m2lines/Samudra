@@ -67,7 +67,7 @@ def make_loader(
         )
         val = validate_data(raw)
         wet, wet_surface = extract_wet_mask(val.data, prognostic, cfg.data.hist)
-        Normalize.init_instance(val.means, val.stds, prognostic, boundary, wet)
+        Normalize.init_instance(val, prognostic, boundary, wet)
 
         match version:
             case LoaderVersion.OM4_EAGER:
@@ -448,20 +448,21 @@ def traindataset_input():
         coords={"lat": [0], "lon": [0]},
     )
 
+    test = DataSource("test", data, data_mean, data_std)
+
     wet = torch.ones(2, 2, 2)
     wet_surface = torch.ones(2, 2)
 
     # Initialize and yield within the MultitonScope
     with MultitonScope():
         _ = Normalize.init_instance(
-            data_mean=data_mean,
-            data_std=data_std,
+            test,
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],
             wet_mask=wet,
         )
         traindataset = TrainDataset(
-            data=data,
+            data=test.data,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             wet=wet,

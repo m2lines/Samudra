@@ -128,8 +128,7 @@ class Eval:
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
-            data_mean=self.data_mean,
-            data_std=self.data_std,
+            val,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=wet_without_hist,

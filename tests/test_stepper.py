@@ -73,8 +73,7 @@ def inf_data_init(hist: int):
         )
 
         _ = Normalize.init_instance(
-            data_mean=val.means,
-            data_std=val.stds,
+            val,
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
             wet_mask=wet_without_hist,

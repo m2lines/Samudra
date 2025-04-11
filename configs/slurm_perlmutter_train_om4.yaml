@@ -42,20 +42,22 @@ experiment:
     mode: online
     project: ocean-emulators
     entity: m2lines
-    group: samudra-train-om4
+    group: samudra-train-om4-ohc-corrector
   network: Samudra
   prognostic_vars_key: thermo_all
   boundary_vars_key: tau_hfds_hfds_anom
 
 data:
-  data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies
+  data_path: 2025-04-11-3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_with_static_data.zarr
   data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
   data_stds_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_stds
+  static_data_vars:
+    - sea_surface_fraction
+    - hfgeou
   scaling_residuals_file: null
   time_delta: 5
   num_workers: 4
   hist: 1
-  loader_version: om4-torch
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]
@@ -75,3 +77,7 @@ samudra:
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"
+
+  corrector:
+    non_negative_corrector_names: null
+    ocean_heat_corrector: true

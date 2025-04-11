@@ -31,6 +31,8 @@ Example = tuple[Input, Prognostic] | tuple[xr.Dataset, xr.Dataset]
 GridMask = Bool[Array, "180 360"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
+MAX_TRAIN_MODEL_STEPS_FORWARD = 2000
+
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels
 # and all 2D variables do not have any digits / underscores in their names

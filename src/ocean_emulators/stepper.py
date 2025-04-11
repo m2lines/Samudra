@@ -113,9 +113,12 @@ class Stepper:
             # Setting initial prognostic for next loop
             initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
             if writer:
+                logging.info(f"Writing to zarr...")
                 writer.record_batch(IO)
                 writer.write()
 
+            logging.info(f"Recording logs...")
             logs = inf_aggregator.record_batch(IO)
+            logging.info(f"Logging to wandb...")
             record_logs(logs)
             step += num_steps

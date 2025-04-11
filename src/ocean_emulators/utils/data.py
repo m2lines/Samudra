@@ -192,9 +192,11 @@ def get_norm_unnorm_dicts(
 
     # Separate history from channels
     if long_rollout:
+        # All batches are part of the same rollout during inference
         data_reshaped = rearrange(data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1)
         data_reshaped = data_reshaped.unsqueeze(0)  # add artificial batch dim
     else:
+        # Batches are independent rollouts
         data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
 
     # Get normalized dict

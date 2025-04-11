@@ -240,7 +240,9 @@ class InferenceDataset(Dataset):
         return data[:, : self.num_prognostic_channels]
 
     def inference_target(self, step: int):
-        return self.__getitem__(step)[1]
+        x_index = self._get_x_index(step)
+        label = self._get_label(x_index)
+        return label
 
     def get_initial_input(self):
         data = self.__getitem__(0)[0]

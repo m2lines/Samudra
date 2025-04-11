@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import time
 from typing import Any
@@ -59,6 +60,8 @@ class InferenceDataset(Dataset):
         self.device = get_device()
 
         self.hist = hist
+        self.src = src
+        data = src.data
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
         data = src.data

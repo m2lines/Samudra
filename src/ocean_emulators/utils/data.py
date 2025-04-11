@@ -1,7 +1,6 @@
 import dataclasses
 import logging
-from collections.abc import Callable
-from typing import Literal, Self
+from typing import Any, Callable, Literal, Self
 
 import numpy as np
 import torch
@@ -20,6 +19,7 @@ from ocean_emulators.constants import (
     Grid,
     GridMask,
     Input,
+    LoaderVersion,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
@@ -178,6 +178,106 @@ class DataSource:
 
         return cls(
             name=f"{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
+            data=data,
+            means=means,
+            stds=stds,
+        )
+
+
+@dataclasses.dataclass
+class DataSource:
+    """Data source for the model."""
+
+    name: str
+    data: xr.Dataset
+    means: xr.Dataset
+    stds: xr.Dataset
+
+    def __hash__(self) -> int:
+        """Hashing good enough for dictionary keys."""
+
+        def _shape_hash(ds: xr.Dataset) -> int:
+            return hash(
+                "_".join(
+                    [
+                        f"{k}-{v}:{d}"
+                        for k, da in ds.items()
+                        for v, d in da.sizes.items()
+                    ]
+                )
+            )
+
+        return (
+            hash(self.name)
+            + _shape_hash(self.data)
+            + _shape_hash(self.means)
+            + _shape_hash(self.stds)
+        )
+
+    def filter(
+        self,
+        var_names: PrognosticVarNames | BoundaryVarNames,
+        *,
+        name: str | None = None,
+    ) -> Self:
+        """Filter the data source to only include the specified variables."""
+        data = self.data[var_names]
+        means = self.means[var_names]
+        stds = self.stds[var_names]
+
+        return dataclasses.replace(
+            self, name=name or self.name, data=data, means=means, stds=stds
+        )
+
+    def slice(self, time_slice: slice, *, name: str | None = None) -> Self:
+        """Slice the data source to only include the specified time slice."""
+        data = self.data.sel(time=time_slice)
+
+        return dataclasses.replace(self, name=name or self.name, data=data)
+
+    def copy(self, *, name: str | None = None) -> Self:
+        """Return a copy (of underlying `xr.Dataset`) of the DataSource."""
+        return dataclasses.replace(
+            self,
+            name=name or self.name,
+            data=self.data.copy(),
+            means=self.means.copy(),
+            stds=self.stds.copy(),
+        )
+
+    @classmethod
+    def from_config(
+        cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool | None = None
+    ) -> Self:
+        if use_dask is None:
+            use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+        chunks: dict[str, int] | None = {} if use_dask else None
+
+        root = cfg.experiment.data_dir
+
+        if "*" in cfg.data.data_path:
+            kwargs: dict[str, Any] = dict(
+                engine="netcdf4", chunks={"time": 1, "lat": 180, "lon": 360}
+            )
+        else:
+            kwargs = dict(chunks=chunks, consolidated=True)
+        data = xr.open_dataset(root / cfg.data.data_path, **kwargs)
+
+        means = xr.open_dataset(
+            root / cfg.data.data_means_path,
+            engine="netcdf4" if cfg.data.data_means_path.endswith(".nc") else "zarr",
+            chunks=chunks,
+        )
+        stds = xr.open_dataset(
+            root / cfg.data.data_stds_path,
+            engine="netcdf4" if cfg.data.data_stds_path.endswith(".nc") else "zarr",
+            chunks=chunks,
+        )
+
+        dask = "with_dask" if use_dask else "without_dask"
+
+        return cls(
+            name=f"raw-{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
             data=data,
             means=means,
             stds=stds,

@@ -5,9 +5,7 @@ inference:
   start_time: "0311-01-01"
   end_time: "0351-01-01"
 ckpt_path: /ckpt.pt
-num_model_steps_forward: 20
-record_every: 10
-backend: auto
+num_model_steps_forward: 370
 
 experiment:
   base_name: eval

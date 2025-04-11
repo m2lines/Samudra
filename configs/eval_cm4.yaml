@@ -5,9 +5,7 @@ inference:
   start_time: 311-01-01
   end_time: 351-01-01
 ckpt_path: /this/path/does/not/exist # Fill in script
-num_model_steps_forward: 20
-record_every: 10
-backend: auto
+num_model_steps_forward: 370
 
 experiment:
   base_name: eval

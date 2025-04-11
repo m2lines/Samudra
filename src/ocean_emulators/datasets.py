@@ -195,6 +195,7 @@ class InferenceDataset(Dataset):
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
         self._prognostic_vars = data[prognostic_var_names]
         self._boundary_vars = data[boundary_var_names]
+        self._times = data.time
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -236,19 +237,30 @@ class InferenceDataset(Dataset):
 
     @property
     def initial_prognostic(self):
-        data = self.__getitem__(0)[0]
-        return data[:, : self.num_prognostic_channels]
+        x_index = self._get_x_index(0)
+        data_in = self._get_prognostic(x_index)
+        return data_in
 
-    def inference_target(self, step: int):
-        return self.__getitem__(step)[1]
+    def inference_target(self, step: int | slice):
+        x_index = self._get_x_index(step)
+        label = self._get_label(x_index)
+        return label
 
     def get_initial_input(self):
         data = self.__getitem__(0)[0]
         return data
 
-    # TODO: This is a placeholder for now since time returned is incorrect
-    def get_input_time(self, step: int):
-        return self._prognostic_vars.time[step]
+    def get_target_time(self, start_step: int, num_steps: int):
+        x_index = self._get_x_index(start_step)
+        batch_index = x_index.values[0]
+        steps_predicted = len(batch_index) // 2
+        start_target_index = batch_index[steps_predicted]
+
+        return self._times.isel(
+            time=slice(
+                start_target_index, start_target_index + num_steps * steps_predicted
+            )
+        )
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         x_index = self._get_x_index(step)
@@ -266,11 +278,15 @@ class InferenceDataset(Dataset):
 
     def _get_x_index(self, idx):
         if isinstance(idx, slice):
-            if idx.start < 0 or idx.stop < 0 or idx.step < 0:
+            if (
+                (idx.start is not None and idx.start < 0)
+                or (idx.stop is not None and idx.stop < 0)
+                or (idx.step is not None and idx.step < 0)
+            ):
                 raise IndexError("Sorry, negative indexing is not supported!")
-            elif idx.start >= self.size or idx.stop >= self.size:
-                raise IndexError(f"Index {idx} out of range with size {self.size}")
-            elif idx.start is None and idx.stop is None:
+            if idx.step is None:
+                idx = slice(idx.start, idx.stop, 1)
+            if idx.start is None and idx.stop is None:
                 idx = slice(0, self.size, idx.step)
             elif idx.start is None:
                 idx = slice(0, idx.stop, idx.step)
@@ -341,7 +357,6 @@ class InferenceDataset(Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         label = torch.from_numpy(label).float()
-        # label = label * self.wet
         label = torch.where(self.wet, label, 0.0)
         return label
 
@@ -523,16 +538,6 @@ class TrainDataset(Dataset):
         # Create a slice for similar indexing as in InferenceDataset
         idx_slice = slice(start, end)
         rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
-        # Convert to tests, tests are outdated since changing time definition
-        # if prev_rolling_idx is not None:
-        #     assert (
-        #         prev_rolling_idx.isel(time=slice(self.hist + 1, None))
-        #         - rolling_idx.isel(time=slice(0, self.hist + 1))
-        #     ).sum() == 0  # Prev output = Cur Input
-        #     assert (
-        #         rolling_idx.diff("time") == self.stride
-        #     ).all()  # Stride is maintained
-        #     assert rolling_idx.isel(time=-1) < self.size  # Last index check
 
         x_index = xr.Variable(["window_dim", "time"], rolling_idx)
         return x_index

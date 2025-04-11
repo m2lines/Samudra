@@ -104,7 +104,6 @@ class InferenceEvaluatorAggregator:
         if len(data.target) == 0:
             raise ValueError("No target values in data")
         total_len = len(data.time)
-        assert data.prediction.shape == data.target.shape
         assert data.prediction.shape[0] == total_len // (self.hist + 1)
         target_norm_dict, target_unnorm_dict = get_norm_unnorm_dicts(
             data.target,

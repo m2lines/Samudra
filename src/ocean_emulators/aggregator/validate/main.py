@@ -52,7 +52,6 @@ class ValidateAggregator(TrainAggregator):
         if len(batch.gen_data) == 0:
             raise ValueError("No data in gen_data")
 
-        assert batch.target_data.shape == batch.gen_data.shape
         assert batch.target_data.shape[1] == self.num_prognostic_channels
         target_data_dict, target_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.target_data,

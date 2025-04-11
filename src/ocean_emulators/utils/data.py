@@ -329,17 +329,16 @@ def validate_data(src: DataSource) -> DataSource:
 class Normalize(Multiton):
     def _initialize(
         self,
-        data_mean: xr.Dataset,
-        data_std: xr.Dataset,
+        src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        self.prognostic_mean = data_mean[prognostic_var_names]
-        self.prognostic_std = data_std[prognostic_var_names]
-        self.boundary_mean = data_mean[boundary_var_names]
-        self.boundary_std = data_std[boundary_var_names]
+        self.prognostic_mean = src.means[prognostic_var_names]
+        self.prognostic_std = src.stds[prognostic_var_names]
+        self.boundary_mean = src.means[boundary_var_names]
+        self.boundary_std = src.stds[boundary_var_names]
         self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access

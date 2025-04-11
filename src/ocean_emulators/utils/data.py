@@ -1,6 +1,5 @@
 import logging
-from pathlib import Path
-from typing import Dict, Mapping
+from typing import Dict, List
 
 import cftime
 import numpy as np
@@ -272,46 +271,29 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-def augment_static_data(
-    data: xr.Dataset, static_data_paths: Mapping[str, str | None], data_dir: Path
-) -> xr.Dataset:
-    """Augment the data with static data."""
-    data_copy = data.copy()
-    for var, path in static_data_paths.items():
-        if path is None:  # indicates data already present
-            assert var in data_copy.variables, (
-                f"Path not provided would assume static data variable {var} "
-                "already present in data. "
-                "Please provide the path to the static data variable."
-            )
-            if "time" in data_copy[var].dims:
-                data_copy[var] = data_copy[var].isel(time=0)
-            continue
-        static_data = xr.open_zarr(data_dir / path)
-        # check if static data already in data
-        var_name = list(static_data.data_vars)[0]
-        assert var_name == var, (
-            f"Static data variable name {var_name} does not match {var}"
-        )
-        # Assuming the static data is coming from CM4 data
-        if "lat" in static_data.dims and "lat" not in data.dims:
-            static_data = static_data.rename({"lat": "y", "lon": "x"})
-        ds2_aligned, ds1_aligned = xr.align(data_copy, static_data, join="exact")
-        data_copy = xr.merge([ds1_aligned, ds2_aligned])
-    return data_copy
+def static_data_checks(data: xr.Dataset, static_data_vars: List[str]) -> xr.Dataset:
+    for var in static_data_vars:
+        assert var in data.variables, f"Static data variable {var} not found in data"
+        if "time" in data[var].dims:
+            data[var] = data[var].isel(time=0)
+
+    return data
 
 
 def validate_data(
     data: xr.Dataset,
     data_mean: xr.Dataset,
     data_std: xr.Dataset,
+    static_data_vars: List[str] | None = None,
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """
     Validate the data such that we have the correct format for training.
     """
+    data_copy = data.copy()
+    if static_data_vars:
+        data_copy = static_data_checks(data_copy, static_data_vars)
     data_copy = (
-        data.copy()
-        .pipe(flatten_masks)
+        data_copy.pipe(flatten_masks)
         .pipe(with_level_index_vars)
         .pipe(with_lat_lon_coords)
     )

@@ -57,9 +57,9 @@ data:
   data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
   data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
-  static_data_paths: # We still need to pass this to provide data keys for static data extraction
-    sea_surface_fraction: null
-    hfgeou: null
+  static_data_vars:
+    - sea_surface_fraction
+    - hfgeou
   scaling_residuals_file: null
   num_workers: 4
   hist: 0

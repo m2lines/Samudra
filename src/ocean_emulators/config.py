@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from os import PathLike
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Mapping, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 from dacite import Config as DaciteConfig
@@ -37,7 +37,7 @@ class DataConfig:
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
     scaling_residuals_file: Optional[str] = None
-    static_data_paths: Optional[Mapping[str, str | None]] = None
+    static_data_vars: Optional[List[str]] = None
     num_workers: int = 4
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_EAGER.value)

@@ -82,7 +82,7 @@ def inf_data_init(hist: int):
         yield inference_dataset
 
 
-class ModelRetBoundary(BaseModel):
+class MockModel(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -140,7 +140,7 @@ def test_inference_dataset(inf_data_init, hist):
 @pytest.mark.parametrize("num_steps", [1, 2, 3])
 def test_inference_rollout(inf_data_init, hist, num_steps):
     inference_dataset = inf_data_init
-    model = ModelRetBoundary(
+    model = MockModel(
         ch_width=[1],
         n_out=inference_dataset.num_prognostic_channels,
         wet=inference_dataset.wet,
@@ -193,7 +193,7 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
 @pytest.mark.parametrize("merge_step", [1, 2, 3])
 def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     inference_dataset = inf_data_init
-    model = ModelRetBoundary(
+    model = MockModel(
         ch_width=[1],
         n_out=inference_dataset.num_prognostic_channels,
         wet=inference_dataset.wet,

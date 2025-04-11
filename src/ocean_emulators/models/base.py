@@ -7,6 +7,7 @@ import torch
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.utils.device import get_device
+from ocean_emulators.utils.model import InfOutput
 
 
 class BaseModel(torch.nn.Module):
@@ -87,28 +88,30 @@ class BaseModel(torch.nn.Module):
     def inference(
         self,
         dataset: InferenceDataset,
-        initial_prognostic=None,
+        initial_prognostic: torch.Tensor,
         steps_completed=0,
         num_steps=None,
         epoch=None,
-    ) -> list[torch.Tensor]:
-        outputs: list[torch.Tensor] = []
+    ) -> InfOutput:
+        out_shape = (num_steps, *dataset[0][1].shape[1:])
+
+        pred_tensor = torch.zeros(out_shape, device=get_device())
+        initial_prognostic = initial_prognostic.to(get_device())
+        target_time = dataset.get_target_time(steps_completed, num_steps)
+
         for step in range(num_steps):
             logging.info(
                 f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
                 f"of {steps_completed + num_steps - 1}."
             )
-            if step == 0 and steps_completed == 0:
-                input_tensor = dataset.get_initial_input().to(device=get_device())
-
-            elif step == 0 and steps_completed > 0:
+            if step == 0:
                 input_tensor = dataset.merge_prognostic_and_boundary(
                     prognostic=initial_prognostic,
                     step=steps_completed,
                 )
             else:
                 input_tensor = dataset.merge_prognostic_and_boundary(
-                    prognostic=outputs[-1],
+                    prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
 
@@ -126,6 +129,11 @@ class BaseModel(torch.nn.Module):
             else:
                 pred = decodings
 
-            outputs.append(pred)
+            pred_tensor[step] = pred
 
-        return outputs
+        target_tensor = dataset.inference_target(
+            slice(steps_completed, steps_completed + num_steps)
+        ).to(device=get_device())
+
+        IO = InfOutput(pred_tensor, target_tensor, target_time)
+        return IO

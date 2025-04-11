@@ -103,14 +103,18 @@ class InferenceEvaluatorAggregator:
             raise ValueError("No prediction values in data")
         if len(data.target) == 0:
             raise ValueError("No target values in data")
+        total_len = len(data.time)
+        assert data.prediction.shape[0] == total_len // (self.hist + 1)
         target_norm_dict, target_unnorm_dict = get_norm_unnorm_dicts(
             data.target,
+            long_rollout=True,
             input_type="target",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
         gen_norm_dict, gen_unnorm_dict = get_norm_unnorm_dicts(
             data.prediction,
+            long_rollout=True,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
@@ -151,6 +155,7 @@ class InferenceEvaluatorAggregator:
 
         data_norm_dict, data_unnorm_dict = get_norm_unnorm_dicts(
             initial_prognostic,
+            long_rollout=True,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
@@ -257,8 +262,12 @@ class InferenceAggregator:
         if len(data.data) == 0:
             raise ValueError("data is empty")
 
+        total_len = len(data.time)
+        assert data.data.shape[0] == total_len // (self.hist + 1)
+
         _, data_unnorm_dict = get_norm_unnorm_dicts(
             data.data,
+            long_rollout=True,
             input_type="gen",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
@@ -288,6 +297,7 @@ class InferenceAggregator:
             )
         _, data_unnorm_dict = get_norm_unnorm_dicts(
             initial_prognostic,
+            long_rollout=True,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,

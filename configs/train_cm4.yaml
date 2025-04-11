@@ -1,9 +1,9 @@
-debug: true
+debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 120
-batch_size: 2 # 4
+batch_size: 3 # 4
 learning_rate: 0.0001
 scheduler: false
 loss: mse
@@ -12,8 +12,8 @@ resume_ckpt_path: null
 inference_epochs: [-1]
 data_percent: 1.0
 train:
-  start_time: "0151-01-06"
-  end_time: "0154-01-01"
+  start_time: "0151-06-06"
+  end_time: "0152-01-01"
 val:
   start_time: "0306-01-01"
   end_time: "0307-01-01"
@@ -47,9 +47,10 @@ experiment:
   gantry: false
   cluster_data_dir: null
   wandb:
-    mode: disabled
-    project: 3D_ocean_emu_CM4
-    entity: suryadheeshjith
+    mode: online
+    project: ocean-emulators
+    entity: m2lines
+    group: samudra-train-cm4
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
@@ -62,7 +63,7 @@ data:
     - hfgeou
   scaling_residuals_file: null
   num_workers: 4
-  hist: 0
+  hist: 1
 
 
 samudra:

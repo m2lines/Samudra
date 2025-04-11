@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744241131537,
+  "lastUpdate": 1744395348237,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3311,6 +3311,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08982559766039906",
             "extra": "mean: 137.79820808000002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "00a492c73f87cd7c5a23ca0b3011f24f57705014",
+          "message": "Inline inference refactors (#193)\n\nComponents — target extraction, aggregator recording, wandb logging, and\nwriting — are now handled in batches rather than singular timesteps.\nThis allowed me to remove the record_every parameter as well.\nAdditionally, some other minor optimizations were made.\n\nHere is a comparison of the time taken in minutes, before and after\noptimization:\n\n| Dataset (Period) | Old Inference (With Write) | Old Inference (Without\nWrite) | Optimized Inference (With Write) | Optimized Inference (Without\nWrite) |\n| ------------- | ------------- | ------------- | ------------- |\n------------- |\n| OM4 (~8 years) |\n[14:08](https://wandb.ai/m2lines/ocean-emulators/runs/pjzsf71m) |\n[13:14](https://wandb.ai/m2lines/ocean-emulators/runs/025m3u3s) |\n[03:52](https://wandb.ai/m2lines/ocean-emulators/runs/rubapmx5) |\n[02:54](https://wandb.ai/m2lines/ocean-emulators/runs/i9kkjb85) |\n| CM4 (20 years) |\n[24:52](https://wandb.ai/m2lines/ocean-emulators/runs/zcbmfvme) |\n[22:45](https://wandb.ai/m2lines/ocean-emulators/runs/v8zazvdi) | [05:27\n](https://wandb.ai/m2lines/ocean-emulators/runs/1ziu9lrt) |\n[03:17](https://wandb.ai/m2lines/ocean-emulators/runs/mxk43iwq) |\n\nI made a comparison between writing the actual zarr and skipping write\nbecause during train we don't actually save the data produced by the\ninference rollout but in standalone inference, we do.\n \nTraining should now be cut down from ~4 days to 2.5 days and Inference\nshould now go from 1152 SYPD (~100x) to 4800 SYPD (400x).\n\nAdd tests\n- [x] Ensure correct data fed to model (Use time indexed values for\ndata)\n- [x] ~~Check if batched output metrics are different from single output\nmetrics~~ This test is not needed since Alex caught my bug\n- [x] Fix time returned so we save appropriate time in zarr\n\n\nNOTE: The above times with the optimization actually had a minor bug in\nchoosing the next prognostic but there is no change in performance\nbecause I just had to change an index. See this\n[comment](https://github.com/suryadheeshjith/Ocean_Emulator/pull/193#discussion_r2037893244).\nA fixed run with OM4 with write is logged\n[here](https://wandb.ai/m2lines/ocean-emulators/runs/b3qznqb0) and time\ntaken was: 03:46\n\nCloses #182",
+          "timestamp": "2025-04-11T13:35:46-04:00",
+          "tree_id": "c025ae360c18694549e1c5e02bd06d92c2d3c75c",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/00a492c73f87cd7c5a23ca0b3011f24f57705014"
+        },
+        "date": 1744395347259,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.19850492436771733,
+            "unit": "iter/sec",
+            "range": "stddev: 0.39117295539868013",
+            "extra": "mean: 5.037658401599981 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cpu-mock-train_default.test.yaml]",
+            "value": 0.5209399744128496,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0342746450752714",
+            "extra": "mean: 1.9196069588 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.05600950856866077,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8744278711658546",
+            "extra": "mean: 17.854111302800003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.13698751387074268,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10305196056268658",
+            "extra": "mean: 7.299935386400034 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.0077829152542061375,
+            "unit": "iter/sec",
+            "range": "stddev: 1.9181893011254751",
+            "extra": "mean: 128.48655899979997 sec\nrounds: 5"
           }
         ]
       }

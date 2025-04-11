@@ -31,7 +31,9 @@ jobs:
           # It is easiest if this cuda version (cu121) matches the cuda version below.
           # (We could relax this since installing torch below pulls in the right version of cuda
           # libraries, but then you have a mismatch between the cuda toolkit and those libraries, which seems possibly bad.)
-          image: pytorch-2-2-cu121-v20250205-ubuntu-2204-conda
+          # You can find the latest image from:
+          # gcloud compute images list --project deeplearning-platform-release --no-standard-images --format="value(NAME)" --filter="name~'pytorch-2-2-cu121-v.*-ubuntu-2204-conda'"
+          image: pytorch-2-2-cu121-v20250327-ubuntu-2204-conda
           machine_zone: "us-central1-a"
           machine_type: "g2-standard-8"
           disk_size: "200GB"
@@ -81,4 +83,4 @@ jobs:
         run: uv sync --locked --dev --all-extras
 
       - name: Run pytest
-        run: uv run --locked pytest -v -m "not manual and cuda"
+        run: uv run --locked pytest -n 2 -v -m "not manual and cuda"

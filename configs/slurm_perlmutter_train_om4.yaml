@@ -55,7 +55,6 @@ data:
     - sea_surface_fraction
     - hfgeou
   scaling_residuals_file: null
-  time_delta: 5
   num_workers: 4
   hist: 1
 

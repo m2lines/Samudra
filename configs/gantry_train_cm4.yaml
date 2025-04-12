@@ -5,8 +5,8 @@ pin_mem: true
 save_freq: 5
 epochs: 120
 batch_size: 3
-learning_rate: 0.0002
-scheduler: true
+learning_rate: 0.0001
+scheduler: false
 loss: mse
 finetune: false
 resume_ckpt_path: null
@@ -51,7 +51,7 @@ experiment:
     mode: online
     project: ocean-emulator
     entity: ai2cm
-    group: samudra-train-2in2out
+    group: samudra-train-1in1out
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
@@ -62,8 +62,7 @@ data:
   data_stds_path: /statsdata/scaling-full-field.nc
   scaling_residuals_file: null
   num_workers: 4
-  hist: 1
-
+  hist: 0
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]
@@ -79,11 +78,12 @@ samudra:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 4
-    norm: "batch"
+    norm: "instance"
 
   corrector:
     non_negative_corrector_names:
       - "so"
+    ocean_heat_corrector: false
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

@@ -193,7 +193,7 @@ class Trainer:
         )
 
         self.data, self.data_mean, self.data_std = validate_data(
-            data, data_mean, data_std
+            data, data_mean, data_std, cfg.data.static_data_vars
         )
         self.static_data: xr.Dataset | None = None
         if cfg.data.static_data_vars is not None:

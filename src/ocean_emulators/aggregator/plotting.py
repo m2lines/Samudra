@@ -25,6 +25,7 @@ def plot_imshow(
     cmap: Optional[Union[str, Colormap]] = None,
     flip_lat: bool = True,
     use_colorbar: bool = True,
+    nan_padding: bool = True,
 ) -> Figure:
     """Plot a 2D array using imshow, ensuring figure size is same as array size."""
     min_ = np.nanmin(data) if vmin is None else vmin
@@ -40,7 +41,9 @@ def plot_imshow(
         range_ = np.linspace(min_, max_, height)
         range_ = np.repeat(range_[:, np.newaxis], repeats=colorbar_width, axis=1)
         range_ = np.flipud(range_)  # wandb images start from top (and left)
-        padding = np.zeros((height, colorbar_width)) + np.nan
+        padding = np.zeros((height, colorbar_width))
+        if nan_padding:
+            padding = padding + np.nan  # Set when using non-diverging map
         data = np.concatenate((data, padding, range_), axis=1)
 
     # make figure size (in pixels) be the same as array size
@@ -59,9 +62,11 @@ def plot_paneled_data(
 ):
     """Plot a list of 2D data arrays in a paneled plot."""
     if diverging:
-        cmap = "RdBu_r"
+        cmap = plt.cm.get_cmap("RdBu_r")
+        cmap.set_bad(color=(0.7, 0.7, 0.7))
     else:
-        cmap = None
+        cmap = plt.cm.get_cmap("viridis")
+        cmap.set_bad(color="white")
     vmin = np.inf
     vmax = -np.inf
     for row in data:
@@ -84,7 +89,9 @@ def plot_paneled_data(
         fill_value = vmin
     all_data = _stitch_data_panels(data, fill_value=fill_value)
 
-    fig = plot_imshow(all_data, vmin=vmin, vmax=vmax, cmap=cmap)
+    fig = plot_imshow(
+        all_data, vmin=vmin, vmax=vmax, cmap=cmap, nan_padding=not diverging
+    )
     wandb = WandBLogger.get_instance()
     wandb_image = wandb.Image(fig, caption=caption)
     plt.close(fig)

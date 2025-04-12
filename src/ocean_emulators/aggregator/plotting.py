@@ -1,5 +1,5 @@
 import gc
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,7 +22,7 @@ def plot_imshow(
     data: np.ndarray,
     vmin: Optional[float] = None,
     vmax: Optional[float] = None,
-    cmap: Optional[Union[str, Colormap]] = None,
+    cmap: Optional[Colormap] = None,
     flip_lat: bool = True,
     use_colorbar: bool = True,
     nan_padding: bool = True,

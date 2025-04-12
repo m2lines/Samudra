@@ -5,7 +5,6 @@
 import argparse
 import contextlib
 import datetime
-import gc
 import logging
 import os
 import time
@@ -444,8 +443,6 @@ class Trainer:
 
         start_time = time.time()
         for epoch in range(self.start_epoch, self.epochs + 1):
-            gc.collect()
-
             # Iterative step training
             if epoch == self.start_epoch or epoch in self.step_transition:
                 cur_step = self.get_current_step(epoch)

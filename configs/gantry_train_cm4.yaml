@@ -13,10 +13,10 @@ inference_epochs: [-1]
 data_percent: 1.0
 train:
   start_time: "0151-01-06"
-  end_time: "0306-01-01"
+  end_time: "0152-01-01"
 val:
   start_time: "0306-01-01"
-  end_time: "0311-01-01"
+  end_time: "0307-01-01"
 inference:
   - start_time: "0151-01-06"
     end_time: "0171-01-11"

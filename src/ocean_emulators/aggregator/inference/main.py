@@ -108,7 +108,7 @@ class InferenceEvaluatorAggregator:
         target_norm_dict, target_unnorm_dict = get_norm_unnorm_dicts(
             data.target,
             long_rollout=True,
-            input_type="target",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
@@ -268,7 +268,7 @@ class InferenceAggregator:
         _, data_unnorm_dict = get_norm_unnorm_dicts(
             data.data,
             long_rollout=True,
-            input_type="gen",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )

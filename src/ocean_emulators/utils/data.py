@@ -186,7 +186,7 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
 def get_norm_unnorm_dicts(
     data: Prognostic | Input,
     long_rollout: bool,
-    input_type: Literal["target", "input"] = "target",
+    input_type: Literal["prognostic", "input"] = "prognostic",
     num_prognostic_channels: int = 0,
     hist: int = 1,
 ) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:

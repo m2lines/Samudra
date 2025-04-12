@@ -7,7 +7,7 @@ from einops import rearrange
 
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.utils.data import Normalize
-from ocean_emulators.utils.model import InfOutput
+from ocean_emulators.utils.output import ModelInferenceOutput
 
 
 class ZarrWriter:
@@ -28,7 +28,7 @@ class ZarrWriter:
         self.normalize = Normalize.get_instance()
         self.tensor_map = TensorMap.get_instance()
 
-    def record_batch(self, IO: InfOutput):
+    def record_batch(self, IO: ModelInferenceOutput):
         pred_tensor = IO.prediction
         pred_time = IO.time
         pred_tensor = rearrange(

@@ -9,7 +9,7 @@ from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
-from ocean_emulators.utils.model import ValOutput
+from ocean_emulators.utils.output import ValStepOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 
@@ -21,6 +21,7 @@ class ValidateAggregator(TrainAggregator):
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
+        wet: torch.Tensor,
         num_prognostic_channels: int,
     ):
         super().__init__()
@@ -35,6 +36,7 @@ class ValidateAggregator(TrainAggregator):
         self._loss_scaling = LossAggregator.get_instance().loss_scale
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
+        self.wet = wet
 
     # TODO(jder): we could remove this by moving from inheritance
     # to composition with the TrainAggregator functionality.
@@ -44,7 +46,7 @@ class ValidateAggregator(TrainAggregator):
         )
 
     @torch.no_grad()
-    def record_validation_batch(self, batch: ValOutput):
+    def record_validation_batch(self, batch: ValStepOutput):
         super().record_batch(batch)  # Record losses
 
         if len(batch.target_data) == 0:
@@ -55,6 +57,7 @@ class ValidateAggregator(TrainAggregator):
         assert batch.target_data.shape[1] == self.num_prognostic_channels
         target_data_dict, target_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.target_data,
+            wet=self.wet,
             long_rollout=False,
             input_type="target",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -63,6 +66,7 @@ class ValidateAggregator(TrainAggregator):
 
         gen_data_dict, gen_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.gen_data,
+            wet=self.wet,
             long_rollout=False,
             input_type="gen",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -70,6 +74,7 @@ class ValidateAggregator(TrainAggregator):
         )
         input_data_dict, input_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.input_data,
+            wet=self.wet,
             long_rollout=False,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,

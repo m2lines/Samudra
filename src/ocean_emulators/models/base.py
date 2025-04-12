@@ -7,7 +7,7 @@ import torch
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.utils.device import get_device
-from ocean_emulators.utils.model import InfOutput
+from ocean_emulators.utils.output import ModelInferenceOutput
 
 
 class BaseModel(torch.nn.Module):
@@ -92,7 +92,7 @@ class BaseModel(torch.nn.Module):
         steps_completed=0,
         num_steps=None,
         epoch=None,
-    ) -> InfOutput:
+    ) -> ModelInferenceOutput:
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
@@ -135,5 +135,5 @@ class BaseModel(torch.nn.Module):
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
 
-        IO = InfOutput(pred_tensor, target_tensor, target_time)
+        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
         return IO

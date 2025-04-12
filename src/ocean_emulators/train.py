@@ -48,7 +48,7 @@ from ocean_emulators.datasets import (
     TrainDataset,
 )
 from ocean_emulators.models.samudra import Samudra
-from ocean_emulators.stepper import Stepper, TrainOutput, ValOutput
+from ocean_emulators.stepper import Stepper, TrainStepOutput, ValStepOutput
 from ocean_emulators.utils.data import (
     Normalize,
     extract_wet_mask,
@@ -67,6 +67,7 @@ from ocean_emulators.utils.ema import EMATracker
 from ocean_emulators.utils.logging import (
     MetricLogger,
     SmoothedValue,
+    get_model_summary,
     handle_logging,
     handle_warnings,
 )
@@ -77,7 +78,6 @@ from ocean_emulators.utils.loss import (
     decomposed_mse_mae,
     decomposed_mse_scaled,
 )
-from ocean_emulators.utils.model import get_model_summary
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -205,7 +205,9 @@ class Trainer:
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
         )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_var_names, 0)
+        self.wet_without_hist, _ = extract_wet_mask(
+            self.data, self.prognostic_var_names, 0
+        )
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -215,9 +217,10 @@ class Trainer:
             data_std=self.data_std,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=wet_without_hist,
+            wet_mask=self.wet_without_hist,
             wet_mask_surface=self.wet_surface,
         )
+        self.wet_without_hist = self.wet_without_hist.to(self.device)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
@@ -515,7 +518,7 @@ class Trainer:
 
             self.optimizer.zero_grad()
             data.to(self.device)
-            TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
+            TO: TrainStepOutput = Stepper.train_step(self.model, data, self.loss_fn)
             TO.loss.backward()
             self._ema(model=self.model)
             train_aggregator.record_batch(TO)
@@ -566,7 +569,11 @@ class Trainer:
         self.model.eval()
 
         val_aggregator = Aggregator.get_validation_aggregator(
-            self.metadata, self.hist, self.area_weights, self.num_out
+            self.metadata,
+            self.hist,
+            self.area_weights,
+            self.wet_without_hist,
+            self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
@@ -579,7 +586,9 @@ class Trainer:
                     break
 
                 data.to(self.device)
-                VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
+                VO: ValStepOutput = Stepper.validate_step(
+                    self.model, data, self.loss_fn
+                )
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
@@ -597,6 +606,7 @@ class Trainer:
                     self.metadata,
                     self.hist,
                     self.area_weights,
+                    self.wet_without_hist,
                     self.num_out,
                 )
 

@@ -1,25 +1,14 @@
-import logging
-
-import numpy as np
 import torch
 import xarray as xr
-from torchinfo import summary
 
 
-def get_model_summary(model: torch.nn.Module, num_input_channels: int):
-    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
-    params = sum([np.prod(p.size()) for p in model_parameters])
-    logging.info(f"Number of parameters: {params}")
-    logging.info(summary(model))
-
-
-class TrainOutput:
+class TrainStepOutput:
     def __init__(self, loss: torch.Tensor, loss_per_channel: torch.Tensor):
         self.loss = loss
         self.loss_per_channel = loss_per_channel
 
 
-class ValOutput(TrainOutput):
+class ValStepOutput(TrainStepOutput):
     def __init__(
         self,
         loss: torch.Tensor,
@@ -35,7 +24,7 @@ class ValOutput(TrainOutput):
         self.gen_data = gen_data
 
 
-class InfOutput:
+class ModelInferenceOutput:
     def __init__(
         self,
         prediction: torch.Tensor,
@@ -45,10 +34,4 @@ class InfOutput:
         assert prediction.shape == target.shape
         self.prediction = prediction
         self.target = target
-        self.time = time
-
-
-class SingleTimeseriesOutput:
-    def __init__(self, data: torch.Tensor, time: torch.Tensor):
-        self.data = data
         self.time = time

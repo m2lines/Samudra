@@ -17,12 +17,7 @@ from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
 from ocean_emulators.config import TrainConfig
-from ocean_emulators.constants import (
-    BOUNDARY_VARS,
-    PROGNOSTIC_VARS,
-    LoaderVersion,
-    TensorMap,
-)
+from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS, LoaderVersion
 from ocean_emulators.datasets import (
     InferenceDataset,
     OM4Dataset,
@@ -33,6 +28,7 @@ from ocean_emulators.datasets import (
 from ocean_emulators.utils.data import (
     DataSource,
     Normalize,
+    TensorMap,
     extract_wet_mask,
     validate_data,
 )
@@ -62,12 +58,10 @@ def make_loader(
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
     with MultitonScope():
-        TensorMap.init_instance(
-            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        )
         val = validate_data(raw)
         wet, wet_surface = extract_wet_mask(val.data, prognostic, cfg.data.hist)
-        Normalize.init_instance(val, prognostic, boundary, wet)
+        TensorMap.init_instance(val)
+        Normalize.init_instance(val, wet)
 
         match version:
             case LoaderVersion.OM4_EAGER:
@@ -448,19 +442,21 @@ def traindataset_input():
         coords={"lat": [0], "lon": [0]},
     )
 
-    test = DataSource("test", data, data_mean, data_std)
+    test = DataSource(
+        "test",
+        data,
+        data_mean,
+        data_std,
+        ["prognostic1", "prognostic2"],
+        ["boundary1", "boundary2"],
+    )
 
     wet = torch.ones(2, 2, 2)
     wet_surface = torch.ones(2, 2)
 
     # Initialize and yield within the MultitonScope
     with MultitonScope():
-        _ = Normalize.init_instance(
-            test,
-            prognostic_var_names=["prognostic1", "prognostic2"],
-            boundary_var_names=["boundary1", "boundary2"],
-            wet_mask=wet,
-        )
+        _ = Normalize.init_instance(test, wet_mask=wet)
         traindataset = TrainDataset(
             data=test.data,
             prognostic_var_names=prognostic_var_names,

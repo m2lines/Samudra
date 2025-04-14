@@ -8,22 +8,25 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from ocean_emulators.config import TimeConfig, TrainConfig
+from ocean_emulators.config import EvalConfig, TimeConfig, TrainConfig
 from ocean_emulators.constants import (
+    BOUNDARY_VARS,
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
+    PROGNOSTIC_VARS,
     BoundaryVarNames,
     Grid,
     GridMask,
     LoaderVersion,
     PrognosticMask,
     PrognosticVarNames,
-    TensorMap,
 )
 from ocean_emulators.utils.multiton import Multiton
 
 
+# Note: We may want to encode data invariants on the DataSource class via additional
+# types, see: https://kobzol.github.io/rust/python/2023/05/20/writing-python-like-its-rust.html#encoding-invariants-using-types
 @dataclasses.dataclass
 class DataSource:
     """Data source for the model."""
@@ -32,6 +35,12 @@ class DataSource:
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
+    # While these vars are data, they could also be thought of as deferred filtering
+    # operations on the Xarray datasets above.
+    prognostic_var_names: PrognosticVarNames = dataclasses.field(
+        default_factory=lambda: []
+    )
+    boundary_var_names: BoundaryVarNames = dataclasses.field(default_factory=lambda: [])
 
     def copy(self, new_name: str | None = None) -> Self:
         """Return a copy (of underlying `xr.Dataset`) of the DataSource."""
@@ -44,7 +53,7 @@ class DataSource:
         )
 
     @classmethod
-    def from_config(cls, cfg: TrainConfig) -> Self:
+    def from_config(cls, cfg: TrainConfig | EvalConfig) -> Self:
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         if use_dask:
             chunks: dict[str, int] | None = {}
@@ -52,6 +61,9 @@ class DataSource:
             chunks = None
 
         root = cfg.experiment.data_dir
+
+        prognostic_vars = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
+        boundary_vars = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
         if "*" in cfg.data.data_path:
             kwargs: dict[str, Any] = dict(
@@ -72,7 +84,14 @@ class DataSource:
             chunks=chunks,
         )
 
-        return cls(name="raw", data=data, means=means, stds=stds)
+        return cls(
+            name="raw",
+            data=data,
+            means=means,
+            stds=stds,
+            prognostic_var_names=prognostic_vars,
+            boundary_var_names=boundary_vars,
+        )
 
 
 def extract_wet_mask(
@@ -345,8 +364,7 @@ def validate_data(src: DataSource) -> DataSource:
     src_.stds = with_level_index_vars(src_.stds)
 
     # Check if any anomalies are needed to be computed
-    tensor_map = TensorMap.get_instance()
-    anomalies_vars = get_anomalies_vars(tensor_map.boundary_var_names)
+    anomalies_vars = get_anomalies_vars(src_.boundary_var_names)
 
     out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
 
@@ -358,15 +376,13 @@ class Normalize(Multiton):
     def _initialize(
         self,
         src: DataSource,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        self.prognostic_mean = src.means[prognostic_var_names]
-        self.prognostic_std = src.stds[prognostic_var_names]
-        self.boundary_mean = src.means[boundary_var_names]
-        self.boundary_std = src.stds[boundary_var_names]
+        self.prognostic_mean = src.means[src.prognostic_var_names]
+        self.prognostic_std = src.stds[src.prognostic_var_names]
+        self.boundary_mean = src.means[src.boundary_var_names]
+        self.boundary_std = src.stds[src.boundary_var_names]
         self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access
@@ -460,3 +476,66 @@ class Normalize(Multiton):
             norm = norm.nan_to_num(nan=fill_value)
         norm = norm.to(data.dtype)
         return norm
+
+
+# TODO(#95): See if this can be removed and replaced.
+class TensorMap(Multiton):
+    def _initialize(self, src: DataSource):
+        """
+        Maps input variables / depth levels to their indices in the input tensor.
+
+        VAR_3D_IDX maps the input variables to their indices in the input tensor
+        DP_3D_IDX maps the depth levels to their indices in the input tensor
+        """
+        self.prognostic_var_names = src.prognostic_var_names
+        self.boundary_var_names = src.boundary_var_names
+        self.VAR_3D_IDX: Dict[str, torch.Tensor] = {}
+        self.DP_3D_IDX: Dict[str, torch.Tensor] = {}
+
+        self.VAR_SET_2D = []
+        self.VAR_SET_3D = []
+        for out in self.prognostic_var_names:
+            var_split = out.split("_")
+            if len(var_split) == 1:
+                self.VAR_SET_2D.append(var_split[0])
+            else:
+                self.VAR_SET_3D.append(var_split[0])
+
+        # Consistent order of variables
+        self.VAR_SET = list(
+            dict.fromkeys(([out.split("_")[0] for out in self.prognostic_var_names]))
+        )
+        self.DEPTH_SET = DEPTH_I_LEVELS
+
+        self._populate_var_3d_idx()
+        self._populate_dp_3d_idx()
+
+    def _populate_var_3d_idx(self):
+        for kt in self.VAR_SET:
+            self.VAR_3D_IDX[kt] = torch.tensor([])
+            for i, k in enumerate(self.prognostic_var_names):
+                if kt in k:
+                    self.VAR_3D_IDX[kt] = torch.cat(
+                        [self.VAR_3D_IDX[kt], torch.tensor([i])]
+                    )
+            self.VAR_3D_IDX[kt] = self.VAR_3D_IDX[kt].to(torch.int32)
+
+    def _populate_dp_3d_idx(self):
+        for d in self.DEPTH_SET:
+            self.DP_3D_IDX[d] = torch.tensor([])
+            for i, k in enumerate(self.prognostic_var_names):
+                k_split = k.split("_")
+                if len(k_split) == 1:
+                    continue
+                elif d == k_split[-1]:
+                    self.DP_3D_IDX[d] = torch.cat(
+                        [self.DP_3D_IDX[d], torch.tensor([i])]
+                    )
+            self.DP_3D_IDX[d] = self.DP_3D_IDX[d].to(torch.int32)
+
+        self.DP_3D_IDX[self.DEPTH_SET[0]] = torch.cat(
+            [
+                self.DP_3D_IDX[self.DEPTH_SET[0]],
+                torch.tensor([self.VAR_3D_IDX[var_2D] for var_2D in self.VAR_SET_2D]),
+            ]
+        )

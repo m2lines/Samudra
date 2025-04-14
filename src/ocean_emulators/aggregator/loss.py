@@ -2,7 +2,7 @@ from typing import Dict
 
 import torch
 
-from ocean_emulators.constants import TensorMap
+from ocean_emulators.utils.data import TensorMap
 from ocean_emulators.utils.multiton import Multiton
 
 

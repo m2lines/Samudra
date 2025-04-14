@@ -4,8 +4,7 @@ import numpy as np
 import torch
 from einops import rearrange
 
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.utils.data import Normalize
+from ocean_emulators.utils.data import Normalize, TensorMap
 
 
 class Corrector(torch.nn.Module):

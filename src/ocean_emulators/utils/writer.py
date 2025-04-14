@@ -5,8 +5,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.utils.data import Normalize
+from ocean_emulators.utils.data import Normalize, TensorMap
 from ocean_emulators.utils.model import InfOutput
 
 

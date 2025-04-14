@@ -160,18 +160,15 @@ def normalize_input():
         coords={"lat": [0], "lon": [0]},
     )
 
-    test = DataSource("test", data_mean, data_mean, data_std)
+    test = DataSource(
+        "test", data_mean, data_mean, data_std, ["var_0", "var_1"], ["var_2"]
+    )
 
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
     # Initialize Normalize instance
     with MultitonScope():
-        normalize = Normalize.init_instance(
-            test,
-            prognostic_var_names=["var_0", "var_1"],
-            boundary_var_names=["var_2"],
-            wet_mask=wet_mask,
-        )
+        normalize = Normalize.init_instance(test, wet_mask=wet_mask)
     return normalize, wet_mask
 
 

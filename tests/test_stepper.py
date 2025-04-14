@@ -3,12 +3,13 @@ import pytest
 import torch
 import xarray as xr
 
-from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
+from ocean_emulators.constants import BOUNDARY_VARS, DEPTH_LEVELS, PROGNOSTIC_VARS
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.utils.data import (
     DataSource,
     Normalize,
+    TensorMap,
     extract_wet_mask,
     validate_data,
 )
@@ -22,8 +23,6 @@ def inf_data_init(hist: int):
         lats = 1
         lons = 1
         total_time_steps = 100
-
-        tensor_map = TensorMap.init_instance("thetao_surface", "hfds")
 
         # Even thetao, odd hfds for every time step
         # Ex, timestep 0: thetao = 0, hfds = 1
@@ -63,21 +62,19 @@ def inf_data_init(hist: int):
         )
         data_mean: xr.Dataset = data.mean() * 0.0
         data_std: xr.Dataset = data.std() * 0.0 + 1.0
-        test_data = DataSource("test-data", data, data_mean, data_std)
-        val = validate_data(test_data)
-        wet, wet_surface = extract_wet_mask(
-            val.data, tensor_map.prognostic_var_names, hist
-        )
-        wet_without_hist, _ = extract_wet_mask(
-            val.data, tensor_map.prognostic_var_names, 0
-        )
 
-        _ = Normalize.init_instance(
-            val,
-            prognostic_var_names=tensor_map.prognostic_var_names,
-            boundary_var_names=tensor_map.boundary_var_names,
-            wet_mask=wet_without_hist,
+        prognostic_vars = PROGNOSTIC_VARS["thetao_surface"]
+        boundary_vars = BOUNDARY_VARS["hfds"]
+
+        test_data = DataSource(
+            "test-data", data, data_mean, data_std, prognostic_vars, boundary_vars
         )
+        val = validate_data(test_data)
+        wet, wet_surface = extract_wet_mask(val.data, prognostic_vars, hist)
+        wet_without_hist, _ = extract_wet_mask(val.data, boundary_vars, 0)
+
+        tensor_map = TensorMap.init_instance(val)
+        _ = Normalize.init_instance(val, wet_mask=wet_without_hist)
         inference_dataset = InferenceDataset(
             val.data,
             tensor_map.prognostic_var_names,

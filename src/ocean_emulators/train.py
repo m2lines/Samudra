@@ -29,14 +29,9 @@ from ocean_emulators.aggregator import Aggregator, LossAggregator
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
-    BOUNDARY_VARS,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
-    PROGNOSTIC_VARS,
-    BoundaryVarNames,
     Grid,
     LoaderVersion,
-    PrognosticVarNames,
-    TensorMap,
     construct_metadata,
 )
 from ocean_emulators.datasets import (
@@ -52,6 +47,7 @@ from ocean_emulators.stepper import Stepper, TrainOutput, ValOutput
 from ocean_emulators.utils.data import (
     DataSource,
     Normalize,
+    TensorMap,
     extract_wet_mask,
     get_inference_steps,
     spherical_area_weights,
@@ -114,13 +110,12 @@ class Trainer:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
+        self.cfg = cfg
+        raw = DataSource.from_config(cfg)
+
         # Getting prognostic and boundary variables
-        self.prognostic_var_names: PrognosticVarNames = PROGNOSTIC_VARS[
-            cfg.experiment.prognostic_vars_key
-        ]
-        self.boundary_var_names: BoundaryVarNames = BOUNDARY_VARS[
-            cfg.experiment.boundary_vars_key
-        ]
+        self.prognostic_var_names = raw.prognostic_var_names
+        self.boundary_var_names = raw.boundary_var_names
 
         levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:
@@ -128,8 +123,8 @@ class Trainer:
         else:
             self.levels = int(levels)
 
-        str_prognostics = ", ".join([i for i in self.prognostic_var_names])
-        str_boundaries = ", ".join([i for i in self.boundary_var_names])
+        str_prognostics = ", ".join(self.prognostic_var_names)
+        str_boundaries = ", ".join(self.boundary_var_names)
 
         logger.info(f"Prognostic variables: {str_prognostics}")
         logger.info(f"Boundary variables: {str_boundaries}")
@@ -140,10 +135,6 @@ class Trainer:
 
         self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
-
-        self.tensor_map = TensorMap.init_instance(
-            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        )
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -161,8 +152,7 @@ class Trainer:
         self.data_dir = cfg.experiment.data_dir
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        raw = DataSource.from_config(cfg)
-        val = validate_data(raw)
+        val = self.src = validate_data(raw)
         self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
 
         self.metadata = construct_metadata(self.data)
@@ -174,12 +164,8 @@ class Trainer:
 
         self.area_weights = self.area_weights.to(self.device)
 
-        self.normalize = Normalize.init_instance(
-            val,
-            prognostic_var_names=self.prognostic_var_names,
-            boundary_var_names=self.boundary_var_names,
-            wet_mask=wet_without_hist,
-        )
+        self.tensor_map = TensorMap.init_instance(val)
+        self.normalize = Normalize.init_instance(val, wet_mask=wet_without_hist)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")

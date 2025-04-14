@@ -1,30 +1,22 @@
 import argparse
 import datetime
 import logging
-import os
 import time
 from collections import OrderedDict
 
 import torch
-import xarray as xr
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
 from ocean_emulators.config import EvalConfig
-from ocean_emulators.constants import (
-    BOUNDARY_VARS,
-    PROGNOSTIC_VARS,
-    BoundaryVarNames,
-    PrognosticVarNames,
-    TensorMap,
-    construct_metadata,
-)
+from ocean_emulators.constants import construct_metadata
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
     DataSource,
     Normalize,
+    TensorMap,
     extract_wet_mask,
     get_inference_steps,
     spherical_area_weights,
@@ -54,13 +46,11 @@ class Eval:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
+        raw = DataSource.from_config(cfg)
+
         # Getting prognostic and boundary variables
-        self.prognostic_var_names: PrognosticVarNames = PROGNOSTIC_VARS[
-            cfg.experiment.prognostic_vars_key
-        ]
-        self.boundary_var_names: BoundaryVarNames = BOUNDARY_VARS[
-            cfg.experiment.boundary_vars_key
-        ]
+        self.prognostic_var_names = raw.prognostic_var_names
+        self.boundary_var_names = raw.boundary_var_names
 
         levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:
@@ -81,42 +71,15 @@ class Eval:
         self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
-        self.tensor_map = TensorMap.init_instance(
-            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        )
-
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
         logger.info(f"Loading data")
         self.data_dir = cfg.experiment.data_dir
-        self.data_path = cfg.data.data_path
-        self.data_means_path = cfg.data.data_means_path
-        self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        if "*" in self.data_path:
-            data = xr.open_mfdataset(
-                os.path.join(self.data_dir, self.data_path),
-                engine="netcdf4",
-                chunks={"time": 1, "lat": 180, "lon": 360},
-            )
-        else:
-            data = xr.open_zarr(os.path.join(self.data_dir, self.data_path), chunks={})
-        data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path),
-            engine="netcdf4" if self.data_means_path.endswith(".nc") else "zarr",
-            chunks={},
-        )
-        data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path),
-            engine="netcdf4" if self.data_stds_path.endswith(".nc") else "zarr",
-            chunks={},
-        )
-
-        raw_data = DataSource(name="raw", data=data, means=data_mean, stds=data_std)
-        val = validate_data(raw_data)
+        val = self.src = validate_data(raw)
         self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
 
         self.metadata = construct_metadata(self.data)
@@ -127,10 +90,9 @@ class Eval:
         self.area_weights = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
+        self.tensor_map = TensorMap.init_instance(val)
         self.normalize = Normalize.init_instance(
             val,
-            prognostic_var_names=self.prognostic_var_names,
-            boundary_var_names=self.boundary_var_names,
             wet_mask=wet_without_hist,
         )
 

@@ -83,18 +83,13 @@ class Eval:
         self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
 
         self.metadata = construct_metadata(self.data)
-        self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.prognostic_var_names, cfg.data.hist
-        )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_var_names, 0)
+        self.wet, self.wet_surface = extract_wet_mask(self.src, cfg.data.hist)
+        wet_without_hist, _ = extract_wet_mask(self.src, 0)
         self.area_weights = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
-        self.tensor_map = TensorMap.init_instance(val)
-        self.normalize = Normalize.init_instance(
-            val,
-            wet_mask=wet_without_hist,
-        )
+        TensorMap.init_instance(val)
+        Normalize.init_instance(val, wet_mask=wet_without_hist)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")

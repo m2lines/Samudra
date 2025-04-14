@@ -94,11 +94,9 @@ class DataSource:
         )
 
 
-def extract_wet_mask(
-    data: xr.Dataset, prognostic_var_names: PrognosticVarNames, hist: int
-) -> tuple[PrognosticMask, GridMask]:
+def extract_wet_mask(src: DataSource, hist: int) -> tuple[PrognosticMask, GridMask]:
     """A mask for where the oceans are. Water is wet."""
-    data_ = flatten_masks(data)
+    data_ = flatten_masks(src.data)
     wet_mask = data_[MASK_VARS]
     if "time" in wet_mask.dims:
         wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
@@ -107,7 +105,7 @@ def extract_wet_mask(
         wet_mask_np = wet_mask.to_array().to_numpy()
         wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
 
-    depth_ind = _parse_lev_from_output_var(prognostic_var_names)
+    depth_ind = _parse_lev_from_output_var(src.prognostic_var_names)
 
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)

@@ -59,7 +59,7 @@ def make_loader(
 
     with MultitonScope():
         val = validate_data(raw)
-        wet, wet_surface = extract_wet_mask(val.data, prognostic, cfg.data.hist)
+        wet, wet_surface = extract_wet_mask(val, cfg.data.hist)
         TensorMap.init_instance(val)
         Normalize.init_instance(val, wet)
 

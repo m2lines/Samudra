@@ -70,8 +70,8 @@ def inf_data_init(hist: int):
             "test-data", data, data_mean, data_std, prognostic_vars, boundary_vars
         )
         val = validate_data(test_data)
-        wet, wet_surface = extract_wet_mask(val.data, prognostic_vars, hist)
-        wet_without_hist, _ = extract_wet_mask(val.data, boundary_vars, 0)
+        wet, wet_surface = extract_wet_mask(val, hist)
+        wet_without_hist, _ = extract_wet_mask(val, 0)
 
         tensor_map = TensorMap.init_instance(val)
         _ = Normalize.init_instance(val, wet_mask=wet_without_hist)

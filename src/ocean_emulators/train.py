@@ -153,13 +153,13 @@ class Trainer:
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         val = self.src = validate_data(raw)
-        self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
+        self.data = val.data
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(self.src, cfg.data.hist)
         wet_without_hist, _ = extract_wet_mask(self.src, 0)
-        self.area_weights: Grid = spherical_area_weights(self.data)
 
+        self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
         self.tensor_map = TensorMap.init_instance(val)
@@ -217,8 +217,8 @@ class Trainer:
             )
             scale = torch.from_numpy(
                 (
-                    self.data_std[self.prognostic_var_names]
-                    / scaling_residuals[self.prognostic_var_names]
+                    self.src.stds[self.src.prognostic_var_names]
+                    / scaling_residuals[self.src.prognostic_var_names]
                 )
                 .compute()
                 .to_array()

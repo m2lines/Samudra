@@ -80,7 +80,7 @@ class Eval:
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         val = self.src = validate_data(raw)
-        self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
+        self.data = val.data
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(self.src, cfg.data.hist)

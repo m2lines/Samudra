@@ -89,7 +89,7 @@ class ExperimentConfig:
     base_name: str = "train"
     sub_name: str = "cm4_samudra"
     rand_seed: int = 1
-    base_output_dir: str = "train"
+    base_output_dir: str = "/pscratch/sd/s/suryad/Ocean_Emulator/train"
     gantry: bool = False
     cluster_data_dir: str = "/"
     wandb: WandBConfig = field(default_factory=WandBConfig)

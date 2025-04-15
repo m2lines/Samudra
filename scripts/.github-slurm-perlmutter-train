@@ -1,11 +1,55 @@
-
 #!/bin/bash
-
+#SBATCH --job-name=samudra-perlmutter-om4-requeue
+#SBATCH --output=train/logs/slurm-%j.out
+#SBATCH --error=train/logs/slurm-%j.err
+#SBATCH --constraint=gpu&hbm80g
+#SBATCH --account=m4874
+#SBATCH --qos=debug_preempt
+#SBATCH --requeue
+#SBATCH --mem=110G
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=2
+#SBATCH --cpus-per-task=32
+#SBATCH --gpus-per-task=1
+#SBATCH --gpu-bind=none     # This ensures all GPUs are visible to all tasks
+#SBATCH --time=00:20:00
 set -e
 
+# Store the current commit hash
+export COMMIT_HASH=$(git rev-parse HEAD)
+echo "COMMIT_HASH: $COMMIT_HASH"
+
+# Check if there are uncommitted changes
 if ! [[ -z $(git status --porcelain) ]]; then
     echo "There are uncommitted changes."
     exit 1
 fi
 
+# Check if the commit is on the remote
 git branch -r --contains $(git rev-parse HEAD) | grep -q . || { echo "Error: Commit not found on remote."; exit 1; }
+
+# Clone repository with commit hash to temporary directory
+git clone --branch $COMMIT_HASH --single-branch --depth 1 https://github.com/ai2cm/samudra.git $EXPERIMENT_DIR
+
+# Change to experiment directory
+cd $EXPERIMENT_DIR
+
+# Load conda environment
+source .venv/bin/activate
+
+# Set master node information
+export MASTER_ADDR=$(scontrol show hostnames "$SLURM_JOB_NODELIST" | head -n 1)
+export MASTER_PORT=29400
+
+# Debug info
+echo "MASTER_ADDR: $MASTER_ADDR"
+echo "MASTER_PORT: $MASTER_PORT"
+echo "SLURM_JOB_NODELIST: $SLURM_JOB_NODELIST"
+echo "SLURM_NTASKS_PER_NODE: $SLURM_NTASKS_PER_NODE"
+echo "SLURM_NNODES: $SLURM_NNODES"
+
+# Run the training script
+srun --cpu-bind=cores \
+     python src/ocean_emulators/train.py \
+     --config configs/slurm_perlmutter_train_om4.yaml \
+     --subname $SLURM_JOB_NAME

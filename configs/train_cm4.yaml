@@ -43,7 +43,7 @@ experiment:
   base_name: train
   sub_name: local_cm4_samudra
   rand_seed: 15
-  base_output_dir: .LOCAL
+  base_output_dir: /pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL
   gantry: false
   cluster_data_dir: null
   wandb:

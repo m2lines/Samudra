@@ -438,12 +438,12 @@ class Normalize(Multiton):
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        _prog_src = src.filter(prognostic_var_names)
-        _bound_src = src.filter(boundary_var_names)
-        self.prognostic_mean = _prog_src.means
-        self.prognostic_std = _prog_src.stds
-        self.boundary_mean = _bound_src.means
-        self.boundary_std = _bound_src.stds
+        prog_src = src.filter(prognostic_var_names)
+        bound_src = src.filter(boundary_var_names)
+        self.prognostic_mean = prog_src.means
+        self.prognostic_std = prog_src.stds
+        self.boundary_mean = bound_src.means
+        self.boundary_std = bound_src.stds
         self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access

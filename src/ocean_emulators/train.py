@@ -200,7 +200,7 @@ class Trainer:
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
         )
-        self.wet_without_hist, _ = extract_wet_mask(
+        wet_without_hist_cpu, _ = extract_wet_mask(
             self.data, self.prognostic_var_names, 0
         )
         self.area_weights: Grid = spherical_area_weights(self.data)
@@ -212,9 +212,9 @@ class Trainer:
             data_std=self.data_std,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=self.wet_without_hist,
+            wet_mask=wet_without_hist_cpu,
         )
-        self.wet_without_hist = self.wet_without_hist.to(self.device)
+        self.wet_without_hist = wet_without_hist_cpu.to(self.device)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")

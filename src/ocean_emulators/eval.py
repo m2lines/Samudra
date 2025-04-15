@@ -15,6 +15,7 @@ from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
+    Grid,
     PrognosticVarNames,
     TensorMap,
     construct_metadata,
@@ -125,10 +126,10 @@ class Eval:
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
         )
-        self.wet_without_hist, _ = extract_wet_mask(
+        wet_without_hist_cpu, _ = extract_wet_mask(
             self.data, self.prognostic_var_names, 0
         )
-        self.area_weights = spherical_area_weights(self.data)
+        self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
@@ -136,9 +137,9 @@ class Eval:
             data_std=self.data_std,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=self.wet_without_hist,
+            wet_mask=wet_without_hist_cpu,
         )
-        self.wet_without_hist = self.wet_without_hist.to(self.device)
+        self.wet_without_hist = wet_without_hist_cpu.to(self.device)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")

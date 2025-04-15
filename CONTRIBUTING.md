@@ -232,6 +232,29 @@ pytest -l "models and weights" --model1 <path/to/model1.pt> --model2 <path/to/mo
 pytest -m "not manual and not cuda"
 ```
 
+## Testing with Multitons
+
+We have a set of singletons in the code which use the "Multiton" helper to prevent tests from interfering with each other.
+When writing tests, you can either:
+
+    def test_foo():
+        with MultitonScope():
+            # set up whatever singletons you need
+            Normalize.init_instance(…)
+            assert …
+
+Or you can initialize them in a Generator-based fixture:
+
+   @pytest.fixture()
+   def my_fixture():
+       with MultitonScope():
+           Normalize.init_instance(…)
+           yield
+
+   def test_foo(my_fixture):
+       assert … # in this code, the Normalize instance is the one from my_fixture
+
+
 ## Benchmarking & Profiling
 
 We use `pytest-benchmark` to measure performance regressions in this project. Our intentions are to cultivate a culture

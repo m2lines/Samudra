@@ -59,7 +59,7 @@ class ValidateAggregator(TrainAggregator):
             batch.target_data,
             wet=self.wet,
             long_rollout=False,
-            input_type="target",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
@@ -68,7 +68,7 @@ class ValidateAggregator(TrainAggregator):
             batch.gen_data,
             wet=self.wet,
             long_rollout=False,
-            input_type="gen",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )

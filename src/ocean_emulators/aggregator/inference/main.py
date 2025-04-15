@@ -112,7 +112,7 @@ class InferenceEvaluatorAggregator:
             data.target,
             wet=self.wet,
             long_rollout=True,
-            input_type="target",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
@@ -120,7 +120,7 @@ class InferenceEvaluatorAggregator:
             data.prediction,
             wet=self.wet,
             long_rollout=True,
-            input_type="input",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )

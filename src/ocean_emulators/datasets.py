@@ -653,13 +653,13 @@ class TorchTrainDataset(Dataset):
 
         # Create base indices
         indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["window_dim"])
+        indices_da = xr.DataArray(indices, dims=["step"])
 
         # Create window dimension
         window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
 
         # Construct rolling indices
-        self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
+        self.rolling_indices: Float[xr.DataArray, "step time"] = (
             indices_da + stride * window_dim
         )
 
@@ -681,12 +681,11 @@ class TorchTrainDataset(Dataset):
 
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
-        x_index = xr.concat(
-            [self._get_x_index(idx, step) for step in range(self.steps)], dim="step"
-        )
+        windows = [self._get_x_index(idx, step) for step in range(self.steps)]
+        window = xr.concat(windows, dim="step")
 
         prognostic_all = torch.from_numpy(
-            self._prognostic_vars.isel(time=x_index)
+            self._prognostic_vars.isel(time=window)
             .to_array()
             .transpose(
                 "step", "variable", "time", "lat", "lon"
@@ -694,7 +693,7 @@ class TorchTrainDataset(Dataset):
             .to_numpy()
         )
         boundary = torch.from_numpy(
-            self._boundary_vars.isel(time=x_index)
+            self._boundary_vars.isel(time=window)
             .isel(time=self.hist, drop=True)
             .to_array()
             .transpose("step", "variable", "lat", "lon")
@@ -727,7 +726,7 @@ class TorchTrainDataset(Dataset):
         # add in boundary to final input
         boundary = normalize.normalize_tensor_boundary(boundary).float()
         boundary = torch.where(self.wet_surface, boundary, 0.0)
-        total_input = torch.cat((input_, boundary), dim=0)
+        total_input = torch.cat((input_, boundary), dim=1)
 
         # grab future steps, repeat as we do for input
         label = self._prep_prognostic_steps(prognostic_all[:, :, self.hist + 1 :, :, :])
@@ -766,4 +765,4 @@ class TorchTrainDataset(Dataset):
             raise IndexError("Index out of range")
 
         window_index = idx + step * (self.hist + 1) * self.stride
-        return self.rolling_indices.isel(window_dim=window_index, drop=True)
+        return self.rolling_indices.isel(step=window_index, drop=True)

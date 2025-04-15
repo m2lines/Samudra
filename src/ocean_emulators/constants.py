@@ -31,6 +31,16 @@ Example = tuple[Input, Prognostic] | tuple[xr.Dataset, xr.Dataset]
 GridMask = Bool[Array, "180 360"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
+SingleChannelVar = Float[torch.Tensor, "batch time lat lon"]
+DictSingleChannelVar = Dict[str, SingleChannelVar]
+SinglePrognostic = Float[Grid, "*batch"]
+SinglePrognosticTimeSeries = Float[Grid, "*batch time"]
+
+SingleTimeSeriesOutput = Float[torch.Tensor, "batch=1 time prognostic_vars lat lon"]
+BatchTimeSeriesOutput = Float[
+    torch.Tensor, "batch time=(hist+1) prognostic_vars lat lon"
+]
+
 MAX_TRAIN_MODEL_STEPS_FORWARD = 2000
 
 # Experiment prognostic and boundary variables

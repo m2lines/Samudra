@@ -220,9 +220,9 @@ class Eval:
         )
 
     def run(self) -> None:
-        start_time = time.time()
+        start_time = time.perf_counter()
         inf_stats = self.standalone_inference()
-        time_elapsed = time.time() - start_time
+        time_elapsed = time.perf_counter() - start_time
 
         log_stats = {
             **inf_stats,
@@ -232,7 +232,7 @@ class Eval:
         if is_main_process():
             self.wandb_logger.log(log_stats, step=None)
 
-        total_time = time.time() - start_time
+        total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Eval time (Including wandb logging) {total_time_str}")
         self.finish()

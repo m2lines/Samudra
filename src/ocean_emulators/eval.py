@@ -15,6 +15,7 @@ from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
+    Grid,
     PrognosticVarNames,
     TensorMap,
     construct_metadata,
@@ -31,8 +32,11 @@ from ocean_emulators.utils.data import (
 )
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import is_main_process, set_seed
-from ocean_emulators.utils.logging import handle_logging, handle_warnings
-from ocean_emulators.utils.model import get_model_summary
+from ocean_emulators.utils.logging import (
+    get_model_summary,
+    handle_logging,
+    handle_warnings,
+)
 from ocean_emulators.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -122,8 +126,10 @@ class Eval:
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
         )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_var_names, 0)
-        self.area_weights = spherical_area_weights(self.data)
+        wet_without_hist_cpu, _ = extract_wet_mask(
+            self.data, self.prognostic_var_names, 0
+        )
+        self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
@@ -131,8 +137,9 @@ class Eval:
             data_std=self.data_std,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=wet_without_hist,
+            wet_mask=wet_without_hist_cpu,
         )
+        self.wet_without_hist = wet_without_hist_cpu.to(self.device)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
@@ -238,6 +245,7 @@ class Eval:
             self.metadata,
             self.hist,
             self.area_weights,
+            self.wet_without_hist,
             self.num_out,
         )
 

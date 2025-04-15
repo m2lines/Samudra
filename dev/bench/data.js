@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744735166322,
+  "lastUpdate": 1744736562571,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3547,6 +3547,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5153105580971139",
             "extra": "mean: 130.05275645740008 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8352f9e3600ea516fa0660e35b24e5de5307bbfa",
+          "message": "Minor stepper refactors and norm metrics fix  (#202)\n\n- Fix the calculation of metrics for normalized data. We were still\nconsidering 0s at land.\n- Renamed output types and moved them to output.py\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-04-15T12:19:34-04:00",
+          "tree_id": "44494de794a6c2ce8f13cb30f9f5b06d9303fd3b",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/8352f9e3600ea516fa0660e35b24e5de5307bbfa"
+        },
+        "date": 1744736561431,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.19432120320392143,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13286844129840109",
+            "extra": "mean: 5.146118815199986 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cpu-mock-train_default.test.yaml]",
+            "value": 0.49867078360142997,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09795502878856381",
+            "extra": "mean: 2.0053310378000107 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.04671760337355208,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9814194832053866",
+            "extra": "mean: 21.405207625999992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.13302856395324836,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14136123399801237",
+            "extra": "mean: 7.517182552999975 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007376641350621573,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3245401010240525",
+            "extra": "mean: 135.56304996659998 sec\nrounds: 5"
           }
         ]
       }

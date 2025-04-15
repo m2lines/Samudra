@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 from functools import cache
-from typing import Any, Self, Literal
+from typing import Any, Literal, Self
 
 import cftime
 import numpy as np
@@ -20,8 +20,8 @@ from ocean_emulators.constants import (
     Grid,
     GridMask,
     Input,
-    Prognostic,
     LoaderVersion,
+    Prognostic,
     PrognosticMask,
     PrognosticVarNames,
     SingleTimeSeriesOutput,
@@ -92,12 +92,12 @@ class DataSource:
         )
 
     @classmethod
-    def from_config(cls, cfg: TrainConfig | EvalConfig) -> Self:
-        use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
-        if use_dask:
-            chunks: dict[str, int] | None = {}
-        else:
-            chunks = None
+    def from_config(
+        cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool | None = None
+    ) -> Self:
+        if use_dask is None:
+            use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+        chunks: dict[str, int] | None = {} if use_dask else None
 
         root = cfg.experiment.data_dir
 
@@ -120,8 +120,10 @@ class DataSource:
             chunks=chunks,
         )
 
+        dask = "with_dask" if use_dask else "without_dask"
+
         return cls(
-            name=f"raw-{cfg.experiment.name}-{cfg.experiment.data_dir.name}",
+            name=f"raw-{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
             data=data,
             means=means,
             stds=stds,

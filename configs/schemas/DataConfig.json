@@ -1,0 +1,53 @@
+{
+  "properties": {
+    "data_path": {
+      "default": "CM4_5daily_v0.4.0",
+      "title": "Data Path",
+      "type": "string"
+    },
+    "data_means_path": {
+      "default": "CM4_5daily_v0.4.0_means",
+      "title": "Data Means Path",
+      "type": "string"
+    },
+    "data_stds_path": {
+      "default": "CM4_5daily_v0.4.0_stds",
+      "title": "Data Stds Path",
+      "type": "string"
+    },
+    "scaling_residuals_file": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scaling Residuals File"
+    },
+    "time_delta": {
+      "default": 5,
+      "title": "Time Delta",
+      "type": "integer"
+    },
+    "num_workers": {
+      "default": 4,
+      "title": "Num Workers",
+      "type": "integer"
+    },
+    "hist": {
+      "default": 1,
+      "title": "Hist",
+      "type": "integer"
+    },
+    "loader_version": {
+      "default": "om4-eager",
+      "title": "Loader Version",
+      "type": "string"
+    }
+  },
+  "title": "DataConfig",
+  "type": "object"
+}

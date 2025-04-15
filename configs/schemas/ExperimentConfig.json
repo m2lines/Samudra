@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "WandBConfig": {
+      "properties": {
+        "mode": {
+          "default": "disabled",
+          "title": "Mode",
+          "type": "string"
+        },
+        "project": {
+          "default": "3D_ocean_emu_CM4",
+          "title": "Project",
+          "type": "string"
+        },
+        "entity": {
+          "default": "suryadheeshjith",
+          "title": "Entity",
+          "type": "string"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tags"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "WandBConfig",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "base_name": {
+      "default": "train",
+      "title": "Base Name",
+      "type": "string"
+    },
+    "sub_name": {
+      "default": "cm4_samudra",
+      "title": "Sub Name",
+      "type": "string"
+    },
+    "rand_seed": {
+      "default": 1,
+      "title": "Rand Seed",
+      "type": "integer"
+    },
+    "base_output_dir": {
+      "default": "train",
+      "title": "Base Output Dir",
+      "type": "string"
+    },
+    "gantry": {
+      "default": false,
+      "title": "Gantry",
+      "type": "boolean"
+    },
+    "cluster_data_dir": {
+      "default": "/",
+      "title": "Cluster Data Dir",
+      "type": "string"
+    },
+    "wandb": {
+      "$ref": "#/$defs/WandBConfig"
+    },
+    "network": {
+      "default": "Samudra",
+      "title": "Network",
+      "type": "string"
+    },
+    "prognostic_vars_key": {
+      "default": "thermo_dynamic_all",
+      "title": "Prognostic Vars Key",
+      "type": "string"
+    },
+    "boundary_vars_key": {
+      "default": "tau_hfds",
+      "title": "Boundary Vars Key",
+      "type": "string"
+    }
+  },
+  "title": "ExperimentConfig",
+  "type": "object"
+}

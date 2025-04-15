@@ -1,0 +1,60 @@
+{
+  "properties": {
+    "mode": {
+      "default": "disabled",
+      "title": "Mode",
+      "type": "string"
+    },
+    "project": {
+      "default": "3D_ocean_emu_CM4",
+      "title": "Project",
+      "type": "string"
+    },
+    "entity": {
+      "default": "suryadheeshjith",
+      "title": "Entity",
+      "type": "string"
+    },
+    "group": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Group"
+    },
+    "tags": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tags"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    }
+  },
+  "title": "WandBConfig",
+  "type": "object"
+}

@@ -1,0 +1,127 @@
+{
+  "$defs": {
+    "BlockConfig": {
+      "properties": {
+        "block_type": {
+          "default": "conv_next_block",
+          "title": "Block Type",
+          "type": "string"
+        },
+        "kernel_size": {
+          "default": 3,
+          "title": "Kernel Size",
+          "type": "integer"
+        },
+        "activation": {
+          "default": "capped_gelu",
+          "title": "Activation",
+          "type": "string"
+        },
+        "upscale_factor": {
+          "default": 4,
+          "title": "Upscale Factor",
+          "type": "integer"
+        },
+        "norm": {
+          "default": "batch",
+          "title": "Norm",
+          "type": "string"
+        }
+      },
+      "title": "BlockConfig",
+      "type": "object"
+    },
+    "CorrectorConfig": {
+      "properties": {
+        "non_negative_corrector_names": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Non Negative Corrector Names"
+        }
+      },
+      "title": "CorrectorConfig",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "ch_width": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Ch Width",
+      "type": "array"
+    },
+    "n_out": {
+      "default": 77,
+      "title": "N Out",
+      "type": "integer"
+    },
+    "dilation": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "Dilation",
+      "type": "array"
+    },
+    "n_layers": {
+      "items": {
+        "type": "integer"
+      },
+      "title": "N Layers",
+      "type": "array"
+    },
+    "pred_residuals": {
+      "default": false,
+      "title": "Pred Residuals",
+      "type": "boolean"
+    },
+    "last_kernel_size": {
+      "default": 3,
+      "title": "Last Kernel Size",
+      "type": "integer"
+    },
+    "pad": {
+      "default": "circular",
+      "title": "Pad",
+      "type": "string"
+    },
+    "wet": {
+      "anyOf": [
+        {},
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Wet"
+    },
+    "core_block": {
+      "$ref": "#/$defs/BlockConfig"
+    },
+    "corrector": {
+      "$ref": "#/$defs/CorrectorConfig"
+    },
+    "down_sampling_block": {
+      "default": "avg_pool",
+      "title": "Down Sampling Block",
+      "type": "string"
+    },
+    "up_sampling_block": {
+      "default": "bilinear_upsample",
+      "title": "Up Sampling Block",
+      "type": "string"
+    }
+  },
+  "title": "SamudraConfig",
+  "type": "object"
+}

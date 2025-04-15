@@ -14,6 +14,7 @@ repos:
     exclude: ^notebooks/
   - id: trailing-whitespace
   - id: check-yaml
+    args: [--unsafe]
 # We define our own mypy checker here rather than using https://github.com/pre-commit/mirrors-mypy
 # so it can run within our uv environment & access the correct installed libraries. See:
 # https://whynothugo.nl/journal/2023/01/12/notes-on-pre-commit/#using-the-system-plugin-language

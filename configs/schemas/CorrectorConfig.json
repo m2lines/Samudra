@@ -1,0 +1,21 @@
+{
+  "properties": {
+    "non_negative_corrector_names": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Non Negative Corrector Names"
+    }
+  },
+  "title": "CorrectorConfig",
+  "type": "object"
+}

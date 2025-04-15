@@ -1,18 +1,19 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from os import PathLike
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
+import pydantic
 import yaml
 from dacite import Config as DaciteConfig
 from dacite import from_dict
 
+from ocean_emulators.base_config import BaseConfig
 from ocean_emulators.constants import LoaderVersion
 
 
-@dataclass
-class WandBConfig:
+class WandBConfig(pydantic.BaseModel):
     mode: str = "disabled"  # online, disabled
     project: str = "3D_ocean_emu_CM4"
     entity: str = "suryadheeshjith"
@@ -31,8 +32,7 @@ class TimeConfig:
         return slice(self.start_time, self.end_time)
 
 
-@dataclass
-class DataConfig:
+class DataConfig(pydantic.BaseModel):
     data_path: str = "CM4_5daily_v0.4.0"
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
@@ -43,8 +43,7 @@ class DataConfig:
     loader_version: str = str(LoaderVersion.OM4_EAGER.value)
 
 
-@dataclass
-class BlockConfig:
+class BlockConfig(pydantic.BaseModel):
     block_type: str = "conv_next_block"  # conv_next_block, conv_block
     kernel_size: int = 3
     activation: str = "capped_gelu"  # relu, gelu, capped_gelu
@@ -52,13 +51,11 @@ class BlockConfig:
     norm: str = "batch"  # batch, instance, layer
 
 
-@dataclass
-class CorrectorConfig:
+class CorrectorConfig(pydantic.BaseModel):
     non_negative_corrector_names: Optional[List[str]] = None
 
 
-@dataclass
-class SamudraConfig:
+class SamudraConfig(pydantic.BaseModel):
     ch_width: List[int] = field(default_factory=lambda: [157, 200, 250, 300, 400])
     n_out: int = 77
     dilation: List[int] = field(default_factory=lambda: [1, 2, 4, 8])
@@ -75,8 +72,7 @@ class SamudraConfig:
     up_sampling_block: str = "bilinear_upsample"  # bilinear_upsample, transposed_conv
 
 
-@dataclass
-class DistributedConfig:
+class DistributedConfig(pydantic.BaseModel):
     dist_url: Optional[str] = None
     world_size: Optional[int] = None
     rank: Optional[int] = None
@@ -84,8 +80,7 @@ class DistributedConfig:
     dist_backend: Optional[str] = None
 
 
-@dataclass
-class ExperimentConfig:
+class ExperimentConfig(pydantic.BaseModel):
     base_name: str = "train"
     sub_name: str = "cm4_samudra"
     rand_seed: int = 1
@@ -101,23 +96,29 @@ class ExperimentConfig:
     )
     boundary_vars_key: str = "tau_hfds"
 
-    def __post_init__(self):
+    @cached_property
+    def name(self) -> str:
         timestamp = datetime.now().strftime("%Y-%m-%d")
-        self.name = f"{timestamp}-{self.base_name}"
-        self.output_dir = Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
-        self.nets_dir = self.output_dir / "saved_nets"
-        if self.gantry:
-            self.data_dir = Path("/")
-        else:
-            self.data_dir = Path(self.cluster_data_dir)
+        return f"{timestamp}-{self.base_name}"
+
+    @cached_property
+    def output_dir(self) -> Path:
+        return Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
+
+    @cached_property
+    def nets_dir(self) -> Path:
+        return self.output_dir / "saved_nets"
+
+    @cached_property
+    def data_dir(self) -> Path:
+        return Path("/") if self.gantry else Path(self.cluster_data_dir)
 
 
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 
 
-@dataclass
-class TrainConfig:
+class TrainConfig(BaseConfig):
     # Training parameters
     disk_mode: bool = True
     pin_mem: bool = True
@@ -153,62 +154,6 @@ class TrainConfig:
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     data: DataConfig = field(default_factory=DataConfig)
     samudra: SamudraConfig = field(default_factory=SamudraConfig)
-
-    @classmethod
-    def from_yaml(
-        cls, yaml_path: str | PathLike, overrides: Optional[Dict[str, Any]] = None
-    ) -> "TrainConfig":
-        """Load config from YAML with strict validation using dacite."""
-        with open(yaml_path, "r") as f:
-            config_dict = yaml.safe_load(f)
-
-        # TODO: This is a hack to allow for overrides of the sub_name
-        if overrides and "sub_name" in overrides.keys():
-            config_dict["experiment"]["sub_name"] = overrides["sub_name"]
-
-        return from_dict(
-            data_class=cls,
-            data=config_dict,
-            config=DaciteConfig(strict=True, check_types=True, cast=[Path]),
-        )
-
-    def save_yaml(self, save_path: str):
-        """Save config to YAML file."""
-        config_dict = {
-            "debug": self.debug,
-            "disk_mode": self.disk_mode,
-            "pin_mem": self.pin_mem,
-            "save_freq": self.save_freq,
-            "epochs": self.epochs,
-            "batch_size": self.batch_size,
-            "learning_rate": self.learning_rate,
-            "scheduler": self.scheduler,
-            "loss": self.loss,
-            "finetune": self.finetune,
-            "resume_ckpt_path": self.resume_ckpt_path,
-            "test_using_ema": self.test_using_ema,
-            "ema_decay": self.ema_decay,
-            "faster_decay_at_start": self.faster_decay_at_start,
-            "backend": self.backend,
-            "data_percent": self.data_percent,
-            "data_stride": self.data_stride,
-            "steps": self.steps,
-            "step_transition": self.step_transition,
-            "inference_epochs": self.inference_epochs,
-            "train": self.train.__dict__,
-            "val": self.val.__dict__,
-            "inference": [t.__dict__ for t in self.inference],
-            "experiment": self.experiment.__dict__,
-            "data": self.data.__dict__,
-            "samudra": {
-                **self.samudra.__dict__,
-                "core_block": self.samudra.core_block.__dict__,
-                "corrector": self.samudra.corrector.__dict__,
-            },
-        }
-
-        with open(save_path, "w") as f:
-            yaml.dump(config_dict, f, default_flow_style=False)
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)

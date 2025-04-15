@@ -1,0 +1,89 @@
+import argparse
+from pathlib import Path
+from typing import Any, Self
+
+import yaml
+import yaml_include
+from pydantic.fields import FieldInfo
+from pydantic_settings import (
+    BaseSettings,
+    CliSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    YamlConfigSettingsSource,
+)
+
+# This is arguably unsafe, but we don't parse untrusted YAML
+yaml.loader.SafeLoader.add_constructor("!include", yaml_include.Constructor())
+
+
+class BaseConfig(BaseSettings):
+    model_config = SettingsConfigDict(nested_model_default_partial_update=True)
+
+    def __init__(self, cli_settings_source: CliSettingsSource, **kwargs):
+        super().__init__(_cli_settings_source=cli_settings_source, **kwargs)
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # We don't need env/dotenv/secrets, yaml & CLI are injected in from_yaml
+        # TODO(jder): CLI args will override init args, which seems a bit weird.
+        # (but doesn't affect from_yaml)
+        return (init_settings,)
+
+    @classmethod
+    def from_yaml_and_cli(
+        cls,
+    ) -> Self:
+        """Load config from YAML with strict validation."""
+        parser = argparse.ArgumentParser(
+            description=cls.__doc__,
+            epilog="""
+YAML files can include other YAML files using the !include tag,
+as in `data: !include configs/data/something.yaml`
+You can also replace any JSON argument listed above with a YAML file by
+specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
+""",
+        )
+        parser.add_argument(
+            "--config", type=str, required=True, help="Path to config YAML file"
+        )
+
+        cli_source = IncludeYamlCliSettingsSource(
+            cls, root_parser=parser, cli_parse_args=True
+        )
+
+        # We do this after creating CliSettingsSource (which populates the parser)
+        # so the help is complete on error.
+        args = parser.parse_args()
+
+        yaml_values = YamlConfigSettingsSource(cls, yaml_file=args.config)()
+
+        return cls(
+            cli_settings_source=cli_source,
+            **yaml_values,
+        )
+
+    def save_yaml(self, save_path: Path):
+        """Save config to YAML file."""
+        with open(save_path, "w") as f:
+            yaml.dump(self.model_dump(), f)
+
+
+class IncludeYamlCliSettingsSource(CliSettingsSource):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def decode_complex_value(
+        self, field_name: str, field: FieldInfo, value: Any
+    ) -> Any:
+        if isinstance(value, str) and value.startswith("@"):
+            with open(value[1:], "r") as f:
+                return yaml.safe_load(f)
+        return super().decode_complex_value(field_name, field, value)

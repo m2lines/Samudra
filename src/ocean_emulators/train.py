@@ -2,7 +2,6 @@
 # - resubmit jobs / preempted job safety
 # - better stepper module and a cleaner model module
 # - cleaner dataset modules
-import argparse
 import contextlib
 import datetime
 import logging
@@ -94,7 +93,7 @@ class Trainer:
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
-        cfg.save_yaml(str(cfg.experiment.output_dir / "config.yaml"))
+        cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
@@ -905,22 +904,8 @@ class Trainer:
 
 
 def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, required=True, help="Path to config YAML file"
-    )
-    parser.add_argument(
-        "--subname", type=str, required=False, help="Subname for the run", default=""
-    )
-    args = parser.parse_args()
-
-    overrides = {}
-    if args.subname:
-        overrides["sub_name"] = args.subname
-
     # Load config from YAML
-    cfg = TrainConfig.from_yaml(args.config, overrides)
+    cfg = TrainConfig.from_yaml_and_cli()
     cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg)
@@ -931,7 +916,7 @@ def main():
     try:
         trainer.run()
     except Exception as e:
-        logger.exception("Evaluation failed with an exception")
+        logger.exception("Training failed with an exception")
         raise e
 
 

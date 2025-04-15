@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744736562571,
+  "lastUpdate": 1744736564415,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6646,6 +6646,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.1980049456118798",
             "extra": "mean: 92.77692534619987 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8352f9e3600ea516fa0660e35b24e5de5307bbfa",
+          "message": "Minor stepper refactors and norm metrics fix  (#202)\n\n- Fix the calculation of metrics for normalized data. We were still\nconsidering 0s at land.\n- Renamed output types and moved them to output.py\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-04-15T12:19:34-04:00",
+          "tree_id": "44494de794a6c2ce8f13cb30f9f5b06d9303fd3b",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/8352f9e3600ea516fa0660e35b24e5de5307bbfa"
+        },
+        "date": 1744736563574,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.19169213469773883,
+            "unit": "iter/sec",
+            "range": "stddev: 0.33115993699671864",
+            "extra": "mean: 5.216698126800066 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cuda-mock-train_default.test.yaml]",
+            "value": 0.5005355579308148,
+            "unit": "iter/sec",
+            "range": "stddev: 0.023711259411245075",
+            "extra": "mean: 1.9978600603999894 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.05536085821368575,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0972488439263692",
+            "extra": "mean: 18.0633037902001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.12784644458045466,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11824370709058199",
+            "extra": "mean: 7.821883536000041 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.010304204481300802,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4841490397781742",
+            "extra": "mean: 97.04776354299989 sec\nrounds: 5"
           }
         ]
       }

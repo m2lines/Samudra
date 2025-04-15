@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744732544294,
+  "lastUpdate": 1744732546141,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6410,6 +6410,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7238962222879853",
             "extra": "mean: 95.41369222480003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b2e5b23c4ec05300e6ec0fc9fdf83059da78cd1",
+          "message": "Inline Inference - Clarity Refactor (#198)\n\n- Added a comment to provide clarity on what we are doing during\ninference and validation.",
+          "timestamp": "2025-04-15T11:11:20-04:00",
+          "tree_id": "46679b918f1c5e268e3ab0c4bc9bb344c1b961d5",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/8b2e5b23c4ec05300e6ec0fc9fdf83059da78cd1"
+        },
+        "date": 1744732545329,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.1967697502061093,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4474759892742739",
+            "extra": "mean: 5.082081971200023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cuda-mock-train_default.test.yaml]",
+            "value": 0.5266620240735287,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07784610052618124",
+            "extra": "mean: 1.898750914799939 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.05404427728887859,
+            "unit": "iter/sec",
+            "range": "stddev: 1.8647627339941053",
+            "extra": "mean: 18.50334670320003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.13012467792305832,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0859370256242629",
+            "extra": "mean: 7.684937368999999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.010893587392582013,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8852105171975463",
+            "extra": "mean: 91.79712467180002 sec\nrounds: 5"
           }
         ]
       }

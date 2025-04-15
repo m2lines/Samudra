@@ -682,10 +682,10 @@ class TorchTrainDataset(Dataset):
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
         windows = [self._get_x_index(idx, step) for step in range(self.steps)]
-        window = xr.concat(windows, dim="step")
+        x_index = xr.concat(windows, dim="step")
 
         prognostic_all = torch.from_numpy(
-            self._prognostic_vars.isel(time=window)
+            self._prognostic_vars.isel(time=x_index)
             .to_array()
             .transpose(
                 "step", "variable", "time", "lat", "lon"
@@ -693,7 +693,7 @@ class TorchTrainDataset(Dataset):
             .to_numpy()
         )
         boundary = torch.from_numpy(
-            self._boundary_vars.isel(time=window)
+            self._boundary_vars.isel(time=x_index)
             .isel(time=self.hist, drop=True)
             .to_array()
             .transpose("step", "variable", "lat", "lon")

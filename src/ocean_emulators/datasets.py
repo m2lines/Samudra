@@ -522,8 +522,8 @@ class TorchTrainDataset(Dataset):
         self._boundary_vars: xr.Dataset = self._bound_src.data
 
         # cache tensors for faster access during training.
-        to_tensor(self._prog_src, device=self.device)
-        to_tensor(self._bound_src, device=self.device)
+        to_tensor(self._prog_src, device=torch.device("cpu"))
+        to_tensor(self._bound_src, device=torch.device("cpu"))
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -603,7 +603,7 @@ class TorchTrainDataset(Dataset):
 
         # add in boundary to final input
         _, boundary_means, boundary_stds = to_tensor(
-            self._bound_src, device=self.device
+            self._bound_src, device=boundary.device
         )
         boundary = normalize_tensor(
             boundary,
@@ -629,7 +629,9 @@ class TorchTrainDataset(Dataset):
             "step variable time lat lon -> time step variable lat lon",
         )
 
-        _, prog_means, prog_stds = to_tensor(self._prog_src, device=self.device)
+        _, prog_means, prog_stds = to_tensor(
+            self._prog_src, device=prognostic_steps.device
+        )
 
         # normalize expects variables in third dimension
         prognostic_steps = normalize_tensor(

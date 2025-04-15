@@ -1,5 +1,4 @@
 import gc
-from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +8,7 @@ from matplotlib.figure import Figure
 from ocean_emulators.utils.wandb import WandBLogger
 
 
-def get_cmap_limits(data: np.ndarray, diverging=False) -> Tuple[float, float]:
+def get_cmap_limits(data: np.ndarray, diverging=False) -> tuple[float, float]:
     vmin = np.nanmin(data)
     vmax = np.nanmax(data)
     if diverging:
@@ -20,11 +19,12 @@ def get_cmap_limits(data: np.ndarray, diverging=False) -> Tuple[float, float]:
 
 def plot_imshow(
     data: np.ndarray,
-    vmin: Optional[float] = None,
-    vmax: Optional[float] = None,
-    cmap: Optional[Union[str, Colormap]] = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: Colormap | None = None,
     flip_lat: bool = True,
     use_colorbar: bool = True,
+    nan_padding: bool = True,
 ) -> Figure:
     """Plot a 2D array using imshow, ensuring figure size is same as array size."""
     min_ = np.nanmin(data) if vmin is None else vmin
@@ -40,7 +40,9 @@ def plot_imshow(
         range_ = np.linspace(min_, max_, height)
         range_ = np.repeat(range_[:, np.newaxis], repeats=colorbar_width, axis=1)
         range_ = np.flipud(range_)  # wandb images start from top (and left)
-        padding = np.zeros((height, colorbar_width)) + np.nan
+        padding = np.zeros((height, colorbar_width))
+        if nan_padding:
+            padding = padding + np.nan  # Set when using non-diverging map
         data = np.concatenate((data, padding, range_), axis=1)
 
     # make figure size (in pixels) be the same as array size
@@ -53,15 +55,17 @@ def plot_imshow(
 
 
 def plot_paneled_data(
-    data: List[List[np.ndarray]],
+    data: list[list[np.ndarray]],
     diverging: bool,
-    caption: Optional[str] = None,
+    caption: str | None = None,
 ):
     """Plot a list of 2D data arrays in a paneled plot."""
     if diverging:
-        cmap = "RdBu_r"
+        cmap = plt.cm.get_cmap("RdBu_r")
+        cmap.set_bad(color=(0.7, 0.7, 0.7))
     else:
-        cmap = None
+        cmap = plt.cm.get_cmap("viridis")
+        cmap.set_bad(color="white")
     vmin = np.inf
     vmax = -np.inf
     for row in data:
@@ -84,7 +88,9 @@ def plot_paneled_data(
         fill_value = vmin
     all_data = _stitch_data_panels(data, fill_value=fill_value)
 
-    fig = plot_imshow(all_data, vmin=vmin, vmax=vmax, cmap=cmap)
+    fig = plot_imshow(
+        all_data, vmin=vmin, vmax=vmax, cmap=cmap, nan_padding=not diverging
+    )
     wandb = WandBLogger.get_instance()
     wandb_image = wandb.Image(fig, caption=caption)
     plt.close(fig)
@@ -96,7 +102,7 @@ def plot_paneled_data(
     return wandb_image
 
 
-def _stitch_data_panels(data: List[List[np.ndarray]], fill_value) -> np.ndarray:
+def _stitch_data_panels(data: list[list[np.ndarray]], fill_value) -> np.ndarray:
     for row in data:
         if len(row) != len(data[0]):
             raise ValueError("All rows must have the same number of panels.")

@@ -21,7 +21,12 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import Normalize, DataSource, to_tensor, normalize, normalize_tensor
+from ocean_emulators.utils.data import (
+    DataSource,
+    normalize,
+    normalize_tensor,
+    to_tensor,
+)
 from ocean_emulators.utils.device import get_device, using_gpu
 
 
@@ -363,7 +368,6 @@ class TrainDataset(Dataset):
 
         # Normalize
         logging.info("Normalizing inputs")
-        self.normalize = Normalize.get_instance()
         self._prognostic_vars = normalize(self._prog_src)
         self._boundary_vars = normalize(self._bound_src)
 

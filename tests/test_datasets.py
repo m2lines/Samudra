@@ -66,8 +66,6 @@ def make_loader(
         )
         val = validate_data(raw)
         wet, wet_surface = extract_wet_mask(val.data, prognostic, cfg.data.hist)
-        wet_without_hist, _ = extract_wet_mask(val.data, prognostic, 0)
-        Normalize.init_instance(val, prognostic, boundary, wet_without_hist)
 
         match version:
             case LoaderVersion.OM4_EAGER:

@@ -1,5 +1,4 @@
 import gc
-from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +8,7 @@ from matplotlib.figure import Figure
 from ocean_emulators.utils.wandb import WandBLogger
 
 
-def get_cmap_limits(data: np.ndarray, diverging=False) -> Tuple[float, float]:
+def get_cmap_limits(data: np.ndarray, diverging=False) -> tuple[float, float]:
     vmin = np.nanmin(data)
     vmax = np.nanmax(data)
     if diverging:
@@ -20,9 +19,9 @@ def get_cmap_limits(data: np.ndarray, diverging=False) -> Tuple[float, float]:
 
 def plot_imshow(
     data: np.ndarray,
-    vmin: Optional[float] = None,
-    vmax: Optional[float] = None,
-    cmap: Optional[Colormap] = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: Colormap | None = None,
     flip_lat: bool = True,
     use_colorbar: bool = True,
     nan_padding: bool = True,
@@ -56,9 +55,9 @@ def plot_imshow(
 
 
 def plot_paneled_data(
-    data: List[List[np.ndarray]],
+    data: list[list[np.ndarray]],
     diverging: bool,
-    caption: Optional[str] = None,
+    caption: str | None = None,
 ):
     """Plot a list of 2D data arrays in a paneled plot."""
     if diverging:
@@ -103,7 +102,7 @@ def plot_paneled_data(
     return wandb_image
 
 
-def _stitch_data_panels(data: List[List[np.ndarray]], fill_value) -> np.ndarray:
+def _stitch_data_panels(data: list[list[np.ndarray]], fill_value) -> np.ndarray:
     for row in data:
         if len(row) != len(data[0]):
             raise ValueError("All rows must have the same number of panels.")

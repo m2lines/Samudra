@@ -726,7 +726,7 @@ class TorchTrainDataset(Dataset):
         # add in boundary to final input
         boundary = normalize.normalize_tensor_boundary(boundary).float()
         boundary = torch.where(self.wet_surface, boundary, 0.0)
-        total_input = torch.cat((input_, boundary), dim=1)
+        total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
 
         # grab future steps, repeat as we do for input
         label = self._prep_prognostic_steps(prognostic_all[:, :, self.hist + 1 :, :, :])

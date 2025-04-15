@@ -244,7 +244,6 @@ def data_init(hist: int):
         data_mean = data.mean() * 0.0
         data_std = data.std() * 0.0 + 1.0
         data, data_mean, data_std = validate_data(data, data_mean, data_std)
-        wet, wet_surface = extract_wet_mask(data, tensor_map.prognostic_var_names, hist)
         wet_without_hist, _ = extract_wet_mask(data, tensor_map.prognostic_var_names, 0)
 
         normalize = Normalize.init_instance(

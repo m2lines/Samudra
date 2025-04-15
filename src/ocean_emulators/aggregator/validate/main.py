@@ -56,7 +56,7 @@ class ValidateAggregator(TrainAggregator):
         target_data_dict, target_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.target_data,
             long_rollout=False,
-            input_type="target",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
@@ -64,7 +64,7 @@ class ValidateAggregator(TrainAggregator):
         gen_data_dict, gen_data_unnorm_dict = get_norm_unnorm_dicts(
             batch.gen_data,
             long_rollout=False,
-            input_type="gen",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )

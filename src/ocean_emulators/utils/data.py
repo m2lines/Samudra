@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Literal
 
 import cftime
 import numpy as np
@@ -12,11 +12,16 @@ from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
+    BatchTimeSeriesOutput,
     BoundaryVarNames,
+    DictSingleChannelVar,
     Grid,
     GridMask,
+    Input,
+    Prognostic,
     PrognosticMask,
     PrognosticVarNames,
+    SingleTimeSeriesOutput,
     TensorMap,
 )
 from ocean_emulators.utils.multiton import Multiton
@@ -168,7 +173,7 @@ def get_inference_steps(time_config: TimeConfig, time_delta: int = 5, hist: int 
     return num_steps
 
 
-def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tensor]:
+def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar:
     tensor_map = TensorMap.get_instance()
     assert tensor_out.ndim == 5
     assert tensor_out.shape[2] == len(tensor_map.prognostic_var_names)
@@ -179,22 +184,26 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tens
 
 
 def get_norm_unnorm_dicts(
-    data: torch.Tensor,
+    data: Prognostic | Input,
     long_rollout: bool,
-    input_type: str = "target",
+    input_type: Literal["prognostic", "input"] = "prognostic",
     num_prognostic_channels: int = 0,
     hist: int = 1,
-):
+) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
     normalize = Normalize.get_instance()
     # Remove boundary data if input
     if input_type == "input":
         data = data[:, :num_prognostic_channels]
 
     # Separate history from channels
+    data_reshaped: SingleTimeSeriesOutput | BatchTimeSeriesOutput
     if long_rollout:
-        data_reshaped = rearrange(data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1)
-        data_reshaped = data_reshaped.unsqueeze(0)  # add artificial batch dim
+        # All batches are part of the same rollout during inference
+        data_reshaped = rearrange(
+            data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
+        ).unsqueeze(0)  # add artificial batch dim
     else:
+        # Batches are independent rollouts during validation
         data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
 
     # Get normalized dict

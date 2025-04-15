@@ -4,7 +4,7 @@ import torch
 import wandb
 import xarray as xr
 
-from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
+from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
 from ocean_emulators.utils.output import ModelInferenceOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -108,7 +108,7 @@ class InferenceEvaluatorAggregator:
             raise ValueError("No target values in data")
         total_len = len(data.time)
         assert data.prediction.shape[0] == total_len // (self.hist + 1)
-        target_norm_dict, target_unnorm_dict = get_norm_unnorm_dicts(
+        target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
             wet=self.wet,
             long_rollout=True,
@@ -116,7 +116,7 @@ class InferenceEvaluatorAggregator:
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
-        gen_norm_dict, gen_unnorm_dict = get_norm_unnorm_dicts(
+        gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
             wet=self.wet,
             long_rollout=True,
@@ -158,7 +158,7 @@ class InferenceEvaluatorAggregator:
                 "before recording any batches"
             )
 
-        data_norm_dict, data_unnorm_dict = get_norm_unnorm_dicts(
+        data_norm_dict, data_unnorm_dict = get_aggregator_dicts(
             initial_prognostic,
             wet=self.wet,
             long_rollout=True,

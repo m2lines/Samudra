@@ -12,7 +12,7 @@ from ocean_emulators.utils.data import (
     compute_anomalies,
     extract_wet_mask,
     flatten_masks,
-    get_norm_unnorm_dicts,
+    get_aggregator_dicts,
     mask,
     unflatten_masks,
     validate_data,
@@ -275,7 +275,7 @@ def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
                 *wet.shape[1:],
             ]
         )
-    data_dict, data_unnorm_dict = get_norm_unnorm_dicts(
+    data_dict, data_unnorm_dict = get_aggregator_dicts(
         data,
         wet,
         long_rollout,

@@ -178,7 +178,7 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tens
     return out_dict
 
 
-def get_norm_unnorm_dicts(
+def get_aggregator_dicts(
     data: torch.Tensor,
     wet: torch.Tensor,
     long_rollout: bool,

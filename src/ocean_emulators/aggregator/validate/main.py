@@ -8,7 +8,7 @@ from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
+from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -55,7 +55,7 @@ class ValidateAggregator(TrainAggregator):
             raise ValueError("No data in gen_data")
 
         assert batch.target_data.shape[1] == self.num_prognostic_channels
-        target_data_dict, target_data_unnorm_dict = get_norm_unnorm_dicts(
+        target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(
             batch.target_data,
             wet=self.wet,
             long_rollout=False,
@@ -64,7 +64,7 @@ class ValidateAggregator(TrainAggregator):
             hist=self.hist,
         )
 
-        gen_data_dict, gen_data_unnorm_dict = get_norm_unnorm_dicts(
+        gen_data_dict, gen_data_unnorm_dict = get_aggregator_dicts(
             batch.gen_data,
             wet=self.wet,
             long_rollout=False,
@@ -72,7 +72,7 @@ class ValidateAggregator(TrainAggregator):
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
-        input_data_dict, input_data_unnorm_dict = get_norm_unnorm_dicts(
+        input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
             batch.input_data,
             wet=self.wet,
             long_rollout=False,

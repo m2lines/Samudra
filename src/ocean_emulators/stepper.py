@@ -10,8 +10,8 @@ from ocean_emulators.models.base import BaseModel
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.output import (
     ModelInferenceOutput,
-    TrainStepOutput,
-    ValStepOutput,
+    TrainBatchOutput,
+    ValBatchOutput,
 )
 from ocean_emulators.utils.wandb import get_record_to_wandb
 from ocean_emulators.utils.writer import ZarrWriter
@@ -22,20 +22,20 @@ class Stepper:
         pass
 
     @staticmethod
-    def train_step(
+    def train_batch(
         model: torch.nn.Module, batch: TrainData, loss_fn: Callable
-    ) -> TrainStepOutput:
+    ) -> TrainBatchOutput:
         loss_per_channel = model(batch, loss_fn=loss_fn)
         loss = torch.mean(loss_per_channel)
-        return TrainStepOutput(loss, loss_per_channel)
+        return TrainBatchOutput(loss, loss_per_channel)
 
     @staticmethod
     @torch.no_grad()
-    def validate_step(
+    def validate_batch(
         model: BaseModel | torch.nn.parallel.DistributedDataParallel,
         batch: TrainData,
         loss_fn: Callable,
-    ) -> ValStepOutput:
+    ) -> ValBatchOutput:
         assert len(batch) == 1  # Assert we are using one step of input and output
         input = batch.get_input(0)
         label = batch.get_label(0)
@@ -49,7 +49,7 @@ class Stepper:
         outs = model.forward_once(input)
         loss_per_channel = loss_fn(outs, label)
         loss = torch.mean(loss_per_channel)
-        return ValStepOutput(loss, loss_per_channel, input, label, outs)
+        return ValBatchOutput(loss, loss_per_channel, input, label, outs)
 
     @staticmethod
     @torch.no_grad()

@@ -2,7 +2,7 @@ import torch
 
 from ocean_emulators.aggregator.loss import LossAggregator
 from ocean_emulators.utils.distributed import all_reduce_mean
-from ocean_emulators.utils.output import TrainStepOutput
+from ocean_emulators.utils.output import TrainBatchOutput
 from ocean_emulators.utils.wandb import Metrics
 
 
@@ -15,7 +15,7 @@ class TrainAggregator:
         self._loss_per_channel = torch.tensor(torch.nan)
 
     @torch.no_grad()
-    def record_batch(self, batch: TrainStepOutput):
+    def record_batch(self, batch: TrainBatchOutput):
         if torch.isnan(self._loss):
             self._loss = batch.loss
         else:

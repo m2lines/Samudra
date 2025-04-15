@@ -2,13 +2,13 @@ import torch
 import xarray as xr
 
 
-class TrainStepOutput:
+class TrainBatchOutput:
     def __init__(self, loss: torch.Tensor, loss_per_channel: torch.Tensor):
         self.loss = loss
         self.loss_per_channel = loss_per_channel
 
 
-class ValStepOutput(TrainStepOutput):
+class ValBatchOutput(TrainBatchOutput):
     def __init__(
         self,
         loss: torch.Tensor,

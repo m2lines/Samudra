@@ -48,7 +48,7 @@ from ocean_emulators.datasets import (
     TrainDataset,
 )
 from ocean_emulators.models.samudra import Samudra
-from ocean_emulators.stepper import Stepper, TrainStepOutput, ValStepOutput
+from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
     extract_wet_mask,
@@ -510,7 +510,7 @@ class Trainer:
 
             self.optimizer.zero_grad()
             data.to(self.device)
-            TO: TrainStepOutput = Stepper.train_step(self.model, data, self.loss_fn)
+            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()
             self._ema(model=self.model)
             train_aggregator.record_batch(TO)
@@ -578,7 +578,7 @@ class Trainer:
                     break
 
                 data.to(self.device)
-                VO: ValStepOutput = Stepper.validate_step(
+                VO: ValBatchOutput = Stepper.validate_batch(
                     self.model, data, self.loss_fn
                 )
                 val_aggregator.record_validation_batch(VO)

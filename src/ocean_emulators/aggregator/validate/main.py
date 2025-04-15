@@ -9,7 +9,7 @@ from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
-from ocean_emulators.utils.output import ValStepOutput
+from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 
@@ -46,7 +46,7 @@ class ValidateAggregator(TrainAggregator):
         )
 
     @torch.no_grad()
-    def record_validation_batch(self, batch: ValStepOutput):
+    def record_validation_batch(self, batch: ValBatchOutput):
         super().record_batch(batch)  # Record losses
 
         if len(batch.target_data) == 0:

@@ -23,12 +23,14 @@ class Aggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
+        wet: torch.Tensor,
         num_prognostic_channels: int,
     ) -> ValidateAggregator:
         return ValidateAggregator(
             metadata=metadata,
             hist=hist,
             area_weights=area_weights,
+            wet=wet,
             num_prognostic_channels=num_prognostic_channels,
         )
 
@@ -38,6 +40,7 @@ class Aggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
+        wet: torch.Tensor,
         num_prognostic_channels: int,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
@@ -45,6 +48,7 @@ class Aggregator:
             metadata=metadata,
             hist=hist,
             area_weights=area_weights,
+            wet=wet,
             num_prognostic_channels=num_prognostic_channels,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=False,
@@ -57,6 +61,7 @@ class Aggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
+        wet: torch.Tensor,
         num_prognostic_channels: int,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
@@ -64,6 +69,7 @@ class Aggregator:
             metadata=metadata,
             hist=hist,
             area_weights=area_weights,
+            wet=wet,
             num_prognostic_channels=num_prognostic_channels,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=True,

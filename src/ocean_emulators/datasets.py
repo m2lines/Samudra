@@ -681,8 +681,8 @@ class TorchTrainDataset(Dataset):
 
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
-        windows = [self._get_x_index(idx, step) for step in range(self.steps)]
-        x_index = xr.concat(windows, dim="step")
+        x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]
+        x_index = xr.concat(x_indexes, dim="step")
 
         prognostic_all = torch.from_numpy(
             self._prognostic_vars.isel(time=x_index)

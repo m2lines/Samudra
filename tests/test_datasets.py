@@ -66,14 +66,15 @@ def make_loader(
         )
         val = validate_data(raw)
         wet, wet_surface = extract_wet_mask(val.data, prognostic, cfg.data.hist)
-        Normalize.init_instance(val, prognostic, boundary, wet)
+        wet_without_hist, _ = extract_wet_mask(val.data, prognostic, 0)
+        Normalize.init_instance(val, prognostic, boundary, wet_without_hist)
 
         match version:
             case LoaderVersion.OM4_EAGER:
                 data: ConcatDataset | InferenceDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=val.data.sel(time=time_slice),
+                            src=val.slice(time_slice),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,
@@ -90,7 +91,7 @@ def make_loader(
                 data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=val.data.sel(time=time_slice),
+                            src=val.slice(time_slice),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,
@@ -435,7 +436,7 @@ def traindataset_input():
             wet_mask=wet,
         )
         traindataset = TrainDataset(
-            data=test.data,
+            src=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             wet=wet,

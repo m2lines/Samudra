@@ -1,12 +1,10 @@
 import argparse
 import datetime
 import logging
-import os
 import time
 from collections import OrderedDict
 
 import torch
-import xarray as xr
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
@@ -100,27 +98,8 @@ class Eval:
         self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        if "*" in self.data_path:
-            data = xr.open_mfdataset(
-                os.path.join(self.data_dir, self.data_path),
-                engine="netcdf4",
-                chunks={"time": 1, "lat": 180, "lon": 360},
-            )
-        else:
-            data = xr.open_zarr(os.path.join(self.data_dir, self.data_path), chunks={})
-        data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path),
-            engine="netcdf4" if self.data_means_path.endswith(".nc") else "zarr",
-            chunks={},
-        )
-        data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path),
-            engine="netcdf4" if self.data_stds_path.endswith(".nc") else "zarr",
-            chunks={},
-        )
-
-        raw_data = DataSource(name="raw", data=data, means=data_mean, stds=data_std)
-        val = validate_data(raw_data)
+        raw = DataSource.from_config(cfg)
+        val = self.src = validate_data(raw)
         self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
 
         self.metadata = construct_metadata(self.data)
@@ -208,9 +187,8 @@ class Eval:
             time_delta=self.time_delta,
             hist=self.hist,
         )
-        inference_data = self.data.sel(time=self.inference_time.time_slice)
         self.inference_dataset = InferenceDataset(
-            data=inference_data,
+            src=self.src.slice(self.inference_time.time_slice),
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet=self.wet,

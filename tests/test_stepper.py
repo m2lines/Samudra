@@ -79,7 +79,7 @@ def inf_data_init(hist: int):
             wet_mask=wet_without_hist,
         )
         inference_dataset = InferenceDataset(
-            val.data,
+            val,
             tensor_map.prognostic_var_names,
             tensor_map.boundary_var_names,
             wet,

@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+from functools import cache
 from typing import Any, Self, Literal
 
 import cftime
@@ -8,7 +9,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from ocean_emulators.config import TimeConfig, TrainConfig
+from ocean_emulators.config import EvalConfig, TimeConfig, TrainConfig
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
@@ -38,18 +39,60 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
 
-    def copy(self, new_name: str | None = None) -> Self:
+    def __hash__(self) -> int:
+        """Hashing good enough for dictionary keys."""
+
+        def _shape_hash(ds: xr.Dataset) -> int:
+            return hash(
+                "_".join(
+                    [
+                        f"{k}-{v}:{d}"
+                        for k, da in ds.items()
+                        for v, d in da.sizes.items()
+                    ]
+                )
+            )
+
+        return (
+            hash(self.name)
+            + _shape_hash(self.data)
+            + _shape_hash(self.means)
+            + _shape_hash(self.stds)
+        )
+
+    def filter(
+        self,
+        var_names: PrognosticVarNames | BoundaryVarNames,
+        *,
+        name: str | None = None,
+    ) -> Self:
+        """Filter the data source to only include the specified variables."""
+        data = self.data[var_names]
+        means = self.means[var_names]
+        stds = self.stds[var_names]
+
+        return dataclasses.replace(
+            self, name=name or self.name, data=data, means=means, stds=stds
+        )
+
+    def slice(self, time_slice: slice, *, name: str | None = None) -> Self:
+        """Slice the data source to only include the specified time slice."""
+        data = self.data.sel(time=time_slice)
+
+        return dataclasses.replace(self, name=name or self.name, data=data)
+
+    def copy(self, *, name: str | None = None) -> Self:
         """Return a copy (of underlying `xr.Dataset`) of the DataSource."""
         return dataclasses.replace(
             self,
-            name=new_name or self.name,
+            name=name or self.name,
             data=self.data.copy(),
             means=self.means.copy(),
             stds=self.stds.copy(),
         )
 
     @classmethod
-    def from_config(cls, cfg: TrainConfig) -> Self:
+    def from_config(cls, cfg: TrainConfig | EvalConfig) -> Self:
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         if use_dask:
             chunks: dict[str, int] | None = {}
@@ -77,7 +120,12 @@ class DataSource:
             chunks=chunks,
         )
 
-        return cls(name="raw", data=data, means=means, stds=stds)
+        return cls(
+            name=f"raw-{cfg.experiment.name}-{cfg.experiment.data_dir.name}",
+            data=data,
+            means=means,
+            stds=stds,
+        )
 
 
 def extract_wet_mask(
@@ -244,7 +292,7 @@ def compute_anomalies(
     """
     Compute anomalies for the given variables.
     """
-    src = data_src.copy(data_src.name + "_anomalies")
+    src = data_src.copy(name=data_src.name + "_anomalies")
 
     for var in anomalies_vars:
         base_var = var.replace("_anomalies", "")
@@ -303,7 +351,7 @@ def validate_data(src: DataSource) -> DataSource:
     """
     Validate the data such that we have the correct format for training.
     """
-    src_ = src.copy("validated")
+    src_ = src.copy(name=src.name + "_validated")
 
     src_.data = (
         src_.data.pipe(flatten_masks)
@@ -323,6 +371,59 @@ def validate_data(src: DataSource) -> DataSource:
     out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
 
     return out
+
+
+@cache
+def to_tensor(
+    src: DataSource, device: torch.device
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Convert data source to tensors (with caching)."""
+    data_np = src.data.to_array().to_numpy().reshape(-1)
+    means_np = src.means.to_array().to_numpy().reshape(-1)
+    stds_np = src.stds.to_array().to_numpy().reshape(-1)
+
+    data_tensor = torch.from_numpy(data_np).to(device)
+    means_tensor = torch.from_numpy(means_np).to(device)
+    stds_tensor = torch.from_numpy(stds_np).to(device)
+
+    return data_tensor, means_tensor, stds_tensor
+
+
+def normalize(src: DataSource, fill_nan=True, fill_value=0.0) -> xr.Dataset:
+    """Normalize input data source."""
+    norm = (src.data - src.means) / src.stds
+    if fill_nan:
+        norm = norm.fillna(fill_value)
+    return norm
+
+
+def normalize_tensor(
+    data: torch.Tensor,
+    means: torch.Tensor,
+    stds: torch.Tensor,
+    fill_nan=True,
+    fill_value=0.0,
+) -> torch.Tensor:
+    """Normalize data treated as torch Tensors."""
+    norm = (data - means) / stds
+    if fill_nan:
+        norm = norm.nan_to_num(nan=fill_value)
+    norm = norm.to(data.dtype)
+    return norm
+
+
+def unnormalize_tensor(
+    data: torch.Tensor, means: torch.Tensor, stds: torch.Tensor
+) -> torch.Tensor:
+    unnorm = data * stds + means
+    unnorm = unnorm.to(data.dtype)
+    return unnorm
+
+
+def mask_tensor(
+    data: torch.Tensor, wet_mask: torch.Tensor, fill_value=float("nan")
+) -> torch.Tensor:
+    return torch.where(wet_mask.to(data.device) == 0, fill_value, data)
 
 
 # TODO: Repetitive code. Refactor
@@ -353,24 +454,6 @@ class Normalize(Multiton):
     def _to_tensor(self, array: np.ndarray, device: torch.device) -> torch.Tensor:
         """Convert numpy array to tensor on specified device."""
         return torch.from_numpy(array).to(device)
-
-    def normalize_prognostic(
-        self, data: xr.Dataset, fill_nan=True, fill_value=0.0
-    ) -> xr.Dataset:
-        """Normalize input dataset."""
-        norm = (data - self.prognostic_mean) / self.prognostic_std
-        if fill_nan:
-            norm = norm.fillna(fill_value)
-        return norm
-
-    def normalize_boundary(
-        self, data: xr.Dataset, fill_nan=True, fill_value=0.0
-    ) -> xr.Dataset:
-        """Normalize boundary conditions."""
-        norm = (data - self.boundary_mean) / self.boundary_std
-        if fill_nan:
-            norm = norm.fillna(fill_value)
-        return norm
 
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
@@ -413,25 +496,3 @@ class Normalize(Multiton):
         unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
         unnorm = unnorm.to(data.dtype)
         return unnorm
-
-    def normalize_tensor_boundary(
-        self, data: torch.Tensor, fill_nan=True, fill_value=0.0
-    ) -> torch.Tensor:
-        """Normalize boundary tensor."""
-        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device)
-        tensor_std = self._to_tensor(self._boundary_std_np, data.device)
-
-        if data.ndim == 3:
-            tensor_mean = tensor_mean.reshape([-1, 1, 1])
-            tensor_std = tensor_std.reshape([-1, 1, 1])
-        elif data.ndim == 4:
-            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, -1, 1, 1])
-        else:
-            raise ValueError(f"Invalid data shape: {data.shape}")
-
-        norm = (data - tensor_mean) / tensor_std
-        if fill_nan:
-            norm = norm.nan_to_num(nan=fill_value)
-        norm = norm.to(data.dtype)
-        return norm

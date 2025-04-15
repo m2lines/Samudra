@@ -160,7 +160,7 @@ class Trainer:
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         raw = DataSource.from_config(cfg)
-        val = validate_data(raw)
+        val = self.src = validate_data(raw)
         self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
 
         self.metadata = construct_metadata(self.data)
@@ -358,9 +358,8 @@ class Trainer:
                 time_delta=self.time_delta,
                 hist=self.hist,
             )
-            inference_data = self.data.sel(time=self.inference_times[i].time_slice)
             inference_dataset = InferenceDataset(
-                data=inference_data,
+                src=self.src.slice(self.inference_times[i].time_slice),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 wet=self.wet,
@@ -629,7 +628,7 @@ class Trainer:
                 train_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=self.data.sel(time=self.train_times.time_slice),
+                            src=self.src.slice(self.train_times.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -645,7 +644,7 @@ class Trainer:
                 val_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=self.data.sel(time=self.val_times.time_slice),
+                            src=self.src.slice(self.val_times.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -661,7 +660,7 @@ class Trainer:
                 train_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=self.data.sel(time=self.train_times.time_slice),
+                            src=self.src.slice(self.train_times.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -677,7 +676,7 @@ class Trainer:
                 val_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=self.data.sel(time=self.val_times.time_slice),
+                            src=self.src.slice(self.val_times.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,

@@ -3,11 +3,8 @@
 
 set -e
 
-if [[ -z $(git status --porcelain) ]]; then
-    echo "Working directory is clean."
-else
+if ! [[ -z $(git status --porcelain) ]]; then
     echo "There are uncommitted changes."
-    git status --porcelain
     exit 1
 fi
 

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744735161791,
+  "lastUpdate": 1744735166322,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6528,6 +6528,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.8852105171975463",
             "extra": "mean: 91.79712467180002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "49404e57add8a29a90a65115a8c3cb323238808b",
+          "message": "Better colors for wandb map plots (#201)\n\nBetter coloring of land cells in the plots",
+          "timestamp": "2025-04-15T11:57:53-04:00",
+          "tree_id": "7211baffd337a8ada8e00e813c1035f14ed63174",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/49404e57add8a29a90a65115a8c3cb323238808b"
+        },
+        "date": 1744735165482,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.2006857385045352,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3687329256761139",
+            "extra": "mean: 4.9829151161999565 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cuda-mock-train_default.test.yaml]",
+            "value": 0.5399750703575027,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07574183212567544",
+            "extra": "mean: 1.8519373484000425 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.055354068035197226,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0272516577711939",
+            "extra": "mean: 18.06551958139994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.12922816996780573,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06559718688162444",
+            "extra": "mean: 7.7382508801999395 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.010778542145781079,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1980049456118798",
+            "extra": "mean: 92.77692534619987 sec\nrounds: 5"
           }
         ]
       }

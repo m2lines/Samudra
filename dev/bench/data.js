@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744732054538,
+  "lastUpdate": 1744732544294,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3429,6 +3429,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.0481466602953116",
             "extra": "mean: 133.37475464339997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b2e5b23c4ec05300e6ec0fc9fdf83059da78cd1",
+          "message": "Inline Inference - Clarity Refactor (#198)\n\n- Added a comment to provide clarity on what we are doing during\ninference and validation.",
+          "timestamp": "2025-04-15T11:11:20-04:00",
+          "tree_id": "46679b918f1c5e268e3ab0c4bc9bb344c1b961d5",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/8b2e5b23c4ec05300e6ec0fc9fdf83059da78cd1"
+        },
+        "date": 1744732543190,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.18522912258955643,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15039049787711062",
+            "extra": "mean: 5.398719089199972 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cpu-mock-train_default.test.yaml]",
+            "value": 0.5139901960924032,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08395858792927487",
+            "extra": "mean: 1.9455624010000065 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.05403827763089332,
+            "unit": "iter/sec",
+            "range": "stddev: 2.0364164586837523",
+            "extra": "mean: 18.505401057199993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.1373598214032791,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11643881377529476",
+            "extra": "mean: 7.280149244399991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007649288108670579,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4319537832999786",
+            "extra": "mean: 130.7311197844 sec\nrounds: 5"
           }
         ]
       }

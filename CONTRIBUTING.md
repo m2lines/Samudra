@@ -237,11 +237,11 @@ pytest -m "not manual and not cuda"
 We have a set of singletons in the code which use the "Multiton" helper to prevent tests from interfering with each other.
 When writing tests, you can either:
 
-    def test_foo():
-        with MultitonScope():
-            # set up whatever singletons you need
-            Normalize.init_instance(…)
-            assert …
+   def test_foo():
+      with MultitonScope():
+         # set up whatever singletons you need
+         Normalize.init_instance(…)
+         assert …
 
 Or you can initialize them in a Generator-based fixture:
 
@@ -253,7 +253,6 @@ Or you can initialize them in a Generator-based fixture:
 
    def test_foo(my_fixture):
        assert … # in this code, the Normalize instance is the one from my_fixture
-
 
 ## Benchmarking & Profiling
 

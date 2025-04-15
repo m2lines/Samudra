@@ -25,14 +25,13 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.datasets import (
     InferenceDataset,
-    OM4Dataset,
     TorchTrainDataset,
     TrainData,
     TrainDataset,
 )
 from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
 from ocean_emulators.utils.multiton import MultitonScope
-from ocean_emulators.utils.train import collate_om4, collate_train_data
+from ocean_emulators.utils.train import collate_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair
 
 
@@ -95,21 +94,6 @@ def make_loader(
                     ]
                 )
                 collate_fn: Callable = collate_train_data
-            case LoaderVersion.OM4_LAZY:
-                data = ConcatDataset(
-                    [
-                        OM4Dataset(
-                            data=ds_.sel(time=time_slice),
-                            prognostic_var_names=prognostic,
-                            boundary_var_names=boundary,
-                            hist=cfg.data.hist,
-                            steps=cfg.steps[0],
-                            stride=stride,
-                        )
-                        for stride in cfg.data_stride
-                    ]
-                )
-                collate_fn = collate_om4
             case LoaderVersion.OM4_TORCH:
                 data = ConcatDataset(
                     [

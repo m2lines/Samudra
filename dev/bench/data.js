@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744842290367,
+  "lastUpdate": 1744843007696,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -236,6 +236,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5676131109063465",
             "extra": "mean: 127.67303516780001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dcc4fa780eeb21762ddae07405a9571a68a6f6dd",
+          "message": "Removed the Lazy Loader from the codebase. (#213)\n\nFixes #207.",
+          "timestamp": "2025-04-16T14:57:46-07:00",
+          "tree_id": "790c3ea7d82a10d8bfbde947e144cde5c44b2c02",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/dcc4fa780eeb21762ddae07405a9571a68a6f6dd"
+        },
+        "date": 1744843006387,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.20011474602750523,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2704052946793023",
+            "extra": "mean: 4.997132994200001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.05789661991650419,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0773368435918922",
+            "extra": "mean: 17.2721654812 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.13949711653631966,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10632463594171095",
+            "extra": "mean: 7.168606956399981 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007838094989608309,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15793428798501996",
+            "extra": "mean: 127.5820210556 sec\nrounds: 5"
           }
         ]
       }

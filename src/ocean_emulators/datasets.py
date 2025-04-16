@@ -741,7 +741,7 @@ class TorchTrainDataset(Dataset):
             "step variable time lat lon -> time step variable lat lon",
         )
 
-        # normalize expects variables in second dimension
+        # normalize expects variables in third dimension
         prognostic_steps = normalize.normalize_tensor_prognostic(
             prognostic_steps
         ).float()

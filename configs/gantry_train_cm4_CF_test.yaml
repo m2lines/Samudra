@@ -48,9 +48,9 @@ experiment:
   cluster_data_dir: /
   wandb:
     mode: online
-    project: ocean-emulators
-    entity: m2lines
-    group: crossformer-test
+    project: ocean-emulator
+    entity: ai2cm
+    group: samudra-test-cf
   network: CrossFormer
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds

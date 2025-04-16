@@ -163,6 +163,10 @@ class OM4Dataset(Dataset):
             .rename({"var": "variable"})
         )
 
+        logger.debug(
+            "[OM4Dataset] get_item took %.4f seconds", time.perf_counter() - get_start
+        )
+
         return input_, label
 
 
@@ -288,7 +292,7 @@ class InferenceDataset(Dataset):
         label = self._get_label(x_index)
 
         logger.debug(
-            "[InferenceDataset] get_item took %.5f seconds",
+            "[InferenceDataset] get_item took %.4f seconds",
             time.perf_counter() - get_start,
         )
         return (data_in, label)
@@ -565,7 +569,7 @@ class TrainDataset(Dataset):
             )
 
         logger.debug(
-            "[TrainDataset] get_item took %.5f seconds", time.perf_counter() - get_start
+            "[TrainDataset] get_item took %.4f seconds", time.perf_counter() - get_start
         )
         return TD
 
@@ -788,7 +792,7 @@ class TorchTrainDataset(Dataset):
             )
 
         logger.debug(
-            "[TorchTrainDataset] get_item took %.5f seconds",
+            "[TorchTrainDataset] get_item took %.4f seconds",
             time.perf_counter() - get_start,
         )
         return TD

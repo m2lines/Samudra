@@ -22,7 +22,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource, LoadStats
+from ocean_emulators.utils.data import DataSource, LoadStats, conditional_rearrange
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
 
@@ -184,11 +184,28 @@ class InferenceDataset(Dataset):
             data_in_ds = data_in_src.normalize()
         else:
             data_in_ds = data_in_src.data
-        data_in_np: np.ndarray = (
-            data_in_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
+
+        if data_in_src.is_compact:
+            data_in_np: np.ndarray = (
+                conditional_rearrange(
+                    data_in_ds,
+                    "window_dim (time variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            data_in_np = (
+                data_in_ds.to_array()
+                .transpose("window_dim", "time", "variable", "lat", "lon")
+                .to_numpy()
+            )
+            data_in_np = rearrange(
+                data_in_np,
+                "window_dim time variable lat lon -> "
+                "window_dim (time variable) lat lon",
+            )
         data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
         data_in = torch.where(self.wet, data_in, self.masked_fill_value)
         if not self.normalize_before_mask:
@@ -213,11 +230,22 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_np: np.ndarray = (
-            data_in_boundary_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
+        if data_in_boundary_src.is_compact:
+            data_in_boundary_np: np.ndarray = (
+                conditional_rearrange(
+                    data_in_boundary_ds,
+                    "window_dim time (variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            data_in_boundary_np = (
+                data_in_boundary_ds.to_array()
+                .transpose("window_dim", "time", "variable", "lat", "lon")
+                .to_numpy()
+            )
         data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
         data_in_boundary = torch.where(
             self.wet_surface, data_in_boundary, self.masked_fill_value
@@ -240,19 +268,32 @@ class InferenceDataset(Dataset):
             label_ds = label_src.normalize()
         else:
             label_ds = label_src.data
-        label_np: np.ndarray = (
-            label_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-        label: torch.Tensor = torch.from_numpy(label_np).float()
+        if label_src.is_compact:
+            label_np: np.ndarray = (
+                conditional_rearrange(
+                    label_ds,
+                    "window_dim (time variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            label_np = (
+                label_ds.to_array()
+                .transpose("window_dim", "time", "variable", "lat", "lon")
+                .to_numpy()
+            )
+            label: torch.Tensor = torch.from_numpy(label_np).float()
         label = torch.where(self.wet, label, self.masked_fill_value)
         if not self.normalize_before_mask:
             label = self._prognostic_src.normalize_with(label, variable_axis=2)
         label = rearrange(
-            label,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
+                label,
+                "window_dim time variable lat lon -> "
+                "window_dim (time variable) lat lon",
+            )
+
         return label
 
     def get_coords_dict(self):
@@ -618,27 +659,42 @@ class TorchTrainDataset(Dataset):
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
+        x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]
+        x_index = xr.concat(x_indexes, dim="step")
 
-        for step in range(self.steps):
-            x_index = self._get_x_index(idx, step)
+        if self._prognostic_src.is_compact:
+            prognostic_all = torch.from_numpy(
+                conditional_rearrange(
+                    self._prognostic_src.data.isel(time=x_index),
+                    "(variable lev)=var time lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
             prognostic_all = torch.from_numpy(
                 self._prognostic_src.data.isel(time=x_index)
                 .to_array()
-                .transpose("time", "variable", "lat", "lon")
+                .transpose(
+                    "step", "time", "variable", "lat", "lon"
+                )
                 .to_numpy()
             )
-            boundary = torch.from_numpy(
-                self._boundary_src.data.isel(time=x_index)
-                .to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-            )
+        boundary = torch.from_numpy(
+            self._boundary_src.data.isel(time=x_index)
+            .isel(time=self.hist, drop=True)
+            .to_array()
+            .transpose("step", "variable", "lat", "lon")
+            .to_numpy()
+        )
 
-            input_, label = self._get_input_and_label(prognostic_all, boundary)
+        input_, label = self._get_input_and_label(prognostic_all, boundary)
 
+        for i in range(input_.shape[0]):
             TD.insert(
-                input_=input_,
-                label=label,
+                input_=input_[i],
+                label=label[i],
             )
 
         TD.load_stats = LoadStats(time.perf_counter() - start_time)

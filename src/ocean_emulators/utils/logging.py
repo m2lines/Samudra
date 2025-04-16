@@ -205,7 +205,7 @@ def get_model_summary(model: torch.nn.Module, num_input_channels: int):
     logging.info(summary(model))
 
 
-def elapsed(func=None, *, log_level: int = logging.INFO):
+def elapsed(func=None, *, level: int = logging.INFO):
     """Log the time taken to execute a function.
 
     Implementation inspired by this blog post:
@@ -214,10 +214,10 @@ def elapsed(func=None, *, log_level: int = logging.INFO):
     Args:
         func (callable): The function to decorate. If None, returns a partial
             function with the log_level argument.
-        log_level (int): The logging level to use. Default is logging.INFO.
+        level (int): The logging level to use. Default is logging.INFO.
     """
     if func is None:
-        return functools.partial(elapsed, log_level=log_level)
+        return functools.partial(elapsed, level=level)
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -225,7 +225,7 @@ def elapsed(func=None, *, log_level: int = logging.INFO):
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
         logging.log(
-            log_level,
+            level,
             "%s took %.4f seconds",
             func.__qualname__,
             end_time - start_time,

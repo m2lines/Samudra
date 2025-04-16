@@ -135,7 +135,7 @@ class InferenceDataset(Dataset):
         data = torch.cat((prognostic, boundary), dim=1)
         return data
 
-    @elapsed(log_level=logging.DEBUG)
+    @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx):
         x_index = self._get_x_index(idx)
         data_in = self._get_prognostic(x_index)
@@ -394,7 +394,7 @@ class TrainDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
-    @elapsed(log_level=logging.DEBUG)
+    @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
         prev_rolling_idx = None
@@ -602,7 +602,7 @@ class TorchTrainDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
-    @elapsed(log_level=logging.DEBUG)
+    @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
         x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]

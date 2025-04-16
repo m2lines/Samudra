@@ -390,19 +390,19 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
             assert x_orig.dtype == x_new.dtype, "Input data types do not match."
             assert y_orig.dtype == y_new.dtype, "Output data types do not match."
 
-            x_not_close = np.equal(x_orig, x_new) == False  # noqa: E712
-            y_not_close = np.equal(y_orig, y_new) == False  # noqa: E712
+            x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
+            y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
 
-            x_not_close_index = list(zip(*np.where(x_not_close)))
-            y_not_close_index = list(zip(*np.where(y_not_close)))
+            x_not_equal_index = list(zip(*np.where(x_not_equal)))
+            y_not_equal_index = list(zip(*np.where(y_not_equal)))
 
-            assert not np.any(x_not_close), (
-                f"{len(x_not_close_index)} values differ: "
-                f"{x_orig[x_not_close]} != {x_new[x_not_close]}."
+            assert not np.any(x_not_equal), (
+                f"{len(x_not_equal_index)} values differ: "
+                f"{x_orig[x_not_equal_index]} != {x_new[x_not_equal_index]}."
             )
-            assert not np.any(y_not_close), (
-                f"{len(y_not_close_index)} values differ: "
-                f"{y_orig[y_not_close]} != {y_new[y_not_close]}."
+            assert not np.any(y_not_equal), (
+                f"{len(y_not_equal_index)} values differ: "
+                f"{y_orig[y_not_equal_index]} != {y_new[y_not_equal_index]}."
             )
 
 

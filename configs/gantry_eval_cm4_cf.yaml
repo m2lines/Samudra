@@ -18,7 +18,7 @@ experiment:
     mode: online
     project: ocean-emulators
     entity: m2lines
-    group: crossformer
+    group: crossformer-test
   network: CrossFormer
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds

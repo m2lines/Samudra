@@ -51,7 +51,7 @@ experiment:
     project: ocean-emulator
     entity: ai2cm
     group: samudra-train-1in1out
-  network: Samudra
+  network: CrossFormer
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
 

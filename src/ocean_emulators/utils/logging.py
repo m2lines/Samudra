@@ -226,7 +226,8 @@ def elapsed(func=None, *, log_level: int = logging.INFO):
         end_time = time.perf_counter()
         logging.log(
             log_level,
-            "%s took %.4f seconds" % func.__qualname__,
+            "%s took %.4f seconds",
+            func.__qualname__,
             end_time - start_time,
         )
         return result

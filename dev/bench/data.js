@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744825758678,
+  "lastUpdate": 1744841613074,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -118,6 +118,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5419443780709129",
             "extra": "mean: 144.16205833220005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "47cef09247ac73131582226ffa3dd7e94d65c391",
+          "message": "Adding types and type-specific variable names to InferenceDataset  (#214)\n\nThis addresses a number of flaky mypy errors in datasets.py.",
+          "timestamp": "2025-04-16T14:32:41-07:00",
+          "tree_id": "5ba5ed14034fae6fc258253593ac8ec509a9e26c",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/47cef09247ac73131582226ffa3dd7e94d65c391"
+        },
+        "date": 1744841611929,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.19568162641321044,
+            "unit": "iter/sec",
+            "range": "stddev: 0.44295041232527155",
+            "extra": "mean: 5.1103418258000035 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cpu-mock-train_default.test.yaml]",
+            "value": 0.5123310988434614,
+            "unit": "iter/sec",
+            "range": "stddev: 0.007609669835326069",
+            "extra": "mean: 1.9518627744000014 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.055264641202127915,
+            "unit": "iter/sec",
+            "range": "stddev: 1.329404683133495",
+            "extra": "mean: 18.094752417599988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.13727298623077874,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08361939282318899",
+            "extra": "mean: 7.2847544695999655 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007690349436882988,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1334348204246942",
+            "extra": "mean: 130.0331029438 sec\nrounds: 5"
           }
         ]
       }

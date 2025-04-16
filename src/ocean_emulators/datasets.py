@@ -738,7 +738,7 @@ class TorchTrainDataset(Dataset):
         normalize = Normalize.get_instance()
         prognostic_steps = rearrange(
             prognostic_steps,
-            "step variable time lat lon -> step time variable lat lon",
+            "step variable time lat lon -> time step variable lat lon",
         )
 
         # normalize expects variables in third dimension

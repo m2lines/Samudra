@@ -20,19 +20,17 @@ export COMMIT_HASH=$(git rev-parse HEAD)
 echo "COMMIT_HASH: $COMMIT_HASH"
 
 # Check if there are uncommitted changes
-if ! [[ -z $(git status --porcelain) ]]; then
-    echo "There are uncommitted changes."
-    exit 1
-fi
+# if ! [[ -z $(git status --porcelain) ]]; then
+#     echo "There are uncommitted changes."
+#     exit 1
+# fi
 
 # Check if the commit is on the remote
 git branch -r --contains $(git rev-parse HEAD) | grep -q . || { echo "Error: Commit not found on remote."; exit 1; }
 
 # Clone repository with commit hash to temporary directory
-git clone --branch $COMMIT_HASH --single-branch --depth 1 https://github.com/ai2cm/samudra.git $EXPERIMENT_DIR
-
-# Change to experiment directory
-cd $EXPERIMENT_DIR
+EXPERIMENT_DIR=$(mktemp -d)
+git clone --depth 1 https://github.com/suryadheeshjith/Ocean_Emulator $EXPERIMENT_DIR && cd $EXPERIMENT_DIR && git checkout $COMMIT_HASH
 
 # Load conda environment
 source .venv/bin/activate

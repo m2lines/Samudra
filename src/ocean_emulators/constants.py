@@ -41,7 +41,7 @@ BatchTimeSeriesOutput = Float[
     torch.Tensor, "batch time=(hist+1) prognostic_vars lat lon"
 ]
 
-MAX_TRAIN_MODEL_STEPS_FORWARD = 2000
+MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels

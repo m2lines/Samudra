@@ -66,13 +66,59 @@ class SamudraConfig:
     pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
-    wet: Optional[Any] = None
 
     # Block configurations
     core_block: BlockConfig = field(default_factory=BlockConfig)
     corrector: CorrectorConfig = field(default_factory=CorrectorConfig)
     down_sampling_block: str = "avg_pool"  # avg_pool, max_pool
     up_sampling_block: str = "bilinear_upsample"  # bilinear_upsample, transposed_conv
+
+
+@dataclass
+class CrossformerConfig:
+    """Configuration for the Crossformer model architecture."""
+
+    # Input/Output dimensions
+    n_in: int = 157  # number of input channels
+    n_out: int = 77  # number of output channels
+    pred_residuals: bool = False  # whether to predict residuals
+
+    # Grid dimensions
+    image_height: int = 180  # number of latitude grids
+    image_width: int = 360  # number of longitude grids
+    patch_height: int = 1  # number of grids in each patch (latitude)
+    patch_width: int = 1  # number of grids in each patch (longitude)
+
+    # Model architecture
+    dims: List[int] = field(
+        default_factory=lambda: [128, 256, 512, 1024]
+    )  # dimensions of each layer
+    depth: List[int] = field(
+        default_factory=lambda: [2, 2, 8, 2]
+    )  # depth of each layer
+    dim_head: int = 32  # dimension of each attention head
+
+    # Attention settings
+    global_window_size: List[int] = field(
+        default_factory=lambda: [10, 5, 2, 1]
+    )  # global window sizes
+    local_window_size: int = 10  # local window size
+    attn_dropout: float = 0.0  # attention dropout rate
+    ff_dropout: float = 0.0  # feed-forward dropout rate
+
+    # Cross-embedding settings
+    cross_embed_kernel_sizes: List[List[int]] = field(
+        default_factory=lambda: [[4, 8, 16, 32], [2, 4], [2, 4], [2, 4]]
+    )  # kernel sizes for each layer
+    cross_embed_strides: List[int] = field(
+        default_factory=lambda: [2, 2, 2, 2]
+    )  # strides for each layer
+
+    # Other settings
+    use_spectral_norm: bool = True  # whether to use spectral normalization
+    interp: bool = True  # whether to use interpolation
+    padding_conf: Optional[Dict[str, Any]] = None
+    corrector: CorrectorConfig = field(default_factory=CorrectorConfig)
 
 
 @dataclass
@@ -153,6 +199,7 @@ class TrainConfig:
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     data: DataConfig = field(default_factory=DataConfig)
     samudra: SamudraConfig = field(default_factory=SamudraConfig)
+    crossformer: CrossformerConfig = field(default_factory=CrossformerConfig)
 
     @classmethod
     def from_yaml(
@@ -205,6 +252,10 @@ class TrainConfig:
                 "core_block": self.samudra.core_block.__dict__,
                 "corrector": self.samudra.corrector.__dict__,
             },
+            "crossformer": {
+                **self.crossformer.__dict__,
+                "corrector": self.crossformer.corrector.__dict__,
+            },
         }
 
         with open(save_path, "w") as f:
@@ -236,6 +287,7 @@ class EvalConfig:
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     data: DataConfig = field(default_factory=DataConfig)
     samudra: SamudraConfig = field(default_factory=SamudraConfig)
+    crossformer: CrossformerConfig = field(default_factory=CrossformerConfig)
 
     @classmethod
     def from_yaml(
@@ -275,6 +327,10 @@ class EvalConfig:
                 **self.samudra.__dict__,
                 "core_block": self.samudra.core_block.__dict__,
                 "corrector": self.samudra.corrector.__dict__,
+            },
+            "crossformer": {
+                **self.crossformer.__dict__,
+                "corrector": self.crossformer.corrector.__dict__,
             },
         }
 

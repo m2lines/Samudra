@@ -47,6 +47,8 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
+from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.crossformer import CrossFormer
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
@@ -90,8 +92,6 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer:
-    model: Samudra | nn.parallel.DistributedDataParallel
-
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(str(cfg.experiment.output_dir / "config.yaml"))
@@ -216,6 +216,7 @@ class Trainer:
         )
         self.wet_without_hist = wet_without_hist_cpu.to(self.device)
 
+        _model: BaseModel | nn.parallel.DistributedDataParallel
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
         if "Samudra" == cfg.experiment.network:
@@ -231,15 +232,31 @@ class Trainer:
                     f"{cfg.samudra.n_out}->{self.num_out}"
                 )
                 cfg.samudra.n_out = self.num_out
-            model = Samudra(
+            _model = Samudra(
                 cfg.samudra, hist=cfg.data.hist, wet=self.wet.to(self.device)
+            ).to(self.device)
+        elif "CrossFormer" == cfg.experiment.network:
+            if cfg.crossformer.n_out != self.num_out:
+                logger.info(
+                    f"NOTE: Changing output channels to match data "
+                    f"{cfg.crossformer.n_out}->{self.num_out}"
+                )
+                cfg.crossformer.n_out = self.num_out
+            if cfg.crossformer.n_in != self.num_in:
+                logger.info(
+                    f"NOTE: Changing input channels to match data "
+                    f"{cfg.crossformer.n_in}->{self.num_in}"
+                )
+                cfg.crossformer.n_in = self.num_in
+            _model = CrossFormer(
+                cfg.crossformer, hist=cfg.data.hist, wet=self.wet.to(self.device)
             ).to(self.device)
         else:
             raise NotImplementedError
 
-        get_model_summary(model, self.num_in)
+        get_model_summary(_model, self.num_in)
 
-        self.model = model
+        self.model = _model
         self.nets_dir = cfg.experiment.nets_dir
         self.network = cfg.experiment.network
 
@@ -323,7 +340,7 @@ class Trainer:
 
         # Modify DDP setup based on device
         if self.distributed is not None:
-            self.model = nn.parallel.DistributedDataParallel(
+            self.model_ddp = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
             )

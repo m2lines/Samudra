@@ -32,6 +32,7 @@ from typing import Iterable, List
 import torch
 from torch import nn
 
+from ocean_emulators.models.crossformer import CrossFormer
 from ocean_emulators.models.samudra import Samudra
 
 
@@ -45,7 +46,7 @@ class EMATracker:
 
     def __init__(
         self,
-        model: Samudra | nn.parallel.DistributedDataParallel,
+        model: Samudra | CrossFormer | nn.parallel.DistributedDataParallel,
         decay: float = 0.999,
         faster_decay_at_start: bool = True,
     ):
@@ -81,7 +82,9 @@ class EMATracker:
 
         self._stored_params: List[torch.Tensor] = []
 
-    def __call__(self, model: Samudra | nn.parallel.DistributedDataParallel):
+    def __call__(
+        self, model: Samudra | CrossFormer | nn.parallel.DistributedDataParallel
+    ):
         """
         Update the moving average of the parameters.
 
@@ -120,7 +123,9 @@ class EMATracker:
                         "but it does not"
                     )
 
-    def copy_to(self, model: Samudra | nn.parallel.DistributedDataParallel):
+    def copy_to(
+        self, model: Samudra | CrossFormer | nn.parallel.DistributedDataParallel
+    ):
         """
         Copy the averaged parameters to the model, overwriting its values.
         """

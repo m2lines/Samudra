@@ -1,0 +1,85 @@
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 70
+batch_size: 4
+learning_rate: 0.0002
+scheduler: true
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: [-1]
+data_percent: 1.0
+train:
+  start_time: "1975-01-03"
+  end_time: "2013-10-05"
+val:
+  start_time: "2013-10-05"
+  end_time: "2014-10-05"
+inference:
+  - start_time: "1975-01-03"
+    end_time: "1976-01-03" # "1985-01-03"
+  - start_time: "1985-01-03"
+    end_time: "1986-01-03" # "1995-01-03"
+  - start_time: "1995-01-03"
+    end_time: "1996-01-03" # "2005-01-03"
+  - start_time: "2004-10-05"
+    end_time: "2005-10-05" # "2014-10-05"
+data_stride: [1]
+steps: [4]
+step_transition: []
+
+backend: auto
+
+experiment:
+  base_name: train
+  sub_name: local_om4_crossformer
+  rand_seed: 15
+  base_output_dir: /pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL
+  gantry: false
+  cluster_data_dir: null
+  wandb:
+    mode: disabled
+    project: ocean-emulators
+    entity: m2lines
+    group: crossformer-train-om4
+  network: CrossFormer
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds_hfds_anom
+data:
+  data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies
+  data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
+  data_stds_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_stds
+  scaling_residuals_file: null
+  time_delta: 5
+  num_workers: 4
+  hist: 1
+
+crossformer:
+  n_in: 157
+  n_out: 77
+  pred_residuals: false
+  image_height: 180
+  patch_height: 1
+  image_width: 360
+  patch_width: 1
+  dims: [200, 400, 800, 1600]
+  depth: [2, 2, 8, 2]
+  dim_head: 32
+  global_window_size: [8, 4, 2, 1]
+  local_window_size: 4
+  cross_embed_kernel_sizes:
+    - [4, 8, 16, 32]
+    - [2, 4]
+    - [2, 4]
+    - [2, 4]
+  cross_embed_strides: [2, 2, 2, 2]
+  attn_dropout: 0.
+  ff_dropout: 0.
+  use_spectral_norm: true
+  interp: true
+  padding_conf:
+    pad_lat: [6, 6]
+    pad_lon: [12, 12]

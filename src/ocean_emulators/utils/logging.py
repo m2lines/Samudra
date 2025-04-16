@@ -168,8 +168,6 @@ class MetricLogger:
         log_msg = self.delimiter.join(log_msg_list)
         KB = 1024.0
         MB = 1024.0 * 1024.0
-        # dummy data for iter_time; makes sure the first value is not None
-        iter_time.update(time.perf_counter() - end)
         for obj in iterable:
             data_time.update(time.perf_counter() - end)
             yield obj

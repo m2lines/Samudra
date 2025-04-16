@@ -13,7 +13,6 @@ from ocean_emulators.utils.data import (
     extract_wet_mask,
     flatten_masks,
     get_aggregator_dicts,
-    mask,
     unflatten_masks,
     validate_data,
     with_level_index_vars,
@@ -28,16 +27,6 @@ def test_mask_roundtrip(data_source):
     flattened = flatten_masks(unflattened.copy())
 
     assert flattened == data, "Assume a safe roundtrip"
-
-
-def test_mask__zeros_data(data_source):
-    data = with_level_index_vars(data_source.data)
-
-    unflattened = unflatten_masks(data)
-    masked = mask(unflattened, unflattened.wetmask)
-
-    for orig_da, maked_da in zip(unflattened.values(), masked.values()):
-        assert np.count_nonzero(maked_da.values) < np.count_nonzero(orig_da.values)
 
 
 def test_rename_vars():

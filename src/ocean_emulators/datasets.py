@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Float, Integer
+from jaxtyping import Float
 from torch.utils.data import Dataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
@@ -20,147 +20,8 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import Normalize, mask, unflatten_masks
+from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device, using_gpu
-
-
-class OM4Dataset(Dataset):
-    """A `torch.Dataset` for Zarr-backed OM4 data."""
-
-    FLAG = LoaderVersion.OM4_LAZY
-
-    def __init__(
-        self,
-        data: xr.Dataset,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-        hist: int,
-        steps: int,
-        stride: int = 1,
-        is_inference: bool = False,
-    ) -> None:
-        # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
-        data_ = unflatten_masks(data)
-
-        prognostic = data_[prognostic_var_names]
-        boundary = data_[boundary_var_names]
-
-        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
-        norm = Normalize.get_instance()
-        norm_prognostic = norm.normalize_prognostic(prognostic)
-        norm_boundary = norm.normalize_boundary(boundary)
-
-        # Set non-ocean areas to zero.
-        self.prognostic = mask(norm_prognostic, data_.wetmask)
-        self.boundary = mask(norm_boundary, data_.wetmask)
-
-        self.hist: int = hist
-        self.steps: int = steps
-        self.stride: int = stride
-        self.is_inference: bool = is_inference
-
-        self._size: int = (
-            data.time.size
-            - self.steps * (self.hist + 1) * self.stride
-            - self.hist * self.stride
-        )
-
-        # TODO(alxmrs): When we want to support inference later on, we will need to
-        #  calculate different steps.
-        if self.is_inference:
-            raise NotImplementedError("does not (yet) support inference.")
-
-        total_steps: int = 2 * self.hist + 2
-        # Calculate the number of windows
-        num_windows = data.time.size - (total_steps - 1) * self.stride
-        # Create base indices
-        indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["step"])
-        # Create window dimension
-        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
-        # Construct rolling indices
-        self.rolling_indices: Integer[xr.DataArray, "step time"] = (
-            indices_da + stride * window_dim
-        )
-
-    def __len__(self) -> int:
-        return self._size
-
-    def window_from(
-        self, idx: int | slice, step: int
-    ) -> Integer[xr.DataArray, "step time"]:
-        """Coalesce index values to a window of the input data."""
-        # First, parse int inputs as a slice.
-        if isinstance(idx, int):
-            if idx < 0 or idx >= len(self):
-                raise IndexError(
-                    f"index {idx!r} out of bounds. Must be between 0 and {len(self)}."
-                )
-
-            if not self.is_inference:
-                idx = idx + step * (self.hist + 1) * self.stride
-            idx = slice(idx, idx + 1, 1)
-
-        # Validate and normalize all slices.
-        if self.is_inference:
-            if idx.start < 0 or idx.stop < 0 or idx.step < 0:
-                raise IndexError(
-                    f"index {idx!r} invalid: negative values not supported."
-                )
-            if idx.start > self._size or idx.stop > self._size:
-                raise IndexError(
-                    f"index {idx!r} out of bounds. "
-                    f"All bounds must be less than or equal to {len(self)}."
-                )
-
-        if idx.start is None:
-            idx = slice(0, idx.stop, idx.step)
-        if idx.stop is None:
-            idx = slice(idx.start, len(self), idx.step)
-
-        return self.rolling_indices.isel(step=idx)
-
-    def __getitem__(self, idx: int) -> Example:
-        windows = [self.window_from(idx, step) for step in range(self.steps)]
-        window = xr.concat(windows, dim="step")
-
-        # This point in time splits the training data and the label data!
-        time_split = self.hist + 1
-
-        # TODO(alxmrs): Tune dask parallelization
-        # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
-
-        prognostic = (
-            self.prognostic.isel(time=window)
-            .isel(time=slice(None, time_split))
-            .to_array(name="prognostic")
-            .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
-            .drop_vars("var", errors="ignore")
-        )
-        boundary = (
-            self.boundary.isel(time=window)
-            .isel(time=self.hist)
-            .to_array("var", "boundary")
-            .transpose("step", "var", "lat", "lon")
-            .drop_vars("var", errors="ignore")
-        )
-        # Combine prognostic and boundary data
-        input_ = xr.concat([prognostic, boundary], dim="var").rename(
-            {"var": "variable"}
-        )
-
-        label = (
-            self.prognostic.isel(time=window)
-            .isel(time=slice(time_split, None))
-            .to_array()
-            .einops.rearrange(
-                "step (time variable)=var lat lon",
-                dask="allowed",
-            )
-            .rename({"var": "variable"})
-        )
-
-        return input_, label
 
 
 class InferenceDataset(Dataset):

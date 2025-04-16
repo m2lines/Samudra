@@ -42,7 +42,6 @@ from ocean_emulators.constants import (
 from ocean_emulators.datasets import (
     InferenceDataset,
     InferenceDatasets,
-    OM4Dataset,
     TorchTrainDataset,
     TrainData,
     TrainDataset,
@@ -81,7 +80,6 @@ from ocean_emulators.utils.loss import (
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
-    collate_om4,
     collate_train_data,
 )
 from ocean_emulators.utils.wandb import WandBLogger
@@ -691,34 +689,6 @@ class Trainer:
                         for stride in self.data_stride
                     ]
                 )
-            case OM4Dataset.FLAG:
-                train_data = ConcatDataset(
-                    [
-                        OM4Dataset(
-                            data=self.data.sel(time=self.train_times.time_slice),
-                            prognostic_var_names=self.prognostic_var_names,
-                            boundary_var_names=self.boundary_var_names,
-                            hist=self.hist,
-                            steps=cur_step,
-                            stride=stride,
-                        )
-                        for stride in self.data_stride
-                    ]
-                )
-
-                val_data = ConcatDataset(
-                    [
-                        OM4Dataset(
-                            data=self.data.sel(time=self.val_times.time_slice),
-                            prognostic_var_names=self.prognostic_var_names,
-                            boundary_var_names=self.boundary_var_names,
-                            hist=self.hist,
-                            steps=1,  # current_step set to 1 for validation
-                            stride=stride,
-                        )
-                        for stride in self.data_stride
-                    ]
-                )
             case TorchTrainDataset.FLAG:
                 train_data = ConcatDataset(
                     [
@@ -769,8 +739,6 @@ class Trainer:
         match self.loader_version:
             case TrainDataset.FLAG:
                 collate_fn: Callable[[Sequence[Any]], TrainData] = collate_train_data
-            case OM4Dataset.FLAG:
-                collate_fn = collate_om4
             case TorchTrainDataset.FLAG:
                 collate_fn = collate_train_data
             case _:

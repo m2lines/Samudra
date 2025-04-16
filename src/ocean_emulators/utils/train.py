@@ -3,10 +3,8 @@ from pathlib import Path
 from typing import Sequence, Tuple
 
 import torch
-import xarray as xr
 from xarray_einstats.einops import rearrange  # noqa: F401
 
-from ocean_emulators.constants import Example, Input, Prognostic
 from ocean_emulators.datasets import InferenceDataset, TrainData
 
 
@@ -29,38 +27,6 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
         batched_data.insert(input, label)
 
     return batched_data
-
-
-def collate_om4(examples: Sequence[Example]) -> TrainData:
-    """Combine several deferred Examples into single a `torch.Tensor` example pair."""
-    inputs_batch = xr.concat([x for x, _ in examples], dim="batch")
-    labels_batch = xr.concat([y for _, y in examples], dim="batch")
-
-    inputs: Input = inputs_batch.transpose(
-        "step",
-        "batch",
-        "variable",
-        "lat",
-        "lon",
-    ).compute()
-    labels: Prognostic = labels_batch.transpose(
-        "step",
-        "batch",
-        "variable",
-        "lat",
-        "lon",
-    ).compute()
-
-    input_tensor = torch.from_numpy(inputs.to_numpy()).float()
-    labels_tensor = torch.from_numpy(labels.to_numpy()).float()
-
-    # TODO(#126): Remove TrainData interface (eventually)
-    batch = TrainData(labels.shape[2])  # len(prognostic_vars)
-    steps = input_tensor.shape[0]
-    for step in range(steps):
-        batch.insert(input_tensor[step], labels_tensor[step])
-
-    return batch
 
 
 def collate_inference_data(

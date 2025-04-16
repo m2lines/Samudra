@@ -256,7 +256,7 @@ class Trainer:
 
         get_model_summary(_model, self.num_in)
 
-        self.model = _model
+        self.model_without_ddp = _model
         self.nets_dir = cfg.experiment.nets_dir
         self.network = cfg.experiment.network
 
@@ -301,7 +301,9 @@ class Trainer:
             raise NotImplementedError
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+        self.optimizer = torch.optim.Adam(
+            self.model_without_ddp.parameters(), lr=cfg.learning_rate
+        )
         # self.optimizer = torch.optim.AdamW(
         #     self.model.parameters(), lr=cfg.learning_rate, fused=True
         # )
@@ -340,8 +342,8 @@ class Trainer:
 
         # Modify DDP setup based on device
         if self.distributed is not None:
-            self.model_ddp = nn.parallel.DistributedDataParallel(
-                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
+            self.model = nn.parallel.DistributedDataParallel(
+                nn.SyncBatchNorm.convert_sync_batchnorm(self.model_without_ddp),
                 device_ids=[self.distributed.gpu],
             )
 

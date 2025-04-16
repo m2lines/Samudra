@@ -653,13 +653,13 @@ class TorchTrainDataset(Dataset):
 
         # Create base indices
         indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["step"])
+        indices_da = xr.DataArray(indices, dims=["window"])
 
         # Create window dimension
         window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
 
         # Construct rolling indices
-        self.rolling_indices: Float[xr.DataArray, "step time"] = (
+        self.rolling_indices: Float[xr.DataArray, "window time"] = (
             indices_da + stride * window_dim
         )
 
@@ -765,4 +765,4 @@ class TorchTrainDataset(Dataset):
             raise IndexError("Index out of range")
 
         window_index = idx + step * (self.hist + 1) * self.stride
-        return self.rolling_indices.isel(step=window_index, drop=True)
+        return self.rolling_indices.isel(window=window_index, drop=True)

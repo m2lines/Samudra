@@ -736,6 +736,9 @@ class TorchTrainDataset(Dataset):
         self, prognostic_steps: Float[torch.Tensor, "step variable time lat lon"]
     ) -> Input:
         normalize = Normalize.get_instance()
+        # Time needs to be before step for normalization to work (even though it would
+        # make more sense for `step` to the be first dimension). Don't worry: we fix
+        # this later.
         prognostic_steps = rearrange(
             prognostic_steps,
             "step variable time lat lon -> time step variable lat lon",

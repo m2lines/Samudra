@@ -1,0 +1,46 @@
+#!/bin/bash
+
+set -e
+
+JOB_NAME="samudra-evaluator-cf-test"  # recommnended but not required to change this
+JOB_GROUP="samudra-train-1in1out"
+
+EXISTING_RESULTS_DATASET="01JRYNZTHC2H3GTTMRENNX4HT0"  # this contains the atmosphere checkpoint to use for inference
+
+CONFIG_PATH="configs/gantry_eval_cm4_cf.yaml"
+# since we use a service account API key for wandb, we use the beaker username to set the wandb username
+BEAKER_USERNAME=$(beaker account whoami --format=json | jq -r '.[0].name')
+WANDB_USERNAME=suryad
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+cd $REPO_ROOT  # so config path is valid no matter where we are running this script
+
+# TODO: add fme.coupled.validate_config
+# python -m fme.coupled.validate_config --config_type evaluator $CONFIG_PATH
+
+cd $REPO_ROOT && gantry run \
+    --name $JOB_NAME \
+    --allow-dirty \
+    --description 'Run Samudra evaluator' \
+    --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
+    --workspace ai2/ace \
+    --priority high \
+    --not-preemptible \
+    --cluster ai2/saturn-cirrascale \
+    --cluster ai2/jupiter-cirrascale-2 \
+    --cluster ai2/ceres-cirrascale \
+    --env WANDB_USERNAME=$BEAKER_USERNAME \
+    --env WANDB_NAME=$JOB_NAME \
+    --env WANDB_JOB_TYPE=inference \
+    --env WANDB_RUN_GROUP=$JOB_GROUP \
+    --env GOOGLE_APPLICATION_CREDENTIALS=/tmp/google_application_credentials.json \
+    --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
+    --dataset-secret google-credentials:/tmp/google_application_credentials.json \
+    --dataset $EXISTING_RESULTS_DATASET:2025-04-15-train-samudra-train-cm4-thermodynamic-cf-test/saved_nets/best_inference_ckpt.pt:/ckpt.tar \
+    --gpus 1 \
+    --shared-memory 200GiB \
+    --weka climate-default:/climate-default \
+    --budget ai2/climate \
+    --venv 'base' \
+    --install "pip install uv" \
+    -- uv run src/ocean_emulators/eval.py --config $CONFIG_PATH --subname $JOB_NAME

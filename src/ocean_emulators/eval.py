@@ -21,6 +21,8 @@ from ocean_emulators.constants import (
     construct_metadata,
 )
 from ocean_emulators.datasets import InferenceDataset
+from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.crossformer import CrossFormer
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
@@ -142,6 +144,8 @@ class Eval:
         self.wet_without_hist = wet_without_hist_cpu.to(self.device)
 
         # Model
+        _model: BaseModel
+        # Model
         logger.info(f"Getting model {cfg.experiment.network}")
         if "Samudra" == cfg.experiment.network:
             if cfg.samudra.ch_width[0] != self.num_in:
@@ -156,15 +160,30 @@ class Eval:
                     f"{cfg.samudra.n_out}->{self.num_out}"
                 )
                 cfg.samudra.n_out = self.num_out
-            model = Samudra(
+            _model = Samudra(
                 cfg.samudra, hist=cfg.data.hist, wet=self.wet.to(self.device)
+            ).to(self.device)
+        elif "CrossFormer" == cfg.experiment.network:
+            if cfg.crossformer.n_out != self.num_out:
+                logger.info(
+                    f"NOTE: Changing output channels to match data "
+                    f"{cfg.crossformer.n_out}->{self.num_out}"
+                )
+                cfg.crossformer.n_out = self.num_out
+            if cfg.crossformer.n_in != self.num_in:
+                logger.info(
+                    f"NOTE: Changing input channels to match data "
+                    f"{cfg.crossformer.n_in}->{self.num_in}"
+                )
+                cfg.crossformer.n_in = self.num_in
+            _model = CrossFormer(
+                cfg.crossformer, hist=cfg.data.hist, wet=self.wet.to(self.device)
             ).to(self.device)
         else:
             raise NotImplementedError
+        get_model_summary(_model, self.num_in)
 
-        get_model_summary(model, self.num_in)
-
-        self.model = model
+        self.model = _model
         self.load_checkpoint(cfg.ckpt_path)
 
         self.network = cfg.experiment.network

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744842288311,
+  "lastUpdate": 1744842290367,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -415,6 +415,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6072026158263316",
             "extra": "mean: 91.525902421 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ef402bd05adab5e866d9c2383b2a76f4672314fb",
+          "message": "Use stricter notion of equality for data loaders (#187)\n\nI was trying to figure out why the lazy loader's losses were quite\ndifferent from eager and torch loaders. I was not successful but given\nthis test currently passes it seems like it was worth checking it in.\nThoughts?",
+          "timestamp": "2025-04-16T14:44:16-07:00",
+          "tree_id": "47e8225632082bcecab821e4ed3c888d9e6579e1",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/ef402bd05adab5e866d9c2383b2a76f4672314fb"
+        },
+        "date": 1744842289381,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.19794353420320093,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4227218242111661",
+            "extra": "mean: 5.0519457683999915 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cuda-mock-train_default.test.yaml]",
+            "value": 0.5384696279736079,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09026794570660579",
+            "extra": "mean: 1.857114956999976 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.05553368815266424,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8786947570319963",
+            "extra": "mean: 18.00708782839997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.13076027836615073,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07920218762702606",
+            "extra": "mean: 7.647582373599971 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.010579509789224515,
+            "unit": "iter/sec",
+            "range": "stddev: 2.0603103517742234",
+            "extra": "mean: 94.52233798379999 sec\nrounds: 5"
           }
         ]
       }

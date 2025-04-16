@@ -1,4 +1,5 @@
 from abc import ABC
+from typing import Self
 
 
 class MultitonScope:
@@ -59,7 +60,7 @@ class Multiton(ABC):
         )
 
     @classmethod
-    def get_instance(cls):
+    def get_instance(cls) -> Self:
         """
         Get the instance of the Multiton class for the current scope.
         """
@@ -69,7 +70,7 @@ class Multiton(ABC):
         return instance
 
     @classmethod
-    def init_instance(cls, *args, **kwargs):
+    def init_instance(cls, *args, **kwargs) -> Self:
         if Multiton._current_scope.get(cls) is not None:
             raise ValueError(f"{cls} already initialized")
 

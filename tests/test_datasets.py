@@ -381,15 +381,12 @@ ORIGINAL_LOADER_VERSION = LoaderVersion.OM4_EAGER
 def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
     with (
         make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader,
-        make_loader(train_config, version=loader_version) as test_loader,
+        make_loader(train_config, version=loader_version) as new_loader,
     ):
-        # Why are we sorting here? Well, the default data loader uses a random sampler.
-        # So we use sorting as a simple way to compare the two loaders (without having
-        # to monkeypatch the train loader fixture).
         original_samples = [extract_sample_arrays(sample) for sample in original_loader]
-        om4_samples = [extract_sample_arrays(sample) for sample in test_loader]
+        new_samples = [extract_sample_arrays(sample) for sample in new_loader]
 
-        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
+        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
             assert x_orig.dtype == x_new.dtype, "Input data types do not match."
             assert y_orig.dtype == y_new.dtype, "Output data types do not match."
 

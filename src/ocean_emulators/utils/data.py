@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+from functools import cache, cached_property
 from typing import Any, Callable, Literal, Self
 
 import cftime
@@ -40,6 +41,15 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
 
+    @cached_property
+    def is_compact(self) -> bool:
+        """Check if the data source is compact."""
+        return all(
+            v in d
+            for v in ["so", "uo", "vo", "thetao"]
+            for d in [self.data, self.means, self.stds]
+        )
+
     def filter(
         self,
         var_names: PrognosticVarNames | BoundaryVarNames,
@@ -47,22 +57,49 @@ class DataSource:
         prefix: str,
     ) -> Self:
         """Filter the data source to only include the specified variables."""
+        name = f"{prefix}[{self.name}]"
+        if self.is_compact:
+            parsed_var_names, levels = [], []
+            for mangled_var_name in var_names:
+                if "_" not in mangled_var_name:
+                    parsed_var_names.append(mangled_var_name)
+                    continue
+                tokens = mangled_var_name.split("_")
+                var_name, level = tokens[0], int(tokens[1])
+
+                parsed_var_names.append(var_name)
+                # Build set of total levels
+                if level not in levels:
+                    levels.append(level)
+
+            data = self.data[parsed_var_names]
+            means = self.means[parsed_var_names]
+            stds = self.stds[parsed_var_names]
+            if levels:
+                data = data.isel(lev=levels)
+                means = means.isel(lev=levels)
+                stds = stds.isel(lev=levels)
+
+            return dataclasses.replace(
+                self, name=name, data=data, means=means, stds=stds
+            )
+
         data = self.data[var_names]
         means = self.means[var_names]
         stds = self.stds[var_names]
 
         return dataclasses.replace(
-            self, name=f"{prefix}[{self.name}]", data=data, means=means, stds=stds
+            self, name=name, data=data, means=means, stds=stds
         )
 
     def map(
-        self,
-        func: Callable[
-            [xr.Dataset, xr.Dataset, xr.Dataset],
-            tuple[xr.Dataset, xr.Dataset, xr.Dataset],
-        ],
-        *,
-        suffix: str,
+            self,
+            func: Callable[
+                [xr.Dataset, xr.Dataset, xr.Dataset],
+                tuple[xr.Dataset, xr.Dataset, xr.Dataset],
+            ],
+            *,
+            suffix: str,
     ) -> Self:
         """Map the function over the data source."""
         data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
@@ -72,7 +109,7 @@ class DataSource:
         )
 
     def map_data(
-        self, func: Callable[[xr.Dataset], xr.Dataset], *, suffix: str | None = None
+            self, func: Callable[[xr.Dataset], xr.Dataset], *, suffix: str | None = None
     ) -> Self:
         """Map the function over just data in DataSource."""
         if suffix is None:
@@ -104,8 +141,31 @@ class DataSource:
         reshape_vars[variable_axis] = -1
 
         # TODO(alxmrs): Do we have to reshape twice?
-        means_np = self.means.to_array().to_numpy().reshape(-1)
-        stds_np = self.stds.to_array().to_numpy().reshape(-1)
+        if self.is_compact:
+            means_np = (
+                conditional_rearrange(
+                    self.means,
+                    "(variable lev)=var",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+                .reshape(-1)
+            )
+            stds_np = (
+                conditional_rearrange(
+                    self.stds,
+                    "(variable lev)=var",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+                .reshape(-1)
+            )
+        else:
+            means_np = self.means.to_array().to_numpy().reshape(-1)
+            stds_np = self.stds.to_array().to_numpy().reshape(-1)
+
         means = torch.from_numpy(means_np).reshape(reshape_vars)
         stds = torch.from_numpy(stds_np).reshape(reshape_vars)
 
@@ -126,7 +186,7 @@ class DataSource:
                 root / cfg.data.data_path,
                 engine="netcdf4",
                 chunks={"time": 1, "lat": 180, "lon": 360},
-            )
+                )
         else:
             data = xr.open_dataset(
                 root / cfg.data.data_path,
@@ -139,12 +199,12 @@ class DataSource:
             root / cfg.data.data_means_path,
             engine="netcdf4" if cfg.data.data_means_path.endswith(".nc") else "zarr",
             chunks=chunks,
-        )
+            )
         stds = xr.open_dataset(
             root / cfg.data.data_stds_path,
             engine="netcdf4" if cfg.data.data_stds_path.endswith(".nc") else "zarr",
             chunks=chunks,
-        )
+            )
 
         dask = "with_dask" if use_dask else "without_dask"
 
@@ -156,104 +216,28 @@ class DataSource:
         )
 
 
-@dataclasses.dataclass
-class DataSource:
-    """Data source for the model."""
+def conditional_rearrange(
+    data: xr.Dataset, pattern: str, except_dim="lev", concat_dim="variable"
+) -> xr.DataArray:
+    assert except_dim in pattern, f"{except_dim} must be in the pattern."
+    data_ = data.copy()
 
-    name: str
-    data: xr.Dataset
-    means: xr.Dataset
-    stds: xr.Dataset
+    vars_with_dim = [v for v in data_ if except_dim in data_[v].dims]
+    vars_without_dim = [v for v in data_ if except_dim not in data_[v].dims]
 
-    def __hash__(self) -> int:
-        """Hashing good enough for dictionary keys."""
-
-        def _shape_hash(ds: xr.Dataset) -> int:
-            return hash(
-                "_".join(
-                    [
-                        f"{k}-{v}:{d}"
-                        for k, da in ds.items()
-                        for v, d in da.sizes.items()
-                    ]
-                )
-            )
-
-        return (
-            hash(self.name)
-            + _shape_hash(self.data)
-            + _shape_hash(self.means)
-            + _shape_hash(self.stds)
-        )
-
-    def filter(
-        self,
-        var_names: PrognosticVarNames | BoundaryVarNames,
-        *,
-        name: str | None = None,
-    ) -> Self:
-        """Filter the data source to only include the specified variables."""
-        data = self.data[var_names]
-        means = self.means[var_names]
-        stds = self.stds[var_names]
-
-        return dataclasses.replace(
-            self, name=name or self.name, data=data, means=means, stds=stds
-        )
-
-    def slice(self, time_slice: slice, *, name: str | None = None) -> Self:
-        """Slice the data source to only include the specified time slice."""
-        data = self.data.sel(time=time_slice)
-
-        return dataclasses.replace(self, name=name or self.name, data=data)
-
-    def copy(self, *, name: str | None = None) -> Self:
-        """Return a copy (of underlying `xr.Dataset`) of the DataSource."""
-        return dataclasses.replace(
-            self,
-            name=name or self.name,
-            data=self.data.copy(),
-            means=self.means.copy(),
-            stds=self.stds.copy(),
-        )
-
-    @classmethod
-    def from_config(
-        cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool | None = None
-    ) -> Self:
-        if use_dask is None:
-            use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
-        chunks: dict[str, int] | None = {} if use_dask else None
-
-        root = cfg.experiment.data_dir
-
-        if "*" in cfg.data.data_path:
-            kwargs: dict[str, Any] = dict(
-                engine="netcdf4", chunks={"time": 1, "lat": 180, "lon": 360}
-            )
-        else:
-            kwargs = dict(chunks=chunks, consolidated=True)
-        data = xr.open_dataset(root / cfg.data.data_path, **kwargs)
-
-        means = xr.open_dataset(
-            root / cfg.data.data_means_path,
-            engine="netcdf4" if cfg.data.data_means_path.endswith(".nc") else "zarr",
-            chunks=chunks,
-        )
-        stds = xr.open_dataset(
-            root / cfg.data.data_stds_path,
-            engine="netcdf4" if cfg.data.data_stds_path.endswith(".nc") else "zarr",
-            chunks=chunks,
-        )
-
-        dask = "with_dask" if use_dask else "without_dask"
-
-        return cls(
-            name=f"raw-{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
-            data=data,
-            means=means,
-            stds=stds,
-        )
+    data_with_dim = (
+        data_[vars_with_dim]
+        .to_array()
+        .einops.rearrange(pattern, dask="allowed")
+        .drop_vars(concat_dim, errors="ignore")
+    )
+    data_without_dim = (
+        data_[vars_without_dim]
+        .to_array()
+        .einops.rearrange(pattern.replace(except_dim, ""), dask="allowed")
+        .drop_vars(concat_dim, errors="ignore")
+    )
+    return xr.concat([data_without_dim, data_with_dim], dim=concat_dim)
 
 
 def extract_wet_mask(
@@ -492,6 +476,10 @@ def validate_data(
             return data
 
         src = src.map_data(_static_data_checks, suffix="static_data_checked")
+
+    if src.is_compact:
+        src_ = src.map_data(with_level_index_vars)
+        return compute_anomalies(src_, ("hfds_anomalies",))
 
     def _rename(data, means, stds):
         data = (

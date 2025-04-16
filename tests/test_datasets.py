@@ -60,6 +60,8 @@ def make_loader(
     raw = DataSource.from_config(cfg, use_dask=use_dask)
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
+    if raw.is_compact and version != LoaderVersion.OM4_TORCH:
+        pytest.skip(f"{version} does not support compact data.")
 
     with MultitonScope():
         TensorMap.init_instance(

@@ -2,8 +2,8 @@ import dataclasses
 import pathlib
 import random
 import time
-from collections.abc import Generator
-from typing import ClassVar, Self
+from collections import defaultdict
+from typing import ClassVar, Generator, Self
 
 import cftime
 import numpy as np
@@ -269,6 +269,32 @@ class DataSourceDims:
         return data_source, data_var_index
 
 
+def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
+    data = ds.copy()
+
+    var_groups = defaultdict(list)
+    for key in data.keys():
+        if "_lev_" in (k := str(key)):
+            base_name = k.split("_lev_")[0]
+            var_groups[base_name].append(k)
+
+    def _parse_level(x) -> float:
+        return float(x.split("_lev_")[1].replace("_", "."))
+
+    for base_var, vars_ in var_groups.items():
+        sorted_vars = sorted(vars_, key=_parse_level)
+        levels = [_parse_level(var) for var in sorted_vars]
+        if hasattr(data, "lev"):
+            levels = data.lev.values
+        da = xr.concat([data[var] for var in sorted_vars], dim="lev").assign_coords(
+            lev=("lev", levels)
+        )
+        data[base_var] = da
+        data = data.drop_vars(vars_)
+
+    return data
+
+
 def maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource | None:
     """Open a cached DataSource from a cache directory if it exists."""
     cache = cache_root / cache_name
@@ -339,7 +365,7 @@ def backend(request) -> TrainBackendConfig:
     return request.param
 
 
-@pytest.fixture(scope="session", params=["mock", "remote-om4"])
+@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
 def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     # Use cached data if available.
@@ -378,7 +404,7 @@ def data_source(request, pytestconfig) -> DataSource:
             return DataSource(
                 name=request.param, data=ds, means=ds.mean(), stds=ds.std()
             )
-        case "remote-om4":
+        case "remote-om4" | "compact":
             # The chunk-size should be about the same as the size of the time slice
             # for optimal download time. In local experiments, this time range (which
             # matches the mock data) is about 30 items.
@@ -398,6 +424,11 @@ def data_source(request, pytestconfig) -> DataSource:
                     REMOTE_DATA + "OM4_stds", engine="zarr", chunks={}
                 ).compute()
             )
+
+            if request.param == "compact":
+                data = compact_dataset(data)
+                means = compact_dataset(means)
+                stds = compact_dataset(stds)
 
             return DataSource(
                 name=request.param,

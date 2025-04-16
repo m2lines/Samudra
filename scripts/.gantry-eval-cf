@@ -35,6 +35,7 @@ cd $REPO_ROOT && gantry run \
     --env GOOGLE_APPLICATION_CREDENTIALS=/tmp/google_application_credentials.json \
     --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
     --dataset-secret google-credentials:/tmp/google_application_credentials.json \
+    --dataset jamesd/2025-01-20-cm4-ocean-piControl-200yr-dataset-stats:/statsdata \
     --dataset $EXISTING_RESULTS_DATASET:2025-04-15-train-samudra-train-cm4-thermodynamic-cf-test/saved_nets/best_inference_ckpt.pt:/ckpt.tar \
     --gpus 1 \
     --shared-memory 200GiB \

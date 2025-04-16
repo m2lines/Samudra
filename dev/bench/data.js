@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744843007696,
+  "lastUpdate": 1744843009784,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -526,6 +526,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.0603103517742234",
             "extra": "mean: 94.52233798379999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dcc4fa780eeb21762ddae07405a9571a68a6f6dd",
+          "message": "Removed the Lazy Loader from the codebase. (#213)\n\nFixes #207.",
+          "timestamp": "2025-04-16T14:57:46-07:00",
+          "tree_id": "790c3ea7d82a10d8bfbde947e144cde5c44b2c02",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/dcc4fa780eeb21762ddae07405a9571a68a6f6dd"
+        },
+        "date": 1744843008780,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.20446385722920238,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3901619059730472",
+            "extra": "mean: 4.890839943799984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.05639689149006624,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1542145203368046",
+            "extra": "mean: 17.73147373159991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.13244609717670677,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09207346499483049",
+            "extra": "mean: 7.550241353399952 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.011019075496156218,
+            "unit": "iter/sec",
+            "range": "stddev: 0.40887927752069914",
+            "extra": "mean: 90.7517150916 sec\nrounds: 5"
           }
         ]
       }

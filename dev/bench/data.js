@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744825756368,
+  "lastUpdate": 1744825758678,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -179,6 +179,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9186787717073944",
             "extra": "mean: 89.76059248259999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6f54e2a17d4fffe6740ef6e59a0b382def3304aa",
+          "message": "Update max steps in constants.py (#216)",
+          "timestamp": "2025-04-16T13:04:39-04:00",
+          "tree_id": "89dd7069844cff48073196b14ee6aca4c96fef80",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/6f54e2a17d4fffe6740ef6e59a0b382def3304aa"
+        },
+        "date": 1744825757559,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.19162669132517887,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10918733338717698",
+            "extra": "mean: 5.2184797070000055 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_LAZY-cuda-mock-train_default.test.yaml]",
+            "value": 0.48946088304018087,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0789668281311864",
+            "extra": "mean: 2.0430641848000506 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.05086815807555744,
+            "unit": "iter/sec",
+            "range": "stddev: 1.7424044651393846",
+            "extra": "mean: 19.658663451400024 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.12003941579973994,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08738583942767349",
+            "extra": "mean: 8.330597023799964 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.00980102664094515,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18967606305125392",
+            "extra": "mean: 102.03012772379998 sec\nrounds: 5"
           }
         ]
       }

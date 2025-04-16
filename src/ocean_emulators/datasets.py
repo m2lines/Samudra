@@ -305,22 +305,22 @@ class InferenceDataset(Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
-        data_in = self._prognostic_vars.isel(time=x_index).isel(
+        data_in_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in = Normalize.get_instance().normalize_prognostic(
-            data_in
+        data_in_ds = Normalize.get_instance().normalize_prognostic(
+            data_in_ds
         )  # TODO: Weird error when I get_instance in init
-        data_in = (
-            data_in.to_array()
+        data_in_np: np.ndarray = (
+            data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
-        data_in = rearrange(
-            data_in,
+        data_in_np = rearrange(
+            data_in_np,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
-        data_in = torch.from_numpy(data_in).float()
+        data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
@@ -331,32 +331,36 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._boundary_vars.isel(time=x_index).isel(time=self.hist)
-        data_in_boundary = Normalize.get_instance().normalize_boundary(data_in_boundary)
-        data_in_boundary = (
-            data_in_boundary.to_array()
+        data_in_boundary_ds: xr.Dataset = self._boundary_vars.isel(time=x_index).isel(
+            time=self.hist
+        )
+        data_in_boundary_ds = Normalize.get_instance().normalize_boundary(
+            data_in_boundary_ds
+        )
+        data_in_boundary_np: np.ndarray = (
+            data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
             .to_numpy()
         )
-        data_in_boundary = torch.from_numpy(data_in_boundary).float()
+        data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label = self._prognostic_vars.isel(time=x_index).isel(
+        label_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)
         )
-        label = Normalize.get_instance().normalize_prognostic(label)
-        label = (
-            label.to_array()
+        label_ds = Normalize.get_instance().normalize_prognostic(label_ds)
+        label_np: np.ndarray = (
+            label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
-        label = rearrange(
-            label,
+        label_np = rearrange(
+            label_np,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
-        label = torch.from_numpy(label).float()
+        label: torch.Tensor = torch.from_numpy(label_np).float()
         label = torch.where(self.wet, label, 0.0)
         return label
 

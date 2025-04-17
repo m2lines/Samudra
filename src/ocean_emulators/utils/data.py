@@ -145,7 +145,7 @@ class DataSource:
         dask = "with_dask" if use_dask else "without_dask"
 
         return cls(
-            name=f"raw-{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
+            name=f"{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
             data=data,
             means=means,
             stds=stds,

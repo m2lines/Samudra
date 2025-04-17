@@ -55,8 +55,8 @@ class InferenceDataset(Dataset):
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
         data = src.data
-        self._prognostic_src = src.filter(prognostic_var_names)
-        self._boundary_src = src.filter(boundary_var_names)
+        self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
 
         time_indices = np.arange(data.time.size)
@@ -320,8 +320,8 @@ class TrainDataset(Dataset):
         self.steps: int = steps
         self.stride: int = stride
         data = src.data
-        self._prognostic_src = src.filter(prognostic_var_names)
-        self._boundary_src = src.filter(boundary_var_names)
+        self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
 
@@ -505,8 +505,8 @@ class TorchTrainDataset(Dataset):
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
-        self._prognostic_src = src.filter(prognostic_var_names)
-        self._boundary_src = src.filter(boundary_var_names)
+        self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2

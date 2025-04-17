@@ -188,7 +188,7 @@ class Eval:
             hist=self.hist,
         )
         self.inference_dataset = InferenceDataset(
-            src=self.src.slice(self.inference_time.time_slice),
+            src=self.src.slice(self.inference_time),
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet=self.wet,

@@ -16,7 +16,7 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from ocean_emulators.config import TrainConfig
+from ocean_emulators.config import TimeConfig, TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -49,12 +49,12 @@ def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoa
 @contextlib.contextmanager
 def make_loader(
     cfg,
-    time_slice: slice | None = None,
+    time_slice: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion = LoaderVersion.OM4_EAGER,
 ) -> Generator[DataLoader, None, None]:
     if time_slice is None:
-        time_slice = cfg.train.time_slice
+        time_slice = cfg.train
 
     raw = DataSource.from_config(cfg)
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]

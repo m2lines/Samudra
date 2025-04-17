@@ -359,7 +359,7 @@ class Trainer:
                 hist=self.hist,
             )
             inference_dataset = InferenceDataset(
-                src=self.src.slice(self.inference_times[i].time_slice),
+                src=self.src.slice(self.inference_times[i]),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 wet=self.wet,
@@ -628,7 +628,7 @@ class Trainer:
                 train_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            src=self.src.slice(self.train_times.time_slice),
+                            src=self.src.slice(self.train_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -644,7 +644,7 @@ class Trainer:
                 val_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            src=self.src.slice(self.val_times.time_slice),
+                            src=self.src.slice(self.val_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -660,7 +660,7 @@ class Trainer:
                 train_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            src=self.src.slice(self.train_times.time_slice),
+                            src=self.src.slice(self.train_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -676,7 +676,7 @@ class Trainer:
                 val_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            src=self.src.slice(self.val_times.time_slice),
+                            src=self.src.slice(self.val_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,

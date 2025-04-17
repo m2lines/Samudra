@@ -42,7 +42,7 @@ class DataSource:
         self,
         var_names: PrognosticVarNames | BoundaryVarNames,
         *,
-        name: str | None = None,
+        prefix: str,
     ) -> Self:
         """Filter the data source to only include the specified variables."""
         data = self.data[var_names]
@@ -50,7 +50,7 @@ class DataSource:
         stds = self.stds[var_names]
 
         return dataclasses.replace(
-            self, name=name or self.name, data=data, means=means, stds=stds
+            self, name=f"{prefix}[{self.name}]", data=data, means=means, stds=stds
         )
 
     def map(
@@ -60,27 +60,28 @@ class DataSource:
             tuple[xr.Dataset, xr.Dataset, xr.Dataset],
         ],
         *,
-        name: str | None = None,
+        suffix: str,
     ) -> Self:
         """Map the function over the data source."""
         data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
 
         return dataclasses.replace(
-            self, name=name or self.name, data=data, means=means, stds=stds
+            self, name=f"{self.name}_{suffix}", data=data, means=means, stds=stds
         )
 
     def map_data(
-        self, func: Callable[[xr.Dataset], xr.Dataset], *, name: str | None = None
+        self, func: Callable[[xr.Dataset], xr.Dataset], *, suffix: str | None = None
     ) -> Self:
         """Map the function over just data in DataSource."""
+        if suffix is None:
+            suffix = func.__qualname__
         data = func(self.data.copy())
-        return dataclasses.replace(self, name=name or self.name, data=data)
+        return dataclasses.replace(self, name=f"{self.name}_{suffix}", data=data)
 
-    def slice(self, time_slice: slice, *, name: str | None = None) -> Self:
+    def slice(self, time: TimeConfig) -> Self:
         """Slice the data source to only include the specified time slice."""
-        data = self.data.sel(time=time_slice)
-
-        return dataclasses.replace(self, name=name or self.name, data=data)
+        data = self.data.sel(time=time.time_slice)
+        return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
 
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
@@ -333,7 +334,7 @@ def compute_anomalies(
                 stds[var] = data[var].std().compute()
         return data, means, stds
 
-    return data_src.map(_anom, name=data_src.name + "_anomalies")
+    return data_src.map(_anom, suffix="anomalies")
 
 
 def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
@@ -386,7 +387,7 @@ def validate_data(src: DataSource) -> DataSource:
         stds = with_level_index_vars(stds)
         return data, means, stds
 
-    src_ = src.map(_rename, name=src.name + "_validated")
+    src_ = src.map(_rename, suffix="validated")
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()
@@ -407,12 +408,12 @@ class Normalize(Multiton):
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        prog_src = src.filter(prognostic_var_names)
-        bound_src = src.filter(boundary_var_names)
-        self.prognostic_mean = prog_src.means
-        self.prognostic_std = prog_src.stds
-        self.boundary_mean = bound_src.means
-        self.boundary_std = bound_src.stds
+        prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.prognostic_mean = prognostic_src.means
+        self.prognostic_std = prognostic_src.stds
+        self.boundary_mean = boundary_src.means
+        self.boundary_std = boundary_src.stds
         self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access

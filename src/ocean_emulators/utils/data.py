@@ -19,7 +19,6 @@ from ocean_emulators.constants import (
     Grid,
     GridMask,
     Input,
-    LoaderVersion,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
@@ -116,10 +115,8 @@ class DataSource:
 
     @classmethod
     def from_config(
-        cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool | None = None
+        cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool = False
     ) -> Self:
-        if use_dask is None:
-            use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         chunks: dict[str, int] | None = {} if use_dask else None
 
         root = cfg.experiment.data_dir

@@ -159,7 +159,8 @@ class Trainer:
         self.data_dir = cfg.experiment.data_dir
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        raw = DataSource.from_config(cfg)
+        use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+        raw = DataSource.from_config(cfg, use_dask=use_dask)
         self.src = validate_data(raw)
         self.data = self.src.data
 

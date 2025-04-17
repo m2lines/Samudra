@@ -82,16 +82,6 @@ class DataSource:
 
         return dataclasses.replace(self, name=name or self.name, data=data)
 
-    def copy(self, *, name: str | None = None) -> Self:
-        """Return a copy (of underlying `xr.Dataset`) of the DataSource."""
-        return dataclasses.replace(
-            self,
-            name=name or self.name,
-            data=self.data.copy(),
-            means=self.means.copy(),
-            stds=self.stds.copy(),
-        )
-
     def normalize(
         self, data: xr.Dataset | None = None, fill_nan=True, fill_value=0.0
     ) -> xr.Dataset:
@@ -329,28 +319,27 @@ def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:
 def compute_anomalies(
     data_src: DataSource, anomalies_vars: tuple[str, ...]
 ) -> DataSource:
-    """
-    Compute anomalies for the given variables.
-    """
-    src = data_src.copy(name=data_src.name + "_anomalies")
+    """Compute anomalies for the given variables."""
 
-    for var in anomalies_vars:
-        base_var = var.replace("_anomalies", "")
-        if var not in src.data.variables and base_var in src.data.variables:
-            logging.info(f"Computing anomalies for {base_var}")
-            climatology = (
-                src.data[base_var].groupby("time.dayofyear").mean("time").compute()
-            )
-            # Remove the seasonal cycle (climatology) from the detrended data
-            day_of_year = src.data[base_var]["time"].dt.dayofyear
-            src.data[var] = (
-                src.data[base_var] - climatology.sel(dayofyear=day_of_year)
-            ).compute()
-            src.data = src.data.drop(["dayofyear"])
-            src.means[var] = src.data[var].mean().compute()
-            src.stds[var] = src.data[var].std().compute()
+    def _anom(data, means, stds):
+        for var in anomalies_vars:
+            base_var = var.replace("_anomalies", "")
+            if var not in data.variables and base_var in data.variables:
+                logging.info(f"Computing anomalies for {base_var}")
+                climatology = (
+                    data[base_var].groupby("time.dayofyear").mean("time").compute()
+                )
+                # Remove the seasonal cycle (climatology) from the detrended data
+                day_of_year = data[base_var]["time"].dt.dayofyear
+                data[var] = (
+                    data[base_var] - climatology.sel(dayofyear=day_of_year)
+                ).compute()
+                data = data.drop(["dayofyear"])
+                means[var] = data[var].mean().compute()
+                stds[var] = data[var].std().compute()
+        return data, means, stds
 
-    return src
+    return data_src.map(_anom, name=data_src.name + "_anomalies")
 
 
 def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
@@ -388,21 +377,22 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
 
 
 def validate_data(src: DataSource) -> DataSource:
-    """
-    Validate the data such that we have the correct format for training.
-    """
-    src_ = src.copy(name=src.name + "_validated")
+    """Validate the data such that we have the correct format for training."""
 
-    src_.data = (
-        src_.data.pipe(flatten_masks)
-        .pipe(with_level_index_vars)
-        .pipe(with_lat_lon_coords)
-    )
+    def _rename(data, means, stds):
+        data = (
+            data.pipe(flatten_masks)
+            .pipe(with_level_index_vars)
+            .pipe(with_lat_lon_coords)
+        )
 
-    # Check if data variables are in the right format
-    # This check is to ensure we convert data to the correct format
-    src_.means = with_level_index_vars(src_.means)
-    src_.stds = with_level_index_vars(src_.stds)
+        # Check if data variables are in the right format
+        # This check is to ensure we convert data to the correct format
+        means = with_level_index_vars(means)
+        stds = with_level_index_vars(stds)
+        return data, means, stds
+
+    src_ = src.map(_rename, name=src.name + "_validated")
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()

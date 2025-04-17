@@ -31,3 +31,12 @@ repos:
   rev: "v2.5.0"
   hooks:
     - id: pyproject-fmt
+- repo: local
+  hooks:
+  - id: validate-schemas
+    name: validate-schemas
+    language: system
+    require_serial: true
+    entry: uv run src/ocean_emulators/schema.py
+    pass_filenames: false
+    args: []

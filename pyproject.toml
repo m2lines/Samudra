@@ -50,12 +50,14 @@ dev = [
   "fsspec>=2025.3",
   "hypothesis[numpy]>=6.127.2",
   "ipykernel>=6.29.5",
+  "jsonschema>=4.21.1",
   "mypy>=1.15",
   "pytest>=8.3.4",
   "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",
   "snakeviz>=2.2.2",
   "tenacity>=9",
+  "types-jsonschema>=4.23.0.20241208",
   "types-pyyaml>=6.0.12.20241230",
 ]
 

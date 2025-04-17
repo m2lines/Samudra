@@ -156,12 +156,22 @@
           "type": "string"
         }
       },
+      "required": [
+        "wandb"
+      ],
       "title": "ExperimentConfig",
       "type": "object"
     },
     "SamudraConfig": {
       "properties": {
         "ch_width": {
+          "default": [
+            157,
+            200,
+            250,
+            300,
+            400
+          ],
           "items": {
             "type": "integer"
           },
@@ -174,6 +184,12 @@
           "type": "integer"
         },
         "dilation": {
+          "default": [
+            1,
+            2,
+            4,
+            8
+          ],
           "items": {
             "type": "integer"
           },
@@ -181,6 +197,12 @@
           "type": "array"
         },
         "n_layers": {
+          "default": [
+            1,
+            1,
+            1,
+            1
+          ],
           "items": {
             "type": "integer"
           },
@@ -220,32 +242,44 @@
         },
         "down_sampling_block": {
           "default": "avg_pool",
+          "enum": [
+            "avg_pool",
+            "max_pool"
+          ],
           "title": "Down Sampling Block",
           "type": "string"
         },
         "up_sampling_block": {
           "default": "bilinear_upsample",
+          "enum": [
+            "bilinear_upsample",
+            "transposed_conv"
+          ],
           "title": "Up Sampling Block",
           "type": "string"
         }
       },
+      "required": [
+        "core_block",
+        "corrector"
+      ],
       "title": "SamudraConfig",
       "type": "object"
     },
     "TimeConfig": {
       "properties": {
-        "start_time": {
-          "title": "Start Time",
+        "start": {
+          "title": "Start",
           "type": "string"
         },
-        "end_time": {
-          "title": "End Time",
+        "end": {
+          "title": "End",
           "type": "string"
         }
       },
       "required": [
-        "start_time",
-        "end_time"
+        "start",
+        "end"
       ],
       "title": "TimeConfig",
       "type": "object"
@@ -407,6 +441,9 @@
       "type": "number"
     },
     "data_stride": {
+      "default": [
+        1
+      ],
       "items": {
         "type": "integer"
       },
@@ -414,6 +451,9 @@
       "type": "array"
     },
     "steps": {
+      "default": [
+        4
+      ],
       "items": {
         "type": "integer"
       },
@@ -421,6 +461,7 @@
       "type": "array"
     },
     "step_transition": {
+      "default": [],
       "items": {
         "type": "integer"
       },
@@ -428,23 +469,35 @@
       "type": "array"
     },
     "inference_epochs": {
+      "default": [
+        -1
+      ],
       "items": {
         "type": "integer"
       },
       "title": "Inference Epochs",
       "type": "array"
     },
-    "train": {
-      "$ref": "#/$defs/TimeConfig"
+    "train_time": {
+      "$ref": "#/$defs/TimeConfig",
+      "default": {
+        "start": "151-01-06",
+        "end": "306-01-01"
+      }
     },
-    "val": {
-      "$ref": "#/$defs/TimeConfig"
+    "val_time": {
+      "$ref": "#/$defs/TimeConfig",
+      "default": {
+        "start": "306-01-01",
+        "end": "311-01-01"
+      }
     },
-    "inference": {
+    "inference_times": {
+      "default": [],
       "items": {
         "$ref": "#/$defs/TimeConfig"
       },
-      "title": "Inference",
+      "title": "Inference Times",
       "type": "array"
     },
     "experiment": {
@@ -457,6 +510,11 @@
       "$ref": "#/$defs/SamudraConfig"
     }
   },
+  "required": [
+    "experiment",
+    "data",
+    "samudra"
+  ],
   "title": "TrainConfig",
   "type": "object"
 }

@@ -55,6 +55,13 @@
   },
   "properties": {
     "ch_width": {
+      "default": [
+        157,
+        200,
+        250,
+        300,
+        400
+      ],
       "items": {
         "type": "integer"
       },
@@ -67,6 +74,12 @@
       "type": "integer"
     },
     "dilation": {
+      "default": [
+        1,
+        2,
+        4,
+        8
+      ],
       "items": {
         "type": "integer"
       },
@@ -74,6 +87,12 @@
       "type": "array"
     },
     "n_layers": {
+      "default": [
+        1,
+        1,
+        1,
+        1
+      ],
       "items": {
         "type": "integer"
       },
@@ -113,15 +132,27 @@
     },
     "down_sampling_block": {
       "default": "avg_pool",
+      "enum": [
+        "avg_pool",
+        "max_pool"
+      ],
       "title": "Down Sampling Block",
       "type": "string"
     },
     "up_sampling_block": {
       "default": "bilinear_upsample",
+      "enum": [
+        "bilinear_upsample",
+        "transposed_conv"
+      ],
       "title": "Up Sampling Block",
       "type": "string"
     }
   },
+  "required": [
+    "core_block",
+    "corrector"
+  ],
   "title": "SamudraConfig",
   "type": "object"
 }

@@ -111,6 +111,9 @@
       "type": "string"
     }
   },
+  "required": [
+    "wandb"
+  ],
   "title": "ExperimentConfig",
   "type": "object"
 }

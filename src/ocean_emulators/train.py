@@ -9,7 +9,7 @@ import os
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Sequence, Union
+from typing import Any, Callable, Sequence, Union, assert_never
 
 import dask
 import numpy as np
@@ -277,7 +277,7 @@ class Trainer:
             logger.info("Using decomposed mse loss with mae")
             self.loss_fn = decomposed_mse_mae
         else:
-            raise NotImplementedError
+            assert_never(cfg.loss)
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
@@ -345,9 +345,9 @@ class Trainer:
         self.batch_size: int = cfg.batch_size
         self.num_workers: int = cfg.data.num_workers
         self.pin_mem: bool = cfg.pin_mem
-        self.train_times: config.TimeConfig = cfg.train
-        self.val_times = cfg.val
-        self.inference_times = cfg.inference
+        self.train_time: config.TimeConfig = cfg.train_time
+        self.val_time = cfg.val_time
+        self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.time_delta: int = cfg.data.time_delta
         self.num_batches_seen = 0
@@ -652,7 +652,7 @@ class Trainer:
                 train_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=self.data.sel(time=self.train_times.time_slice),
+                            data=self.data.sel(time=self.train_time.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -668,7 +668,7 @@ class Trainer:
                 val_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=self.data.sel(time=self.val_times.time_slice),
+                            data=self.data.sel(time=self.val_time.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -684,7 +684,7 @@ class Trainer:
                 train_data = ConcatDataset(
                     [
                         OM4Dataset(
-                            data=self.data.sel(time=self.train_times.time_slice),
+                            data=self.data.sel(time=self.train_time.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             hist=self.hist,
@@ -698,7 +698,7 @@ class Trainer:
                 val_data = ConcatDataset(
                     [
                         OM4Dataset(
-                            data=self.data.sel(time=self.val_times.time_slice),
+                            data=self.data.sel(time=self.val_time.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             hist=self.hist,
@@ -712,7 +712,7 @@ class Trainer:
                 train_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=self.data.sel(time=self.train_times.time_slice),
+                            data=self.data.sel(time=self.train_time.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -728,7 +728,7 @@ class Trainer:
                 val_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=self.data.sel(time=self.val_times.time_slice),
+                            data=self.data.sel(time=self.val_time.time_slice),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,

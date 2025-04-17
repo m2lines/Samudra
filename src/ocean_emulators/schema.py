@@ -73,7 +73,7 @@ def validate_schemas(config_dir: Path) -> None:
 
         # Extract the schema path from the YAML file's first line
         schema_match = re.search(
-            r"# yaml-language-server: \$schema=(.*\.json)", yaml_content
+            r"\s*#\s+yaml-language-server:\s+\$schema=(.*\.json)", yaml_content
         )
         if not schema_match:
             print(f"⚠️ No schema specified in {yaml_file}")

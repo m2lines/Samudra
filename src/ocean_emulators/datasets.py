@@ -20,7 +20,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource, to_tensor
+from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.device import get_device, using_gpu
 
 
@@ -511,10 +511,6 @@ class TorchTrainDataset(Dataset):
         self._boundary_src = src.filter(boundary_var_names)
         self._prognostic_vars: xr.Dataset = self._prognostic_src.data
         self._boundary_vars: xr.Dataset = self._boundary_src.data
-
-        # cache tensors for faster access during training.
-        to_tensor(self._prognostic_src, device=torch.device("cpu"))
-        to_tensor(self._boundary_src, device=torch.device("cpu"))
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2

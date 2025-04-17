@@ -1,6 +1,5 @@
 import dataclasses
 import logging
-from functools import cache
 from typing import Any, Literal, Self
 
 import cftime
@@ -404,37 +403,6 @@ def validate_data(src: DataSource) -> DataSource:
     out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
 
     return out
-
-
-@cache
-def to_tensor(
-    src: DataSource, device: torch.device
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Convert data source to tensors (with caching)."""
-    data_np = src.data.to_array().to_numpy().reshape(-1)
-    means_np = src.means.to_array().to_numpy().reshape(-1)
-    stds_np = src.stds.to_array().to_numpy().reshape(-1)
-
-    data_tensor = torch.from_numpy(data_np).to(device)
-    means_tensor = torch.from_numpy(means_np).to(device)
-    stds_tensor = torch.from_numpy(stds_np).to(device)
-
-    return data_tensor, means_tensor, stds_tensor
-
-
-def normalize_tensor(
-    data: torch.Tensor,
-    means: torch.Tensor,
-    stds: torch.Tensor,
-    fill_nan=True,
-    fill_value=0.0,
-) -> torch.Tensor:
-    """Normalize data treated as torch Tensors."""
-    norm = (data - means) / stds
-    if fill_nan:
-        norm = norm.nan_to_num(nan=fill_value)
-    norm = norm.to(data.dtype)
-    return norm
 
 
 # TODO: Repetitive code. Refactor

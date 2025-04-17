@@ -99,8 +99,8 @@ class Eval:
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         raw = DataSource.from_config(cfg)
-        val = self.src = validate_data(raw)
-        self.data, self.data_mean, self.data_std = val.data, val.means, val.stds
+        self.src = validate_data(raw)
+        self.data = self.src.data
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -113,7 +113,7 @@ class Eval:
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
-            val,
+            self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=wet_without_hist_cpu,

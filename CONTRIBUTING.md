@@ -175,6 +175,8 @@ you'll want to configure it to use pyproject.toml, which you can do with a `.vsc
 ```bash
 # local dev / CI
 pytest -m "not manual and not cuda"
+# with more CPU cores
+pytest -m "not manual and not cuda" -n auto
 # all manual tests
 pytest -m manual
 # just the model weights test

@@ -86,12 +86,40 @@ class DataSource:
         )
 
     def normalize(
-        self, target: xr.Dataset | None = None, fill_nan=True, fill_value=0.0
+        self, data: xr.Dataset | None = None, fill_nan=True, fill_value=0.0
     ) -> xr.Dataset:
         """Normalize input data."""
-        norm = ((target or self.data) - self.means) / self.stds
+        norm = ((data or self.data) - self.means) / self.stds
         if fill_nan:
             norm = norm.fillna(fill_value)
+        return norm
+
+    def normalize_tensor(
+        self,
+        data: torch.Tensor | None = None,
+        variable_axis: int = 0,
+        fill_nan=True,
+        fill_value=0.0,
+    ) -> torch.Tensor:
+        """Normalize input data treated as torch Tensors."""
+        device = (data or self.data).device
+        reshape_vars = [1] * (data or self.data).ndim
+        reshape_vars[variable_axis] = -1
+
+        if data is None:
+            data_np = self.data.to_array().to_numpy().reshape(-1)
+            data = torch.from_numpy(data_np).to(device).reshape(reshape_vars)
+
+        # TODO(alxmrs): Do we have to reshape twice?
+        means_np = self.means.to_array().to_numpy().reshape(-1)
+        stds_np = self.stds.to_array().to_numpy().reshape(-1)
+        means = torch.from_numpy(means_np).to(device).reshape(reshape_vars)
+        stds = torch.from_numpy(stds_np).to(device).reshape(reshape_vars)
+
+        norm = (data - means) / stds
+        if fill_nan:
+            norm = norm.nan_to_num(nan=fill_value)
+        norm = norm.to(data.dtype)
         return norm
 
     @classmethod

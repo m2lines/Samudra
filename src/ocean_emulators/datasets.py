@@ -20,7 +20,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource, normalize_tensor, to_tensor
+from ocean_emulators.utils.data import DataSource, to_tensor
 from ocean_emulators.utils.device import get_device, using_gpu
 
 
@@ -593,14 +593,7 @@ class TorchTrainDataset(Dataset):
         )
 
         # add in boundary to final input
-        _, boundary_means, boundary_stds = to_tensor(
-            self._boundary_src, device=boundary.device
-        )
-        boundary = normalize_tensor(
-            boundary,
-            boundary_means.reshape([-1, 1, 1]),
-            boundary_stds.reshape([-1, 1, 1]),
-        ).float()
+        boundary = self._boundary_src.normalize_tensor(boundary).float()
 
         boundary = torch.where(self.wet_surface, boundary, 0.0)
         total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
@@ -620,15 +613,9 @@ class TorchTrainDataset(Dataset):
             "step variable time lat lon -> time step variable lat lon",
         )
 
-        _, prog_means, prog_stds = to_tensor(
-            self._prognostic_src, device=prognostic_steps.device
-        )
-
         # normalize expects variables in third dimension
-        prognostic_steps = normalize_tensor(
-            prognostic_steps,
-            prog_means.reshape([1, -1, 1, 1]),
-            prog_stds.reshape([1, -1, 1, 1]),
+        prognostic_steps = self._prognostic_src.normalize_tensor(
+            prognostic_steps, variable_axis=1
         ).float()
 
         # flatten time and variable dimensions into a set of channels for model

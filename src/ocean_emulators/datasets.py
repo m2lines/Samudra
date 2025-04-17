@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 from typing import Any
 
@@ -21,12 +20,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import (
-    DataSource,
-    normalize,
-    normalize_tensor,
-    to_tensor,
-)
+from ocean_emulators.utils.data import DataSource, normalize_tensor, to_tensor
 from ocean_emulators.utils.device import get_device, using_gpu
 
 
@@ -179,8 +173,7 @@ class InferenceDataset(Dataset):
         data_in_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        src_in = dataclasses.replace(self._prog_src, data=data_in_ds)
-        data_in_ds = normalize(src_in)
+        data_in_ds = self._prog_src.normalize(data_in_ds)
         data_in_np: np.ndarray = (
             data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -204,8 +197,7 @@ class InferenceDataset(Dataset):
         data_in_boundary_ds: xr.Dataset = self._boundary_vars.isel(time=x_index).isel(
             time=self.hist
         )
-        src_in_boundary = dataclasses.replace(self._bound_src, data=data_in_boundary_ds)
-        data_in_boundary_ds = normalize(src_in_boundary)
+        data_in_boundary_ds = self._bound_src.normalize(data_in_boundary_ds)
         data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -219,8 +211,7 @@ class InferenceDataset(Dataset):
         label_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)
         )
-        src_label = dataclasses.replace(self._prog_src, data=label_ds)
-        label_ds = normalize(src_label)
+        label_ds = self._prog_src.normalize(label_ds)
         label_np: np.ndarray = (
             label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -368,8 +359,8 @@ class TrainDataset(Dataset):
 
         # Normalize
         logging.info("Normalizing inputs")
-        self._prognostic_vars = normalize(self._prog_src)
-        self._boundary_vars = normalize(self._bound_src)
+        self._prognostic_vars = self._prog_src.normalize()
+        self._boundary_vars = self._bound_src.normalize()
 
     def __len__(self) -> int:
         return self.size

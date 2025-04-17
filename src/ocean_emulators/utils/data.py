@@ -85,6 +85,15 @@ class DataSource:
             stds=self.stds.copy(),
         )
 
+    def normalize(
+        self, target: xr.Dataset | None = None, fill_nan=True, fill_value=0.0
+    ) -> xr.Dataset:
+        """Normalize input data."""
+        norm = ((target or self.data) - self.means) / self.stds
+        if fill_nan:
+            norm = norm.fillna(fill_value)
+        return norm
+
     @classmethod
     def from_config(
         cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool | None = None
@@ -383,14 +392,6 @@ def to_tensor(
     stds_tensor = torch.from_numpy(stds_np).to(device)
 
     return data_tensor, means_tensor, stds_tensor
-
-
-def normalize(src: DataSource, fill_nan=True, fill_value=0.0) -> xr.Dataset:
-    """Normalize input data source."""
-    norm = (src.data - src.means) / src.stds
-    if fill_nan:
-        norm = norm.fillna(fill_value)
-    return norm
 
 
 def normalize_tensor(

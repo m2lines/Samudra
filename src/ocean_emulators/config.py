@@ -3,13 +3,11 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, List, Literal, Optional
 
-import pydantic
-
-from ocean_emulators.base_config import BaseConfig
+from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
 
 
-class WandBConfig(pydantic.BaseModel):
+class WandBConfig(BaseConfig):
     mode: str = "disabled"  # online, disabled
     project: str = "3D_ocean_emu_CM4"
     entity: str = "suryadheeshjith"
@@ -18,7 +16,7 @@ class WandBConfig(pydantic.BaseModel):
     notes: Optional[str] = None
 
 
-class TimeConfig(pydantic.BaseModel):
+class TimeConfig(BaseConfig):
     start: str
     end: str
 
@@ -27,7 +25,7 @@ class TimeConfig(pydantic.BaseModel):
         return slice(self.start, self.end)
 
 
-class DataConfig(pydantic.BaseModel):
+class DataConfig(BaseConfig):
     data_path: str = "CM4_5daily_v0.4.0"
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
@@ -43,7 +41,7 @@ ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "layer"]
 
 
-class BlockConfig(pydantic.BaseModel):
+class BlockConfig(BaseConfig):
     block_type: BlockType = "conv_next_block"
     kernel_size: int = 3
     activation: ActivationType = "capped_gelu"
@@ -51,7 +49,7 @@ class BlockConfig(pydantic.BaseModel):
     norm: NormType = "batch"
 
 
-class CorrectorConfig(pydantic.BaseModel):
+class CorrectorConfig(BaseConfig):
     non_negative_corrector_names: Optional[List[str]] = None
 
 
@@ -59,7 +57,7 @@ DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
 
 
-class SamudraConfig(pydantic.BaseModel):
+class SamudraConfig(BaseConfig):
     ch_width: List[int] = [157, 200, 250, 300, 400]
     n_out: int = 77
     dilation: List[int] = [1, 2, 4, 8]
@@ -76,7 +74,7 @@ class SamudraConfig(pydantic.BaseModel):
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
 
 
-class DistributedConfig(pydantic.BaseModel):
+class DistributedConfig(BaseConfig):
     dist_url: Optional[str] = None
     world_size: Optional[int] = None
     rank: Optional[int] = None
@@ -84,7 +82,7 @@ class DistributedConfig(pydantic.BaseModel):
     dist_backend: Optional[str] = None
 
 
-class ExperimentConfig(pydantic.BaseModel):
+class ExperimentConfig(BaseConfig):
     base_name: str = "train"
     sub_name: str = "cm4_samudra"
     rand_seed: int = 1
@@ -136,7 +134,7 @@ LossType = Literal[
 ]
 
 
-class TrainConfig(BaseConfig):
+class TrainConfig(TopLevelConfig):
     # Training parameters
     disk_mode: bool = True
     pin_mem: bool = True
@@ -178,7 +176,7 @@ class TrainConfig(BaseConfig):
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
 
 
-class EvalConfig(BaseConfig):
+class EvalConfig(TopLevelConfig):
     # Basic parameters
     debug: bool = False
     save_zarr: bool = False

@@ -37,6 +37,6 @@ repos:
     name: validate-schemas
     language: system
     require_serial: true
-    entry: uv run src/ocean_emulators/schema.py
+    entry: uv run src/ocean_emulators/config_schema.py
     pass_filenames: false
     args: []

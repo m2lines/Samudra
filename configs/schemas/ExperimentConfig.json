@@ -1,6 +1,7 @@
 {
   "$defs": {
     "WandBConfig": {
+      "additionalProperties": false,
       "properties": {
         "mode": {
           "default": "disabled",
@@ -61,6 +62,7 @@
       "type": "object"
     }
   },
+  "additionalProperties": false,
   "properties": {
     "base_name": {
       "default": "train",

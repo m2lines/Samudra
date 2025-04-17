@@ -1,6 +1,7 @@
 {
   "$defs": {
     "BlockConfig": {
+      "additionalProperties": false,
       "properties": {
         "block_type": {
           "default": "conv_next_block",
@@ -46,6 +47,7 @@
       "type": "object"
     },
     "CorrectorConfig": {
+      "additionalProperties": false,
       "properties": {
         "non_negative_corrector_names": {
           "anyOf": [
@@ -67,6 +69,7 @@
       "type": "object"
     }
   },
+  "additionalProperties": false,
   "properties": {
     "ch_width": {
       "default": [

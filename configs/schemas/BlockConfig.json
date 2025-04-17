@@ -1,4 +1,5 @@
 {
+  "additionalProperties": false,
   "properties": {
     "block_type": {
       "default": "conv_next_block",

@@ -1,28 +1,37 @@
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
-from typing import Optional, Set, Type
+from typing import Dict, Optional, Type
 
 import pydantic
 import yaml
-from jsonschema import validate
 
 from ocean_emulators.config import EvalConfig, TrainConfig
 
 
 def get_pydantic_models(
     model: Type[pydantic.BaseModel],
-    seen: Optional[Set[Type[pydantic.BaseModel]]] = None,
-) -> Set[Type[pydantic.BaseModel]]:
-    """Recursively find all Pydantic models in a model's fields."""
-    if seen is None:
-        seen = set()
+    seen: Optional[Dict[str, Type[pydantic.BaseModel]]] = None,
+) -> Dict[str, Type[pydantic.BaseModel]]:
+    """Recursively find all Pydantic models in a model's fields.
 
-    if model in seen:
+    Args:
+        model: The Pydantic model to start from
+        seen: Dictionary of already seen models (keyed by model name)
+
+    Returns:
+        Dictionary of model names to model classes
+    """
+    if seen is None:
+        seen = {}
+
+    model_name = model.__name__
+    if model_name in seen:
         return seen
 
-    seen.add(model)
+    seen[model_name] = model
 
     for field in model.model_fields.values():
         field_type = field.annotation
@@ -32,16 +41,21 @@ def get_pydantic_models(
     return seen
 
 
-def generate_schemas(output_dir: Path) -> None:
-    """Generate JSON schemas for all Pydantic models and save them to output_dir."""
+def generate_schemas(
+    output_dir: Path,
+    models: Dict[str, Type[pydantic.BaseModel]],
+) -> None:
+    """Generate JSON schemas for all Pydantic models and save them to output_dir.
+
+    Args:
+        output_dir: Directory to save the generated schemas
+        models: Dictionary of model names to model classes
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    models = get_pydantic_models(TrainConfig)
-    models.update(get_pydantic_models(EvalConfig))
-
-    for model in models:
+    for model_name, model in models.items():
         schema = model.model_json_schema()
-        output_path = output_dir / f"{model.__name__}.json"
+        output_path = output_dir / f"{model_name}.json"
 
         # Check if file exists and content is different
         if output_path.exists():
@@ -53,16 +67,21 @@ def generate_schemas(output_dir: Path) -> None:
         # Write only if content differs or file doesn't exist
         with open(output_path, "w") as f:
             json.dump(schema, f, indent=2)
+            print(f"🆕 Updated schema for {model_name} at {output_path}")
 
-            print(f"🆕 Updated schema for {model.__name__} at {output_path}")
 
-
-def validate_schemas(config_dir: Path) -> None:
-    """Validate YAML configuration files against their JSON schemas.
+def validate_schemas(
+    config_dir: Path,
+    models: Dict[str, Type[pydantic.BaseModel]],
+) -> bool:
+    """Validate YAML configuration files against their Pydantic models.
 
     Args:
         config_dir: Directory containing YAML configuration files to validate
+        models: Dictionary of model names to model classes
     """
+    valid = True
+
     # Find all YAML files in the config directory
     yaml_files = list(config_dir.rglob("*.yaml"))
 
@@ -79,27 +98,24 @@ def validate_schemas(config_dir: Path) -> None:
             print(f"⚠️ No schema specified in {yaml_file}")
             continue
 
-        schema_path = yaml_file.parent / schema_match.group(1)
-        if not schema_path.exists():
-            print(f"✗ Schema file {schema_path} not found for {yaml_file}")
-            raise FileNotFoundError(
-                f"Schema file {schema_path} not found for {yaml_file}"
-            )
-
-        # Load the schema
-        with open(schema_path, "r") as f:
-            schema = json.load(f)
+        schema_name = Path(schema_match.group(1)).stem
+        if schema_name not in models:
+            print(f"✗ Model {schema_name} not found for {yaml_file}")
+            valid = False
+            continue
 
         # Load and validate the YAML content
         try:
             with open(yaml_file, "r") as f:
-                # we re-load so the path is known
                 config = yaml.safe_load(f)
-                validate(instance=config, schema=schema)
-            print(f"✅ {yaml_file} is valid against {schema_path}")
+                # Validate using Pydantic model
+                models[schema_name].model_validate(config)
+                print(f"✅ {yaml_file} is a valid {schema_name}")
         except Exception as e:
-            print(f"✗ {yaml_file} is invalid against {schema_path}: {str(e)}")
-            raise e
+            print(f"✗ {yaml_file} is an invalid {schema_name}: {str(e)}")
+            valid = False
+
+    return valid
 
 
 def main():
@@ -120,10 +136,16 @@ def main():
     )
 
     args = parser.parse_args()
-    generate_schemas(args.output_dir)
+
+    # Get all available models
+    models = get_pydantic_models(TrainConfig)
+    models.update(get_pydantic_models(EvalConfig))
+
+    generate_schemas(args.output_dir, models)
 
     if args.validate_dir:
-        validate_schemas(args.validate_dir)
+        if not validate_schemas(args.validate_dir, models):
+            sys.exit(1)
 
 
 if __name__ == "__main__":

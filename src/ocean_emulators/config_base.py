@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Optional, Self
 
 import yaml
+from pydantic import BaseModel, ConfigDict
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
@@ -28,15 +29,23 @@ def include_constructor(loader, node):
 yaml.loader.SafeLoader.add_constructor("!include", include_constructor)
 
 
-class BaseConfig(BaseSettings):
+class BaseConfig(BaseModel):
     """
-    Base class for top-level configs.
+    Base class for all configs.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TopLevelConfig(BaseSettings):
+    """
+    Base class for top-level configs (ie tasks like train or eval).
     """
 
     model_config = SettingsConfigDict(nested_model_default_partial_update=True)
 
-    def __init__(self, cli_settings_source: CliSettingsSource, **kwargs):
-        super().__init__(_cli_settings_source=cli_settings_source, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @classmethod
     def settings_customise_sources(
@@ -88,7 +97,7 @@ specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
         yaml_values = YamlConfigSettingsSource(cls, yaml_file=config_path)()
 
         return cls(
-            cli_settings_source=cli_source,
+            _cli_settings_source=cli_source,
             **yaml_values,
         )
 

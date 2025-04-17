@@ -52,7 +52,6 @@ class InferenceDataset(Dataset):
         self.device = get_device()
 
         self.hist = hist
-        self.src = src
         data = src.data
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
@@ -505,7 +504,6 @@ class TorchTrainDataset(Dataset):
         self.stride: int = stride
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        self.src = src
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names)
         self._boundary_src = src.filter(boundary_var_names)

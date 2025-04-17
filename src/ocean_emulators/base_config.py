@@ -1,9 +1,9 @@
 import argparse
+import os
 from pathlib import Path
 from typing import Any, Self
 
 import yaml
-import yaml_include
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
@@ -13,8 +13,17 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
+
+def include_constructor(loader, node):
+    filename = os.path.normpath(
+        os.path.join(os.path.dirname(loader.stream.name), node.value)
+    )
+    with open(filename, "r") as f:
+        return yaml.safe_load(f)
+
+
 # This is arguably unsafe, but we don't parse untrusted YAML
-yaml.loader.SafeLoader.add_constructor("!include", yaml_include.Constructor())
+yaml.loader.SafeLoader.add_constructor("!include", include_constructor)
 
 
 class BaseConfig(BaseSettings):
@@ -51,9 +60,7 @@ You can also replace any JSON argument listed above with a YAML file by
 specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
 """,
         )
-        parser.add_argument(
-            "--config", type=str, required=True, help="Path to config YAML file"
-        )
+        parser.add_argument("config", type=str, help="Path to config YAML file")
 
         cli_source = IncludeYamlCliSettingsSource(
             cls, root_parser=parser, cli_parse_args=True

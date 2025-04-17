@@ -56,7 +56,7 @@ experiment:
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
-data: !include configs/data/jder.yaml
+data: !include data/jder.yaml
 
 
 samudra:

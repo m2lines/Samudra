@@ -34,7 +34,6 @@ dependencies = [
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",
   "pyyaml>=6.0.2",
-  "pyyaml-include>=2.2",
   "requests>=2.32.3",
   "scipy>=1.15.2",
   "torch~=2.2.1",

@@ -44,12 +44,7 @@ class DataSource:
 
         def _shape_hash(ds: xr.Dataset) -> int:
             return hash(
-                tuple(
-                    (k, v, d)
-                    for k, da in ds.items()
-                    for v, d in da.sizes.items()
-                )
-            )
+                tuple((k, v, d) for k, da in ds.items() for v, d in da.sizes.items())
             )
 
         return (

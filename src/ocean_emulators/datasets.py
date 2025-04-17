@@ -586,7 +586,9 @@ class TorchTrainDataset(Dataset):
         )
 
         # add in boundary to final input
-        boundary = self._boundary_src.normalize_tensor(boundary).float()
+        boundary = self._boundary_src.normalize_tensor(
+            boundary, variable_axis=1
+        ).float()
 
         boundary = torch.where(self.wet_surface, boundary, 0.0)
         total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
@@ -598,23 +600,20 @@ class TorchTrainDataset(Dataset):
     def _prep_prognostic_steps(
         self, prognostic_steps: Float[torch.Tensor, "step variable time lat lon"]
     ) -> Input:
-        # Time needs to be before step for normalization to work (even though it would
-        # make more sense for `step` to the be first dimension). Don't worry: we fix
-        # this later.
         prognostic_steps = rearrange(
             prognostic_steps,
-            "step variable time lat lon -> time step variable lat lon",
+            "step variable time lat lon -> step time variable lat lon",
         )
 
         # normalize expects variables in third dimension
         prognostic_steps = self._prognostic_src.normalize_tensor(
-            prognostic_steps, variable_axis=1
+            prognostic_steps, variable_axis=2
         ).float()
 
         # flatten time and variable dimensions into a set of channels for model
         prognostic_steps = rearrange(
             prognostic_steps,
-            "time step variable lat lon -> step (time variable) lat lon",
+            "step time variable lat lon -> step (time variable) lat lon",
         )
 
         # post-normalize, mask out values where there is no ocean

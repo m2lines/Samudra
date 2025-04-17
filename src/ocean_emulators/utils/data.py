@@ -91,19 +91,15 @@ class DataSource:
 
     def normalize_tensor(
         self,
-        data: torch.Tensor | None = None,
+        data: torch.Tensor,
         variable_axis: int = 0,
         fill_nan=True,
         fill_value=0.0,
     ) -> torch.Tensor:
         """Normalize input data treated as torch Tensors."""
-        device = (data or self.data).device
-        reshape_vars = [1] * (data or self.data).ndim
+        device = data.device
+        reshape_vars = [1] * data.ndim
         reshape_vars[variable_axis] = -1
-
-        if data is None:
-            data_np = self.data.to_array().to_numpy().reshape(-1)
-            data = torch.from_numpy(data_np).to(device).reshape(reshape_vars)
 
         # TODO(alxmrs): Do we have to reshape twice?
         means_np = self.means.to_array().to_numpy().reshape(-1)

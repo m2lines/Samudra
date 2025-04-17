@@ -252,7 +252,10 @@
           "$ref": "#/$defs/BlockConfig"
         },
         "corrector": {
-          "$ref": "#/$defs/CorrectorConfig"
+          "$ref": "#/$defs/CorrectorConfig",
+          "default": {
+            "non_negative_corrector_names": null
+          }
         },
         "down_sampling_block": {
           "default": "avg_pool",
@@ -274,8 +277,7 @@
         }
       },
       "required": [
-        "core_block",
-        "corrector"
+        "core_block"
       ],
       "title": "SamudraConfig",
       "type": "object"

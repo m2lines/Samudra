@@ -76,7 +76,7 @@ specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
 
         # We do this after creating CliSettingsSource (which populates the parser)
         # so the help is complete on error.
-        args = parser.parse_args()
+        args = parser.parse_args(args_to_parse)
 
         # Then we read the YAML file specified in the CLI
         # Note that by default, YamlConfigSettingsSource will ignore missing files

@@ -440,17 +440,15 @@ def train_config(
     maybe_write_cache(cache, data_source)
 
     # Open default training script; modify it as necessary.
-    train_config = TrainConfig.from_yaml(
-        pytestconfig.rootpath / "configs" / config_name
-    )
-    experiment_config = dataclasses.replace(
-        train_config.experiment,
-        cluster_data_dir=str(cache / data_source.name),
-    )
-    train_config = dataclasses.replace(
-        train_config,
-        experiment=experiment_config,
-        backend=backend,
+    train_config = TrainConfig.from_yaml_and_cli(
+        [
+            # file to read
+            str(pytestconfig.rootpath / "configs" / config_name),
+            "--experiment.cluster_data_dir",
+            str(cache / data_source.name),
+            "--backend",
+            backend,
+        ]
     )
 
     return train_config

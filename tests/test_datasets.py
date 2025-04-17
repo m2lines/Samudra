@@ -44,13 +44,13 @@ def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoa
 
 @contextlib.contextmanager
 def make_loader(
-    cfg,
+    cfg: TrainConfig,
     time_slice: slice | None = None,
     drop_last: bool = True,
     version: LoaderVersion = LoaderVersion.OM4_EAGER,
 ) -> Generator[DataLoader, None, None]:
     if time_slice is None:
-        time_slice = cfg.train.time_slice
+        time_slice = cfg.train_time.time_slice
 
     use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
     if use_dask:
@@ -275,7 +275,9 @@ def test_test_util__data_source_roundtrip(
     assert decoded_var_index == data_var_index
 
 
-def test_loader__data_shape(train_config, history, loader_version):
+def test_loader__data_shape(
+    train_config: TrainConfig, history: int, loader_version: LoaderVersion
+):
     train_config.data.hist = history
 
     with make_loader(train_config, version=loader_version) as loader:
@@ -290,7 +292,7 @@ def test_loader__data_shape(train_config, history, loader_version):
             len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_input_timesteps
         )
 
-        n_samples = calc_num_samples(train_config, train_config.train.time_slice)
+        n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
         samples = list(loader)
 
         assert len(samples) == n_samples, (

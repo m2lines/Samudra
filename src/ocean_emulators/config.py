@@ -71,7 +71,7 @@ class SamudraConfig(pydantic.BaseModel):
 
     # Block configurations
     core_block: BlockConfig
-    corrector: CorrectorConfig
+    corrector: CorrectorConfig = CorrectorConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
 

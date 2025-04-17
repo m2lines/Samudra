@@ -76,13 +76,15 @@ def validate_schemas(config_dir: Path) -> None:
             r"# yaml-language-server: \$schema=(.*\.json)", yaml_content
         )
         if not schema_match:
-            print(f"Warning: No schema specified in {yaml_file}")
+            print(f"⚠️ No schema specified in {yaml_file}")
             continue
 
         schema_path = yaml_file.parent / schema_match.group(1)
         if not schema_path.exists():
-            print(f"Warning: Schema file {schema_path} not found for {yaml_file}")
-            continue
+            print(f"✗ Schema file {schema_path} not found for {yaml_file}")
+            raise FileNotFoundError(
+                f"Schema file {schema_path} not found for {yaml_file}"
+            )
 
         # Load the schema
         with open(schema_path, "r") as f:

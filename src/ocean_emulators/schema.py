@@ -43,10 +43,18 @@ def generate_schemas(output_dir: Path) -> None:
         schema = model.model_json_schema()
         output_path = output_dir / f"{model.__name__}.json"
 
+        # Check if file exists and content is different
+        if output_path.exists():
+            with open(output_path) as f:
+                existing_schema = json.load(f)
+                if existing_schema == schema:
+                    continue
+
+        # Write only if content differs or file doesn't exist
         with open(output_path, "w") as f:
             json.dump(schema, f, indent=2)
 
-        print(f"Generated schema for {model.__name__} at {output_path}")
+            print(f"🆕 Updated schema for {model.__name__} at {output_path}")
 
 
 def validate_schemas(config_dir: Path) -> None:
@@ -86,7 +94,7 @@ def validate_schemas(config_dir: Path) -> None:
                 # we re-load so the path is known
                 config = yaml.safe_load(f)
                 validate(instance=config, schema=schema)
-            print(f"✓ {yaml_file} is valid against {schema_path}")
+            print(f"✅ {yaml_file} is valid against {schema_path}")
         except Exception as e:
             print(f"✗ {yaml_file} is invalid against {schema_path}: {str(e)}")
             raise e

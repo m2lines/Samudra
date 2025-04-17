@@ -52,13 +52,11 @@ class InferenceDataset(Dataset):
         self.device = get_device()
 
         self.hist = hist
-        data = src.data
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        data = src.data
         self._prognostic_src = src.filter(prognostic_var_names)
         self._boundary_src = src.filter(boundary_var_names)
-        self._prognostic_vars = self._prognostic_src.data
-        self._boundary_vars = self._boundary_src.data
         self._times = data.time
 
         time_indices = np.arange(data.time.size)
@@ -169,10 +167,10 @@ class InferenceDataset(Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
-        data_in_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
-            time=slice(None, self.hist + 1)
+        data_in_src = self._prognostic_src.map_data(
+            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
-        data_in_ds = self._prognostic_src.normalize(data_in_ds)
+        data_in_ds = data_in_src.normalize()
         data_in_np: np.ndarray = (
             data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -193,10 +191,10 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary_ds: xr.Dataset = self._boundary_vars.isel(time=x_index).isel(
-            time=self.hist
+        data_in_boundary_src = self._boundary_src.map_data(
+            lambda ds: ds.isel(time=x_index).isel(time=self.hist)
         )
-        data_in_boundary_ds = self._boundary_src.normalize(data_in_boundary_ds)
+        data_in_boundary_ds = data_in_boundary_src.normalize()
         data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -207,10 +205,10 @@ class InferenceDataset(Dataset):
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
-            time=slice(self.hist + 1, None)
+        label_src = self._prognostic_src.map_data(
+            lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         )
-        label_ds = self._prognostic_src.normalize(label_ds)
+        label_ds = label_src.normalize()
         label_np: np.ndarray = (
             label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -225,7 +223,9 @@ class InferenceDataset(Dataset):
         return label
 
     def get_coords_dict(self):
-        return {co: self._prognostic_vars[co] for co in self._prognostic_vars.coords}
+        return {
+            co: self._prognostic_src.data[co] for co in self._prognostic_src.data.coords
+        }
 
 
 class InferenceDatasets(Dataset):
@@ -507,8 +507,6 @@ class TorchTrainDataset(Dataset):
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names)
         self._boundary_src = src.filter(boundary_var_names)
-        self._prognostic_vars: xr.Dataset = self._prognostic_src.data
-        self._boundary_vars: xr.Dataset = self._boundary_src.data
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -550,17 +548,18 @@ class TorchTrainDataset(Dataset):
         x_index = xr.concat(x_indexes, dim="step")
 
         prognostic_all = torch.from_numpy(
-            self._prognostic_vars.isel(time=x_index)
-            .to_array()
+            self._prognostic_src.map_data(lambda ds: ds.isel(time=x_index))
+            .data.to_array()
             .transpose(
                 "step", "variable", "time", "lat", "lon"
             )  # this should be a no-op, for documentation
             .to_numpy()
         )
         boundary = torch.from_numpy(
-            self._boundary_vars.isel(time=x_index)
-            .isel(time=self.hist, drop=True)
-            .to_array()
+            self._boundary_src.map_data(
+                lambda ds: ds.isel(time=x_index).isel(time=self.hist, drop=True)
+            )
+            .data.to_array()
             .transpose("step", "variable", "lat", "lon")
             .to_numpy()
         )

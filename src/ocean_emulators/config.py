@@ -90,7 +90,9 @@ class ExperimentConfig(pydantic.BaseModel):
     rand_seed: int = 1
     base_output_dir: str = "train"
     gantry: bool = False
-    cluster_data_dir: str  # we require this to be set by the user
+    # we require this to be set by the user but have optional here
+    # so we can leave it out of config files
+    cluster_data_dir: str | None = None
     wandb: WandBConfig
 
     # Model configuration
@@ -115,7 +117,16 @@ class ExperimentConfig(pydantic.BaseModel):
 
     @cached_property
     def data_dir(self) -> Path:
-        return Path("/") if self.gantry else Path(self.cluster_data_dir)
+        if self.gantry:
+            return Path("/")
+        else:
+            if self.cluster_data_dir is None:
+                raise ValueError(
+                    "cluster_data_dir must be set, try"
+                    " --experiment.cluster_data_dir=path/to/data"
+                )
+            else:
+                return Path(self.cluster_data_dir)
 
 
 # See backend.py for how these are turned into concrete devices
@@ -172,7 +183,9 @@ class EvalConfig(BaseConfig):
     debug: bool = False
     save_zarr: bool = False
     disk_mode: bool = True
-    ckpt_path: str  # we require this to be set by the user
+    # we require this to be set by the user but have optional here
+    # so we can leave it out of config files
+    ckpt_path: str | None = None
     num_model_steps_forward: int = 200
     backend: EvalBackendConfig = "auto"
 

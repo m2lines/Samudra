@@ -88,9 +88,16 @@
       "type": "boolean"
     },
     "cluster_data_dir": {
-      "default": "/",
-      "title": "Cluster Data Dir",
-      "type": "string"
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cluster Data Dir"
     },
     "wandb": {
       "$ref": "#/$defs/WandBConfig"

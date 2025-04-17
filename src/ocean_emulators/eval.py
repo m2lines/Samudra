@@ -157,6 +157,10 @@ class Eval:
         get_model_summary(model, self.num_in)
 
         self.model = model
+        if cfg.ckpt_path is None:
+            raise ValueError(
+                "ckpt_path must be set; try --ckpt_path=path/to/checkpoint"
+            )
         self.load_checkpoint(cfg.ckpt_path)
 
         self.network = cfg.experiment.network

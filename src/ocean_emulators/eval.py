@@ -98,7 +98,7 @@ class Eval:
         self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        raw = DataSource.from_config(cfg)
+        raw = DataSource.from_config(cfg, use_dask=True)
         self.src = validate_data(raw)
         self.data = self.src.data
 

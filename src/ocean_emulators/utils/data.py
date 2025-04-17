@@ -114,9 +114,7 @@ class DataSource:
         return norm
 
     @classmethod
-    def from_config(
-        cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool = False
-    ) -> Self:
+    def from_config(cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
 
         root = cfg.experiment.data_dir

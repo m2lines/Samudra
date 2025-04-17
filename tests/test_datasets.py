@@ -56,7 +56,8 @@ def make_loader(
     if time_slice is None:
         time_slice = cfg.train
 
-    raw = DataSource.from_config(cfg)
+    use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+    raw = DataSource.from_config(cfg, use_dask=use_dask)
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 

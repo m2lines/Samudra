@@ -153,6 +153,8 @@ def normalize_input():
         coords={"lat": [0], "lon": [0]},
     )
 
+    # Warning: the 'data' field is not used because this test tries to test
+    # normalization which only needs mean and std. Thus, we set it to `data_mean`.
     test = DataSource("test", data_mean, data_mean, data_std)
 
     # Create test wet mask

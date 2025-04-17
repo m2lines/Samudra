@@ -38,21 +38,6 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
 
-    def __hash__(self) -> int:
-        """Hashing good enough for dictionary keys."""
-
-        def _shape_hash(ds: xr.Dataset) -> int:
-            return hash(
-                tuple((k, v, d) for k, da in ds.items() for v, d in da.sizes.items())
-            )
-
-        return (
-            hash(self.name)
-            + _shape_hash(self.data)
-            + _shape_hash(self.means)
-            + _shape_hash(self.stds)
-        )
-
     def filter(
         self,
         var_names: PrognosticVarNames | BoundaryVarNames,

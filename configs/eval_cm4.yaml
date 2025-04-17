@@ -15,7 +15,6 @@ experiment:
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
-  cluster_data_dir: null
   wandb:
     mode: online
     project: ocean-emulator
@@ -25,15 +24,7 @@ experiment:
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
 
-data:
-  data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
-  data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
-  data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
-  scaling_residuals_file: null
-  time_delta: 5
-  num_workers: 4
-  hist: 1
-
+data: !include data/cm4.yaml
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]

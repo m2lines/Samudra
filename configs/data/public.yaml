@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+data_path: OM4.zarr
+data_means_path: OM4_means.zarr
+data_stds_path: OM4_stds.zarr

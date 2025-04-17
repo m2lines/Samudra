@@ -167,8 +167,13 @@ You can run `uv run -m ocean_emulators.train --help` to see all the options avai
 ## Evaluating the model
 
 ```bash
-uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH
+# (then put a checkpoint of the model at path/to/checkpoint)
+uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --cluster_data_dir $DATA_PATH
 ```
+
+You can run `uv run -m ocean_emulators.eval --help` to see all the options available.
 
 ## Configuration
 

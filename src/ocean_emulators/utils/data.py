@@ -1,6 +1,6 @@
 import dataclasses
 import logging
-from typing import Any, Literal, Self
+from typing import Any, Callable, Literal, Self
 
 import cftime
 import numpy as np
@@ -52,6 +52,29 @@ class DataSource:
         return dataclasses.replace(
             self, name=name or self.name, data=data, means=means, stds=stds
         )
+
+    def map(
+        self,
+        func: Callable[
+            [xr.Dataset, xr.Dataset, xr.Dataset],
+            tuple[xr.Dataset, xr.Dataset, xr.Dataset],
+        ],
+        *,
+        name: str | None = None,
+    ) -> Self:
+        """Map the function over the data source."""
+        data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
+
+        return dataclasses.replace(
+            self, name=name or self.name, data=data, means=means, stds=stds
+        )
+
+    def map_data(
+        self, func: Callable[[xr.Dataset], xr.Dataset], *, name: str | None = None
+    ) -> Self:
+        """Map the function over just data in DataSource."""
+        data = func(self.data.copy())
+        return dataclasses.replace(self, name=name or self.name, data=data)
 
     def slice(self, time_slice: slice, *, name: str | None = None) -> Self:
         """Slice the data source to only include the specified time slice."""

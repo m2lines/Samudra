@@ -5,7 +5,7 @@ from typing import Optional, Set, Type
 
 import pydantic
 
-from ocean_emulators.config import TrainConfig
+from ocean_emulators.config import EvalConfig, TrainConfig
 
 
 def get_pydantic_models(
@@ -34,6 +34,8 @@ def generate_schemas(output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     models = get_pydantic_models(TrainConfig)
+    models.update(get_pydantic_models(EvalConfig))
+
     for model in models:
         schema = model.model_json_schema()
         output_path = output_dir / f"{model.__name__}.json"

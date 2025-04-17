@@ -177,7 +177,7 @@ class EvalConfig(BaseConfig):
     backend: EvalBackendConfig = "auto"
 
     # Config components
-    inference: TimeConfig = TimeConfig(start="311-01-01", end="351-01-01")
+    inference_time: TimeConfig = TimeConfig(start="311-01-01", end="351-01-01")
     experiment: ExperimentConfig
     data: DataConfig
     samudra: SamudraConfig

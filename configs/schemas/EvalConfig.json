@@ -361,165 +361,47 @@
   },
   "additionalProperties": false,
   "properties": {
-    "disk_mode": {
-      "default": true,
-      "title": "Disk Mode",
-      "type": "boolean"
-    },
-    "pin_mem": {
-      "default": true,
-      "title": "Pin Mem",
-      "type": "boolean"
-    },
-    "save_freq": {
-      "default": 5,
-      "title": "Save Freq",
-      "type": "integer"
-    },
-    "epochs": {
-      "default": 120,
-      "title": "Epochs",
-      "type": "integer"
-    },
-    "batch_size": {
-      "default": 2,
-      "title": "Batch Size",
-      "type": "integer"
-    },
-    "learning_rate": {
-      "default": 0.0002,
-      "title": "Learning Rate",
-      "type": "number"
-    },
-    "scheduler": {
-      "default": false,
-      "title": "Scheduler",
-      "type": "boolean"
-    },
-    "loss": {
-      "default": "mse",
-      "enum": [
-        "mse",
-        "mse_diff_weighted",
-        "mse_cos_weighted",
-        "mse_residual_scaled",
-        "mse_mae"
-      ],
-      "title": "Loss",
-      "type": "string"
-    },
-    "finetune": {
-      "default": false,
-      "title": "Finetune",
-      "type": "boolean"
-    },
-    "resume_ckpt_path": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Resume Ckpt Path"
-    },
     "debug": {
       "default": false,
       "title": "Debug",
       "type": "boolean"
     },
-    "test_using_ema": {
-      "default": true,
-      "title": "Test Using Ema",
+    "save_zarr": {
+      "default": false,
+      "title": "Save Zarr",
       "type": "boolean"
     },
-    "ema_decay": {
-      "default": 0.999,
-      "title": "Ema Decay",
-      "type": "number"
-    },
-    "faster_decay_at_start": {
+    "disk_mode": {
       "default": true,
-      "title": "Faster Decay At Start",
+      "title": "Disk Mode",
       "type": "boolean"
+    },
+    "ckpt_path": {
+      "default": "",
+      "title": "Ckpt Path",
+      "type": "string"
+    },
+    "num_model_steps_forward": {
+      "default": 200,
+      "title": "Num Model Steps Forward",
+      "type": "integer"
     },
     "backend": {
       "default": "auto",
       "enum": [
         "cpu",
         "cuda",
-        "nccl",
         "auto"
       ],
       "title": "Backend",
       "type": "string"
     },
-    "data_percent": {
-      "default": 1.0,
-      "title": "Data Percent",
-      "type": "number"
-    },
-    "data_stride": {
-      "default": [
-        1
-      ],
-      "items": {
-        "type": "integer"
-      },
-      "title": "Data Stride",
-      "type": "array"
-    },
-    "steps": {
-      "default": [
-        4
-      ],
-      "items": {
-        "type": "integer"
-      },
-      "title": "Steps",
-      "type": "array"
-    },
-    "step_transition": {
-      "default": [],
-      "items": {
-        "type": "integer"
-      },
-      "title": "Step Transition",
-      "type": "array"
-    },
-    "inference_epochs": {
-      "default": [
-        -1
-      ],
-      "items": {
-        "type": "integer"
-      },
-      "title": "Inference Epochs",
-      "type": "array"
-    },
-    "train_time": {
+    "inference_time": {
       "$ref": "#/$defs/TimeConfig",
       "default": {
-        "start": "151-01-06",
-        "end": "306-01-01"
+        "start": "311-01-01",
+        "end": "351-01-01"
       }
-    },
-    "val_time": {
-      "$ref": "#/$defs/TimeConfig",
-      "default": {
-        "start": "306-01-01",
-        "end": "311-01-01"
-      }
-    },
-    "inference_times": {
-      "default": [],
-      "items": {
-        "$ref": "#/$defs/TimeConfig"
-      },
-      "title": "Inference Times",
-      "type": "array"
     },
     "experiment": {
       "$ref": "#/$defs/ExperimentConfig"
@@ -536,6 +418,6 @@
     "data",
     "samudra"
   ],
-  "title": "TrainConfig",
+  "title": "EvalConfig",
   "type": "object"
 }

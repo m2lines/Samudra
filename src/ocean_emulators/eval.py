@@ -178,7 +178,7 @@ class Eval:
         self.network = cfg.experiment.network
         self.debug = cfg.debug
         self.num_workers = cfg.data.num_workers
-        self.inference_time = cfg.inference
+        self.inference_time = cfg.inference_time
         self.time_delta = cfg.data.time_delta
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr

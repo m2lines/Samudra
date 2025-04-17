@@ -1,0 +1,18 @@
+{
+  "properties": {
+    "start": {
+      "title": "Start",
+      "type": "string"
+    },
+    "end": {
+      "title": "End",
+      "type": "string"
+    }
+  },
+  "required": [
+    "start",
+    "end"
+  ],
+  "title": "TimeConfig",
+  "type": "object"
+}

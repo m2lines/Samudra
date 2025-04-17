@@ -2,6 +2,10 @@
   "properties": {
     "block_type": {
       "default": "conv_next_block",
+      "enum": [
+        "conv_next_block",
+        "conv_block"
+      ],
       "title": "Block Type",
       "type": "string"
     },
@@ -12,6 +16,11 @@
     },
     "activation": {
       "default": "capped_gelu",
+      "enum": [
+        "relu",
+        "gelu",
+        "capped_gelu"
+      ],
       "title": "Activation",
       "type": "string"
     },
@@ -22,6 +31,11 @@
     },
     "norm": {
       "default": "batch",
+      "enum": [
+        "batch",
+        "instance",
+        "layer"
+      ],
       "title": "Norm",
       "type": "string"
     }

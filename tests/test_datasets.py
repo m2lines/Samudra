@@ -75,6 +75,8 @@ def make_loader(
         ds_, means_, stds_ = validate_data(ds, ds_means, ds_stds)
         wet, wet_surface = extract_wet_mask(ds_, prognostic, cfg.data.hist)
         Normalize.init_instance(means_, stds_, prognostic, boundary, wet)
+        normalize_pre_fill = cfg.data.normalize_pre_fill
+        nan_fill_value = cfg.data.nan_fill_value
 
         match version:
             case LoaderVersion.OM4_EAGER:
@@ -88,6 +90,8 @@ def make_loader(
                             wet_surface=wet_surface,
                             hist=cfg.data.hist,
                             steps=cfg.steps[0],
+                            normalize_pre_fill=normalize_pre_fill,
+                            nan_fill_value=nan_fill_value,
                             stride=stride,
                         )
                         for stride in cfg.data_stride
@@ -449,6 +453,8 @@ def traindataset_input():
             wet_surface=wet_surface,
             hist=0,
             steps=2,
+            normalize_pre_fill=True,
+            nan_fill_value=0.0,
             stride=1,
         )
         yield traindataset

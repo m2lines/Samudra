@@ -46,6 +46,8 @@ class InferenceDataset(Dataset):
         wet,
         wet_surface,
         hist,
+        normalize_pre_fill,
+        nan_fill_value,
         long_rollout,
     ):
         super().__init__()
@@ -57,6 +59,8 @@ class InferenceDataset(Dataset):
         self._prognostic_vars = data[prognostic_var_names]
         self._boundary_vars = data[boundary_var_names]
         self._times = data.time
+        self.normalize_pre_fill = normalize_pre_fill
+        self.nan_fill_value = nan_fill_value
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -166,12 +170,12 @@ class InferenceDataset(Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
+        normalize = Normalize.get_instance()
         data_in_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in_ds = Normalize.get_instance().normalize_prognostic(
-            data_in_ds
-        )  # TODO: Weird error when I get_instance in init
+        if self.normalize_pre_fill:
+            data_in_ds = normalize.normalize_prognostic(data_in_ds)
         data_in_np: np.ndarray = (
             data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -182,7 +186,9 @@ class InferenceDataset(Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
-        data_in = torch.where(self.wet, data_in, 0.0)
+        data_in = torch.where(self.wet, data_in, self.nan_fill_value)
+        if not self.normalize_pre_fill:
+            data_in = normalize.normalize_tensor_prognostic(data_in)
         return data_in
 
     def _get_boundary(self, x_index):
@@ -192,26 +198,32 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
+        normalize = Normalize.get_instance()
         data_in_boundary_ds: xr.Dataset = self._boundary_vars.isel(time=x_index).isel(
             time=self.hist
         )
-        data_in_boundary_ds = Normalize.get_instance().normalize_boundary(
-            data_in_boundary_ds
-        )
+        if self.normalize_pre_fill:
+            data_in_boundary_ds = normalize.normalize_boundary(data_in_boundary_ds)
         data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
             .to_numpy()
         )
         data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
-        data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
+        data_in_boundary = torch.where(
+            self.wet_surface, data_in_boundary, self.nan_fill_value
+        )
+        if not self.normalize_pre_fill:
+            data_in_boundary = normalize.normalize_tensor_boundary(data_in_boundary)
         return data_in_boundary
 
     def _get_label(self, x_index):
+        normalize = Normalize.get_instance()
         label_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)
         )
-        label_ds = Normalize.get_instance().normalize_prognostic(label_ds)
+        if self.normalize_pre_fill:
+            label_ds = normalize.normalize_prognostic(label_ds)
         label_np: np.ndarray = (
             label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -222,7 +234,9 @@ class InferenceDataset(Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         label: torch.Tensor = torch.from_numpy(label_np).float()
-        label = torch.where(self.wet, label, 0.0)
+        label = torch.where(self.wet, label, self.nan_fill_value)
+        if not self.normalize_pre_fill:
+            label = normalize.normalize_tensor_prognostic(label)
         return label
 
     def get_coords_dict(self):
@@ -312,6 +326,8 @@ class TrainDataset(Dataset):
         wet_surface: GridMask,
         hist: int,
         steps: int,
+        normalize_pre_fill: bool,
+        nan_fill_value: float,
         stride: int = 1,
     ):
         super().__init__()
@@ -320,6 +336,8 @@ class TrainDataset(Dataset):
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
+        self.normalize_pre_fill: bool = normalize_pre_fill
+        self.nan_fill_value: float = nan_fill_value
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
@@ -355,14 +373,6 @@ class TrainDataset(Dataset):
         if using_gpu():
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
-
-        # Normalize
-        logging.info("Normalizing inputs")
-        self.normalize = Normalize.get_instance()
-        self._prognostic_vars = self.normalize.normalize_prognostic(
-            self._prognostic_vars
-        )
-        self._boundary_vars = self.normalize.normalize_boundary(self._boundary_vars)
 
     def __len__(self) -> int:
         return self.size
@@ -409,9 +419,13 @@ class TrainDataset(Dataset):
 
     def _get_input(self, x_index) -> Prognostic:
         # TODO(jder): nicer typing
+        normalize = Normalize.get_instance()
         data_in: Any = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
+        if self.normalize_pre_fill:
+            data_in = normalize.normalize_prognostic(data_in)
+
         data_in = (
             data_in.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -423,7 +437,9 @@ class TrainDataset(Dataset):
                 window_dim (time variable) lat lon",
         )
         data_in = torch.from_numpy(data_in).float()
-        data_in = torch.where(self.wet, data_in, 0.0)
+        data_in = torch.where(self.wet, data_in, self.nan_fill_value)
+        if not self.normalize_pre_fill:
+            data_in = normalize.normalize_tensor_prognostic(data_in)
         return data_in
 
     def _get_boundary(self, x_index) -> Boundary:
@@ -434,23 +450,33 @@ class TrainDataset(Dataset):
         the input.
         """
         # TODO(jder): nicer typing
+        normalize = Normalize.get_instance()
         data_in_boundary: Any = self._boundary_vars.isel(time=x_index).isel(
             time=self.hist
         )
+        if self.normalize_pre_fill:
+            data_in_boundary = normalize.normalize_boundary(data_in_boundary)
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
             .to_numpy()
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
-        data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
+        data_in_boundary = torch.where(
+            self.wet_surface, data_in_boundary, self.nan_fill_value
+        )
+        if not self.normalize_pre_fill:
+            data_in_boundary = normalize.normalize_tensor_boundary(data_in_boundary)
         return data_in_boundary
 
     def _get_label(self, x_index) -> Prognostic:
         # TODO(jder): nicer typing
+        normalize = Normalize.get_instance()
         label: Any = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)
         )
+        if self.normalize_pre_fill:
+            label = normalize.normalize_prognostic(label)
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -462,7 +488,9 @@ class TrainDataset(Dataset):
                 window_dim (time variable) lat lon",
         ).squeeze()
         label = torch.from_numpy(label).float()
-        label = torch.where(self.wet, label, 0.0)
+        label = torch.where(self.wet, label, self.nan_fill_value)
+        if not self.normalize_pre_fill:
+            label = normalize.normalize_tensor_prognostic(label)
         return label
 
 

@@ -357,6 +357,8 @@ class Trainer:
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
             self.hist + 1
         )
+        self.normalize_pre_fill: bool = cfg.data.normalize_pre_fill
+        self.normalize_fill_value: float = cfg.data.nan_fill_value
 
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
@@ -398,6 +400,8 @@ class Trainer:
                 wet=self.wet,
                 wet_surface=self.wet_surface,
                 hist=self.hist,
+                normalize_pre_fill=self.normalize_pre_fill,
+                nan_fill_value=self.normalize_fill_value,
                 long_rollout=True,
             )
 
@@ -668,6 +672,8 @@ class Trainer:
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=cur_step,
+                            normalize_pre_fill=self.normalize_pre_fill,
+                            nan_fill_value=self.normalize_fill_value,
                             stride=stride,
                         )
                         for stride in self.data_stride
@@ -684,6 +690,8 @@ class Trainer:
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=1,  # current_step set to 1 for validation
+                            normalize_pre_fill=self.normalize_pre_fill,
+                            nan_fill_value=self.normalize_fill_value,
                             stride=stride,
                         )
                         for stride in self.data_stride

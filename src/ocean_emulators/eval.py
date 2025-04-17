@@ -191,6 +191,8 @@ class Eval:
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
+        self.normalize_pre_fill = cfg.data.normalize_pre_fill
+        self.nan_fill_value = cfg.data.nan_fill_value
         self.init_inference_store()
 
     def load_checkpoint(self, ckpt_path: str):
@@ -216,6 +218,8 @@ class Eval:
             wet=self.wet,
             wet_surface=self.wet_surface,
             hist=self.hist,
+            normalize_pre_fill=self.normalize_pre_fill,
+            nan_fill_value=self.nan_fill_value,
             long_rollout=True,
         )
 

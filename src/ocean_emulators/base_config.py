@@ -13,6 +13,8 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
+# Set up yaml.safe_load to include other yaml files via !include
+
 
 def include_constructor(loader, node):
     filename = os.path.normpath(
@@ -27,6 +29,10 @@ yaml.loader.SafeLoader.add_constructor("!include", include_constructor)
 
 
 class BaseConfig(BaseSettings):
+    """
+    Base class for top-level configs.
+    """
+
     model_config = SettingsConfigDict(nested_model_default_partial_update=True)
 
     def __init__(self, cli_settings_source: CliSettingsSource, **kwargs):
@@ -49,7 +55,7 @@ class BaseConfig(BaseSettings):
         cls,
         args_to_parse: Optional[list[str]] = None,
     ) -> Self:
-        """Load config from YAML with strict validation."""
+        """Load config from YAML & CLI with validation."""
         parser = argparse.ArgumentParser(
             description=cls.__doc__,
             epilog="""
@@ -93,6 +99,8 @@ specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
 
 
 class IncludeYamlCliSettingsSource(CliSettingsSource):
+    """CliSettingsSource which permits @filename.yaml for JSON arguments."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -103,12 +111,3 @@ class IncludeYamlCliSettingsSource(CliSettingsSource):
             with open(value[1:], "r") as f:
                 return yaml.safe_load(f)
         return super().decode_complex_value(field_name, field, value)
-
-
-if __name__ == "__main__":
-
-    class TestConfig(BaseConfig):
-        something: int = 1
-        another_thing: int = 2
-
-    print(TestConfig.from_yaml_and_cli())

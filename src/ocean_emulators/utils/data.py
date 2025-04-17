@@ -82,11 +82,9 @@ class DataSource:
 
         return dataclasses.replace(self, name=name or self.name, data=data)
 
-    def normalize(
-        self, data: xr.Dataset | None = None, fill_nan=True, fill_value=0.0
-    ) -> xr.Dataset:
+    def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
-        norm = ((data or self.data) - self.means) / self.stds
+        norm = (self.data - self.means) / self.stds
         if fill_nan:
             norm = norm.fillna(fill_value)
         return norm

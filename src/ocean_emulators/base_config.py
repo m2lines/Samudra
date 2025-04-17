@@ -1,7 +1,7 @@
 import argparse
 import os
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Optional, Self
 
 import yaml
 from pydantic.fields import FieldInfo
@@ -47,6 +47,7 @@ class BaseConfig(BaseSettings):
     @classmethod
     def from_yaml_and_cli(
         cls,
+        args_to_parse: Optional[list[str]] = None,
     ) -> Self:
         """Load config from YAML with strict validation."""
         parser = argparse.ArgumentParser(
@@ -61,7 +62,10 @@ specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
         parser.add_argument("config", type=str, help="Path to config YAML file")
 
         cli_source = IncludeYamlCliSettingsSource(
-            cls, root_parser=parser, cli_parse_args=True
+            cls,
+            root_parser=parser,
+            # If args_to_parse is None, we parse argv, which is what `True` does
+            cli_parse_args=args_to_parse if args_to_parse is not None else True,
         )
 
         # We do this after creating CliSettingsSource (which populates the parser)
@@ -69,7 +73,13 @@ specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
         args = parser.parse_args()
 
         # Then we read the YAML file specified in the CLI
-        yaml_values = YamlConfigSettingsSource(cls, yaml_file=args.config)()
+        # Note that by default, YamlConfigSettingsSource will ignore missing files
+        config_path = Path(args.config).expanduser().resolve()
+        if not config_path.exists():
+            raise FileNotFoundError(
+                f"Config file `{args.config}` (full path: {config_path}) not found"
+            )
+        yaml_values = YamlConfigSettingsSource(cls, yaml_file=config_path)()
 
         return cls(
             cli_settings_source=cli_source,
@@ -93,3 +103,12 @@ class IncludeYamlCliSettingsSource(CliSettingsSource):
             with open(value[1:], "r") as f:
                 return yaml.safe_load(f)
         return super().decode_complex_value(field_name, field, value)
+
+
+if __name__ == "__main__":
+
+    class TestConfig(BaseConfig):
+        something: int = 1
+        another_thing: int = 2
+
+    print(TestConfig.from_yaml_and_cli())

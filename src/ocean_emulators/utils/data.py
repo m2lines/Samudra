@@ -408,20 +408,6 @@ def normalize_tensor(
     return norm
 
 
-def unnormalize_tensor(
-    data: torch.Tensor, means: torch.Tensor, stds: torch.Tensor
-) -> torch.Tensor:
-    unnorm = data * stds + means
-    unnorm = unnorm.to(data.dtype)
-    return unnorm
-
-
-def mask_tensor(
-    data: torch.Tensor, wet_mask: torch.Tensor, fill_value=float("nan")
-) -> torch.Tensor:
-    return torch.where(wet_mask.to(data.device) == 0, fill_value, data)
-
-
 # TODO: Repetitive code. Refactor
 class Normalize(Multiton):
     def _initialize(

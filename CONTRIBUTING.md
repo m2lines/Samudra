@@ -154,6 +154,34 @@ git push --force-with-lease
 
 10. Celebrating submitting your patch to Ocean Emulator — well done!
 
+## Training the model
+
+```bash
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH
+uv run -m ocean_emulators.train configs/train_om4.yaml --cluster_data_dir $DATA_PATH
+```
+
+You can run `uv run -m ocean_emulators.train --help` to see all the options available.
+
+## Evaluating the model
+
+```bash
+uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint
+```
+
+## Configuration
+
+Configuration is defined by config.py and are stored in the configs/ directory.
+Configuration files can include other configuration files using the !include directive.
+
+You can override configuration on the command line -- see `--help` for details. When overriding
+an object (as opposed to a single scalar value) via the command line, you can either supply JSON
+like `--data '{"key": "value"}'` or a YAML file with a leading '@' symbol: `--data @configs/data/file.yaml`.
+
+Training runs create a YAML file in the checkpoint directory with the final configuration used which
+you can use to reproduce the run.
+
 ## VS Code Integration
 
 If you're using VS Code, we reccommend installing the `ruff` and `mypy` extensions. For the latter,

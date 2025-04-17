@@ -47,7 +47,6 @@ experiment:
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
-  cluster_data_dir: null
   wandb:
     mode: online
     project: ocean-emulators

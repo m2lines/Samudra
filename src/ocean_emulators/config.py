@@ -70,7 +70,7 @@ class SamudraConfig(pydantic.BaseModel):
     wet: Optional[Any] = None
 
     # Block configurations
-    core_block: BlockConfig
+    core_block: BlockConfig = BlockConfig()
     corrector: CorrectorConfig = CorrectorConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
@@ -90,7 +90,7 @@ class ExperimentConfig(pydantic.BaseModel):
     rand_seed: int = 1
     base_output_dir: str = "train"
     gantry: bool = False
-    cluster_data_dir: str = "/"
+    cluster_data_dir: str  # we require this to be set by the user
     wandb: WandBConfig
 
     # Model configuration
@@ -172,7 +172,7 @@ class EvalConfig(BaseConfig):
     debug: bool = False
     save_zarr: bool = False
     disk_mode: bool = True
-    ckpt_path: str = ""
+    ckpt_path: str  # we require this to be set by the user
     num_model_steps_forward: int = 200
     backend: EvalBackendConfig = "auto"
 
@@ -180,7 +180,7 @@ class EvalConfig(BaseConfig):
     inference_time: TimeConfig = TimeConfig(start="311-01-01", end="351-01-01")
     experiment: ExperimentConfig
     data: DataConfig
-    samudra: SamudraConfig
+    samudra: SamudraConfig = SamudraConfig()
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

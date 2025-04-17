@@ -41,9 +41,7 @@ class BaseConfig(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        # We don't need env/dotenv/secrets, yaml & CLI are injected in from_yaml
-        # TODO(jder): CLI args will override init args, which seems a bit weird.
-        # (but doesn't affect from_yaml)
+        # We don't need env/dotenv/secrets, yaml & CLI are injected in from_yaml_and_cli
         return (init_settings,)
 
     @classmethod
@@ -70,6 +68,7 @@ specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
         # so the help is complete on error.
         args = parser.parse_args()
 
+        # Then we read the YAML file specified in the CLI
         yaml_values = YamlConfigSettingsSource(cls, yaml_file=args.config)()
 
         return cls(

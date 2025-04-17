@@ -56,10 +56,10 @@ class InferenceDataset(Dataset):
         data = src.data
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        self._prog_src = src.filter(prognostic_var_names)
-        self._bound_src = src.filter(boundary_var_names)
-        self._prognostic_vars = self._prog_src.data
-        self._boundary_vars = self._bound_src.data
+        self._prognostic_src = src.filter(prognostic_var_names)
+        self._boundary_src = src.filter(boundary_var_names)
+        self._prognostic_vars = self._prognostic_src.data
+        self._boundary_vars = self._boundary_src.data
         self._times = data.time
 
         time_indices = np.arange(data.time.size)
@@ -173,7 +173,7 @@ class InferenceDataset(Dataset):
         data_in_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in_ds = self._prog_src.normalize(data_in_ds)
+        data_in_ds = self._prognostic_src.normalize(data_in_ds)
         data_in_np: np.ndarray = (
             data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -197,7 +197,7 @@ class InferenceDataset(Dataset):
         data_in_boundary_ds: xr.Dataset = self._boundary_vars.isel(time=x_index).isel(
             time=self.hist
         )
-        data_in_boundary_ds = self._bound_src.normalize(data_in_boundary_ds)
+        data_in_boundary_ds = self._boundary_src.normalize(data_in_boundary_ds)
         data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -211,7 +211,7 @@ class InferenceDataset(Dataset):
         label_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)
         )
-        label_ds = self._prog_src.normalize(label_ds)
+        label_ds = self._prognostic_src.normalize(label_ds)
         label_np: np.ndarray = (
             label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -321,8 +321,8 @@ class TrainDataset(Dataset):
         self.steps: int = steps
         self.stride: int = stride
         data = src.data
-        self._prog_src = src.filter(prognostic_var_names)
-        self._bound_src = src.filter(boundary_var_names)
+        self._prognostic_src = src.filter(prognostic_var_names)
+        self._boundary_src = src.filter(boundary_var_names)
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
 
@@ -359,8 +359,8 @@ class TrainDataset(Dataset):
 
         # Normalize
         logging.info("Normalizing inputs")
-        self._prognostic_vars = self._prog_src.normalize()
-        self._boundary_vars = self._bound_src.normalize()
+        self._prognostic_vars = self._prognostic_src.normalize()
+        self._boundary_vars = self._boundary_src.normalize()
 
     def __len__(self) -> int:
         return self.size
@@ -507,14 +507,14 @@ class TorchTrainDataset(Dataset):
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self.src = src
         data = src.data
-        self._prog_src = src.filter(prognostic_var_names)
-        self._bound_src = src.filter(boundary_var_names)
-        self._prognostic_vars: xr.Dataset = self._prog_src.data
-        self._boundary_vars: xr.Dataset = self._bound_src.data
+        self._prognostic_src = src.filter(prognostic_var_names)
+        self._boundary_src = src.filter(boundary_var_names)
+        self._prognostic_vars: xr.Dataset = self._prognostic_src.data
+        self._boundary_vars: xr.Dataset = self._boundary_src.data
 
         # cache tensors for faster access during training.
-        to_tensor(self._prog_src, device=torch.device("cpu"))
-        to_tensor(self._bound_src, device=torch.device("cpu"))
+        to_tensor(self._prognostic_src, device=torch.device("cpu"))
+        to_tensor(self._boundary_src, device=torch.device("cpu"))
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -594,7 +594,7 @@ class TorchTrainDataset(Dataset):
 
         # add in boundary to final input
         _, boundary_means, boundary_stds = to_tensor(
-            self._bound_src, device=boundary.device
+            self._boundary_src, device=boundary.device
         )
         boundary = normalize_tensor(
             boundary,
@@ -621,7 +621,7 @@ class TorchTrainDataset(Dataset):
         )
 
         _, prog_means, prog_stds = to_tensor(
-            self._prog_src, device=prognostic_steps.device
+            self._prognostic_src, device=prognostic_steps.device
         )
 
         # normalize expects variables in third dimension

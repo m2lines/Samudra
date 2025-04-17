@@ -72,7 +72,7 @@ crossformer:
   patch_height: 1
   image_width: 360
   patch_width: 1
-  dims: [200, 400, 800, 1600]
+  dims: [128, 256, 512, 1024]
   depth: [2, 2, 8, 2]
   dim_head: 32
   global_window_size: [8, 4, 2, 1]

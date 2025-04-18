@@ -8,8 +8,4 @@ CONFIG_PATH=configs/train_cm4.yaml
 echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR
 echo 'Using config file:' $CONFIG_PATH
 
-# Create a temporary config file with updated cluster_data_dir
-TMP_CONFIG_PATH=/tmp/config_temp.yaml
-sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $TMP_CONFIG_PATH
-
-uv run torchrun -m src.ocean_emulators.train --config $TMP_CONFIG_PATH --subname "test"
+uv run torchrun -m src.ocean_emulators.train $CONFIG_PATH --experiment.cluster_data_dir $OCEAN_DATA_DIR --experiment.sub_name "test"

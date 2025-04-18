@@ -2,7 +2,6 @@
 # - resubmit jobs / preempted job safety
 # - better stepper module and a cleaner model module
 # - cleaner dataset modules
-import argparse
 import contextlib
 import datetime
 import logging
@@ -10,7 +9,7 @@ import os
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Sequence, Union
+from typing import Any, Callable, Sequence, assert_never
 
 import dask
 import numpy as np
@@ -93,7 +92,7 @@ class Trainer:
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
-        cfg.save_yaml(str(cfg.experiment.output_dir / "config.yaml"))
+        cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
@@ -248,7 +247,7 @@ class Trainer:
             logger.info("Using decomposed mse loss with mae")
             self.loss_fn = decomposed_mse_mae
         else:
-            raise NotImplementedError
+            assert_never(cfg.loss)
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
@@ -316,9 +315,9 @@ class Trainer:
         self.batch_size: int = cfg.batch_size
         self.num_workers: int = cfg.data.num_workers
         self.pin_mem: bool = cfg.pin_mem
-        self.train_times: config.TimeConfig = cfg.train
-        self.val_times = cfg.val
-        self.inference_times = cfg.inference
+        self.train_time: config.TimeConfig = cfg.train_time
+        self.val_time = cfg.val_time
+        self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.time_delta: int = cfg.data.time_delta
         self.num_batches_seen = 0
@@ -333,9 +332,9 @@ class Trainer:
         self.init_inference_stores()
 
         # Add type annotations for samplers
-        self.train_sampler: Union[DistributedSampler, RandomSampler]
-        self.val_sampler: Union[DistributedSampler, RandomSampler]
-        self.inference_sampler: Union[DistributedSampler, RandomSampler]
+        self.train_sampler: DistributedSampler | RandomSampler
+        self.val_sampler: DistributedSampler | RandomSampler
+        self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
         self.train_loader: DataLoader
@@ -629,7 +628,7 @@ class Trainer:
                 train_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            src=self.src.slice(self.train_times),
+                            src=self.src.slice(self.train_time),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -645,7 +644,7 @@ class Trainer:
                 val_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            src=self.src.slice(self.val_times),
+                            src=self.src.slice(self.val_time),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -661,7 +660,7 @@ class Trainer:
                 train_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            src=self.src.slice(self.train_times),
+                            src=self.src.slice(self.train_time),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -677,7 +676,7 @@ class Trainer:
                 val_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            src=self.src.slice(self.val_times),
+                            src=self.src.slice(self.val_time),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -851,22 +850,8 @@ class Trainer:
 
 
 def main():
-    # Parse command line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--config", type=str, required=True, help="Path to config YAML file"
-    )
-    parser.add_argument(
-        "--subname", type=str, required=False, help="Subname for the run", default=""
-    )
-    args = parser.parse_args()
-
-    overrides = {}
-    if args.subname:
-        overrides["sub_name"] = args.subname
-
     # Load config from YAML
-    cfg = TrainConfig.from_yaml(args.config, overrides)
+    cfg = TrainConfig.from_yaml_and_cli()
     cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg)
@@ -877,7 +862,7 @@ def main():
     try:
         trainer.run()
     except Exception as e:
-        logger.exception("Evaluation failed with an exception")
+        logger.exception("Training failed with an exception")
         raise e
 
 

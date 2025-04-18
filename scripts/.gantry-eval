@@ -32,4 +32,4 @@ gantry run \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
     --install "pip install -r requirements.txt" \
-    -- python src/eval.py --config $CONFIG_PATH --subname $JOB_NAME
+    -- python src/eval.py $CONFIG_PATH --experiment.sub_name $JOB_NAME

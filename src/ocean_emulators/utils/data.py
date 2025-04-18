@@ -238,13 +238,13 @@ def get_inference_steps(time_config: TimeConfig, time_delta: int = 5, hist: int 
     Returns:
         num_steps: Number of rollout steps
     """
-    start_time_str = time_config.start_time
+    start_time_str = time_config.start
     start_year, start_month, start_day = start_time_str.split("-")
     start_time = cftime.DatetimeNoLeap(
         int(start_year), int(start_month), int(start_day), 0, 0, 0
     )
 
-    end_time_str = time_config.end_time
+    end_time_str = time_config.end
     end_year, end_month, end_day = end_time_str.split("-")
     end_time = cftime.DatetimeNoLeap(
         int(end_year), int(end_month), int(end_day), 0, 0, 0

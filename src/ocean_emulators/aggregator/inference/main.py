@@ -4,13 +4,13 @@ import torch
 import wandb
 import xarray as xr
 
-from ocean_emulators.utils.data import Normalize, get_norm_unnorm_dicts
-from ocean_emulators.utils.model import InfOutput, SingleTimeseriesOutput
+from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
+from ocean_emulators.utils.output import ModelInferenceOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 from ..validate.reduced import MeanAggregator as OneStepMeanAggregator
-from .reduced import MeanAggregator, SingleTargetMeanAggregator
-from .time_mean import TimeMeanAggregator, TimeMeanEvaluatorAggregator
+from .reduced import MeanAggregator
+from .time_mean import TimeMeanEvaluatorAggregator
 
 
 class InferenceEvaluatorAggregator:
@@ -24,6 +24,7 @@ class InferenceEvaluatorAggregator:
         metadata: Dict[str, Dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
+        wet: torch.Tensor,
         num_prognostic_channels: int,
         record_step_20: bool = True,
         log_global_mean_time_series: bool = True,
@@ -37,6 +38,7 @@ class InferenceEvaluatorAggregator:
                 used in generating logged image captions.
             hist: Number of timesteps of history.
             area_weights: Area weights for the data.
+            wet: Wet mask for the data.
             num_prognostic_channels: Number of prognostic channels in the data.
             record_step_20: Whether to record the mean of the 20th steps.
             log_global_mean_time_series: Whether to log global mean time series metrics.
@@ -92,30 +94,33 @@ class InferenceEvaluatorAggregator:
         self._normalize = Normalize.get_instance()
         self.num_prognostic_channels = num_prognostic_channels
         self.hist = hist
+        self.wet = wet
 
     @property
     def log_time_series(self) -> bool:
         return self._log_time_series
 
     @torch.no_grad()
-    def record_batch(self, data: InfOutput):
+    def record_batch(self, data: ModelInferenceOutput):
         if len(data.prediction) == 0:
             raise ValueError("No prediction values in data")
         if len(data.target) == 0:
             raise ValueError("No target values in data")
         total_len = len(data.time)
         assert data.prediction.shape[0] == total_len // (self.hist + 1)
-        target_norm_dict, target_unnorm_dict = get_norm_unnorm_dicts(
+        target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
+            wet=self.wet,
             long_rollout=True,
-            input_type="target",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
-        gen_norm_dict, gen_unnorm_dict = get_norm_unnorm_dicts(
+        gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
+            wet=self.wet,
             long_rollout=True,
-            input_type="input",
+            input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
@@ -153,8 +158,9 @@ class InferenceEvaluatorAggregator:
                 "before recording any batches"
             )
 
-        data_norm_dict, data_unnorm_dict = get_norm_unnorm_dicts(
+        data_norm_dict, data_unnorm_dict = get_aggregator_dicts(
             initial_prognostic,
+            wet=self.wet,
             long_rollout=True,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -213,147 +219,6 @@ class InferenceEvaluatorAggregator:
         logs = {}
         for name, aggregator in self._aggregators.items():
             if isinstance(aggregator, MeanAggregator):
-                logs.update(aggregator.get_logs(label=name, step_slice=step_slice))
-        return to_inference_logs(logs)
-
-
-class InferenceAggregator:
-    """Aggregates statistics on a single timeseries of data."""
-
-    def __init__(
-        self,
-        n_timesteps: int,
-        metadata: Dict[str, Dict[str, str]],
-        hist: int,
-        area_weights: torch.Tensor,
-        num_prognostic_channels: int,
-        log_global_mean_time_series: bool = True,
-    ):
-        self._log_time_series = log_global_mean_time_series
-        self.num_prognostic_channels = num_prognostic_channels
-        self.hist = hist
-        aggregators: Dict[str, SingleTargetMeanAggregator | TimeMeanAggregator] = {}
-        if log_global_mean_time_series:
-            aggregators["mean"] = SingleTargetMeanAggregator(
-                n_timesteps=n_timesteps,
-                area_weights=area_weights,
-                metadata=metadata,
-            )
-        aggregators["time_mean"] = TimeMeanAggregator(
-            area_weights=area_weights,
-            metadata=metadata,
-        )
-        self._aggregators = aggregators
-        self._summary_aggregators = {name: aggregators[name] for name in ["time_mean"]}
-        self._n_timesteps_seen = 0
-
-    @property
-    def log_time_series(self) -> bool:
-        return self._log_time_series
-
-    @torch.no_grad()
-    def record_batch(self, data: SingleTimeseriesOutput):
-        """
-        Record a batch of data.
-
-        Args:
-            data: Batch of data to record.
-        """
-        if len(data.data) == 0:
-            raise ValueError("data is empty")
-
-        total_len = len(data.time)
-        assert data.data.shape[0] == total_len // (self.hist + 1)
-
-        _, data_unnorm_dict = get_norm_unnorm_dicts(
-            data.data,
-            long_rollout=True,
-            input_type="gen",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
-        )
-
-        for name in self._aggregators:
-            self._aggregators[name].record_batch(
-                data=data_unnorm_dict,
-                i_time_start=self._n_timesteps_seen,
-            )
-        key = list(data_unnorm_dict.keys())[0]
-        n_times = data_unnorm_dict[key].shape[1]
-        logs = self._get_inference_logs_slice(
-            step_slice=slice(self._n_timesteps_seen, self._n_timesteps_seen + n_times),
-        )
-        self._n_timesteps_seen += n_times
-        return logs
-
-    def record_initial_prognostic(
-        self,
-        initial_prognostic: torch.Tensor,
-    ):
-        if self._n_timesteps_seen != 0:
-            raise RuntimeError(
-                "record_initial_prognostic may only be called once, "
-                "before recording any batches"
-            )
-        _, data_unnorm_dict = get_norm_unnorm_dicts(
-            initial_prognostic,
-            long_rollout=True,
-            input_type="input",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
-        )
-        if "mean" in self._aggregators:
-            self._aggregators["mean"].record_batch(
-                data=data_unnorm_dict,
-                i_time_start=0,
-            )
-        key = list(data_unnorm_dict.keys())[0]
-        n_times = data_unnorm_dict[key].shape[1]
-        logs = self._get_inference_logs_slice(
-            step_slice=slice(0, n_times),
-        )
-        self._n_timesteps_seen = n_times
-        return logs
-
-    def get_summary_logs(self):
-        logs: MetricsDict = {}
-        for name, aggregator in self._summary_aggregators.items():
-            logs.update(aggregator.get_logs(label=name))
-        return logs
-
-    @torch.no_grad()
-    def _get_logs(self) -> Metrics:
-        """
-        Returns logs as can be reported to WandB.
-        """
-        logs: MetricsDict = {}
-        for name, aggregator in self._aggregators.items():
-            logs.update(aggregator.get_logs(label=name))
-        return logs
-
-    @torch.no_grad()
-    def _get_inference_logs(self) -> List[Dict[str, Union[float, int]]]:
-        """
-        Returns a list of logs to report to WandB.
-
-        This is done because in inference, we use the wandb step
-        as the time step, meaning we need to re-organize the logged data
-        from tables into a list of dictionaries.
-        """
-        return to_inference_logs(self._get_logs())
-
-    @torch.no_grad()
-    def _get_inference_logs_slice(self, step_slice: slice):
-        """
-        Returns a subset of the time series for applicable metrics
-        for a specific slice of as can be reported to WandB.
-
-        Args:
-            step_slice: Timestep slice to determine the time series subset.
-        """
-        logs: MetricsDict = {}
-        for name, aggregator in self._aggregators.items():
-            if isinstance(aggregator, SingleTargetMeanAggregator):
                 logs.update(aggregator.get_logs(label=name, step_slice=step_slice))
         return to_inference_logs(logs)
 

@@ -25,14 +25,13 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.datasets import (
     InferenceDataset,
-    OM4Dataset,
     TorchTrainDataset,
     TrainData,
     TrainDataset,
 )
 from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
 from ocean_emulators.utils.multiton import MultitonScope
-from ocean_emulators.utils.train import collate_om4, collate_train_data
+from ocean_emulators.utils.train import collate_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair
 
 
@@ -95,21 +94,6 @@ def make_loader(
                     ]
                 )
                 collate_fn: Callable = collate_train_data
-            case LoaderVersion.OM4_LAZY:
-                data = ConcatDataset(
-                    [
-                        OM4Dataset(
-                            data=ds_.sel(time=time_slice),
-                            prognostic_var_names=prognostic,
-                            boundary_var_names=boundary,
-                            hist=cfg.data.hist,
-                            steps=cfg.steps[0],
-                            stride=stride,
-                        )
-                        for stride in cfg.data_stride
-                    ]
-                )
-                collate_fn = collate_om4
             case LoaderVersion.OM4_TORCH:
                 data = ConcatDataset(
                     [
@@ -383,39 +367,28 @@ ORIGINAL_LOADER_VERSION = LoaderVersion.OM4_EAGER
 def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
     with (
         make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader,
-        make_loader(train_config, version=loader_version) as test_loader,
+        make_loader(train_config, version=loader_version) as new_loader,
     ):
+        original_samples = [extract_sample_arrays(sample) for sample in original_loader]
+        new_samples = [extract_sample_arrays(sample) for sample in new_loader]
 
-        def key(x):
-            return np.sum(x[0].flat) + np.sum(x[1].flat)
-
-        # Why are we sorting here? Well, the default data loader uses a random sampler.
-        # So we use sorting as a simple way to compare the two loaders (without having
-        # to monkeypatch the train loader fixture).
-        original_samples = sorted(
-            [extract_sample_arrays(sample) for sample in original_loader], key=key
-        )
-        om4_samples = sorted(
-            [extract_sample_arrays(sample) for sample in test_loader], key=key
-        )
-
-        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, om4_samples):
+        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
             assert x_orig.dtype == x_new.dtype, "Input data types do not match."
             assert y_orig.dtype == y_new.dtype, "Output data types do not match."
 
-            x_not_close = np.isclose(x_orig, x_new) == False  # noqa: E712
-            y_not_close = np.isclose(y_orig, y_new) == False  # noqa: E712
+            x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
+            y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
 
-            x_not_close_index = list(zip(*np.where(x_not_close)))
-            y_not_close_index = list(zip(*np.where(y_not_close)))
+            x_not_equal_index = list(zip(*np.where(x_not_equal)))
+            y_not_equal_index = list(zip(*np.where(y_not_equal)))
 
-            assert not np.any(x_not_close), (
-                f"{len(x_not_close_index)} values differ: "
-                f"{x_orig[x_not_close]} != {x_new[x_not_close]}."
+            assert not np.any(x_not_equal), (
+                f"{len(x_not_equal_index)} values differ: "
+                f"{x_orig[x_not_equal_index]} != {x_new[x_not_equal_index]}."
             )
-            assert not np.any(y_not_close), (
-                f"{len(y_not_close_index)} values differ: "
-                f"{y_orig[y_not_close]} != {y_new[y_not_close]}."
+            assert not np.any(y_not_equal), (
+                f"{len(y_not_equal_index)} values differ: "
+                f"{y_orig[y_not_equal_index]} != {y_new[y_not_equal_index]}."
             )
 
 

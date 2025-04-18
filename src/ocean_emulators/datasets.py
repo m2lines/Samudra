@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Float, Integer
+from jaxtyping import Float
 from torch.utils.data import Dataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
@@ -20,147 +20,8 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import Normalize, mask, unflatten_masks
+from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device, using_gpu
-
-
-class OM4Dataset(Dataset):
-    """A `torch.Dataset` for Zarr-backed OM4 data."""
-
-    FLAG = LoaderVersion.OM4_LAZY
-
-    def __init__(
-        self,
-        data: xr.Dataset,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-        hist: int,
-        steps: int,
-        stride: int = 1,
-        is_inference: bool = False,
-    ) -> None:
-        # Ensure that a `wetmask` DataArray exists along a `lev` dimension.
-        data_ = unflatten_masks(data)
-
-        prognostic = data_[prognostic_var_names]
-        boundary = data_[boundary_var_names]
-
-        # Normalize data. E.g. mean=zero, std=1., NaN --> 0.0
-        norm = Normalize.get_instance()
-        norm_prognostic = norm.normalize_prognostic(prognostic)
-        norm_boundary = norm.normalize_boundary(boundary)
-
-        # Set non-ocean areas to zero.
-        self.prognostic = mask(norm_prognostic, data_.wetmask)
-        self.boundary = mask(norm_boundary, data_.wetmask)
-
-        self.hist: int = hist
-        self.steps: int = steps
-        self.stride: int = stride
-        self.is_inference: bool = is_inference
-
-        self._size: int = (
-            data.time.size
-            - self.steps * (self.hist + 1) * self.stride
-            - self.hist * self.stride
-        )
-
-        # TODO(alxmrs): When we want to support inference later on, we will need to
-        #  calculate different steps.
-        if self.is_inference:
-            raise NotImplementedError("does not (yet) support inference.")
-
-        total_steps: int = 2 * self.hist + 2
-        # Calculate the number of windows
-        num_windows = data.time.size - (total_steps - 1) * self.stride
-        # Create base indices
-        indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["step"])
-        # Create window dimension
-        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
-        # Construct rolling indices
-        self.rolling_indices: Integer[xr.DataArray, "step time"] = (
-            indices_da + stride * window_dim
-        )
-
-    def __len__(self) -> int:
-        return self._size
-
-    def window_from(
-        self, idx: int | slice, step: int
-    ) -> Integer[xr.DataArray, "step time"]:
-        """Coalesce index values to a window of the input data."""
-        # First, parse int inputs as a slice.
-        if isinstance(idx, int):
-            if idx < 0 or idx >= len(self):
-                raise IndexError(
-                    f"index {idx!r} out of bounds. Must be between 0 and {len(self)}."
-                )
-
-            if not self.is_inference:
-                idx = idx + step * (self.hist + 1) * self.stride
-            idx = slice(idx, idx + 1, 1)
-
-        # Validate and normalize all slices.
-        if self.is_inference:
-            if idx.start < 0 or idx.stop < 0 or idx.step < 0:
-                raise IndexError(
-                    f"index {idx!r} invalid: negative values not supported."
-                )
-            if idx.start > self._size or idx.stop > self._size:
-                raise IndexError(
-                    f"index {idx!r} out of bounds. "
-                    f"All bounds must be less than or equal to {len(self)}."
-                )
-
-        if idx.start is None:
-            idx = slice(0, idx.stop, idx.step)
-        if idx.stop is None:
-            idx = slice(idx.start, len(self), idx.step)
-
-        return self.rolling_indices.isel(step=idx)
-
-    def __getitem__(self, idx: int) -> Example:
-        windows = [self.window_from(idx, step) for step in range(self.steps)]
-        window = xr.concat(windows, dim="step")
-
-        # This point in time splits the training data and the label data!
-        time_split = self.hist + 1
-
-        # TODO(alxmrs): Tune dask parallelization
-        # https://tutorial.xarray.dev/advanced/apply_ufunc/dask_apply_ufunc.html
-
-        prognostic = (
-            self.prognostic.isel(time=window)
-            .isel(time=slice(None, time_split))
-            .to_array(name="prognostic")
-            .einops.rearrange("step (time variable)=var lat lon", dask="allowed")
-            .drop_vars("var", errors="ignore")
-        )
-        boundary = (
-            self.boundary.isel(time=window)
-            .isel(time=self.hist)
-            .to_array("var", "boundary")
-            .transpose("step", "var", "lat", "lon")
-            .drop_vars("var", errors="ignore")
-        )
-        # Combine prognostic and boundary data
-        input_ = xr.concat([prognostic, boundary], dim="var").rename(
-            {"var": "variable"}
-        )
-
-        label = (
-            self.prognostic.isel(time=window)
-            .isel(time=slice(time_split, None))
-            .to_array()
-            .einops.rearrange(
-                "step (time variable)=var lat lon",
-                dask="allowed",
-            )
-            .rename({"var": "variable"})
-        )
-
-        return input_, label
 
 
 class InferenceDataset(Dataset):
@@ -305,22 +166,22 @@ class InferenceDataset(Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
-        data_in = self._prognostic_vars.isel(time=x_index).isel(
+        data_in_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(None, self.hist + 1)
         )
-        data_in = Normalize.get_instance().normalize_prognostic(
-            data_in
+        data_in_ds = Normalize.get_instance().normalize_prognostic(
+            data_in_ds
         )  # TODO: Weird error when I get_instance in init
-        data_in = (
-            data_in.to_array()
+        data_in_np: np.ndarray = (
+            data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
-        data_in = rearrange(
-            data_in,
+        data_in_np = rearrange(
+            data_in_np,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
-        data_in = torch.from_numpy(data_in).float()
+        data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
         data_in = torch.where(self.wet, data_in, 0.0)
         return data_in
 
@@ -331,32 +192,36 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._boundary_vars.isel(time=x_index).isel(time=self.hist)
-        data_in_boundary = Normalize.get_instance().normalize_boundary(data_in_boundary)
-        data_in_boundary = (
-            data_in_boundary.to_array()
+        data_in_boundary_ds: xr.Dataset = self._boundary_vars.isel(time=x_index).isel(
+            time=self.hist
+        )
+        data_in_boundary_ds = Normalize.get_instance().normalize_boundary(
+            data_in_boundary_ds
+        )
+        data_in_boundary_np: np.ndarray = (
+            data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
             .to_numpy()
         )
-        data_in_boundary = torch.from_numpy(data_in_boundary).float()
+        data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label = self._prognostic_vars.isel(time=x_index).isel(
+        label_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
             time=slice(self.hist + 1, None)
         )
-        label = Normalize.get_instance().normalize_prognostic(label)
-        label = (
-            label.to_array()
+        label_ds = Normalize.get_instance().normalize_prognostic(label_ds)
+        label_np: np.ndarray = (
+            label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
-        label = rearrange(
-            label,
+        label_np = rearrange(
+            label_np,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
-        label = torch.from_numpy(label).float()
+        label: torch.Tensor = torch.from_numpy(label_np).float()
         label = torch.where(self.wet, label, 0.0)
         return label
 
@@ -653,13 +518,13 @@ class TorchTrainDataset(Dataset):
 
         # Create base indices
         indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["window_dim"])
+        indices_da = xr.DataArray(indices, dims=["window"])
 
         # Create window dimension
         window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
 
         # Construct rolling indices
-        self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
+        self.rolling_indices: Float[xr.DataArray, "window time"] = (
             indices_da + stride * window_dim
         )
 
@@ -681,30 +546,31 @@ class TorchTrainDataset(Dataset):
 
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
-        for step in range(self.steps):
-            x_index = self._get_x_index(idx, step)
+        x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]
+        x_index = xr.concat(x_indexes, dim="step")
 
-            prognostic_all = torch.from_numpy(
-                self._prognostic_vars.isel(time=x_index)
-                .to_array()
-                .transpose(
-                    "variable", "time", "lat", "lon"
-                )  # this should be a no-op, for documentation
-                .to_numpy()
-            )
-            boundary = torch.from_numpy(
-                self._boundary_vars.isel(time=x_index)
-                .isel(time=self.hist, drop=True)
-                .to_array()
-                .transpose("variable", "lat", "lon")
-                .to_numpy()
-            )
+        prognostic_all = torch.from_numpy(
+            self._prognostic_vars.isel(time=x_index)
+            .to_array()
+            .transpose(
+                "step", "variable", "time", "lat", "lon"
+            )  # this should be a no-op, for documentation
+            .to_numpy()
+        )
+        boundary = torch.from_numpy(
+            self._boundary_vars.isel(time=x_index)
+            .isel(time=self.hist, drop=True)
+            .to_array()
+            .transpose("step", "variable", "lat", "lon")
+            .to_numpy()
+        )
 
-            input_, label = self._get_input_and_label(prognostic_all, boundary)
+        input_, label = self._get_input_and_label(prognostic_all, boundary)
 
+        for i in range(input_.shape[0]):
             TD.insert(
-                input_=input_,
-                label=label,
+                input_=input_[i],
+                label=label[i],
             )
 
         return TD
@@ -712,33 +578,38 @@ class TorchTrainDataset(Dataset):
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        prognostic_all: Float[torch.Tensor, "variable time lat lon"],
-        boundary: Float[torch.Tensor, "variable lat lon"],
+        prognostic_all: Float[torch.Tensor, "step variable time lat lon"],
+        boundary: Float[torch.Tensor, "step variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         normalize = Normalize.get_instance()
 
         # grab past steps and prep for model
-        input_ = self._prep_prognostic_steps(prognostic_all[:, : self.hist + 1, :, :])
+        input_ = self._prep_prognostic_steps(
+            prognostic_all[:, :, : self.hist + 1, :, :]
+        )
 
         # add in boundary to final input
         boundary = normalize.normalize_tensor_boundary(boundary).float()
         boundary = torch.where(self.wet_surface, boundary, 0.0)
-        total_input = torch.cat((input_, boundary), dim=0)
+        total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
 
         # grab future steps, repeat as we do for input
-        label = self._prep_prognostic_steps(prognostic_all[:, self.hist + 1 :, :, :])
+        label = self._prep_prognostic_steps(prognostic_all[:, :, self.hist + 1 :, :, :])
         return total_input, label
 
     def _prep_prognostic_steps(
-        self, prognostic_steps: Float[torch.Tensor, "variable time lat lon"]
+        self, prognostic_steps: Float[torch.Tensor, "step variable time lat lon"]
     ) -> Input:
         normalize = Normalize.get_instance()
+        # Time needs to be before step for normalization to work (even though it would
+        # make more sense for `step` to the be first dimension). Don't worry: we fix
+        # this later.
         prognostic_steps = rearrange(
             prognostic_steps,
-            "variable time lat lon -> time variable lat lon",
+            "step variable time lat lon -> time step variable lat lon",
         )
 
-        # normalize expects variables in second dimension
+        # normalize expects variables in third dimension
         prognostic_steps = normalize.normalize_tensor_prognostic(
             prognostic_steps
         ).float()
@@ -746,7 +617,7 @@ class TorchTrainDataset(Dataset):
         # flatten time and variable dimensions into a set of channels for model
         prognostic_steps = rearrange(
             prognostic_steps,
-            "time variable lat lon -> (time variable) lat lon",
+            "time step variable lat lon -> step (time variable) lat lon",
         )
 
         # post-normalize, mask out values where there is no ocean
@@ -754,7 +625,7 @@ class TorchTrainDataset(Dataset):
 
         return prognostic_steps
 
-    def _get_x_index(self, idx: int, step: int) -> xr.Variable:
+    def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
         assert isinstance(idx, int)
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")
@@ -762,6 +633,4 @@ class TorchTrainDataset(Dataset):
             raise IndexError("Index out of range")
 
         window_index = idx + step * (self.hist + 1) * self.stride
-        rolling_idx = self.rolling_indices.isel(window_dim=window_index, drop=True)
-        x_index = xr.Variable(["time"], rolling_idx)
-        return x_index
+        return self.rolling_indices.isel(window=window_index, drop=True)

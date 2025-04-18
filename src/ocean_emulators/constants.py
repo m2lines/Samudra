@@ -31,7 +31,17 @@ Example = tuple[Input, Prognostic] | tuple[xr.Dataset, xr.Dataset]
 GridMask = Bool[Array, "180 360"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
-MAX_TRAIN_MODEL_STEPS_FORWARD = 2000
+SingleChannelVar = Float[torch.Tensor, "batch time lat lon"]
+DictSingleChannelVar = Dict[str, SingleChannelVar]
+SinglePrognostic = Float[Grid, "*batch"]
+SinglePrognosticTimeSeries = Float[Grid, "*batch time"]
+
+SingleTimeSeriesOutput = Float[torch.Tensor, "batch=1 time prognostic_vars lat lon"]
+BatchTimeSeriesOutput = Float[
+    torch.Tensor, "batch time=(hist+1) prognostic_vars lat lon"
+]
+
+MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels
@@ -193,7 +203,6 @@ def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
 
 class LoaderVersion(enum.Enum):
     OM4_EAGER = "om4-eager"
-    OM4_LAZY = "om4-lazy"
     OM4_TORCH = "om4-torch"
 
 

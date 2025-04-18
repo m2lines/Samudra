@@ -1,5 +1,5 @@
 import logging
-from typing import Dict
+from typing import Literal
 
 import cftime
 import numpy as np
@@ -12,11 +12,16 @@ from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
+    BatchTimeSeriesOutput,
     BoundaryVarNames,
+    DictSingleChannelVar,
     Grid,
     GridMask,
+    Input,
+    Prognostic,
     PrognosticMask,
     PrognosticVarNames,
+    SingleTimeSeriesOutput,
     TensorMap,
 )
 from ocean_emulators.utils.multiton import Multiton
@@ -90,46 +95,6 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
     return data_
 
 
-def mask(data: xr.Dataset, wetmask: xr.DataArray) -> xr.Dataset:
-    """Apply a wetmask (areas of the ocean) to all variables in the dataset."""
-    # I revised on this via Project Pythia's tutorial:
-    #  https://foundations.projectpythia.org/core/xarray/computation-masking.html#masking-data
-    data_ = data.copy()
-
-    wetmask = wetmask.astype(bool)
-    surface_mask = wetmask.isel(lev=0)
-
-    for name, da in data_.items():
-        # Parse the level index info from the variable name.
-        is_surface = False
-        tokens = str(name).split("_")
-        # If the name has four tokens, then it definitely is at some depth level (i.e.,
-        # not at the surface).
-        if len(tokens) >= 4:  # OM4 data format (e.g., {variable}_lev_{level}_{decimal})
-            raise ValueError("please call `with_level_index_vars` before masking!")
-        # If it has two tokens, then it _maybe_ at the surface.
-        elif len(tokens) == 2:  # output_vars format (e.g., {variable}_{level})
-            _, level = tokens
-            if level not in DEPTH_I_LEVELS:
-                is_surface = True
-        # With any other tokens, it _definitely_ is at the surface.
-        else:
-            is_surface = True
-
-        if is_surface:
-            # Assume this variable is at the surface
-            # Apply the boundary layer mask and continue
-            data_[name] = da.where(surface_mask, 0.0)
-            continue
-
-        assert level in DEPTH_I_LEVELS, f"Found unknown Depth Level! {level!r}."
-        lev = DEPTH_LEVELS[int(level)]
-
-        data_[name] = da.where(wetmask.sel(lev=lev), 0.0)
-
-    return data_
-
-
 def spherical_area_weights(data: xr.Dataset) -> Grid:
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())
@@ -168,7 +133,7 @@ def get_inference_steps(time_config: TimeConfig, time_delta: int = 5, hist: int 
     return num_steps
 
 
-def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tensor]:
+def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar:
     tensor_map = TensorMap.get_instance()
     assert tensor_out.ndim == 5
     assert tensor_out.shape[2] == len(tensor_map.prognostic_var_names)
@@ -178,27 +143,34 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tens
     return out_dict
 
 
-def get_norm_unnorm_dicts(
-    data: torch.Tensor,
+def get_aggregator_dicts(
+    data: Prognostic | Input,
+    wet: torch.Tensor,
     long_rollout: bool,
-    input_type: str = "target",
+    input_type: Literal["prognostic", "input"] = "prognostic",
     num_prognostic_channels: int = 0,
     hist: int = 1,
-):
+) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
     normalize = Normalize.get_instance()
     # Remove boundary data if input
     if input_type == "input":
         data = data[:, :num_prognostic_channels]
 
     # Separate history from channels
+    data_reshaped: SingleTimeSeriesOutput | BatchTimeSeriesOutput
     if long_rollout:
-        data_reshaped = rearrange(data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1)
-        data_reshaped = data_reshaped.unsqueeze(0)  # add artificial batch dim
+        # All batches are part of the same rollout during inference
+        data_reshaped = rearrange(
+            data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
+        ).unsqueeze(0)  # add artificial batch dim
     else:
+        # Batches are independent rollouts during validation
         data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
 
     # Get normalized dict
-    data_dict = convert_tensor_out_to_dict(data_reshaped)
+    data_normalized = data_reshaped.clone()
+    data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
+    data_dict = convert_tensor_out_to_dict(data_normalized)
     # Unnormalize
     data_unnorm = normalize.unnormalize_tensor_prognostic(
         data_reshaped, fill_value=float("nan")
@@ -408,6 +380,9 @@ class Normalize(Multiton):
         if data.ndim == 3:
             tensor_mean = tensor_mean.reshape([-1, 1, 1])
             tensor_std = tensor_std.reshape([-1, 1, 1])
+        elif data.ndim == 4:
+            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, -1, 1, 1])
         else:
             raise ValueError(f"Invalid data shape: {data.shape}")
 

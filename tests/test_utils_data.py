@@ -6,12 +6,15 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
+from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
 from ocean_emulators.utils.data import (
     Normalize,
     compute_anomalies,
+    extract_wet_mask,
     flatten_masks,
-    mask,
+    get_aggregator_dicts,
     unflatten_masks,
+    validate_data,
     with_level_index_vars,
 )
 from ocean_emulators.utils.multiton import MultitonScope
@@ -24,16 +27,6 @@ def test_mask_roundtrip(data_source):
     flattened = flatten_masks(unflattened.copy())
 
     assert flattened == data, "Assume a safe roundtrip"
-
-
-def test_mask__zeros_data(data_source):
-    data = with_level_index_vars(data_source.data)
-
-    unflattened = unflatten_masks(data)
-    masked = mask(unflattened, unflattened.wetmask)
-
-    for orig_da, maked_da in zip(unflattened.values(), masked.values()):
-        assert np.count_nonzero(maked_da.values) < np.count_nonzero(orig_da.values)
 
 
 def test_rename_vars():
@@ -166,7 +159,7 @@ def normalize_input():
             boundary_var_names=["var_2"],
             wet_mask=wet_mask,
         )
-    return normalize, wet_mask
+        yield normalize, wet_mask
 
 
 def test_normalize_unnormalize_tensor_prognostic(normalize_input):
@@ -186,3 +179,103 @@ def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
     normalized = normalize.normalize_tensor_prognostic(input_data)
     unnormalized = normalize.unnormalize_tensor_prognostic(normalized, fill_value)
     assert (torch.sum(torch.isnan(unnormalized)) > 0) == (math.isnan(fill_value))
+
+
+@pytest.fixture
+def data_init(hist: int):
+    with MultitonScope():
+        levels = 19
+        lats = 3
+        lons = 3
+        total_time_steps = 100
+
+        tensor_map = TensorMap.init_instance("thetao_surface", "hfds")
+
+        wet_mask_ = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
+        wet_full = np.tile(wet_mask_, (total_time_steps, levels, 1, 1))
+
+        # Even thetao, odd hfds for every time step
+        # Ex, timestep 0: thetao = 0, hfds = 1
+        # Ex, timestep 1: thetao = 2, hfds = 3
+        # Ex, timestep 2: thetao = 4, hfds = 5
+        # ...
+        data = xr.Dataset(
+            {
+                **{
+                    f"thetao_{lev}": (
+                        ["time", "lat", "lon"],
+                        np.tile(
+                            np.arange(total_time_steps)[:, None, None] * 2,
+                            (1, lats, lons),
+                        ),
+                    )
+                    for lev in range(levels)
+                },
+                "hfds": (
+                    ["time", "lat", "lon"],
+                    np.tile(
+                        np.arange(total_time_steps)[:, None, None] * 2 + 1,
+                        (1, lats, lons),
+                    ),
+                ),
+                "wetmask": (
+                    ["time", "lev", "lat", "lon"],
+                    wet_full,
+                ),
+            },
+            coords={
+                "time": np.arange(total_time_steps),
+                "lev": DEPTH_LEVELS,
+                "lat": np.arange(lats),
+                "lon": np.arange(lons),
+            },
+        )
+        data_mean = data.mean() * 0.0
+        data_std = data.std() * 0.0 + 1.0
+        data, data_mean, data_std = validate_data(data, data_mean, data_std)
+        wet_without_hist, _ = extract_wet_mask(data, tensor_map.prognostic_var_names, 0)
+
+        normalize = Normalize.init_instance(
+            data_mean=data_mean,
+            data_std=data_std,
+            prognostic_var_names=tensor_map.prognostic_var_names,
+            boundary_var_names=tensor_map.boundary_var_names,
+            wet_mask=wet_without_hist,
+        )
+        yield normalize, wet_without_hist
+
+
+@pytest.mark.parametrize("input_type", ["input", "target"])
+@pytest.mark.parametrize("long_rollout", [True, False])
+@pytest.mark.parametrize("hist", [0, 1, 2])
+def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
+    normalize, wet = data_init
+    tensor_map = TensorMap.get_instance()
+
+    num_prognostic_channels = normalize._prognostic_std_np.shape[0]
+    num_boundary_channels = normalize._boundary_std_np.shape[0]
+    if input_type == "target":
+        data = torch.randn([1, num_prognostic_channels * (hist + 1), *wet.shape[1:]])
+    elif input_type == "input":
+        data = torch.randn(
+            [
+                6,
+                num_prognostic_channels * (hist + 1) + num_boundary_channels,
+                *wet.shape[1:],
+            ]
+        )
+    data_dict, data_unnorm_dict = get_aggregator_dicts(
+        data,
+        wet,
+        long_rollout,
+        input_type=input_type,
+        num_prognostic_channels=num_prognostic_channels * (hist + 1),
+        hist=hist,
+    )
+
+    var_name = tensor_map.prognostic_var_names[0]
+    assert data_dict[var_name].shape == data_unnorm_dict[var_name].shape
+
+    assert torch.isnan(data_dict[var_name][:, :, 0, 1]).all()
+    assert torch.isnan(data_dict[var_name][:, :, 1, 0]).all()
+    assert torch.isnan(data_dict[var_name][:, :, 1, 2]).all()

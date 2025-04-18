@@ -41,13 +41,12 @@ from ocean_emulators.constants import (
 from ocean_emulators.datasets import (
     InferenceDataset,
     InferenceDatasets,
-    OM4Dataset,
     TorchTrainDataset,
     TrainData,
     TrainDataset,
 )
 from ocean_emulators.models.samudra import Samudra
-from ocean_emulators.stepper import Stepper, TrainOutput, ValOutput
+from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
     extract_wet_mask,
@@ -66,6 +65,7 @@ from ocean_emulators.utils.ema import EMATracker
 from ocean_emulators.utils.logging import (
     MetricLogger,
     SmoothedValue,
+    get_model_summary,
     handle_logging,
     handle_warnings,
 )
@@ -76,11 +76,9 @@ from ocean_emulators.utils.loss import (
     decomposed_mse_mae,
     decomposed_mse_scaled,
 )
-from ocean_emulators.utils.model import get_model_summary
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
-    collate_om4,
     collate_train_data,
 )
 from ocean_emulators.utils.wandb import WandBLogger
@@ -199,7 +197,9 @@ class Trainer:
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
         )
-        wet_without_hist, _ = extract_wet_mask(self.data, self.prognostic_var_names, 0)
+        wet_without_hist_cpu, _ = extract_wet_mask(
+            self.data, self.prognostic_var_names, 0
+        )
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -209,8 +209,9 @@ class Trainer:
             data_std=self.data_std,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=wet_without_hist,
+            wet_mask=wet_without_hist_cpu,
         )
+        self.wet_without_hist = wet_without_hist_cpu.to(self.device)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
@@ -429,7 +430,7 @@ class Trainer:
         self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")
 
-        start_time = time.time()
+        start_time = time.perf_counter()
         for epoch in range(self.start_epoch, self.epochs + 1):
             # Iterative step training
             if epoch == self.start_epoch or epoch in self.step_transition:
@@ -441,15 +442,15 @@ class Trainer:
             if isinstance(self.val_sampler, DistributedSampler):
                 self.val_sampler.set_epoch(epoch)
 
-            start_epoch_train_time = time.time()
+            start_epoch_train_time = time.perf_counter()
             train_stats = self.train_one_epoch(epoch)
-            end_epoch_train_time = time.time()
+            end_epoch_train_time = time.perf_counter()
             val_stats = self.validate_one_epoch(epoch)
-            end_epoch_val_time = time.time()
+            end_epoch_val_time = time.perf_counter()
 
             if -1 in self.inference_epochs or epoch in self.inference_epochs:
                 inf_stats = self.inference_one_epoch(epoch)
-                end_epoch_inf_time = time.time()
+                end_epoch_inf_time = time.perf_counter()
             else:
                 inf_stats = {}
                 end_epoch_inf_time = None
@@ -466,7 +467,7 @@ class Trainer:
             if is_main_process():
                 self.save_all_checkpoints(epoch, v_loss, inf_loss)
 
-            time_elapsed = time.time() - start_epoch_train_time
+            time_elapsed = time.perf_counter() - start_epoch_train_time
 
             log_stats = {
                 **train_stats,
@@ -486,7 +487,7 @@ class Trainer:
             if is_main_process():
                 self.wandb_logger.log(log_stats, step=self.num_batches_seen)
 
-        total_time = time.time() - start_time
+        total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Training time {total_time_str}")
         self.finish()
@@ -506,7 +507,7 @@ class Trainer:
 
             self.optimizer.zero_grad()
             data.to(self.device)
-            TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
+            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()
             self._ema(model=self.model)
             train_aggregator.record_batch(TO)
@@ -557,7 +558,11 @@ class Trainer:
         self.model.eval()
 
         val_aggregator = Aggregator.get_validation_aggregator(
-            self.metadata, self.hist, self.area_weights, self.num_out
+            self.metadata,
+            self.hist,
+            self.area_weights,
+            self.wet_without_hist,
+            self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = "One-Step Validation Epoch: [{}]".format(epoch)
@@ -570,7 +575,9 @@ class Trainer:
                     break
 
                 data.to(self.device)
-                VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
+                VO: ValBatchOutput = Stepper.validate_batch(
+                    self.model, data, self.loss_fn
+                )
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
@@ -588,6 +595,7 @@ class Trainer:
                     self.metadata,
                     self.hist,
                     self.area_weights,
+                    self.wet_without_hist,
                     self.num_out,
                 )
 
@@ -680,34 +688,6 @@ class Trainer:
                         for stride in self.data_stride
                     ]
                 )
-            case OM4Dataset.FLAG:
-                train_data = ConcatDataset(
-                    [
-                        OM4Dataset(
-                            data=self.data.sel(time=self.train_time.time_slice),
-                            prognostic_var_names=self.prognostic_var_names,
-                            boundary_var_names=self.boundary_var_names,
-                            hist=self.hist,
-                            steps=cur_step,
-                            stride=stride,
-                        )
-                        for stride in self.data_stride
-                    ]
-                )
-
-                val_data = ConcatDataset(
-                    [
-                        OM4Dataset(
-                            data=self.data.sel(time=self.val_time.time_slice),
-                            prognostic_var_names=self.prognostic_var_names,
-                            boundary_var_names=self.boundary_var_names,
-                            hist=self.hist,
-                            steps=1,  # current_step set to 1 for validation
-                            stride=stride,
-                        )
-                        for stride in self.data_stride
-                    ]
-                )
             case TorchTrainDataset.FLAG:
                 train_data = ConcatDataset(
                     [
@@ -758,8 +738,6 @@ class Trainer:
         match self.loader_version:
             case TrainDataset.FLAG:
                 collate_fn: Callable[[Sequence[Any]], TrainData] = collate_train_data
-            case OM4Dataset.FLAG:
-                collate_fn = collate_om4
             case TorchTrainDataset.FLAG:
                 collate_fn = collate_train_data
             case _:

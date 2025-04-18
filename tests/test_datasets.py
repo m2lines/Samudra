@@ -16,7 +16,7 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from ocean_emulators.config import TrainConfig
+from ocean_emulators.config import TimeConfig, TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -29,7 +29,12 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
-from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
+from ocean_emulators.utils.data import (
+    DataSource,
+    Normalize,
+    extract_wet_mask,
+    validate_data,
+)
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair
@@ -44,27 +49,15 @@ def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoa
 @contextlib.contextmanager
 def make_loader(
     cfg,
-    time_slice: slice | None = None,
+    time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion = LoaderVersion.OM4_EAGER,
 ) -> Generator[DataLoader, None, None]:
-    if time_slice is None:
-        time_slice = cfg.train.time_slice
+    if time_config is None:
+        time_config = cfg.train
 
     use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
-    if use_dask:
-        chunks: dict[str, int] | None = {}
-    else:
-        chunks = None
-
-    ds = xr.open_dataset(cfg.experiment.data_dir / cfg.data.data_path, chunks=chunks)
-    ds_means = xr.open_dataset(
-        cfg.experiment.data_dir / cfg.data.data_means_path, chunks=chunks
-    )
-    ds_stds = xr.open_dataset(
-        cfg.experiment.data_dir / cfg.data.data_stds_path, chunks=chunks
-    )
-
+    raw = DataSource.from_config(cfg, use_dask=use_dask)
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
@@ -72,9 +65,8 @@ def make_loader(
         TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
-        ds_, means_, stds_ = validate_data(ds, ds_means, ds_stds)
-        wet, wet_surface = extract_wet_mask(ds_, prognostic, cfg.data.hist)
-        Normalize.init_instance(means_, stds_, prognostic, boundary, wet)
+        src = validate_data(raw)
+        wet, wet_surface = extract_wet_mask(src.data, prognostic, cfg.data.hist)
         normalize_pre_fill = cfg.data.normalize_pre_fill
         nan_fill_value = cfg.data.nan_fill_value
 
@@ -83,7 +75,7 @@ def make_loader(
                 data: ConcatDataset | InferenceDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=ds_.sel(time=time_slice),
+                            src=src.slice(time_config),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,
@@ -102,7 +94,7 @@ def make_loader(
                 data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=ds_.sel(time=time_slice),
+                            src=src.slice(time_config),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,
@@ -435,6 +427,7 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
         coords={"lat": [0], "lon": [0]},
     )
 
+    test = DataSource("test", data, data_mean, data_std)
     wet_surface = torch.ones(2, 2).bool()
     wet_surface[0, 0] = False
     wet_surface[1, 1] = False
@@ -443,14 +436,13 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
     # Initialize and yield within the MultitonScope
     with MultitonScope():
         _ = Normalize.init_instance(
-            data_mean=data_mean,
-            data_std=data_std,
+            test,
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],
             wet_mask=wet,
         )
         traindataset = TrainDataset(
-            data=data,
+            src=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             wet=wet,
@@ -462,7 +454,7 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             stride=1,
         )
         inference_dataset = InferenceDataset(
-            data,
+            test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             wet=wet,

@@ -8,12 +8,10 @@ CONFIG_PATH=configs/eval_om4.yaml
 echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR
 echo 'Using config file:' $CONFIG_PATH
 
-# Create a temporary config file with updated cluster_data_dir
-TMP_CONFIG_PATH=/tmp/config_temp.yaml
-sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $TMP_CONFIG_PATH
-
 uv run src/ocean_emulators/eval.py \
-    --config $TMP_CONFIG_PATH \
+    $CONFIG_PATH \
     --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL/2025-04-05-train-test/saved_nets/best_validation_ckpt.pt \
-    --subname "om4-speed-test-optimized-removed-cond" \
-    --save_zarr
+    --experiment.cluster_data_dir $OCEAN_DATA_DIR \
+    --data @configs/data/om4_internal.yaml \
+    --experiment.sub_name "om4-speed-test-optimized-removed-cond" \
+    --save_zarr true

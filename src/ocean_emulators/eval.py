@@ -1,4 +1,3 @@
-import argparse
 import datetime
 import logging
 import time
@@ -144,6 +143,10 @@ class Eval:
         get_model_summary(model, self.num_in)
 
         self.model = model
+        if cfg.ckpt_path is None:
+            raise ValueError(
+                "ckpt_path must be set; try --ckpt_path=path/to/checkpoint"
+            )
         self.load_checkpoint(cfg.ckpt_path)
 
         self.network = cfg.experiment.network
@@ -165,7 +168,7 @@ class Eval:
         self.network = cfg.experiment.network
         self.debug = cfg.debug
         self.num_workers = cfg.data.num_workers
-        self.inference_time = cfg.inference
+        self.inference_time = cfg.inference_time
         self.time_delta = cfg.data.time_delta
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
@@ -245,24 +248,7 @@ class Eval:
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, required=True)
-    parser.add_argument("--subname", type=str, required=False)
-    parser.add_argument("--ckpt_path", type=str, required=False)
-    parser.add_argument("--save_zarr", default=False, action="store_true")
-    args = parser.parse_args()
-
-    overrides = {}
-    if args.subname:
-        overrides["sub_name"] = args.subname
-    if args.ckpt_path:
-        print(args.ckpt_path)
-        overrides["ckpt_path"] = args.ckpt_path
-    if args.save_zarr:
-        overrides["save_zarr"] = args.save_zarr
-
-    # Load config from YAML
-    cfg = EvalConfig.from_yaml(args.config, overrides)
+    cfg = EvalConfig.from_yaml_and_cli()
     cfg.prepare_output_dirs()  # we do this first so logging can use them
 
     handle_logging(cfg)

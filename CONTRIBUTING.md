@@ -20,6 +20,7 @@ cd Ocean_Emulator
 uv sync --dev
 source .venv/bin/activate
 uvx pre-commit install
+uvx pre-commit run --all-files # also creates config schemas for validation (see below)
 
 # dev
 uv run pytest -m "not manual and not cuda"
@@ -154,6 +155,56 @@ git push --force-with-lease
 
 10. Celebrating submitting your patch to Ocean Emulator — well done!
 
+## Training the model
+
+```bash
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH
+uv run -m ocean_emulators.train configs/train_om4.yaml --cluster_data_dir $DATA_PATH
+```
+
+You can run `uv run -m ocean_emulators.train --help` to see all the options available.
+
+## Evaluating the model
+
+```bash
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH
+# (then put a checkpoint of the model at path/to/checkpoint)
+uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --cluster_data_dir $DATA_PATH
+```
+
+You can run `uv run -m ocean_emulators.eval --help` to see all the options available.
+
+## Configuration
+
+### Configuration files
+
+Configuration is defined by config.py and values are stored in YAML files within the configs/
+directory. Configuration files can include other configuration files using the !include directive.
+
+Each configuration file is associated with a Pydantic model -- you can generate JSON schemas
+for them with `uv run src/ocean_emulators/config_schema.py` (which is run automatically in pre-commit).
+To associate a configuration file with a Pydantic model, generate the JSON schema (if it doesn't
+already exist) and then add this line to the top of the config file:
+
+```yaml
+# yaml-language-server: $schema=path/to/schema.json
+```
+
+This is what the `config_schema.py` script uses to determine which model to validate against,
+and also enables autocomplete/type checking in VS Code via the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml).
+
+### Command line configuration
+
+The train and eval modules accept the configuration file as a positional argument.
+You can override arbitraries keys on the command line -- see `--help` for details. When overriding
+an object (as opposed to a single scalar value) via the command line, you can either supply JSON
+like `--data '{"key": "value"}'` or a YAML file with a leading '@' symbol: `--data @configs/data/file.yaml`.
+
+Training runs create a YAML file in the checkpoint directory with the final configuration used which
+you can use to reproduce the run by passing to train e.g. `uv run -m ocean_emulators.train path/to/config.yaml`.
+
 ## VS Code Integration
 
 If you're using VS Code, we reccommend installing the `ruff` and `mypy` extensions. For the latter,
@@ -175,6 +226,8 @@ you'll want to configure it to use pyproject.toml, which you can do with a `.vsc
 ```bash
 # local dev / CI
 pytest -m "not manual and not cuda"
+# with more CPU cores
+pytest -m "not manual and not cuda" -n auto
 # all manual tests
 pytest -m manual
 # just the model weights test
@@ -237,11 +290,11 @@ pytest -m "not manual and not cuda"
 We have a set of singletons in the code which use the "Multiton" helper to prevent tests from interfering with each other.
 When writing tests, you can either:
 
-    def test_foo():
-        with MultitonScope():
-            # set up whatever singletons you need
-            Normalize.init_instance(…)
-            assert …
+   def test_foo():
+      with MultitonScope():
+         # set up whatever singletons you need
+         Normalize.init_instance(…)
+         assert …
 
 Or you can initialize them in a Generator-based fixture:
 
@@ -253,7 +306,6 @@ Or you can initialize them in a Generator-based fixture:
 
    def test_foo(my_fixture):
        assert … # in this code, the Normalize instance is the one from my_fixture
-
 
 ## Benchmarking & Profiling
 

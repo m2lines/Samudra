@@ -525,6 +525,8 @@ class TorchTrainDataset(Dataset):
         wet_surface: GridMask,
         hist: int,
         steps: int,
+        normalize_pre_fill: bool,
+        nan_fill_value: float,
         stride: int = 1,
     ):
         super().__init__()
@@ -533,6 +535,8 @@ class TorchTrainDataset(Dataset):
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
+        self.normalize_pre_fill: bool = normalize_pre_fill
+        self.nan_fill_value: float = nan_fill_value
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
@@ -617,8 +621,11 @@ class TorchTrainDataset(Dataset):
         )
 
         # add in boundary to final input
-        boundary = normalize.normalize_tensor_boundary(boundary).float()
-        boundary = torch.where(self.wet_surface, boundary, 0.0)
+        if self.normalize_pre_fill:
+            boundary = normalize.normalize_tensor_boundary(boundary).float()
+        boundary = torch.where(self.wet_surface, boundary, self.nan_fill_value)
+        if not self.normalize_pre_fill:
+            boundary = normalize.normalize_tensor_boundary(boundary).float()
         total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
 
         # grab future steps, repeat as we do for input
@@ -638,9 +645,10 @@ class TorchTrainDataset(Dataset):
         )
 
         # normalize expects variables in third dimension
-        prognostic_steps = normalize.normalize_tensor_prognostic(
-            prognostic_steps
-        ).float()
+        if self.normalize_pre_fill:
+            prognostic_steps = normalize.normalize_tensor_prognostic(
+                prognostic_steps
+            ).float()
 
         # flatten time and variable dimensions into a set of channels for model
         prognostic_steps = rearrange(
@@ -649,8 +657,12 @@ class TorchTrainDataset(Dataset):
         )
 
         # post-normalize, mask out values where there is no ocean
-        prognostic_steps = torch.where(self.wet, prognostic_steps, 0.0)
+        prognostic_steps = torch.where(self.wet, prognostic_steps, self.nan_fill_value)
 
+        if not self.normalize_pre_fill:
+            prognostic_steps = normalize.unnormalize_tensor_prognostic(
+                prognostic_steps
+            ).float()
         return prognostic_steps
 
     def _get_x_index(self, idx: int, step: int) -> xr.DataArray:

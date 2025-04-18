@@ -109,6 +109,8 @@ def make_loader(
                             wet_surface=wet_surface,
                             hist=cfg.data.hist,
                             steps=cfg.steps[0],
+                            normalize_pre_fill=normalize_pre_fill,
+                            nan_fill_value=nan_fill_value,
                             stride=stride,
                         )
                         for stride in cfg.data_stride
@@ -395,7 +397,7 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
 
 
 @pytest.fixture
-def traindataset_input(normalize_pre_fill: bool, nan_fill_value: float):
+def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
     # Create data
     coords = {"time": range(10), "lat": range(2), "lon": range(2)}
     data_array = torch.ones(4, 10, 2, 2)  # [vars, time, lat, lon]
@@ -459,15 +461,26 @@ def traindataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             nan_fill_value=nan_fill_value,
             stride=1,
         )
-        yield traindataset
+        inference_dataset = InferenceDataset(
+            data,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            wet=wet,
+            wet_surface=wet_surface,
+            hist=0,
+            normalize_pre_fill=normalize_pre_fill,
+            nan_fill_value=nan_fill_value,
+            long_rollout=True,
+        )
+        yield traindataset, inference_dataset
 
 
 @pytest.mark.parametrize("normalize_pre_fill", [True])
 @pytest.mark.parametrize("nan_fill_value", [0.0])
 def test_train_dataset_no_input_change(
-    traindataset_input, normalize_pre_fill, nan_fill_value
+    dataset_input, normalize_pre_fill, nan_fill_value
 ):
-    traindataset = traindataset_input
+    traindataset, _ = dataset_input
     td = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
     pred = torch.randn_like(td.get_label(0)) * 0.1
 
@@ -481,9 +494,9 @@ def test_train_dataset_no_input_change(
 @pytest.mark.parametrize("normalize_pre_fill", [True, False])
 @pytest.mark.parametrize("nan_fill_value", [0.0, -1.0])
 def test_train_dataset_normalize_pre_fill(
-    traindataset_input, normalize_pre_fill, nan_fill_value
+    dataset_input, normalize_pre_fill, nan_fill_value
 ):
-    traindataset = traindataset_input
+    traindataset, inference_dataset = dataset_input
     td0 = traindataset[0]
 
     data = nan_fill_value
@@ -492,8 +505,10 @@ def test_train_dataset_normalize_pre_fill(
         std = 1.0
         data = (data - mean) / std
         assert td0.get_input(0)[0, 0, 0] == data
+        assert inference_dataset[0][0][0][0, 0, 0] == data
     else:
         assert td0.get_input(0)[0, 0, 0] == data
+        assert inference_dataset[0][0][0][0, 0, 0] == data
 
 
 @pytest.mark.manual

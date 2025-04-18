@@ -708,6 +708,8 @@ class Trainer:
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=cur_step,
+                            normalize_pre_fill=self.normalize_pre_fill,
+                            nan_fill_value=self.normalize_fill_value,
                             stride=stride,
                         )
                         for stride in self.data_stride
@@ -724,6 +726,8 @@ class Trainer:
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=1,  # current_step set to 1 for validation
+                            normalize_pre_fill=self.normalize_pre_fill,
+                            nan_fill_value=self.normalize_fill_value,
                             stride=stride,
                         )
                         for stride in self.data_stride

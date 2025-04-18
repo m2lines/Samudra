@@ -112,7 +112,7 @@ class TopLevelConfig(BaseSettings):
             **yaml_values,
         )
 
-    def save_yaml(self, save_path: Path):
+    def save_yaml(self, save_path: Path) -> None:
         """Save config to YAML file."""
         with open(save_path, "w") as f:
             yaml.dump(self.model_dump(), f)

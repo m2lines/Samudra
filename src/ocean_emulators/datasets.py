@@ -203,6 +203,8 @@ class InferenceDataset(Dataset):
         )
         if self.normalize_pre_fill:
             data_in_boundary_ds = data_in_boundary_src.normalize()
+        else:
+            data_in_boundary_ds = data_in_boundary_src.get_data()
         data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -222,6 +224,8 @@ class InferenceDataset(Dataset):
         )
         if self.normalize_pre_fill:
             label_ds = label_src.normalize()
+        else:
+            label_ds = label_src.get_data()
         label_np: np.ndarray = (
             label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -420,11 +424,13 @@ class TrainDataset(Dataset):
 
     def _get_input(self, x_index) -> Prognostic:
         # TODO(jder): nicer typing
-        data_in: Any = self._prognostic_src.map_data(
+        data_in_src: Any = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
         if self.normalize_pre_fill:
-            data_in = self._prognostic_src.normalize_with(data_in)
+            data_in = data_in_src.normalize()
+        else:
+            data_in = data_in_src.get_data()
 
         data_in = (
             data_in.to_array()
@@ -450,11 +456,13 @@ class TrainDataset(Dataset):
         the input.
         """
         # TODO(jder): nicer typing
-        data_in_boundary: Any = self._boundary_src.map_data(
+        data_in_boundary_src: Any = self._boundary_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=self.hist)
         )
         if self.normalize_pre_fill:
-            data_in_boundary = self._boundary_src.normalize_with(data_in_boundary)
+            data_in_boundary = data_in_boundary_src.normalize()
+        else:
+            data_in_boundary = data_in_boundary_src.get_data()
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -470,11 +478,13 @@ class TrainDataset(Dataset):
 
     def _get_label(self, x_index) -> Prognostic:
         # TODO(jder): nicer typing
-        label: Any = self._prognostic_src.map_data(
+        label_src: Any = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         )
         if self.normalize_pre_fill:
-            label = self._prognostic_src.normalize_with(label)
+            label = label_src.normalize()
+        else:
+            label = label_src.get_data()
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -488,7 +498,7 @@ class TrainDataset(Dataset):
         label = torch.from_numpy(label).float()
         label = torch.where(self.wet, label, self.nan_fill_value)
         if not self.normalize_pre_fill:
-            label = self._prognostic_src.normalize_with(label)
+            label = label_src.normalize_with(label)
         return label
 
 
@@ -654,7 +664,7 @@ class TorchTrainDataset(Dataset):
 
         if not self.normalize_pre_fill:
             prognostic_steps = self._prognostic_src.normalize_with(
-                prognostic_steps
+                prognostic_steps, variable_axis=1
             ).float()
         return prognostic_steps
 

@@ -454,7 +454,7 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             stride=1,
         )
         inference_dataset = InferenceDataset(
-            test,
+            src=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             wet=wet,

@@ -97,15 +97,14 @@ class DataSource:
         fill_value=0.0,
     ) -> torch.Tensor:
         """Normalize input data treated as torch Tensors."""
-        device = data.device
         reshape_vars = [1] * data.ndim
         reshape_vars[variable_axis] = -1
 
         # TODO(alxmrs): Do we have to reshape twice?
         means_np = self.means.to_array().to_numpy().reshape(-1)
         stds_np = self.stds.to_array().to_numpy().reshape(-1)
-        means = torch.from_numpy(means_np).to(device).reshape(reshape_vars)
-        stds = torch.from_numpy(stds_np).to(device).reshape(reshape_vars)
+        means = torch.from_numpy(means_np).reshape(reshape_vars)
+        stds = torch.from_numpy(stds_np).reshape(reshape_vars)
 
         norm = (data - means) / stds
         if fill_nan:

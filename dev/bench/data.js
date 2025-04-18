@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745018118271,
+  "lastUpdate": 1745018120217,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -942,6 +942,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.458952421201442",
             "extra": "mean: 100.24288185019986 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "499db56063fe946f79b37da5b8241f484d02e0f8",
+          "message": "pydantic-settings for config (#210)\n\nConfiguration via pydantic-settings, yaml files and command line-overrides.\n\nAn example invocation would be `uv run python -m ocean_emulators.train configs/train_cm4.yaml\n--experiment.cluster_data_dir=/tmp/data/dir --epochs=2`\n\nThis allows `!include` in YAML files (see\nconfigs/train_cm4.yaml and configs/data/surya.yaml for an example) and\nallows overriding bits on the command line either with values eg\n`--epochs 10` or with the contents of some file eg `--data\n@configs/data/jder.yaml`. It also has JSON schemas exported so that\nVSCode's YAML server will help you a bit, for example:\n\n<img width=\"666\" alt=\"Screenshot 2025-04-15 at 3 40 17 PM\"\nsrc=\"https://github.com/user-attachments/assets/0d512d7f-739f-47af-a9c0-b9696caaee44\"\n/>\n\nUnfortunately this doesn't know about the include syntax so it's a bit\nnoisy, but it still seems helpful.",
+          "timestamp": "2025-04-18T18:31:07-04:00",
+          "tree_id": "2834ea6b1d662d4e84b74181b6c4630506d58ff6",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/499db56063fe946f79b37da5b8241f484d02e0f8"
+        },
+        "date": 1745018119322,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.16793746513389923,
+            "unit": "iter/sec",
+            "range": "stddev: 0.20882389939968413",
+            "extra": "mean: 5.9545974402000414 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.050189165595039886,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5756678637170669",
+            "extra": "mean: 19.92461895200004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.1168138454371749,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10499232790857435",
+            "extra": "mean: 8.560629061199961 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.009458789196233204,
+            "unit": "iter/sec",
+            "range": "stddev: 2.6512082979455145",
+            "extra": "mean: 105.7217767786 sec\nrounds: 5"
           }
         ]
       }

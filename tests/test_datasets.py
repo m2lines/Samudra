@@ -49,12 +49,12 @@ def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoa
 @contextlib.contextmanager
 def make_loader(
     cfg,
-    time_slice: TimeConfig | None = None,
+    time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion = LoaderVersion.OM4_EAGER,
 ) -> Generator[DataLoader, None, None]:
-    if time_slice is None:
-        time_slice = cfg.train
+    if time_config is None:
+        time_config = cfg.train
 
     use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
     raw = DataSource.from_config(cfg, use_dask=use_dask)
@@ -73,7 +73,7 @@ def make_loader(
                 data: ConcatDataset | InferenceDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            src=src.slice(time_slice),
+                            src=src.slice(time_config),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,
@@ -90,7 +90,7 @@ def make_loader(
                 data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            src=src.slice(time_slice),
+                            src=src.slice(time_config),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,

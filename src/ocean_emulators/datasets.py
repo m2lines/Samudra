@@ -320,8 +320,13 @@ class TrainDataset(Dataset):
         self.steps: int = steps
         self.stride: int = stride
         data = src.data
-        self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
-        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        _prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        _boundary_src = src.filter(boundary_var_names, prefix="boundary")
+
+        # Normalize
+        logging.info("Normalizing inputs")
+        self._prognostic_vars = _prognostic_src.normalize()
+        self._boundary_vars = _boundary_src.normalize()
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
 
@@ -355,11 +360,6 @@ class TrainDataset(Dataset):
         if using_gpu():
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
-
-        # Normalize
-        logging.info("Normalizing inputs")
-        self._prognostic_vars = self._prognostic_src.normalize()
-        self._boundary_vars = self._boundary_src.normalize()
 
     def __len__(self) -> int:
         return self.size

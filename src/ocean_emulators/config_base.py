@@ -1,5 +1,6 @@
 import argparse
 import os
+import textwrap
 from pathlib import Path
 from typing import Any, Optional, Self
 
@@ -74,12 +75,15 @@ class TopLevelConfig(BaseSettings):
         """Load config from YAML & CLI with validation."""
         parser = argparse.ArgumentParser(
             description=cls.__doc__,
-            epilog="""
-YAML files can include other YAML files using the !include tag,
-as in `data: !include configs/data/something.yaml`
-You can also replace any JSON argument listed above with a YAML file by
-specifying it with an @ symbol, eg `--some_param=@configs/data/something.yaml`.
-""",
+            epilog=textwrap.dedent(
+                """
+                YAML files can include other YAML files using the !include tag,
+                as in `data: !include configs/data/something.yaml`
+                You can also replace any JSON argument listed above with a YAML file by
+                specifying it with an @ symbol,
+                eg `--some_param=@configs/data/something.yaml`.
+                """
+            ),
         )
         parser.add_argument("config", type=str, help="Path to config YAML file")
 

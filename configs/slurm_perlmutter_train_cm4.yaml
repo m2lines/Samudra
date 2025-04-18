@@ -2,7 +2,7 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 120
+epochs: 5
 batch_size: 3
 learning_rate: 0.0001
 scheduler: true
@@ -45,9 +45,9 @@ experiment:
   rand_seed: 5
   base_output_dir: train
   gantry: false
-  cluster_data_dir: /pscratch/sd/s/suryad/data
+  cluster_data_dir: /global/homes/j/jrayshi/scratch/data
   wandb:
-    mode: online
+    mode: disable
     project: ocean-emulator
     entity: ai2cm
     group: samudra-train-2in2out
@@ -56,7 +56,7 @@ experiment:
   boundary_vars_key: tau_hfds
 
 data:
-  data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
+  data_path: cm4_piControl_ocean_200yr_full.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
   data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
   scaling_residuals_file: null
@@ -83,6 +83,7 @@ samudra:
   corrector:
     non_negative_corrector_names:
       - "so"
+    ocean_heat_corrector: false
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

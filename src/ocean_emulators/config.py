@@ -56,6 +56,8 @@ class BlockConfig:
 class CorrectorConfig:
     non_negative_corrector_names: Optional[List[str]] = None
     ocean_heat_corrector: bool = False
+    salinity_range_corrector: bool = False # JRS
+    zos_range_corrector: bool = False # JRS
 
 
 @dataclass

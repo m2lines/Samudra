@@ -130,6 +130,122 @@ class ReLUCorrector(BaseCorrector):
         return fts
 
 
+class SoRangeCorrector(BaseCorrector):
+    """
+    Applies salinity range correction to specified tensor channels. # JRS
+    """
+
+    def __init__(
+        self,
+        hist: int,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+    ):
+        super().__init__(hist, tensor_map, normalize)
+        self.so_idx = self.tensor_map.VAR_3D_IDX["so"]
+        self.clamp_maxs = torch.tensor([
+            0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 30, 30, 30, 30
+        ])
+        self.clamp_mins = torch.tensor([
+            72, 72, 72, 72, 50, 50, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 37, 37
+        ])
+
+        self.so_idx = self.so_idx.to(get_device())
+        self.clamp_maxs = self.clamp_maxs.to(get_device())
+        self.clamp_mins = self.clamp_mins.to(get_device())
+
+    def _apply_sorange_correction(self, fts: Tensor) -> Tensor:
+        """Applies torch.clamp to specified channels.
+
+        Args:
+            fts: tensor of shape (batch_size, channels, height, width)
+
+        Returns:
+            Corrected tensor of the same shape
+        """
+        unnormalized = self._unnormalize_fts_prognostic(fts)
+
+        unnormalized_clone = unnormalized.clone()
+
+        # Extract and process the specific indices
+        so_slices = unnormalized_clone[:, self.so_idx, :, :].clone()
+        new_so_slices = torch.empty_like(so_slices)   # this line seems very important
+
+        for i in range(len(self.so_idx)):
+            new_so_slices[:, i, :, :] = torch.clamp(
+                so_slices[:, i, :, :], min=self.clamp_mins[i], max=self.clamp_maxs[i]
+            )
+
+        # Reassign the corrected sections back into the main tensor
+        unnormalized_clone[:, self.so_idx, :, :] = new_so_slices        
+
+        return self._normalize_fts_prognostic(unnormalized_clone)
+
+    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+        """Applies correction to the input features if needed.
+
+        Args:
+            fts_input: Input tensor of shape (batch_size, hist*channels, height, width)
+            fts: Output tensor of shape (batch_size, hist*channels, height, width)
+
+        Returns:
+            Corrected output tensor of the same shape
+        """
+        if not torch.isnan(self.so_idx).all():
+            fts = self._flatten_hist(fts)
+            fts = self._apply_sorange_correction(fts)
+            fts = self._unflatten_hist(fts)
+        return fts
+
+class ZosRangeCorrector(BaseCorrector):
+    """
+    Applies salinity range correction to specified tensor channels. # JRS
+    """
+
+    def __init__(
+        self,
+        hist: int,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+    ):
+        super().__init__(hist, tensor_map, normalize)
+        self.zos_idx = self.tensor_map.VAR_3D_IDX["zos"]
+
+        self.zos_idx = self.zos_idx.to(get_device())
+
+    def _apply_zosrange_correction(self, fts: Tensor) -> Tensor:
+        """Applies torch.clamp to specified channels.
+
+        Args:
+            fts: tensor of shape (batch_size, channels, height, width)
+
+        Returns:
+            Corrected tensor of the same shape
+        """
+        unnormalized = self._unnormalize_fts_prognostic(fts)
+
+        unnormalized[:, self.zos_idx, :, :] = torch.clamp(
+            unnormalized[:, self.zos_idx, :, :], min=-2.1, max=2.5
+        )    
+
+        return self._normalize_fts_prognostic(unnormalized)
+
+    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+        """Applies correction to the input features if needed.
+
+        Args:
+            fts_input: Input tensor of shape (batch_size, hist*channels, height, width)
+            fts: Output tensor of shape (batch_size, hist*channels, height, width)
+
+        Returns:
+            Corrected output tensor of the same shape
+        """
+        if not torch.isnan(self.zos_idx).all():
+            fts = self._flatten_hist(fts)
+            fts = self._apply_zosrange_correction(fts)
+            fts = self._unflatten_hist(fts)
+        return fts
+
 def compute_ocean_heat_content(
     T: Tensor, dz: Tensor, area_weighted_func: Callable
 ) -> Tensor:
@@ -293,6 +409,30 @@ class Corrector(torch.nn.Module):
             correctors.append(
                 ReLUCorrector(
                     non_negative_corrector_names=config.non_negative_corrector_names,
+                    hist=hist,
+                    tensor_map=self.tensor_map,
+                    normalize=self.normalize,
+                )
+            )
+
+        if (
+            hasattr(config, "salinity_range_corrector")
+            and config.salinity_range_corrector
+        ):
+            correctors.append(
+                SoRangeCorrector(
+                    hist=hist,
+                    tensor_map=self.tensor_map,
+                    normalize=self.normalize,
+                )
+            )
+
+        if (
+            hasattr(config, "zos_range_corrector")
+            and config.zos_range_corrector
+        ):
+            correctors.append(
+                ZosRangeCorrector(
                     hist=hist,
                     tensor_map=self.tensor_map,
                     normalize=self.normalize,

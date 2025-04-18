@@ -86,7 +86,8 @@ def init_distributed_mode() -> DistributedConfig:
         cfg.dist_url = "env://"
     elif "SLURM_PROCID" in os.environ:
         cfg.rank = int(os.environ["SLURM_PROCID"])
-        tasks_per_node = int(os.environ["SLURM_NTASKS_PER_NODE"])
+        tasks_per_node = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))   # JRS tasks_per_node = int(os.environ["SLURM_NTASKS_PER_NODE"])
+        #tasks_per_node = int(os.environ["SLURM_NTASKS_PER_NODE"])
         n_nodes = int(os.environ["SLURM_NNODES"])
         cfg.world_size = tasks_per_node * n_nodes
         cfg.gpu = cfg.rank % torch.cuda.device_count()

@@ -20,6 +20,7 @@ cd Ocean_Emulator
 uv sync --dev
 source .venv/bin/activate
 uvx pre-commit install
+uvx pre-commit run --all-files # also creates config schemas for validation (see below)
 
 # dev
 uv run pytest -m "not manual and not cuda"
@@ -182,8 +183,8 @@ You can run `uv run -m ocean_emulators.eval --help` to see all the options avail
 Configuration is defined by config.py and values are stored in YAML files within the configs/
 directory. Configuration files can include other configuration files using the !include directive.
 
-Each configuration file is associated with a Pydantic model -- we generate JSON schemas
-for them with `uv run src/ocean_emulators/config_schema.py` (run automatically in pre-commit).
+Each configuration file is associated with a Pydantic model -- you can generate JSON schemas
+for them with `uv run src/ocean_emulators/config_schema.py` (which is run automatically in pre-commit).
 To associate a configuration file with a Pydantic model, generate the JSON schema (if it doesn't
 already exist) and then add this line to the top of the config file:
 

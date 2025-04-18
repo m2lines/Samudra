@@ -1,6 +1,6 @@
 import dataclasses
 import logging
-from typing import Any, Callable, Literal, Self
+from typing import Callable, Literal, Self
 
 import cftime
 import numpy as np
@@ -119,12 +119,15 @@ class DataSource:
         root = cfg.experiment.data_dir
 
         if "*" in cfg.data.data_path:
-            kwargs: dict[str, Any] = dict(
-                engine="netcdf4", chunks={"time": 1, "lat": 180, "lon": 360}
+            data = xr.open_dataset(
+                root / cfg.data.data_path,
+                engine="netcdf4",
+                chunks={"time": 1, "lat": 180, "lon": 360},
             )
         else:
-            kwargs = dict(chunks=chunks, consolidated=True)
-        data = xr.open_dataset(root / cfg.data.data_path, **kwargs)
+            data = xr.open_dataset(
+                root / cfg.data.data_path, chunks=chunks, consolidated=True
+            )
 
         means = xr.open_dataset(
             root / cfg.data.data_means_path,

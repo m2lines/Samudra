@@ -585,9 +585,7 @@ class TorchTrainDataset(Dataset):
         )
 
         # add in boundary to final input
-        boundary = self._boundary_src.normalize_tensor(
-            boundary, variable_axis=1
-        ).float()
+        boundary = self._boundary_src.norm_of(boundary, variable_axis=1).float()
 
         boundary = torch.where(self.wet_surface, boundary, 0.0)
         total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
@@ -600,7 +598,7 @@ class TorchTrainDataset(Dataset):
         self, prognostic_steps: Float[torch.Tensor, "step variable time lat lon"]
     ) -> Input:
         # normalize expects variables in third dimension
-        prognostic_steps = self._prognostic_src.normalize_tensor(
+        prognostic_steps = self._prognostic_src.norm_of(
             prognostic_steps, variable_axis=1
         ).float()
 

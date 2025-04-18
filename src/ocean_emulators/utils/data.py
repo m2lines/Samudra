@@ -89,7 +89,7 @@ class DataSource:
             norm = norm.fillna(fill_value)
         return norm
 
-    def normalize_tensor(
+    def norm_of(
         self,
         data: torch.Tensor,
         variable_axis: int = 0,

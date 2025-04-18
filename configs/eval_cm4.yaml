@@ -6,7 +6,6 @@ disk_mode: true
 inference_time:
   start: 311-01-01
   end: 351-01-01
-ckpt_path: /this/path/does/not/exist # Fill in script
 num_model_steps_forward: 370
 
 experiment:

@@ -14,19 +14,26 @@ from pydantic_settings import (
     YamlConfigSettingsSource,
 )
 
-# Set up yaml.safe_load to include other yaml files via !include
+
+def register_include_constructor():
+    """Set up yaml.safe_load to include other yaml files via !include."""
+
+    def include_constructor(loader: yaml.Loader, node: yaml.Node) -> Any:
+        if hasattr(loader.stream, "name"):
+            name = loader.stream.name  # type: ignore
+        else:
+            raise ValueError(
+                "To support includes, you must load a file object, not a string"
+            )
+        filename = os.path.normpath(os.path.join(os.path.dirname(name), node.value))
+        with open(filename, "r") as f:
+            return yaml.safe_load(f)
+
+    # This is arguably unsafe, but we don't parse untrusted YAML
+    yaml.loader.SafeLoader.add_constructor("!include", include_constructor)
 
 
-def include_constructor(loader, node):
-    filename = os.path.normpath(
-        os.path.join(os.path.dirname(loader.stream.name), node.value)
-    )
-    with open(filename, "r") as f:
-        return yaml.safe_load(f)
-
-
-# This is arguably unsafe, but we don't parse untrusted YAML
-yaml.loader.SafeLoader.add_constructor("!include", include_constructor)
+register_include_constructor()
 
 
 class BaseConfig(BaseModel):

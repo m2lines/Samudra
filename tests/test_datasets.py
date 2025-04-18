@@ -65,15 +65,15 @@ def make_loader(
         TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
-        val = validate_data(raw)
-        wet, wet_surface = extract_wet_mask(val.data, prognostic, cfg.data.hist)
+        src = validate_data(raw)
+        wet, wet_surface = extract_wet_mask(src.data, prognostic, cfg.data.hist)
 
         match version:
             case LoaderVersion.OM4_EAGER:
                 data: ConcatDataset | InferenceDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            src=val.slice(time_slice),
+                            src=src.slice(time_slice),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,
@@ -90,7 +90,7 @@ def make_loader(
                 data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            src=val.slice(time_slice),
+                            src=src.slice(time_slice),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
                             wet=wet,

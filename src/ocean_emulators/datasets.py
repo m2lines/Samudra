@@ -599,20 +599,15 @@ class TorchTrainDataset(Dataset):
     def _prep_prognostic_steps(
         self, prognostic_steps: Float[torch.Tensor, "step variable time lat lon"]
     ) -> Input:
-        prognostic_steps = rearrange(
-            prognostic_steps,
-            "step variable time lat lon -> step time variable lat lon",
-        )
-
         # normalize expects variables in third dimension
         prognostic_steps = self._prognostic_src.normalize_tensor(
-            prognostic_steps, variable_axis=2
+            prognostic_steps, variable_axis=1
         ).float()
 
         # flatten time and variable dimensions into a set of channels for model
         prognostic_steps = rearrange(
             prognostic_steps,
-            "step time variable lat lon -> step (time variable) lat lon",
+            "step variable time lat lon -> step (time variable) lat lon",
         )
 
         # post-normalize, mask out values where there is no ocean

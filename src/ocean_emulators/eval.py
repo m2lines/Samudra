@@ -1,12 +1,10 @@
 import argparse
 import datetime
 import logging
-import os
 import time
 from collections import OrderedDict
 
 import torch
-import xarray as xr
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
@@ -24,6 +22,7 @@ from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
+    DataSource,
     Normalize,
     extract_wet_mask,
     get_inference_steps,
@@ -99,28 +98,9 @@ class Eval:
         self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        if "*" in self.data_path:
-            data = xr.open_mfdataset(
-                os.path.join(self.data_dir, self.data_path),
-                engine="netcdf4",
-                chunks={"time": 1, "lat": 180, "lon": 360},
-            )
-        else:
-            data = xr.open_zarr(os.path.join(self.data_dir, self.data_path), chunks={})
-        data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path),
-            engine="netcdf4" if self.data_means_path.endswith(".nc") else "zarr",
-            chunks={},
-        )
-        data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path),
-            engine="netcdf4" if self.data_stds_path.endswith(".nc") else "zarr",
-            chunks={},
-        )
-
-        self.data, self.data_mean, self.data_std = validate_data(
-            data, data_mean, data_std
-        )
+        raw = DataSource.from_config(cfg, use_dask=True)
+        self.src = validate_data(raw)
+        self.data = self.src.data
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -133,8 +113,7 @@ class Eval:
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
-            data_mean=self.data_mean,
-            data_std=self.data_std,
+            self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=wet_without_hist_cpu,
@@ -208,9 +187,8 @@ class Eval:
             time_delta=self.time_delta,
             hist=self.hist,
         )
-        inference_data = self.data.sel(time=self.inference_time.time_slice)
         self.inference_dataset = InferenceDataset(
-            data=inference_data,
+            src=self.src.slice(self.inference_time),
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet=self.wet,

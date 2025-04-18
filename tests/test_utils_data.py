@@ -8,6 +8,7 @@ from scipy.stats import pearsonr
 
 from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
 from ocean_emulators.utils.data import (
+    DataSource,
     Normalize,
     compute_anomalies,
     extract_wet_mask,
@@ -117,7 +118,11 @@ def test_compute_anomalies():
     ds_std = ds.std().compute()
 
     # compute anomalies
-    anomalies, _, _ = compute_anomalies(ds, ds_mean, ds_std, ("thetao_0_anomalies",))
+
+    anom = compute_anomalies(
+        DataSource("test", ds, ds_mean, ds_std), ("thetao_0_anomalies",)
+    )
+    anomalies = anom.data
     anomalies_np = anomalies["thetao_0_anomalies"].to_numpy()
     anomalies_np_flat = anomalies_np[0][0]
 
@@ -148,13 +153,16 @@ def normalize_input():
         coords={"lat": [0], "lon": [0]},
     )
 
+    # Warning: the 'data' field is not used because this test tries to test
+    # normalization which only needs mean and std. Thus, we set it to `data_mean`.
+    test = DataSource("test", data_mean, data_mean, data_std)
+
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
     # Initialize Normalize instance
     with MultitonScope():
         normalize = Normalize.init_instance(
-            data_mean=data_mean,
-            data_std=data_std,
+            test,
             prognostic_var_names=["var_0", "var_1"],
             boundary_var_names=["var_2"],
             wet_mask=wet_mask,
@@ -232,12 +240,14 @@ def data_init(hist: int):
         )
         data_mean = data.mean() * 0.0
         data_std = data.std() * 0.0 + 1.0
-        data, data_mean, data_std = validate_data(data, data_mean, data_std)
-        wet_without_hist, _ = extract_wet_mask(data, tensor_map.prognostic_var_names, 0)
+        src = DataSource("test", data, data_mean, data_std)
+        val = validate_data(src)
+        wet_without_hist, _ = extract_wet_mask(
+            val.data, tensor_map.prognostic_var_names, 0
+        )
 
         normalize = Normalize.init_instance(
-            data_mean=data_mean,
-            data_std=data_std,
+            val,
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
             wet_mask=wet_without_hist,

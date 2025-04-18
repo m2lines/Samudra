@@ -548,18 +548,17 @@ class TorchTrainDataset(Dataset):
         x_index = xr.concat(x_indexes, dim="step")
 
         prognostic_all = torch.from_numpy(
-            self._prognostic_src.map_data(lambda ds: ds.isel(time=x_index))
-            .data.to_array()
+            self._prognostic_src.data.isel(time=x_index)
+            .to_array()
             .transpose(
                 "step", "variable", "time", "lat", "lon"
             )  # this should be a no-op, for documentation
             .to_numpy()
         )
         boundary = torch.from_numpy(
-            self._boundary_src.map_data(
-                lambda ds: ds.isel(time=x_index).isel(time=self.hist, drop=True)
-            )
-            .data.to_array()
+            self._boundary_src.data.isel(time=x_index)
+            .isel(time=self.hist, drop=True)
+            .to_array()
             .transpose("step", "variable", "lat", "lon")
             .to_numpy()
         )

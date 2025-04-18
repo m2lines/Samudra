@@ -176,19 +176,21 @@ class InferenceDataset(Dataset):
         )
         if self.normalize_pre_fill:
             data_in_ds = data_in_src.normalize()
+        else:
+            data_in_ds = data_in_src.get_data()
         data_in_np: np.ndarray = (
             data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
-        data_in_np = rearrange(
-            data_in_np,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
         data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
         data_in = torch.where(self.wet, data_in, self.nan_fill_value)
         if not self.normalize_pre_fill:
-            data_in = self._prognostic_src.normalize_with(data_in)
+            data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
+        data_in = rearrange(
+            data_in,
+            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
+        )
         return data_in
 
     def _get_boundary(self, x_index):
@@ -215,7 +217,9 @@ class InferenceDataset(Dataset):
             self.wet_surface, data_in_boundary, self.nan_fill_value
         )
         if not self.normalize_pre_fill:
-            data_in_boundary = self._boundary_src.normalize_with(data_in_boundary)
+            data_in_boundary = self._boundary_src.normalize_with(
+                data_in_boundary, variable_axis=1
+            )
         return data_in_boundary
 
     def _get_label(self, x_index):
@@ -231,14 +235,14 @@ class InferenceDataset(Dataset):
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
-        label_np = rearrange(
-            label_np,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
         label: torch.Tensor = torch.from_numpy(label_np).float()
         label = torch.where(self.wet, label, self.nan_fill_value)
         if not self.normalize_pre_fill:
-            label = self._prognostic_src.normalize_with(label)
+            label = self._prognostic_src.normalize_with(label, variable_axis=2)
+        label = rearrange(
+            label,
+            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
+        )
         return label
 
     def get_coords_dict(self):
@@ -437,15 +441,16 @@ class TrainDataset(Dataset):
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
+        data_in = torch.from_numpy(data_in).float()
+        data_in = torch.where(self.wet, data_in, self.nan_fill_value)
+        if not self.normalize_pre_fill:
+            data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
+
         data_in = rearrange(
             data_in,
             "window_dim time variable lat lon -> \
                 window_dim (time variable) lat lon",
         )
-        data_in = torch.from_numpy(data_in).float()
-        data_in = torch.where(self.wet, data_in, self.nan_fill_value)
-        if not self.normalize_pre_fill:
-            data_in = self._prognostic_src.normalize_with(data_in)
         return data_in
 
     def _get_boundary(self, x_index) -> Boundary:
@@ -473,7 +478,9 @@ class TrainDataset(Dataset):
             self.wet_surface, data_in_boundary, self.nan_fill_value
         )
         if not self.normalize_pre_fill:
-            data_in_boundary = self._boundary_src.normalize_with(data_in_boundary)
+            data_in_boundary = self._boundary_src.normalize_with(
+                data_in_boundary, variable_axis=1
+            )
         return data_in_boundary
 
     def _get_label(self, x_index) -> Prognostic:
@@ -490,15 +497,15 @@ class TrainDataset(Dataset):
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
+        label = torch.from_numpy(label).float()
+        label = torch.where(self.wet, label, self.nan_fill_value)
+        if not self.normalize_pre_fill:
+            label = label_src.normalize_with(label, variable_axis=2)
         label = rearrange(
             label,
             "window_dim time variable lat lon ->\
                 window_dim (time variable) lat lon",
         ).squeeze()
-        label = torch.from_numpy(label).float()
-        label = torch.where(self.wet, label, self.nan_fill_value)
-        if not self.normalize_pre_fill:
-            label = label_src.normalize_with(label)
         return label
 
 

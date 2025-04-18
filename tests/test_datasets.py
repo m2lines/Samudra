@@ -392,7 +392,12 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
 def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
     # Create data
     coords = {"time": range(10), "lat": range(2), "lon": range(2)}
-    data_array = torch.ones(4, 10, 2, 2)  # [vars, time, lat, lon]
+    times = torch.arange(10)
+    data_array = (
+        torch.repeat_interleave(times, torch.tensor([2 * 2 * 4]))
+        .reshape(10, 4, 2, 2)
+        .permute(1, 0, 2, 3)
+    )
 
     data = xr.Dataset(
         {
@@ -428,9 +433,9 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
     )
 
     test = DataSource("test", data, data_mean, data_std)
-    wet_surface = torch.ones(2, 2).bool()
-    wet_surface[0, 0] = False
-    wet_surface[1, 1] = False
+    wet_surface = torch.ones(2, 2)
+    wet_surface[0, 0] = 0.0
+    wet_surface[1, 1] = 0.0
     wet = wet_surface.expand(2, 2, 2)
 
     # Initialize and yield within the MultitonScope
@@ -447,7 +452,7 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             boundary_var_names=boundary_var_names,
             wet=wet,
             wet_surface=wet_surface,
-            hist=0,
+            hist=1,
             steps=2,
             normalize_pre_fill=normalize_pre_fill,
             nan_fill_value=nan_fill_value,
@@ -459,7 +464,7 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             boundary_var_names=boundary_var_names,
             wet=wet,
             wet_surface=wet_surface,
-            hist=0,
+            hist=1,
             normalize_pre_fill=normalize_pre_fill,
             nan_fill_value=nan_fill_value,
             long_rollout=True,
@@ -492,6 +497,16 @@ def test_train_dataset_normalize_pre_fill(
     td0 = traindataset[0]
 
     data = nan_fill_value
+
+    td0_step0_input = td0.get_input(0)
+    td0_step0_label = td0.get_label(0)
+    inf_step0_input, inf_step0_label = inference_dataset[0]
+
+    assert td0_step0_input.shape == (6, 2, 2)
+    assert td0_step0_label.shape == (4, 2, 2)
+    assert inf_step0_input.shape == (1, 6, 2, 2)
+    assert inf_step0_label.shape == (1, 4, 2, 2)
+
     if not normalize_pre_fill:
         mean = 0.5
         std = 1.0

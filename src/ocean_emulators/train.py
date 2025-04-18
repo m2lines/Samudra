@@ -9,7 +9,7 @@ import os
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Sequence, Union, assert_never
+from typing import Any, Callable, Sequence, assert_never
 
 import dask
 import numpy as np
@@ -362,9 +362,9 @@ class Trainer:
         self.init_inference_stores()
 
         # Add type annotations for samplers
-        self.train_sampler: Union[DistributedSampler, RandomSampler]
-        self.val_sampler: Union[DistributedSampler, RandomSampler]
-        self.inference_sampler: Union[DistributedSampler, RandomSampler]
+        self.train_sampler: DistributedSampler | RandomSampler
+        self.val_sampler: DistributedSampler | RandomSampler
+        self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
         self.train_loader: DataLoader

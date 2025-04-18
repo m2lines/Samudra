@@ -395,7 +395,7 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
 
 
 @pytest.fixture
-def traindataset_input():
+def traindataset_input(normalize_pre_fill: bool, nan_fill_value: float):
     # Create data
     coords = {"time": range(10), "lat": range(2), "lon": range(2)}
     data_array = torch.ones(4, 10, 2, 2)  # [vars, time, lat, lon]
@@ -416,10 +416,10 @@ def traindataset_input():
     # Create test data with mean and std
     data_mean = xr.Dataset(
         {
-            "prognostic1": 0.0,
-            "prognostic2": 0.0,
-            "boundary1": 0.0,
-            "boundary2": 0.0,
+            "prognostic1": 0.5,
+            "prognostic2": 0.5,
+            "boundary1": 0.5,
+            "boundary2": 0.5,
         },
         coords={"lat": [0], "lon": [0]},
     )
@@ -433,8 +433,10 @@ def traindataset_input():
         coords={"lat": [0], "lon": [0]},
     )
 
-    wet = torch.ones(2, 2, 2)
-    wet_surface = torch.ones(2, 2)
+    wet_surface = torch.ones(2, 2).bool()
+    wet_surface[0, 0] = False
+    wet_surface[1, 1] = False
+    wet = wet_surface.expand(2, 2, 2)
 
     # Initialize and yield within the MultitonScope
     with MultitonScope():
@@ -453,14 +455,18 @@ def traindataset_input():
             wet_surface=wet_surface,
             hist=0,
             steps=2,
-            normalize_pre_fill=True,
-            nan_fill_value=0.0,
+            normalize_pre_fill=normalize_pre_fill,
+            nan_fill_value=nan_fill_value,
             stride=1,
         )
         yield traindataset
 
 
-def test_train_dataset(traindataset_input):
+@pytest.mark.parametrize("normalize_pre_fill", [True])
+@pytest.mark.parametrize("nan_fill_value", [0.0])
+def test_train_dataset_no_input_change(
+    traindataset_input, normalize_pre_fill, nan_fill_value
+):
     traindataset = traindataset_input
     td = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
     pred = torch.randn_like(td.get_label(0)) * 0.1
@@ -470,6 +476,24 @@ def test_train_dataset(traindataset_input):
 
     td_new = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
     assert torch.equal(td_new.get_input(1), inp1)
+
+
+@pytest.mark.parametrize("normalize_pre_fill", [True, False])
+@pytest.mark.parametrize("nan_fill_value", [0.0, -1.0])
+def test_train_dataset_normalize_pre_fill(
+    traindataset_input, normalize_pre_fill, nan_fill_value
+):
+    traindataset = traindataset_input
+    td0 = traindataset[0]
+
+    data = nan_fill_value
+    if not normalize_pre_fill:
+        mean = 0.5
+        std = 1.0
+        data = (data - mean) / std
+        assert td0.get_input(0)[0, 0, 0] == data
+    else:
+        assert td0.get_input(0)[0, 0, 0] == data
 
 
 @pytest.mark.manual

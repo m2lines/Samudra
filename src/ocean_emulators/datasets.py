@@ -20,7 +20,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import Normalize
+from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.device import get_device, using_gpu
 
 
@@ -40,7 +40,7 @@ class InferenceDataset(Dataset):
 
     def __init__(
         self,
-        data,
+        src: DataSource,
         prognostic_var_names,
         boundary_var_names,
         wet,
@@ -54,8 +54,9 @@ class InferenceDataset(Dataset):
         self.hist = hist
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        self._prognostic_vars = data[prognostic_var_names]
-        self._boundary_vars = data[boundary_var_names]
+        data = src.data
+        self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
 
         time_indices = np.arange(data.time.size)
@@ -85,8 +86,8 @@ class InferenceDataset(Dataset):
                 )
             )
 
-        self.wet = wet.bool()
-        self.wet_surface = wet_surface.bool()
+        self.wet: torch.Tensor = wet.bool()
+        self.wet_surface: torch.Tensor = wet_surface.bool()
         self.size = len(self.rolling_indices)
 
         if using_gpu():
@@ -166,12 +167,10 @@ class InferenceDataset(Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
-        data_in_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
-            time=slice(None, self.hist + 1)
+        data_in_src = self._prognostic_src.map_data(
+            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
-        data_in_ds = Normalize.get_instance().normalize_prognostic(
-            data_in_ds
-        )  # TODO: Weird error when I get_instance in init
+        data_in_ds = data_in_src.normalize()
         data_in_np: np.ndarray = (
             data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -192,12 +191,10 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary_ds: xr.Dataset = self._boundary_vars.isel(time=x_index).isel(
-            time=self.hist
+        data_in_boundary_src = self._boundary_src.map_data(
+            lambda ds: ds.isel(time=x_index).isel(time=self.hist)
         )
-        data_in_boundary_ds = Normalize.get_instance().normalize_boundary(
-            data_in_boundary_ds
-        )
+        data_in_boundary_ds = data_in_boundary_src.normalize()
         data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -208,10 +205,10 @@ class InferenceDataset(Dataset):
         return data_in_boundary
 
     def _get_label(self, x_index):
-        label_ds: xr.Dataset = self._prognostic_vars.isel(time=x_index).isel(
-            time=slice(self.hist + 1, None)
+        label_src = self._prognostic_src.map_data(
+            lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         )
-        label_ds = Normalize.get_instance().normalize_prognostic(label_ds)
+        label_ds = label_src.normalize()
         label_np: np.ndarray = (
             label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -226,7 +223,9 @@ class InferenceDataset(Dataset):
         return label
 
     def get_coords_dict(self):
-        return {co: self._prognostic_vars[co] for co in self._prognostic_vars.coords}
+        return {
+            co: self._prognostic_src.data[co] for co in self._prognostic_src.data.coords
+        }
 
 
 class InferenceDatasets(Dataset):
@@ -305,7 +304,7 @@ class TrainDataset(Dataset):
 
     def __init__(
         self,
-        data: xr.Dataset,
+        src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet: PrognosticMask,
@@ -320,10 +319,16 @@ class TrainDataset(Dataset):
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
+        data = src.data
+        _prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        _boundary_src = src.filter(boundary_var_names, prefix="boundary")
+
+        # Normalize
+        logging.info("Normalizing inputs")
+        self._prognostic_vars = _prognostic_src.normalize()
+        self._boundary_vars = _boundary_src.normalize()
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
-        self._boundary_vars: xr.Dataset = data[boundary_var_names]
 
         # This class will be used only for training
         total_steps: int = 2 * self.hist + 2
@@ -355,14 +360,6 @@ class TrainDataset(Dataset):
         if using_gpu():
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
-
-        # Normalize
-        logging.info("Normalizing inputs")
-        self.normalize = Normalize.get_instance()
-        self._prognostic_vars = self.normalize.normalize_prognostic(
-            self._prognostic_vars
-        )
-        self._boundary_vars = self.normalize.normalize_boundary(self._boundary_vars)
 
     def __len__(self) -> int:
         return self.size
@@ -490,7 +487,7 @@ class TorchTrainDataset(Dataset):
 
     def __init__(
         self,
-        data: xr.Dataset,
+        src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet: PrognosticMask,
@@ -507,8 +504,9 @@ class TorchTrainDataset(Dataset):
         self.stride: int = stride
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
-        self._boundary_vars: xr.Dataset = data[boundary_var_names]
+        data = src.data
+        self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -550,7 +548,7 @@ class TorchTrainDataset(Dataset):
         x_index = xr.concat(x_indexes, dim="step")
 
         prognostic_all = torch.from_numpy(
-            self._prognostic_vars.isel(time=x_index)
+            self._prognostic_src.data.isel(time=x_index)
             .to_array()
             .transpose(
                 "step", "variable", "time", "lat", "lon"
@@ -558,7 +556,7 @@ class TorchTrainDataset(Dataset):
             .to_numpy()
         )
         boundary = torch.from_numpy(
-            self._boundary_vars.isel(time=x_index)
+            self._boundary_src.data.isel(time=x_index)
             .isel(time=self.hist, drop=True)
             .to_array()
             .transpose("step", "variable", "lat", "lon")
@@ -581,15 +579,14 @@ class TorchTrainDataset(Dataset):
         prognostic_all: Float[torch.Tensor, "step variable time lat lon"],
         boundary: Float[torch.Tensor, "step variable lat lon"],
     ) -> tuple[Input, Prognostic]:
-        normalize = Normalize.get_instance()
-
         # grab past steps and prep for model
         input_ = self._prep_prognostic_steps(
             prognostic_all[:, :, : self.hist + 1, :, :]
         )
 
         # add in boundary to final input
-        boundary = normalize.normalize_tensor_boundary(boundary).float()
+        boundary = self._boundary_src.normalize_with(boundary, variable_axis=1).float()
+
         boundary = torch.where(self.wet_surface, boundary, 0.0)
         total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
 
@@ -600,24 +597,15 @@ class TorchTrainDataset(Dataset):
     def _prep_prognostic_steps(
         self, prognostic_steps: Float[torch.Tensor, "step variable time lat lon"]
     ) -> Input:
-        normalize = Normalize.get_instance()
-        # Time needs to be before step for normalization to work (even though it would
-        # make more sense for `step` to the be first dimension). Don't worry: we fix
-        # this later.
-        prognostic_steps = rearrange(
-            prognostic_steps,
-            "step variable time lat lon -> time step variable lat lon",
-        )
-
         # normalize expects variables in third dimension
-        prognostic_steps = normalize.normalize_tensor_prognostic(
-            prognostic_steps
+        prognostic_steps = self._prognostic_src.normalize_with(
+            prognostic_steps, variable_axis=1
         ).float()
 
         # flatten time and variable dimensions into a set of channels for model
         prognostic_steps = rearrange(
             prognostic_steps,
-            "time step variable lat lon -> step (time variable) lat lon",
+            "step variable time lat lon -> step (time variable) lat lon",
         )
 
         # post-normalize, mask out values where there is no ocean

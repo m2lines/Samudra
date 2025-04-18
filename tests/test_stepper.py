@@ -6,7 +6,12 @@ import xarray as xr
 from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.utils.data import Normalize, extract_wet_mask, validate_data
+from ocean_emulators.utils.data import (
+    DataSource,
+    Normalize,
+    extract_wet_mask,
+    validate_data,
+)
 from ocean_emulators.utils.multiton import MultitonScope
 
 
@@ -56,21 +61,25 @@ def inf_data_init(hist: int):
                 "lon": np.arange(lons),
             },
         )
-        data_mean = data.mean() * 0.0
-        data_std = data.std() * 0.0 + 1.0
-        data, data_mean, data_std = validate_data(data, data_mean, data_std)
-        wet, wet_surface = extract_wet_mask(data, tensor_map.prognostic_var_names, hist)
-        wet_without_hist, _ = extract_wet_mask(data, tensor_map.prognostic_var_names, 0)
+        data_mean: xr.Dataset = data.mean() * 0.0
+        data_std: xr.Dataset = data.std() * 0.0 + 1.0
+        test_data = DataSource("test-data", data, data_mean, data_std)
+        val = validate_data(test_data)
+        wet, wet_surface = extract_wet_mask(
+            val.data, tensor_map.prognostic_var_names, hist
+        )
+        wet_without_hist, _ = extract_wet_mask(
+            val.data, tensor_map.prognostic_var_names, 0
+        )
 
         _ = Normalize.init_instance(
-            data_mean=data_mean,
-            data_std=data_std,
+            val,
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
             wet_mask=wet_without_hist,
         )
         inference_dataset = InferenceDataset(
-            data,
+            val,
             tensor_map.prognostic_var_names,
             tensor_map.boundary_var_names,
             wet,

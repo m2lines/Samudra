@@ -1,5 +1,6 @@
+import dataclasses
 import logging
-from typing import Literal
+from typing import Callable, Literal, Self
 
 import cftime
 import numpy as np
@@ -7,7 +8,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from ocean_emulators.config import TimeConfig
+from ocean_emulators.config import EvalConfig, TimeConfig, TrainConfig
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
@@ -25,6 +26,128 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.utils.multiton import Multiton
+
+
+@dataclasses.dataclass
+class DataSource:
+    """Data source for the model."""
+
+    name: str
+    data: xr.Dataset
+    means: xr.Dataset
+    stds: xr.Dataset
+
+    def filter(
+        self,
+        var_names: PrognosticVarNames | BoundaryVarNames,
+        *,
+        prefix: str,
+    ) -> Self:
+        """Filter the data source to only include the specified variables."""
+        data = self.data[var_names]
+        means = self.means[var_names]
+        stds = self.stds[var_names]
+
+        return dataclasses.replace(
+            self, name=f"{prefix}[{self.name}]", data=data, means=means, stds=stds
+        )
+
+    def map(
+        self,
+        func: Callable[
+            [xr.Dataset, xr.Dataset, xr.Dataset],
+            tuple[xr.Dataset, xr.Dataset, xr.Dataset],
+        ],
+        *,
+        suffix: str,
+    ) -> Self:
+        """Map the function over the data source."""
+        data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
+
+        return dataclasses.replace(
+            self, name=f"{self.name}_{suffix}", data=data, means=means, stds=stds
+        )
+
+    def map_data(
+        self, func: Callable[[xr.Dataset], xr.Dataset], *, suffix: str | None = None
+    ) -> Self:
+        """Map the function over just data in DataSource."""
+        if suffix is None:
+            suffix = func.__qualname__
+        data = func(self.data.copy())
+        return dataclasses.replace(self, name=f"{self.name}_{suffix}", data=data)
+
+    def slice(self, time: TimeConfig) -> Self:
+        """Slice the data source to only include the specified time slice."""
+        data = self.data.sel(time=time.time_slice)
+        return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
+
+    def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
+        """Normalize input data."""
+        norm = (self.data - self.means) / self.stds
+        if fill_nan:
+            norm = norm.fillna(fill_value)
+        return norm
+
+    def normalize_with(
+        self,
+        data: torch.Tensor,
+        variable_axis: int = 0,
+        fill_nan=True,
+        fill_value=0.0,
+    ) -> torch.Tensor:
+        """Normalize input data treated as torch Tensors."""
+        reshape_vars = [1] * data.ndim
+        reshape_vars[variable_axis] = -1
+
+        # TODO(alxmrs): Do we have to reshape twice?
+        means_np = self.means.to_array().to_numpy().reshape(-1)
+        stds_np = self.stds.to_array().to_numpy().reshape(-1)
+        means = torch.from_numpy(means_np).reshape(reshape_vars)
+        stds = torch.from_numpy(stds_np).reshape(reshape_vars)
+
+        norm = (data - means) / stds
+        if fill_nan:
+            norm = norm.nan_to_num(nan=fill_value)
+        norm = norm.to(data.dtype)
+        return norm
+
+    @classmethod
+    def from_config(cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool) -> Self:
+        chunks: dict[str, int] | None = {} if use_dask else None
+
+        root = cfg.experiment.data_dir
+
+        if "*" in cfg.data.data_path:
+            data = xr.open_dataset(
+                root / cfg.data.data_path,
+                engine="netcdf4",
+                chunks={"time": 1, "lat": 180, "lon": 360},
+            )
+        else:
+            data = xr.open_dataset(
+                root / cfg.data.data_path, chunks=chunks, consolidated=True
+            )
+
+        means = xr.open_dataset(
+            root / cfg.data.data_means_path,
+            engine="netcdf4" if cfg.data.data_means_path.endswith(".nc") else "zarr",
+            chunks=chunks,
+        )
+        stds = xr.open_dataset(
+            root / cfg.data.data_stds_path,
+            engine="netcdf4" if cfg.data.data_stds_path.endswith(".nc") else "zarr",
+            chunks=chunks,
+        )
+
+        dask = "with_dask" if use_dask else "without_dask"
+
+        return cls(
+            name=f"{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
+            data=data,
+            means=means,
+            stds=stds,
+        )
 
 
 def extract_wet_mask(
@@ -186,33 +309,29 @@ def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:
 
 
 def compute_anomalies(
-    data: xr.Dataset,
-    data_mean: xr.Dataset,
-    data_std: xr.Dataset,
-    anomalies_vars: tuple[str, ...],
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
-    """
-    Compute anomalies for the given variables.
-    """
-    data_copy = data.copy()
-    data_mean_copy = data_mean.copy()
-    data_std_copy = data_std.copy()
-    for var in anomalies_vars:
-        base_var = var.replace("_anomalies", "")
-        if var not in data_copy.variables and base_var in data_copy.variables:
-            logging.info(f"Computing anomalies for {base_var}")
-            climatology = (
-                data_copy[base_var].groupby("time.dayofyear").mean("time").compute()
-            )
-            # Remove the seasonal cycle (climatology) from the detrended data
-            day_of_year = data_copy[base_var]["time"].dt.dayofyear
-            data_copy[var] = (
-                data_copy[base_var] - climatology.sel(dayofyear=day_of_year)
-            ).compute()
-            data_copy = data_copy.drop(["dayofyear"])
-            data_mean_copy[var] = data_copy[var].mean().compute()
-            data_std_copy[var] = data_copy[var].std().compute()
-    return data_copy, data_mean_copy, data_std_copy
+    data_src: DataSource, anomalies_vars: tuple[str, ...]
+) -> DataSource:
+    """Compute anomalies for the given variables."""
+
+    def _anom(data, means, stds):
+        for var in anomalies_vars:
+            base_var = var.replace("_anomalies", "")
+            if var not in data.variables and base_var in data.variables:
+                logging.info(f"Computing anomalies for {base_var}")
+                climatology = (
+                    data[base_var].groupby("time.dayofyear").mean("time").compute()
+                )
+                # Remove the seasonal cycle (climatology) from the detrended data
+                day_of_year = data[base_var]["time"].dt.dayofyear
+                data[var] = (
+                    data[base_var] - climatology.sel(dayofyear=day_of_year)
+                ).compute()
+                data = data.drop(["dayofyear"])
+                means[var] = data[var].mean().compute()
+                stds[var] = data[var].std().compute()
+        return data, means, stds
+
+    return data_src.map(_anom, suffix="anomalies")
 
 
 def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
@@ -249,52 +368,49 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-def validate_data(
-    data: xr.Dataset,
-    data_mean: xr.Dataset,
-    data_std: xr.Dataset,
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
-    """
-    Validate the data such that we have the correct format for training.
-    """
-    data_copy = (
-        data.copy()
-        .pipe(flatten_masks)
-        .pipe(with_level_index_vars)
-        .pipe(with_lat_lon_coords)
-    )
+def validate_data(src: DataSource) -> DataSource:
+    """Validate the data such that we have the correct format for training."""
 
-    # Check if data variables are in the right format
-    # This check is to ensure we convert data to the correct format
-    data_mean_copy = with_level_index_vars(data_mean.copy())
-    data_std_copy = with_level_index_vars(data_std.copy())
+    def _rename(data, means, stds):
+        data = (
+            data.pipe(flatten_masks)
+            .pipe(with_level_index_vars)
+            .pipe(with_lat_lon_coords)
+        )
+
+        # Check if data variables are in the right format
+        # This check is to ensure we convert data to the correct format
+        means = with_level_index_vars(means)
+        stds = with_level_index_vars(stds)
+        return data, means, stds
+
+    src_ = src.map(_rename, suffix="validated")
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()
     anomalies_vars = get_anomalies_vars(tensor_map.boundary_var_names)
-    if anomalies_vars:
-        data_copy, data_mean_copy, data_std_copy = compute_anomalies(
-            data_copy, data_mean_copy, data_std_copy, anomalies_vars
-        )
 
-    return data_copy, data_mean_copy, data_std_copy
+    out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
+
+    return out
 
 
 # TODO: Repetitive code. Refactor
 class Normalize(Multiton):
     def _initialize(
         self,
-        data_mean: xr.Dataset,
-        data_std: xr.Dataset,
+        src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
-        self.prognostic_mean = data_mean[prognostic_var_names]
-        self.prognostic_std = data_std[prognostic_var_names]
-        self.boundary_mean = data_mean[boundary_var_names]
-        self.boundary_std = data_std[boundary_var_names]
+        prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
+        boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.prognostic_mean = prognostic_src.means
+        self.prognostic_std = prognostic_src.stds
+        self.boundary_mean = boundary_src.means
+        self.boundary_std = boundary_src.stds
         self.wet_mask = wet_mask
 
         # Pre-compute numpy arrays for faster access
@@ -309,24 +425,6 @@ class Normalize(Multiton):
     def _to_tensor(self, array: np.ndarray, device: torch.device) -> torch.Tensor:
         """Convert numpy array to tensor on specified device."""
         return torch.from_numpy(array).to(device)
-
-    def normalize_prognostic(
-        self, data: xr.Dataset, fill_nan=True, fill_value=0.0
-    ) -> xr.Dataset:
-        """Normalize input dataset."""
-        norm = (data - self.prognostic_mean) / self.prognostic_std
-        if fill_nan:
-            norm = norm.fillna(fill_value)
-        return norm
-
-    def normalize_boundary(
-        self, data: xr.Dataset, fill_nan=True, fill_value=0.0
-    ) -> xr.Dataset:
-        """Normalize boundary conditions."""
-        norm = (data - self.boundary_mean) / self.boundary_std
-        if fill_nan:
-            norm = norm.fillna(fill_value)
-        return norm
 
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
@@ -369,25 +467,3 @@ class Normalize(Multiton):
         unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
         unnorm = unnorm.to(data.dtype)
         return unnorm
-
-    def normalize_tensor_boundary(
-        self, data: torch.Tensor, fill_nan=True, fill_value=0.0
-    ) -> torch.Tensor:
-        """Normalize boundary tensor."""
-        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device)
-        tensor_std = self._to_tensor(self._boundary_std_np, data.device)
-
-        if data.ndim == 3:
-            tensor_mean = tensor_mean.reshape([-1, 1, 1])
-            tensor_std = tensor_std.reshape([-1, 1, 1])
-        elif data.ndim == 4:
-            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, -1, 1, 1])
-        else:
-            raise ValueError(f"Invalid data shape: {data.shape}")
-
-        norm = (data - tensor_mean) / tensor_std
-        if fill_nan:
-            norm = norm.nan_to_num(nan=fill_value)
-        norm = norm.to(data.dtype)
-        return norm

@@ -49,6 +49,7 @@ from ocean_emulators.datasets import (
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
+    DataSource,
     Normalize,
     extract_wet_mask,
     get_inference_steps,
@@ -156,43 +157,12 @@ class Trainer:
         logger.info(f"Loading data")
         self.loader_version = LoaderVersion(cfg.data.loader_version)
         self.data_dir = cfg.experiment.data_dir
-        self.data_path = cfg.data.data_path
-        self.data_means_path = cfg.data.data_means_path
-        self.data_stds_path = cfg.data.data_stds_path
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
-        self.use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
-        if self.use_dask:
-            chunks: dict[str, int] | None = {}
-        else:
-            chunks = None
-
-        if "*" in self.data_path:
-            data = xr.open_mfdataset(
-                os.path.join(self.data_dir, self.data_path),
-                engine="netcdf4",
-                chunks={"time": 1, "lat": 180, "lon": 360},
-            )
-        else:
-            data = xr.open_zarr(
-                os.path.join(self.data_dir, self.data_path),
-                chunks=chunks,
-                consolidated=True,
-            )
-        data_mean = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_means_path),
-            engine="netcdf4" if self.data_means_path.endswith(".nc") else "zarr",
-            chunks=chunks,
-        )
-        data_std = xr.open_dataset(
-            os.path.join(self.data_dir, self.data_stds_path),
-            engine="netcdf4" if self.data_stds_path.endswith(".nc") else "zarr",
-            chunks=chunks,
-        )
-
-        self.data, self.data_mean, self.data_std = validate_data(
-            data, data_mean, data_std
-        )
+        use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+        raw = DataSource.from_config(cfg, use_dask=use_dask)
+        self.src = validate_data(raw)
+        self.data = self.src.data
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -206,8 +176,7 @@ class Trainer:
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
-            data_mean=self.data_mean,
-            data_std=self.data_std,
+            self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=wet_without_hist_cpu,
@@ -266,7 +235,7 @@ class Trainer:
             )
             scale = torch.from_numpy(
                 (
-                    self.data_std[self.prognostic_var_names]
+                    self.src.stds[self.prognostic_var_names]
                     / scaling_residuals[self.prognostic_var_names]
                 )
                 .compute()
@@ -390,9 +359,8 @@ class Trainer:
                 time_delta=self.time_delta,
                 hist=self.hist,
             )
-            inference_data = self.data.sel(time=self.inference_times[i].time_slice)
             inference_dataset = InferenceDataset(
-                data=inference_data,
+                src=self.src.slice(self.inference_times[i]),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 wet=self.wet,
@@ -661,7 +629,7 @@ class Trainer:
                 train_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=self.data.sel(time=self.train_times.time_slice),
+                            src=self.src.slice(self.train_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -677,7 +645,7 @@ class Trainer:
                 val_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
-                            data=self.data.sel(time=self.val_times.time_slice),
+                            src=self.src.slice(self.val_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -693,7 +661,7 @@ class Trainer:
                 train_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=self.data.sel(time=self.train_times.time_slice),
+                            src=self.src.slice(self.train_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,
@@ -709,7 +677,7 @@ class Trainer:
                 val_data = ConcatDataset(
                     [
                         TorchTrainDataset(
-                            data=self.data.sel(time=self.val_times.time_slice),
+                            src=self.src.slice(self.val_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
                             wet=self.wet,

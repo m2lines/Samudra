@@ -32,5 +32,5 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 # Run the training script
 srun --cpu-bind=cores \
      python src/ocean_emulators/train.py \
-     --config configs/slurm_perlmutter_train_om4.yaml \
-     --subname $SLURM_JOB_NAME
+     configs/slurm_perlmutter_train_om4.yaml \
+     --experiment.sub_name $SLURM_JOB_NAME

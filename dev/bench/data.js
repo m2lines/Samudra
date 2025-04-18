@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744846511105,
+  "lastUpdate": 1745012615773,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -392,6 +392,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.23283552297793952",
             "extra": "mean: 135.80112478659993 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0ac9469629781b19963f3eefea74a95a4fa3e8ed",
+          "message": "Introducing `DataSource` to train and eval scripts. (#211)\n\nThis makes progress towards #190. Specifically, this PR argues that the\nthree Xarray datasets (data, means, stds) are actually part of the same\nconcern, one that is fundamentally related to normalization. I\nanticipate that this affordance will make it easier to modify core\naspects to the data loader in the future. In particular, the addition of\nthe `DataSource.filter()` method should provide a single entry point to\nadd data compaction support -- see #215 (initially prototyped in #175).\nIn addition, this change should make #208 trivial to implement.\n\nFixes #218.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-04-18T14:00:47-07:00",
+          "tree_id": "387a1a355aad9cb9c67d2f63ec35b7c33a8cf5bc",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/0ac9469629781b19963f3eefea74a95a4fa3e8ed"
+        },
+        "date": 1745012614640,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.1684152124770462,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23706041890408053",
+            "extra": "mean: 5.937705895399995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.05149057677845876,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9274375337423029",
+            "extra": "mean: 19.4210292944 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.13255156751016528,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06633189442387215",
+            "extra": "mean: 7.544233680399975 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.0073484602579212185,
+            "unit": "iter/sec",
+            "range": "stddev: 1.8171510364044732",
+            "extra": "mean: 136.08292960720001 sec\nrounds: 5"
           }
         ]
       }

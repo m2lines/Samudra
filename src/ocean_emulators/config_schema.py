@@ -3,7 +3,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Type
+from typing import Type
 
 import pydantic
 import yaml
@@ -13,8 +13,8 @@ from ocean_emulators.config import EvalConfig, TrainConfig
 
 def get_pydantic_models(
     model: Type[pydantic.BaseModel],
-    seen: Optional[Dict[str, Type[pydantic.BaseModel]]] = None,
-) -> Dict[str, Type[pydantic.BaseModel]]:
+    seen: dict[str, Type[pydantic.BaseModel]] | None = None,
+) -> dict[str, Type[pydantic.BaseModel]]:
     """Recursively find all Pydantic models in a model's fields.
 
     Args:
@@ -43,7 +43,7 @@ def get_pydantic_models(
 
 def generate_schemas(
     output_dir: Path,
-    models: Dict[str, Type[pydantic.BaseModel]],
+    models: dict[str, Type[pydantic.BaseModel]],
 ) -> None:
     """Generate JSON schemas for all Pydantic models and save them to output_dir.
 
@@ -70,9 +70,9 @@ def generate_schemas(
             print(f"🆕 Updated schema for {model_name} at {output_path}")
 
 
-def validate_schemas(
+def validate_config_files(
     config_dir: Path,
-    models: Dict[str, Type[pydantic.BaseModel]],
+    models: dict[str, Type[pydantic.BaseModel]],
 ) -> bool:
     """Validate YAML configuration files against their Pydantic models.
 
@@ -112,7 +112,7 @@ def validate_schemas(
                 models[schema_name].model_validate(config)
                 print(f"✅ {yaml_file} is a valid {schema_name}")
         except Exception as e:
-            print(f"✗ {yaml_file} is an invalid {schema_name}: {str(e)}")
+            print(f"❌ {yaml_file} is an invalid {schema_name}: {str(e)}")
             valid = False
 
     return valid
@@ -120,7 +120,7 @@ def validate_schemas(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate JSON schemas from Pydantic models"
+        description="Generate JSON schemas and validate config files"
     )
     parser.add_argument(
         "--output-dir",
@@ -132,7 +132,7 @@ def main():
         "--validate-dir",
         type=Path,
         default=Path("configs"),
-        help="Directory validate the schemas against",
+        help="Directory of config files to validate",
     )
 
     args = parser.parse_args()
@@ -143,9 +143,8 @@ def main():
 
     generate_schemas(args.output_dir, models)
 
-    if args.validate_dir:
-        if not validate_schemas(args.validate_dir, models):
-            sys.exit(1)
+    if not validate_config_files(args.validate_dir, models):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

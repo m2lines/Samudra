@@ -15,6 +15,7 @@ from typing_extensions import Self
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -22,16 +23,6 @@ DEFAULT_CONFIG = "train_default.test.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "train_default_2step.test.yaml"]
 
 TrainPair = tuple[TrainConfig, Trainer]
-
-
-@dataclasses.dataclass
-class DataSource:
-    """In-memory `xarray.Dataset`s needed for tests."""
-
-    name: str
-    data: xr.Dataset
-    means: xr.Dataset
-    stds: xr.Dataset
 
 
 @dataclasses.dataclass

@@ -130,7 +130,10 @@ class DataSource:
             )
         else:
             data = xr.open_dataset(
-                root / cfg.data.data_path, chunks=chunks, consolidated=True
+                root / cfg.data.data_path,
+                chunks=chunks,
+                consolidated=True,
+                engine="zarr",
             )
 
         means = xr.open_dataset(

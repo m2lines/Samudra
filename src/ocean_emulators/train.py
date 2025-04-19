@@ -162,13 +162,13 @@ class Trainer:
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)
         self.src = validate_data(raw)
-        self.data = self.src.data
+        self.data = self.src.get_data()
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
         )
-        wet_without_hist_cpu, _ = extract_wet_mask(
+        self.wet_without_hist_cpu, _ = extract_wet_mask(
             self.data, self.prognostic_var_names, 0
         )
         self.area_weights: Grid = spherical_area_weights(self.data)
@@ -179,9 +179,9 @@ class Trainer:
             self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=wet_without_hist_cpu,
+            wet_mask=self.wet_without_hist_cpu,
         )
-        self.wet_without_hist = wet_without_hist_cpu.to(self.device)
+        self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
@@ -365,7 +365,7 @@ class Trainer:
                 src=self.src.slice(self.inference_times[i]),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                wet=self.wet,
+                wet=self.wet_without_hist_cpu,
                 wet_surface=self.wet_surface,
                 hist=self.hist,
                 normalize_pre_fill=self.normalize_pre_fill,
@@ -636,7 +636,7 @@ class Trainer:
                             src=self.src.slice(self.train_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
-                            wet=self.wet,
+                            wet=self.wet_without_hist_cpu,
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=cur_step,
@@ -654,7 +654,7 @@ class Trainer:
                             src=self.src.slice(self.val_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
-                            wet=self.wet,
+                            wet=self.wet_without_hist_cpu,
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=1,  # current_step set to 1 for validation
@@ -672,7 +672,7 @@ class Trainer:
                             src=self.src.slice(self.train_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
-                            wet=self.wet,
+                            wet=self.wet_without_hist_cpu,
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=cur_step,
@@ -690,7 +690,7 @@ class Trainer:
                             src=self.src.slice(self.val_times),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
-                            wet=self.wet,
+                            wet=self.wet_without_hist_cpu,
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=1,  # current_step set to 1 for validation

@@ -66,7 +66,7 @@ def make_loader(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
         src = validate_data(raw)
-        wet, wet_surface = extract_wet_mask(src.data, prognostic, cfg.data.hist)
+        wet, wet_surface = extract_wet_mask(src.get_data(), prognostic, cfg.data.hist)
         normalize_pre_fill = cfg.data.normalize_pre_fill
         nan_fill_value = cfg.data.nan_fill_value
 

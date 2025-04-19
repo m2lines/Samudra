@@ -56,7 +56,7 @@ class InferenceDataset(Dataset):
         self.hist = hist
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        data = src.data
+        data = src.get_data()
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
@@ -346,7 +346,7 @@ class TrainDataset(Dataset):
         self.stride: int = stride
         self.normalize_pre_fill: bool = normalize_pre_fill
         self.nan_fill_value: float = nan_fill_value
-        data = src.data
+        data = src.get_data()
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
@@ -554,7 +554,7 @@ class TorchTrainDataset(Dataset):
         self.nan_fill_value: float = nan_fill_value
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        data = src.data
+        data = src.get_data()
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 

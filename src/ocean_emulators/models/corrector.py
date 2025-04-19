@@ -163,7 +163,7 @@ def compute_expected_heat_content_change(
 ) -> Tensor:
     # Expected change in heat content from surface flux
     dHC_expected = (
-        area_weighted_func(surface_heat_flux * sea_surface_fraction_tensor)
+        area_weighted_func(surface_heat_flux * sea_surface_fraction_tensor * 0.8)
         * SECONDS_PER_5DAY
     )  # [J]
 

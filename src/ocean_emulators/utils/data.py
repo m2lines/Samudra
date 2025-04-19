@@ -299,6 +299,7 @@ def validate_data(
     Validate the data such that we have the correct format for training.
     """
     data_copy = data.copy()
+    data_copy["hfds"] = data_copy["hfds"] + 0.13
     if static_data_vars:
         data_copy = static_data_checks(data_copy, static_data_vars)
     data_copy = (

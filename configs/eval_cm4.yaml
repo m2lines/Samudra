@@ -2,10 +2,10 @@ debug: true
 save_zarr: true
 disk_mode: true
 inference:
-  start_time: 311-01-01
-  end_time: 351-01-01
+  start_time: "0311-01-01"
+  end_time: "0351-01-01"
 ckpt_path: /this/path/does/not/exist # Fill in script
-num_model_steps_forward: 370
+num_model_steps_forward: 200
 
 experiment:
   base_name: eval
@@ -18,7 +18,7 @@ experiment:
     mode: online
     project: ocean-emulator
     entity: ai2cm
-    group: samudra-inference-2in2out
+    group: samudra-train-2in2out-ohc-corrector
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
@@ -30,6 +30,9 @@ data:
   scaling_residuals_file: null
   num_workers: 4
   hist: 1
+  static_data_vars:
+    - sea_surface_fraction
+    - hfgeou
 
 
 samudra:
@@ -46,11 +49,12 @@ samudra:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 4
-    norm: "batch"
+    norm: "instance"
 
   corrector:
     non_negative_corrector_names:
       - "so"
+    ocean_heat_corrector: true
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

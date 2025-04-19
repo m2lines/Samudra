@@ -601,7 +601,7 @@ class TorchTrainDataset(Dataset):
             self._prognostic_src.data.isel(time=x_index)
             .to_array()
             .transpose(
-                "step", "variable", "time", "lat", "lon"
+                "step", "time", "variable", "lat", "lon"
             )  # this should be a no-op, for documentation
             .to_numpy()
         )
@@ -626,12 +626,12 @@ class TorchTrainDataset(Dataset):
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        prognostic_all: Float[torch.Tensor, "step variable time lat lon"],
+        prognostic_all: Float[torch.Tensor, "step time variable lat lon"],
         boundary: Float[torch.Tensor, "step variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         # grab past steps and prep for model
         input_ = self._prep_prognostic_steps(
-            prognostic_all[:, :, : self.hist + 1, :, :]
+            prognostic_all[:, : self.hist + 1, :, :, :]
         )
 
         # add in boundary to final input
@@ -646,33 +646,32 @@ class TorchTrainDataset(Dataset):
             ).float()
 
         total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
-
         # grab future steps, repeat as we do for input
-        label = self._prep_prognostic_steps(prognostic_all[:, :, self.hist + 1 :, :, :])
+        label = self._prep_prognostic_steps(prognostic_all[:, self.hist + 1 :, :, :, :])
         return total_input, label
 
     def _prep_prognostic_steps(
-        self, prognostic_steps: Float[torch.Tensor, "step variable time lat lon"]
+        self, prognostic_steps: Float[torch.Tensor, "step time variable lat lon"]
     ) -> Input:
         # normalize expects variables in third dimension
         if self.normalize_pre_fill:
             prognostic_steps = self._prognostic_src.normalize_with(
-                prognostic_steps, variable_axis=1
+                prognostic_steps, variable_axis=2
             ).float()
-
-        # flatten time and variable dimensions into a set of channels for model
-        prognostic_steps = rearrange(
-            prognostic_steps,
-            "step variable time lat lon -> step (time variable) lat lon",
-        )
 
         # post-normalize, mask out values where there is no ocean
         prognostic_steps = torch.where(self.wet, prognostic_steps, self.nan_fill_value)
 
         if not self.normalize_pre_fill:
             prognostic_steps = self._prognostic_src.normalize_with(
-                prognostic_steps, variable_axis=1
+                prognostic_steps, variable_axis=2
             ).float()
+
+        # flatten time and variable dimensions into a set of channels for model
+        prognostic_steps = rearrange(
+            prognostic_steps,
+            "step time variable lat lon -> step (time variable) lat lon",
+        )
         return prognostic_steps
 
     def _get_x_index(self, idx: int, step: int) -> xr.DataArray:

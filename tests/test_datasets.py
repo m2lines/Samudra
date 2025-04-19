@@ -67,6 +67,7 @@ def make_loader(
         )
         src = validate_data(raw)
         wet, wet_surface = extract_wet_mask(src.get_data(), prognostic, cfg.data.hist)
+        wet_without_hist, _ = extract_wet_mask(src.get_data(), prognostic, 0)
         normalize_pre_fill = cfg.data.normalize_pre_fill
         nan_fill_value = cfg.data.nan_fill_value
 
@@ -78,7 +79,7 @@ def make_loader(
                             src=src.slice(time_config),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
-                            wet=wet,
+                            wet=wet_without_hist,
                             wet_surface=wet_surface,
                             hist=cfg.data.hist,
                             steps=cfg.steps[0],
@@ -97,7 +98,7 @@ def make_loader(
                             src=src.slice(time_config),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
-                            wet=wet,
+                            wet=wet_without_hist,
                             wet_surface=wet_surface,
                             hist=cfg.data.hist,
                             steps=cfg.steps[0],
@@ -458,6 +459,18 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             nan_fill_value=nan_fill_value,
             stride=1,
         )
+        torch_train_dataset = TorchTrainDataset(
+            src=test,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            wet=wet,
+            wet_surface=wet_surface,
+            hist=1,
+            steps=2,
+            normalize_pre_fill=normalize_pre_fill,
+            nan_fill_value=nan_fill_value,
+            stride=1,
+        )
         inference_dataset = InferenceDataset(
             src=test,
             prognostic_var_names=prognostic_var_names,
@@ -469,7 +482,7 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             nan_fill_value=nan_fill_value,
             long_rollout=True,
         )
-        yield traindataset, inference_dataset
+        yield traindataset, torch_train_dataset, inference_dataset
 
 
 @pytest.mark.parametrize("normalize_pre_fill", [True])
@@ -477,15 +490,16 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
 def test_train_dataset_no_input_change(
     dataset_input, normalize_pre_fill, nan_fill_value
 ):
-    traindataset, _ = dataset_input
-    td = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
-    pred = torch.randn_like(td.get_label(0)) * 0.1
+    traindataset, torch_train_dataset, _ = dataset_input
+    for dataset in [traindataset, torch_train_dataset]:
+        td = collate_train_data([dataset[0], dataset[1], dataset[2]])
+        pred = torch.randn_like(td.get_label(0)) * 0.1
 
-    inp1 = td.get_input(1).clone()
-    td.merge_prognostic_and_boundary(pred, 1)
+        inp1 = td.get_input(1).clone()
+        td.merge_prognostic_and_boundary(pred, 1)
 
-    td_new = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
-    assert torch.equal(td_new.get_input(1), inp1)
+        td_new = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
+        assert torch.equal(td_new.get_input(1), inp1)
 
 
 @pytest.mark.parametrize("normalize_pre_fill", [True, False])
@@ -493,29 +507,29 @@ def test_train_dataset_no_input_change(
 def test_train_dataset_normalize_pre_fill(
     dataset_input, normalize_pre_fill, nan_fill_value
 ):
-    traindataset, inference_dataset = dataset_input
-    td0 = traindataset[0]
+    traindataset, torch_train_dataset, inference_dataset = dataset_input
+    for dataset in [traindataset, torch_train_dataset]:
+        td0 = dataset[0]
+        data = nan_fill_value
 
-    data = nan_fill_value
+        td0_step0_input = td0.get_input(0)
+        td0_step0_label = td0.get_label(0)
+        inf_step0_input, inf_step0_label = inference_dataset[0]
 
-    td0_step0_input = td0.get_input(0)
-    td0_step0_label = td0.get_label(0)
-    inf_step0_input, inf_step0_label = inference_dataset[0]
+        assert td0_step0_input.shape == (6, 2, 2)
+        assert td0_step0_label.shape == (4, 2, 2)
+        assert inf_step0_input.shape == (1, 6, 2, 2)
+        assert inf_step0_label.shape == (1, 4, 2, 2)
 
-    assert td0_step0_input.shape == (6, 2, 2)
-    assert td0_step0_label.shape == (4, 2, 2)
-    assert inf_step0_input.shape == (1, 6, 2, 2)
-    assert inf_step0_label.shape == (1, 4, 2, 2)
-
-    if not normalize_pre_fill:
-        mean = 0.5
-        std = 1.0
-        data = (data - mean) / std
-        assert td0.get_input(0)[0, 0, 0] == data
-        assert inference_dataset[0][0][0][0, 0, 0] == data
-    else:
-        assert td0.get_input(0)[0, 0, 0] == data
-        assert inference_dataset[0][0][0][0, 0, 0] == data
+        if not normalize_pre_fill:
+            mean = 0.5
+            std = 1.0
+            data = (data - mean) / std
+            assert td0.get_input(0)[0, 0, 0] == data
+            assert inference_dataset[0][0][0][0, 0, 0] == data
+        else:
+            assert td0.get_input(0)[0, 0, 0] == data
+            assert inference_dataset[0][0][0][0, 0, 0] == data
 
 
 @pytest.mark.manual

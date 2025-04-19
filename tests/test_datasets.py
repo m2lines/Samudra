@@ -498,7 +498,7 @@ def test_train_dataset_no_input_change(
         inp1 = td.get_input(1).clone()
         td.merge_prognostic_and_boundary(pred, 1)
 
-        td_new = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
+        td_new = collate_train_data([dataset[0], dataset[1], dataset[2]])
         assert torch.equal(td_new.get_input(1), inp1)
 
 

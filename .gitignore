@@ -34,3 +34,4 @@ output.log
 .hypothesis/
 .vscode/
 .data_cache/
+configs/schemas/

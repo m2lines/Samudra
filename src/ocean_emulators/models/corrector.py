@@ -143,10 +143,10 @@ class SoRangeCorrector(BaseCorrector):
     ):
         super().__init__(hist, tensor_map, normalize)
         self.so_idx = self.tensor_map.VAR_3D_IDX["so"]
-        self.clamp_maxs = torch.tensor([
+        self.clamp_mins = torch.tensor([
             0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 30, 30, 30, 30
         ])
-        self.clamp_mins = torch.tensor([
+        self.clamp_maxs = torch.tensor([
             72, 72, 72, 72, 50, 50, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 42, 37, 37
         ])
 

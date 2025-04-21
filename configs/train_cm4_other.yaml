@@ -83,10 +83,10 @@ samudra:
     norm: "batch"
 
   corrector:
-    non_negative_corrector_names: null
-      #- "so"
+    non_negative_corrector_names: 
+      - "so"
     ocean_heat_corrector: true
-    salinity_range_corrector: true 
+    salinity_range_corrector: false 
     zos_range_corrector: false
 
   down_sampling_block: "avg_pool"

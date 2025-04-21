@@ -1,6 +1,6 @@
+from collections.abc import Sequence
 from itertools import tee
 from pathlib import Path
-from typing import Sequence, Tuple
 
 import torch
 from xarray_einstats.einops import rearrange  # noqa: F401
@@ -31,7 +31,7 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
 
 def collate_inference_data(
     data: Sequence[InferenceDataset],
-) -> Tuple[InferenceDataset, int]:
+) -> tuple[InferenceDataset, int]:
     # TODO: There is probably a better way to do inference batching
     assert len(data) == 1, "Inference batch size must be 1"
     return data[0][0], data[0][1]

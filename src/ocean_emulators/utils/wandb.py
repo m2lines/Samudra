@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Dict, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +14,7 @@ from ocean_emulators.utils.multiton import Multiton
 Metrics = Mapping[str, float | torch.Tensor | WBValue]
 
 # Same as above but mutable when you're building something up
-MetricsDict = Dict[str, float | torch.Tensor | WBValue]
+MetricsDict = dict[str, float | torch.Tensor | WBValue]
 
 
 class WandBLogger(Multiton):
@@ -149,8 +150,8 @@ class WandBLogger(Multiton):
         loss_value: float,
         loss_per_channel: torch.Tensor,
         outputs: list,
-        depth_indices: Dict,
-        var_indices: Dict,
+        depth_indices: dict,
+        var_indices: dict,
         depth_set: list,
         var_set: list,
         step: int,

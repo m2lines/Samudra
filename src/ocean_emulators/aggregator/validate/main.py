@@ -1,5 +1,3 @@
-from typing import Dict
-
 import torch
 
 from ocean_emulators.aggregator.loss import LossAggregator
@@ -18,7 +16,7 @@ class ValidateAggregator(TrainAggregator):
 
     def __init__(
         self,
-        metadata: Dict[str, Dict[str, str]],
+        metadata: dict[str, dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
@@ -111,7 +109,7 @@ class ValidateAggregator(TrainAggregator):
 
     def _get_loss_scaled_mse_components(
         self,
-        validation_metrics: Dict[str, float],
+        validation_metrics: dict[str, float],
         label: str,
     ):
         """

@@ -8,8 +8,9 @@ import logging
 import os
 import time
 import warnings
+from collections.abc import Callable, Sequence
 from functools import partial
-from typing import Any, Callable, Sequence, assert_never
+from typing import Any, assert_never
 
 import dask
 import numpy as np
@@ -465,7 +466,7 @@ class Trainer:
         train_aggregator = Aggregator.get_train_aggregator()
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
-        header = "Training Epoch: [{}]".format(epoch)
+        header = f"Training Epoch: [{epoch}]"
         # iters = len(self.train_loader)
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
@@ -533,7 +534,7 @@ class Trainer:
             self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
-        header = "One-Step Validation Epoch: [{}]".format(epoch)
+        header = f"One-Step Validation Epoch: [{epoch}]"
 
         with torch.no_grad(), self._test_context():
             for data_iter_step, data in enumerate(

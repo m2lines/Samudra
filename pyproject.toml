@@ -60,7 +60,7 @@ dev = [
 ]
 
 [tool.ruff]
-lint.select = [ "D", "E", "F", "I", "W" ]
+lint.select = [ "D", "E", "F", "I", "UP", "W" ]
 # F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 lint.ignore = [
   "D1",

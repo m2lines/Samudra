@@ -79,11 +79,8 @@ class InferenceDataset(Dataset):
 
         if long_rollout:
             logging.info(
-                "Long rollout will use input at time {0} and produce"
-                " output at {1}".format(
-                    data.time.values[0],
-                    data.time.values[self.hist + 1],
-                )
+                f"Long rollout will use input at time {data.time.values[0]} and produce"
+                f" output at {data.time.values[self.hist + 1]}"
             )
 
         self.wet: torch.Tensor = wet.bool()

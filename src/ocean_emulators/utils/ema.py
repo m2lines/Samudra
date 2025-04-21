@@ -27,7 +27,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from typing import Iterable, List
+from collections.abc import Iterable
 
 import torch
 from torch import nn
@@ -79,7 +79,7 @@ class EMATracker:
                 self._module_name_to_ema_name.update({name: ema_name})
                 self._ema_params[ema_name] = p.clone().detach().data
 
-        self._stored_params: List[torch.Tensor] = []
+        self._stored_params: list[torch.Tensor] = []
 
     def __call__(self, model: Samudra | nn.parallel.DistributedDataParallel):
         """

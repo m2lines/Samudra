@@ -1,5 +1,3 @@
-from typing import Dict, List, Optional, Union
-
 import torch
 import wandb
 import xarray as xr
@@ -21,7 +19,7 @@ class InferenceEvaluatorAggregator:
     def __init__(
         self,
         n_timesteps: int,
-        metadata: Dict[str, Dict[str, str]],
+        metadata: dict[str, dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
@@ -29,7 +27,7 @@ class InferenceEvaluatorAggregator:
         record_step_20: bool = True,
         log_global_mean_time_series: bool = True,
         log_global_mean_norm_time_series: bool = True,
-        time_mean_reference_data: Optional[xr.Dataset] = None,
+        time_mean_reference_data: xr.Dataset | None = None,
     ):
         """
         Args:
@@ -46,10 +44,10 @@ class InferenceEvaluatorAggregator:
                 time series metrics.
             time_mean_reference_data: Reference time means for computing bias stats.
         """
-        self._aggregators: Dict[
+        self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
         ] = {}
-        self._time_dependent_aggregators: Dict[str, TimeMeanEvaluatorAggregator] = {}
+        self._time_dependent_aggregators: dict[str, TimeMeanEvaluatorAggregator] = {}
         self._log_time_series = (
             log_global_mean_time_series or log_global_mean_norm_time_series
         )
@@ -232,7 +230,7 @@ def to_inference_logs(log):
     for val in log.values():
         if isinstance(val, wandb.Table):
             n_rows = max(n_rows, len(val.data))
-    logs: List[Dict[str, Union[float, int]]] = []
+    logs: list[dict[str, float | int]] = []
     for i in range(max(1, n_rows)):  # need at least one for non-series values
         logs.append({})
     for key, val in log.items():

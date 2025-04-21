@@ -2,7 +2,7 @@ import argparse
 import os
 import textwrap
 from pathlib import Path
-from typing import Any, Optional, Self
+from typing import Any, Self
 
 import yaml
 from pydantic import BaseModel, ConfigDict
@@ -27,7 +27,7 @@ def register_include_constructor():
                 "To support includes, you must load a file object, not a string"
             )
         filename = os.path.normpath(os.path.join(os.path.dirname(name), node.value))
-        with open(filename, "r") as f:
+        with open(filename) as f:
             return yaml.safe_load(f)
 
     # This is arguably unsafe, but we don't parse untrusted YAML
@@ -70,7 +70,7 @@ class TopLevelConfig(BaseSettings):
     @classmethod
     def from_yaml_and_cli(
         cls,
-        args_to_parse: Optional[list[str]] = None,
+        args_to_parse: list[str] | None = None,
     ) -> Self:
         """Load config from YAML & CLI with validation."""
         parser = argparse.ArgumentParser(
@@ -128,6 +128,6 @@ class IncludeYamlCliSettingsSource(CliSettingsSource):
         self, field_name: str, field: FieldInfo, value: Any
     ) -> Any:
         if isinstance(value, str) and value.startswith("@"):
-            with open(value[1:], "r") as f:
+            with open(value[1:]) as f:
                 return yaml.safe_load(f)
         return super().decode_complex_value(field_name, field, value)

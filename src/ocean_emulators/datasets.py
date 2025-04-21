@@ -665,7 +665,7 @@ class TorchTrainDataset(Dataset):
             prognostic_all = torch.from_numpy(
                 conditional_rearrange(
                     self._prognostic_src.data.isel(time=x_index),
-                    "(variable lev)=var time lat lon",
+                    "step (variable lev)=var time lat lon",
                     concat_dim="var",
                 )
                 .rename({"var": "variable"})

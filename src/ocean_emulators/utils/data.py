@@ -97,9 +97,12 @@ class DataSource:
             tuple[xr.Dataset, xr.Dataset, xr.Dataset],
         ],
         *,
-        suffix: str,
+        suffix: str | None = None,
     ) -> Self:
         """Map the function over the data source."""
+        if suffix is None:
+            suffix = func.__qualname__
+
         data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
 
         return dataclasses.replace(
@@ -495,10 +498,17 @@ def validate_data(
         src = src.map_data(_static_data_checks, suffix="static_data_checked")
 
     if src.is_compact:
-        src_ = src.map_data(with_level_index_vars)
+
+        def validated_compact(data, means, stds):
+            data = data.pipe(with_level_index_vars).pipe(with_lat_lon_coords)
+            means = with_level_index_vars(means)
+            stds = with_level_index_vars(stds)
+            return data, means, stds
+
+        src_ = src.map(validated_compact)
         return compute_anomalies(src_, ("hfds_anomalies",))
 
-    def _rename(data, means, stds):
+    def validated(data, means, stds):
         data = (
             data.pipe(flatten_masks)
             .pipe(with_level_index_vars)
@@ -511,7 +521,7 @@ def validate_data(
         stds = with_level_index_vars(stds)
         return data, means, stds
 
-    src_ = src.map(_rename, suffix="validated")
+    src_ = src.map(validated, suffix="validated")
 
     # Check if any anomalies are needed to be computed
     tensor_map = TensorMap.get_instance()

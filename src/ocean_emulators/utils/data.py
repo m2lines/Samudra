@@ -478,14 +478,7 @@ def validate_data(
         src = src.map_data(_static_data_checks, suffix="static_data_checked")
 
     if src.is_compact:
-
-        def validated_compact(data, means, stds):
-            data = data.pipe(with_level_index_vars).pipe(with_lat_lon_coords)
-            means = with_level_index_vars(means)
-            stds = with_level_index_vars(stds)
-            return data, means, stds
-
-        src_ = src.map(validated_compact)
+        src_ = src.map_data(with_lat_lon_coords)
         return compute_anomalies(src_, ("hfds_anomalies",))
 
     def validated(data, means, stds):

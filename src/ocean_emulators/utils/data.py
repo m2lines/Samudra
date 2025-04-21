@@ -1,7 +1,7 @@
 import dataclasses
 import logging
-from functools import cache, cached_property
-from typing import Any, Callable, Literal, Self
+from functools import cached_property
+from typing import Callable, Literal, Self
 
 import cftime
 import numpy as np
@@ -21,7 +21,6 @@ from ocean_emulators.constants import (
     Grid,
     GridMask,
     Input,
-    LoaderVersion,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
@@ -88,18 +87,16 @@ class DataSource:
         means = self.means[var_names]
         stds = self.stds[var_names]
 
-        return dataclasses.replace(
-            self, name=name, data=data, means=means, stds=stds
-        )
+        return dataclasses.replace(self, name=name, data=data, means=means, stds=stds)
 
     def map(
-            self,
-            func: Callable[
-                [xr.Dataset, xr.Dataset, xr.Dataset],
-                tuple[xr.Dataset, xr.Dataset, xr.Dataset],
-            ],
-            *,
-            suffix: str,
+        self,
+        func: Callable[
+            [xr.Dataset, xr.Dataset, xr.Dataset],
+            tuple[xr.Dataset, xr.Dataset, xr.Dataset],
+        ],
+        *,
+        suffix: str,
     ) -> Self:
         """Map the function over the data source."""
         data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
@@ -109,7 +106,7 @@ class DataSource:
         )
 
     def map_data(
-            self, func: Callable[[xr.Dataset], xr.Dataset], *, suffix: str | None = None
+        self, func: Callable[[xr.Dataset], xr.Dataset], *, suffix: str | None = None
     ) -> Self:
         """Map the function over just data in DataSource."""
         if suffix is None:
@@ -186,7 +183,7 @@ class DataSource:
                 root / cfg.data.data_path,
                 engine="netcdf4",
                 chunks={"time": 1, "lat": 180, "lon": 360},
-                )
+            )
         else:
             data = xr.open_dataset(
                 root / cfg.data.data_path,
@@ -199,12 +196,12 @@ class DataSource:
             root / cfg.data.data_means_path,
             engine="netcdf4" if cfg.data.data_means_path.endswith(".nc") else "zarr",
             chunks=chunks,
-            )
+        )
         stds = xr.open_dataset(
             root / cfg.data.data_stds_path,
             engine="netcdf4" if cfg.data.data_stds_path.endswith(".nc") else "zarr",
             chunks=chunks,
-            )
+        )
 
         dask = "with_dask" if use_dask else "without_dask"
 

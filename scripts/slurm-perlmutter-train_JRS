@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-perlmutter-cm4-311-OHCOn-SoZosRange-wfo
+#SBATCH --job-name=samudra-perlmutter-cm4-311-OHCOn-wfo-3heatcomps
 #SBATCH --output=train/logs/slurm-%j.out
 #SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g
@@ -11,7 +11,7 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --gpus-per-task=1
 #SBATCH --gpu-bind=none     # This ensures all GPUs are visible to all tasks
-#SBATCH --time=04:00:00
+#SBATCH --time=02:30:00
 
 set -e
 

@@ -53,7 +53,7 @@ experiment:
     group: samudra-train-cm4
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
-  boundary_vars_key: tau_hfds_wfo
+  boundary_vars_key: tau_hfds_wfo_3heatcomps
 data:
   data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
@@ -83,11 +83,11 @@ samudra:
     norm: "batch"
 
   corrector:
-    non_negative_corrector_names: null
-      #- "so"
+    non_negative_corrector_names: 
+      - "so"
     ocean_heat_corrector: true
-    salinity_range_corrector: true 
-    zos_range_corrector: true
+    salinity_range_corrector: false 
+    zos_range_corrector: false
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

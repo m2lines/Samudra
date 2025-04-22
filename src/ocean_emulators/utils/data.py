@@ -57,7 +57,18 @@ class DataSource:
         *,
         prefix: str,
     ) -> Self:
-        """Filter the data source to only include the specified variables."""
+        """Filter the data source to only include the specified variables (and levels).
+
+        If the dataset is compact, it will also filter the levels based on the
+        variable names (which encode the level in the name).
+
+        Args:
+            var_names: Variable names to filter.
+            prefix: Prefix for the new data source name.
+
+        Returns:
+            A new `DataSource` only with the filtered variables and levels.
+        """
         name = f"{prefix}[{self.name}]"
         if self.is_compact:
             parsed_var_names, levels = [], []

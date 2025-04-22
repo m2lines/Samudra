@@ -167,9 +167,10 @@ class Trainer:
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
         )
-        wet_without_hist_cpu, _ = extract_wet_mask(
+        self.wet_without_hist_cpu, _ = extract_wet_mask(
             self.data, self.prognostic_var_names, 0
         )
+        self.wet = self.wet.to(self.device)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -178,9 +179,9 @@ class Trainer:
             self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=wet_without_hist_cpu,
+            wet_mask=self.wet_without_hist_cpu,
         )
-        self.wet_without_hist = wet_without_hist_cpu.to(self.device)
+        self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
@@ -197,9 +198,9 @@ class Trainer:
                     f"{cfg.samudra.n_out}->{self.num_out}"
                 )
                 cfg.samudra.n_out = self.num_out
-            model = Samudra(
-                cfg.samudra, hist=cfg.data.hist, wet=self.wet.to(self.device)
-            ).to(self.device)
+            model = Samudra(cfg.samudra, hist=cfg.data.hist, wet=self.wet).to(
+                self.device
+            )
         else:
             raise NotImplementedError
 
@@ -212,16 +213,18 @@ class Trainer:
         # Loss function
         if cfg.loss == "mse":
             logger.info("Using decomposed mse loss")
-            self.loss_fn = decomposed_mse
+            self.loss_fn = partial(decomposed_mse, wet=self.wet)
         elif cfg.loss == "mse_diff_weighted":
             assert cfg.data.hist == 1  # TEMP
             logger.info("Using decomposed mse loss with weighted diff")
-            self.loss_fn = decomposed_mse_diff_weighted
+            self.loss_fn = partial(decomposed_mse_diff_weighted, wet=self.wet)
         elif cfg.loss == "mse_cos_weighted":
             logger.info("Using decomposed mse loss with weighted cos")
             area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device=self.device)
-            self.loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
+            self.loss_fn = partial(
+                decomposed_mse_cos_weighted, wet=self.wet, cos=area_weights
+            )
         elif cfg.loss == "mse_residual_scaled":
             logger.info("Using decomposed mse loss with scaled residuals")
             assert self.scaling_residuals_file is not None, (
@@ -242,10 +245,10 @@ class Trainer:
                 .to_numpy()
             ).to(device=self.device)
             scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
-            self.loss_fn = partial(decomposed_mse_scaled, scaling=scale)
+            self.loss_fn = partial(decomposed_mse_scaled, wet=self.wet, scaling=scale)
         elif cfg.loss == "mse_mae":
             logger.info("Using decomposed mse loss with mae")
-            self.loss_fn = decomposed_mse_mae
+            self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
         else:
             assert_never(cfg.loss)
 
@@ -325,6 +328,8 @@ class Trainer:
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
             self.hist + 1
         )
+        self.normalize_before_mask: bool = cfg.data.normalize_before_mask
+        self.normalize_fill_value: float = cfg.data.masked_fill_value
 
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
@@ -362,9 +367,11 @@ class Trainer:
                 src=self.src.slice(self.inference_times[i]),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                wet=self.wet,
+                wet=self.wet_without_hist_cpu,
                 wet_surface=self.wet_surface,
                 hist=self.hist,
+                normalize_before_mask=self.normalize_before_mask,
+                masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
             )
 
@@ -631,10 +638,12 @@ class Trainer:
                             src=self.src.slice(self.train_time),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
-                            wet=self.wet,
+                            wet=self.wet_without_hist_cpu,
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=cur_step,
+                            normalize_before_mask=self.normalize_before_mask,
+                            masked_fill_value=self.normalize_fill_value,
                             stride=stride,
                         )
                         for stride in self.data_stride
@@ -647,10 +656,12 @@ class Trainer:
                             src=self.src.slice(self.val_time),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
-                            wet=self.wet,
+                            wet=self.wet_without_hist_cpu,
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=1,  # current_step set to 1 for validation
+                            normalize_before_mask=self.normalize_before_mask,
+                            masked_fill_value=self.normalize_fill_value,
                             stride=stride,
                         )
                         for stride in self.data_stride
@@ -663,10 +674,12 @@ class Trainer:
                             src=self.src.slice(self.train_time),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
-                            wet=self.wet,
+                            wet=self.wet_without_hist_cpu,
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=cur_step,
+                            normalize_before_mask=self.normalize_before_mask,
+                            masked_fill_value=self.normalize_fill_value,
                             stride=stride,
                         )
                         for stride in self.data_stride
@@ -679,10 +692,12 @@ class Trainer:
                             src=self.src.slice(self.val_time),
                             prognostic_var_names=self.prognostic_var_names,
                             boundary_var_names=self.boundary_var_names,
-                            wet=self.wet,
+                            wet=self.wet_without_hist_cpu,
                             wet_surface=self.wet_surface,
                             hist=self.hist,
                             steps=1,  # current_step set to 1 for validation
+                            normalize_before_mask=self.normalize_before_mask,
+                            masked_fill_value=self.normalize_fill_value,
                             stride=stride,
                         )
                         for stride in self.data_stride

@@ -105,7 +105,7 @@ class Eval:
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
         )
-        wet_without_hist_cpu, _ = extract_wet_mask(
+        self.wet_without_hist_cpu, _ = extract_wet_mask(
             self.data, self.prognostic_var_names, 0
         )
         self.area_weights: Grid = spherical_area_weights(self.data)
@@ -115,9 +115,9 @@ class Eval:
             self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=wet_without_hist_cpu,
+            wet_mask=self.wet_without_hist_cpu,
         )
-        self.wet_without_hist = wet_without_hist_cpu.to(self.device)
+        self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
@@ -173,6 +173,8 @@ class Eval:
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
+        self.normalize_before_mask = cfg.data.normalize_before_mask
+        self.masked_fill_value = cfg.data.masked_fill_value
         self.init_inference_store()
 
     def load_checkpoint(self, ckpt_path: str):
@@ -194,9 +196,11 @@ class Eval:
             src=self.src.slice(self.inference_time),
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet=self.wet,
+            wet=self.wet_without_hist_cpu,
             wet_surface=self.wet_surface,
             hist=self.hist,
+            normalize_before_mask=self.normalize_before_mask,
+            masked_fill_value=self.masked_fill_value,
             long_rollout=True,
         )
 

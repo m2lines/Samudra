@@ -67,6 +67,9 @@ def make_loader(
         )
         src = validate_data(raw)
         wet, wet_surface = extract_wet_mask(src.data, prognostic, cfg.data.hist)
+        wet_without_hist, _ = extract_wet_mask(src.data, prognostic, 0)
+        normalize_before_mask = cfg.data.normalize_before_mask
+        masked_fill_value = cfg.data.masked_fill_value
 
         match version:
             case LoaderVersion.OM4_EAGER:
@@ -76,10 +79,12 @@ def make_loader(
                             src=src.slice(time_config),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
-                            wet=wet,
+                            wet=wet_without_hist,
                             wet_surface=wet_surface,
                             hist=cfg.data.hist,
                             steps=cfg.steps[0],
+                            normalize_before_mask=normalize_before_mask,
+                            masked_fill_value=masked_fill_value,
                             stride=stride,
                         )
                         for stride in cfg.data_stride
@@ -93,10 +98,12 @@ def make_loader(
                             src=src.slice(time_config),
                             prognostic_var_names=prognostic,
                             boundary_var_names=boundary,
-                            wet=wet,
+                            wet=wet_without_hist,
                             wet_surface=wet_surface,
                             hist=cfg.data.hist,
                             steps=cfg.steps[0],
+                            normalize_before_mask=normalize_before_mask,
+                            masked_fill_value=masked_fill_value,
                             stride=stride,
                         )
                         for stride in cfg.data_stride
@@ -385,10 +392,15 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
 
 
 @pytest.fixture
-def traindataset_input():
+def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     # Create data
     coords = {"time": range(10), "lat": range(2), "lon": range(2)}
-    data_array = torch.ones(4, 10, 2, 2)  # [vars, time, lat, lon]
+    times = torch.arange(10)
+    data_array = (
+        torch.repeat_interleave(times, torch.tensor([2 * 2 * 4]))
+        .reshape(10, 4, 2, 2)
+        .permute(1, 0, 2, 3)
+    )
 
     data = xr.Dataset(
         {
@@ -406,10 +418,10 @@ def traindataset_input():
     # Create test data with mean and std
     data_mean = xr.Dataset(
         {
-            "prognostic1": 0.0,
-            "prognostic2": 0.0,
-            "boundary1": 0.0,
-            "boundary2": 0.0,
+            "prognostic1": 0.5,
+            "prognostic2": 0.5,
+            "boundary1": 0.5,
+            "boundary2": 0.5,
         },
         coords={"lat": [0], "lon": [0]},
     )
@@ -424,9 +436,10 @@ def traindataset_input():
     )
 
     test = DataSource("test", data, data_mean, data_std)
-
-    wet = torch.ones(2, 2, 2)
     wet_surface = torch.ones(2, 2)
+    wet_surface[0, 0] = 0.0
+    wet_surface[1, 1] = 0.0
+    wet = wet_surface.expand(2, 2, 2)
 
     # Initialize and yield within the MultitonScope
     with MultitonScope():
@@ -442,23 +455,84 @@ def traindataset_input():
             boundary_var_names=boundary_var_names,
             wet=wet,
             wet_surface=wet_surface,
-            hist=0,
+            hist=1,
             steps=2,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=masked_fill_value,
             stride=1,
         )
-        yield traindataset
+        torch_train_dataset = TorchTrainDataset(
+            src=test,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            wet=wet,
+            wet_surface=wet_surface,
+            hist=1,
+            steps=2,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=masked_fill_value,
+            stride=1,
+        )
+        inference_dataset = InferenceDataset(
+            src=test,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            wet=wet,
+            wet_surface=wet_surface,
+            hist=1,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=masked_fill_value,
+            long_rollout=True,
+        )
+        yield traindataset, torch_train_dataset, inference_dataset
 
 
-def test_train_dataset(traindataset_input):
-    traindataset = traindataset_input
-    td = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
-    pred = torch.randn_like(td.get_label(0)) * 0.1
+@pytest.mark.parametrize("normalize_before_mask", [True, False])
+@pytest.mark.parametrize("masked_fill_value", [0.0, -1.0])
+def test_train_dataset_no_input_change(
+    tiny_dataset_input, normalize_before_mask, masked_fill_value
+):
+    traindataset, torch_train_dataset, _ = tiny_dataset_input
+    for dataset in [traindataset, torch_train_dataset]:
+        td = collate_train_data([dataset[0], dataset[1], dataset[2]])
+        pred = torch.randn_like(td.get_label(0)) * 0.1
 
-    inp1 = td.get_input(1).clone()
-    td.merge_prognostic_and_boundary(pred, 1)
+        inp1 = td.get_input(1).clone()
+        td.merge_prognostic_and_boundary(pred, 1)
 
-    td_new = collate_train_data([traindataset[0], traindataset[1], traindataset[2]])
-    assert torch.equal(td_new.get_input(1), inp1)
+        td_new = collate_train_data([dataset[0], dataset[1], dataset[2]])
+        assert torch.equal(td_new.get_input(1), inp1)
+
+
+@pytest.mark.parametrize("normalize_before_mask", [True, False])
+@pytest.mark.parametrize("masked_fill_value", [0.0, -1.0])
+def test_train_dataset_normalize_pre_fill(
+    tiny_dataset_input, normalize_before_mask, masked_fill_value
+):
+    traindataset, torch_train_dataset, inference_dataset = tiny_dataset_input
+    for dataset in [traindataset, torch_train_dataset]:
+        td0 = dataset[0]
+        data = masked_fill_value
+
+        td0_step0_input = td0.get_input(0)
+        td0_step0_label = td0.get_label(0)
+        inf_step0_input, inf_step0_label = inference_dataset[0]
+
+        assert td0_step0_input.shape == (6, 2, 2)
+        assert td0_step0_label.shape == (4, 2, 2)
+        assert inf_step0_input.shape == (1, 6, 2, 2)
+        assert inf_step0_label.shape == (1, 4, 2, 2)
+
+        # We expect [0,0,0] to be masked
+        if normalize_before_mask:
+            assert td0.get_input(0)[0, 0, 0] == data
+            assert inference_dataset[0][0][0][0, 0, 0] == data
+        else:
+            mean = 0.5
+            std = 1.0
+            data = (data - mean) / std
+            assert td0.get_input(0)[0, 0, 0] == data
+            assert inference_dataset[0][0][0][0, 0, 0] == data
 
 
 @pytest.mark.manual

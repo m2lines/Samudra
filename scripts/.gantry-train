@@ -2,22 +2,33 @@
 
 set -e
 
-JOB_NAME="samudra-train-cm4-thermodynamic-maskstos"  # recommended but not required to change this
-CONFIG_PATH=configs/gantry_train_cm4.yaml  # relative to the root of the repository
+git branch -r --contains $(git rev-parse HEAD) | grep -q . || { echo "Error: Commit not found on remote."; exit 1; }
+SCRIPT_PATH=$(git rev-parse --show-prefix)  # relative to the root of the repository
+
+JOB_NAME="samudra-train-cm4-thermodynamic-instancenorm-ema-zerofill"  # recommended but not required to change this
+CONFIG_PATH="configs/gantry_train_cm4.yaml"
 
 echo 'Using config file:' $CONFIG_PATH
  # since we use a service account API key for wandb, we use the beaker username to set the wandb username
 BEAKER_USERNAME=$(beaker account whoami --format=json | jq -r '.[0].name')
+WANDB_USERNAME=suryad
 N_GPUS=8
+REPO_ROOT=$(git rev-parse --show-toplevel)
+
+cd $REPO_ROOT
 
 gantry run \
     --name $JOB_NAME \
     --description 'Training Samudra with CM4' \
     --workspace ai2/ace \
-    --priority normal \
+    --priority high \
+    --not-preemptible \
     --cluster ai2/saturn-cirrascale \
     --cluster ai2/jupiter-cirrascale-2 \
     --cluster ai2/ceres-cirrascale \
+    --env WANDB_USERNAME=$WANDB_USERNAME \
+    --env WANDB_NAME=$JOB_NAME \
+    --env WANDB_JOB_TYPE=training \
     --env GOOGLE_APPLICATION_CREDENTIALS=/tmp/google_application_credentials.json \
     --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
     --dataset-secret google-credentials:/tmp/google_application_credentials.json \
@@ -28,5 +39,5 @@ gantry run \
     --budget ai2/climate \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
-    --install "pip install -r requirements.txt" \
-    -- torchrun --nproc_per_node $N_GPUS src/train.py $CONFIG_PATH --experiment.sub_name $JOB_NAME
+    --install "pip install uv" \
+    -- uv run torchrun --nproc_per_node $N_GPUS src/ocean_emulators/train.py --config $CONFIG_PATH --subname $JOB_NAME

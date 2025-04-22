@@ -6,8 +6,8 @@ pin_mem: true
 save_freq: 5
 epochs: 120
 batch_size: 3
-learning_rate: 0.0002
-scheduler: true
+learning_rate: 0.0001
+scheduler: false
 loss: mse
 finetune: false
 resume_ckpt_path: null
@@ -65,6 +65,8 @@ data:
   time_delta: 5
   num_workers: 4
   hist: 1
+  normalize_before_mask: False
+  masked_fill_value: 0.0
 
 
 samudra:
@@ -81,7 +83,7 @@ samudra:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 4
-    norm: "batch"
+    norm: "instance"
 
   corrector:
     non_negative_corrector_names:

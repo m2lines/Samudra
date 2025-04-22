@@ -657,7 +657,6 @@ class TorchTrainDataset(Dataset):
                 prognostic_steps, variable_axis=2
             ).float()
 
-        # post-normalize, mask out values where there is no ocean
         prognostic_steps = torch.where(
             self.wet, prognostic_steps, self.masked_fill_value
         )

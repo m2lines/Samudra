@@ -54,7 +54,7 @@ class Stepper:
     @staticmethod
     @torch.no_grad()
     def inference(
-        model: torch.nn.Module,
+        model: BaseModel,
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,

@@ -33,7 +33,7 @@ class DataConfig(BaseConfig):
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1
-    loader_version: str = str(LoaderVersion.OM4_EAGER.value)
+    loader_version: LoaderVersion = LoaderVersion.OM4_EAGER
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
 

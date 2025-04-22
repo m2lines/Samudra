@@ -121,9 +121,14 @@ class BaseModel(torch.nn.Module):
 
             pred_tensor[step] = pred
 
+        import time
+
+        start = time.perf_counter()
         target_tensor = dataset.inference_target(
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
+        end = time.perf_counter()
+        logging.info(f"Time taken to get target tensor: {end - start} seconds")
 
         IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
         return IO

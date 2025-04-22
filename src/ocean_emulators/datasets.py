@@ -56,7 +56,7 @@ class InferenceDataset(Dataset):
         self.hist = hist
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        data = src.get_data()
+        data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
@@ -177,7 +177,7 @@ class InferenceDataset(Dataset):
         if self.normalize_pre_fill:
             data_in_ds = data_in_src.normalize()
         else:
-            data_in_ds = data_in_src.get_data()
+            data_in_ds = data_in_src.data
         data_in_np: np.ndarray = (
             data_in_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -206,7 +206,7 @@ class InferenceDataset(Dataset):
         if self.normalize_pre_fill:
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
-            data_in_boundary_ds = data_in_boundary_src.get_data()
+            data_in_boundary_ds = data_in_boundary_src.data
         data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -229,7 +229,7 @@ class InferenceDataset(Dataset):
         if self.normalize_pre_fill:
             label_ds = label_src.normalize()
         else:
-            label_ds = label_src.get_data()
+            label_ds = label_src.data
         label_np: np.ndarray = (
             label_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -346,7 +346,7 @@ class TrainDataset(Dataset):
         self.stride: int = stride
         self.normalize_pre_fill: bool = normalize_pre_fill
         self.nan_fill_value: float = nan_fill_value
-        data = src.get_data()
+        data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
@@ -434,7 +434,7 @@ class TrainDataset(Dataset):
         if self.normalize_pre_fill:
             data_in = data_in_src.normalize()
         else:
-            data_in = data_in_src.get_data()
+            data_in = data_in_src.data
 
         data_in = (
             data_in.to_array()
@@ -467,7 +467,7 @@ class TrainDataset(Dataset):
         if self.normalize_pre_fill:
             data_in_boundary = data_in_boundary_src.normalize()
         else:
-            data_in_boundary = data_in_boundary_src.get_data()
+            data_in_boundary = data_in_boundary_src.data
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "variable", "lat", "lon")
@@ -491,7 +491,7 @@ class TrainDataset(Dataset):
         if self.normalize_pre_fill:
             label = label_src.normalize()
         else:
-            label = label_src.get_data()
+            label = label_src.data
         label = (
             label.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
@@ -554,7 +554,7 @@ class TorchTrainDataset(Dataset):
         self.nan_fill_value: float = nan_fill_value
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        data = src.get_data()
+        data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 

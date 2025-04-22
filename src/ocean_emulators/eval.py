@@ -99,7 +99,7 @@ class Eval:
 
         raw = DataSource.from_config(cfg, use_dask=True)
         self.src = validate_data(raw)
-        self.data = self.src.get_data()
+        self.data = self.src.data
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(

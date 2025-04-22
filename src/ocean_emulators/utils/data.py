@@ -82,10 +82,6 @@ class DataSource:
         data = self.data.sel(time=time.time_slice)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
 
-    def get_data(self) -> xr.Dataset:
-        """Get the data from the DataSource."""
-        return self.data
-
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
         norm = (self.data - self.means) / self.stds

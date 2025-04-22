@@ -161,7 +161,7 @@ class Trainer:
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)
         self.src = validate_data(raw)
-        self.data = self.src.get_data()
+        self.data = self.src.data
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(

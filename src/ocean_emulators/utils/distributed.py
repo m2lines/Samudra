@@ -34,7 +34,7 @@ def suppress_prints(is_master):
         force = force or (get_world_size() > 8)
         if is_master or force:
             now = datetime.datetime.now().time()
-            builtin_print("[{}] ".format(now), end="")  # print with time stamp
+            builtin_print(f"[{now}] ", end="")  # print with time stamp
             builtin_print(*args, **kwargs)
 
     builtins.print = print

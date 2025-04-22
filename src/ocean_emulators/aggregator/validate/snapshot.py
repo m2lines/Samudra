@@ -1,5 +1,3 @@
-from typing import Dict
-
 import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
@@ -27,14 +25,14 @@ class SnapshotAggregator(ValidateSubAggregator):
         ),
     }
 
-    def __init__(self, metadata: Dict[str, Dict[str, str]] = {}, hist: int = 0):
+    def __init__(self, metadata: dict[str, dict[str, str]] = {}, hist: int = 0):
         """
         Args:
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
             hist: Number of history steps to include in the snapshot.
         """
-        self._metadata: Dict[str, Dict[str, str]] = metadata
+        self._metadata: dict[str, dict[str, str]] = metadata
         self.hist = hist
 
     @torch.no_grad()

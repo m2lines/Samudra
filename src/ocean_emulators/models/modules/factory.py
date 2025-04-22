@@ -1,5 +1,3 @@
-from typing import Type
-
 import torch.nn as nn
 
 from ocean_emulators.models.modules.activations import CappedGELU, ReLU
@@ -51,7 +49,7 @@ def create_upsample(block_type: str, **kwargs) -> nn.Module:
     return UPSAMPLE_REGISTRY[block_type](**kwargs)
 
 
-def get_activation_cl(activation_type: str) -> Type[nn.Module]:
+def get_activation_cl(activation_type: str) -> type[nn.Module]:
     if activation_type not in ACTIVATION_REGISTRY:
         raise ValueError(f"Unknown activation type: {activation_type}")
     return ACTIVATION_REGISTRY[activation_type]

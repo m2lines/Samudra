@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 import numpy as np
 import torch
 from einops import rearrange
@@ -12,7 +10,7 @@ class Corrector(torch.nn.Module):
     def __init__(self, corrector_config, hist):
         super().__init__()
         self.corrector_config = corrector_config
-        self.non_negative_corrector_names: Optional[List[str]] = (
+        self.non_negative_corrector_names: list[str] | None = (
             corrector_config.non_negative_corrector_names
         )
         self.tensor_map: TensorMap = TensorMap.get_instance()

@@ -3,7 +3,7 @@
 import contextlib
 import datetime
 import os
-from typing import Callable, Generator
+from collections.abc import Callable, Generator
 
 import cftime
 import numpy as np

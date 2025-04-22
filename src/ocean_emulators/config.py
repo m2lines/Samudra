@@ -1,7 +1,7 @@
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Any, List, Literal, Optional
+from typing import Any, Literal
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
@@ -11,9 +11,9 @@ class WandBConfig(BaseConfig):
     mode: str = "disabled"  # online, disabled
     project: str = "3D_ocean_emu_CM4"
     entity: str = "suryadheeshjith"
-    group: Optional[str] = None
-    tags: Optional[List[str]] = None
-    notes: Optional[str] = None
+    group: str | None = None
+    tags: list[str] | None = None
+    notes: str | None = None
 
 
 class TimeConfig(BaseConfig):
@@ -29,7 +29,7 @@ class DataConfig(BaseConfig):
     data_path: str = "CM4_5daily_v0.4.0"
     data_means_path: str = "CM4_5daily_v0.4.0_means"
     data_stds_path: str = "CM4_5daily_v0.4.0_stds"
-    scaling_residuals_file: Optional[str] = None
+    scaling_residuals_file: str | None = None
     time_delta: int = 5
     num_workers: int = 4
     hist: int = 1
@@ -52,7 +52,7 @@ class BlockConfig(BaseConfig):
 
 
 class CorrectorConfig(BaseConfig):
-    non_negative_corrector_names: Optional[List[str]] = None
+    non_negative_corrector_names: list[str] | None = None
 
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
@@ -60,14 +60,14 @@ UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
 
 
 class SamudraConfig(BaseConfig):
-    ch_width: List[int] = [157, 200, 250, 300, 400]
+    ch_width: list[int] = [157, 200, 250, 300, 400]
     n_out: int = 77
-    dilation: List[int] = [1, 2, 4, 8]
-    n_layers: List[int] = [1, 1, 1, 1]
+    dilation: list[int] = [1, 2, 4, 8]
+    n_layers: list[int] = [1, 1, 1, 1]
     pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
-    wet: Optional[Any] = None
+    wet: Any | None = None
 
     # Block configurations
     core_block: BlockConfig = BlockConfig()
@@ -77,11 +77,11 @@ class SamudraConfig(BaseConfig):
 
 
 class DistributedConfig(BaseConfig):
-    dist_url: Optional[str] = None
-    world_size: Optional[int] = None
-    rank: Optional[int] = None
-    gpu: Optional[int] = None
-    dist_backend: Optional[str] = None
+    dist_url: str | None = None
+    world_size: int | None = None
+    rank: int | None = None
+    gpu: int | None = None
+    dist_backend: str | None = None
 
 
 class ExperimentConfig(BaseConfig):
@@ -147,7 +147,7 @@ class TrainConfig(TopLevelConfig):
     scheduler: bool = False
     loss: LossType = "mse"
     finetune: bool = False
-    resume_ckpt_path: Optional[str] = None
+    resume_ckpt_path: str | None = None
     debug: bool = False
     test_using_ema: bool = True
     ema_decay: float = 0.999
@@ -156,13 +156,13 @@ class TrainConfig(TopLevelConfig):
 
     # Data parameters at root level
     data_percent: float = 1.0
-    data_stride: List[int] = [1]
-    steps: List[int] = [4]
-    step_transition: List[int] = []
-    inference_epochs: List[int] = [-1]
+    data_stride: list[int] = [1]
+    steps: list[int] = [4]
+    step_transition: list[int] = []
+    inference_epochs: list[int] = [-1]
     train_time: TimeConfig = TimeConfig(start="151-01-06", end="306-01-01")
     val_time: TimeConfig = TimeConfig(start="306-01-01", end="311-01-01")
-    inference_times: List[TimeConfig] = []
+    inference_times: list[TimeConfig] = []
 
     # Config components
     experiment: ExperimentConfig

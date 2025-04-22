@@ -236,6 +236,7 @@ class Eval:
             self.area_weights,
             self.wet_without_hist,
             self.num_out,
+            self.prognostic_var_names,
         )
 
         Stepper.inference(

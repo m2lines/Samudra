@@ -577,6 +577,7 @@ class Trainer:
                     self.area_weights,
                     self.wet_without_hist,
                     self.num_out,
+                    self.prognostic_var_names,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;

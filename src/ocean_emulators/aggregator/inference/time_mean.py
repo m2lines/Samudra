@@ -325,8 +325,6 @@ class TimeMeanEvaluatorAggregator:
             metric_name = "rmse/channel_mean"
             if self._channel_mean_names is None:
                 values_to_average = list(rmse_all_channels.values())
-                # TODO: Eventually fix this
-                values_to_average.remove(rmse_all_channels["ocean_heat_content"])
             else:
                 values_to_average = [
                     rmse_all_channels[name] for name in self._channel_mean_names

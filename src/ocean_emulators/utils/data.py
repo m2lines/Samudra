@@ -10,6 +10,7 @@ from einops import rearrange
 
 from ocean_emulators.config import EvalConfig, TimeConfig, TrainConfig
 from ocean_emulators.constants import (
+    DEFAULT_METADATA,
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
@@ -44,10 +45,10 @@ class DataSource:
     @cached_property
     def is_compact(self) -> bool:
         """Check if the data source is compact."""
+        standard_vars = list(DEFAULT_METADATA.keys())
+        standard_vars.remove("tos")
         return all(
-            v in d
-            for v in ["so", "uo", "vo", "thetao"]
-            for d in [self.data, self.means, self.stds]
+            v in d for v in standard_vars for d in [self.data, self.means, self.stds]
         )
 
     def filter(

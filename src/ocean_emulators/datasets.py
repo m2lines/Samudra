@@ -188,7 +188,7 @@ class InferenceDataset(Dataset):
             data_in_np: np.ndarray = (
                 conditional_rearrange(
                     data_in_ds,
-                    "window_dim (time variable lev)=var lat lon",
+                    "window_dim time (variable lev)=var lat lon",
                     concat_dim="var",
                 )
                 .rename({"var": "variable"})
@@ -199,11 +199,6 @@ class InferenceDataset(Dataset):
                 data_in_ds.to_array()
                 .transpose("window_dim", "time", "variable", "lat", "lon")
                 .to_numpy()
-            )
-            data_in_np = rearrange(
-                data_in_np,
-                "window_dim time variable lat lon -> "
-                "window_dim (time variable) lat lon",
             )
         data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
         data_in = torch.where(self.wet, data_in, self.masked_fill_value)
@@ -271,7 +266,7 @@ class InferenceDataset(Dataset):
             label_np: np.ndarray = (
                 conditional_rearrange(
                     label_ds,
-                    "window_dim (time variable lev)=var lat lon",
+                    "window_dim time (variable lev)=var lat lon",
                     concat_dim="var",
                 )
                 .rename({"var": "variable"})
@@ -283,15 +278,14 @@ class InferenceDataset(Dataset):
                 .transpose("window_dim", "time", "variable", "lat", "lon")
                 .to_numpy()
             )
-            label: torch.Tensor = torch.from_numpy(label_np).float()
+        label: torch.Tensor = torch.from_numpy(label_np).float()
         label = torch.where(self.wet, label, self.masked_fill_value)
         if not self.normalize_before_mask:
             label = self._prognostic_src.normalize_with(label, variable_axis=2)
         label = rearrange(
-                label,
-                "window_dim time variable lat lon -> "
-                "window_dim (time variable) lat lon",
-            )
+            label,
+            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
+        )
 
         return label
 
@@ -665,7 +659,7 @@ class TorchTrainDataset(Dataset):
             prognostic_all = torch.from_numpy(
                 conditional_rearrange(
                     self._prognostic_src.data.isel(time=x_index),
-                    "step (variable lev)=var time lat lon",
+                    "step time (variable lev)=var lat lon",
                     concat_dim="var",
                 )
                 .rename({"var": "variable"})
@@ -675,9 +669,7 @@ class TorchTrainDataset(Dataset):
             prognostic_all = torch.from_numpy(
                 self._prognostic_src.data.isel(time=x_index)
                 .to_array()
-                .transpose(
-                    "step", "time", "variable", "lat", "lon"
-                )
+                .transpose("step", "time", "variable", "lat", "lon")
                 .to_numpy()
             )
         boundary = torch.from_numpy(

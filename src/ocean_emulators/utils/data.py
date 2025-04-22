@@ -1,7 +1,8 @@
 import dataclasses
 import logging
+from collections.abc import Callable
 from functools import cached_property
-from typing import Callable, Literal, Self
+from typing import Literal, Self
 
 import cftime
 import numpy as np
@@ -44,8 +45,7 @@ class DataSource:
     @cached_property
     def is_compact(self) -> bool:
         """Check if the data source is compact."""
-        standard_vars = list(DEFAULT_METADATA.keys())
-        standard_vars.remove("tos")
+        standard_vars = list(DEFAULT_METADATA.keys())[:3]
         return all(
             v in d for v in standard_vars for d in [self.data, self.means, self.stds]
         )

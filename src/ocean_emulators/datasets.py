@@ -386,11 +386,6 @@ class TrainDataset(Dataset):
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
 
-        logger.info(
-            "[TrainDataset] initialized in %.2f seconds",
-            time.perf_counter() - loader_start,
-            )
-
     def __len__(self) -> int:
         return self.size
 

@@ -19,6 +19,7 @@ from ocean_emulators.constants import (
     PrognosticVarNames,
     TensorMap,
 )
+from ocean_emulators.derived_variables import compute_ocean_heat_content
 from ocean_emulators.utils.multiton import Multiton
 
 
@@ -168,6 +169,21 @@ def get_inference_steps(time_config: TimeConfig, hist: int = 1):
     return num_steps
 
 
+def add_derived_variables(tensor_out: torch.Tensor) -> Dict[str, torch.Tensor]:
+    """
+    Add derived variables to the output.
+    """
+    # Ocean heat content
+    derived_vars = {}
+    tensor_map = TensorMap.get_instance()
+    dz = tensor_map.dz.to(tensor_out.device)
+    thetao = tensor_out[:, :, tensor_map.VAR_3D_IDX["thetao"]]
+    ohct = compute_ocean_heat_content(thetao, dz)
+    derived_vars["ocean_heat_content"] = ohct
+
+    return derived_vars
+
+
 def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tensor]:
     tensor_map = TensorMap.get_instance()
     assert tensor_out.ndim == 5
@@ -175,6 +191,7 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> Dict[str, torch.Tens
     out_dict = {}
     for i, var in enumerate(tensor_map.prognostic_var_names):
         out_dict[var] = tensor_out[:, :, i]
+    out_dict.update(add_derived_variables(tensor_out))
     return out_dict
 
 

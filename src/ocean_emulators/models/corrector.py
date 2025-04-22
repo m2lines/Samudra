@@ -8,7 +8,8 @@ from einops import rearrange
 from torch import Tensor
 
 from ocean_emulators.aggregator.metrics import area_weighted_sum
-from ocean_emulators.constants import CP_SW, RHO_0, SECONDS_PER_5DAY, TensorMap
+from ocean_emulators.constants import SECONDS_PER_5DAY, TensorMap
+from ocean_emulators.derived_variables import compute_global_ocean_heat_content
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device
 
@@ -130,31 +131,6 @@ class ReLUCorrector(BaseCorrector):
         return fts
 
 
-def compute_ocean_heat_content(
-    T: Tensor, dz: Tensor, area_weighted_func: Callable
-) -> Tensor:
-    """Compute the global heat content of the ocean.
-
-    Args:
-        T: Temperature tensor of shape (batch_size, depth, height, width)
-        dz: Depth tensor of shape (depth,)
-        area_weighted_func: Area weighted function
-
-    Returns:
-        Global heat content tensor of shape (batch_size,)
-    """
-    # Compute heat content per layer
-    HC_t = RHO_0 * CP_SW * T * dz.view(1, -1, 1, 1)
-
-    # Column integrated heat content
-    total_HC_t = torch.sum(HC_t, dim=1)
-
-    # Sum over depth to get total heat content
-    global_HC_t = area_weighted_func(total_HC_t)  # (batch,) [J]
-
-    return global_HC_t
-
-
 def compute_expected_heat_content_change(
     surface_heat_flux: Tensor,
     geothermal_heat_flux: Tensor,
@@ -234,10 +210,10 @@ class OceanHeatCorrector(BaseCorrector):
         # Extract the boundary variables
         surface_heat_flux = fts_boundary[:, self.hfds_idx].squeeze(1)
 
-        global_HC_t0 = compute_ocean_heat_content(
+        global_HC_t0 = compute_global_ocean_heat_content(
             T_input, self.dz, self.area_weighted_func
         )
-        global_HC_t1 = compute_ocean_heat_content(
+        global_HC_t1 = compute_global_ocean_heat_content(
             T_pred, self.dz, self.area_weighted_func
         )
         dHC_expected = compute_expected_heat_content_change(

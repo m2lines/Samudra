@@ -25,6 +25,7 @@ from ocean_emulators.constants import (
     SingleTimeSeriesOutput,
     TensorMap,
 )
+from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.multiton import Multiton
 
 
@@ -36,6 +37,7 @@ class DataSource:
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
+    static_data_vars: list[str] | None = None
 
     def filter(
         self,
@@ -81,6 +83,12 @@ class DataSource:
         """Slice the data source to only include the specified time slice."""
         data = self.data.sel(time=time.time_slice)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
+
+    def get_static_data(self) -> xr.Dataset | None:
+        """Get the static data from the data source."""
+        if self.static_data_vars is None:
+            return None
+        return self.data[self.static_data_vars]
 
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
@@ -144,12 +152,14 @@ class DataSource:
         )
 
         dask = "with_dask" if use_dask else "without_dask"
+        static_data_vars = cfg.data.static_data_vars
 
         return cls(
             name=f"{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
             data=data,
             means=means,
             stds=stds,
+            static_data_vars=static_data_vars,
         )
 
 
@@ -266,6 +276,7 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
     out_dict = {}
     for i, var in enumerate(tensor_map.prognostic_var_names):
         out_dict[var] = tensor_out[:, :, i]
+    out_dict.update(add_derived_variables(tensor_out))
     return out_dict
 
 
@@ -373,6 +384,20 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
 
 def validate_data(src: DataSource) -> DataSource:
     """Validate the data such that we have the correct format for training."""
+    static_data_vars = src.static_data_vars
+
+    def static_data_checks(data, means, std):
+        if static_data_vars is not None:
+            for var in static_data_vars:
+                assert var in data.variables, (
+                    f"Static data variable {var} not found in data"
+                )
+            if "time" in data[var].dims:
+                data[var] = data[var].isel(time=0)
+
+        return data, means, std
+
+    src = src.map(static_data_checks, suffix="static_data_checked")
 
     def _rename(data, means, stds):
         data = (
@@ -406,6 +431,7 @@ class Normalize(Multiton):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
+        wet_mask_surface: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
         prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
@@ -415,6 +441,7 @@ class Normalize(Multiton):
         self.boundary_mean = boundary_src.means
         self.boundary_std = boundary_src.stds
         self.wet_mask = wet_mask
+        self.wet_mask_surface = wet_mask_surface
 
         # Pre-compute numpy arrays for faster access
         self._prognostic_mean_np = (
@@ -456,11 +483,15 @@ class Normalize(Multiton):
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
 
         if data.ndim == 4:
-            assert data.shape[1] == self._prognostic_mean_np.shape[0]
+            assert data.shape[1] == self._prognostic_mean_np.shape[0], (
+                f"{data.shape[1]} != {self._prognostic_mean_np.shape[0]}"
+            )
             tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
             tensor_std = tensor_std.reshape([1, -1, 1, 1])
         elif data.ndim == 5:
-            assert data.shape[2] == self._prognostic_mean_np.shape[0]
+            assert data.shape[2] == self._prognostic_mean_np.shape[0], (
+                f"{data.shape[2]} != {self._prognostic_mean_np.shape[0]}"
+            )
             tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
             tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
         else:
@@ -468,5 +499,30 @@ class Normalize(Multiton):
 
         unnorm = data * tensor_std + tensor_mean
         unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
+        unnorm = unnorm.to(data.dtype)
+        return unnorm
+
+    def unnormalize_tensor_boundary(
+        self, data: torch.Tensor, fill_value=float("nan")
+    ) -> torch.Tensor:
+        """Unnormalize boundary tensor."""
+        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device)
+        tensor_std = self._to_tensor(self._boundary_std_np, data.device)
+
+        if data.ndim == 4:
+            assert data.shape[1] == self._boundary_mean_np.shape[0]
+            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, -1, 1, 1])
+        elif data.ndim == 5:
+            assert data.shape[2] == self._boundary_mean_np.shape[0]
+            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
+            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
+        else:
+            raise ValueError(f"Invalid data shape: {data.shape}")
+
+        unnorm = data * tensor_std + tensor_mean
+        unnorm = torch.where(
+            self.wet_mask_surface.to(data.device) == 0, fill_value, unnorm
+        )
         unnorm = unnorm.to(data.dtype)
         return unnorm

@@ -12,7 +12,15 @@ from ocean_emulators.utils.output import ModelInferenceOutput
 
 class BaseModel(torch.nn.Module):
     def __init__(
-        self, ch_width, n_out, wet, hist, pred_residuals, last_kernel_size, pad
+        self,
+        ch_width,
+        n_out,
+        wet,
+        hist,
+        pred_residuals,
+        last_kernel_size,
+        pad,
+        static_data,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -26,6 +34,7 @@ class BaseModel(torch.nn.Module):
         self.hist = hist
         self.input_channels = ch_width[0]
         self.num_prognostic_channels = n_out
+        self.static_data = static_data
 
     def forward_once(self, fts):
         raise NotImplementedError()

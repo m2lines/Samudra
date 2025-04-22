@@ -135,7 +135,7 @@ class Trainer:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
+        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
@@ -162,6 +162,7 @@ class Trainer:
         raw = DataSource.from_config(cfg, use_dask=use_dask)
         self.src = validate_data(raw)
         self.data = self.src.data
+        self.static_data = self.src.get_static_data()
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -180,6 +181,7 @@ class Trainer:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=self.wet_without_hist_cpu,
+            wet_mask_surface=self.wet_surface,
         )
         self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
@@ -198,9 +200,13 @@ class Trainer:
                     f"{cfg.samudra.n_out}->{self.num_out}"
                 )
                 cfg.samudra.n_out = self.num_out
-            model = Samudra(cfg.samudra, hist=cfg.data.hist, wet=self.wet).to(
-                self.device
-            )
+            model = Samudra(
+                cfg.samudra,
+                hist=cfg.data.hist,
+                wet=self.wet,
+                area_weights=self.area_weights,
+                static_data=self.static_data,
+            ).to(self.device)
         else:
             raise NotImplementedError
 

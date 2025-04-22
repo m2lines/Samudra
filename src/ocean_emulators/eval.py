@@ -169,7 +169,6 @@ class Eval:
         self.debug = cfg.debug
         self.num_workers = cfg.data.num_workers
         self.inference_time = cfg.inference_time
-        self.time_delta = cfg.data.time_delta
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
@@ -189,7 +188,6 @@ class Eval:
     def init_inference_store(self):
         self.num_time_steps = get_inference_steps(
             self.inference_time,
-            time_delta=self.time_delta,
             hist=self.hist,
         )
         self.inference_dataset = InferenceDataset(

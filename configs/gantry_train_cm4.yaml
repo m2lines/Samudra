@@ -62,7 +62,6 @@ data:
   data_means_path: /statsdata/centering.nc
   data_stds_path: /statsdata/scaling-full-field.nc
   scaling_residuals_file: null
-  time_delta: 5
   num_workers: 4
   hist: 1
 

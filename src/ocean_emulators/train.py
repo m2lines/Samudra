@@ -322,7 +322,6 @@ class Trainer:
         self.val_time = cfg.val_time
         self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
-        self.time_delta: int = cfg.data.time_delta
         self.num_batches_seen = 0
         self.ckpt_paths = CheckpointPaths(self.nets_dir)
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
@@ -360,7 +359,6 @@ class Trainer:
         for i in range(num_splits):
             num_time_steps = get_inference_steps(
                 self.inference_times[i],
-                time_delta=self.time_delta,
                 hist=self.hist,
             )
             inference_dataset = InferenceDataset(

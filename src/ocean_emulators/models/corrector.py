@@ -8,7 +8,15 @@ from einops import rearrange
 from torch import Tensor
 
 from ocean_emulators.aggregator.metrics import area_weighted_sum
-from ocean_emulators.constants import SECONDS_PER_5DAY, TensorMap
+from ocean_emulators.constants import (
+    SECONDS_PER_5DAY,
+    Boundary,
+    HistBatched,
+    HistChanneled,
+    Input,
+    Prognostic,
+    TensorMap,
+)
 from ocean_emulators.derived_variables import compute_global_ocean_heat_content
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device
@@ -24,10 +32,10 @@ class BaseCorrector(torch.nn.Module):
         self.normalize = normalize
         self.num_prognostic_channels = len(self.tensor_map.prognostic_var_names)
 
-    def _flatten_hist(self, fts: Tensor) -> Tensor:
+    def _flatten_hist(self, fts: HistChanneled) -> HistBatched:
         return rearrange(fts, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1)
 
-    def _flatten_input(self, fts: Tensor) -> tuple[Tensor, Tensor]:
+    def _flatten_input(self, fts: Input) -> tuple[HistBatched, HistBatched]:
         fts_input = fts[:, : (self.hist + 1) * self.num_prognostic_channels]
         fts_input = self._flatten_hist(fts_input)
 
@@ -35,21 +43,21 @@ class BaseCorrector(torch.nn.Module):
         fts_boundary = self._flatten_hist(fts_boundary)
         return fts_input, fts_boundary
 
-    def _unflatten_hist(self, fts: Tensor) -> Tensor:
+    def _unflatten_hist(self, fts: HistBatched) -> HistChanneled:
         return rearrange(fts, "(n hist) c h w -> n (hist c) h w", hist=self.hist + 1)
 
-    def _unnormalize_fts_prognostic(self, fts: Tensor) -> Tensor:
+    def _unnormalize_fts_prognostic(self, fts: Prognostic) -> Prognostic:
         # Corrector is run in float64 to avoid precision loss
         fts = fts.to(torch.float64)
         return self.normalize.unnormalize_tensor_prognostic(fts, fill_value=0.0)
 
-    def _normalize_fts_prognostic(self, fts: Tensor) -> Tensor:
+    def _normalize_fts_prognostic(self, fts: Prognostic) -> Prognostic:
         fts = self.normalize.normalize_tensor_prognostic(fts)
         return fts.to(torch.float32)
 
     def _unnormalize_fts_input(
-        self, fts: Tensor, fts_boundary: Tensor
-    ) -> tuple[Tensor, Tensor]:
+        self, fts: Prognostic, fts_boundary: Boundary
+    ) -> tuple[Prognostic, Boundary]:
         # Corrector is run in float64 to avoid precision loss
         fts = self._unnormalize_fts_prognostic(fts)
         fts_boundary = fts_boundary.to(torch.float64)
@@ -59,7 +67,7 @@ class BaseCorrector(torch.nn.Module):
 
         return fts, fts_boundary
 
-    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+    def forward(self, fts_input: Input, fts: Prognostic) -> Prognostic:
         """Apply correction to the input features.
 
         Args:
@@ -99,7 +107,7 @@ class ReLUCorrector(BaseCorrector):
 
         self.non_neg_indices = self.non_neg_indices.to(get_device())
 
-    def _apply_relu_correction(self, fts: Tensor) -> Tensor:
+    def _apply_relu_correction(self, fts: Prognostic) -> Prognostic:
         """Applies ReLU to specified channels.
 
         Args:
@@ -114,7 +122,7 @@ class ReLUCorrector(BaseCorrector):
         )
         return self._normalize_fts_prognostic(unnormalized)
 
-    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+    def forward(self, fts_input: Input, fts: Prognostic) -> Prognostic:
         """Applies correction to the input features if needed.
 
         Args:
@@ -194,13 +202,13 @@ class OceanHeatCorrector(BaseCorrector):
             * SECONDS_PER_5DAY
         )
 
-    def forward(self, fts_input_boundary: Tensor, fts: Tensor) -> Tensor:
-        fts_input_boundary = fts_input_boundary.detach()
+    def forward(self, fts_input: Input, fts: Prognostic) -> Prognostic:
+        fts_input = fts_input.detach()
 
         fts = self._flatten_hist(fts)
         fts = self._unnormalize_fts_prognostic(fts)
 
-        fts_input, fts_boundary = self._flatten_input(fts_input_boundary)
+        fts_input, fts_boundary = self._flatten_input(fts_input)
         fts_input, fts_boundary = self._unnormalize_fts_input(fts_input, fts_boundary)
 
         # The input and output mapping of the variables are the same
@@ -304,7 +312,7 @@ class Corrector(torch.nn.Module):
 
         self.correctors = torch.nn.ModuleList(correctors)
 
-    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+    def forward(self, fts_input: Input, fts: Prognostic) -> Prognostic:
         """Applies all corrections sequentially to the input features.
 
         Args:

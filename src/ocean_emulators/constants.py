@@ -40,6 +40,9 @@ SingleTimeSeriesOutput = Float[torch.Tensor, "batch=1 time prognostic_vars lat l
 BatchTimeSeriesOutput = Float[
     torch.Tensor, "batch time=(hist+1) prognostic_vars lat lon"
 ]
+HistBatched = Float[torch.Tensor, "batch_hist prognostic_vars lat lon"]
+HistChanneled = Float[torch.Tensor, "batch hist_prognostic_vars lat lon"]
+
 
 MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 

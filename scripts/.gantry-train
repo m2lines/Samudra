@@ -5,7 +5,7 @@ set -e
 git branch -r --contains $(git rev-parse HEAD) | grep -q . || { echo "Error: Commit not found on remote."; exit 1; }
 SCRIPT_PATH=$(git rev-parse --show-prefix)  # relative to the root of the repository
 
-JOB_NAME="samudra-train-cm4-thermodynamic-instancenorm-ema-zerofill"  # recommended but not required to change this
+JOB_NAME="samudra-train-cm4-thermodynamic-instancenorm-ema-negonefill"  # recommended but not required to change this
 CONFIG_PATH="configs/gantry_train_cm4.yaml"
 
 echo 'Using config file:' $CONFIG_PATH

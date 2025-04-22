@@ -23,7 +23,7 @@ def inf_data_init(hist: int):
         lons = 1
         total_time_steps = 100
 
-        tensor_map = TensorMap.init_instance("thetao_surface", "hfds")
+        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
 
         # Even thetao, odd hfds for every time step
         # Ex, timestep 0: thetao = 0, hfds = 1

@@ -146,7 +146,7 @@ SECONDS_PER_5DAY = 5 * 24 * 60 * 60  # 5 day average
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
-    "thetao_surface": [f"thetao_{DEPTH_I_LEVELS[0]}"],
+    "thetao_1": [f"thetao_{DEPTH_I_LEVELS[0]}"],
     "thermo_dynamic_5": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
     ]

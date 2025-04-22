@@ -267,10 +267,17 @@ class TensorMap(Multiton):
                 [out.split("_")[0] for out in PROGNOSTIC_VARS[prognostic_vars_key]]
             )
         )
-        self.DEPTH_SET = DEPTH_I_LEVELS
+
+        levels_str = prognostic_vars_key.split("_")[-1]
+        if "all" in levels_str:
+            levels = 19
+        else:
+            levels = int(levels_str)
+
+        self.DEPTH_SET = DEPTH_I_LEVELS[:levels]
         self.prognostic_var_names = PROGNOSTIC_VARS[prognostic_vars_key]
         self.boundary_var_names = BOUNDARY_VARS[boundary_vars_key]
-        self.dz = torch.tensor(DEPTH_THICKNESS)
+        self.dz = torch.tensor(DEPTH_THICKNESS[:levels])
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()

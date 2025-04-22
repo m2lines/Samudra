@@ -198,7 +198,7 @@ def data_init(hist: int):
         lons = 3
         total_time_steps = 100
 
-        tensor_map = TensorMap.init_instance("thetao_surface", "hfds")
+        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
 
         wet_mask_ = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
         wet_full = np.tile(wet_mask_, (total_time_steps, levels, 1, 1))

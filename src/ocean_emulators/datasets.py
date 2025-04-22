@@ -46,8 +46,8 @@ class InferenceDataset(Dataset):
         wet,
         wet_surface,
         hist,
-        normalize_pre_fill,
-        nan_fill_value,
+        normalize_before_mask,
+        masked_fill_value,
         long_rollout,
     ):
         super().__init__()
@@ -60,8 +60,8 @@ class InferenceDataset(Dataset):
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
-        self.normalize_pre_fill = normalize_pre_fill
-        self.nan_fill_value = nan_fill_value
+        self.normalize_before_mask = normalize_before_mask
+        self.masked_fill_value = masked_fill_value
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -174,7 +174,7 @@ class InferenceDataset(Dataset):
         data_in_src = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
-        if self.normalize_pre_fill:
+        if self.normalize_before_mask:
             data_in_ds = data_in_src.normalize()
         else:
             data_in_ds = data_in_src.data
@@ -184,8 +184,8 @@ class InferenceDataset(Dataset):
             .to_numpy()
         )
         data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
-        data_in = torch.where(self.wet, data_in, self.nan_fill_value)
-        if not self.normalize_pre_fill:
+        data_in = torch.where(self.wet, data_in, self.masked_fill_value)
+        if not self.normalize_before_mask:
             data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
         data_in = rearrange(
             data_in,
@@ -203,7 +203,7 @@ class InferenceDataset(Dataset):
         data_in_boundary_src = self._boundary_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=self.hist)
         )
-        if self.normalize_pre_fill:
+        if self.normalize_before_mask:
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
@@ -214,9 +214,9 @@ class InferenceDataset(Dataset):
         )
         data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
         data_in_boundary = torch.where(
-            self.wet_surface, data_in_boundary, self.nan_fill_value
+            self.wet_surface, data_in_boundary, self.masked_fill_value
         )
-        if not self.normalize_pre_fill:
+        if not self.normalize_before_mask:
             data_in_boundary = self._boundary_src.normalize_with(
                 data_in_boundary, variable_axis=1
             )
@@ -226,7 +226,7 @@ class InferenceDataset(Dataset):
         label_src = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         )
-        if self.normalize_pre_fill:
+        if self.normalize_before_mask:
             label_ds = label_src.normalize()
         else:
             label_ds = label_src.data
@@ -236,8 +236,8 @@ class InferenceDataset(Dataset):
             .to_numpy()
         )
         label: torch.Tensor = torch.from_numpy(label_np).float()
-        label = torch.where(self.wet, label, self.nan_fill_value)
-        if not self.normalize_pre_fill:
+        label = torch.where(self.wet, label, self.masked_fill_value)
+        if not self.normalize_before_mask:
             label = self._prognostic_src.normalize_with(label, variable_axis=2)
         label = rearrange(
             label,
@@ -334,8 +334,8 @@ class TrainDataset(Dataset):
         wet_surface: GridMask,
         hist: int,
         steps: int,
-        normalize_pre_fill: bool,
-        nan_fill_value: float,
+        normalize_before_mask: bool,
+        masked_fill_value: float,
         stride: int = 1,
     ):
         super().__init__()
@@ -344,8 +344,8 @@ class TrainDataset(Dataset):
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
-        self.normalize_pre_fill: bool = normalize_pre_fill
-        self.nan_fill_value: float = nan_fill_value
+        self.normalize_before_mask: bool = normalize_before_mask
+        self.masked_fill_value: float = masked_fill_value
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
@@ -431,7 +431,7 @@ class TrainDataset(Dataset):
         data_in_src: Any = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
-        if self.normalize_pre_fill:
+        if self.normalize_before_mask:
             data_in = data_in_src.normalize()
         else:
             data_in = data_in_src.data
@@ -442,8 +442,8 @@ class TrainDataset(Dataset):
             .to_numpy()
         )
         data_in = torch.from_numpy(data_in).float()
-        data_in = torch.where(self.wet, data_in, self.nan_fill_value)
-        if not self.normalize_pre_fill:
+        data_in = torch.where(self.wet, data_in, self.masked_fill_value)
+        if not self.normalize_before_mask:
             data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
 
         data_in = rearrange(
@@ -464,7 +464,7 @@ class TrainDataset(Dataset):
         data_in_boundary_src: Any = self._boundary_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=self.hist)
         )
-        if self.normalize_pre_fill:
+        if self.normalize_before_mask:
             data_in_boundary = data_in_boundary_src.normalize()
         else:
             data_in_boundary = data_in_boundary_src.data
@@ -475,9 +475,9 @@ class TrainDataset(Dataset):
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
         data_in_boundary = torch.where(
-            self.wet_surface, data_in_boundary, self.nan_fill_value
+            self.wet_surface, data_in_boundary, self.masked_fill_value
         )
-        if not self.normalize_pre_fill:
+        if not self.normalize_before_mask:
             data_in_boundary = self._boundary_src.normalize_with(
                 data_in_boundary, variable_axis=1
             )
@@ -488,7 +488,7 @@ class TrainDataset(Dataset):
         label_src: Any = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         )
-        if self.normalize_pre_fill:
+        if self.normalize_before_mask:
             label = label_src.normalize()
         else:
             label = label_src.data
@@ -498,8 +498,8 @@ class TrainDataset(Dataset):
             .to_numpy()
         )
         label = torch.from_numpy(label).float()
-        label = torch.where(self.wet, label, self.nan_fill_value)
-        if not self.normalize_pre_fill:
+        label = torch.where(self.wet, label, self.masked_fill_value)
+        if not self.normalize_before_mask:
             label = label_src.normalize_with(label, variable_axis=2)
         label = rearrange(
             label,
@@ -540,8 +540,8 @@ class TorchTrainDataset(Dataset):
         wet_surface: GridMask,
         hist: int,
         steps: int,
-        normalize_pre_fill: bool,
-        nan_fill_value: float,
+        normalize_before_mask: bool,
+        masked_fill_value: float,
         stride: int = 1,
     ):
         super().__init__()
@@ -550,8 +550,8 @@ class TorchTrainDataset(Dataset):
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
-        self.normalize_pre_fill: bool = normalize_pre_fill
-        self.nan_fill_value: float = nan_fill_value
+        self.normalize_before_mask: bool = normalize_before_mask
+        self.masked_fill_value: float = masked_fill_value
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
@@ -600,9 +600,7 @@ class TorchTrainDataset(Dataset):
         prognostic_all = torch.from_numpy(
             self._prognostic_src.data.isel(time=x_index)
             .to_array()
-            .transpose(
-                "step", "time", "variable", "lat", "lon"
-            )  # this should be a no-op, for documentation
+            .transpose("step", "time", "variable", "lat", "lon")
             .to_numpy()
         )
         boundary = torch.from_numpy(
@@ -635,12 +633,12 @@ class TorchTrainDataset(Dataset):
         )
 
         # add in boundary to final input
-        if self.normalize_pre_fill:
+        if self.normalize_before_mask:
             boundary = self._boundary_src.normalize_with(
                 boundary, variable_axis=1
             ).float()
-        boundary = torch.where(self.wet_surface, boundary, self.nan_fill_value)
-        if not self.normalize_pre_fill:
+        boundary = torch.where(self.wet_surface, boundary, self.masked_fill_value)
+        if not self.normalize_before_mask:
             boundary = self._boundary_src.normalize_with(
                 boundary, variable_axis=1
             ).float()
@@ -654,15 +652,17 @@ class TorchTrainDataset(Dataset):
         self, prognostic_steps: Float[torch.Tensor, "step time variable lat lon"]
     ) -> Input:
         # normalize expects variables in third dimension
-        if self.normalize_pre_fill:
+        if self.normalize_before_mask:
             prognostic_steps = self._prognostic_src.normalize_with(
                 prognostic_steps, variable_axis=2
             ).float()
 
         # post-normalize, mask out values where there is no ocean
-        prognostic_steps = torch.where(self.wet, prognostic_steps, self.nan_fill_value)
+        prognostic_steps = torch.where(
+            self.wet, prognostic_steps, self.masked_fill_value
+        )
 
-        if not self.normalize_pre_fill:
+        if not self.normalize_before_mask:
             prognostic_steps = self._prognostic_src.normalize_with(
                 prognostic_steps, variable_axis=2
             ).float()

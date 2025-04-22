@@ -85,8 +85,8 @@ def inf_data_init(hist: int):
             wet_without_hist,
             wet_surface,
             hist,
-            normalize_pre_fill=True,
-            nan_fill_value=0.0,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
             long_rollout=True,
         )
 

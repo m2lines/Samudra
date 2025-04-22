@@ -68,8 +68,8 @@ def make_loader(
         src = validate_data(raw)
         wet, wet_surface = extract_wet_mask(src.data, prognostic, cfg.data.hist)
         wet_without_hist, _ = extract_wet_mask(src.data, prognostic, 0)
-        normalize_pre_fill = cfg.data.normalize_pre_fill
-        nan_fill_value = cfg.data.nan_fill_value
+        normalize_before_mask = cfg.data.normalize_before_mask
+        masked_fill_value = cfg.data.masked_fill_value
 
         match version:
             case LoaderVersion.OM4_EAGER:
@@ -83,8 +83,8 @@ def make_loader(
                             wet_surface=wet_surface,
                             hist=cfg.data.hist,
                             steps=cfg.steps[0],
-                            normalize_pre_fill=normalize_pre_fill,
-                            nan_fill_value=nan_fill_value,
+                            normalize_before_mask=normalize_before_mask,
+                            masked_fill_value=masked_fill_value,
                             stride=stride,
                         )
                         for stride in cfg.data_stride
@@ -102,8 +102,8 @@ def make_loader(
                             wet_surface=wet_surface,
                             hist=cfg.data.hist,
                             steps=cfg.steps[0],
-                            normalize_pre_fill=normalize_pre_fill,
-                            nan_fill_value=nan_fill_value,
+                            normalize_before_mask=normalize_before_mask,
+                            masked_fill_value=masked_fill_value,
                             stride=stride,
                         )
                         for stride in cfg.data_stride
@@ -392,7 +392,7 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
 
 
 @pytest.fixture
-def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
+def dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     # Create data
     coords = {"time": range(10), "lat": range(2), "lon": range(2)}
     times = torch.arange(10)
@@ -457,8 +457,8 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             wet_surface=wet_surface,
             hist=1,
             steps=2,
-            normalize_pre_fill=normalize_pre_fill,
-            nan_fill_value=nan_fill_value,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=masked_fill_value,
             stride=1,
         )
         torch_train_dataset = TorchTrainDataset(
@@ -469,8 +469,8 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             wet_surface=wet_surface,
             hist=1,
             steps=2,
-            normalize_pre_fill=normalize_pre_fill,
-            nan_fill_value=nan_fill_value,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=masked_fill_value,
             stride=1,
         )
         inference_dataset = InferenceDataset(
@@ -480,17 +480,17 @@ def dataset_input(normalize_pre_fill: bool, nan_fill_value: float):
             wet=wet,
             wet_surface=wet_surface,
             hist=1,
-            normalize_pre_fill=normalize_pre_fill,
-            nan_fill_value=nan_fill_value,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=masked_fill_value,
             long_rollout=True,
         )
         yield traindataset, torch_train_dataset, inference_dataset
 
 
-@pytest.mark.parametrize("normalize_pre_fill", [True])
-@pytest.mark.parametrize("nan_fill_value", [0.0])
+@pytest.mark.parametrize("normalize_before_mask", [True])
+@pytest.mark.parametrize("masked_fill_value", [0.0])
 def test_train_dataset_no_input_change(
-    dataset_input, normalize_pre_fill, nan_fill_value
+    dataset_input, normalize_before_mask, masked_fill_value
 ):
     traindataset, torch_train_dataset, _ = dataset_input
     for dataset in [traindataset, torch_train_dataset]:
@@ -504,15 +504,15 @@ def test_train_dataset_no_input_change(
         assert torch.equal(td_new.get_input(1), inp1)
 
 
-@pytest.mark.parametrize("normalize_pre_fill", [True, False])
-@pytest.mark.parametrize("nan_fill_value", [0.0, -1.0])
+@pytest.mark.parametrize("normalize_before_mask", [True, False])
+@pytest.mark.parametrize("masked_fill_value", [0.0, -1.0])
 def test_train_dataset_normalize_pre_fill(
-    dataset_input, normalize_pre_fill, nan_fill_value
+    dataset_input, normalize_before_mask, masked_fill_value
 ):
     traindataset, torch_train_dataset, inference_dataset = dataset_input
     for dataset in [traindataset, torch_train_dataset]:
         td0 = dataset[0]
-        data = nan_fill_value
+        data = masked_fill_value
 
         td0_step0_input = td0.get_input(0)
         td0_step0_label = td0.get_label(0)
@@ -523,7 +523,7 @@ def test_train_dataset_normalize_pre_fill(
         assert inf_step0_input.shape == (1, 6, 2, 2)
         assert inf_step0_label.shape == (1, 4, 2, 2)
 
-        if not normalize_pre_fill:
+        if not normalize_before_mask:
             mean = 0.5
             std = 1.0
             data = (data - mean) / std

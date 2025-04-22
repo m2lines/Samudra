@@ -130,7 +130,7 @@ class Samudra(BaseModel):
         self.num_steps = int(len(config.ch_width) - 1)
 
     def forward_once(self, fts):
-        fts_input = fts.clone()
+        fts_input = fts.clone().detach()
         temp: list[torch.Tensor] = []
         for i in range(self.num_steps):
             temp.append(torch.zeros_like(fts))

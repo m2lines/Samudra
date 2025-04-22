@@ -231,7 +231,7 @@ class OceanHeatCorrector(BaseCorrector):
             self.area_weighted_func,
         )
 
-        HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
+        HC_correct_ratio = (global_HC_t0 + dHC_expected) / (global_HC_t1 + 1e-8)
 
         T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1)
 

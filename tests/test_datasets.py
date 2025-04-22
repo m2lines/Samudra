@@ -392,7 +392,7 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
 
 
 @pytest.fixture
-def dataset_input(normalize_before_mask: bool, masked_fill_value: float):
+def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     # Create data
     coords = {"time": range(10), "lat": range(2), "lon": range(2)}
     times = torch.arange(10)
@@ -487,12 +487,12 @@ def dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         yield traindataset, torch_train_dataset, inference_dataset
 
 
-@pytest.mark.parametrize("normalize_before_mask", [True])
-@pytest.mark.parametrize("masked_fill_value", [0.0])
+@pytest.mark.parametrize("normalize_before_mask", [True, False])
+@pytest.mark.parametrize("masked_fill_value", [0.0, -1.0])
 def test_train_dataset_no_input_change(
-    dataset_input, normalize_before_mask, masked_fill_value
+    tiny_dataset_input, normalize_before_mask, masked_fill_value
 ):
-    traindataset, torch_train_dataset, _ = dataset_input
+    traindataset, torch_train_dataset, _ = tiny_dataset_input
     for dataset in [traindataset, torch_train_dataset]:
         td = collate_train_data([dataset[0], dataset[1], dataset[2]])
         pred = torch.randn_like(td.get_label(0)) * 0.1
@@ -507,9 +507,9 @@ def test_train_dataset_no_input_change(
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
 @pytest.mark.parametrize("masked_fill_value", [0.0, -1.0])
 def test_train_dataset_normalize_pre_fill(
-    dataset_input, normalize_before_mask, masked_fill_value
+    tiny_dataset_input, normalize_before_mask, masked_fill_value
 ):
-    traindataset, torch_train_dataset, inference_dataset = dataset_input
+    traindataset, torch_train_dataset, inference_dataset = tiny_dataset_input
     for dataset in [traindataset, torch_train_dataset]:
         td0 = dataset[0]
         data = masked_fill_value
@@ -523,13 +523,14 @@ def test_train_dataset_normalize_pre_fill(
         assert inf_step0_input.shape == (1, 6, 2, 2)
         assert inf_step0_label.shape == (1, 4, 2, 2)
 
-        if not normalize_before_mask:
-            mean = 0.5
-            std = 1.0
-            data = (data - mean) / std
+        # We expect [0,0,0] to be masked
+        if normalize_before_mask:
             assert td0.get_input(0)[0, 0, 0] == data
             assert inference_dataset[0][0][0][0, 0, 0] == data
         else:
+            mean = 0.5
+            std = 1.0
+            data = (data - mean) / std
             assert td0.get_input(0)[0, 0, 0] == data
             assert inference_dataset[0][0][0][0, 0, 0] == data
 

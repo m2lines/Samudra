@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745018120217,
+  "lastUpdate": 1745335293606,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -496,6 +496,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.2965314937020067",
             "extra": "mean: 145.7149121488 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41594351+suryadheeshjith@users.noreply.github.com",
+            "name": "Surya Dheeshjith",
+            "username": "suryadheeshjith"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e01e28c1a414b86e56e2c3ccd3e3aa14a20727cc",
+          "message": "Normalize prefill and fill value configuration (#219)\n\nAdd normalize pre fill boolean and fill value configuration for testing\npost fill configuration and multiple fill values\n\n- [x] Add tests for pre-fill and post-fill configuration with multiple\nfill values",
+          "timestamp": "2025-04-22T10:39:07-04:00",
+          "tree_id": "565a8e25bad0d8d56e8a64b5f00a859a9b72b738",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/e01e28c1a414b86e56e2c3ccd3e3aa14a20727cc"
+        },
+        "date": 1745335292579,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.17465823760534638,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6380995106415528",
+            "extra": "mean: 5.7254671392000205 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.046065139713128124,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6583459544397046",
+            "extra": "mean: 21.708389602800004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.1380147638595732,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0772877819134211",
+            "extra": "mean: 7.24560164459997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007187277769725334,
+            "unit": "iter/sec",
+            "range": "stddev: 2.3328860996006187",
+            "extra": "mean: 139.1347366888 sec\nrounds: 5"
           }
         ]
       }

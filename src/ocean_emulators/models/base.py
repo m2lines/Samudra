@@ -1,7 +1,6 @@
 # TODO: Need to return step-wise losses for logging
 
 import logging
-from typing import Union
 
 import torch
 
@@ -34,7 +33,7 @@ class BaseModel(torch.nn.Module):
         self,
         train_data: TrainData,
         loss_fn=None,
-    ) -> Union[torch.Tensor, list[torch.Tensor]]:
+    ) -> torch.Tensor | list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         loss = torch.tensor(torch.nan)
         for step in range(len(train_data)):

@@ -2,7 +2,8 @@ import dataclasses
 import pathlib
 import random
 import time
-from typing import ClassVar, Generator
+from collections.abc import Generator
+from typing import ClassVar, Self
 
 import cftime
 import numpy as np
@@ -10,7 +11,6 @@ import pytest
 import xarray as xr
 from aiohttp import ServerDisconnectedError
 from numpy.typing import ArrayLike, NDArray
-from typing_extensions import Self
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import TrainBackendConfig, TrainConfig
@@ -384,11 +384,9 @@ def data_source(request, pytestconfig) -> DataSource:
             # matches the mock data) is about 30 items.
 
             data = retry_with_backoff(
-                (
-                    lambda: xr.open_zarr(REMOTE_DATA + "OM4", chunks=dict(time=50))
-                    .sel(time=slice("1975-08-05", "1976-03-31"))
-                    .compute()
-                )
+                lambda: xr.open_zarr(REMOTE_DATA + "OM4", chunks=dict(time=50))
+                .sel(time=slice("1975-08-05", "1976-03-31"))
+                .compute()
             )
             means = retry_with_backoff(
                 lambda: xr.open_dataset(

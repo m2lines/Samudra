@@ -228,7 +228,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     pred = model.forward_once(input_tensor)
     assert pred.shape == (1, num_prognostic_channels, 1, 1)
     expected_pred = torch.tensor(
-        [2 * hist + 1 + 2 * i * 10 for i in range((hist + 1))], device=pred.device
+        [2 * hist + 1 + 2 * i * 10 for i in range(hist + 1)], device=pred.device
     )
     assert torch.equal(pred.flatten(), expected_pred)
 
@@ -238,7 +238,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     )
     assert merged_input_tensor.shape == (1, num_input_channels, 1, 1)
     expected_merged_input = torch.tensor(
-        [2 * hist + 1 + 2 * i * 10 for i in range((hist + 1))]
+        [2 * hist + 1 + 2 * i * 10 for i in range(hist + 1)]
         + [(merge_step + 1) * (num_prognostic_channels * 2) - 1],
         device=merged_input_tensor.device,
     )

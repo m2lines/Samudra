@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from functools import partial
-from typing import Callable, Dict, Optional
 
 import numpy as np
 import torch
@@ -57,7 +57,7 @@ class MeanAggregator(ValidateSubAggregator):
 
     def __init__(self, area_weights: torch.Tensor, target_time: int):
         self._n_batches = 0
-        self._variable_metrics: Optional[Dict] = None
+        self._variable_metrics: dict | None = None
         self._target_time = target_time
         self._area_weights = area_weights
 
@@ -107,8 +107,8 @@ class MeanAggregator(ValidateSubAggregator):
         gen_data,
         target_data_norm,
         gen_data_norm,
-        input_data: Dict[str, torch.Tensor] = {},
-        input_data_norm: Dict[str, torch.Tensor] = {},
+        input_data: dict[str, torch.Tensor] = {},
+        input_data_norm: dict[str, torch.Tensor] = {},
         i_time_start: int = 0,
     ):
         variable_metrics = self._get_variable_metrics(gen_data)
@@ -130,13 +130,13 @@ class MeanAggregator(ValidateSubAggregator):
     def _get_data(self):
         if self._variable_metrics is None or self._n_batches == 0:
             raise ValueError("No batches have been recorded.")
-        data: Dict[str, torch.Tensor] = {}
+        data: dict[str, torch.Tensor] = {}
         for metric in self._variable_metrics:
             for key in self._variable_metrics[metric]:
                 data[f"{metric}/{key}"] = (
                     self._variable_metrics[metric][key].get() / self._n_batches
                 )
-        meaned_data: Dict[str, float] = {}
+        meaned_data: dict[str, float] = {}
         for key in sorted(data.keys()):
             meaned_data[key] = float(all_reduce_mean(data[key].detach()).cpu().numpy())
         return meaned_data

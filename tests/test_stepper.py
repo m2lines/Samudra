@@ -82,13 +82,15 @@ def inf_data_init(hist: int):
             val,
             tensor_map.prognostic_var_names,
             tensor_map.boundary_var_names,
-            wet,
+            wet_without_hist,
             wet_surface,
             hist,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
             long_rollout=True,
         )
 
-        yield inference_dataset
+        yield inference_dataset, wet
 
 
 class MockModel(BaseModel):
@@ -102,7 +104,7 @@ class MockModel(BaseModel):
 # These tests will fail with OHC PR
 @pytest.mark.parametrize("hist", [0, 1, 2, 3, 4])
 def test_inference_dataset(inf_data_init, hist):
-    inference_dataset = inf_data_init
+    inference_dataset, _ = inf_data_init
     num_input_channels = (hist + 1) + 1  # thetao * (hist + 1) + hfds
     num_prognostic_channels = hist + 1  # thetao * (hist + 1)
 
@@ -148,11 +150,11 @@ def test_inference_dataset(inf_data_init, hist):
 @pytest.mark.parametrize("hist", [0, 1, 2, 3, 4])
 @pytest.mark.parametrize("num_steps", [1, 2, 3])
 def test_inference_rollout(inf_data_init, hist, num_steps):
-    inference_dataset = inf_data_init
+    inference_dataset, wet = inf_data_init
     model = MockModel(
         ch_width=[1],
         n_out=inference_dataset.num_prognostic_channels,
-        wet=inference_dataset.wet,
+        wet=wet,
         hist=hist,
         pred_residuals=False,
         last_kernel_size=3,
@@ -201,11 +203,11 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
 @pytest.mark.parametrize("hist", [0, 1, 2, 3, 4])
 @pytest.mark.parametrize("merge_step", [1, 2, 3])
 def test_inference_rollout_methods(inf_data_init, hist, merge_step):
-    inference_dataset = inf_data_init
+    inference_dataset, wet = inf_data_init
     model = MockModel(
         ch_width=[1],
         n_out=inference_dataset.num_prognostic_channels,
-        wet=inference_dataset.wet,
+        wet=wet,
         hist=hist,
         pred_residuals=False,
         last_kernel_size=3,
@@ -247,7 +249,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
 @pytest.mark.parametrize("num_steps", [1, 2, 3])
 @pytest.mark.parametrize("start_time", [0, 6, 15])
 def test_inference_rollout_time(inf_data_init, hist, num_steps, start_time):
-    inference_dataset = inf_data_init
+    inference_dataset, _ = inf_data_init
     target_time = inference_dataset.get_target_time(start_time, num_steps)
 
     # Base time

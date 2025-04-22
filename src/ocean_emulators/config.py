@@ -34,6 +34,8 @@ class DataConfig(BaseConfig):
     num_workers: int = 4
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_EAGER.value)
+    normalize_before_mask: bool = True
+    masked_fill_value: float = 0.0
 
 
 BlockType = Literal["conv_next_block", "conv_block"]

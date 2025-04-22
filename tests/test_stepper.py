@@ -64,7 +64,7 @@ def inf_data_init(hist: int):
         data_mean: xr.Dataset = data.mean() * 0.0
         data_std: xr.Dataset = data.std() * 0.0 + 1.0
         test_data = DataSource("test-data", data, data_mean, data_std)
-        val = validate_data(test_data)
+        val = validate_data(test_data, [])
         wet, wet_surface = extract_wet_mask(
             val.data, tensor_map.prognostic_var_names, hist
         )

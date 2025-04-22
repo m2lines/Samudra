@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745335296217,
+  "lastUpdate": 1745345478260,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -548,6 +548,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.3328860996006187",
             "extra": "mean: 139.1347366888 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f2cabb570ca994ac0c334b5149ff02d8e532c117",
+          "message": "Enable upgrade lints (#220)\n\nOn #210, @alxmrs was leaving comments about using `Union` rather than\nmodern`|`, and there are a variety of related things like dict/list vs\nDict/List and so on. This also turns on warnings about using `\"\".format` rather than\nf-strings, older import paths, inheriting from `object`, using\n`open(foo, \"r\")` rather than `open(foo)` and others. Full list is here\nhttps://docs.astral.sh/ruff/rules/#pyupgrade-up.\n\nAll these fixes were automated (and therefore should be safe) except for\none I will call out below.",
+          "timestamp": "2025-04-22T13:28:25-04:00",
+          "tree_id": "8d977694a8c8210a21e9ec9450eb0c3586d732e4",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/f2cabb570ca994ac0c334b5149ff02d8e532c117"
+        },
+        "date": 1745345477194,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.17634263985379522,
+            "unit": "iter/sec",
+            "range": "stddev: 0.27245885643788564",
+            "extra": "mean: 5.6707782123999895 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.04538474323424702,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8760868297855096",
+            "extra": "mean: 22.0338362352 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.13783425336897048,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12652846457352068",
+            "extra": "mean: 7.255090629200026 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007197720118009039,
+            "unit": "iter/sec",
+            "range": "stddev: 0.16293502752484837",
+            "extra": "mean: 138.93288202439996 sec\nrounds: 5"
           }
         ]
       }

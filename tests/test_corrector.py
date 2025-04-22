@@ -5,11 +5,8 @@ import torch
 import xarray as xr
 
 from ocean_emulators.aggregator.metrics import area_weighted_sum
-from ocean_emulators.models.corrector import (
-    OceanHeatCorrector,
-    ReLUCorrector,
-    compute_ocean_heat_content,
-)
+from ocean_emulators.derived_variables import compute_global_ocean_heat_content
+from ocean_emulators.models.corrector import OceanHeatCorrector, ReLUCorrector
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.multiton import MultitonScope
@@ -188,7 +185,7 @@ def test_ocean_heat_content(ocean_heat_init):
     area_weights = torch.ones(wet_mask.shape).to(get_device())
     area_weighted_func = partial(area_weighted_sum, area_weights=area_weights)
 
-    global_HC_t = compute_ocean_heat_content(T, dz, area_weighted_func)
+    global_HC_t = compute_global_ocean_heat_content(T, dz, area_weighted_func)
     """
     Global heat = RHO * CP * T * int(dz) * int(area) * mask
      = 1035 * 3992 * 1 * (1+2+4) * (4-1)

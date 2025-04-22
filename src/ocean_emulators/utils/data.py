@@ -259,6 +259,29 @@ class DataSource:
 def conditional_rearrange(
     data: xr.Dataset, pattern: str, except_dim="lev", concat_dim="variable"
 ) -> xr.DataArray:
+    """Rearrange a Dataset using an einsum notation with and without a dimension.
+
+    When a dataset has variables with a mixture of dimensions and an einsum-like
+    rearrange is applied on that dataset, it's common that the pattern will combinate
+    one too many variables. Sometimes, it's desirable to apply the rearrange pattern
+    on two versions of the data: one including variables with that dimension and one
+    without, and then concatenate them along a new dimension.
+
+    For example, surface level boundary variables, which only occur at t0, should not be
+    combinatorially rearranged with depth variables that have multiple time steps. In
+    such a situation, this function can be used to apply a standard einsum rearrangement
+    to depth and surface variables, including and excluding variables who have a `time`
+    dimension, respectively.
+
+    Args:
+        data: The dataset to rearrange.
+        pattern: The einsum pattern to use for rearranging.
+        except_dim: The dimension to exclude from the pattern.
+        concat_dim: The dimension to concatenate along.
+
+    Returns:
+        The combined, rearranged dataset as a `xarray.DataArray`.
+    """
     assert except_dim in pattern, f"{except_dim} must be in the pattern."
     data_ = data.copy()
 

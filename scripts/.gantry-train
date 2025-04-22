@@ -40,4 +40,4 @@ gantry run \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
     --install "pip install uv" \
-    -- uv run torchrun --nproc_per_node $N_GPUS src/ocean_emulators/train.py --config $CONFIG_PATH --subname $JOB_NAME
+    -- uv run torchrun --nproc_per_node $N_GPUS src/ocean_emulators/train.py $CONFIG_PATH --experiment.subname $JOB_NAME

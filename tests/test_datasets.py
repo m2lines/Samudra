@@ -67,7 +67,7 @@ def make_loader(
         TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
-        src = validate_data(raw)
+        src = validate_data(raw, boundary)
         wet, wet_surface = extract_wet_mask(src.data, prognostic, cfg.data.hist)
         wet_without_hist, _ = extract_wet_mask(src.data, prognostic, 0)
         normalize_before_mask = cfg.data.normalize_before_mask

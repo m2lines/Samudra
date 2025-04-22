@@ -514,9 +514,11 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
 
 
 def validate_data(
-    src: DataSource, static_data_vars: list[str] | None = None
+    src: DataSource, boundary_vars: BoundaryVarNames, static_data_vars: list[str] | None = None
 ) -> DataSource:
     """Validate the data such that we have the correct format for training."""
+    anomalies_vars = get_anomalies_vars(boundary_vars)
+
     if static_data_vars is not None:
 
         def _static_data_checks(data):
@@ -533,7 +535,7 @@ def validate_data(
 
     if src.is_compact:
         src_ = src.map_data(with_lat_lon_coords)
-        return compute_anomalies(src_, ("hfds_anomalies",))
+        return compute_anomalies(src_, anomalies_vars)
 
     def validated(data, means, stds):
         data = (
@@ -551,9 +553,6 @@ def validate_data(
     src_ = src.map(validated, suffix="validated")
 
     # Check if any anomalies are needed to be computed
-    tensor_map = TensorMap.get_instance()
-    anomalies_vars = get_anomalies_vars(tensor_map.boundary_var_names)
-
     out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
 
     return out

@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Dict, List, Literal, Optional
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import torch
@@ -49,7 +49,7 @@ class _TargetGenPair:
         )
 
 
-def get_gen_shape(gen_data: Dict[str, torch.Tensor]):
+def get_gen_shape(gen_data: dict[str, torch.Tensor]):
     for name in gen_data:
         return gen_data[name].shape
 
@@ -64,8 +64,8 @@ class TimeMeanAggregator:
         self,
         area_weights: torch.Tensor,
         target: Literal["norm", "denorm"] = "denorm",
-        metadata: Optional[Dict[str, Dict[str, str]]] = None,
-        reference_means: Optional[xr.Dataset] = None,
+        metadata: dict[str, dict[str, str]] | None = None,
+        reference_means: xr.Dataset | None = None,
     ):
         """
         Args:
@@ -79,23 +79,23 @@ class TimeMeanAggregator:
         """
         self._target = target
         if metadata is None:
-            self._metadata: Dict[str, Dict[str, str]] = {}
+            self._metadata: dict[str, dict[str, str]] = {}
         else:
             self._metadata = metadata
         # Dictionaries of tensors of shape [n_lat, n_lon] represnting time means
-        self._data: Optional[Dict[str, torch.Tensor]] = None
+        self._data: dict[str, torch.Tensor] | None = None
         self._n_timesteps = 0
-        self._n_samples: Optional[int] = None
+        self._n_samples: int | None = None
         self._reference_means = reference_means
         self._reference_validated = False
         self._area_weights = area_weights
 
     @staticmethod
     def _add_or_initialize_time_mean(
-        maybe_dict: Optional[Dict[str, torch.Tensor]],
-        new_data: Dict[str, torch.Tensor],
+        maybe_dict: dict[str, torch.Tensor] | None,
+        new_data: dict[str, torch.Tensor],
         ignore_initial: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         sample_dim = 0
         time_dim = 1
         if ignore_initial:
@@ -103,7 +103,7 @@ class TimeMeanAggregator:
         else:
             time_slice = slice(0, None)
         if maybe_dict is None:
-            d: Dict[str, torch.Tensor] = {
+            d: dict[str, torch.Tensor] = {
                 name: tensor[:, time_slice].sum(dim=time_dim).sum(dim=sample_dim)
                 for name, tensor in new_data.items()
             }
@@ -116,7 +116,7 @@ class TimeMeanAggregator:
     @torch.no_grad()
     def record_batch(
         self,
-        data: Dict[str, torch.Tensor],
+        data: dict[str, torch.Tensor],
         i_time_start: int = 0,
     ):
         ignore_initial = i_time_start == 0
@@ -137,7 +137,7 @@ class TimeMeanAggregator:
                 self.get_logs(label="")
             self._reference_validated = True
 
-    def get_data(self) -> Dict[str, torch.Tensor]:
+    def get_data(self) -> dict[str, torch.Tensor]:
         if self._n_timesteps == 0 or self._data is None:
             raise ValueError("No data recorded.")
 
@@ -226,9 +226,9 @@ class TimeMeanEvaluatorAggregator:
         self,
         area_weights: torch.Tensor,
         target: Literal["norm", "denorm"] = "denorm",
-        metadata: Optional[Dict[str, Dict[str, str]]] = None,
-        reference_means: Optional[xr.Dataset] = None,
-        channel_mean_names: Optional[List[str]] = None,
+        metadata: dict[str, dict[str, str]] | None = None,
+        reference_means: xr.Dataset | None = None,
+        channel_mean_names: list[str] | None = None,
     ):
         """
         Args:
@@ -244,7 +244,7 @@ class TimeMeanEvaluatorAggregator:
         """
         self._target = target
         if metadata is None:
-            self._metadata: Dict[str, Dict[str, str]] = {}
+            self._metadata: dict[str, dict[str, str]] = {}
         else:
             self._metadata = metadata
         self._area_weights = area_weights
@@ -263,10 +263,10 @@ class TimeMeanEvaluatorAggregator:
     @torch.no_grad()
     def record_batch(
         self,
-        target_data: Dict[str, torch.Tensor],
-        gen_data: Dict[str, torch.Tensor],
-        target_data_norm: Dict[str, torch.Tensor],
-        gen_data_norm: Dict[str, torch.Tensor],
+        target_data: dict[str, torch.Tensor],
+        gen_data: dict[str, torch.Tensor],
+        target_data_norm: dict[str, torch.Tensor],
+        gen_data_norm: dict[str, torch.Tensor],
         i_time_start: int = 0,
     ):
         if self._target == "norm":
@@ -275,7 +275,7 @@ class TimeMeanEvaluatorAggregator:
         self._target_agg.record_batch(target_data, i_time_start)
         self._gen_agg.record_batch(gen_data, i_time_start)
 
-    def _get_target_gen_pairs(self) -> List[_TargetGenPair]:
+    def _get_target_gen_pairs(self) -> list[_TargetGenPair]:
         target_data = self._target_agg.get_data()
         gen_data = self._gen_agg.get_data()
 

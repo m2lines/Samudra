@@ -1,11 +1,9 @@
-from typing import Optional
-
 import torch
 
 
 def weighted_sum(
     tensor: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
+    weights: torch.Tensor | None = None,
     dim: tuple[int, ...] = (-2, -1),
     keepdim: bool = False,
 ) -> torch.Tensor:
@@ -38,7 +36,7 @@ def area_weighted_sum(
 
 def weighted_mean(
     tensor: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
+    weights: torch.Tensor | None = None,
     dim: tuple[int, ...] = (-2, -1),
     keepdim: bool = False,
 ) -> torch.Tensor:
@@ -111,7 +109,7 @@ def gradient_magnitude(
 
 def weighted_mean_gradient_magnitude(
     tensor: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
+    weights: torch.Tensor | None = None,
     dim: tuple[int, ...] = (-2, -1),
 ) -> torch.Tensor:
     """Compute weighted mean of gradient magnitude across the specified dimensions."""
@@ -121,7 +119,7 @@ def weighted_mean_gradient_magnitude(
 def gradient_magnitude_percent_diff(
     target: torch.Tensor,
     gen: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
+    weights: torch.Tensor | None = None,
     dim: tuple[int, ...] = (-2, -1),
 ) -> torch.Tensor:
     """Compute the percent difference of the weighted mean gradient magnitude across

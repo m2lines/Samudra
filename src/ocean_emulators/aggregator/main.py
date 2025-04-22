@@ -4,8 +4,6 @@ The code in this directory is directly inspired by the ACE project by AI2.
 See the original repository at: https://github.com/ai2cm/ace/tree/39133c18524cda85965486ecdc8cb64aac06f4c3/fme/fme/ace/aggregator
 """
 
-from typing import Dict
-
 import torch
 
 from ocean_emulators.aggregator.inference import InferenceEvaluatorAggregator
@@ -20,7 +18,7 @@ class Aggregator:
 
     @staticmethod
     def get_validation_aggregator(
-        metadata: Dict[str, Dict[str, str]],
+        metadata: dict[str, dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
@@ -37,7 +35,7 @@ class Aggregator:
     @staticmethod
     def get_inline_inference_aggregator(
         n_timesteps: int,
-        metadata: Dict[str, Dict[str, str]],
+        metadata: dict[str, dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
@@ -58,7 +56,7 @@ class Aggregator:
     @staticmethod
     def get_standalone_inference_aggregator(
         n_timesteps: int,
-        metadata: Dict[str, Dict[str, str]],
+        metadata: dict[str, dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,

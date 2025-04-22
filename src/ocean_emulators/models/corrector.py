@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from functools import partial
-from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -27,7 +27,7 @@ class BaseCorrector(torch.nn.Module):
     def _flatten_hist(self, fts: Tensor) -> Tensor:
         return rearrange(fts, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1)
 
-    def _flatten_input(self, fts: Tensor) -> Tuple[Tensor, Tensor]:
+    def _flatten_input(self, fts: Tensor) -> tuple[Tensor, Tensor]:
         fts_input = fts[:, : (self.hist + 1) * self.num_prognostic_channels]
         fts_input = self._flatten_hist(fts_input)
 
@@ -49,7 +49,7 @@ class BaseCorrector(torch.nn.Module):
 
     def _unnormalize_fts_input(
         self, fts: Tensor, fts_boundary: Tensor
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor]:
         # Corrector is run in float64 to avoid precision loss
         fts = self._unnormalize_fts_prognostic(fts)
         fts_boundary = fts_boundary.to(torch.float64)
@@ -79,7 +79,7 @@ class ReLUCorrector(BaseCorrector):
 
     def __init__(
         self,
-        non_negative_corrector_names: Optional[List[str]],
+        non_negative_corrector_names: list[str] | None,
         hist: int,
         tensor_map: TensorMap,
         normalize: Normalize,
@@ -259,7 +259,7 @@ class Corrector(torch.nn.Module):
         self.tensor_map: TensorMap = TensorMap.get_instance()
         self.normalize = Normalize.get_instance()
 
-        correctors: List[BaseCorrector] = []
+        correctors: list[BaseCorrector] = []
 
         # Initialize ReLU corrector if configured
         if (

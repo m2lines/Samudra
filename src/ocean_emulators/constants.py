@@ -1,6 +1,6 @@
 import enum
 import logging
-from typing import Dict, TypeAlias, TypeVar
+from typing import TypeAlias, TypeVar
 
 import torch
 import xarray as xr
@@ -32,7 +32,7 @@ GridMask = Bool[Array, "180 360"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
 SingleChannelVar = Float[torch.Tensor, "batch time lat lon"]
-DictSingleChannelVar = Dict[str, SingleChannelVar]
+DictSingleChannelVar = dict[str, SingleChannelVar]
 SinglePrognostic = Float[Grid, "*batch"]
 SinglePrognosticTimeSeries = Float[Grid, "*batch time"]
 
@@ -207,7 +207,7 @@ DEFAULT_METADATA = {
 }
 
 
-def construct_metadata(data: xr.Dataset) -> Dict[str, Dict[str, str]]:
+def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
     metadata = {}
     for var in data.variables:
         try:
@@ -245,10 +245,10 @@ class TensorMap(Multiton):
         DP_3D_IDX maps the depth levels to their indices in the input tensor
         """
         self.prognostic_vars_key = prognostic_vars_key
-        self.VAR_3D_IDX: Dict[str, torch.Tensor] = {}
-        self.DP_3D_IDX: Dict[str, torch.Tensor] = {}
+        self.VAR_3D_IDX: dict[str, torch.Tensor] = {}
+        self.DP_3D_IDX: dict[str, torch.Tensor] = {}
 
-        self.INPT_BOUNDARY_IDX: Dict[str, torch.Tensor] = {}
+        self.INPT_BOUNDARY_IDX: dict[str, torch.Tensor] = {}
         self.VAR_SET_2D = []
         self.VAR_SET_3D = []
         for out in PROGNOSTIC_VARS[prognostic_vars_key]:
@@ -261,7 +261,7 @@ class TensorMap(Multiton):
         # Consistent order of variables
         self.VAR_SET = list(
             dict.fromkeys(
-                ([out.split("_")[0] for out in PROGNOSTIC_VARS[prognostic_vars_key]])
+                [out.split("_")[0] for out in PROGNOSTIC_VARS[prognostic_vars_key]]
             )
         )
         self.DEPTH_SET = DEPTH_I_LEVELS

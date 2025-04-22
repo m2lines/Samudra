@@ -1,6 +1,7 @@
 import dataclasses
 import logging
-from typing import Callable, Literal, Self
+from collections.abc import Callable
+from typing import Literal, Self
 
 import cftime
 import numpy as np

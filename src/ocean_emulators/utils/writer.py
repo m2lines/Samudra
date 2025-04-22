@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict
+from typing import Any
 
 import torch
 import xarray as xr
@@ -14,7 +14,7 @@ class ZarrWriter:
     def __init__(
         self,
         output_dir: str | os.PathLike,
-        coords: Dict[str, xr.DataArray],
+        coords: dict[str, xr.DataArray],
         hist: int,
         model_path: str | os.PathLike,
     ):
@@ -55,7 +55,7 @@ class ZarrWriter:
         if self.time_buffer is None:
             raise ValueError("No time buffer to write")
 
-        coords: Dict[str, Any] = {k: v for k, v in self.coords.items()}
+        coords: dict[str, Any] = {k: v for k, v in self.coords.items()}
         coords["time"] = self.time_buffer
         ds = xr.Dataset(
             data_vars={

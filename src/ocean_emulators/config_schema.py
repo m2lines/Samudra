@@ -3,7 +3,6 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Type
 
 import pydantic
 import yaml
@@ -12,9 +11,9 @@ from ocean_emulators.config import EvalConfig, TrainConfig
 
 
 def get_pydantic_models(
-    model: Type[pydantic.BaseModel],
-    seen: dict[str, Type[pydantic.BaseModel]] | None = None,
-) -> dict[str, Type[pydantic.BaseModel]]:
+    model: type[pydantic.BaseModel],
+    seen: dict[str, type[pydantic.BaseModel]] | None = None,
+) -> dict[str, type[pydantic.BaseModel]]:
     """Recursively find all Pydantic models in a model's fields.
 
     Args:
@@ -43,7 +42,7 @@ def get_pydantic_models(
 
 def generate_schemas(
     output_dir: Path,
-    models: dict[str, Type[pydantic.BaseModel]],
+    models: dict[str, type[pydantic.BaseModel]],
 ) -> None:
     """Generate JSON schemas for all Pydantic models and save them to output_dir.
 
@@ -72,7 +71,7 @@ def generate_schemas(
 
 def validate_config_files(
     config_dir: Path,
-    models: dict[str, Type[pydantic.BaseModel]],
+    models: dict[str, type[pydantic.BaseModel]],
 ) -> bool:
     """Validate YAML configuration files against their Pydantic models.
 
@@ -87,7 +86,7 @@ def validate_config_files(
 
     for yaml_file in yaml_files:
         # Read the YAML file
-        with open(yaml_file, "r") as f:
+        with open(yaml_file) as f:
             yaml_content = f.read()
 
         # Extract the schema path from the YAML file's first line
@@ -106,7 +105,7 @@ def validate_config_files(
 
         # Load and validate the YAML content
         try:
-            with open(yaml_file, "r") as f:
+            with open(yaml_file) as f:
                 config = yaml.safe_load(f)
                 # Validate using Pydantic model
                 models[schema_name].model_validate(config)

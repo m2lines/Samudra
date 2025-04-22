@@ -60,7 +60,7 @@ dev = [
 ]
 
 [tool.ruff]
-lint.select = [ "D", "E", "F", "I", "W" ]
+lint.select = [ "D", "E", "F", "I", "UP", "W" ]
 # F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 lint.ignore = [
   "D1",
@@ -71,6 +71,7 @@ lint.ignore = [
   "E402",
   "F541",
   "F722",
+  "UP038", # This rule is deprecated.
   "W293",
 ]
 lint.per-file-ignores."*/__init__.py" = [ "F401" ]

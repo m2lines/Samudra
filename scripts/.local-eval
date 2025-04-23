@@ -3,17 +3,17 @@
 # Assumes you have activated the emulator conda environment and
 # set the CLUSTER_NAME and OCEAN_DATA_DIR environment variables
 set -e
-CONFIG_PATH=configs/eval_om4.yaml
+CONFIG_PATH=configs/eval_cm4_cf.yaml
 
-echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR
+echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR_WRITE
 echo 'Using config file:' $CONFIG_PATH
 
 # Create a temporary config file with updated cluster_data_dir
 TMP_CONFIG_PATH=/tmp/config_temp.yaml
-sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR|" $CONFIG_PATH > $TMP_CONFIG_PATH
+sed "s|cluster_data_dir:.*|cluster_data_dir: $OCEAN_DATA_DIR_WRITE|" $CONFIG_PATH > $TMP_CONFIG_PATH
 
 uv run src/ocean_emulators/eval.py \
     --config $TMP_CONFIG_PATH \
-    --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL/2025-04-05-train-test/saved_nets/best_validation_ckpt.pt \
-    --subname "om4-speed-test-optimized-removed-cond" \
+    --ckpt_path /pscratch/sd/s/suryad/testing_repos/Ocean_Emulator/train/2025-04-15-train-samudra-train-cm4-thermodynamic-cf-test/saved_nets/best_inference_ckpt.pt \
+    --subname "cm4-cf-test" \
     --save_zarr

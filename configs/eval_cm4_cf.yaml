@@ -1,0 +1,62 @@
+debug: true
+save_zarr: true
+disk_mode: true
+inference:
+  start_time: 311-01-01
+  end_time: 351-01-01
+ckpt_path: /this/path/does/not/exist # Fill in script
+num_model_steps_forward: 20
+record_every: 10
+backend: auto
+
+experiment:
+  base_name: eval
+  sub_name: local_cm4_samudra
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  gantry: false
+  cluster_data_dir: null
+  wandb:
+    mode: online
+    project: ocean-emulators
+    entity: m2lines
+    group: crossformer
+  network: Crossformer
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds
+
+data:
+  data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
+  data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
+  data_stds_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
+  scaling_residuals_file: null
+  time_delta: 5
+  num_workers: 4
+  hist: 1
+
+crossformer:
+  n_in: 157
+  n_out: 77
+  pred_residuals: false
+  image_height: 180
+  patch_height: 1
+  image_width: 360
+  patch_width: 1
+  dims: [200, 400, 800, 1600]
+  depth: [2, 2, 8, 2]
+  dim_head: 32
+  global_window_size: [8, 4, 2, 1]
+  local_window_size: 4
+  cross_embed_kernel_sizes:
+    - [4, 8, 16, 32]
+    - [2, 4]
+    - [2, 4]
+    - [2, 4]
+  cross_embed_strides: [2, 2, 2, 2]
+  attn_dropout: 0.
+  ff_dropout: 0.
+  use_spectral_norm: true
+  interp: true
+  padding_conf:
+    pad_lat: [6, 6]
+    pad_lon: [12, 12]

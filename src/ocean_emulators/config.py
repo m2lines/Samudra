@@ -142,6 +142,7 @@ class TrainConfig(TopLevelConfig):
     pin_mem: bool = True
     save_freq: int = 5
     epochs: int = 120
+    preemptible: bool = True
     batch_size: int = 2
     learning_rate: float = 2e-4
     scheduler: bool = False

@@ -48,12 +48,12 @@ def test_checkpoint(trainer_pair: TrainPair, caplog):
     trainer.best_inf_loss = 10
 
     model = trainer.model
-    out = model.forward_once(X[0][0])
+    out = model.forward_once(X[0][0].to(trainer.device))
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        trainer.save_checkpoint(1, os.path.join(tmpdir, "test.pth"))
-        trainer.load_checkpoint(os.path.join(tmpdir, "test.pth"))
+        trainer.save_checkpoint(1, os.path.join(tmpdir, "test.pt"))
+        trainer.load_checkpoint(os.path.join(tmpdir, "test.pt"))
 
-    out2 = trainer.model.forward_once(X[0][0])
+    out2 = trainer.model.forward_once(X[0][0].to(trainer.device))
 
     assert torch.allclose(out, out2)

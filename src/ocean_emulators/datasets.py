@@ -22,6 +22,9 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.device import get_device, using_gpu
+from ocean_emulators.utils.logging import elapsed
+
+logger = logging.getLogger(__name__)
 
 
 class InferenceDataset(Dataset):
@@ -38,6 +41,7 @@ class InferenceDataset(Dataset):
             3->[[9, 10, 11], [12, 13, 14]]
     """
 
+    @elapsed
     def __init__(
         self,
         src: DataSource,
@@ -82,7 +86,7 @@ class InferenceDataset(Dataset):
         self.rolling_indices = self.rolling_indices.astype(int)
 
         if long_rollout:
-            logging.info(
+            logger.info(
                 f"Long rollout will use input at time {data.time.values[0]} and produce"
                 f" output at {data.time.values[self.hist + 1]}"
             )
@@ -131,6 +135,7 @@ class InferenceDataset(Dataset):
         data = torch.cat((prognostic, boundary), dim=1)
         return data
 
+    @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx):
         x_index = self._get_x_index(idx)
         data_in = self._get_prognostic(x_index)
@@ -326,6 +331,7 @@ class TrainDataset(Dataset):
 
     FLAG = LoaderVersion.OM4_EAGER
 
+    @elapsed
     def __init__(
         self,
         src: DataSource,
@@ -387,6 +393,7 @@ class TrainDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
+    @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
         prev_rolling_idx = None
@@ -537,6 +544,7 @@ class TorchTrainDataset(Dataset):
 
     FLAG = LoaderVersion.OM4_TORCH
 
+    @elapsed
     def __init__(
         self,
         src: DataSource,
@@ -598,6 +606,7 @@ class TorchTrainDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
+    @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
         x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]

@@ -1,6 +1,9 @@
 import logging
+import os
+import tempfile
 
 import pytest
+import torch
 
 from tests.conftest import DEFAULT_CONFIG, TrainPair
 
@@ -28,3 +31,29 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     trainer.run()
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("remote-om4", "train_default_2step.test.yaml")],
+    indirect=True,
+)
+def test_checkpoint(trainer_pair: TrainPair, caplog):
+    caplog.set_level(logging.INFO)
+    _, trainer = trainer_pair
+
+    data = trainer.inference_loader.dataset[0]
+    X, y = data
+    trainer.best_val_loss = 10
+    trainer.best_inf_loss = 10
+
+    model = trainer.model
+    out = model.forward_once(X[0][0])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        trainer.save_checkpoint(1, os.path.join(tmpdir, "test.pth"))
+        trainer.load_checkpoint(os.path.join(tmpdir, "test.pth"))
+
+    out2 = trainer.model.forward_once(X[0][0])
+
+    assert torch.allclose(out, out2)

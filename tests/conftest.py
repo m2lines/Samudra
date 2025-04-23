@@ -3,7 +3,8 @@ import pathlib
 import random
 import time
 from collections import defaultdict
-from typing import ClassVar, Generator, Self
+from collections.abc import Generator
+from typing import ClassVar, Self
 
 import cftime
 import numpy as np

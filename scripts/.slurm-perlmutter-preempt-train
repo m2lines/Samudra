@@ -1,0 +1,14 @@
+#!/bin/bash
+#SBATCH --job-name=samudra-perlmutter-om4-speed-inlineinf-torch
+#SBATCH --output=train/logs/slurm-%j.out
+#SBATCH --error=train/logs/slurm-%j.err
+#SBATCH --qos=debug_preempt
+#SBATCH -C cpu
+#SBATCH -N 1
+#SBATCH --account=m4874
+#SBATCH --time=00:20:00
+#SBATCH --signal=USR1@60
+#SBATCH --requeue
+#SBATCH --open-mode=append
+srun ./scripts/variable-time-payload.sh
+sleep 120 # make sure a process is still running for slurm to send SIGKILL to

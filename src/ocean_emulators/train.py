@@ -273,9 +273,10 @@ class Trainer:
             cfg.experiment.wandb.mode == "online", is_main_process()
         )
 
+        self.ckpt_paths = CheckpointPaths(self.nets_dir)
+
         # Check for preemption
         if cfg.preemptible:
-            self.ckpt_paths = CheckpointPaths(self.nets_dir)
             preempted = os.path.isfile(self.ckpt_paths.latest_checkpoint_path)
             if preempted:
                 cfg.resume_ckpt_path = str(self.ckpt_paths.latest_checkpoint_path)

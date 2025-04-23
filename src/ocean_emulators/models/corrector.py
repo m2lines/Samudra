@@ -164,9 +164,7 @@ class OceanHeatCorrector(BaseCorrector):
 
     Following this document - https://www.overleaf.com/project/67ed705406995df4c185e6b6
 
-    This class relies in input bounjdary conditions. Thus, we would
-    need to supply the boundary conditions for each corresponding
-    input step.
+    This class relies on input boundary conditions, namely hfds and hfgeou.
     """
 
     def __init__(

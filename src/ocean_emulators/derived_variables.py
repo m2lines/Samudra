@@ -1,12 +1,21 @@
 from collections.abc import Callable
 
 import torch
-from torch import Tensor
 
-from ocean_emulators.constants import CP_SW, RHO_0, TensorMap
+from ocean_emulators.constants import (
+    CP_SW,
+    RHO_0,
+    Single3DHistPrognostic,
+    Single3DPrognostic,
+    SingleHistPrognostic,
+    SinglePrognostic,
+    TensorMap,
+)
 
 
-def compute_ocean_heat_content(T: Tensor, dz: Tensor) -> Tensor:
+def compute_ocean_heat_content(
+    T: Single3DPrognostic | Single3DHistPrognostic, dz: torch.Tensor
+) -> SinglePrognostic | SingleHistPrognostic:
     """Compute the heat content of the ocean.
 
     Args:
@@ -46,8 +55,10 @@ def compute_ocean_heat_content(T: Tensor, dz: Tensor) -> Tensor:
 
 
 def compute_global_ocean_heat_content(
-    T: Tensor, dz: Tensor, area_weighted_func: Callable
-) -> Tensor:
+    T: Single3DPrognostic | Single3DHistPrognostic,
+    dz: torch.Tensor,
+    area_weighted_func: Callable,
+) -> torch.Tensor:
     """Compute the global heat content of the ocean.
 
     Args:

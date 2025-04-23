@@ -1,4 +1,5 @@
 import datetime
+import functools
 import logging
 import resource
 import sys
@@ -150,6 +151,8 @@ class MetricLogger:
         end = time.perf_counter()
         iter_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
         data_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
+        self.meters["iter_time"] = iter_time
+        self.meters["data_time"] = data_time
         space_fmt = ":" + str(len(str(len(iterable)))) + "d"
         log_msg_list: list[str] = [
             header,
@@ -172,37 +175,17 @@ class MetricLogger:
             if i % print_freq == 0 or i == len(iterable) - 1:
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+                named_metrics = dict(
+                    eta=eta_string,
+                    meters=str(self),
+                    time=str(iter_time),
+                    data=str(data_time),
+                    cpu_memory=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / KB,
+                )
                 if torch.cuda.is_available():
-                    logging.info(
-                        log_msg.format(
-                            i,
-                            len(iterable),
-                            eta=eta_string,
-                            meters=str(self),
-                            time=str(iter_time),
-                            data=str(data_time),
-                            cpu_memory=resource.getrusage(
-                                resource.RUSAGE_SELF
-                            ).ru_maxrss
-                            / KB,
-                            gpu_memory=torch.cuda.max_memory_allocated() / MB,
-                        )
-                    )
-                else:
-                    logging.info(
-                        log_msg.format(
-                            i,
-                            len(iterable),
-                            eta=eta_string,
-                            meters=str(self),
-                            time=str(iter_time),
-                            data=str(data_time),
-                            cpu_memory=resource.getrusage(
-                                resource.RUSAGE_SELF
-                            ).ru_maxrss
-                            / KB,
-                        )
-                    )
+                    named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
+
+                logging.info(log_msg.format(i, len(iterable), **named_metrics))
             i += 1
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time
@@ -218,3 +201,33 @@ def get_model_summary(model: torch.nn.Module, num_input_channels: int):
     params = sum([np.prod(p.size()) for p in model_parameters])
     logging.info(f"Number of parameters: {params}")
     logging.info(summary(model))
+
+
+def elapsed(func=None, *, level: int = logging.INFO):
+    """Log the time taken to execute a function.
+
+    Implementation inspired by this blog post:
+      https://pybit.es/articles/decorator-optional-argument/
+
+    Args:
+        func (callable): The function to decorate. If None, returns a partial
+            function with the log_level argument.
+        level (int): The logging level to use. Default is logging.INFO.
+    """
+    if func is None:
+        return functools.partial(elapsed, level=level)
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        logging.log(
+            level,
+            "%s took %.4f seconds",
+            func.__qualname__,
+            end_time - start_time,
+        )
+        return result
+
+    return wrapper

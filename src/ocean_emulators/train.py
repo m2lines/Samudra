@@ -1,5 +1,4 @@
 # TODO:
-# - resubmit jobs / preempted job safety
 # - better stepper module and a cleaner model module
 # - cleaner dataset modules
 import contextlib
@@ -7,6 +6,7 @@ import datetime
 import logging
 import os
 import time
+import uuid
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
@@ -273,6 +273,13 @@ class Trainer:
             cfg.experiment.wandb.mode == "online", is_main_process()
         )
 
+        # Check for preemption
+        if cfg.preemptible:
+            self.ckpt_paths = CheckpointPaths(self.nets_dir)
+            preempted = os.path.isfile(self.ckpt_paths.latest_checkpoint_path)
+            if preempted:
+                cfg.resume_ckpt_path = str(self.ckpt_paths.latest_checkpoint_path)
+
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
             cfg.resume_ckpt_path, cfg, finetune=cfg.finetune
@@ -326,7 +333,6 @@ class Trainer:
         self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.time_delta: int = cfg.data.time_delta
-        self.ckpt_paths = CheckpointPaths(self.nets_dir)
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
             self.hist + 1
         )
@@ -800,21 +806,30 @@ class Trainer:
             self.save_checkpoint(epoch, self.ckpt_paths.ema_checkpoint_path)
 
     def save_checkpoint(self, epoch, checkpoint_path):
-        checkpoint = {
-            "model": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "epoch": epoch,
-            "best_val_loss": self.best_val_loss,
-            "best_inf_loss": self.best_inf_loss,
-            "ema": self._ema.get_state(),
-            "num_batches_seen": self.num_batches_seen,
-            "wandb_id": self.wandb_id,
-            "wandb_name": self.wandb_name,
-        }
-        if self.scheduler:
-            checkpoint["scheduler"] = self.scheduler.state_dict()
+        # save to a temporary file in case we get pre-empted during save
+        temporary_location = os.path.join(
+            os.path.dirname(checkpoint_path), f".{uuid.uuid4()}.tmp"
+        )
+        try:
+            checkpoint = {
+                "model": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "epoch": epoch,
+                "best_val_loss": self.best_val_loss,
+                "best_inf_loss": self.best_inf_loss,
+                "ema": self._ema.get_state(),
+                "num_batches_seen": self.num_batches_seen,
+                "wandb_id": self.wandb_id,
+                "wandb_name": self.wandb_name,
+            }
+            if self.scheduler:
+                checkpoint["scheduler"] = self.scheduler.state_dict()
 
-        torch.save(checkpoint, checkpoint_path)
+            torch.save(checkpoint, temporary_location)
+            os.replace(temporary_location, checkpoint_path)
+        finally:
+            if os.path.exists(temporary_location):
+                os.remove(temporary_location)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
         logger.info(f"Loading checkpoint from {checkpoint_path}")

@@ -277,6 +277,7 @@ class Trainer:
 
         # Check for preemption
         if cfg.preemptible:
+            assert not cfg.finetune, "Finetune is not supported with preemptible"
             preempted = os.path.isfile(self.ckpt_paths.latest_checkpoint_path)
             if preempted:
                 cfg.resume_ckpt_path = str(self.ckpt_paths.latest_checkpoint_path)

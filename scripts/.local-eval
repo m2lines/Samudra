@@ -10,7 +10,7 @@ echo 'Using config file:' $CONFIG_PATH
 
 uv run src/ocean_emulators/eval.py \
     $CONFIG_PATH \
-    --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train/2025-04-21-train-samudra-train-cm4-thermodynamic-instancenorm-ema-zerofill/saved_nets/best_inference_ckpt.pt \
+    --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train/2025-04-21-train-samudra-train-cm4-thermodynamic-instancenorm-ema-negonefill/saved_nets/best_inference_ckpt.pt \
     --experiment.cluster_data_dir $OCEAN_DATA_DIR \
-    --experiment.sub_name "cm4-zerofill-epoch120" \
+    --experiment.sub_name "cm4-negonefill-epoch120" \
     --save_zarr true

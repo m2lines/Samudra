@@ -182,7 +182,7 @@ class InferenceDataset(Dataset):
         else:
             data_in_ds = data_in_src.data
 
-        if data_in_src.is_compact:
+        if "lev" in data_in_ds.dims:
             data_in_np: np.ndarray = (
                 conditional_rearrange(
                     data_in_ds,
@@ -222,7 +222,7 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        if data_in_boundary_src.is_compact:
+        if "lev" in data_in_boundary_ds.dims:
             data_in_boundary_np: np.ndarray = (
                 conditional_rearrange(
                     data_in_boundary_ds,
@@ -260,7 +260,7 @@ class InferenceDataset(Dataset):
             label_ds = label_src.normalize()
         else:
             label_ds = label_src.data
-        if label_src.is_compact:
+        if "lev" in label_ds.dims:
             label_np: np.ndarray = (
                 conditional_rearrange(
                     label_ds,
@@ -653,7 +653,7 @@ class TorchTrainDataset(Dataset):
         x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]
         x_index = xr.concat(x_indexes, dim="step")
 
-        if self._prognostic_src.is_compact:
+        if "lev" in self._prognostic_src.data.dims:
             prognostic_all = torch.from_numpy(
                 conditional_rearrange(
                     self._prognostic_src.data.isel(time=x_index),

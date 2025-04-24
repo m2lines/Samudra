@@ -171,7 +171,7 @@ class DataSource:
         reshape_vars[variable_axis] = -1
 
         # TODO(alxmrs): Do we have to reshape twice?
-        if self.is_compact and "lev" in self.means.dims:
+        if "lev" in self.means.dims:
             means_np = (
                 conditional_rearrange(
                     self.means,
@@ -182,6 +182,9 @@ class DataSource:
                 .to_numpy()
                 .reshape(-1)
             )
+        else:
+            means_np = self.means.to_array().to_numpy().reshape(-1)
+        if "lev" in self.stds.dims:
             stds_np = (
                 conditional_rearrange(
                     self.stds,
@@ -193,7 +196,6 @@ class DataSource:
                 .reshape(-1)
             )
         else:
-            means_np = self.means.to_array().to_numpy().reshape(-1)
             stds_np = self.stds.to_array().to_numpy().reshape(-1)
 
         means = torch.from_numpy(means_np).reshape(reshape_vars)

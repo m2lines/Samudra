@@ -164,6 +164,11 @@ class Trainer:
         self.src = validate_data(raw)
         self.data = self.src.data
 
+        # We use dask for inference since it has memory issues otherwise.
+        # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
+        # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
+        self.inference_src = validate_data(DataSource.from_config(cfg, use_dask=True))
+
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
@@ -365,7 +370,7 @@ class Trainer:
                 hist=self.hist,
             )
             inference_dataset = InferenceDataset(
-                src=self.src.slice(self.inference_times[i]),
+                src=self.inference_src.slice(self.inference_times[i]),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 wet=self.wet_without_hist_cpu,

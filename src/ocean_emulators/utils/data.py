@@ -11,7 +11,6 @@ from einops import rearrange
 
 from ocean_emulators.config import EvalConfig, TimeConfig, TrainConfig
 from ocean_emulators.constants import (
-    DEFAULT_METADATA,
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
@@ -46,9 +45,11 @@ class DataSource:
     @cached_property
     def is_compact(self) -> bool:
         """Check if the data source is compact."""
-        standard_vars = list(DEFAULT_METADATA.keys())[:3]
         return all(
-            v in d for v in standard_vars for d in [self.data, self.means, self.stds]
+            "_" not in str(v)
+            for d in [self.data, self.means, self.stds]
+            for v in d.keys()
+            if "anom" not in str(v)
         )
 
     def filter(
@@ -170,7 +171,7 @@ class DataSource:
         reshape_vars[variable_axis] = -1
 
         # TODO(alxmrs): Do we have to reshape twice?
-        if self.is_compact:
+        if self.is_compact and "lev" in self.means.dims:
             means_np = (
                 conditional_rearrange(
                     self.means,

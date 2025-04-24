@@ -12,13 +12,11 @@ def compute_ocean_heat_content(
     """Compute the heat content of the ocean.
 
     Args:
-        T: Temperature tensor of shape (batch_size, depth, height, width) or
-                                        (batch_size, hist, depth, height, width)
+        T: Temperature tensor
         dz: Depth tensor of shape (depth,)
 
     Returns:
-        Heat content tensor of shape (batch_size, height, width)
-                            or (batch_size, hist, height, width)
+        Heat content tensor
     """
     mask = torch.isnan(T).any()
 
@@ -55,8 +53,7 @@ def compute_global_ocean_heat_content(
     """Compute the global heat content of the ocean.
 
     Args:
-        T: Temperature tensor of shape (batch_size, depth, height, width) or
-                                        (batch_size, hist, depth, height, width)
+        T: Temperature tensor of shape
         dz: Depth tensor of shape (depth,)
         area_weighted_func: Area weighted function
     Returns:

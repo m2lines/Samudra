@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745512819424,
+  "lastUpdate": 1745512822844,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1358,6 +1358,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3422894738996399",
             "extra": "mean: 101.3271510856001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "212d9da3b3954bee74342a10420a25a13cd6bd8b",
+          "message": "Use dask for inference (#227)\n\nFixes memory issues with the torch loader, fixes #208. \n\nAfter this, the torch and eager loaders have the same peak memory usage\nduring inference. The issue was that the non-dask version was using\nabout 3x the memory of the dask version and getting OOM killed. This is\ndue to a combination of the InferenceDataset not being written with\neager evaluation in mind (eg slicing repeatedly) and due to what look\nlike some pretty bad performance bugs in xarray. (It was allocating a\nton of memory to lazily track reorderings of the data rather than\neagerly shuffling the arrays -- kinda looks like 6x more than the\nunderlying arrays but I could have misread and don't think it's worth\ndigging into this more now.) (And to add insult to injury, the shuffle\nin question was the identity transform…)",
+          "timestamp": "2025-04-24T11:57:17-04:00",
+          "tree_id": "00f0babf0b2c9662ad5320466b7459ea845ab3d5",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/212d9da3b3954bee74342a10420a25a13cd6bd8b"
+        },
+        "date": 1745512822029,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.16971433884005255,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6084305091417417",
+            "extra": "mean: 5.892254047799997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.04481527072648967,
+            "unit": "iter/sec",
+            "range": "stddev: 0.21532675469841206",
+            "extra": "mean: 22.31382258299991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.13019361495194376,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11370170925102274",
+            "extra": "mean: 7.68086822360001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.010341177088091458,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9121989341393858",
+            "extra": "mean: 96.70079058519995 sec\nrounds: 5"
           }
         ]
       }

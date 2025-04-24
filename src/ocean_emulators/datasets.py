@@ -59,11 +59,9 @@ class InferenceDataset(Dataset):
         self.device = get_device()
 
         self.hist = hist
-        self.src = src
         data = src.data
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time

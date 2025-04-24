@@ -38,7 +38,6 @@ class DataSource:
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
-    static_data_vars: list[str] | None = None
 
     def filter(
         self,
@@ -84,12 +83,6 @@ class DataSource:
         """Slice the data source to only include the specified time slice."""
         data = self.data.sel(time=time.time_slice)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
-
-    def get_static_data(self) -> xr.Dataset | None:
-        """Get the static data from the data source."""
-        if self.static_data_vars is None:
-            return None
-        return self.data[self.static_data_vars]
 
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
@@ -153,14 +146,12 @@ class DataSource:
         )
 
         dask = "with_dask" if use_dask else "without_dask"
-        static_data_vars = cfg.data.static_data_vars
 
         return cls(
             name=f"{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
             data=data,
             means=means,
             stds=stds,
-            static_data_vars=static_data_vars,
         )
 
 
@@ -383,11 +374,12 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-def validate_data(src: DataSource) -> DataSource:
+def validate_data(
+    src: DataSource, static_data_vars: list[str] | None = None
+) -> DataSource:
     """Validate the data such that we have the correct format for training."""
-    static_data_vars = src.static_data_vars
 
-    def _static_data_checks(data, means, std):
+    def _static_data_checks(data):
         if static_data_vars is not None:
             for var in static_data_vars:
                 assert var in data.variables, (
@@ -396,9 +388,9 @@ def validate_data(src: DataSource) -> DataSource:
                 if "time" in data[var].dims:
                     data[var] = data[var].isel(time=0)
 
-        return data, means, std
+        return data
 
-    src = src.map(_static_data_checks, suffix="static_data_checked")
+    src = src.map_data(_static_data_checks, suffix="static_data_checked")
 
     def _rename(data, means, stds):
         data = (

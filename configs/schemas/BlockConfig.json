@@ -1,0 +1,46 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "block_type": {
+      "default": "conv_next_block",
+      "enum": [
+        "conv_next_block",
+        "conv_block"
+      ],
+      "title": "Block Type",
+      "type": "string"
+    },
+    "kernel_size": {
+      "default": 3,
+      "title": "Kernel Size",
+      "type": "integer"
+    },
+    "activation": {
+      "default": "capped_gelu",
+      "enum": [
+        "relu",
+        "gelu",
+        "capped_gelu"
+      ],
+      "title": "Activation",
+      "type": "string"
+    },
+    "upscale_factor": {
+      "default": 4,
+      "title": "Upscale Factor",
+      "type": "integer"
+    },
+    "norm": {
+      "default": "batch",
+      "enum": [
+        "batch",
+        "instance",
+        "layer"
+      ],
+      "title": "Norm",
+      "type": "string"
+    }
+  },
+  "title": "BlockConfig",
+  "type": "object"
+}

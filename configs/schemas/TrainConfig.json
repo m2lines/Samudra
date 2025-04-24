@@ -1,0 +1,576 @@
+{
+  "$defs": {
+    "BlockConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "block_type": {
+          "default": "conv_next_block",
+          "enum": [
+            "conv_next_block",
+            "conv_block"
+          ],
+          "title": "Block Type",
+          "type": "string"
+        },
+        "kernel_size": {
+          "default": 3,
+          "title": "Kernel Size",
+          "type": "integer"
+        },
+        "activation": {
+          "default": "capped_gelu",
+          "enum": [
+            "relu",
+            "gelu",
+            "capped_gelu"
+          ],
+          "title": "Activation",
+          "type": "string"
+        },
+        "upscale_factor": {
+          "default": 4,
+          "title": "Upscale Factor",
+          "type": "integer"
+        },
+        "norm": {
+          "default": "batch",
+          "enum": [
+            "batch",
+            "instance",
+            "layer"
+          ],
+          "title": "Norm",
+          "type": "string"
+        }
+      },
+      "title": "BlockConfig",
+      "type": "object"
+    },
+    "CorrectorConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "non_negative_corrector_names": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Non Negative Corrector Names"
+        }
+      },
+      "title": "CorrectorConfig",
+      "type": "object"
+    },
+    "DataConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "data_path": {
+          "default": "CM4_5daily_v0.4.0",
+          "title": "Data Path",
+          "type": "string"
+        },
+        "data_means_path": {
+          "default": "CM4_5daily_v0.4.0_means",
+          "title": "Data Means Path",
+          "type": "string"
+        },
+        "data_stds_path": {
+          "default": "CM4_5daily_v0.4.0_stds",
+          "title": "Data Stds Path",
+          "type": "string"
+        },
+        "scaling_residuals_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scaling Residuals File"
+        },
+        "time_delta": {
+          "default": 5,
+          "title": "Time Delta",
+          "type": "integer"
+        },
+        "num_workers": {
+          "default": 4,
+          "title": "Num Workers",
+          "type": "integer"
+        },
+        "hist": {
+          "default": 1,
+          "title": "Hist",
+          "type": "integer"
+        },
+        "loader_version": {
+          "default": "om4-eager",
+          "title": "Loader Version",
+          "type": "string"
+        },
+        "normalize_before_mask": {
+          "default": true,
+          "title": "Normalize Before Mask",
+          "type": "boolean"
+        },
+        "masked_fill_value": {
+          "default": 0.0,
+          "title": "Masked Fill Value",
+          "type": "number"
+        }
+      },
+      "title": "DataConfig",
+      "type": "object"
+    },
+    "ExperimentConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "base_name": {
+          "default": "train",
+          "title": "Base Name",
+          "type": "string"
+        },
+        "sub_name": {
+          "default": "cm4_samudra",
+          "title": "Sub Name",
+          "type": "string"
+        },
+        "rand_seed": {
+          "default": 1,
+          "title": "Rand Seed",
+          "type": "integer"
+        },
+        "base_output_dir": {
+          "default": "train",
+          "title": "Base Output Dir",
+          "type": "string"
+        },
+        "gantry": {
+          "default": false,
+          "title": "Gantry",
+          "type": "boolean"
+        },
+        "cluster_data_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cluster Data Dir"
+        },
+        "wandb": {
+          "$ref": "#/$defs/WandBConfig"
+        },
+        "network": {
+          "default": "Samudra",
+          "title": "Network",
+          "type": "string"
+        },
+        "prognostic_vars_key": {
+          "default": "thermo_dynamic_all",
+          "title": "Prognostic Vars Key",
+          "type": "string"
+        },
+        "boundary_vars_key": {
+          "default": "tau_hfds",
+          "title": "Boundary Vars Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "wandb"
+      ],
+      "title": "ExperimentConfig",
+      "type": "object"
+    },
+    "SamudraConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "ch_width": {
+          "default": [
+            157,
+            200,
+            250,
+            300,
+            400
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Ch Width",
+          "type": "array"
+        },
+        "n_out": {
+          "default": 77,
+          "title": "N Out",
+          "type": "integer"
+        },
+        "dilation": {
+          "default": [
+            1,
+            2,
+            4,
+            8
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "title": "Dilation",
+          "type": "array"
+        },
+        "n_layers": {
+          "default": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "title": "N Layers",
+          "type": "array"
+        },
+        "pred_residuals": {
+          "default": false,
+          "title": "Pred Residuals",
+          "type": "boolean"
+        },
+        "last_kernel_size": {
+          "default": 3,
+          "title": "Last Kernel Size",
+          "type": "integer"
+        },
+        "pad": {
+          "default": "circular",
+          "title": "Pad",
+          "type": "string"
+        },
+        "wet": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wet"
+        },
+        "core_block": {
+          "$ref": "#/$defs/BlockConfig",
+          "default": {
+            "block_type": "conv_next_block",
+            "kernel_size": 3,
+            "activation": "capped_gelu",
+            "upscale_factor": 4,
+            "norm": "batch"
+          }
+        },
+        "corrector": {
+          "$ref": "#/$defs/CorrectorConfig",
+          "default": {
+            "non_negative_corrector_names": null
+          }
+        },
+        "down_sampling_block": {
+          "default": "avg_pool",
+          "enum": [
+            "avg_pool",
+            "max_pool"
+          ],
+          "title": "Down Sampling Block",
+          "type": "string"
+        },
+        "up_sampling_block": {
+          "default": "bilinear_upsample",
+          "enum": [
+            "bilinear_upsample",
+            "transposed_conv"
+          ],
+          "title": "Up Sampling Block",
+          "type": "string"
+        }
+      },
+      "title": "SamudraConfig",
+      "type": "object"
+    },
+    "TimeConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "start": {
+          "title": "Start",
+          "type": "string"
+        },
+        "end": {
+          "title": "End",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "TimeConfig",
+      "type": "object"
+    },
+    "WandBConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "disabled",
+          "title": "Mode",
+          "type": "string"
+        },
+        "project": {
+          "default": "3D_ocean_emu_CM4",
+          "title": "Project",
+          "type": "string"
+        },
+        "entity": {
+          "default": "suryadheeshjith",
+          "title": "Entity",
+          "type": "string"
+        },
+        "group": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Group"
+        },
+        "tags": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tags"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "WandBConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "disk_mode": {
+      "default": true,
+      "title": "Disk Mode",
+      "type": "boolean"
+    },
+    "pin_mem": {
+      "default": true,
+      "title": "Pin Mem",
+      "type": "boolean"
+    },
+    "save_freq": {
+      "default": 5,
+      "title": "Save Freq",
+      "type": "integer"
+    },
+    "epochs": {
+      "default": 120,
+      "title": "Epochs",
+      "type": "integer"
+    },
+    "preemptible": {
+      "default": true,
+      "title": "Preemptible",
+      "type": "boolean"
+    },
+    "batch_size": {
+      "default": 2,
+      "title": "Batch Size",
+      "type": "integer"
+    },
+    "learning_rate": {
+      "default": 0.0002,
+      "title": "Learning Rate",
+      "type": "number"
+    },
+    "scheduler": {
+      "default": false,
+      "title": "Scheduler",
+      "type": "boolean"
+    },
+    "loss": {
+      "default": "mse",
+      "enum": [
+        "mse",
+        "mse_diff_weighted",
+        "mse_cos_weighted",
+        "mse_residual_scaled",
+        "mse_mae"
+      ],
+      "title": "Loss",
+      "type": "string"
+    },
+    "finetune": {
+      "default": false,
+      "title": "Finetune",
+      "type": "boolean"
+    },
+    "resume_ckpt_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resume Ckpt Path"
+    },
+    "debug": {
+      "default": false,
+      "title": "Debug",
+      "type": "boolean"
+    },
+    "test_using_ema": {
+      "default": true,
+      "title": "Test Using Ema",
+      "type": "boolean"
+    },
+    "ema_decay": {
+      "default": 0.999,
+      "title": "Ema Decay",
+      "type": "number"
+    },
+    "faster_decay_at_start": {
+      "default": true,
+      "title": "Faster Decay At Start",
+      "type": "boolean"
+    },
+    "backend": {
+      "default": "auto",
+      "enum": [
+        "cpu",
+        "cuda",
+        "nccl",
+        "auto"
+      ],
+      "title": "Backend",
+      "type": "string"
+    },
+    "data_percent": {
+      "default": 1.0,
+      "title": "Data Percent",
+      "type": "number"
+    },
+    "data_stride": {
+      "default": [
+        1
+      ],
+      "items": {
+        "type": "integer"
+      },
+      "title": "Data Stride",
+      "type": "array"
+    },
+    "steps": {
+      "default": [
+        4
+      ],
+      "items": {
+        "type": "integer"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "step_transition": {
+      "default": [],
+      "items": {
+        "type": "integer"
+      },
+      "title": "Step Transition",
+      "type": "array"
+    },
+    "inference_epochs": {
+      "default": [
+        -1
+      ],
+      "items": {
+        "type": "integer"
+      },
+      "title": "Inference Epochs",
+      "type": "array"
+    },
+    "train_time": {
+      "$ref": "#/$defs/TimeConfig",
+      "default": {
+        "start": "151-01-06",
+        "end": "306-01-01"
+      }
+    },
+    "val_time": {
+      "$ref": "#/$defs/TimeConfig",
+      "default": {
+        "start": "306-01-01",
+        "end": "311-01-01"
+      }
+    },
+    "inference_times": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/TimeConfig"
+      },
+      "title": "Inference Times",
+      "type": "array"
+    },
+    "experiment": {
+      "$ref": "#/$defs/ExperimentConfig"
+    },
+    "data": {
+      "$ref": "#/$defs/DataConfig"
+    },
+    "samudra": {
+      "$ref": "#/$defs/SamudraConfig"
+    }
+  },
+  "required": [
+    "experiment",
+    "data",
+    "samudra"
+  ],
+  "title": "TrainConfig",
+  "type": "object"
+}

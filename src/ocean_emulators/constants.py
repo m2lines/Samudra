@@ -33,10 +33,6 @@ PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
 SingleChannelVar = Float[torch.Tensor, "batch time lat lon"]
 DictSingleChannelVar = dict[str, SingleChannelVar]
-SinglePrognostic = Float[Grid, "*batch"]
-SingleHistPrognostic = Float[Grid, "*batch hist"]
-Single3DPrognostic = Float[Grid, "*batch depth"]
-Single3DHistPrognostic = Float[Grid, "*batch depth hist"]
 SinglePrognosticTimeSeries = Float[Grid, "*batch time"]
 
 SingleTimeSeriesOutput = Float[torch.Tensor, "batch=1 time prognostic_vars lat lon"]

@@ -1,21 +1,14 @@
 from collections.abc import Callable
 
 import torch
+from jaxtyping import Float
 
-from ocean_emulators.constants import (
-    CP_SW,
-    RHO_0,
-    Single3DHistPrognostic,
-    Single3DPrognostic,
-    SingleHistPrognostic,
-    SinglePrognostic,
-    TensorMap,
-)
+from ocean_emulators.constants import CP_SW, RHO_0, Grid, TensorMap
 
 
 def compute_ocean_heat_content(
-    T: Single3DPrognostic | Single3DHistPrognostic, dz: torch.Tensor
-) -> SinglePrognostic | SingleHistPrognostic:
+    T: Float[Grid, "*batch depth"] | Float[Grid, "*batch depth hist"], dz: torch.Tensor
+) -> Float[Grid, "*batch"] | Float[Grid, "*batch hist"]:
     """Compute the heat content of the ocean.
 
     Args:
@@ -55,7 +48,7 @@ def compute_ocean_heat_content(
 
 
 def compute_global_ocean_heat_content(
-    T: Single3DPrognostic | Single3DHistPrognostic,
+    T: Float[Grid, "*batch depth"] | Float[Grid, "*batch depth hist"],
     dz: torch.Tensor,
     area_weighted_func: Callable,
 ) -> torch.Tensor:

@@ -171,7 +171,8 @@ class Trainer:
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
-        self.inference_src = validate_data(DataSource.from_config(cfg, use_dask=True))
+        raw = DataSource.from_config(cfg, use_dask=True)
+        self.inference_src = validate_data(raw, self.boundary_var_names)
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(

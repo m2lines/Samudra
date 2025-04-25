@@ -20,9 +20,9 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource, TrainData
+from ocean_emulators.utils.data import DataSource, LoadStats, TrainData
 from ocean_emulators.utils.device import get_device, using_gpu
-from ocean_emulators.utils.logging import LoadStats, elapsed
+from ocean_emulators.utils.logging import elapsed
 
 logger = logging.getLogger(__name__)
 

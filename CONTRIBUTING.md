@@ -348,3 +348,21 @@ like so:
 ```shell
 uvx snakeviz <benchmark_path>.prof
 ```
+
+We use other profiling tools, including [py-spy](https://github.com/benfred/py-spy),
+[memray](https://github.com/bloomberg/memray), and [scalene](https://github.com/plasma-umass/scalene).
+
+You can use them to profile a training run with something like:
+
+```shell
+uvx py-spy record --native -o profile.svg -- ./.venv/bin/python  src/ocean_emulators/train.py configs/train_om4.yaml
+
+# or
+
+uvx memray run src/ocean_emulators/train.py --config configs/train_om4.yaml
+uvx memray flamegraph path/to/memray-output.bin
+
+# or
+
+uvx scalene src/ocean_emulators/train.py configs/train_om4.yaml
+```

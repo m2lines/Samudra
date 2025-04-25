@@ -6,6 +6,7 @@ import torch
 from xarray_einstats.einops import rearrange  # noqa: F401
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
+from ocean_emulators.utils.data import LoadStats
 
 
 def pairwise(iterable):
@@ -20,6 +21,11 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
     steps = len(data[0])
 
     batched_data = TrainData(num_prognostic_channels)
+
+    stats = LoadStats.accumulated(
+        [d.load_stats for d in data if d.load_stats is not None]
+    )
+    batched_data.load_stats = stats
 
     for step in range(steps):
         input = torch.stack([d.get_input(step) for d in data])

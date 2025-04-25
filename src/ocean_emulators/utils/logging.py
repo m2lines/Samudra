@@ -146,7 +146,7 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, iterable: DataLoader[TrainData], print_freq, header=None):
+    def log_every(self, data_loader: DataLoader[TrainData], print_freq, header=None):
         i = 0
         if not header:
             header = ""
@@ -162,7 +162,7 @@ class MetricLogger:
         self.meters["iter_time"] = iter_time
         self.meters["data_wait_time"] = data_wait_time
         self.meters["data_load_time"] = data_load_time
-        space_fmt = ":" + str(len(str(len(iterable)))) + "d"
+        space_fmt = ":" + str(len(str(len(data_loader)))) + "d"
         log_msg_list: list[str] = [
             header,
             "[{0" + space_fmt + "}/{1}]",
@@ -175,14 +175,14 @@ class MetricLogger:
         log_msg = self.delimiter.join(log_msg_list)
         KB = 1024.0
         MB = 1024.0 * 1024.0
-        for obj in iterable:
+        for obj in data_loader:
             data_wait_time.update(time.perf_counter() - end)
             if obj.load_stats is not None:
                 data_load_time.update(obj.load_stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
-            if i % print_freq == 0 or i == len(iterable) - 1:
-                eta_seconds = iter_time.global_avg * (len(iterable) - i)
+            if i % print_freq == 0 or i == len(data_loader) - 1:
+                eta_seconds = iter_time.global_avg * (len(data_loader) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 named_metrics = dict(
                     eta=eta_string,
@@ -192,14 +192,14 @@ class MetricLogger:
                 if torch.cuda.is_available():
                     named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
 
-                logging.info(log_msg.format(i, len(iterable), **named_metrics))
+                logging.info(log_msg.format(i, len(data_loader), **named_metrics))
             i += 1
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logging.info(
             f"{header} Total time: {total_time_str} "
-            f"({total_time / len(iterable):.4f} s / it)"
+            f"({total_time / len(data_loader):.4f} s / it)"
         )
 
 

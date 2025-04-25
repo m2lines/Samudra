@@ -349,20 +349,23 @@ like so:
 uvx snakeviz <benchmark_path>.prof
 ```
 
-We use other profiling tools, including [py-spy](https://github.com/benfred/py-spy),
-[memray](https://github.com/bloomberg/memray), and [scalene](https://github.com/plasma-umass/scalene).
+We also have a few other profiling tools we use, including:
 
-You can use them to profile a training run with something like:
-
+[py-spy](https://github.com/benfred/py-spy), which captures python + native CPU usage:
 ```shell
 uvx py-spy record --native -o profile.svg -- ./.venv/bin/python  src/ocean_emulators/train.py configs/train_om4.yaml
+```
 
-# or
+[memray](https://github.com/bloomberg/memray), which captures peak memory usage:
 
+```shell
 uvx memray run src/ocean_emulators/train.py --config configs/train_om4.yaml
 uvx memray flamegraph path/to/memray-output.bin
+```
 
-# or
+And [scalene](https://github.com/joaomdmoura/scalene), which captures python/native CPU usage,
+memory usage and GPU (though the latter is a bit deceptive since it is async wrt the highlighted code).
 
+```shell
 uvx scalene src/ocean_emulators/train.py configs/train_om4.yaml
 ```

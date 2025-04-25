@@ -7,10 +7,15 @@ import time
 import traceback
 import warnings
 from collections import defaultdict, deque
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
 from torchinfo import summary
+
+if TYPE_CHECKING:
+    from ocean_emulators.datasets import TrainData
 
 
 def handle_logging(cfg):
@@ -143,24 +148,28 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, iterable, print_freq, header=None):
+    def log_every(self, data_loader: DataLoader["TrainData"], print_freq, header=None):
         i = 0
         if not header:
             header = ""
         start_time = time.perf_counter()
         end = time.perf_counter()
         iter_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
-        data_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
+        data_wait_time = SmoothedValue(
+            fmt="{value:.3f}({avg:.3f})", window_size=print_freq
+        )
+        data_load_time = SmoothedValue(
+            fmt="{value:.3f}({avg:.3f})", window_size=print_freq
+        )
         self.meters["iter_time"] = iter_time
-        self.meters["data_time"] = data_time
-        space_fmt = ":" + str(len(str(len(iterable)))) + "d"
+        self.meters["data_wait_time"] = data_wait_time
+        self.meters["data_load_time"] = data_load_time
+        space_fmt = ":" + str(len(str(len(data_loader)))) + "d"
         log_msg_list: list[str] = [
             header,
             "[{0" + space_fmt + "}/{1}]",
             "eta: {eta}",
             "{meters}",
-            "time: {time}",
-            "data: {data}",
         ]
         log_msg_list.append("max cpu mem: {cpu_memory:.0f}")
         if torch.cuda.is_available():
@@ -168,31 +177,31 @@ class MetricLogger:
         log_msg = self.delimiter.join(log_msg_list)
         KB = 1024.0
         MB = 1024.0 * 1024.0
-        for obj in iterable:
-            data_time.update(time.perf_counter() - end)
+        for obj in data_loader:
+            data_wait_time.update(time.perf_counter() - end)
+            if obj.load_stats is not None:
+                data_load_time.update(obj.load_stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
-            if i % print_freq == 0 or i == len(iterable) - 1:
-                eta_seconds = iter_time.global_avg * (len(iterable) - i)
+            if i % print_freq == 0 or i == len(data_loader) - 1:
+                eta_seconds = iter_time.global_avg * (len(data_loader) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 named_metrics = dict(
                     eta=eta_string,
                     meters=str(self),
-                    time=str(iter_time),
-                    data=str(data_time),
                     cpu_memory=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / KB,
                 )
                 if torch.cuda.is_available():
                     named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
 
-                logging.info(log_msg.format(i, len(iterable), **named_metrics))
+                logging.info(log_msg.format(i, len(data_loader), **named_metrics))
             i += 1
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logging.info(
             f"{header} Total time: {total_time_str} "
-            f"({total_time / len(iterable):.4f} s / it)"
+            f"({total_time / len(data_loader):.4f} s / it)"
         )
 
 

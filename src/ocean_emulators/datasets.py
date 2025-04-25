@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any
 
 import numpy as np
@@ -20,7 +21,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource
+from ocean_emulators.utils.data import DataSource, LoadStats
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
 
@@ -268,6 +269,7 @@ class InferenceDatasets(Dataset):
 class TrainData:
     def __init__(self, num_prognostic_channels: int):
         self.td_dict: dict[int, Example] = {}
+        self.load_stats: LoadStats | None = None
         self.num_prognostic_channels = num_prognostic_channels
         self.steps = 0
 
@@ -391,6 +393,7 @@ class TrainDataset(Dataset):
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
+        start_time = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
         prev_rolling_idx = None
         for step in range(self.steps):
@@ -409,6 +412,8 @@ class TrainDataset(Dataset):
                 input_=data_combined,
                 label=label,
             )
+
+        TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
 
@@ -599,6 +604,7 @@ class TorchTrainDataset(Dataset):
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
+        start_time = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
         x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]
         x_index = xr.concat(x_indexes, dim="step")
@@ -625,6 +631,7 @@ class TorchTrainDataset(Dataset):
                 label=label[i],
             )
 
+        TD.load_stats = LoadStats(time.perf_counter() - start_time)
         return TD
 
     def _get_input_and_label(

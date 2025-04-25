@@ -348,8 +348,8 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: DataLoader
-        self.val_loader: DataLoader
+        self.train_loader: DataLoader[TrainData]
+        self.val_loader: DataLoader[TrainData]
         self.inference_loader: DataLoader
 
     def init_inference_stores(self):

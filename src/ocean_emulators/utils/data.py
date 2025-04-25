@@ -477,6 +477,7 @@ class Normalize(Multiton):
 @dataclasses.dataclass
 class LoadStats:
     """Captures stats about loading a single TrainData object."""
+
     load_time_seconds: float
 
     @classmethod

@@ -7,10 +7,10 @@ import time
 import traceback
 import warnings
 from collections import defaultdict, deque
-from collections.abc import Sequence
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader
 from torchinfo import summary
 
 from ocean_emulators.utils.data import TrainData
@@ -146,7 +146,7 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, iterable: Sequence[TrainData], print_freq, header=None):
+    def log_every(self, iterable: DataLoader[TrainData], print_freq, header=None):
         i = 0
         if not header:
             header = ""

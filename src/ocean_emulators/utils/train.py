@@ -6,7 +6,7 @@ import torch
 from xarray_einstats.einops import rearrange  # noqa: F401
 
 from ocean_emulators.datasets import InferenceDataset
-from ocean_emulators.utils.data import TrainData, LoadStats
+from ocean_emulators.utils.data import LoadStats, TrainData
 
 
 def pairwise(iterable):

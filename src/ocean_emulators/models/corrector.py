@@ -281,7 +281,7 @@ class Corrector(torch.nn.Module):
                 )
             )
 
-        if hasattr(config, "ocean_heat_corrector") and config.ocean_heat_corrector:
+        if config.ocean_heat_corrector:
             assert static_data is not None, (
                 "Static data is required for ocean heat corrector"
             )

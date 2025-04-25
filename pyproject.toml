@@ -50,6 +50,7 @@ dev = [
   "fsspec>=2025.3",
   "hypothesis[numpy]>=6.127.2",
   "ipykernel>=6.29.5",
+  "memray>=1.17.1",
   "mypy>=1.15",
   "pytest>=8.3.4",
   "pytest-benchmark[histogram]>=5.1",

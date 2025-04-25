@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
+batch_size: 1
 learning_rate: 0.0002
 scheduler: true
 loss: mse
@@ -15,13 +15,13 @@ inference_epochs: [-1]
 data_percent: 1.0
 train_time:
   start: "1975-01-03"
-  end: "2013-10-05"
+  end: "1975-02-05"
 val_time:
   start: "2013-10-05"
-  end: "2014-10-05"
+  end: "2013-11-05"
 inference_times:
   - start: "1975-01-03"
-    end: "1976-01-03" # "1985-01-03"
+    end: "1985-01-03" # "1985-01-03"
   - start: "1985-01-03"
     end: "1986-01-03" # "1995-01-03"
   - start: "1995-01-03"
@@ -29,7 +29,7 @@ inference_times:
   - start: "2004-10-05"
     end: "2005-10-05" # "2014-10-05"
 data_stride: [1]
-steps: [4]
+steps: [1]
 step_transition: []
 
 backend: auto
@@ -52,11 +52,12 @@ data:
   !include data/public.yaml
 
 
+
 samudra:
-  ch_width: [157, 200, 250, 300, 400]
-  n_out: 77
-  dilation: [1, 2, 4, 8]
-  n_layers: [1, 1, 1, 1]
+  ch_width: [2, 3]
+  n_out: 4
+  dilation: [1, 2]
+  n_layers: [1, 1]
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
@@ -65,7 +66,7 @@ samudra:
     block_type: "conv_next_block"
     kernel_size: 3
     activation: "capped_gelu"
-    upscale_factor: 4
+    upscale_factor: 2
     norm: "batch"
 
   down_sampling_block: "avg_pool"

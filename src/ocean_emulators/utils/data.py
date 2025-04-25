@@ -378,9 +378,9 @@ def validate_data(
     src: DataSource, static_data_vars: list[str] | None = None
 ) -> DataSource:
     """Validate the data such that we have the correct format for training."""
+    if static_data_vars is not None:
 
-    def _static_data_checks(data):
-        if static_data_vars is not None:
+        def _static_data_checks(data):
             for var in static_data_vars:
                 assert var in data.variables, (
                     f"Static data variable {var} not found in data"
@@ -388,9 +388,9 @@ def validate_data(
                 if "time" in data[var].dims:
                     data[var] = data[var].isel(time=0)
 
-        return data
+            return data
 
-    src = src.map_data(_static_data_checks, suffix="static_data_checked")
+        src = src.map_data(_static_data_checks, suffix="static_data_checked")
 
     def _rename(data, means, stds):
         data = (

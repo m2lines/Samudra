@@ -27,7 +27,6 @@ from ocean_emulators.constants import (
     SingleTimeSeriesOutput,
     TensorMap,
 )
-from ocean_emulators.utils.logging import LoadStats
 from ocean_emulators.utils.multiton import Multiton
 
 
@@ -473,6 +472,15 @@ class Normalize(Multiton):
         unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
         unnorm = unnorm.to(data.dtype)
         return unnorm
+
+
+@dataclasses.dataclass
+class LoadStats:
+    load_time_seconds: float
+
+    @classmethod
+    def accumulated(cls, stats: list["LoadStats"]) -> "LoadStats":
+        return cls(sum(s.load_time_seconds for s in stats))
 
 
 class TrainData:

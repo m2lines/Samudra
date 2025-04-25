@@ -8,22 +8,12 @@ import traceback
 import warnings
 from collections import defaultdict, deque
 from collections.abc import Sequence
-from dataclasses import dataclass
 
 import numpy as np
 import torch
 from torchinfo import summary
 
 from ocean_emulators.utils.data import TrainData
-
-
-@dataclass
-class LoadStats:
-    load_time_seconds: float
-
-    @classmethod
-    def accumulated(cls, stats: list["LoadStats"]) -> "LoadStats":
-        return cls(sum(s.load_time_seconds for s in stats))
 
 
 def handle_logging(cfg):

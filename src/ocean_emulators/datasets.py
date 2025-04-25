@@ -606,29 +606,28 @@ class TorchTrainDataset(Dataset):
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
-        x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]
-        x_index = xr.concat(x_indexes, dim="step")
 
-        prognostic_all = torch.from_numpy(
-            self._prognostic_src.data.isel(time=x_index)
-            .to_array()
-            .transpose("step", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-        boundary = torch.from_numpy(
-            self._boundary_src.data.isel(time=x_index)
-            .isel(time=self.hist, drop=True)
-            .to_array()
-            .transpose("step", "variable", "lat", "lon")
-            .to_numpy()
-        )
+        for step in range(self.steps):
+            x_index = self._get_x_index(idx, step)
+            prognostic_all = torch.from_numpy(
+                self._prognostic_src.data.isel(time=x_index)
+                .to_array()
+                .transpose("time", "variable", "lat", "lon")
+                .to_numpy()
+            )
+            boundary = torch.from_numpy(
+                self._boundary_src.data.isel(time=x_index)
+                .isel(time=self.hist, drop=True)
+                .to_array()
+                .transpose("variable", "lat", "lon")
+                .to_numpy()
+            )
 
-        input_, label = self._get_input_and_label(prognostic_all, boundary)
+            input_, label = self._get_input_and_label(prognostic_all, boundary)
 
-        for i in range(input_.shape[0]):
             TD.insert(
-                input_=input_[i],
-                label=label[i],
+                input_=input_,
+                label=label,
             )
 
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
@@ -637,37 +636,37 @@ class TorchTrainDataset(Dataset):
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        prognostic_all: Float[torch.Tensor, "step time variable lat lon"],
-        boundary: Float[torch.Tensor, "step variable lat lon"],
+        prognostic_all: Float[torch.Tensor, "time variable lat lon"],
+        boundary: Float[torch.Tensor, "variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         # grab past steps and prep for model
         input_ = self._prep_prognostic_steps(
-            prognostic_all[:, : self.hist + 1, :, :, :]
+            prognostic_all[: self.hist + 1, :, :, :]
         )
 
         # add in boundary to final input
         if self.normalize_before_mask:
             boundary = self._boundary_src.normalize_with(
-                boundary, variable_axis=1
+                boundary, variable_axis=0
             ).float()
         boundary = torch.where(self.wet_surface, boundary, self.masked_fill_value)
         if not self.normalize_before_mask:
             boundary = self._boundary_src.normalize_with(
-                boundary, variable_axis=1
+                boundary, variable_axis=0
             ).float()
 
-        total_input = torch.cat((input_, boundary), dim=1)  # dim=1 -> variables
+        total_input = torch.cat((input_, boundary), dim=0)  # dim=1 -> variables
         # grab future steps, repeat as we do for input
-        label = self._prep_prognostic_steps(prognostic_all[:, self.hist + 1 :, :, :, :])
+        label = self._prep_prognostic_steps(prognostic_all[self.hist + 1 :, :, :, :])
         return total_input, label
 
     def _prep_prognostic_steps(
-        self, prognostic_steps: Float[torch.Tensor, "step time variable lat lon"]
+        self, prognostic_steps: Float[torch.Tensor, "time variable lat lon"]
     ) -> Input:
         # normalize expects variables in third dimension
         if self.normalize_before_mask:
             prognostic_steps = self._prognostic_src.normalize_with(
-                prognostic_steps, variable_axis=2
+                prognostic_steps, variable_axis=1
             ).float()
 
         prognostic_steps = torch.where(
@@ -676,13 +675,13 @@ class TorchTrainDataset(Dataset):
 
         if not self.normalize_before_mask:
             prognostic_steps = self._prognostic_src.normalize_with(
-                prognostic_steps, variable_axis=2
+                prognostic_steps, variable_axis=1
             ).float()
 
         # flatten time and variable dimensions into a set of channels for model
         prognostic_steps = rearrange(
             prognostic_steps,
-            "step time variable lat lon -> step (time variable) lat lon",
+            "time variable lat lon -> (time variable) lat lon",
         )
         return prognostic_steps
 

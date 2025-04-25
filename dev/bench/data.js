@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745619525937,
+  "lastUpdate": 1745619527720,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1566,6 +1566,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.173101960581308",
             "extra": "mean: 100.29417313700006 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a7a42c83b3ed6c3b7feb97d9000a8cd33b0092d3",
+          "message": "revert vectorizing torch loader (#234)\n\nSorry, re-opening because I merged to the wrong branch. We should merge\n#231 before this one.\n\nThis loader appears to be dramatically faster *without* vectorization.\nSee:\nhttps://wandb.ai/m2lines/ocean-emulators/reports/Torch-Loader-with-and-Without-Vectorization--VmlldzoxMjQ3NzA2MA\n\nFixes #230 and reverts #212\n\nFrom comparing profiles, it appears the vectorized version is hitting\nsome kind of performance issue in xarray's indexing:\n\n\n[profile-novec](https://github.com/user-attachments/assets/5b006496-898c-4d5d-9e2c-eebaac0dfd43)\n\n[profile-vec](https://github.com/user-attachments/assets/065bbfc6-1d75-4e6c-8876-b016fa0a393c)",
+          "timestamp": "2025-04-25T17:36:11-04:00",
+          "tree_id": "aa75b471dedbccc3cd41f7642b776987e5c1d087",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/a7a42c83b3ed6c3b7feb97d9000a8cd33b0092d3"
+        },
+        "date": 1745619526863,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.18150736153021071,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4906494179828221",
+            "extra": "mean: 5.5094184145999865 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.04553285872505972,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4669205771994029",
+            "extra": "mean: 21.962161568600003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.12907468063175684,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09524987160459554",
+            "extra": "mean: 7.747452831999999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.010222177669354243,
+            "unit": "iter/sec",
+            "range": "stddev: 0.31483789226674924",
+            "extra": "mean: 97.82651332679998 sec\nrounds: 5"
           }
         ]
       }

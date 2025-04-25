@@ -476,10 +476,12 @@ class Normalize(Multiton):
 
 @dataclasses.dataclass
 class LoadStats:
+    """Captures stats about loading a single TrainData object."""
     load_time_seconds: float
 
     @classmethod
     def accumulated(cls, stats: list["LoadStats"]) -> "LoadStats":
+        """Accumulate the stats across multiple LoadStats objects in a batch."""
         return cls(sum(s.load_time_seconds for s in stats))
 
 

@@ -640,9 +640,7 @@ class TorchTrainDataset(Dataset):
         boundary: Float[torch.Tensor, "variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         # grab past steps and prep for model
-        input_ = self._prep_prognostic_steps(
-            prognostic_all[: self.hist + 1, :, :, :]
-        )
+        input_ = self._prep_prognostic_steps(prognostic_all[: self.hist + 1, :, :, :])
 
         # add in boundary to final input
         if self.normalize_before_mask:

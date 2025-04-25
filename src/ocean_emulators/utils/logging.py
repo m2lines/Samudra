@@ -7,10 +7,20 @@ import time
 import traceback
 import warnings
 from collections import defaultdict, deque
+from dataclasses import dataclass
 
 import numpy as np
 import torch
 from torchinfo import summary
+
+
+@dataclass
+class LoadStats:
+    load_time_seconds: float
+
+    @classmethod
+    def accumulated(cls, stats: list["LoadStats"]) -> "LoadStats":
+        return cls(sum(s.load_time_seconds for s in stats))
 
 
 def handle_logging(cfg):
@@ -150,17 +160,21 @@ class MetricLogger:
         start_time = time.perf_counter()
         end = time.perf_counter()
         iter_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
-        data_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
+        data_wait_time = SmoothedValue(
+            fmt="{value:.3f}({avg:.3f})", window_size=print_freq
+        )
+        data_load_time = SmoothedValue(
+            fmt="{value:.3f}({avg:.3f})", window_size=print_freq
+        )
         self.meters["iter_time"] = iter_time
-        self.meters["data_time"] = data_time
+        self.meters["data_wait_time"] = data_wait_time
+        self.meters["data_load_time"] = data_load_time
         space_fmt = ":" + str(len(str(len(iterable)))) + "d"
         log_msg_list: list[str] = [
             header,
             "[{0" + space_fmt + "}/{1}]",
             "eta: {eta}",
             "{meters}",
-            "time: {time}",
-            "data: {data}",
         ]
         log_msg_list.append("max cpu mem: {cpu_memory:.0f}")
         if torch.cuda.is_available():
@@ -169,7 +183,11 @@ class MetricLogger:
         KB = 1024.0
         MB = 1024.0 * 1024.0
         for obj in iterable:
-            data_time.update(time.perf_counter() - end)
+            data_wait_time.update(time.perf_counter() - end)
+            if hasattr(obj, "load_stats"):
+                stats: LoadStats | None = obj.load_stats
+                if stats is not None:
+                    data_load_time.update(stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
             if i % print_freq == 0 or i == len(iterable) - 1:
@@ -178,8 +196,6 @@ class MetricLogger:
                 named_metrics = dict(
                     eta=eta_string,
                     meters=str(self),
-                    time=str(iter_time),
-                    data=str(data_time),
                     cpu_memory=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / KB,
                 )
                 if torch.cuda.is_available():

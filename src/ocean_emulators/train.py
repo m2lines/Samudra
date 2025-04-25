@@ -524,7 +524,10 @@ class Trainer:
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
                     "train/batch/data_load_time": metric_logger.meters[
-                        "data_time"
+                        "data_load_time"
+                    ].value,
+                    "train/batch/data_wait_time": metric_logger.meters[
+                        "data_wait_time"
                     ].value,
                 }
             if (it_time := metric_logger.meters["iter_time"]).count > 0:

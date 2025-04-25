@@ -363,7 +363,7 @@ uv run memray run src/ocean_emulators/train.py --config configs/train_om4.yaml
 uv run memray flamegraph path/to/memray-output.bin
 ```
 
-And [scalene](https://github.com/joaomdmoura/scalene), which captures python/native CPU usage,
+And [scalene](https://github.com/joaomdmoura/scalene), which shows per-line python/native CPU usage,
 memory usage and GPU (though the latter is a bit deceptive since it is async wrt the highlighted code).
 
 ```shell

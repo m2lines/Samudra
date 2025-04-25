@@ -17,7 +17,6 @@ from ocean_emulators.constants import (
     BatchTimeSeriesOutput,
     BoundaryVarNames,
     DictSingleChannelVar,
-    Example,
     Grid,
     GridMask,
     Input,
@@ -484,44 +483,3 @@ class LoadStats:
     def accumulated(cls, stats: list["LoadStats"]) -> "LoadStats":
         """Accumulate the stats across multiple LoadStats objects in a batch."""
         return cls(sum(s.load_time_seconds for s in stats))
-
-
-class TrainData:
-    def __init__(self, num_prognostic_channels: int):
-        self.td_dict: dict[int, Example] = {}
-        self.load_stats: LoadStats | None = None
-        self.num_prognostic_channels = num_prognostic_channels
-        self.steps = 0
-
-    def insert(self, input_: Input, label: Prognostic):
-        self.td_dict[self.steps] = (input_, label)
-        self.steps += 1
-
-    def get_initial_input(self) -> Input:
-        return self.td_dict[0][0]
-
-    def get_input(self, step: int) -> Input:
-        return self.td_dict[step][0]
-
-    def get_label(self, step: int) -> Prognostic:
-        return self.td_dict[step][1]
-
-    def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
-        input, _ = self.td_dict[step]
-        merged = input.clone()
-        merged[:, : self.num_prognostic_channels] = prognostic
-        return merged
-
-    def __getitem__(self, step: int) -> Example:
-        """Converts index (step) into (data, label) tuple."""
-        return self.td_dict[step]
-
-    def __len__(self) -> int:
-        return self.steps
-
-    def to(self, device: torch.device) -> None:
-        for step in self.td_dict:
-            self.td_dict[step] = (
-                self.td_dict[step][0].to(device),
-                self.td_dict[step][1].to(device),
-            )

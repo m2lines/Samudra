@@ -13,6 +13,7 @@ from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 from ocean_emulators.constants import (
     Boundary,
     BoundaryVarNames,
+    Example,
     GridMask,
     Input,
     LoaderVersion,
@@ -20,7 +21,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource, LoadStats, TrainData
+from ocean_emulators.utils.data import DataSource, LoadStats
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
 
@@ -263,6 +264,47 @@ class InferenceDatasets(Dataset):
 
     def __getitem__(self, idx):
         return (self.datasets[idx], self.lengths[idx])
+
+
+class TrainData:
+    def __init__(self, num_prognostic_channels: int):
+        self.td_dict: dict[int, Example] = {}
+        self.load_stats: LoadStats | None = None
+        self.num_prognostic_channels = num_prognostic_channels
+        self.steps = 0
+
+    def insert(self, input_: Input, label: Prognostic):
+        self.td_dict[self.steps] = (input_, label)
+        self.steps += 1
+
+    def get_initial_input(self) -> Input:
+        return self.td_dict[0][0]
+
+    def get_input(self, step: int) -> Input:
+        return self.td_dict[step][0]
+
+    def get_label(self, step: int) -> Prognostic:
+        return self.td_dict[step][1]
+
+    def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
+        input, _ = self.td_dict[step]
+        merged = input.clone()
+        merged[:, : self.num_prognostic_channels] = prognostic
+        return merged
+
+    def __getitem__(self, step: int) -> Example:
+        """Converts index (step) into (data, label) tuple."""
+        return self.td_dict[step]
+
+    def __len__(self) -> int:
+        return self.steps
+
+    def to(self, device: torch.device) -> None:
+        for step in self.td_dict:
+            self.td_dict[step] = (
+                self.td_dict[step][0].to(device),
+                self.td_dict[step][1].to(device),
+            )
 
 
 class TrainDataset(Dataset):

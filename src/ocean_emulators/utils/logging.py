@@ -7,13 +7,15 @@ import time
 import traceback
 import warnings
 from collections import defaultdict, deque
+from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torchinfo import summary
 
-from ocean_emulators.utils.data import TrainData
+if TYPE_CHECKING:
+    from ocean_emulators.datasets import TrainData
 
 
 def handle_logging(cfg):
@@ -146,7 +148,7 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, data_loader: DataLoader[TrainData], print_freq, header=None):
+    def log_every(self, data_loader: DataLoader["TrainData"], print_freq, header=None):
         i = 0
         if not header:
             header = ""

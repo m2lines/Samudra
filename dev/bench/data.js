@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745512822844,
+  "lastUpdate": 1745618590266,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -704,6 +704,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.9826944397623745",
             "extra": "mean: 140.1699370898 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b929596c1d476649860758ddc80745891dbe94fd",
+          "message": "Log data wait time and data load times separately (#231)\n\nWe now log how much time we spend waiting for data (stalling due to\ngetting ahead of the data loaders, which is what we were logging before)\nand also how much time the relevant data loader spent loading that data,\nwhich is not itself important for overall train time since it's in a\nseparate process and async, but is much more sensitive of a measure for\nfiguring out what is happening with load times.\n\nexample wandb run here:\nhttps://wandb.ai/m2lines/ocean-emulators/runs/o3gv8d0k\n\noutput looks like this now:\n\n```\n2025-04-25 15:18:01,323 - INFO - logging - Training Epoch: [1]  [   0/1412]  eta: 7:19:24  lr: 0.000200  iter_time: 18.672(18.672)  data_wait_time: 9.300(9.300)  data_load_time: 8.747(8.747)  loss: 1.4612 (1.4612)  max cpu mem: 1605  max gpu mem: 30424\n2025-04-25 15:18:01,970 - INFO - logging - Training Epoch: [1]  [   1/1412]  eta: 3:47:08  lr: 0.000200  iter_time: 0.645(0.645)  data_wait_time: 0.000(0.000)  data_load_time: 8.745(8.745)  loss: 1.4612 (1.4779)  max cpu mem: 1757  max gpu mem: 30424\n2025-04-25 15:18:02,617 - INFO - logging - Training Epoch: [1]  [   2/1412]  eta: 2:36:22  lr: 0.000200  iter_time: 0.646(0.646)  data_wait_time: 0.000(0.000)  data_load_time: 8.736(8.736)  loss: 1.4612 (1.3976)  max cpu mem: 1758  max gpu mem: 30424\n2025-04-25 15:18:03,265 - INFO - logging - Training Epoch: [1]  [   3/1412]  eta: 2:00:59  lr: 0.000200  iter_time: 0.647(0.647)  data_wait_time: 0.000(0.000)  data_load_time: 8.748(8.748)  loss: 1.2369 (1.3021)  max cpu mem: 1759  max gpu mem: 30424\n2025-04-25 15:18:03,961 - INFO - logging - Training Epoch: [1]  [   4/1412]  eta: 1:39:59  lr: 0.000200  iter_time: 0.695(0.695)  data_wait_time: 0.000(0.000)  data_load_time: 8.854(8.854)  loss: 1.2369 (1.2135)  max cpu mem: 1759  max gpu mem: 30424\n2025-04-25 15:18:04,612 - INFO - logging - Training Epoch: [1]  [   5/1412]  eta: 1:25:48  lr: 0.000200  iter_time: 0.649(0.649)  data_wait_time: 0.000(0.000)  data_load_time: 8.747(8.747)  loss: 1.0158 (1.1252)  max cpu mem: 1759  max gpu mem: 30424\n2025-04-25 15:18:05,263 - INFO - logging - Training Epoch: [1]  [   6/1412]  eta: 1:15:40  lr: 0.000200  iter_time: 0.650(0.650)  data_wait_time: 0.000(0.000)  data_load_time: 8.748(8.748)  loss: 1.0158 (1.0428)  max cpu mem: 1759  max gpu mem: 30424\n```",
+          "timestamp": "2025-04-25T17:15:23-04:00",
+          "tree_id": "76a1d196a08819dafd2fb5e423d98e6610fab5bd",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/b929596c1d476649860758ddc80745891dbe94fd"
+        },
+        "date": 1745618589137,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.17254092649381358,
+            "unit": "iter/sec",
+            "range": "stddev: 0.24300413516430022",
+            "extra": "mean: 5.795726384 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.042723367519929376,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5374417243200751",
+            "extra": "mean: 23.4063946278 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.1338976466289525,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10498516873847676",
+            "extra": "mean: 7.468391156799998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.006888229390347656,
+            "unit": "iter/sec",
+            "range": "stddev: 0.31821358339536526",
+            "extra": "mean: 145.1751884746 sec\nrounds: 5"
           }
         ]
       }

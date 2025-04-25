@@ -2,7 +2,7 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 20 # 120
+epochs: 50 # 120
 batch_size: 3 # 4
 learning_rate: 0.0001
 scheduler: true
@@ -41,19 +41,19 @@ backend: auto
 
 experiment:
   base_name: train
-  sub_name: local_cm4_samudra
+  sub_name: samudra-perlmutter-cm4-m2lines-OHCOff-wfo #local_cm4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
   cluster_data_dir: /dvs_ro/cfs/cdirs/m4874/suryad/data/
   wandb:
     mode: online
-    project: 3D_ocean_emu_CM4_test_inputs_311
-    entity: jrayshi-new-york-university
+    project: emulator-cm4-sensitivity  #3D_ocean_emu_CM4_test_inputs_311
+    entity: m2lines #jrayshi-new-york-university
     group: samudra-train-cm4
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
-  boundary_vars_key: tau_hfds_wfo_3heatcomps
+  boundary_vars_key: tau_hfds_wfo
 data:
   data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
@@ -83,11 +83,12 @@ samudra:
     norm: "batch"
 
   corrector:
-    non_negative_corrector_names: null
-      #- "so"
-    ocean_heat_corrector: true
-    salinity_range_corrector: true 
+    non_negative_corrector_names: 
+      - "so"
+    ocean_heat_corrector: false
+    salinity_range_corrector: false 
     zos_range_corrector: false
+    zos_gmean_corrector: false
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

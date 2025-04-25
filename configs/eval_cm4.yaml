@@ -4,20 +4,20 @@ disk_mode: true
 inference:
   start_time: "0311-01-01"
   end_time: "0351-01-01"
-ckpt_path: /this/path/does/not/exist # Fill in script
-num_model_steps_forward: 370
+ckpt_path: /global/homes/j/jrayshi/scratch/Github/Ocean_Emulator/.LOCAL/2025-04-23-train-samudra-perlmutter-cm4-m2lines-OHCOn-wfo-resume/saved_nets/best_inference_ckpt.pt # Fill in script
+num_model_steps_forward: 20 #370
 
 experiment:
   base_name: eval
-  sub_name: local_cm4_samudra
+  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-rollout50epochs
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
   cluster_data_dir: /dvs_ro/cfs/cdirs/m4874/suryad/data/
   wandb:
     mode: online
-    project: 3D_ocean_emu_CM4_eval_inputs_311
-    entity: jrayshi-new-york-university
+    project: emulator-cm4-sensitivity  #3D_ocean_emu_CM4_eval_inputs_311
+    entity: m2lines #jrayshi-new-york-university
     group: samudra-eval-cm4
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
@@ -52,11 +52,11 @@ samudra:
     norm: "batch"
 
   corrector:
-    non_negative_corrector_names: null
-      #- "so"
+    non_negative_corrector_names: 
+      - "so"
     ocean_heat_corrector: true
-    salinity_range_corrector: true 
-    zos_range_corrector: true
+    salinity_range_corrector: false 
+    zos_range_corrector: false
     
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

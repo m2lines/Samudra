@@ -37,6 +37,11 @@ def extract_wet_mask(
 
     depth_ind = _parse_lev_from_output_var(prognostic_var_names)
 
+    #print("Type of wet_mask_np:", type(wet_mask_np)) # JRS
+    #print("Type of wet_mask_np[depth_ind]:", type(wet_mask_np#[depth_ind]))
+    #print("Is instance of np.ndarray?", isinstance(wet_mask_np[depth_ind], np.ndarray))
+    #wet_inp = torch.from_numpy(np.array(wet_mask_np[depth_ind])) # JRS; edited to solve the bug associated with numpy version.
+    
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)
     wet_inp = torch.concat([wet_inp] * (hist + 1), dim=0)

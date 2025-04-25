@@ -153,6 +153,7 @@ BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
     "tau_hfds_wfo": ["tauuo", "tauvo", "hfds", "wfo"],   # JRS
     "tau_hfds_wfo_SW": ["tauuo", "tauvo", "hfds", "wfo", "rsntds"],   # JRS   
     "tau_hfds_wfo_3heatcomps": ["tauuo", "tauvo", "hfds", "wfo", "rlntds", "hflso", "hfsso"],   # JRS 
+    "tau_wfo_4heatcomps": ["tauuo", "tauvo", "wfo", "rsntds", "rlntds", "hflso", "hfsso"],   # JRS     
 }
 
 DEFAULT_METADATA = {

@@ -313,7 +313,9 @@ class Trainer:
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
             cfg.resume_ckpt_path, cfg, finetune=cfg.finetune
         )
-
+        print(f"test WandB ID: {self.wandb_id}")
+        print(f"test WandB Name: {self.wandb_name}")
+        
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
                 self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
@@ -861,7 +863,15 @@ class Trainer:
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
         logger.info(f"Loaded checkpoint from {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path)
+        print("wandb_id:", self.wandb_id)  #JRS
+        print("wandb_name:", self.wandb_name) #JRS
+
+        #checkpoint = torch.load(checkpoint_path)
+        if torch.cuda.is_available():
+            checkpoint = torch.load(checkpoint_path)  # 
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu")  # JRS 
+
         if finetune:
             self.model.load_state_dict(checkpoint["model"])
         else:
@@ -869,8 +879,8 @@ class Trainer:
             if self.scheduler:
                 self.scheduler.load_state_dict(checkpoint["scheduler"])
             self.start_epoch = checkpoint["epoch"] + 1
-            self.wandb_id = checkpoint["wandb_id"]
-            self.wandb_name = checkpoint["wandb_name"]
+            self.wandb_id = checkpoint.get("wandb_id") #checkpoint["wandb_id"]  JRS
+            self.wandb_name = checkpoint.get("wandb_name") #checkpoint["wandb_name"] JRS
 
             logger.info(f"Start Epoch: {self.start_epoch}")
             logger.info(f"Wandb id: {self.wandb_id}")

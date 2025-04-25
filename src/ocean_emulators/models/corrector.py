@@ -7,7 +7,7 @@ import xarray as xr
 from einops import rearrange
 from torch import Tensor
 
-from ocean_emulators.aggregator.metrics import area_weighted_sum
+from ocean_emulators.aggregator.metrics import area_weighted_sum, area_weighted_mean
 from ocean_emulators.constants import CP_SW, RHO_0, SECONDS_PER_5DAY, TensorMap
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device
@@ -246,6 +246,64 @@ class ZosRangeCorrector(BaseCorrector):
             fts = self._unflatten_hist(fts)
         return fts
 
+class ZosGmeanCorrector(BaseCorrector):
+    """
+    Applies salinity global mean correction to specified tensor channels. # JRS
+    """
+
+    def __init__(
+        self,
+        hist: int,
+        area_weights: torch.Tensor,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+    ):
+        super().__init__(hist, tensor_map, normalize)
+        self.zos_idx = self.tensor_map.VAR_3D_IDX["zos"]
+
+        self.zos_idx = self.zos_idx.to(get_device())
+        #self.area_weights = area_weights
+        #self.area_weights = self.area_weights.to(get_device())
+        self.area_weights = area_weights.to(get_device())
+
+    def _apply_zosgmean_correction(self, fts: Tensor) -> Tensor:
+        """Applies torch.clamp to specified channels.
+
+        Args:
+            fts: tensor of shape (batch_size, channels, height, width)
+
+        Returns:
+            Corrected tensor of the same shape
+        """
+        unnormalized = self._unnormalize_fts_prognostic(fts)
+
+        #unnormalized[:, self.zos_idx, :, :] = torch.clamp(
+        #    unnormalized[:, self.zos_idx, :, :], min=-2.1, max=2.5
+        #)    
+        zos_gmean = area_weighted_mean(unnormalized[:, self.zos_idx, :, :], self.area_weights)
+        print(zos_gmean)
+
+        unnormalized = unnormalized - zos_gmean.view(-1, 1, 1, 1)
+
+        return self._normalize_fts_prognostic(unnormalized)
+
+    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+        """Applies correction to the input features if needed.
+
+        Args:
+            fts_input: Input tensor of shape (batch_size, hist*channels, height, width)
+            fts: Output tensor of shape (batch_size, hist*channels, height, width)
+
+        Returns:
+            Corrected output tensor of the same shape
+        """
+        if not torch.isnan(self.zos_idx).all():
+            fts = self._flatten_hist(fts)
+            fts = self._apply_zosgmean_correction(fts)
+            fts = self._unflatten_hist(fts)
+        return fts
+
+
 def compute_ocean_heat_content(
     T: Tensor, dz: Tensor, area_weighted_func: Callable
 ) -> Tensor:
@@ -434,6 +492,19 @@ class Corrector(torch.nn.Module):
             correctors.append(
                 ZosRangeCorrector(
                     hist=hist,
+                    tensor_map=self.tensor_map,
+                    normalize=self.normalize,
+                )
+            )
+
+        if (
+            hasattr(config, "zos_gmean_corrector")
+            and config.zos_gmean_corrector
+        ):
+            correctors.append(
+                ZosGmeanCorrector(
+                    hist=hist,
+                    area_weights=area_weights,
                     tensor_map=self.tensor_map,
                     normalize=self.normalize,
                 )

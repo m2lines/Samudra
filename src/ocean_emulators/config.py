@@ -58,6 +58,7 @@ class CorrectorConfig:
     ocean_heat_corrector: bool = False
     salinity_range_corrector: bool = False # JRS
     zos_range_corrector: bool = False # JRS
+    zos_gmean_corrector: bool = False # JRS
 
 
 @dataclass

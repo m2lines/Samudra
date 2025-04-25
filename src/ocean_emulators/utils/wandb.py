@@ -44,9 +44,23 @@ class WandBLogger(Multiton):
             return self._init_new_run(cfg)
 
         # Load checkpoint and try to resume
-        checkpoint = torch.load(checkpoint_path)
+
+        #checkpoint = torch.load(checkpoint_path) # JRS
+        if torch.cuda.is_available():
+            checkpoint = torch.load(checkpoint_path)  # 
+        else:
+            checkpoint = torch.load(checkpoint_path, map_location="cpu")  # JRS 
+
         wandb_id = checkpoint.get("wandb_id")
         wandb_name = checkpoint.get("wandb_name")
+        if wandb_name is None:  # JRS
+            wandb_name = (
+                cfg.experiment.name + "//" + cfg.experiment.sub_name
+                if hasattr(cfg.experiment, "sub_name")
+                else ".LOCAL" + "//" + cfg.experiment.name
+            )
+        #print(f"test WandB ID: {wandb_id}")   # JRS
+        #print(f"test WandB Name: {wandb_name}")  # JRS
 
         if self._enabled:
             try:
@@ -54,7 +68,7 @@ class WandBLogger(Multiton):
                     config=cfg.__dict__,
                     name=wandb_name,
                     dir=cfg.experiment.output_dir,
-                    resume="must",
+                    resume="must",  # JRS:  "must" to "allow" to resume
                     id=wandb_id,
                     **cfg.experiment.wandb.__dict__,
                 )

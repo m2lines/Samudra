@@ -47,13 +47,13 @@ experiment:
   gantry: false
   cluster_data_dir: /global/homes/j/jrayshi/scratch/data
   wandb:
-    mode: disable
+    mode: online
     project: ocean-emulator
-    entity: ai2cm
-    group: samudra-train-2in2out
+    entity: m2lines
+    group: samudra-train-inputs
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
-  boundary_vars_key: tau_hfds
+  boundary_vars_key: tau_hfds_wfo
 
 data:
   data_path: cm4_piControl_ocean_200yr_full.zarr
@@ -83,7 +83,9 @@ samudra:
   corrector:
     non_negative_corrector_names:
       - "so"
-    ocean_heat_corrector: false
+    ocean_heat_corrector: true
+    salinity_range_corrector: false 
+    zos_range_corrector: false
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

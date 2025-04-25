@@ -14,6 +14,7 @@ from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
+    TIME_DELTA,
     BatchTimeSeriesOutput,
     BoundaryVarNames,
     DictSingleChannelVar,
@@ -242,7 +243,7 @@ def get_inference_steps(time_config: TimeConfig, hist: int = 1):
     Returns:
         num_steps: Number of rollout steps
     """
-    time_delta = 5  # Hardcoded
+    time_delta = TIME_DELTA
     start_time_str = time_config.start
     start_year, start_month, start_day = start_time_str.split("-")
     start_time = cftime.DatetimeNoLeap(

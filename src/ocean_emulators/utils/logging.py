@@ -7,11 +7,14 @@ import time
 import traceback
 import warnings
 from collections import defaultdict, deque
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
 import torch
 from torchinfo import summary
+
+from ocean_emulators.utils.data import TrainData
 
 
 @dataclass
@@ -153,7 +156,7 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, iterable, print_freq, header=None):
+    def log_every(self, iterable: Sequence[TrainData], print_freq, header=None):
         i = 0
         if not header:
             header = ""
@@ -184,10 +187,8 @@ class MetricLogger:
         MB = 1024.0 * 1024.0
         for obj in iterable:
             data_wait_time.update(time.perf_counter() - end)
-            if hasattr(obj, "load_stats"):
-                stats: LoadStats | None = obj.load_stats
-                if stats is not None:
-                    data_load_time.update(stats.load_time_seconds)
+            if obj.load_stats is not None:
+                data_load_time.update(obj.load_stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
             if i % print_freq == 0 or i == len(iterable) - 1:

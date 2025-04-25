@@ -241,7 +241,7 @@ class OceanHeatCorrector(BaseCorrector):
         return fts
 
 
-class Corrector(torch.nn.Module):
+class Correctors(torch.nn.Module):
     """Applies a sequence of corrections to input tensors based on configuration."""
 
     def __init__(
@@ -252,7 +252,7 @@ class Corrector(torch.nn.Module):
         static_data: xr.Dataset | None,
     ):
         """
-        Corrector class that applies a sequence of corrections to input tensors based
+        Correctors class that applies a sequence of corrections to input tensors based
         on configuration.
 
         Args:

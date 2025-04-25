@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.models.corrector import Corrector
+from ocean_emulators.models.corrector import Correctors
 from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
@@ -126,7 +126,7 @@ class Samudra(BaseModel):
         layers.append(nn.Conv2d(b, config.n_out, config.last_kernel_size))
 
         self.layers = nn.ModuleList(layers)
-        self.corrector = Corrector(config.corrector, hist, area_weights, static_data)
+        self.corrector = Correctors(config.corrector, hist, area_weights, static_data)
         self.num_steps = int(len(config.ch_width) - 1)
 
     def forward_once(self, fts):

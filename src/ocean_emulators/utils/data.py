@@ -456,12 +456,12 @@ class Normalize(Multiton):
         """Normalize prognostic tensor."""
         tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
-        if data.ndim == 4:
-            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, -1, 1, 1])
-        elif data.ndim == 5:
-            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
+
+        expand_var_dim = [1] * data.ndim
+        expand_var_dim[-3] = -1
+        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
+        tensor_mean = tensor_mean.reshape(expand_var_dim)
+        tensor_std = tensor_std.reshape(expand_var_dim)
 
         norm = (data - tensor_mean) / tensor_std
         if fill_nan:
@@ -476,20 +476,11 @@ class Normalize(Multiton):
         tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
 
-        if data.ndim == 4:
-            assert data.shape[1] == self._prognostic_mean_np.shape[0], (
-                f"{data.shape[1]} != {self._prognostic_mean_np.shape[0]}"
-            )
-            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, -1, 1, 1])
-        elif data.ndim == 5:
-            assert data.shape[2] == self._prognostic_mean_np.shape[0], (
-                f"{data.shape[2]} != {self._prognostic_mean_np.shape[0]}"
-            )
-            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
-        else:
-            raise ValueError(f"Invalid data shape: {data.shape}")
+        expand_var_dim = [1] * data.ndim
+        expand_var_dim[-3] = -1
+        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
+        tensor_mean = tensor_mean.reshape(expand_var_dim)
+        tensor_std = tensor_std.reshape(expand_var_dim)
 
         unnorm = data * tensor_std + tensor_mean
         unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)

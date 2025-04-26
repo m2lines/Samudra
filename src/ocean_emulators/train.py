@@ -137,7 +137,7 @@ class Trainer:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
+        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
@@ -162,8 +162,11 @@ class Trainer:
 
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)
-        self.src = validate_data(raw)
+        self.src = validate_data(raw, cfg.data.static_data_vars)
         self.data = self.src.data
+        self.static_data = None
+        if cfg.data.static_data_vars is not None:
+            self.static_data = self.data[cfg.data.static_data_vars]
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
@@ -187,6 +190,7 @@ class Trainer:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=self.wet_without_hist_cpu,
+            wet_mask_surface=self.wet_surface,
         )
         self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
@@ -205,9 +209,13 @@ class Trainer:
                     f"{cfg.samudra.n_out}->{self.num_out}"
                 )
                 cfg.samudra.n_out = self.num_out
-            model = Samudra(cfg.samudra, hist=cfg.data.hist, wet=self.wet).to(
-                self.device
-            )
+            model = Samudra(
+                cfg.samudra,
+                hist=cfg.data.hist,
+                wet=self.wet,
+                area_weights=self.area_weights,
+                static_data=self.static_data,
+            ).to(self.device)
         else:
             raise NotImplementedError
 
@@ -339,7 +347,6 @@ class Trainer:
         self.val_time = cfg.val_time
         self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
-        self.time_delta: int = cfg.data.time_delta
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
             self.hist + 1
         )
@@ -375,7 +382,6 @@ class Trainer:
         for i in range(num_splits):
             num_time_steps = get_inference_steps(
                 self.inference_times[i],
-                time_delta=self.time_delta,
                 hist=self.hist,
             )
             inference_dataset = InferenceDataset(
@@ -595,6 +601,7 @@ class Trainer:
                     self.area_weights,
                     self.wet_without_hist,
                     self.num_out,
+                    self.prognostic_var_names,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;

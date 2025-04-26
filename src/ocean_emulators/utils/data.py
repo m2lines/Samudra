@@ -14,6 +14,7 @@ from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
+    TIME_DELTA,
     BatchTimeSeriesOutput,
     BoundaryVarNames,
     DictSingleChannelVar,
@@ -26,6 +27,7 @@ from ocean_emulators.constants import (
     SingleTimeSeriesOutput,
     TensorMap,
 )
+from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.multiton import Multiton
 
 
@@ -230,18 +232,18 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
     return weights
 
 
-def get_inference_steps(time_config: TimeConfig, time_delta: int = 5, hist: int = 1):
+def get_inference_steps(time_config: TimeConfig, hist: int = 1):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
     Args:
         time_config: Time configuration
-        time_delta: Time delta in days
         hist: Number of rollout steps
 
     Returns:
         num_steps: Number of rollout steps
     """
+    time_delta = TIME_DELTA
     start_time_str = time_config.start
     start_year, start_month, start_day = start_time_str.split("-")
     start_time = cftime.DatetimeNoLeap(
@@ -267,6 +269,7 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
     out_dict = {}
     for i, var in enumerate(tensor_map.prognostic_var_names):
         out_dict[var] = tensor_out[:, :, i]
+    out_dict.update(add_derived_variables(tensor_out))
     return out_dict
 
 
@@ -372,8 +375,23 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-def validate_data(src: DataSource) -> DataSource:
+def validate_data(
+    src: DataSource, static_data_vars: list[str] | None = None
+) -> DataSource:
     """Validate the data such that we have the correct format for training."""
+    if static_data_vars is not None:
+
+        def _static_data_checks(data):
+            for var in static_data_vars:
+                assert var in data.variables, (
+                    f"Static data variable {var} not found in data"
+                )
+                if "time" in data[var].dims:
+                    data[var] = data[var].isel(time=0)
+
+            return data
+
+        src = src.map_data(_static_data_checks, suffix="static_data_checked")
 
     def _rename(data, means, stds):
         data = (
@@ -407,6 +425,7 @@ class Normalize(Multiton):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         wet_mask: torch.Tensor,
+        wet_mask_surface: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
         prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
@@ -416,6 +435,7 @@ class Normalize(Multiton):
         self.boundary_mean = boundary_src.means
         self.boundary_std = boundary_src.stds
         self.wet_mask = wet_mask
+        self.wet_mask_surface = wet_mask_surface
 
         # Pre-compute numpy arrays for faster access
         self._prognostic_mean_np = (
@@ -436,12 +456,12 @@ class Normalize(Multiton):
         """Normalize prognostic tensor."""
         tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
-        if data.ndim == 4:
-            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, -1, 1, 1])
-        elif data.ndim == 5:
-            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
+
+        expand_var_dim = [1] * data.ndim
+        expand_var_dim[-3] = -1
+        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
+        tensor_mean = tensor_mean.reshape(expand_var_dim)
+        tensor_std = tensor_std.reshape(expand_var_dim)
 
         norm = (data - tensor_mean) / tensor_std
         if fill_nan:
@@ -456,19 +476,34 @@ class Normalize(Multiton):
         tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
 
-        if data.ndim == 4:
-            assert data.shape[1] == self._prognostic_mean_np.shape[0]
-            tensor_mean = tensor_mean.reshape([1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, -1, 1, 1])
-        elif data.ndim == 5:
-            assert data.shape[2] == self._prognostic_mean_np.shape[0]
-            tensor_mean = tensor_mean.reshape([1, 1, -1, 1, 1])
-            tensor_std = tensor_std.reshape([1, 1, -1, 1, 1])
-        else:
-            raise ValueError(f"Invalid data shape: {data.shape}")
+        expand_var_dim = [1] * data.ndim
+        expand_var_dim[-3] = -1
+        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
+        tensor_mean = tensor_mean.reshape(expand_var_dim)
+        tensor_std = tensor_std.reshape(expand_var_dim)
 
         unnorm = data * tensor_std + tensor_mean
         unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
+        unnorm = unnorm.to(data.dtype)
+        return unnorm
+
+    def unnormalize_tensor_boundary(
+        self, data: torch.Tensor, fill_value=float("nan")
+    ) -> torch.Tensor:
+        """Unnormalize boundary tensor."""
+        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device)
+        tensor_std = self._to_tensor(self._boundary_std_np, data.device)
+
+        expand_var_dim = [1] * data.ndim
+        expand_var_dim[-3] = -1
+        assert data.shape[-3] == self._boundary_mean_np.shape[0]
+        tensor_mean = tensor_mean.reshape(expand_var_dim)
+        tensor_std = tensor_std.reshape(expand_var_dim)
+
+        unnorm = data * tensor_std + tensor_mean
+        unnorm = torch.where(
+            self.wet_mask_surface.to(data.device) == 0, fill_value, unnorm
+        )
         unnorm = unnorm.to(data.dtype)
         return unnorm
 

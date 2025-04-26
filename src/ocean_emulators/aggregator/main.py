@@ -40,6 +40,7 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
@@ -51,6 +52,7 @@ class Aggregator:
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
+            channel_mean_names=channel_mean_names,
         )
 
     @staticmethod
@@ -61,6 +63,7 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
@@ -72,4 +75,5 @@ class Aggregator:
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,
+            channel_mean_names=channel_mean_names,
         )

@@ -1,6 +1,39 @@
 import torch
 
 
+def weighted_sum(
+    tensor: torch.Tensor,
+    weights: torch.Tensor | None = None,
+    dim: tuple[int, ...] = (-2, -1),
+    keepdim: bool = False,
+) -> torch.Tensor:
+    """Computes the weighted sum across the specified list of dimensions.
+
+    Args:
+        tensor: torch.Tensor
+        weights: Weights to apply to the sum.
+        dim: Dimensions to compute the sum over.
+        keepdim: Whether the output tensor has `dim` retained or not.
+
+    Returns:
+        a tensor of the weighted sum averaged over the specified dimensions `dim`.
+    """
+    if weights is None:
+        return tensor.nansum(dim=dim, keepdim=keepdim)
+
+    weights = weights.to(tensor.device)
+    return (tensor * weights).nansum(dim=dim, keepdim=keepdim)
+
+
+def area_weighted_sum(
+    data: torch.Tensor,
+    area_weights: torch.Tensor,
+    dim: tuple[int, ...] = (-2, -1),
+    keepdim: bool = False,
+) -> torch.Tensor:
+    return weighted_sum(data, area_weights, dim=dim, keepdim=keepdim)
+
+
 def weighted_mean(
     tensor: torch.Tensor,
     weights: torch.Tensor | None = None,

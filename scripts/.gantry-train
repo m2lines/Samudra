@@ -14,6 +14,7 @@ BEAKER_USERNAME=$(beaker account whoami --format=json | jq -r '.[0].name')
 WANDB_USERNAME=suryad
 N_GPUS=8
 REPO_ROOT=$(git rev-parse --show-toplevel)
+EXISTING_RESULTS_DATASET="01JMKEF5P89ZWZMEH5G6263K9N"
 
 cd $REPO_ROOT
 
@@ -33,6 +34,7 @@ gantry run \
     --env-secret WANDB_API_KEY=wandb-api-key-ai2cm-sa \
     --dataset-secret google-credentials:/tmp/google_application_credentials.json \
     --dataset jamesd/2025-01-20-cm4-ocean-piControl-200yr-dataset-stats:/statsdata \
+    --dataset $EXISTING_RESULTS_DATASET:2025-02-20-train-samudra-train-cm4-thermodynamic-ema-decay0.999-lr1e-4-nosched-fusedopt-instancenorm/saved_nets/best_inference_ckpt.pt:/ckpt.pt \
     --gpus $N_GPUS \
     --shared-memory 500GiB \
     --weka climate-default:/climate-default \
@@ -40,4 +42,4 @@ gantry run \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
     --install "pip install uv" \
-    -- uv run torchrun --nproc_per_node $N_GPUS src/ocean_emulators/train.py $CONFIG_PATH --experiment.name $JOB_NAME --finetune true --preemptible false --resume_ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2025-02-20-train-samudra-train-cm4-thermodynamic-ema-decay0.999-lr1e-4-nosched-fusedopt-instancenorm/saved_nets/best_inference_ckpt.pt
+    -- uv run torchrun --nproc_per_node $N_GPUS src/ocean_emulators/train.py $CONFIG_PATH --experiment.name $JOB_NAME --finetune true --preemptible false --resume_ckpt_path /ckpt.pt

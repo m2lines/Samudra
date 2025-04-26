@@ -5,8 +5,8 @@ import contextlib
 import datetime
 import logging
 import os
+import tempfile
 import time
-import uuid
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
@@ -813,11 +813,10 @@ class Trainer:
             self.save_checkpoint(epoch, self.ckpt_paths.ema_checkpoint_path)
 
     def save_checkpoint(self, epoch, checkpoint_path):
-        # save to a temporary file in case we get pre-empted during save
-        temporary_location = os.path.join(
-            os.path.dirname(checkpoint_path), f".{uuid.uuid4()}.tmp"
-        )
-        try:
+        # Create temporary file in the same directory as the target
+        temp_dir = os.path.dirname(checkpoint_path)
+        with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
+            temporary_location = tmp.name
             checkpoint = {
                 "model": self.model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
@@ -834,14 +833,12 @@ class Trainer:
 
             torch.save(checkpoint, temporary_location)
             os.replace(temporary_location, checkpoint_path)
-        finally:
-            if os.path.exists(temporary_location):
-                os.remove(temporary_location)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
         logger.info(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=torch.device(self.device))
 
+        # Remove module prefix from state dict
         def remove_module_prefix(state_dict):
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():

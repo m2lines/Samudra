@@ -24,10 +24,9 @@ echo "SLURM_NTASKS_PER_NODE: $SLURM_NTASKS_PER_NODE"
 echo "SLURM_NNODES: $SLURM_NNODES"
 
 # Run the training script
-srun --cpu-bind=cores \
-     python src/ocean_emulators/train.py \
+python src/ocean_emulators/train.py \
      configs/slurm_perlmutter_train_om4.yaml \
-     --experiment.sub_name $SLURM_JOB_NAME
+     --experiment.name $SLURM_JOB_NAME
 
 pid=$!
 trap "preempt_handler '$pid'" SIGTERM #this catches preempt SIGTERM from slurm

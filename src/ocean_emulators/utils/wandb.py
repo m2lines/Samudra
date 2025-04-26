@@ -80,8 +80,8 @@ class WandBLogger(Multiton):
             tuple: (None, generated_name) for new run
         """
         wandb_name = (
-            cfg.experiment.name + "//" + cfg.experiment.sub_name
-            if hasattr(cfg.experiment, "sub_name")
+            cfg.experiment.name
+            if hasattr(cfg.experiment, "name")
             else ".LOCAL" + "//" + cfg.experiment.name
         )
 

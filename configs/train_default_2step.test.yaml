@@ -31,8 +31,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  base_name: train
-  sub_name: test
+  name: test
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

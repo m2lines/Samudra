@@ -1,4 +1,3 @@
-from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal
@@ -85,8 +84,7 @@ class DistributedConfig(BaseConfig):
 
 
 class ExperimentConfig(BaseConfig):
-    base_name: str = "train"
-    sub_name: str = "cm4_samudra"
+    name: str = "cm4_samudra"
     rand_seed: int = 1
     base_output_dir: str = "train"
     gantry: bool = False
@@ -103,13 +101,8 @@ class ExperimentConfig(BaseConfig):
     boundary_vars_key: str = "tau_hfds"
 
     @cached_property
-    def name(self) -> str:
-        timestamp = datetime.now().strftime("%Y-%m-%d")
-        return f"{timestamp}-{self.base_name}"
-
-    @cached_property
     def output_dir(self) -> Path:
-        return Path(self.base_output_dir) / f"{self.name}-{self.sub_name}"
+        return Path(self.base_output_dir) / f"{self.name}"
 
     @cached_property
     def nets_dir(self) -> Path:

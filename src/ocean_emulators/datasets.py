@@ -663,6 +663,7 @@ class TorchTrainDataset(Dataset):
     ) -> Input:
         """Prepare tensor steps by normalizing, masking and flattening dimensions."""
 
+        # Normalize and mask tensors
         def normalize_and_mask(
             tensor: torch.Tensor,
             src: DataSource,
@@ -675,7 +676,6 @@ class TorchTrainDataset(Dataset):
                 tensor = src.normalize_with(tensor, variable_axis=1).float()
             return tensor
 
-        # Normalize and mask tensors
         prognostic_steps = normalize_and_mask(
             prognostic_steps, self._prognostic_src, self.wet
         )

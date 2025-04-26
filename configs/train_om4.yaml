@@ -35,8 +35,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  base_name: train
-  sub_name: local_om4_samudra
+  name: local_om4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false

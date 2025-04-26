@@ -42,8 +42,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  base_name: train
-  sub_name: cm4_samudra
+  name: cm4_samudra
   rand_seed: 5
   base_output_dir: train
   gantry: false

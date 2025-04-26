@@ -33,19 +33,23 @@ PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
 SingleChannelVar = Float[torch.Tensor, "batch time lat lon"]
 DictSingleChannelVar = dict[str, SingleChannelVar]
-SinglePrognostic = Float[Grid, "*batch"]
 SinglePrognosticTimeSeries = Float[Grid, "*batch time"]
 
 SingleTimeSeriesOutput = Float[torch.Tensor, "batch=1 time prognostic_vars lat lon"]
 BatchTimeSeriesOutput = Float[
     torch.Tensor, "batch time=(hist+1) prognostic_vars lat lon"
 ]
+HistBatched = Float[torch.Tensor, "batch_hist prognostic_vars lat lon"]
+HistChanneled = Float[torch.Tensor, "batch hist_prognostic_vars lat lon"]
+
 
 MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels
 # and all 2D variables do not have any digits / underscores in their names
+
+# These represent depth centers
 DEPTH_LEVELS = [
     2.5,
     10.0,
@@ -66,6 +70,29 @@ DEPTH_LEVELS = [
     4000.0,
     5000.0,
     6000.0,
+]
+
+# Depth thicknesses
+DEPTH_THICKNESS = [
+    5.0,
+    10.0,
+    15.0,
+    20.0,
+    30.0,
+    50.0,
+    70.0,
+    100.0,
+    150.0,
+    200.0,
+    250.0,
+    300.0,
+    400.0,
+    500.0,
+    600.0,
+    800.0,
+    1000.0,
+    1000.0,
+    1000.0,
 ]
 
 DEPTH_I_LEVELS = [
@@ -112,9 +139,14 @@ MASK_VARS = [
     "mask_18",
 ]
 
+RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
+CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
+SECONDS_PER_5DAY = 5 * 24 * 60 * 60  # 5 day average
+TIME_DELTA = 5  # Time delta in days
+
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
-    "thetao_surface": [f"thetao_{DEPTH_I_LEVELS[0]}"],
+    "thetao_1": [f"thetao_{DEPTH_I_LEVELS[0]}"],
     "thermo_dynamic_5": [
         k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
     ]
@@ -219,6 +251,7 @@ class TensorMap(Multiton):
         self.VAR_3D_IDX: dict[str, torch.Tensor] = {}
         self.DP_3D_IDX: dict[str, torch.Tensor] = {}
 
+        self.INPT_BOUNDARY_IDX: dict[str, torch.Tensor] = {}
         self.VAR_SET_2D = []
         self.VAR_SET_3D = []
         for out in PROGNOSTIC_VARS[prognostic_vars_key]:
@@ -234,12 +267,21 @@ class TensorMap(Multiton):
                 [out.split("_")[0] for out in PROGNOSTIC_VARS[prognostic_vars_key]]
             )
         )
-        self.DEPTH_SET = DEPTH_I_LEVELS
+
+        levels_str = prognostic_vars_key.split("_")[-1]
+        if "all" in levels_str:
+            levels = 19
+        else:
+            levels = int(levels_str)
+
+        self.DEPTH_SET = DEPTH_I_LEVELS[:levels]
         self.prognostic_var_names = PROGNOSTIC_VARS[prognostic_vars_key]
         self.boundary_var_names = BOUNDARY_VARS[boundary_vars_key]
+        self.dz = torch.tensor(DEPTH_THICKNESS[:levels])
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()
+        self._populate_boundary_idx()
 
     def _populate_var_3d_idx(self):
         for kt in self.VAR_SET:
@@ -270,3 +312,13 @@ class TensorMap(Multiton):
                 torch.tensor([self.VAR_3D_IDX[var_2D] for var_2D in self.VAR_SET_2D]),
             ]
         )
+
+    def _populate_boundary_idx(self):
+        """
+        Populates the indices of the boundary variables in the input tensor.
+
+        We assume the indices INPT_BOUNDARY_IDX will be used after the boundary
+        condition is extracted from the input tensor
+        """
+        for i, k in enumerate(self.boundary_var_names):
+            self.INPT_BOUNDARY_IDX[k] = torch.tensor([i])

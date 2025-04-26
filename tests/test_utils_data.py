@@ -166,6 +166,7 @@ def normalize_input():
             prognostic_var_names=["var_0", "var_1"],
             boundary_var_names=["var_2"],
             wet_mask=wet_mask,
+            wet_mask_surface=wet_mask,
         )
         yield normalize, wet_mask
 
@@ -197,7 +198,7 @@ def data_init(hist: int):
         lons = 3
         total_time_steps = 100
 
-        tensor_map = TensorMap.init_instance("thetao_surface", "hfds")
+        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
 
         wet_mask_ = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
         wet_full = np.tile(wet_mask_, (total_time_steps, levels, 1, 1))
@@ -242,7 +243,7 @@ def data_init(hist: int):
         data_std = data.std() * 0.0 + 1.0
         src = DataSource("test", data, data_mean, data_std)
         val = validate_data(src)
-        wet_without_hist, _ = extract_wet_mask(
+        (wet_without_hist, wet_mask_surface) = extract_wet_mask(
             val.data, tensor_map.prognostic_var_names, 0
         )
 
@@ -251,6 +252,7 @@ def data_init(hist: int):
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
             wet_mask=wet_without_hist,
+            wet_mask_surface=wet_mask_surface,
         )
         yield normalize, wet_without_hist
 
@@ -260,7 +262,7 @@ def data_init(hist: int):
 @pytest.mark.parametrize("hist", [0, 1, 2])
 def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
     normalize, wet = data_init
-    tensor_map = TensorMap.get_instance()
+    tensor_map: TensorMap = TensorMap.get_instance()
 
     num_prognostic_channels = normalize._prognostic_std_np.shape[0]
     num_boundary_channels = normalize._boundary_std_np.shape[0]

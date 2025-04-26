@@ -268,9 +268,10 @@ def test_loader__data_shape(
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
-        input_var_dim = len(
-            PROGNOSTIC_VARS[exp.prognostic_vars_key]
-        ) * num_input_timesteps + len(BOUNDARY_VARS[exp.boundary_vars_key])
+        input_var_dim = (
+            len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
+            + len(BOUNDARY_VARS[exp.boundary_vars_key])
+        ) * num_input_timesteps
         output_var_dim = (
             len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_input_timesteps
         )
@@ -310,9 +311,10 @@ def test_inference__data_shape(inference_loader_pair):
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
-    input_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist + len(
-        BOUNDARY_VARS[exp.boundary_vars_key]
-    )
+    input_var_dim = (
+        len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
+        + len(BOUNDARY_VARS[exp.boundary_vars_key])
+    ) * hist
     output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
 
     samples = list(loader)
@@ -448,6 +450,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],
             wet_mask=wet,
+            wet_mask_surface=wet_surface,
         )
         traindataset = TrainDataset(
             src=test,
@@ -518,9 +521,9 @@ def test_train_dataset_normalize_pre_fill(
         td0_step0_label = td0.get_label(0)
         inf_step0_input, inf_step0_label = inference_dataset[0]
 
-        assert td0_step0_input.shape == (6, 2, 2)
+        assert td0_step0_input.shape == (8, 2, 2)
         assert td0_step0_label.shape == (4, 2, 2)
-        assert inf_step0_input.shape == (1, 6, 2, 2)
+        assert inf_step0_input.shape == (1, 8, 2, 2)
         assert inf_step0_label.shape == (1, 4, 2, 2)
 
         # We expect [0,0,0] to be masked

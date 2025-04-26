@@ -28,6 +28,7 @@ class InferenceEvaluatorAggregator:
         log_global_mean_time_series: bool = True,
         log_global_mean_norm_time_series: bool = True,
         time_mean_reference_data: xr.Dataset | None = None,
+        channel_mean_names: list[str] | None = None,
     ):
         """
         Args:
@@ -43,6 +44,7 @@ class InferenceEvaluatorAggregator:
             log_global_mean_norm_time_series: Whether to log the normalized global mean
                 time series metrics.
             time_mean_reference_data: Reference time means for computing bias stats.
+            channel_mean_names: List of channel names to compute the mean of.
         """
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
@@ -74,12 +76,14 @@ class InferenceEvaluatorAggregator:
             metadata=metadata,
             area_weights=area_weights,
             reference_means=time_mean_reference_data,
+            channel_mean_names=channel_mean_names,
         )
         self._aggregators["time_mean_norm"] = TimeMeanEvaluatorAggregator(
             metadata=metadata,
             area_weights=area_weights,
             target="norm",
             reference_means=time_mean_reference_data,
+            channel_mean_names=channel_mean_names,
         )
 
         self._summary_aggregators = {

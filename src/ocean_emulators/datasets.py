@@ -204,7 +204,7 @@ class InferenceDataset(Dataset):
         the input.
         """
         data_in_boundary_src = self._boundary_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=self.hist)
+            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
         if self.normalize_before_mask:
             data_in_boundary_ds = data_in_boundary_src.normalize()
@@ -212,7 +212,7 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.data
         data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
-            .transpose("window_dim", "variable", "lat", "lon")
+            .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
         data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
@@ -221,8 +221,12 @@ class InferenceDataset(Dataset):
         )
         if not self.normalize_before_mask:
             data_in_boundary = self._boundary_src.normalize_with(
-                data_in_boundary, variable_axis=1
+                data_in_boundary, variable_axis=2
             )
+        data_in_boundary = rearrange(
+            data_in_boundary,
+            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
+        )
         return data_in_boundary
 
     def _get_label(self, x_index):
@@ -471,7 +475,7 @@ class TrainDataset(Dataset):
         """
         # TODO(jder): nicer typing
         data_in_boundary_src: Any = self._boundary_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=self.hist)
+            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
         if self.normalize_before_mask:
             data_in_boundary = data_in_boundary_src.normalize()
@@ -479,7 +483,7 @@ class TrainDataset(Dataset):
             data_in_boundary = data_in_boundary_src.data
         data_in_boundary = (
             data_in_boundary.to_array()
-            .transpose("window_dim", "variable", "lat", "lon")
+            .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()
         )
         data_in_boundary = torch.from_numpy(data_in_boundary).float()
@@ -488,8 +492,13 @@ class TrainDataset(Dataset):
         )
         if not self.normalize_before_mask:
             data_in_boundary = self._boundary_src.normalize_with(
-                data_in_boundary, variable_axis=1
+                data_in_boundary, variable_axis=2
             )
+        data_in_boundary = rearrange(
+            data_in_boundary,
+            "window_dim time variable lat lon -> \
+                window_dim (time variable) lat lon",
+        )
         return data_in_boundary
 
     def _get_label(self, x_index) -> Prognostic:
@@ -617,9 +626,8 @@ class TorchTrainDataset(Dataset):
             )
             boundary = torch.from_numpy(
                 self._boundary_src.data.isel(time=x_index)
-                .isel(time=self.hist, drop=True)
                 .to_array()
-                .transpose("variable", "lat", "lon")
+                .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
             )
 
@@ -637,50 +645,54 @@ class TorchTrainDataset(Dataset):
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
         prognostic_all: Float[torch.Tensor, "time variable lat lon"],
-        boundary: Float[torch.Tensor, "variable lat lon"],
+        boundary_all: Float[torch.Tensor, "time variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         # grab past steps and prep for model
-        input_ = self._prep_prognostic_steps(prognostic_all[: self.hist + 1, :, :, :])
-
-        # add in boundary to final input
-        if self.normalize_before_mask:
-            boundary = self._boundary_src.normalize_with(
-                boundary, variable_axis=0
-            ).float()
-        boundary = torch.where(self.wet_surface, boundary, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            boundary = self._boundary_src.normalize_with(
-                boundary, variable_axis=0
-            ).float()
-
-        total_input = torch.cat((input_, boundary), dim=0)  # dim=1 -> variables
+        total_input = self._prep_tensor_steps(
+            prognostic_all[: self.hist + 1, :, :, :],
+            boundary_all[: self.hist + 1, :, :, :],
+        )
         # grab future steps, repeat as we do for input
-        label = self._prep_prognostic_steps(prognostic_all[self.hist + 1 :, :, :, :])
+        label = self._prep_tensor_steps(prognostic_all[self.hist + 1 :, :, :, :])
         return total_input, label
 
-    def _prep_prognostic_steps(
-        self, prognostic_steps: Float[torch.Tensor, "time variable lat lon"]
+    def _prep_tensor_steps(
+        self,
+        prognostic_steps: Float[torch.Tensor, "time variable lat lon"],
+        boundary_steps: Float[torch.Tensor, "time variable lat lon"] | None = None,
     ) -> Input:
-        # normalize expects variables in third dimension
-        if self.normalize_before_mask:
-            prognostic_steps = self._prognostic_src.normalize_with(
-                prognostic_steps, variable_axis=1
-            ).float()
+        """Prepare tensor steps by normalizing, masking and flattening dimensions."""
 
-        prognostic_steps = torch.where(
-            self.wet, prognostic_steps, self.masked_fill_value
+        # Normalize and mask tensors
+        def normalize_and_mask(
+            tensor: torch.Tensor,
+            src: DataSource,
+            mask: torch.Tensor,
+        ) -> torch.Tensor:
+            if self.normalize_before_mask:
+                tensor = src.normalize_with(tensor, variable_axis=1).float()
+            tensor = torch.where(mask, tensor, self.masked_fill_value)
+            if not self.normalize_before_mask:
+                tensor = src.normalize_with(tensor, variable_axis=1).float()
+            return tensor
+
+        prognostic_steps = normalize_and_mask(
+            prognostic_steps, self._prognostic_src, self.wet
         )
+        if boundary_steps is not None:
+            boundary_steps = normalize_and_mask(
+                boundary_steps, self._boundary_src, self.wet_surface
+            )
 
-        if not self.normalize_before_mask:
-            prognostic_steps = self._prognostic_src.normalize_with(
-                prognostic_steps, variable_axis=1
-            ).float()
+        # Flatten time and variable dimensions
+        def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:
+            return rearrange(tensor, "time variable lat lon -> (time variable) lat lon")
 
-        # flatten time and variable dimensions into a set of channels for model
-        prognostic_steps = rearrange(
-            prognostic_steps,
-            "time variable lat lon -> (time variable) lat lon",
-        )
+        prognostic_steps = flatten_dims(prognostic_steps)
+        if boundary_steps is not None:
+            boundary_steps = flatten_dims(boundary_steps)
+            return torch.cat((prognostic_steps, boundary_steps), dim=0)
+
         return prognostic_steps
 
     def _get_x_index(self, idx: int, step: int) -> xr.DataArray:

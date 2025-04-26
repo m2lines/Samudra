@@ -48,7 +48,7 @@ experiment:
   prognostic_vars_key: thermo_all
   boundary_vars_key: tau_hfds_hfds_anom
 
-data: !include data/om4_internal.yaml
+data: !include data/om4_ohc.yaml
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]
@@ -68,3 +68,7 @@ samudra:
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"
+
+  corrector:
+    non_negative_corrector_names: null
+    ocean_heat_corrector: true

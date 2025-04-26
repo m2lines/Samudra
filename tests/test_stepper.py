@@ -23,7 +23,7 @@ def inf_data_init(hist: int):
         lons = 1
         total_time_steps = 100
 
-        tensor_map = TensorMap.init_instance("thetao_surface", "hfds")
+        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
 
         # Even thetao, odd hfds for every time step
         # Ex, timestep 0: thetao = 0, hfds = 1
@@ -77,6 +77,7 @@ def inf_data_init(hist: int):
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
             wet_mask=wet_without_hist,
+            wet_mask_surface=wet_surface,
         )
         inference_dataset = InferenceDataset(
             val,
@@ -98,24 +99,25 @@ class MockModel(BaseModel):
         super().__init__(*args, **kwargs)
 
     def forward_once(self, x):
-        return x[:, :-1] * 10.0 + x[:, -1]
+        return x[:, : self.num_prognostic_channels] * 10.0 + x[:, -1]
 
 
 # These tests will fail with OHC PR
 @pytest.mark.parametrize("hist", [0, 1, 2, 3, 4])
 def test_inference_dataset(inf_data_init, hist):
     inference_dataset, _ = inf_data_init
-    num_input_channels = (hist + 1) + 1  # thetao * (hist + 1) + hfds
-    num_prognostic_channels = hist + 1  # thetao * (hist + 1)
+    num_input_channels = (hist + 1) * 2  # (hist + 1) * (thetao + hfds)
+    num_prognostic_channels = hist + 1  # (hist + 1) * thetao
 
     input_0, target_0 = inference_dataset[0]
 
     # Index 0 test
     # For hist = 0, input is [0, 1]
-    # For hist = 1, input is [0, 2, 3]
+    # For hist = 1, input is [0, 2, 1, 3]
     assert input_0.shape == (1, num_input_channels, 1, 1)
     expected_input = torch.tensor(
-        [2 * i for i in range(hist + 1)] + [2 * hist + 1], device=input_0.device
+        [2 * i for i in range(hist + 1)] + [2 * i + 1 for i in range(hist + 1)],
+        device=input_0.device,
     )
     assert torch.equal(input_0.flatten(), expected_input)
 
@@ -134,7 +136,7 @@ def test_inference_dataset(inf_data_init, hist):
         assert input_cur.shape == (1, num_input_channels, 1, 1)
         expected_input = torch.tensor(
             [2 * i for i in range(base_step, base_step + hist + 1)]
-            + [2 * (base_step + hist) + 1],
+            + [2 * i + 1 for i in range(base_step, base_step + hist + 1)],
             device=input_0.device,
         )
         assert torch.equal(input_cur.flatten(), expected_input)
@@ -159,6 +161,7 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
+        static_data=None,
     )
 
     model.eval()
@@ -212,16 +215,18 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
+        static_data=None,
     )
 
     model.eval()
-    num_input_channels = (hist + 1) + 1  # thetao * (hist + 1) + hfds
-    num_prognostic_channels = hist + 1  # thetao * (hist + 1)
+    num_input_channels = (hist + 1) * 2  # (hist + 1) * (thetao + hfds)
+    num_prognostic_channels = hist + 1  # (hist + 1) * thetao
     input_tensor = inference_dataset.get_initial_input()
 
     assert input_tensor.shape == (1, num_input_channels, 1, 1)
     expected_input = torch.tensor(
-        [2 * i for i in range(hist + 1)] + [2 * hist + 1], device=input_tensor.device
+        [2 * i for i in range(hist + 1)] + [2 * i + 1 for i in range(hist + 1)],
+        device=input_tensor.device,
     )
     assert torch.equal(input_tensor.flatten(), expected_input)
 
@@ -237,9 +242,23 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
         step=merge_step,
     )
     assert merged_input_tensor.shape == (1, num_input_channels, 1, 1)
+
+    # For hist = 0, merge_step = 1, need to merge [3]
+    # 0, 1 -> 2, 3
+    # For hist = 0, merge_step = 2, need to merge [5]
+    # 0, 1 -> 2, 3 -> 4, 5
+    # For hist = 1, merge_step = 1, need to merge [5, 7]
+    # 0, 2, 1, 3 -> 4, 6, 5, 7
+    # For hist = 1, merge_step = 2, need to merge [9, 11]
+    # 0, 2, 1, 3 -> 4, 6, 5, 7 -> 8, 10, 9, 11
+    # For hist = 2, merge_step = 1, need to merge [7, 9, 11]
+    # 0, 2, 4, 1, 3, 5 -> 6, 8, 10, 7, 9, 11
+    # For hist = 2, merge_step = 2, need to merge [13, 15, 17]
+    # 0, 2, 4, 1, 3, 5 -> 6, 8, 10, 7, 9, 11 -> 12, 14, 16, 13, 15, 17
+
     expected_merged_input = torch.tensor(
         [2 * hist + 1 + 2 * i * 10 for i in range(hist + 1)]
-        + [(merge_step + 1) * (num_prognostic_channels * 2) - 1],
+        + [2 * (hist + 1) * merge_step - 1 + 2 * (i + 1) for i in range(hist + 1)],
         device=merged_input_tensor.device,
     )
     assert torch.equal(merged_input_tensor.flatten(), expected_merged_input)

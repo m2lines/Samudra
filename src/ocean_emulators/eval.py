@@ -79,7 +79,7 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * self.N_prog + self.N_bound)
+        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
@@ -98,8 +98,11 @@ class Eval:
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         raw = DataSource.from_config(cfg, use_dask=True)
-        self.src = validate_data(raw)
+        self.src = validate_data(raw, cfg.data.static_data_vars)
         self.data = self.src.data
+        self.static_data = None
+        if cfg.data.static_data_vars is not None:
+            self.static_data = self.data[cfg.data.static_data_vars]
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -116,6 +119,7 @@ class Eval:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet_mask=self.wet_without_hist_cpu,
+            wet_mask_surface=self.wet_surface,
         )
         self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
@@ -135,7 +139,11 @@ class Eval:
                 )
                 cfg.samudra.n_out = self.num_out
             model = Samudra(
-                cfg.samudra, hist=cfg.data.hist, wet=self.wet.to(self.device)
+                cfg.samudra,
+                hist=cfg.data.hist,
+                wet=self.wet.to(self.device),
+                area_weights=self.area_weights,
+                static_data=self.static_data,
             ).to(self.device)
         else:
             raise NotImplementedError
@@ -169,7 +177,6 @@ class Eval:
         self.debug = cfg.debug
         self.num_workers = cfg.data.num_workers
         self.inference_time = cfg.inference_time
-        self.time_delta = cfg.data.time_delta
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
@@ -189,7 +196,6 @@ class Eval:
     def init_inference_store(self):
         self.num_time_steps = get_inference_steps(
             self.inference_time,
-            time_delta=self.time_delta,
             hist=self.hist,
         )
         self.inference_dataset = InferenceDataset(
@@ -232,6 +238,7 @@ class Eval:
             self.area_weights,
             self.wet_without_hist,
             self.num_out,
+            self.prognostic_var_names,
         )
 
         Stepper.inference(

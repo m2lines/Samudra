@@ -393,6 +393,12 @@ def validate_data(
 
         src = src.map_data(_static_data_checks, suffix="static_data_checked")
 
+    def double_hfds(data):
+        data["hfds"] = data["hfds"] * 2.0
+        return data
+
+    src = src.map_data(double_hfds, suffix="double_hfds")
+
     def _rename(data, means, stds):
         data = (
             data.pipe(flatten_masks)

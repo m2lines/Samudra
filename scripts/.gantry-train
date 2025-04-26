@@ -40,4 +40,4 @@ gantry run \
     --beaker-image 'ai2/pytorch2.0.0-cuda11.8-python3.10' \
     --venv 'base' \
     --install "pip install uv" \
-    -- uv run torchrun --nproc_per_node $N_GPUS src/ocean_emulators/train.py $CONFIG_PATH --experiment.sub_name $JOB_NAME --finetune true --preemptible false --resume_ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2025-02-20-train-samudra-train-cm4-thermodynamic-ema-decay0.999-lr1e-4-nosched-fusedopt-instancenorm/saved_nets/best_inference_ckpt.pt
+    -- uv run torchrun --nproc_per_node $N_GPUS src/ocean_emulators/train.py $CONFIG_PATH --experiment.name $JOB_NAME --finetune true --preemptible false --resume_ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train_3D/2025-02-20-train-samudra-train-cm4-thermodynamic-ema-decay0.999-lr1e-4-nosched-fusedopt-instancenorm/saved_nets/best_inference_ckpt.pt

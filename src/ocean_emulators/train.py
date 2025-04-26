@@ -1,13 +1,14 @@
 # TODO:
-# - resubmit jobs / preempted job safety
 # - better stepper module and a cleaner model module
 # - cleaner dataset modules
 import contextlib
 import datetime
 import logging
 import os
+import tempfile
 import time
 import warnings
+from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from functools import partial
 from typing import Any, assert_never
@@ -167,6 +168,11 @@ class Trainer:
         if cfg.data.static_data_vars is not None:
             self.static_data = self.data[cfg.data.static_data_vars]
 
+        # We use dask for inference since it has memory issues otherwise.
+        # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
+        # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
+        self.inference_src = validate_data(DataSource.from_config(cfg, use_dask=True))
+
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
             self.data, self.prognostic_var_names, cfg.data.hist
@@ -280,11 +286,21 @@ class Trainer:
             cfg.experiment.wandb.mode == "online", is_main_process()
         )
 
+        self.ckpt_paths = CheckpointPaths(self.nets_dir)
+
+        # Check for preemption
+        if cfg.preemptible:
+            assert not cfg.finetune, "Finetune is not supported with preemptible"
+            preempted = os.path.isfile(self.ckpt_paths.latest_checkpoint_path)
+            if preempted:
+                cfg.resume_ckpt_path = str(self.ckpt_paths.latest_checkpoint_path)
+
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
             cfg.resume_ckpt_path, cfg, finetune=cfg.finetune
         )
 
+        self.num_batches_seen = 0
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
                 self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
@@ -331,8 +347,6 @@ class Trainer:
         self.val_time = cfg.val_time
         self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
-        self.num_batches_seen = 0
-        self.ckpt_paths = CheckpointPaths(self.nets_dir)
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
             self.hist + 1
         )
@@ -350,8 +364,8 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: DataLoader
-        self.val_loader: DataLoader
+        self.train_loader: DataLoader[TrainData]
+        self.val_loader: DataLoader[TrainData]
         self.inference_loader: DataLoader
 
     def init_inference_stores(self):
@@ -371,7 +385,7 @@ class Trainer:
                 hist=self.hist,
             )
             inference_dataset = InferenceDataset(
-                src=self.src.slice(self.inference_times[i]),
+                src=self.inference_src.slice(self.inference_times[i]),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 wet=self.wet_without_hist_cpu,
@@ -525,7 +539,10 @@ class Trainer:
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
                     "train/batch/data_load_time": metric_logger.meters[
-                        "data_time"
+                        "data_load_time"
+                    ].value,
+                    "train/batch/data_wait_time": metric_logger.meters[
+                        "data_wait_time"
                     ].value,
                 }
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
@@ -811,37 +828,64 @@ class Trainer:
             self.save_checkpoint(epoch, self.ckpt_paths.ema_checkpoint_path)
 
     def save_checkpoint(self, epoch, checkpoint_path):
-        checkpoint = {
-            "model": self.model.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-            "epoch": epoch,
-            "best_val_loss": self.best_val_loss,
-            "best_inf_loss": self.best_inf_loss,
-            "ema": self._ema.get_state(),
-        }
-        if self.scheduler:
-            checkpoint["scheduler"] = self.scheduler.state_dict()
+        # Create temporary file in the same directory as the target
+        temp_dir = os.path.dirname(checkpoint_path)
+        with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
+            temporary_location = tmp.name
+            checkpoint = {
+                "model": self.model.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+                "epoch": epoch,
+                "best_val_loss": self.best_val_loss,
+                "best_inf_loss": self.best_inf_loss,
+                "ema": self._ema.get_state(),
+                "num_batches_seen": self.num_batches_seen,
+                "wandb_id": self.wandb_id,
+                "wandb_name": self.wandb_name,
+            }
+            if self.scheduler:
+                checkpoint["scheduler"] = self.scheduler.state_dict()
 
-        torch.save(checkpoint, checkpoint_path)
+            torch.save(checkpoint, temporary_location)
+            os.replace(temporary_location, checkpoint_path)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
-        logger.info(f"Loaded checkpoint from {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path)
-        if finetune:
-            self.model.load_state_dict(checkpoint["model"])
-        else:
+        logger.info(f"Loading checkpoint from {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=torch.device(self.device))
+
+        # Remove module prefix from state dict
+        def remove_module_prefix(state_dict):
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                name = k.removeprefix("module.")
+                new_state_dict[name] = v
+            return new_state_dict
+
+        # Load model state
+        model_state_dict = checkpoint["model"]
+        new_state_dict = remove_module_prefix(model_state_dict)
+        self.model.load_state_dict(new_state_dict)
+
+        # Load EMA state
+        model_ema_state_dict = checkpoint["ema"]
+        new_ema_state_dict = remove_module_prefix(model_ema_state_dict)
+        self._ema = EMATracker.from_state(new_ema_state_dict, self.model)
+
+        if not finetune:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
-            if self.scheduler:
+            if self.scheduler and "scheduler" in checkpoint:
                 self.scheduler.load_state_dict(checkpoint["scheduler"])
+
             self.start_epoch = checkpoint["epoch"] + 1
-            self.wandb_id = checkpoint["wandb_id"]
-            self.wandb_name = checkpoint["wandb_name"]
+            self.wandb_id = checkpoint.get("wandb_id")
+            self.wandb_name = checkpoint.get("wandb_name")
+            self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
 
             logger.info(f"Start Epoch: {self.start_epoch}")
             logger.info(f"Wandb id: {self.wandb_id}")
             logger.info(f"Wandb name: {self.wandb_name}")
-            logging.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
-            self._ema = EMATracker.from_state(checkpoint["ema"], self.model)
+            logger.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
+
             self.best_val_loss = checkpoint["best_val_loss"]
             self.best_inf_loss = checkpoint["best_inf_loss"]
 

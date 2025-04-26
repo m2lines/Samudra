@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-perlmutter-om4-speed-inlineinf-torch
+#SBATCH --job-name=%j-samudra-perlmutter-om4-speed-inlineinf-torch
 #SBATCH --output=train/logs/slurm-%j.out
 #SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g
@@ -33,4 +33,4 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 srun --cpu-bind=cores \
      python src/ocean_emulators/train.py \
      configs/slurm_perlmutter_train_om4.yaml \
-     --experiment.sub_name $SLURM_JOB_NAME
+     --experiment.name $SLURM_JOB_NAME

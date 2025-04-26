@@ -8,4 +8,7 @@ CONFIG_PATH=configs/train_cm4.yaml
 echo 'Running local training on cluster:' $CLUSTER_NAME 'with data directory:' $OCEAN_DATA_DIR
 echo 'Using config file:' $CONFIG_PATH
 
-uv run torchrun -m src.ocean_emulators.train $CONFIG_PATH --experiment.cluster_data_dir $OCEAN_DATA_DIR
+# current date
+DATE=$(date +%Y-%m-%d)
+
+uv run torchrun -m src.ocean_emulators.train $CONFIG_PATH --experiment.cluster_data_dir $OCEAN_DATA_DIR --experiment.name "${DATE}-test" --data.loader_version om4-torch

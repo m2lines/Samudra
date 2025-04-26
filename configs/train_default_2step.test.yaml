@@ -8,6 +8,7 @@ pin_mem: true
 save_freq: 5
 epochs: 1
 batch_size: 1
+preemptible: false
 learning_rate: 0.0001
 scheduler: false
 loss: mse
@@ -30,8 +31,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  base_name: train
-  sub_name: test
+  name: test
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
@@ -53,7 +53,7 @@ data:
 
 
 samudra:
-  ch_width: [2, 3]
+  ch_width: [2, 2, 2]
   n_out: 4
   dilation: [1, 2]
   n_layers: [1, 1]

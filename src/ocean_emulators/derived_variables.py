@@ -7,7 +7,7 @@ from ocean_emulators.constants import CP_SW, RHO_0, Grid, TensorMap
 
 
 def compute_ocean_heat_content(
-    T: Float[Grid, "*batch depth"] | Float[Grid, "*batch depth hist"], dz: torch.Tensor
+    T: Float[Grid, "*batch depth"] | Float[Grid, "*batch hist depth"], dz: torch.Tensor
 ) -> Float[Grid, "*batch"] | Float[Grid, "*batch hist"]:
     """Compute the heat content of the ocean.
 
@@ -46,7 +46,7 @@ def compute_ocean_heat_content(
 
 
 def compute_global_ocean_heat_content(
-    T: Float[Grid, "*batch depth"] | Float[Grid, "*batch depth hist"],
+    T: Float[Grid, "*batch depth"] | Float[Grid, "*batch hist depth"],
     dz: torch.Tensor,
     area_weighted_func: Callable,
 ) -> torch.Tensor:

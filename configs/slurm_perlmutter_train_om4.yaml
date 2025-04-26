@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
+batch_size: 3
 learning_rate: 0.0002
 scheduler: true
 loss: mse
@@ -15,10 +15,10 @@ inference_epochs: [-1]
 data_percent: 1.0
 train_time:
   start: "1975-01-03"
-  end: "2013-10-05"
+  end: "2014-01-13"
 val_time:
-  start: "2013-10-05"
-  end: "2014-10-05"
+  start: "2014-01-18"
+  end: "2014-09-20"
 inference_times:
   - start: "1975-01-03"
     end: "1985-01-03"
@@ -64,11 +64,11 @@ samudra:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 4
-    norm: "batch"
+    norm: "instance"
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"
 
   corrector:
     non_negative_corrector_names: null
-    ocean_heat_corrector: true
+    ocean_heat_corrector: false

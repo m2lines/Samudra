@@ -1,28 +1,59 @@
 debug: false
-save_zarr: true
 disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 50 # 120
+batch_size: 3 # 4
+learning_rate: 0.0001
+scheduler: true
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: [-1]
+data_percent: 1.0
+train:
+  start_time: "0151-01-06"
+  end_time: "0154-01-01"
+val:
+  start_time: "0306-01-01"
+  end_time: "0307-01-01"
 inference:
-  start_time: "0311-01-01"
-  end_time: "0351-01-01"
-ckpt_path: .LOCAL/2025-04-25-train-samudra-perlmutter-cm4-m2lines-OHCOn-wfo-hist0/saved_nets/best_inference_ckpt.pt # Fill in script
-num_model_steps_forward: 20 #370
+  - start_time: "0155-01-06"
+    end_time: "0157-01-11"
+  - start_time: "0159-01-06"
+    end_time: "0161-01-11"
+  - start_time: "0171-01-06"
+    end_time: "0173-01-11"
+  - start_time: "0183-01-06"
+    end_time: "0185-01-11"
+  - start_time: "0211-01-06"
+    end_time: "0213-01-11"
+  - start_time: "0259-01-06"
+    end_time: "0261-01-11"
+  - start_time: "0297-01-06"
+    end_time: "0299-01-11"
+  - start_time: "0309-01-06"
+    end_time: "0311-01-11"
+data_stride: [1]
+steps: [4]
+step_transition: []
+backend: auto
 
 experiment:
-  base_name: eval
-  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-hist0-rollout50epochs
+  base_name: train
+  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-hist0
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
   cluster_data_dir: /dvs_ro/cfs/cdirs/m4874/suryad/data/
   wandb:
     mode: online
-    project: emulator-cm4-sensitivity  #3D_ocean_emu_CM4_eval_inputs_311
+    project: emulator-cm4-sensitivity #3D_ocean_emu_CM4_test_inputs_311 # 
     entity: m2lines #jrayshi-new-york-university
-    group: samudra-eval-cm4
+    group: samudra-train-cm4
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_wfo
-
 data:
   data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
@@ -57,6 +88,7 @@ samudra:
     ocean_heat_corrector: true
     salinity_range_corrector: false 
     zos_range_corrector: false
-    
+    zos_gmean_corrector: false
+
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

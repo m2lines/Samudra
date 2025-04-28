@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-perlmutter-cm4-m2lines-OHCOn-hfds
+#SBATCH --job-name=samudra-perlmutter-cm4-m2lines-OHCOn-wfo-hist0
 #SBATCH --output=train/logs/slurm-%j.out
 #SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g
@@ -34,7 +34,7 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 # Run the training script
 srun --cpu-bind=cores \
      python src/ocean_emulators/train.py \
-     --config configs/train_cm4.yaml \
+     --config configs/train_cm4_other2.yaml \
      --subname $SLURM_JOB_NAME
 
 

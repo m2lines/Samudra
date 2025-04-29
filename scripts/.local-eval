@@ -15,5 +15,5 @@ uv run src/ocean_emulators/eval.py \
     $CONFIG_PATH \
     --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/train/2025-04-28-samudra-traincm4-thermodynamic-instancenorm-finetune-ohc-corrector-nohfdschange/saved_nets/best_inference_ckpt.pt \
     --experiment.cluster_data_dir $OCEAN_DATA_DIR \
-    --experiment.name "${DATE}-cm4-ohc-finetuned-nohfdschange" \
+    --experiment.name "${DATE}-cm4-ohc-finetuned-nohfdschange-120" \
     --save_zarr true

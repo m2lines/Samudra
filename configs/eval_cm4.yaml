@@ -4,7 +4,7 @@ debug: true
 save_zarr: true
 disk_mode: true
 inference_time:
-  start: "0311-01-01"
+  start: "0231-01-01"
   end: "0351-01-01"
 num_model_steps_forward: 200
 

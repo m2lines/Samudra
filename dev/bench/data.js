@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1745959231615,
+  "lastUpdate": 1745959233677,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1878,6 +1878,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6446493894114709",
             "extra": "mean: 101.57686393639997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4a7b5a01e1e7add44b9f5b671c22e9a9173b4bef",
+          "message": "Fix wandb nested config logging (#236)\n\nThe config system broke the nice logging of nested config structures to\nwandb. For example, see the \"data\" key in this run:\n\nhttps://wandb.ai/m2lines/ocean-emulators/runs/2i57cuzt/overview\n\n<img width=\"667\" alt=\"Screenshot 2025-04-29 at 11 21 59 AM\"\nsrc=\"https://github.com/user-attachments/assets/9fa91699-bb21-4d28-882a-87465efc87ac\"\n/>\n\n\nThis PR uses pydantic serialization to correctly output nested keys, for\nexample this run:\n\nhttps://wandb.ai/m2lines/ocean-emulators/runs/twx4knvp/overview\n\n<img width=\"572\" alt=\"Screenshot 2025-04-29 at 11 22 19 AM\"\nsrc=\"https://github.com/user-attachments/assets/574147ee-02fb-4198-b57f-43e756d3b51e\"\n/>\n\nFixes #228",
+          "timestamp": "2025-04-29T15:53:52-04:00",
+          "tree_id": "0ebf59a0a078cdac0df28657f899e83a587c30c0",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/4a7b5a01e1e7add44b9f5b671c22e9a9173b4bef"
+        },
+        "date": 1745959232723,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.1709637678562266,
+            "unit": "iter/sec",
+            "range": "stddev: 0.24184444872591127",
+            "extra": "mean: 5.849192566000056 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.039844456138748284,
+            "unit": "iter/sec",
+            "range": "stddev: 1.7334009758680708",
+            "extra": "mean: 25.097594418599964 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.11537679738626186,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07258796325324866",
+            "extra": "mean: 8.667253924999931 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.009082597442271714,
+            "unit": "iter/sec",
+            "range": "stddev: 2.25787340421501",
+            "extra": "mean: 110.10066298280007 sec\nrounds: 5"
           }
         ]
       }

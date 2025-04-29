@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Mapping
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,6 +7,7 @@ import torch
 import wandb
 from wandb.data_types import WBValue
 
+from ocean_emulators.config import AnyTopLevelConfig
 from ocean_emulators.utils.multiton import Multiton
 
 # Metrics supported by wandb -- probably there are more possible types too
@@ -27,7 +27,12 @@ class WandBLogger(Multiton):
     def enabled(self):
         return self._enabled
 
-    def setup_run(self, checkpoint_path: str | None, cfg: Any, finetune: bool = False):
+    def setup_run(
+        self,
+        checkpoint_path: str | None,
+        cfg: AnyTopLevelConfig,
+        finetune: bool = False,
+    ):
         """Set up a wandb run, either resuming from checkpoint or creating new run.
 
         Args:
@@ -52,30 +57,29 @@ class WandBLogger(Multiton):
         if self._enabled:
             try:
                 self.init(
-                    config=cfg.__dict__,
+                    config=cfg.model_dump(),
                     name=wandb_name,
                     dir=cfg.experiment.output_dir,
                     resume="must",
                     id=wandb_id,
-                    **cfg.experiment.wandb.__dict__,
+                    **cfg.experiment.wandb.model_dump(),
                 )
             except Exception:
                 # If resume fails, start new run
                 self.init(
-                    config=cfg.__dict__,
+                    config=cfg.model_dump(),
                     name=wandb_name,
                     dir=cfg.experiment.output_dir,
-                    **cfg.experiment.wandb.__dict__,
+                    **cfg.experiment.wandb.model_dump(),
                 )
 
         return wandb_id, wandb_name
 
-    def _init_new_run(self, cfg: Any):
+    def _init_new_run(self, cfg: AnyTopLevelConfig):
         """Initialize a new wandb run.
 
         Args:
             cfg: Configuration object
-
         Returns:
             tuple: (None, generated_name) for new run
         """
@@ -87,10 +91,10 @@ class WandBLogger(Multiton):
 
         if self._enabled:
             self.init(
-                config=cfg.__dict__,
+                config=cfg.model_dump(),
                 name=wandb_name,
                 dir=cfg.experiment.output_dir,
-                **cfg.experiment.wandb.__dict__,
+                **cfg.experiment.wandb.model_dump(),
             )
 
             wandb_id = self.run.id if self.run else None

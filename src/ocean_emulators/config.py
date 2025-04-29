@@ -192,3 +192,6 @@ class EvalConfig(TopLevelConfig):
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+
+
+AnyTopLevelConfig = TrainConfig | EvalConfig

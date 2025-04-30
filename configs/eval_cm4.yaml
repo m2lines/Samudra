@@ -4,12 +4,12 @@ disk_mode: true
 inference:
   start_time: "0311-01-01"
   end_time: "0351-01-01"
-ckpt_path: .LOCAL/2025-04-25-train-samudra-perlmutter-cm4-m2lines-OHCOn-wfo-hist0/saved_nets/best_inference_ckpt.pt # Fill in script
+ckpt_path: /global/homes/j/jrayshi/scratch/Github/Ocean_Emulator/.LOCAL/2025-04-29-train-samudra-perlmutter-cm4-m2lines-OHCOn-wfo-predresiduals/saved_nets/ckpt_50.pt # Fill in script
 num_model_steps_forward: 20 #370
 
 experiment:
   base_name: eval
-  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-hist0-rollout50epochs
+  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-predresiduals-rollout50epochs
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
@@ -32,7 +32,7 @@ data:
     - hfgeou
   scaling_residuals_file: null
   num_workers: 4
-  hist: 0
+  hist: 1
 
 
 samudra:
@@ -40,7 +40,7 @@ samudra:
   n_out: 77
   dilation: [1, 2, 4, 8]
   n_layers: [1, 1, 1, 1]
-  pred_residuals: false
+  pred_residuals: true
   last_kernel_size: 3
   pad: "circular"
 
@@ -57,6 +57,7 @@ samudra:
     ocean_heat_corrector: true
     salinity_range_corrector: false 
     zos_range_corrector: false
+    zos_gmean_corrector: false
     
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

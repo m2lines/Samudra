@@ -54,8 +54,8 @@ class BaseModel(torch.nn.Module):
                     prognostic=outputs[-1], step=step
                 )
 
-            decodings = self.forward_once(input_tensor)
-            if self.pred_residuals:
+            decodings = self.forward_once(input_tensor)  # JRS, this use submodel samudra
+            if self.pred_residuals:    # JRS, where the residuals are predicted, turn on pred_residuals
                 pred = (
                     input_tensor[
                         :,
@@ -64,7 +64,7 @@ class BaseModel(torch.nn.Module):
                     + decodings
                 )  # Residual prediction
             else:
-                pred = decodings  # Absolute prediction
+                pred = decodings  # Absolute prediction  
 
             if loss_fn is not None:
                 if torch.isnan(loss).all():

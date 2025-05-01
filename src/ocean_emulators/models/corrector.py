@@ -334,11 +334,12 @@ def compute_expected_heat_content_change(
     geothermal_heat_flux: Tensor,
     sea_surface_fraction_tensor: Tensor,
     area_weighted_func: Callable,
+    hist: int,   # JRS
 ) -> Tensor:
     # Expected change in heat content from surface flux
     dHC_expected = (
         area_weighted_func(surface_heat_flux * sea_surface_fraction_tensor)
-        * SECONDS_PER_5DAY
+        * SECONDS_PER_5DAY * (hist + 1)   # JRS
     )  # [J]
 
     # Apply geothermal heat flux
@@ -389,7 +390,7 @@ class OceanHeatCorrector(BaseCorrector):
             self.area_weighted_func(
                 self.hfgeou_tensor * self.sea_surface_fraction_tensor
             )
-            * SECONDS_PER_5DAY
+            * SECONDS_PER_5DAY * (self.hist + 1)
         )
 
     def forward(self, fts_input_boundary: Tensor, fts: Tensor) -> Tensor:
@@ -419,6 +420,7 @@ class OceanHeatCorrector(BaseCorrector):
             self.dHC_geothermal,
             self.sea_surface_fraction_tensor,
             self.area_weighted_func,
+            self.hist,    # JRS
         )
 
         HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1

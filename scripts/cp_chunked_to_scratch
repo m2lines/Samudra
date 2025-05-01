@@ -1,0 +1,18 @@
+#!/bin/bash
+#SBATCH --job-name=cp_chunked_to_scratch
+#SBATCH --output=train/logs/cp-%j.out
+#SBATCH --error=train/logs/cp-%j.err
+#SBATCH -C cpu
+#SBATCH --account=m4874
+#SBATCH --qos=regular
+#SBATCH --mem=110G
+#SBATCH --nodes=1           # if the train job is big, use 2 nodes here
+#SBATCH --ntasks-per-node=1    # 1 or 2
+#SBATCH --time=10:30:00   # For 1 GPU, 4:30:00 is need to run 30 epoches
+
+# 开始执行文件复制
+echo "Start cp chuncked cm4 data to scratch:"
+
+cp -r /dvs_ro/cfs/cdirs/m4874/suryad/data/cm4_piControl_ocean_200yr_full_chunked.zarr ~/scratch/data/
+
+echo "done."

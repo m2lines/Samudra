@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=samudra-perlmutter-cm4-m2lines-OHCOn-hfds
+#SBATCH --job-name=samudra-perlmutter-cm4-m2lines-OHCOn-wfo-fix
 #SBATCH --output=train/logs/slurm-%j.out
 #SBATCH --error=train/logs/slurm-%j.err
 #SBATCH --constraint=gpu&hbm80g

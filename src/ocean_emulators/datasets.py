@@ -492,7 +492,7 @@ class TrainDataset(Dataset):
             data.time.size
             - self.steps * (self.hist + 1) * self.stride
             - self.hist * self.stride
-        )
+        )  # JRSv2, this is 210 when data.time.size = 219, hist=1, steps=4, stride=1
 
         if using_gpu():
             self.wet = self.wet.pin_memory()
@@ -512,7 +512,9 @@ class TrainDataset(Dataset):
     def __getitem__(self, idx: int):
         TD = TrainData(self.num_prognostic_channels)
         prev_rolling_idx = None
+        extra_data_steps = []  # JRSv2
         for step in range(self.steps):
+            #print(f"step: {step}") # JRSv2
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
 
             data_in: Prognostic = self._get_input(x_index)
@@ -529,7 +531,12 @@ class TrainDataset(Dataset):
                 label=label,
             )
 
-        return TD
+            extra_data_in: Boundary = self._get_boundary(x_index) # JRSv2
+            extra_data_steps.append(extra_data_in)  # JRSv2
+
+        extra_data_stack = torch.stack(extra_data_steps, dim=0) # JRSv2
+
+        return TD, extra_data_stack # JRSv2
 
     def _get_x_index(
         self, idx: int, step: int, prev_rolling_idx: int | None

@@ -10,7 +10,7 @@ import os
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Sequence, Union
+from typing import Any, Callable, Sequence, Union, Tuple
 
 import dask
 import numpy as np
@@ -83,6 +83,7 @@ from ocean_emulators.utils.train import (
     collate_inference_data,
     collate_om4,
     collate_train_data,
+    collate_train_data_extra,  # JRSv2
 )
 from ocean_emulators.utils.wandb import WandBLogger
 
@@ -676,6 +677,29 @@ class Trainer:
                     ]
                 )
 
+                for i, ds in enumerate(train_data.datasets):
+                    print(f"Sub-dataset {i} _boundary_vars: {ds._boundary_vars}")  # JRSv2; (time:219, lat, lon) for all forcing terms(tauu, tauv, hfds, wfo)
+                    print(f"  Length: {len(ds)}")
+                    print(f"Sub-dataset {i} ds: {ds}")
+
+                for i, dataset in enumerate(train_data.datasets):
+                    #print(f"Dataset {i}:")
+                    print(f"  Length: {len(dataset)}")
+                    if isinstance(dataset, torch.utils.data.Dataset):
+                        example = dataset[0]  # 获取一个示例
+                        if isinstance(example, tuple) or isinstance(example, list):
+                            for j, item in enumerate(example):
+                                print(f"  Example item {j} size: {item.size() if hasattr(item, 'size') else 'N/A'}")
+                        else:
+                            print(f"  Example size: {example.size() if hasattr(example, 'size') else 'N/A'}")
+                dataset = train_data.datasets[0]  # 选择第一个数据集  , step = [4] , so only one dataset. if step = [4, 8], then two datasets. 
+                print(f"  Length dataset: {len(dataset)}") # there are 210 datasets
+                example = dataset[0]  # 取第一个数据作为示例
+                print(f"Example data: {example}")  # JRSv2
+                print(f"  Length example: {len(example)}")  # JRSv2, this is not batch size, this is step size, 4
+                print(f"Example data shape: {example[0][0].shape}")  # JRSv2, torch.Size([162, 180, 360])
+                print(f"Example data shape: {example[0][1].shape}")  # JRSv2, torch.Size([154, 180, 360])
+
                 val_data: ConcatDataset = ConcatDataset(
                     [
                         TrainDataset(
@@ -768,7 +792,8 @@ class Trainer:
 
         match self.loader_version:
             case TrainDataset.FLAG:
-                collate_fn: Callable[[Sequence[Any]], TrainData] = collate_train_data
+                #collate_fn: Callable[[Sequence[Any]], TrainData] = collate_train_data
+                collate_fn: Callable[[Sequence[Any]], Tuple[TrainData, torch.Tensor]] = collate_train_data_extra  # JRSv2
             case OM4Dataset.FLAG:
                 collate_fn = collate_om4
             case TorchTrainDataset.FLAG:
@@ -789,6 +814,19 @@ class Trainer:
             drop_last=True,
             collate_fn=collate_fn,
         )
+
+        print(f"train_loader len: {len(self.train_loader)}")  # JRSv2, 70
+        # 查看train_loader输出的第一个batch
+        for batch in self.train_loader:
+            print(f"Batch: {batch}")  # 打印批次看看返回内容
+            print(f"Batch length: {len(batch)}")  # 打印批次长度, step size = 4
+            print(f"Batch data shape: {len(batch[0])}")  # 打印数据形状 = 2
+            print(f"Batch data[input] shape: {len(batch[0][0])}")  # JRSv2, iput=3
+            print(f"Batch data[input][0] shape: {len(batch[0][0][0])}")  # JRSv2, iput=162
+            print(f"Batch data[input][1] shape: {len(batch[0][1][0])}")  # JRSv2, iput=154
+            print(f"Batch data[input][0][0] shape: {len(batch[0][0][0][0])}")  # JRSv2, lat = 180
+            # JRSv2, train_loader size = [batch=70, step=4, (input, label), batch_size=3, channel, lat, lon]
+            break
 
         self.val_loader = DataLoader(
             val_data,

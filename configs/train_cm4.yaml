@@ -41,13 +41,13 @@ backend: auto
 
 experiment:
   base_name: train
-  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-fix #local_cm4_samudra
+  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-fix-test1 #local_cm4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
   cluster_data_dir: /dvs_ro/cfs/cdirs/m4874/suryad/data/
   wandb:
-    mode: online
+    mode: disabled
     project: emulator-cm4-sensitivity  #3D_ocean_emu_CM4_test_inputs_311
     entity: m2lines #jrayshi-new-york-university
     group: samudra-train-cm4

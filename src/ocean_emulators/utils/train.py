@@ -30,6 +30,26 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
 
     return batched_data
 
+def collate_train_data_extra(batch: Sequence[Tuple[TrainData, torch.Tensor]]) -> Tuple[TrainData, torch.Tensor]:
+    # batch 是一个包含元组的序列，每个元素是 (TrainData, extra_inputs)  # JRSv2
+
+    # 提取第一个样本维度的信息
+    num_prognostic_channels = batch[0][0].num_prognostic_channels
+    steps = len(batch[0][0])
+
+    # 初始化批量数据结构
+    batched_data = TrainData(num_prognostic_channels)
+    
+    # 收集并堆叠每一步的数据
+    for step in range(steps):
+        inputs = torch.stack([d.get_input(step) for d, _ in batch])
+        labels = torch.stack([d.get_label(step) for d, _ in batch])
+        batched_data.insert(inputs, labels)
+    
+    # 处理额外的输入
+    extra_inputs_batched = torch.stack([extra for _, extra in batch])
+
+    return batched_data, extra_inputs_batched
 
 def collate_om4(examples: Sequence[Example]) -> TrainData:
     """Combine several deferred Examples into single a `torch.Tensor` example pair."""

@@ -167,5 +167,6 @@ class Samudra(BaseModel):
                     fts = nn.functional.pad(fts, pads)
                     fts += temp[int(2 * self.num_steps - count - 1)]
                     count += 1
+        print("fts_input.shape: ", fts_input.shape) # JRSv2, Batchtorch.Size([3, 162, 180, 360])
         fts = self.corrector(fts_input, fts)
         return torch.where(self.wet, fts, 0.0)

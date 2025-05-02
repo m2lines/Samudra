@@ -17,13 +17,20 @@ class Stepper:
         pass
 
     @staticmethod
-    def train_step(
-        model: torch.nn.Module, batch: TrainData, loss_fn: Callable
+    #def train_step(
+    #    model: torch.nn.Module, batch: TrainData, loss_fn: Callable
+    #) -> TrainOutput:
+    #    loss_per_channel = model(batch, loss_fn=loss_fn)
+    #    loss = torch.mean(loss_per_channel)
+    #    return TrainOutput(loss, loss_per_channel)
+
+    def train_step( # JRSv2
+        model: torch.nn.Module, batch: TrainData, extra_batched: torch.Tensor, loss_fn: Callable
     ) -> TrainOutput:
-        loss_per_channel = model(batch, loss_fn=loss_fn)
+        loss_per_channel = model(batch, extra_batched, loss_fn=loss_fn) # JRSv2
         loss = torch.mean(loss_per_channel)
         return TrainOutput(loss, loss_per_channel)
-
+    
     @staticmethod
     @torch.no_grad()
     def validate_step(

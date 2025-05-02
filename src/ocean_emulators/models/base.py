@@ -42,6 +42,7 @@ class BaseModel(torch.nn.Module):
     def forward(
         self,
         train_data: TrainData,
+        extra_batched: torch.Tensor = None,  # JRSv2
         loss_fn=None,
     ) -> Union[torch.Tensor, list[torch.Tensor]]:
         outputs: list[torch.Tensor] = []
@@ -53,8 +54,13 @@ class BaseModel(torch.nn.Module):
                 input_tensor = train_data.merge_prognostic_and_boundary(
                     prognostic=outputs[-1], step=step
                 )
-
-            decodings = self.forward_once(input_tensor)  # JRS, this use submodel samudra
+            
+            extra_inputs = extra_batched[:, step, 0] if extra_batched is not None else None
+            print(f"InBase step: {step}") # JRSv2
+            print(f"InBase input_tensor shape: {input_tensor.size()}") # JRSv2 ; torch.Size([3, 162, 180, 360])
+            print(f"InBase extra_batched shape: {extra_inputs.shape}") # JRSv2; torch.Size([3, 4, 1, 8, 180, 360])
+            
+            decodings = self.forward_once(input_tensor, extra_inputs)  # JRSv2, this use submodel samudra
             if self.pred_residuals:    # JRS, where the residuals are predicted, turn on pred_residuals
                 pred = (
                     input_tensor[

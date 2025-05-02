@@ -510,15 +510,30 @@ class Trainer:
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = "Training Epoch: [{}]".format(epoch)
         # iters = len(self.train_loader)
-        for data_iter_step, data in enumerate(
+        #for data_iter_step, data in enumerate(
+        #    metric_logger.log_every(self.train_loader, 1, header)
+        #):
+        for data_iter_step, (data, extra_inputs_batched) in enumerate(  # JRSv2
             metric_logger.log_every(self.train_loader, 1, header)
-        ):
+        ):        
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
             self.optimizer.zero_grad()
+
+            # 访问 TrainData 内部的输入和标签
+            for step in range(len(data)):
+                input_data = data.get_input(step)
+                label_data = data.get_label(step)
+                print(f"InTrain Step {step}: Input size: {input_data.size()} Label size: {label_data.size()}")
+            # 打印 extra_inputs_batched 的形状
+            print(f"InTrain Extra inputs batched shape: {extra_inputs_batched.shape}")
+
             data.to(self.device)
-            TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
+            extra_inputs_batched.to(self.device)  # JRSv2
+        
+            #TO: TrainOutput = Stepper.train_step(self.model, data, self.loss_fn)
+            TO: TrainOutput = Stepper.train_step(self.model, data, extra_inputs_batched, self.loss_fn) # JRSv2
             TO.loss.backward()
             self._ema(model=self.model)
             train_aggregator.record_batch(TO)
@@ -677,28 +692,51 @@ class Trainer:
                     ]
                 )
 
-                for i, ds in enumerate(train_data.datasets):
+                for i, ds in enumerate(train_data.datasets):  # JRSv2
                     print(f"Sub-dataset {i} _boundary_vars: {ds._boundary_vars}")  # JRSv2; (time:219, lat, lon) for all forcing terms(tauu, tauv, hfds, wfo)
-                    print(f"  Length: {len(ds)}")
-                    print(f"Sub-dataset {i} ds: {ds}")
+                    #print(f"  Length: {len(ds)}")  # JRSv2; 210
+                    #print(f"Sub-dataset {i} ds: {ds}")
 
                 for i, dataset in enumerate(train_data.datasets):
                     #print(f"Dataset {i}:")
-                    print(f"  Length: {len(dataset)}")
+                    print(f"  Length: {len(dataset)}")  # JRSv2; 210
                     if isinstance(dataset, torch.utils.data.Dataset):
                         example = dataset[0]  # 获取一个示例
-                        if isinstance(example, tuple) or isinstance(example, list):
-                            for j, item in enumerate(example):
-                                print(f"  Example item {j} size: {item.size() if hasattr(item, 'size') else 'N/A'}")
+                        if isinstance(example, tuple):
+                            TD, extra_data_stack = example
+                            print("TrainData:")
+                            for step in range(len(TD)):
+                                input_data = TD.get_input(step) # Step 0: Input size: torch.Size([162, 180, 360]), Label size:                   torch.Size([154, 180, 360])
+                                label_data = TD.get_label(step)
+                                print(f"Step {step}: Input size: {input_data.size()},   Label size: {label_data.size()}")
+
+                            print(f"Extra data stack shape: {extra_data_stack.shape}")
                         else:
-                            print(f"  Example size: {example.size() if hasattr(example, 'size') else 'N/A'}")
-                dataset = train_data.datasets[0]  # 选择第一个数据集  , step = [4] , so only one dataset. if step = [4, 8], then two datasets. 
-                print(f"  Length dataset: {len(dataset)}") # there are 210 datasets
-                example = dataset[0]  # 取第一个数据作为示例
-                print(f"Example data: {example}")  # JRSv2
-                print(f"  Length example: {len(example)}")  # JRSv2, this is not batch size, this is step size, 4
-                print(f"Example data shape: {example[0][0].shape}")  # JRSv2, torch.Size([162, 180, 360])
-                print(f"Example data shape: {example[0][1].shape}")  # JRSv2, torch.Size([154, 180, 360])
+                            print("Example is not a tuple")
+                       #if isinstance(example, tuple):
+                       #    for j, item in enumerate(example):
+                       #        print(f"  Example item {j} size: {item.size() if hasattr(item, 'size') else 'N/A'}")
+                       #else:
+                       #    print(f"  Example size: {example.size() if hasattr(example, 'size') else 'N/A'}")
+                
+                # result = train_data.datasets[0]
+                # print(f"Result from datasets[0]: {result}")
+                # print(f"Dataset length: {len(result)}")
+                # result1 = train_data.datasets[0][0]
+                # print(f"Result from datasets[0][0]: {result1}")
+                # result2 = train_data.datasets[0][1]
+                # print(f"Result from datasets[0][1]: {result2}")
+                # print(f"Result from datasets[0][1] shape: {result2.shape}")
+                #dataset, extra = train_data.datasets[0]  # 选择第一个数据集  , step = [4] , so only one dataset. if step = [4, 8], then two datasets. 
+
+                
+                
+                #print(f"  Length dataset: {len(dataset)}") # there are 210 datasets
+                #example = dataset[0]  # 取第一个数据作为示例
+                #print(f"Example data: {example}")  # JRSv2
+                #print(f"  Length example: {len(example)}")  # JRSv2, this is not batch size, this #is    step size, 4
+                #print(f"Example data shape: {example[0][0].shape}")  # JRSv2, torch.Size([162, #180,     360])
+                #print(f"Example data shape: {example[0][1].shape}")  # JRSv2, torch.Size([154, #180,     360])
 
                 val_data: ConcatDataset = ConcatDataset(
                     [
@@ -818,7 +856,7 @@ class Trainer:
         print(f"train_loader len: {len(self.train_loader)}")  # JRSv2, 70
         # 查看train_loader输出的第一个batch
         for batch in self.train_loader:
-            print(f"Batch: {batch}")  # 打印批次看看返回内容
+            #print(f"Batch: {batch}")  # 打印批次看看返回内容
             print(f"Batch length: {len(batch)}")  # 打印批次长度, step size = 4
             print(f"Batch data shape: {len(batch[0])}")  # 打印数据形状 = 2
             print(f"Batch data[input] shape: {len(batch[0][0])}")  # JRSv2, iput=3

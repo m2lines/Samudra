@@ -532,9 +532,11 @@ class TrainDataset(Dataset):
             )
 
             extra_data_in: Boundary = self._get_boundary(x_index) # JRSv2
+            #print(f"extra_data_in shape: {extra_data_in.shape}") # JRSv2; [1, var*(hist+1), lat, lon]
             extra_data_steps.append(extra_data_in)  # JRSv2
 
         extra_data_stack = torch.stack(extra_data_steps, dim=0) # JRSv2
+        print(f"extra_data_stack shape: {extra_data_stack.shape}") # JRSv2
 
         return TD, extra_data_stack # JRSv2
 

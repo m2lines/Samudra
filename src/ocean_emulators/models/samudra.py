@@ -129,7 +129,7 @@ class Samudra(BaseModel):
         self.corrector = Corrector(config.corrector, hist, area_weights, static_data)
         self.num_steps = int(len(config.ch_width) - 1)
 
-    def forward_once(self, fts):
+    def forward_once(self, fts, extra_batched=None): # JRSv2
         fts_input = fts.clone()
         temp: list[torch.Tensor] = []
         for i in range(self.num_steps):
@@ -167,6 +167,8 @@ class Samudra(BaseModel):
                     fts = nn.functional.pad(fts, pads)
                     fts += temp[int(2 * self.num_steps - count - 1)]
                     count += 1
-        print("fts_input.shape: ", fts_input.shape) # JRSv2, Batchtorch.Size([3, 162, 180, 360])
-        fts = self.corrector(fts_input, fts)
+
+        #print("fts_input.shape: ", fts_input.shape) # JRSv2, Batchtorch.Size([3, 162, 180, 360])
+        #fts = self.corrector(fts_input, fts) # JRSv2
+        fts = self.corrector(fts_input, fts, extra_batched)
         return torch.where(self.wet, fts, 0.0)

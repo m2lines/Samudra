@@ -58,7 +58,7 @@ class BaseCorrector(torch.nn.Module):
 
         return fts, fts_boundary
 
-    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+    def forward(self, fts_input: Tensor, fts: Tensor, extra_batched: Tensor) -> Tensor: # JRSv2
         """Apply correction to the input features.
 
         Args:
@@ -113,7 +113,9 @@ class ReLUCorrector(BaseCorrector):
         )
         return self._normalize_fts_prognostic(unnormalized)
 
-    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+    #def forward(self, fts_input: Tensor, fts: Tensor, ) -> Tensor:
+    def forward(self, fts_input: Tensor, fts: Tensor, extra: Optional[Tensor] = None) -> Tensor: # JRSv2
+        
         """Applies correction to the input features if needed.
 
         Args:
@@ -393,7 +395,7 @@ class OceanHeatCorrector(BaseCorrector):
             * SECONDS_PER_5DAY * (self.hist + 1)
         )
 
-    def forward(self, fts_input_boundary: Tensor, fts: Tensor) -> Tensor:
+    def forward(self, fts_input_boundary: Tensor, fts: Tensor, extra: Optional[Tensor] = None) -> Tensor: # JRSv2
         fts_input_boundary = fts_input_boundary.detach()
 
         fts = self._flatten_hist(fts)
@@ -541,7 +543,7 @@ class Corrector(torch.nn.Module):
 
         self.correctors = torch.nn.ModuleList(correctors)
 
-    def forward(self, fts_input: Tensor, fts: Tensor) -> Tensor:
+    def forward(self, fts_input: Tensor, fts: Tensor, extra_fts: Tensor) -> Tensor: # JRSv2
         """Applies all corrections sequentially to the input features.
 
         Args:
@@ -552,5 +554,6 @@ class Corrector(torch.nn.Module):
             Corrected output tensor after applying all corrections
         """
         for corrector in self.correctors:
-            fts = corrector(fts_input, fts)
+            #fts = corrector(fts_input, fts)
+            fts = corrector(fts_input, fts, extra_fts) # JRSv2
         return fts

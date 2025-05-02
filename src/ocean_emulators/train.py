@@ -394,6 +394,7 @@ class Trainer:
 
         # Create datasets
         inference_datasets = []
+        extra_data_list = []  # 额外数据池 JRSv2
         num_steps_inf_set = []
         for i in range(num_splits):
             num_time_steps = get_inference_steps(
@@ -414,8 +415,12 @@ class Trainer:
             inference_datasets.append(inference_dataset)
             num_steps_inf_set.append(num_time_steps)
 
+            extra_data_list.append(inference_dataset.get_extra_data_in(i))  # JRSv2
+            print(f"Inference extra_data_list shape: {extra_data_list[0].shape}") # JRSv2
+            
+
         inference_data_combined = InferenceDatasets(
-            inference_datasets, num_steps_inf_set
+            inference_datasets, num_steps_inf_set, extra_data_list   # JRSv2
         )
 
         if self.distributed is not None:
@@ -610,9 +615,12 @@ class Trainer:
         self.model.eval()
 
         with torch.no_grad(), self._test_context():
-            for data_iter_step, (inference_dataset, num_steps) in enumerate(
+            for data_iter_step, (inference_dataset, num_steps, extra_input) in enumerate(
                 self.inference_loader
             ):
+                #data_in, label, extra_data_in = inference_dataset # JRSv2
+                print(f"Inference extra_data_in: {inference_dataset.get_extra_data_in()}") # JRSv2
+
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
                     self.metadata,
@@ -621,13 +629,16 @@ class Trainer:
                     self.num_out,
                 )
 
+                print(f"Inference extra_input shape: {extra_input.shape}") # JRSv2; torch.Size([3, step=4, 1, 4, 180, 360]) ; new: torch.Size([batch=3, step=4, 1, time=4, val=4, 180, 360])    
+
                 # TODO(jder): we need the underlying model so we can use forward_once;
                 # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
                 Stepper.inference(
                     model=self.model.module
                     if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
                     else self.model,
-                    dataset=inference_dataset,
+                    dataset=inference_dataset, #(data_in, label), #inference_dataset,JRSv2
+                    extra_batched=extra_input, #inference_dataset.get_extra_data_in(), #JRSv2
                     inf_aggregator=inf_aggregator,
                     epoch=epoch,
                     num_model_steps_forward=min(

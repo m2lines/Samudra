@@ -59,6 +59,7 @@ class Stepper:
     def inference(
         model: torch.nn.Module,
         dataset: InferenceDataset,
+        extra_batched: torch.Tensor,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
         output_dir: Optional[str | PathLike] = None,
@@ -113,6 +114,7 @@ class Stepper:
             )
             IO = model.inference(
                 dataset,
+                extra_batched=extra_batched, # JRSv2
                 initial_prognostic=initial_prognostic,
                 steps_completed=step,
                 num_steps=num_steps,

@@ -229,6 +229,8 @@ class InferenceDataset(Dataset):
         self.wet_surface = wet_surface.bool()
         self.size = len(self.rolling_indices)
 
+        self.full_boundary_data = None # JRSv2
+
         if using_gpu():
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
@@ -276,9 +278,12 @@ class InferenceDataset(Dataset):
         data_in = torch.cat((data_in, data_in_boundary), dim=1)
         label = self._get_label(x_index)
 
-        extra_data_in = self._get_full_boundary(x_index) # JRSv2
+        #print(f"Inference: data_in.shape: {data_in.shape}") # JRSv2; [1, extra_var*(hist+1), lat, lon]
 
-        return (data_in, label)
+        #extra_data_in = self._get_full_boundary(x_index) # JRSv2
+        #print(f"Inference: extra_data_in.shape: {extra_data_in.shape}") # JRSv2; [1, extra_var*(hist+1), vars, lat, lon]
+        #self.full_boundary_data = extra_data_in # JRSv2
+        return (data_in, label) # JRSv2
 
     def _get_x_index(self, idx):
         if isinstance(idx, slice):
@@ -399,17 +404,29 @@ class InferenceDataset(Dataset):
     def get_coords_dict(self):
         return {co: self._prognostic_vars[co] for co in self._prognostic_vars.coords}
 
+    #def get_extra_data_in(self):  # JRSv2
+    #    # Return extra data separately
+    #    return self.full_boundary_data
+    def get_extra_data_in(self, idx):  # 传入索引
+        # 根据传入的 idx 获取 full_boundary_data
+        x_index = self._get_x_index(idx)  # 获取索引
+        self.full_boundary_data = self._get_full_boundary(x_index)  # 更新 full_boundary_data
+        print(f"Inference: self.full_boundary_data.shape: {self.full_boundary_data.shape}") # JRSv2; [1, extra_var*(hist+1), vars, lat, lon]
+        return self.full_boundary_data  # 返回
 
 class InferenceDatasets(Dataset):
-    def __init__(self, datasets: list[InferenceDataset], lengths: list[int]):
+    def __init__(self, datasets: list[InferenceDataset], lengths: list[int], extra_data_list: list[torch.Tensor]):
         self.datasets = datasets
         self.lengths = lengths
+        self.extra_data_list = extra_data_list
 
     def __len__(self):
         return len(self.datasets)
 
-    def __getitem__(self, idx):
-        return (self.datasets[idx], self.lengths[idx])
+    def __getitem__(self, idx): # JRSv2
+        dataset = self.datasets[idx]
+        extra_data_in = dataset.get_extra_data_in(idx)
+        return (dataset, self.lengths[idx], extra_data_in) #(self.datasets[idx], self.lengths[idx])
 
 
 class TrainData:

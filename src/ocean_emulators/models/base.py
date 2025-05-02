@@ -94,6 +94,7 @@ class BaseModel(torch.nn.Module):
     def inference(
         self,
         dataset: InferenceDataset,
+        extra_batched: torch.Tensor,  # JRSv2
         initial_prognostic: torch.Tensor,
         steps_completed=0,
         num_steps=None,
@@ -120,8 +121,12 @@ class BaseModel(torch.nn.Module):
                     prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
+            print(f"Inference InBase extra_batched shape: {extra_batched.size()}")
+            extra_inputs = extra_batched[:, step, 0]
+            print(f"Inference InBase step: {step}")
+            print(f"Inference InBase extra_inputs shape: {extra_inputs.size()}")
 
-            decodings = self.forward_once(input_tensor)
+            decodings = self.forward_once(input_tensor, extra_inputs)  # JRSv2
             if self.pred_residuals:
                 pred = (
                     input_tensor[

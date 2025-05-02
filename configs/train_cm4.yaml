@@ -1,8 +1,8 @@
-debug: false
+debug: true
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 50 # 120
+epochs: 2 # 120
 batch_size: 3 # 4
 learning_rate: 0.0001
 scheduler: true
@@ -53,7 +53,7 @@ experiment:
     group: samudra-train-cm4
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
-  boundary_vars_key: tau_hfds_wfo
+  boundary_vars_key: tau_hfds
 data:
   data_path: cm4_piControl_ocean_200yr_full_chunked.zarr
   data_means_path: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc

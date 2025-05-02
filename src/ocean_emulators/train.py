@@ -516,7 +516,7 @@ class Trainer:
         for data_iter_step, (data, extra_inputs_batched) in enumerate(  # JRSv2
             metric_logger.log_every(self.train_loader, 1, header)
         ):        
-            if self.debug and (data_iter_step + 1) % 5 == 0:
+            if self.debug and (data_iter_step + 1) % 3 == 0:
                 break
 
             self.optimizer.zero_grad()
@@ -527,7 +527,7 @@ class Trainer:
                 label_data = data.get_label(step)
                 print(f"InTrain Step {step}: Input size: {input_data.size()} Label size: {label_data.size()}")
             # 打印 extra_inputs_batched 的形状
-            print(f"InTrain Extra inputs batched shape: {extra_inputs_batched.shape}")
+            print(f"InTrain Extra inputs batched shape: {extra_inputs_batched.shape}") # JRSv2; torch.Size([3, step=4, 1, 4, 180, 360]) ; new: torch.Size([batch=3, step=4, 1, time=4, val=4, 180, 360])
 
             data.to(self.device)
             extra_inputs_batched.to(self.device)  # JRSv2
@@ -590,14 +590,17 @@ class Trainer:
         header = "One-Step Validation Epoch: [{}]".format(epoch)
 
         with torch.no_grad(), self._test_context():
-            for data_iter_step, data in enumerate(
-                metric_logger.log_every(self.val_loader, 1, header)
-            ):
+            for data_iter_step, (data, extra_inputs_batched) in enumerate(  # JRSv2
+            metric_logger.log_every(self.val_loader, 1, header)
+            ):        
+            #for data_iter_step, data in enumerate(                   # JRSv2
+            #    metric_logger.log_every(self.val_loader, 1, header)
+            #):
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
 
                 data.to(self.device)
-                VO: ValOutput = Stepper.validate_step(self.model, data, self.loss_fn)
+                VO: ValOutput = Stepper.validate_step(self.model, data, extra_inputs_batched, self.loss_fn)
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
@@ -875,6 +878,11 @@ class Trainer:
             drop_last=False,
             collate_fn=collate_fn,
         )
+
+        for batchval in self.val_loader:
+            #print(f"Batchval: {batchval}")  # 打印批次看看返回内容
+            print(f"Batchval length: {len(batchval)}")  # 打印长度, step size = 2
+            print(f"Batchval data shape: {len(batchval[0])}")  # 打印数据形状 = 1
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

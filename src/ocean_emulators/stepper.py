@@ -33,9 +33,10 @@ class Stepper:
     
     @staticmethod
     @torch.no_grad()
-    def validate_step(
+    def validate_step(  # JRSv2
         model: BaseModel | torch.nn.parallel.DistributedDataParallel,
         batch: TrainData,
+        extra_batched: torch.Tensor,
         loss_fn: Callable,
     ) -> ValOutput:
         assert len(batch) == 1  # Assert we are using one step of input and output
@@ -48,7 +49,7 @@ class Stepper:
             if isinstance(model, torch.nn.parallel.DistributedDataParallel)
             else model
         )
-        outs = model.forward_once(input)
+        outs = model.forward_once(input, extra_batched)
         loss_per_channel = loss_fn(outs, label)
         loss = torch.mean(loss_per_channel)
         return ValOutput(loss, loss_per_channel, input, label, outs)

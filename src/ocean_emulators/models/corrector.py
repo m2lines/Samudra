@@ -58,6 +58,18 @@ class BaseCorrector(torch.nn.Module):
 
         return fts, fts_boundary
 
+    def _unnormalize_fts_boundary(  # JRSv2
+        self, fts_boundary: Tensor
+    ) -> Tensor:
+        # Corrector is run in float64 to avoid precision loss
+        #fts = self._unnormalize_fts_prognostic(fts)
+        fts_boundary = fts_boundary.to(torch.float64)
+        fts_boundary = self.normalize.unnormalize_tensor_boundary(
+            fts_boundary, fill_value=0.0
+        )
+
+        return fts_boundary
+
     def forward(self, fts_input: Tensor, fts: Tensor, extra_batched: Tensor) -> Tensor: # JRSv2
         """Apply correction to the input features.
 
@@ -341,7 +353,7 @@ def compute_expected_heat_content_change(
     # Expected change in heat content from surface flux
     dHC_expected = (
         area_weighted_func(surface_heat_flux * sea_surface_fraction_tensor)
-        * SECONDS_PER_5DAY * (hist + 1)   # JRS
+        * SECONDS_PER_5DAY  # old :* (hist + 1)   # JRSv2
     )  # [J]
 
     # Apply geothermal heat flux
@@ -392,24 +404,85 @@ class OceanHeatCorrector(BaseCorrector):
             self.area_weighted_func(
                 self.hfgeou_tensor * self.sea_surface_fraction_tensor
             )
-            * SECONDS_PER_5DAY * (self.hist + 1)
+            * SECONDS_PER_5DAY  # old: * (self.hist + 1) # JRSv2
         )
 
     def forward(self, fts_input_boundary: Tensor, fts: Tensor, extra: Optional[Tensor] = None) -> Tensor: # JRSv2
-        fts_input_boundary = fts_input_boundary.detach()
+        #fts_input_boundary = fts_input_boundary.detach()
+#
+        #fts = self._flatten_hist(fts)
+        #fts = self._unnormalize_fts_prognostic(fts)
+#
+        #fts_input, fts_boundary = self._flatten_input(fts_input_boundary)
+        #fts_input, fts_boundary = self._unnormalize_fts_input(fts_input, fts_boundary)
+#
+        ## The input and output mapping of the variables are the same
+        #T_input = fts_input[:, self.thetao_idx]  # (batch, depth, lat, lon)
+        #T_pred = fts[:, self.thetao_idx]
+#
+        #print(f"fts_boundary shape: {fts_boundary.shape}") # JRSv2; [6, 4, 180, 360]
+        ## Extract the boundary variables
+        #surface_heat_flux = fts_boundary[:, self.hfds_idx].squeeze(1)
+#
+        #print(f"surface_heat_flux shape: {surface_heat_flux.shape}") # JRSv2; torch.Size([6, 180, 360])
+#
+        #global_HC_t0 = compute_ocean_heat_content(
+        #    T_input, self.dz, self.area_weighted_func
+        #)
+        #global_HC_t1 = compute_ocean_heat_content(
+        #    T_pred, self.dz, self.area_weighted_func
+        #)
+        #dHC_expected = compute_expected_heat_content_change(
+        #    surface_heat_flux,
+        #    self.dHC_geothermal,
+        #    self.sea_surface_fraction_tensor,
+        #    self.area_weighted_func,
+        #    self.hist,    # JRS
+        #)
+#
+        #HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
+#
+        #T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1)
+#
+        #fts[:, self.thetao_idx] = T_corrected
+#
+        #fts = self._normalize_fts_prognostic(fts)
+        #fts = self._unflatten_hist(fts)
+
+
+        fts_input_boundary = fts_input_boundary.detach() # JRSv2
+        print("batch size:", fts_input_boundary.size(0))
 
         fts = self._flatten_hist(fts)
         fts = self._unnormalize_fts_prognostic(fts)
 
         fts_input, fts_boundary = self._flatten_input(fts_input_boundary)
+        print(f"a, fts_boundary shape: {fts_boundary.shape}") # JRSv2; torch.Size([6, vars=4, 180, 360])fts_boundary
         fts_input, fts_boundary = self._unnormalize_fts_input(fts_input, fts_boundary)
+
+        #_, extra = self._unnormalize_fts_input(fts_input, extra)
+
+        print(f"a, extra shape: {extra.shape}") # JRSv2; torch.Size([batch=3, time=4, vars, 180, 360])
+        extra = extra.squeeze() # JRSv2
+        extra = self._unnormalize_fts_boundary(extra)
+        print(f"a, extra shape: {extra.shape}") # JRSv2; torch.Size([batch=3, time=4, vars, 180, 360])
+
+        applied_flux = extra[:, self.hist:self.hist*2+1, self.hfds_idx].squeeze(2)   # JRSv2, torch.Size([batch=3, hist+1, 180, 360]), squeeze(2) is vars dim
 
         # The input and output mapping of the variables are the same
         T_input = fts_input[:, self.thetao_idx]  # (batch, depth, lat, lon)
         T_pred = fts[:, self.thetao_idx]
 
+        print(f"fts_boundary shape: {fts_boundary.shape}") # JRSv2; [6, 4, 180, 360]
         # Extract the boundary variables
         surface_heat_flux = fts_boundary[:, self.hfds_idx].squeeze(1)
+
+        print(f"surface_heat_flux shape: {surface_heat_flux.shape}") # JRSv2; torch.Size([6, 180, 360])
+
+        #applied_flux = extra[:, self.hist:self.hist*2+1]
+        print(f"applied_flux shape: {applied_flux.shape}") # JRSv2; torch.Size([3, hist+1, 180, 360])
+        applied_flux = self._flatten_hist(applied_flux).squeeze(1)
+        print(f"applied_flux reshape: {applied_flux.shape}") # JRSv2; torch.Size([6, 1, 180, 360])
 
         global_HC_t0 = compute_ocean_heat_content(
             T_input, self.dz, self.area_weighted_func
@@ -418,22 +491,59 @@ class OceanHeatCorrector(BaseCorrector):
             T_pred, self.dz, self.area_weighted_func
         )
         dHC_expected = compute_expected_heat_content_change(
-            surface_heat_flux,
+            applied_flux,         #surface_heat_flux, JRSv2
             self.dHC_geothermal,
             self.sea_surface_fraction_tensor,
             self.area_weighted_func,
             self.hist,    # JRS
         )
 
-        HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
+        dHC_expected_old = compute_expected_heat_content_change(
+            surface_heat_flux,         #surface_heat_flux, JRSv2
+            self.dHC_geothermal,
+            self.sea_surface_fraction_tensor,
+            self.area_weighted_func,
+            self.hist,    # JRS
+        )
 
-        T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1)
+        print(f"dHC_expected_old: {dHC_expected_old}") # JRSv2; torch.Size([6])
+        print(f"dHC_expected: {dHC_expected}") # JRSv2; torch.Size([6])
+
+        print(f"global_HC_t0 shape: {global_HC_t0.shape}") # JRSv2; torch.Size([6])
+        print(f"dHC_expected shape: {dHC_expected.shape}") # JRSv2; torch.Size([6])
+
+
+        T_corrected = torch.zeros_like(T_pred)
+
+        for iii in range(self.hist + 1):
+            print(iii)
+            if iii == 0:
+                idx_input = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + self.hist # JRSv2, batch size * (hist+1) + hist, when hist=1, batch_size = 3, idx_input = [1, 3, 5]
+                print("idx_input",idx_input)
+                idx_flux = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii
+                print("idx_flux",idx_flux) #  when hist=1, batch_size = 3, idx_input = [0, 2, 4]
+                HC_correct_ratio = (global_HC_t0[idx_input] + dHC_expected[idx_flux]) / global_HC_t1   [idx_flux]
+                T_corrected[idx_flux] = T_pred[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1)
+            else:
+                idx_input = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii - 1
+                print("idx_input",idx_input)
+                idx_flux = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii
+                print("idx_flux",idx_flux)
+                HC_correct_ratio = (global_HC_t1[idx_input] + dHC_expected[idx_flux]) / global_HC_t1   [idx_flux]
+                print("HC_correct_ratio",HC_correct_ratio)
+                T_corrected[idx_flux] = T_pred[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1)
+                
+            
+        #    dHC_expected[iii] = torch.clamp(dHC_expected[iii], min=-1e10, max=1e10)
+
+        #HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
+
+        #T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1)
 
         fts[:, self.thetao_idx] = T_corrected
 
         fts = self._normalize_fts_prognostic(fts)
         fts = self._unflatten_hist(fts)
-
         return fts
 
 

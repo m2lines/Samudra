@@ -94,7 +94,6 @@ class BaseModel(torch.nn.Module):
     def inference(
         self,
         dataset: InferenceDataset,
-        extra_batched: torch.Tensor,  # JRSv2
         initial_prognostic: torch.Tensor,
         steps_completed=0,
         num_steps=None,
@@ -116,18 +115,21 @@ class BaseModel(torch.nn.Module):
                     prognostic=initial_prognostic,
                     step=steps_completed,
                 )
+                extra_batched_new = dataset.get_full_boundary(step=steps_completed) # JRSv2
             else:
                 input_tensor = dataset.merge_prognostic_and_boundary(
                     prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
-            print(f"Inference InBase extra_batched shape: {extra_batched.size()}") # JRSv2 Size([batch=1, time=4, var=3, 180, 360])
-            print(f"Inference InBase input_tensor shape: {input_tensor.size()}") # JRSv2; torch.Size([3, 162, 180, 360])
+                extra_batched_new = dataset.get_full_boundary(step=steps_completed + step) # JRSv2
+
+            print(f"Inference InBase extra_batched shape: {extra_batched_new.size()}") # JRSv2 Size([batch=1, time=4, var=3, 180, 360])
+            print(f"Inference InBase input_tensor shape: {input_tensor.size()}") # JRSv2; torch.Size([1, 160, 180, 360])
             #extra_inputs = extra_batched[:, step, 0]
             #print(f"Inference InBase step: {step}")
             #print(f"Inference InBase extra_inputs shape: {extra_inputs.size()}")
 
-            decodings = self.forward_once(input_tensor, extra_batched)  # JRSv2
+            decodings = self.forward_once(input_tensor, extra_batched_new)  # JRSv2
             if self.pred_residuals:
                 pred = (
                     input_tensor[

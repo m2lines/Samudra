@@ -394,7 +394,7 @@ class Trainer:
 
         # Create datasets
         inference_datasets = []
-        extra_data_list = []  # 额外数据池 JRSv2
+        #extra_data_list = []  # 额外数据池 JRSv2
         num_steps_inf_set = []
         for i in range(num_splits):
             print(f"i: {i}") # JRSv2
@@ -422,21 +422,21 @@ class Trainer:
             #assert extra_data is not None, f"Failed to retrieve extra data for index {i}"  # Check for None
             #extra_data_list.append(extra_data)
             # 创建 full_boundary_data 的集合
-            all_extra_data = []
-            for idx in range(len(inference_dataset)):
-                extra_data = inference_dataset.get_extra_data_in(idx)
-                all_extra_data.append(extra_data)
-            
-            # 将 step-wise extra_data 合并为整体
-            merged_extra_data = torch.stack(all_extra_data, dim=0)
-            extra_data_list.append(merged_extra_data)
-            print(f"Full inference extra_data shape: {merged_extra_data.shape}")  # 输出形状
+            #all_extra_data = []
+            #for idx in range(len(inference_dataset)):
+            #    extra_data = inference_dataset.get_extra_data_in(idx)
+            #    all_extra_data.append(extra_data)
+            #
+            ## 将 step-wise extra_data 合并为整体
+            #merged_extra_data = torch.stack(all_extra_data, dim=0)
+            #extra_data_list.append(merged_extra_data)
+            #print(f"Full inference extra_data shape: {merged_extra_data.shape}")  # 输出形状
 
         print("inference_datasets:",inference_datasets)
         print("num_steps_inf_set:",num_steps_inf_set)
-        print("extra_data_list:",extra_data_list)
+        #print("extra_data_list:",extra_data_list)
         inference_data_combined = InferenceDatasets(
-            inference_datasets, num_steps_inf_set, extra_data_list   # JRSv2
+            inference_datasets, num_steps_inf_set #, extra_data_list   # JRSv2
         )
 
         if self.distributed is not None:
@@ -631,7 +631,7 @@ class Trainer:
         self.model.eval()
 
         with torch.no_grad(), self._test_context():
-            for data_iter_step, (inference_dataset, num_steps, extra_input) in enumerate(
+            for data_iter_step, (inference_dataset, num_steps) in enumerate(
                 self.inference_loader
             ):
                 #data_in, label, extra_data_in = inference_dataset # JRSv2
@@ -645,7 +645,10 @@ class Trainer:
                     self.num_out,
                 )
 
-                print(f"Inference extra_input shape: {extra_input.shape}") # JRSv2; torch.Size([3, step=4, 1, 4, 180, 360]) ; new: torch.Size([batch=3, step=4, 1, time=4, val=4, 180, 360])    
+                print(f"Inference inference_dataset shape: {len(inference_dataset[0])}") # JRSv2; 2
+                #print(f"Inference inference_dataset[0][0] shape: {len(inference_dataset[0][0])}")
+                #print(f"Inference inference_dataset[0][1] shape: {len(inference_dataset[0][1])}")
+                #print(f"Inference inference_dataset[0][2] shape: {len(inference_dataset[0][2])}")
 
                 # TODO(jder): we need the underlying model so we can use forward_once;
                 # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
@@ -654,7 +657,6 @@ class Trainer:
                     if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
                     else self.model,
                     dataset=inference_dataset, #(data_in, label), #inference_dataset,JRSv2
-                    extra_batched=extra_input, #inference_dataset.get_extra_data_in(), #JRSv2
                     inf_aggregator=inf_aggregator,
                     epoch=epoch,
                     num_model_steps_forward=min(

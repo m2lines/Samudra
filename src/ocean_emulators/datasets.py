@@ -410,9 +410,9 @@ class InferenceDataset(Dataset):
     def get_extra_data_in(self, idx):  # 传入索引
         # 根据传入的 idx 获取 full_boundary_data
         x_index = self._get_x_index(idx)  # 获取索引
-        self.full_boundary_data = self._get_full_boundary(x_index)  # 更新 full_boundary_data
-        print(f"Inference: self.full_boundary_data.shape: {self.full_boundary_data.shape}") # JRSv2; [1, extra_var*(hist+1), vars, lat, lon]
-        return self.full_boundary_data  # 返回
+        full_boundary_data = self._get_full_boundary(x_index)  # 更新 full_boundary_data
+        print(f"Inference: self.full_boundary_data.shape: {full_boundary_data.shape}") # JRSv2; [1, extra_var*(hist+1), vars, lat, lon]
+        return full_boundary_data  # 返回
 
 class InferenceDatasets(Dataset):
     def __init__(self, datasets: list[InferenceDataset], lengths: list[int], extra_data_list: list[torch.Tensor]):

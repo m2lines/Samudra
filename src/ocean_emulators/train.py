@@ -416,12 +416,22 @@ class Trainer:
             #print(f"Inference dataset shape: {inference_dataset.size}") # JRSv2; (time=4, 1, 4, 180, 360) ; new: (time=4, val=4, 180, 360)
             inference_datasets.append(inference_dataset)
             num_steps_inf_set.append(num_time_steps)
+            print(f"Inference num_time_steps: {num_time_steps}")
 
-            extra_data = inference_dataset.get_extra_data_in(i)  # Attempting to access the full boundary data
-            assert extra_data is not None, f"Failed to retrieve extra data for index {i}"  # Check for None
-            extra_data_list.append(extra_data)
-            print(f"Inference extra_data_list shape: {extra_data_list[0].shape}") # JRSv2
+            #extra_data = inference_dataset.get_extra_data_in(i)  # Attempting to access the full boundary data
+            #assert extra_data is not None, f"Failed to retrieve extra data for index {i}"  # Check for None
+            #extra_data_list.append(extra_data)
+            # 创建 full_boundary_data 的集合
+            all_extra_data = []
+            for idx in range(len(inference_dataset)):
+                extra_data = inference_dataset.get_extra_data_in(idx)
+                all_extra_data.append(extra_data)
             
+            # 将 step-wise extra_data 合并为整体
+            merged_extra_data = torch.stack(all_extra_data, dim=0)
+            extra_data_list.append(merged_extra_data)
+            print(f"Full inference extra_data shape: {merged_extra_data.shape}")  # 输出形状
+
         print("inference_datasets:",inference_datasets)
         print("num_steps_inf_set:",num_steps_inf_set)
         print("extra_data_list:",extra_data_list)

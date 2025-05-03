@@ -397,11 +397,13 @@ class Trainer:
         extra_data_list = []  # 额外数据池 JRSv2
         num_steps_inf_set = []
         for i in range(num_splits):
+            print(f"i: {i}") # JRSv2
             num_time_steps = get_inference_steps(
                 self.inference_times[i],
                 hist=self.hist,
             )
             inference_data = self.data.sel(time=self.inference_times[i].time_slice)
+            #print(f"Inference data shape: {inference_data.sizes}") # JRSv2; (time=4, 1, 4, 180, 360) ; new: (time=4, val=4, 180, 360)
             inference_dataset = InferenceDataset(
                 data=inference_data,
                 prognostic_var_names=self.prognostic_var_names,
@@ -411,14 +413,18 @@ class Trainer:
                 hist=self.hist,
                 long_rollout=True,
             )
-
+            #print(f"Inference dataset shape: {inference_dataset.size}") # JRSv2; (time=4, 1, 4, 180, 360) ; new: (time=4, val=4, 180, 360)
             inference_datasets.append(inference_dataset)
             num_steps_inf_set.append(num_time_steps)
 
-            extra_data_list.append(inference_dataset.get_extra_data_in(i))  # JRSv2
+            extra_data = inference_dataset.get_extra_data_in(i)  # Attempting to access the full boundary data
+            assert extra_data is not None, f"Failed to retrieve extra data for index {i}"  # Check for None
+            extra_data_list.append(extra_data)
             print(f"Inference extra_data_list shape: {extra_data_list[0].shape}") # JRSv2
             
-
+        print("inference_datasets:",inference_datasets)
+        print("num_steps_inf_set:",num_steps_inf_set)
+        print("extra_data_list:",extra_data_list)
         inference_data_combined = InferenceDatasets(
             inference_datasets, num_steps_inf_set, extra_data_list   # JRSv2
         )
@@ -601,7 +607,7 @@ class Trainer:
             #for data_iter_step, data in enumerate(                   # JRSv2
             #    metric_logger.log_every(self.val_loader, 1, header)
             #):
-                if self.debug and (data_iter_step + 1) % 5 == 0:
+                if self.debug and (data_iter_step + 1) % 3 == 0:
                     break
 
                 data.to(self.device)
@@ -619,7 +625,7 @@ class Trainer:
                 self.inference_loader
             ):
                 #data_in, label, extra_data_in = inference_dataset # JRSv2
-                print(f"Inference extra_data_in: {inference_dataset.get_extra_data_in()}") # JRSv2
+                #print(f"Inference extra_data_in: {inference_dataset.get_extra_data_in()}") # JRSv2
 
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,

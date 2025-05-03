@@ -143,7 +143,6 @@ class ReLUCorrector(BaseCorrector):
             fts = self._unflatten_hist(fts)
         return fts
 
-
 class SoRangeCorrector(BaseCorrector):
     """
     Applies salinity range correction to specified tensor channels. # JRS
@@ -317,6 +316,22 @@ class ZosGmeanCorrector(BaseCorrector):
             fts = self._unflatten_hist(fts)
         return fts
 
+def smart_squeeze(x):  # JRSv2
+    # 记录初始形状
+    shape = list(x.shape)
+    # 如果第一个维度不是 1，就可以放心 squeeze 所有中间的 1
+    if shape[0] != 1:
+        # squeeze 所有为1的维度，但保留第一个维度
+        dims_to_squeeze = [i for i in range(1, x.ndim) if x.shape[i] == 1]
+        for dim in reversed(dims_to_squeeze):  # 从后往前，避免dim变化
+            x = x.squeeze(dim)
+    else:
+        # 如果第一个是 1，就只 squeeze 后面的 1
+        dims_to_squeeze = [i for i in range(1, x.ndim) if x.shape[i] == 1]
+        for dim in reversed(dims_to_squeeze):
+            x = x.squeeze(dim)
+        # 不动第一个维度
+    return x
 
 def compute_ocean_heat_content(
     T: Tensor, dz: Tensor, area_weighted_func: Callable
@@ -463,9 +478,11 @@ class OceanHeatCorrector(BaseCorrector):
         #_, extra = self._unnormalize_fts_input(fts_input, extra)
 
         print(f"a, extra shape: {extra.shape}") # JRSv2; torch.Size([batch=3, time=4, vars, 180, 360])
-        extra = extra.squeeze() # JRSv2
+        #extra = extra.squeeze() # JRSv2
+        extra = smart_squeeze(extra) # JRSv2
+        print(f"b, extra shape: {extra.shape}")
         extra = self._unnormalize_fts_boundary(extra)
-        print(f"a, extra shape: {extra.shape}") # JRSv2; torch.Size([batch=3, time=4, vars, 180, 360])
+        print(f"c, extra shape: {extra.shape}") # JRSv2; torch.Size([batch=3, time=4, vars, 180, 360])
 
         applied_flux = extra[:, self.hist:self.hist*2+1, self.hfds_idx].squeeze(2)   # JRSv2, torch.Size([batch=3, hist+1, 180, 360]), squeeze(2) is vars dim
 

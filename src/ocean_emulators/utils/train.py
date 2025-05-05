@@ -88,7 +88,7 @@ def collate_inference_data(
 ) -> Tuple[InferenceDataset, int]:
     # TODO: There is probably a better way to do inference batching
     assert len(data) == 1, "Inference batch size must be 1"
-    return data[0][0], data[0][1] #, data[0][2]  # JRSv2
+    return data[0][0], data[0][1] 
 
 
 class CheckpointPaths:

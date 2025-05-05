@@ -518,7 +518,7 @@ class TrainDataset(Dataset):
 
         self.tensor_map: TensorMap = TensorMap.get_instance() # JRSv2
         self.hfds_idx = self.tensor_map.INPT_BOUNDARY_IDX["hfds"] # JRSv2
-        print(f"hfds_idx: {self.hfds_idx}") # JRSv2; tensor([2])
+        #print(f"hfds_idx: {self.hfds_idx}") # JRSv2; tensor([2])
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self._prognostic_vars: xr.Dataset = data[prognostic_var_names]
@@ -574,8 +574,8 @@ class TrainDataset(Dataset):
             #print(f"step: {step}") # JRSv2
             x_index = self._get_x_index(idx, step, prev_rolling_idx)
             
-            print(f"step: {step}") # JRSv2
-            print(f"x_index: {x_index}") # JRSv2; array([[2, 3, 4, 5]])
+            #print(f"step: {step}") # JRSv2
+            #print(f"x_index: {x_index}") # JRSv2; array([[2, 3, 4, 5]])
             
             data_in: Prognostic = self._get_input(x_index)
             data_in_boundary: Boundary = self._get_boundary(x_index) # [1, extra_var*(hist+1), lat, lon]
@@ -673,39 +673,39 @@ class TrainDataset(Dataset):
         data_in_boundary = torch.where(self.wet_surface, data_in_boundary, 0.0)
         return data_in_boundary
 
-    def _get_full_hfds_boundary(self, x_index) -> Boundary:   # JRSv2
-        """
-        This function returns the boundary condition for the current time step.
-
-        With hist > 0, the boundary condition considered is always the last step of
-        the input.
-        """
-        # TODO(jder): nicer typing
-        data_in_boundary: Any = self._boundary_vars.isel(time=x_index) #.isel(
-        #    time=slice(None, self.hist + 1)
-        #)  # JRSv2, pick all x_index time steps
-
-        print("XXX,a, data_in_boundary shape", data_in_boundary) # JRSv2; (window_dim: 1, time: 4, lat: 180, lon: 360) full [(1, 2), (3, 4)] in dimesion 1
-        
-        data_in_boundary = (
-            data_in_boundary.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-
-        data_in_boundary_hfds = data_in_boundary[:, :, self.hfds_idx]
-
-        print(f"XXX,b, data_in_boundary shape: {data_in_boundary_hfds.shape}") # JRSv2; (window_dim=1, time=4, 180, 360)
-        #data_in_boundary = rearrange(
-        #    data_in_boundary,
-        #    "window_dim time variable lat lon -> \
-        #        window_dim (time variable) lat lon",
-        #)
-        #print(f"get_boundary,c, data_in_boundary shape: {data_in_boundary.shape}") # JRSv2; (1, reshaped= 8, 180, 360)
-
-        data_in_boundary_hfds = torch.from_numpy(data_in_boundary_hfds).float()
-        data_in_boundary_hfds = torch.where(self.wet_surface, data_in_boundary_hfds, 0.0)
-        return data_in_boundary_hfds
+    #def _get_full_hfds_boundary(self, x_index) -> Boundary:   # JRSv2
+    #    """
+    #    This function returns the boundary condition for the current time step.
+#
+    #    With hist > 0, the boundary condition considered is always the last step of
+    #    the input.
+    #    """
+    #    # TODO(jder): nicer typing
+    #    data_in_boundary: Any = self._boundary_vars.isel(time=x_index) #.isel(
+    #    #    time=slice(None, self.hist + 1)
+    #    #)  # JRSv2, pick all x_index time steps
+#
+    #    #print("XXX,a, data_in_boundary shape", data_in_boundary) # JRSv2; (window_dim: 1, time: 4, lat: 180, lon: 360) full [(1, 2), (3, 4)] in #dimesion 1
+    #    
+    #    data_in_boundary = (
+    #        data_in_boundary.to_array()
+    #        .transpose("window_dim", "time", "variable", "lat", "lon")
+    #        .to_numpy()
+    #    )
+#
+    #    data_in_boundary_hfds = data_in_boundary[:, :, self.hfds_idx]
+#
+    #    #print(f"XXX,b, data_in_boundary shape: {data_in_boundary_hfds.shape}") # JRSv2; (window_dim=1, time=4, 180, 360)
+    #    #data_in_boundary = rearrange(
+    #    #    data_in_boundary,
+    #    #    "window_dim time variable lat lon -> \
+    #    #        window_dim (time variable) lat lon",
+    #    #)
+    #    #print(f"get_boundary,c, data_in_boundary shape: {data_in_boundary.shape}") # JRSv2; (1, reshaped= 8, 180, 360)
+#
+    #    data_in_boundary_hfds = torch.from_numpy(data_in_boundary_hfds).float()
+    #    data_in_boundary_hfds = torch.where(self.wet_surface, data_in_boundary_hfds, 0.0)
+    #    return data_in_boundary_hfds
 
     def _get_full_boundary(self, x_index) -> Boundary:   # JRSv2
         """
@@ -719,7 +719,7 @@ class TrainDataset(Dataset):
         #    time=slice(None, self.hist + 1)
         #)  # JRSv2, pick all x_index time steps
 
-        print("XXX,a, data_in_boundary shape", data_in_boundary) # JRSv2; (window_dim: 1, time: 4, lat: 180, lon: 360) full [(1, 2), (3, 4)] in dimesion 1
+        #print("XXX,a, data_in_boundary shape", data_in_boundary) # JRSv2; (window_dim: 1, time: 4, lat: 180, lon: 360) full [(1, 2), (3, 4)] in dimesion 1
         
         data_in_boundary = (
             data_in_boundary.to_array()
@@ -729,7 +729,7 @@ class TrainDataset(Dataset):
 
         #data_in_boundary = data_in_boundary[:, :, self.hfds_idx]
 
-        print(f"XXX,b, data_in_boundary shape: {data_in_boundary.shape}") # JRSv2; (window_dim=1, time=4, 180, 360)
+        #print(f"XXX,b, data_in_boundary shape: {data_in_boundary.shape}") # JRSv2; (window_dim=1, time=4, 180, 360)
         #data_in_boundary = rearrange(
         #    data_in_boundary,
         #    "window_dim time variable lat lon -> \

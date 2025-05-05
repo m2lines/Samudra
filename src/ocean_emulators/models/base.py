@@ -56,9 +56,9 @@ class BaseModel(torch.nn.Module):
                 )
             
             extra_inputs = extra_batched[:, step, 0] if extra_batched is not None else None
-            print(f"InBase step: {step}") # JRSv2
-            print(f"InBase input_tensor shape: {input_tensor.size()}") # JRSv2 ; torch.Size([3, 162, 180, 360])
-            print(f"InBase extra_batched shape: {extra_inputs.shape}") # JRSv2; torch.Size([batch=3, time=4, var=3, 180, 360])
+            #print(f"InBase step: {step}") # JRSv2
+            #print(f"InBase input_tensor shape: {input_tensor.size()}") # JRSv2 ; torch.Size([3, 162, 180, 360])
+            #print(f"InBase extra_batched shape: {extra_inputs.shape}") # JRSv2; torch.Size([batch=3, time=4, var=3, 180, 360])
             
             decodings = self.forward_once(input_tensor, extra_inputs)  # JRSv2, this use submodel samudra
             if self.pred_residuals:    # JRS, where the residuals are predicted, turn on pred_residuals
@@ -123,8 +123,8 @@ class BaseModel(torch.nn.Module):
                 )
                 extra_batched_new = dataset.get_full_boundary(step=steps_completed + step) # JRSv2
 
-            print(f"Inference InBase extra_batched shape: {extra_batched_new.size()}") # JRSv2 Size([batch=1, time=4, var=3, 180, 360])
-            print(f"Inference InBase input_tensor shape: {input_tensor.size()}") # JRSv2; torch.Size([1, 160, 180, 360])
+            #print(f"Inference InBase extra_batched shape: {extra_batched_new.size()}") # JRSv2 Size([batch=1, time=4, var=3, 180, 360])
+            #print(f"Inference InBase input_tensor shape: {input_tensor.size()}") # JRSv2; torch.Size([1, 160, 180, 360])
             #extra_inputs = extra_batched[:, step, 0]
             #print(f"Inference InBase step: {step}")
             #print(f"Inference InBase extra_inputs shape: {extra_inputs.size()}")

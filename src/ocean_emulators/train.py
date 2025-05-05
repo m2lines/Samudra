@@ -397,7 +397,7 @@ class Trainer:
         #extra_data_list = []  # 额外数据池 JRSv2
         num_steps_inf_set = []
         for i in range(num_splits):
-            print(f"i: {i}") # JRSv2
+            #print(f"i: {i}") # JRSv2
             num_time_steps = get_inference_steps(
                 self.inference_times[i],
                 hist=self.hist,
@@ -416,7 +416,7 @@ class Trainer:
             #print(f"Inference dataset shape: {inference_dataset.size}") # JRSv2; (time=4, 1, 4, 180, 360) ; new: (time=4, val=4, 180, 360)
             inference_datasets.append(inference_dataset)
             num_steps_inf_set.append(num_time_steps)
-            print(f"Inference num_time_steps: {num_time_steps}")
+            #print(f"Inference num_time_steps: {num_time_steps}") # JRSv2 148
 
             #extra_data = inference_dataset.get_extra_data_in(i)  # Attempting to access the full boundary data
             #assert extra_data is not None, f"Failed to retrieve extra data for index {i}"  # Check for None
@@ -432,11 +432,12 @@ class Trainer:
             #extra_data_list.append(merged_extra_data)
             #print(f"Full inference extra_data shape: {merged_extra_data.shape}")  # 输出形状
 
-        print("inference_datasets:",inference_datasets)
-        print("num_steps_inf_set:",num_steps_inf_set)
+        #print("inference_datasets:",inference_datasets) # JRSv2
+        #print("num_steps_inf_set:",num_steps_inf_set)
         #print("extra_data_list:",extra_data_list)
+
         inference_data_combined = InferenceDatasets(
-            inference_datasets, num_steps_inf_set #, extra_data_list   # JRSv2
+            inference_datasets, num_steps_inf_set 
         )
 
         if self.distributed is not None:
@@ -543,12 +544,12 @@ class Trainer:
             self.optimizer.zero_grad()
 
             # 访问 TrainData 内部的输入和标签
-            for step in range(len(data)):
-                input_data = data.get_input(step)
-                label_data = data.get_label(step)
-                print(f"InTrain Step {step}: Input size: {input_data.size()} Label size: {label_data.size()}")
+            #for step in range(len(data)):
+            #    input_data = data.get_input(step)
+            #    label_data = data.get_label(step)
+            #    print(f"InTrain Step {step}: Input size: {input_data.size()} Label size: {label_data.size()}")  # JRSv2, Input size: torch.Size([3, 160, 180, 360]) Label size: torch.Size([3, 154, 180, 360])
             # 打印 extra_inputs_batched 的形状
-            print(f"InTrain Extra inputs batched shape: {extra_inputs_batched.shape}") # JRSv2; torch.Size([3, step=4, 1, 4, 180, 360]) ; new: torch.Size([batch=3, step=4, 1, time=4, val=4, 180, 360])
+            #print(f"InTrain Extra inputs batched shape: {extra_inputs_batched.shape}") # JRSv2; torch.Size([3, step=4, 1, 4, 180, 360]) ; new: torch.Size([batch=3, step=4, 1, time=4, val=4, 180, 360])
 
             data.to(self.device)
             extra_inputs_batched.to(self.device)  # JRSv2
@@ -645,7 +646,7 @@ class Trainer:
                     self.num_out,
                 )
 
-                print(f"Inference inference_dataset shape: {len(inference_dataset[0])}") # JRSv2; 2
+                #print(f"Inference inference_dataset shape: {len(inference_dataset[0])}") # JRSv2; 2
                 #print(f"Inference inference_dataset[0][0] shape: {len(inference_dataset[0][0])}")
                 #print(f"Inference inference_dataset[0][1] shape: {len(inference_dataset[0][1])}")
                 #print(f"Inference inference_dataset[0][2] shape: {len(inference_dataset[0][2])}")
@@ -656,7 +657,7 @@ class Trainer:
                     model=self.model.module
                     if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
                     else self.model,
-                    dataset=inference_dataset, #(data_in, label), #inference_dataset,JRSv2
+                    dataset=inference_dataset, #(data_in, label), 
                     inf_aggregator=inf_aggregator,
                     epoch=epoch,
                     num_model_steps_forward=min(
@@ -724,27 +725,23 @@ class Trainer:
                     ]
                 )
 
-                for i, ds in enumerate(train_data.datasets):  # JRSv2
-                    print(f"Sub-dataset {i} _boundary_vars: {ds._boundary_vars}")  # JRSv2; (time:219, lat, lon) for all forcing terms(tauu, tauv, hfds, wfo)
-                    #print(f"  Length: {len(ds)}")  # JRSv2; 210
-                    #print(f"Sub-dataset {i} ds: {ds}")
 
-                for i, dataset in enumerate(train_data.datasets):
-                    #print(f"Dataset {i}:")
-                    print(f"  Length: {len(dataset)}")  # JRSv2; 210
-                    if isinstance(dataset, torch.utils.data.Dataset):
-                        example = dataset[0]  # 获取一个示例
-                        if isinstance(example, tuple):
-                            TD, extra_data_stack = example
-                            print("TrainData:")
-                            for step in range(len(TD)):
-                                input_data = TD.get_input(step) # Step 0: Input size: torch.Size([162, 180, 360]), Label size:                   torch.Size([154, 180, 360])
-                                label_data = TD.get_label(step)
-                                print(f"Step {step}: Input size: {input_data.size()},   Label size: {label_data.size()}")
-
-                            print(f"Extra data stack shape: {extra_data_stack.shape}")
-                        else:
-                            print("Example is not a tuple")
+                #for i, dataset in enumerate(train_data.datasets):
+                #    #print(f"Dataset {i}:")
+                #    print(f"  Length: {len(dataset)}")  # JRSv2; 210
+                #    if isinstance(dataset, torch.utils.data.Dataset):
+                #        example = dataset[0]  # 获取一个示例
+                #        if isinstance(example, tuple):
+                #            TD, extra_data_stack = example
+                #            print("TrainData:")
+                #            for step in range(len(TD)):
+                #                input_data = TD.get_input(step) # Step #0: Input size: torch.Size([162, 180, #360]), Label size:                   #torch.Size([154, 180, 360])
+                #                label_data = TD.get_label(step)
+                #                print(f"Step {step}: Input size: #{input_data.size()},   Label size: #{label_data.size()}")
+#
+                #            print(f"Extra data stack shape: #{extra_data_stack.shape}")
+                #        else:
+                #            print("Example is not a tuple")
                        #if isinstance(example, tuple):
                        #    for j, item in enumerate(example):
                        #        print(f"  Example item {j} size: {item.size() if hasattr(item, 'size') else 'N/A'}")
@@ -885,18 +882,18 @@ class Trainer:
             collate_fn=collate_fn,
         )
 
-        print(f"train_loader len: {len(self.train_loader)}")  # JRSv2, 70
+        #print(f"train_loader len: {len(self.train_loader)}")  # JRSv2, 70
         # 查看train_loader输出的第一个batch
-        for batch in self.train_loader:
-            #print(f"Batch: {batch}")  # 打印批次看看返回内容
-            print(f"Batch length: {len(batch)}")  # 打印批次长度, step size = 4
-            print(f"Batch data shape: {len(batch[0])}")  # 打印数据形状 = 2
-            print(f"Batch data[input] shape: {len(batch[0][0])}")  # JRSv2, iput=3
-            print(f"Batch data[input][0] shape: {len(batch[0][0][0])}")  # JRSv2, iput=162
-            print(f"Batch data[input][1] shape: {len(batch[0][1][0])}")  # JRSv2, iput=154
-            print(f"Batch data[input][0][0] shape: {len(batch[0][0][0][0])}")  # JRSv2, lat = 180
-            # JRSv2, train_loader size = [batch=70, step=4, (input, label), batch_size=3, channel, lat, lon]
-            break
+        #for batch in self.train_loader:
+        #    #print(f"Batch: {batch}")  # 打印批次看看返回内容
+        #    print(f"Batch length: {len(batch)}")  # 打印批次长度, step #size = 4
+        #    print(f"Batch data shape: {len(batch[0])}")  # 打印数据形状 = 2
+        #    print(f"Batch data[input] shape: {len(batch[0][0])}")  # #JRSv2, iput=3
+        #    print(f"Batch data[input][0] shape: {len(batch[0][0][0])}")  ## JRSv2, iput=162
+        #    print(f"Batch data[input][1] shape: {len(batch[0][1][0])}")  ## JRSv2, iput=154
+        #    print(f"Batch data[input][0][0] shape: {len(batch[0][0][0]#[0])}")  # JRSv2, lat = 180
+        #    # JRSv2, train_loader size = [batch=70, step=4, (input, label), batch_size=3, channel, lat, lon]
+        #    break
 
         self.val_loader = DataLoader(
             val_data,
@@ -908,10 +905,10 @@ class Trainer:
             collate_fn=collate_fn,
         )
 
-        for batchval in self.val_loader:
-            #print(f"Batchval: {batchval}")  # 打印批次看看返回内容
-            print(f"Batchval length: {len(batchval)}")  # 打印长度, step size = 2
-            print(f"Batchval data shape: {len(batchval[0])}")  # 打印数据形状 = 1
+        #for batchval in self.val_loader:
+        #    #print(f"Batchval: {batchval}")  # 打印批次看看返回内容
+        #    print(f"Batchval length: {len(batchval)}")  # 打印长度, step #size = 2
+        #    print(f"Batchval data shape: {len(batchval[0])}")  # 打印数据形状 = 1
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

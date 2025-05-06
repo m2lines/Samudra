@@ -331,7 +331,13 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary = self._boundary_vars.isel(time=x_index).isel(
+        x_index_new = x_index + self.hist # JRSv3
+        #print(f"x_index new: {x_index+self.hist}") # JRSv3  
+        #time_size = len(self._boundary_vars.time)  # 获取时间维度的长度
+        #print("time_size:", time_size) # JRSv3
+        #print("adjusted index:",x_index_new.isel(time=slice(None, -1))) # JRSv3
+
+        data_in_boundary = self._boundary_vars.isel(time=x_index_new.isel(time=slice(None, -1))).isel(
             time=slice(None, self.hist + 1)
         )
         data_in_boundary = Normalize.get_instance().normalize_boundary(data_in_boundary)
@@ -576,9 +582,33 @@ class TrainDataset(Dataset):
         the input.
         """
         # TODO(jder): nicer typing
-        data_in_boundary: Any = self._boundary_vars.isel(time=x_index).isel(
-            time=slice(None, self.hist + 1)
+        #print(f"x_index: {x_index}") # JRSv3
+        x_index_new =  x_index+self.hist # JRSv3
+        #print(f"x_index new: {x_index+self.hist}") # JRSv3  
+        #print("time dimension size:", self._boundary_vars.sizes["time"]) # JRSv3
+
+        #time_size = len(self._boundary_vars.time)  # 获取时间维度的长度
+        #print("time_size:", time_size) # JRSv3
+        #print("adjusted index:",x_index_new.isel(time=slice(None, -1))) # JRSv3
+
+        #if (x_index_new >= time_size).any():
+        #    # 如果 x_index_new 超过了时间维度的长度，选取 x_index_new 前面的元素，去掉最后一个
+        #    data_in_boundary = self._boundary_vars.isel(time=x_index_new.isel(time=slice(None, -1))).#isel(
+        #        time=slice(None, self.hist + 1)
+        #    )
+        #else:
+        #    # 否则，正常索引
+        #    #data_in_boundary = self._boundary_vars.isel(time=x_index_new).isel(
+        #    #    time=slice(None, self.hist + 1)
+        #    #)
+        #    data_in_boundary = self._boundary_vars.isel(time=x_index_new.isel(time=slice(None, -1))).#isel(
+        #        time=slice(None, self.hist + 1)
+        #    )
+
+        data_in_boundary: Any = self._boundary_vars.isel(time=x_index_new.isel(time=slice(None, -1))).isel(
+            time=slice(None, self.hist + 1) # JRSv3
         )
+
         data_in_boundary = (
             data_in_boundary.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")

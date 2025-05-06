@@ -339,7 +339,7 @@ def compute_expected_heat_content_change(
     # Expected change in heat content from surface flux
     dHC_expected = (
         area_weighted_func(surface_heat_flux * sea_surface_fraction_tensor)
-        * SECONDS_PER_5DAY * (hist + 1)   # JRS
+        * SECONDS_PER_5DAY
     )  # [J]
 
     # Apply geothermal heat flux
@@ -390,7 +390,7 @@ class OceanHeatCorrector(BaseCorrector):
             self.area_weighted_func(
                 self.hfgeou_tensor * self.sea_surface_fraction_tensor
             )
-            * SECONDS_PER_5DAY * (self.hist + 1)
+            * SECONDS_PER_5DAY
         )
 
     def forward(self, fts_input_boundary: Tensor, fts: Tensor) -> Tensor:
@@ -423,9 +423,31 @@ class OceanHeatCorrector(BaseCorrector):
             self.hist,    # JRS
         )
 
-        HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1
+       # HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1 # JRSv3
 
-        T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1)
+       # T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1) # JRSv3
+
+        #print(f"dHC_expected: {dHC_expected}") # JRSv3; torch.Size([6]) 
+        
+        T_corrected = torch.zeros_like(T_pred)
+
+        for iii in range(self.hist + 1):
+            #print(iii)
+            if iii == 0:
+                idx_input = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + self.hist # JRSv2, batch size * (hist+1) + hist, when hist=1, batch_size = 3, idx_input = [1, 3, 5]
+                #print("idx_input",idx_input)
+                idx_flux = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii
+                #print("idx_flux",idx_flux) #  when hist=1, batch_size = 3, idx_input = [0, 2, 4]
+                HC_correct_ratio = (global_HC_t0[idx_input] + dHC_expected[idx_flux]) / global_HC_t1[idx_flux]
+                T_corrected[idx_flux] = T_pred[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1)
+            else:
+                idx_input = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii - 1
+                #print("idx_input",idx_input)
+                idx_flux = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii
+                #print("idx_flux",idx_flux)
+                HC_correct_ratio = (global_HC_t1[idx_input] + dHC_expected[idx_flux]) / global_HC_t1[idx_flux]
+                #print("HC_correct_ratio",HC_correct_ratio)
+                T_corrected[idx_flux] = T_pred[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1)
 
         fts[:, self.thetao_idx] = T_corrected
 

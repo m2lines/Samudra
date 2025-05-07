@@ -1,6 +1,8 @@
 import argparse
+import functools
 import os
 import textwrap
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Self
 
@@ -116,6 +118,69 @@ class TopLevelConfig(BaseSettings):
         """Save config to YAML file."""
         with open(save_path, "w") as f:
             yaml.dump(self.model_dump(), f)
+
+    def inject(
+        self,
+        path: str,
+        *,
+        as_key: str | None = None,
+        response_model: type | None = None,
+    ) -> Callable:
+        """A decorator that access a nested config value and injects it as an argument.
+
+        Arguments:
+            path: The access path to the value in the config, e.g.
+              "experiment.data_dir".
+            as_key: If specified, the value will be injected as a keyword to the
+              decorated function
+            response_model: If specified, we will check that the value at the access
+              path is of the expected type.
+
+        Returns:
+            The decorated function (which may take additional arguments).
+        """
+        # Path is expected to be an accessor path for a nested object, for example:
+        # "experiment.data_dir". This block of code walks down the tree of attributes
+        # until the value (for example "data_dir") is found.
+        access_tokens = path.split(".")
+
+        walker = self
+        while access_tokens:
+            # Pop not only gets the first item, it also shortens the access path.
+            # Thus, in the success case, we'll exit the loop because the path is empty
+            # and the `walker` variable will have the value we're looking for.
+            attribute = access_tokens.pop(0)
+            if hasattr(walker, attribute):
+                walker = getattr(walker, attribute)
+                continue
+            # If we miss the child attribute in the tree and the path is not empty,
+            # we've gone astray.
+            raise ValueError(f"Cannot match {path!r} to config value!")
+
+        # Optionally, we allow the user to type check the found value.
+        if response_model is not None:
+            if not isinstance(walker, response_model):
+                raise ValueError(
+                    f'Item ("{walker!r}") at access path {path!r} is not the expected '
+                    f"type {response_model!r}."
+                )
+
+        def decorator(func: Callable) -> Callable:
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                # Optionally, we allow the user to inject the found value as a keyword
+                # argument.
+                if as_key is not None:
+                    kwargs[as_key] = walker
+                    out = func(*args, **kwargs)
+                # Otherwise, we inject the found value as a positional argument.
+                else:
+                    out = func(*args, walker, **kwargs)
+                return out
+
+            return wrapper
+
+        return decorator
 
 
 class IncludeYamlCliSettingsSource(CliSettingsSource):

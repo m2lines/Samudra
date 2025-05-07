@@ -40,7 +40,7 @@ from ocean_emulators.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
 
-# I like to think of like a Flask or FastAPI app.
+# I like to think of this as something like a Flask or FastAPI app.
 cfg = EvalConfig.from_yaml_and_cli()
 cfg.prepare_output_dirs()  # we do this first so logging can use them
 

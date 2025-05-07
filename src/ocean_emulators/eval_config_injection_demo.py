@@ -87,6 +87,17 @@ def make_model(
     return model
 
 
+@cfg.inject("experiment")
+def get_var_names(experiment) -> tuple[PrognosticVarNames, BoundaryVarNames]:
+    # Getting prognostic and boundary variables
+    prognostic_var_names: PrognosticVarNames = PROGNOSTIC_VARS[
+        experiment.prognostic_vars_key
+    ]
+    boundary_var_names: BoundaryVarNames = BOUNDARY_VARS[experiment.boundary_vars_key]
+
+    return prognostic_var_names, boundary_var_names
+
+
 class Eval:
     def __init__(self, cfg: EvalConfig) -> None:
         cfg.prepare_output_dirs()
@@ -103,12 +114,7 @@ class Eval:
         set_seed(cfg.experiment.rand_seed)
 
         # Getting prognostic and boundary variables
-        self.prognostic_var_names: PrognosticVarNames = PROGNOSTIC_VARS[
-            cfg.experiment.prognostic_vars_key
-        ]
-        self.boundary_var_names: BoundaryVarNames = BOUNDARY_VARS[
-            cfg.experiment.boundary_vars_key
-        ]
+        self.prognostic_var_names, self.boundary_var_names = get_var_names()
 
         levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:

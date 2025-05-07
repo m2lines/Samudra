@@ -716,12 +716,13 @@ class TorchTrainDataset(Dataset):
             tensor: torch.Tensor,
             src: DataSource,
             mask: torch.Tensor,
+            variable_axis: int = 2,
         ) -> torch.Tensor:
             if self.normalize_before_mask:
-                tensor = src.normalize_with(tensor, variable_axis=1).float()
+                tensor = src.normalize_with(tensor, variable_axis=variable_axis).float()
             tensor = torch.where(mask, tensor, self.masked_fill_value)
             if not self.normalize_before_mask:
-                tensor = src.normalize_with(tensor, variable_axis=1).float()
+                tensor = src.normalize_with(tensor, variable_axis=variable_axis).float()
             return tensor
 
         prognostic_steps = normalize_and_mask(
@@ -729,7 +730,7 @@ class TorchTrainDataset(Dataset):
         )
         if boundary_steps is not None:
             boundary_steps = normalize_and_mask(
-                boundary_steps, self._boundary_src, self.wet_surface
+                boundary_steps, self._boundary_src, self.wet_surface, variable_axis=1
             )
 
         # Flatten time and variable dimensions

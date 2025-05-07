@@ -158,6 +158,9 @@ class TopLevelConfig(BaseSettings):
             raise ValueError(f"Cannot match {path!r} to config value!")
 
         # Optionally, we allow the user to type check the found value.
+        # TODO(alxmrs): It should be easy to parse the decorated function and get the
+        #  expected type of the arg or kwarg and then compare it with what we actually
+        #  found.
         if response_model is not None:
             if not isinstance(walker, response_model):
                 raise ValueError(

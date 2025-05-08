@@ -1,13 +1,16 @@
 import argparse
 import functools
+import inspect
+import logging
 import os
 import textwrap
+from collections import deque
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Self
+from typing import Any, Self, get_type_hints
 
 import yaml
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError, create_model
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
@@ -16,6 +19,20 @@ from pydantic_settings import (
     SettingsConfigDict,
     YamlConfigSettingsSource,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _type_check(value: Any, expected_type: type) -> bool:
+    """Check if a value matches a parameter type, including parameterized types."""
+    try:
+        # Create a temporary model with a field of the target type
+        TempModel = create_model("TempModel", value=(expected_type, ...))
+        # Attempt to validate
+        TempModel(value=value)
+        return True
+    except ValidationError:
+        return False
 
 
 def register_include_constructor():
@@ -119,71 +136,195 @@ class TopLevelConfig(BaseSettings):
         with open(save_path, "w") as f:
             yaml.dump(self.model_dump(), f)
 
-    def inject(
-        self,
-        path: str,
-        *,
-        as_key: str | None = None,
-        response_model: type | None = None,
-    ) -> Callable:
-        """A decorator that access a nested config value and injects it as an argument.
+    def bind(self, func=None, *, mappings=None) -> Callable:
+        """
+        Decorator that binds config attributes to function parameters based on types.
 
-        Arguments:
-            path: The access path to the value in the config, e.g.
-              "experiment.data_dir".
-            as_key: If specified, the value will be injected as a keyword to the
-              decorated function
-            response_model: If specified, we will check that the value at the access
-              path is of the expected type.
+        By default, it will:
+        - Auto-inject full models/data classes that match parameter types
+        - Use mappings for specific access paths when provided
+
+        Args:
+            func (callable): Function to bind. Allows decorator to take optional args.
+            mappings: Optional mapping of function parameter names to config attribute
+               paths. The paths can be dot-notated for nested attributes
+               (e.g., "db.connection.host")
+        """
+        if func is None:
+            return functools.partial(self.bind, mappings=mappings)
+
+        mappings = mappings or {}
+
+        # Get function signature and type hints
+        sig = inspect.signature(func)
+        type_hints = get_type_hints(func)
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            # Create a copy of kwargs that we can modify
+            updated_kwargs = kwargs.copy()
+
+            # Skip the first parameter if it's 'self' (for methods)
+            bound_args = sig.bind_partial(*args)
+            params_to_inject = list(sig.parameters.keys())
+            if params_to_inject and params_to_inject[0] in bound_args.arguments:
+                # This is likely a method call, so skip first param
+                params_to_inject = params_to_inject[1:]
+
+            # For each parameter that isn't already provided...
+            for param_name in params_to_inject:
+                if param_name in updated_kwargs:
+                    continue  # Already provided explicitly
+
+                param_type = type_hints.get(param_name)
+                if not param_type:
+                    continue  # No type hint to match
+
+                # Check if there's a mapping for this parameter
+                if param_name in mappings:
+                    # Use the mapping to get a specific path
+                    attr_path = mappings[param_name]
+                    attr_value = self._get_nested_attr(attr_path)
+
+                    # If the attribute is not found, skip this parameter
+                    if attr_value is None:
+                        break
+
+                    if isinstance(attr_value, param_type):
+                        updated_kwargs[param_name] = attr_value
+                    elif (
+                        isinstance(param_type, type)
+                        and issubclass(param_type, BaseModel)
+                        and isinstance(attr_value, dict)
+                    ):
+                        updated_kwargs[param_name] = param_type.model_validate(
+                            attr_value
+                        )
+                else:
+                    # No mapping - try to auto-inject based on type
+                    attr_value = self._find_attribute_by_type(param_name, param_type)
+                    if attr_value is not None:
+                        updated_kwargs[param_name] = attr_value
+
+            # Call the function with the updated kwargs
+            return func(*args, **updated_kwargs)
+
+        return wrapper
+
+    def _get_nested_attr(self, attr_path: str) -> Any | None:
+        """
+        Get a nested attribute from the config using dot notation.
+
+        Args:
+            attr_path: Attribute path using dot notation (e.g., "db.connection.host")
 
         Returns:
-            The decorated function (which may take additional arguments).
+            The attribute value or None if not found
         """
-        # Path is expected to be an accessor path for a nested object, for example:
-        # "experiment.data_dir". This block of code walks down the tree of attributes
-        # until the value (for example "data_dir") is found.
-        access_tokens = path.split(".")
-
         walker = self
-        while access_tokens:
-            # Pop not only gets the first item, it also shortens the access path.
-            # Thus, in the success case, we'll exit the loop because the path is empty
-            # and the `walker` variable will have the value we're looking for.
-            attribute = access_tokens.pop(0)
-            if hasattr(walker, attribute):
-                walker = getattr(walker, attribute)
+
+        # Handle the simple case first
+        if "." not in attr_path:
+            return getattr(walker, attr_path, None)
+
+        # Handle nested paths
+        parts = attr_path.split(".")
+        for part in parts:
+            if not hasattr(walker, part):
+                return None
+            walker = getattr(walker, part)
+
+            # If we hit a non-object that can't have attributes, but we still have path
+            # components, then the path is invalid
+            if (
+                not hasattr(walker, "__dict__")
+                and not isinstance(walker, dict)
+                and part != parts[-1]
+            ):
+                return None
+
+        return walker
+
+    def _find_attribute_by_type(self, param_name: str, param_type: type) -> Any | None:
+        """
+        Find an attribute in the config that matches the parameter type using
+        iterative breadth-first search through the object hierarchy.
+
+        Args:
+            param_name: The parameter name
+            param_type: The parameter type (target)
+
+        Returns:
+            Matching attribute value or None if not found
+        """
+        # Initialize queue for BFS and visited set to prevent cycles
+        queue: deque = deque([(self, None, [])])  # (obj, attr_name, path)
+        visited = set()
+
+        while queue:
+            current_obj, attr_name, path = queue.popleft()
+
+            # Skip if already visited
+            obj_id = id(current_obj)
+            if obj_id in visited:
                 continue
-            # If we miss the child attribute in the tree and the path is not empty,
-            # we've gone astray.
-            raise ValueError(f"Cannot match {path!r} to config value!")
+            visited.add(obj_id)
 
-        # Optionally, we allow the user to type check the found value.
-        # TODO(alxmrs): It should be easy to parse the decorated function and get the
-        #  expected type of the arg or kwarg and then compare it with what we actually
-        #  found.
-        if response_model is not None:
-            if not isinstance(walker, response_model):
-                raise ValueError(
-                    f'Item ("{walker!r}") at access path {path!r} is not the expected '
-                    f"type {response_model!r}."
-                )
+            current_path: list[str] = path + [attr_name] if attr_name else []
+            logger.debug(".".join(current_path))
 
-        def decorator(func: Callable) -> Callable:
-            @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                # Optionally, we allow the user to inject the found value as a keyword
-                # argument.
-                if as_key is not None:
-                    kwargs[as_key] = walker
-                    out = func(*args, **kwargs)
-                # Otherwise, we inject the found value as a positional argument.
-                else:
-                    out = func(*args, walker, **kwargs)
-                return out
+            # First check if current object matches the type
+            # This only applies if this is not the starting object
+            if attr_name is not None:
+                # First priority: name and type match -- this breaks ties.
+                if attr_name == param_name and _type_check(current_obj, param_type):
+                    return current_obj
 
-            return wrapper
+                # Second priority: type match only
+                if _type_check(current_obj, param_type):
+                    return current_obj
 
-        return decorator
+            # Then process all attributes of the current object
+            if isinstance(current_obj, BaseModel):
+                for name, value in current_obj.__dict__.items():
+                    # Check direct attributes
+                    if name == param_name and isinstance(value, param_type):
+                        return value  # Exact name and type match has highest priority
+
+                    self._enqueue_if_explorable(queue, value, name, current_path)
+
+            # Special handling for containers
+            elif isinstance(current_obj, list):
+                for i, item in enumerate(current_obj):
+                    self._enqueue_if_explorable(queue, item, f"[{i}]", current_path)
+
+            elif isinstance(current_obj, dict):
+                for key, value in current_obj.items():
+                    self._enqueue_if_explorable(
+                        queue,
+                        value,
+                        f"[{key}]",
+                        current_path,
+                    )
+
+        # No match found
+        return None
+
+    def _enqueue_if_explorable(
+        self, queue: deque, obj: Any, name: str, path: list[str]
+    ) -> None:
+        """
+        Helper method to enqueue objects that can be explored further.
+
+        Args:
+            queue: The BFS queue
+            obj: The object to potentially enqueue
+            name: The attribute name
+            path: The path so far
+        """
+        # Only enqueue objects that might contain nested attributes
+        if isinstance(obj, (BaseModel, list, dict)) or hasattr(obj, "__dict__"):
+            queue.append((obj, name, path))
 
 
 class IncludeYamlCliSettingsSource(CliSettingsSource):

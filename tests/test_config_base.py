@@ -68,13 +68,13 @@ config = AppConfig(
             ),
             DatabaseServer(
                 host="replica-db.example.com",
-                port=5432,
+                port=5433,
                 credentials=ServerCredentials(username="reader", password="secret2"),
             ),
         ],
         cache=RedisConfig(
-            main=CacheServer(host="redis.example.com", port=6379, ttl=300),
-            backup=CacheServer(host="redis-backup.example.com", port=6379, ttl=300),
+            main=CacheServer(host="redis.example.com", port=6378, ttl=300),
+            backup=CacheServer(host="redis-backup.example.com", port=6379, ttl=301),
         ),
         api=ApiConfig(url="https://api.example.com/v2", token="abc123xyz"),
         metrics=MetricsCollector(enabled=True, interval=60),
@@ -99,7 +99,7 @@ def test_bind__picks_first_option_based_on_type():
     def get_cache_server(cache: CacheServer):
         assert isinstance(cache, CacheServer)
         assert cache.host == "redis.example.com"
-        assert cache.port == 6379
+        assert cache.port == 6378
         assert cache.ttl == 300
 
     get_cache_server()
@@ -111,7 +111,7 @@ def test_bind__matches_both_name_and_type():
         assert isinstance(backup, CacheServer)
         assert backup.host == "redis-backup.example.com"
         assert backup.port == 6379
-        assert backup.ttl == 300
+        assert backup.ttl == 301
 
     get_backup_server()
 
@@ -134,6 +134,22 @@ def test_bind__accepts_user_specified_access_path_mappings(cache: CacheServer):
         assert isinstance(cache, CacheServer)
         assert cache.host == "redis-backup.example.com"
         assert cache.port == 6379
-        assert cache.ttl == 300
+        assert cache.ttl == 301
 
     get_cache_server()
+
+
+def test_bind__parse_primitive_types_by_name_and_type():
+    @config.bind()
+    def get_api_url(api_url: str):
+        assert api_url == "/api"
+
+    get_api_url()
+
+
+def test_bind__parse_primitive_type_by_mapping():
+    @config.bind(port="backend.cache.main.port")
+    def get_port(port: int):
+        assert port == 6378
+
+    get_port()

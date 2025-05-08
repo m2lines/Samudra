@@ -116,6 +116,21 @@ def test_bind__matches_both_name_and_type():
     get_backup_server()
 
 
+def test_bind__binds_multiple_nested_types():
+    @config.bind()
+    def collect_metrics_and_server(collector: MetricsCollector, backup: CacheServer):
+        assert isinstance(collector, MetricsCollector)
+        assert collector.enabled is True
+        assert collector.interval == 60
+
+        assert isinstance(backup, CacheServer)
+        assert backup.host == "redis-backup.example.com"
+        assert backup.port == 6379
+        assert backup.ttl == 301
+
+    collect_metrics_and_server()
+
+
 def test_bind__parses_collections_of_types():
     @config.bind()
     def get_dbs(dbs: list[DatabaseServer]):

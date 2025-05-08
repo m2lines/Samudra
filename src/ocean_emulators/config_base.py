@@ -136,7 +136,7 @@ class TopLevelConfig(BaseSettings):
         with open(save_path, "w") as f:
             yaml.dump(self.model_dump(), f)
 
-    def bind(self, func=None, *, mappings=None) -> Callable:
+    def bind(self, func=None, **mappings: str) -> Callable:
         """
         Decorator that binds config attributes to function parameters based on types.
 
@@ -151,9 +151,9 @@ class TopLevelConfig(BaseSettings):
                (e.g., "db.connection.host")
         """
         if func is None:
-            return functools.partial(self.bind, mappings=mappings)
+            return functools.partial(self.bind, **mappings)
 
-        mappings = mappings or {}
+        mappings = dict(mappings)
 
         # Get function signature and type hints
         sig = inspect.signature(func)

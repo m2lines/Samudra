@@ -129,7 +129,7 @@ def test_bind__parses_collections_of_types():
 
 
 def test_bind__accepts_user_specified_access_path_mappings(cache: CacheServer):
-    @config.bind(mappings={"cache": "backend.cache.backup"})
+    @config.bind(cache="backend.cache.backup")
     def get_cache_server(cache: CacheServer):
         assert isinstance(cache, CacheServer)
         assert cache.host == "redis-backup.example.com"

@@ -497,7 +497,9 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
 
 
 def validate_data(
-    src: DataSource, boundary_vars: BoundaryVarNames, static_data_vars: list[str] | None = None
+    src: DataSource,
+    boundary_vars: BoundaryVarNames,
+    static_data_vars: list[str] | None = None,
 ) -> DataSource:
     """Validate the data such that we have the correct format for training."""
     anomalies_vars = get_anomalies_vars(boundary_vars)

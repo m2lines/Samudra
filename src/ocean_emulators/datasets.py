@@ -59,9 +59,9 @@ class InferenceDataset(Dataset):
         self.device = get_device()
 
         self.hist = hist
-        data = src.data
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
@@ -222,7 +222,7 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_np = (
+        data_in_boundary_np: np.ndarray = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
             .to_numpy()

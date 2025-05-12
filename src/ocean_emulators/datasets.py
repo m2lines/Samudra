@@ -284,7 +284,6 @@ class InferenceDataset(Dataset):
             label,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
-
         return label
 
     def get_coords_dict(self):
@@ -650,41 +649,36 @@ class TorchTrainDataset(Dataset):
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
-        x_indexes = [self._get_x_index(idx, step) for step in range(self.steps)]
-        x_index = xr.concat(x_indexes, dim="step")
 
-        if "lev" in self._prognostic_src.data.dims:
-            prognostic_all = torch.from_numpy(
-                conditional_rearrange(
-                    self._prognostic_src.data.isel(time=x_index),
-                    "step time (variable lev)=var lat lon",
-                    concat_dim="var",
+        for step in range(self.steps):
+            x_index = self._get_x_index(idx, step)
+
+            if "lev" in self._prognostic_src.data.dims:
+                prognostic_all = torch.from_numpy(
+                    conditional_rearrange(
+                        self._prognostic_src.data.isel(time=x_index),
+                        "time (variable lev)=var lat lon",
+                        concat_dim="var",
+                    )
+                    .rename({"var": "variable"})
+                    .to_numpy()
                 )
-                .rename({"var": "variable"})
-                .to_numpy()
-            )
-        else:
-            prognostic_all = torch.from_numpy(
-                self._prognostic_src.data.isel(time=x_index)
+            else:
+                prognostic_all = torch.from_numpy(
+                    self._prognostic_src.data.isel(time=x_index)
+                    .to_array()
+                    .transpose("time", "variable", "lat", "lon")
+                    .to_numpy()
+                )
+            boundary = torch.from_numpy(
+                self._boundary_src.data.isel(time=x_index)
                 .to_array()
-                .transpose("step", "time", "variable", "lat", "lon")
+                .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
             )
-        boundary = torch.from_numpy(
-            self._boundary_src.data.isel(time=x_index)
-            .isel(time=self.hist, drop=True)
-            .to_array()
-            .transpose("step", "variable", "lat", "lon")
-            .to_numpy()
-        )
 
-        input_, label = self._get_input_and_label(prognostic_all, boundary)
-
-        for i in range(input_.shape[0]):
-            TD.insert(
-                input_=input_[i],
-                label=label[i],
-            )
+            input_, label = self._get_input_and_label(prognostic_all, boundary)
+            TD.insert(input_=input_, label=label)
 
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
         return TD
@@ -716,13 +710,12 @@ class TorchTrainDataset(Dataset):
             tensor: torch.Tensor,
             src: DataSource,
             mask: torch.Tensor,
-            variable_axis: int = 2,
         ) -> torch.Tensor:
             if self.normalize_before_mask:
-                tensor = src.normalize_with(tensor, variable_axis=variable_axis).float()
+                tensor = src.normalize_with(tensor, variable_axis=1).float()
             tensor = torch.where(mask, tensor, self.masked_fill_value)
             if not self.normalize_before_mask:
-                tensor = src.normalize_with(tensor, variable_axis=variable_axis).float()
+                tensor = src.normalize_with(tensor, variable_axis=1).float()
             return tensor
 
         prognostic_steps = normalize_and_mask(
@@ -730,7 +723,7 @@ class TorchTrainDataset(Dataset):
         )
         if boundary_steps is not None:
             boundary_steps = normalize_and_mask(
-                boundary_steps, self._boundary_src, self.wet_surface, variable_axis=1
+                boundary_steps, self._boundary_src, self.wet_surface
             )
 
         # Flatten time and variable dimensions

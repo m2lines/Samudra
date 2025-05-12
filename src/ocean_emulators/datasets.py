@@ -222,22 +222,11 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        if "lev" in data_in_boundary_ds.dims:
-            data_in_boundary_np: np.ndarray = (
-                conditional_rearrange(
-                    data_in_boundary_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-            )
-        else:
-            data_in_boundary_np = (
-                data_in_boundary_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
-            )
+        data_in_boundary_np = (
+            data_in_boundary_ds.to_array()
+            .transpose("window_dim", "time", "variable", "lat", "lon")
+            .to_numpy()
+        )
         data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
         data_in_boundary = torch.where(
             self.wet_surface, data_in_boundary, self.masked_fill_value

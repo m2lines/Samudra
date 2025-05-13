@@ -333,8 +333,9 @@ def conditional_rearrange(
     # compute a list of indices that will sort the data in the correct order.
     order = np.concatenate(
         (
-            np.roll(np.arange(n_center + n_front), n_front),  # Moves vars to the front
-            np.arange(n_center + n_front, n_front + n_center + n_back),  # rest of vars
+            # Moves vars to the front
+            np.roll(np.arange((new_front := n_center + n_front)), n_front),
+            np.arange(new_front, new_front + n_back),  # rest of vars
         )
     )
     order_da = xr.DataArray(order, dims=concat_dim)

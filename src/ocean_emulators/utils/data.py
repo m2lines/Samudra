@@ -248,6 +248,9 @@ def conditional_rearrange(
     to depth and surface variables, including and excluding variables who have a `time`
     dimension, respectively.
 
+    This method is stable: even if it creates a new number of dimensions, it will
+    preserve the order of the variables in the original dataset.
+
     Args:
         data: The dataset to rearrange.
         pattern: The einsum pattern to use for rearranging.
@@ -259,8 +262,24 @@ def conditional_rearrange(
     """
     assert except_dim in pattern, f"{except_dim} must be in the pattern."
 
+    all_vars = list(data.keys())
+
     vars_with_dim = [v for v in data if except_dim in data[v].dims]
     vars_without_dim = [v for v in data if except_dim not in data[v].dims]
+
+    # Some of the `vars_without_dim` may need to appear before or behind `vars_with_dim`
+    # in the final data array. These lists help preserve the correct order of the vars,
+    # even after a rearrangement (i.e. merge to two or more dimensions).
+    back = [
+        v
+        for v in vars_without_dim
+        if all_vars.index(v) > all_vars.index(vars_with_dim[0])
+    ]
+    front = [
+        v
+        for v in vars_without_dim
+        if all_vars.index(v) < all_vars.index(vars_with_dim[-1])
+    ]
 
     data_with_dim = (
         data[vars_with_dim]
@@ -274,7 +293,25 @@ def conditional_rearrange(
         .einops.rearrange(pattern.replace(except_dim, ""), dask="allowed")
         .drop_vars(concat_dim, errors="ignore")
     )
-    return xr.concat([data_without_dim, data_with_dim], dim=concat_dim)
+
+    da = xr.concat([data_with_dim, data_without_dim], dim=concat_dim)
+
+    n_front = len(front)
+    n_center = data_with_dim.sizes[concat_dim]
+    n_back = len(back)
+
+    # In the `concat` above, we put all the `data_without_dim` vars at the end. Some of
+    # these need to be moved to the front, and the rest stays at the back. Here, we
+    # compute a list of indices that will sort the data in the correct order.
+    order = np.concatenate(
+        (
+            np.roll(np.arange(n_center + n_front), n_front),  # Moves vars to the front
+            np.arange(n_center + n_front, n_front + n_center + n_back),  # rest of vars
+        )
+    )
+    order_da = xr.DataArray(order, dims=concat_dim)
+
+    return da.sortby(order_da)
 
 
 def extract_wet_mask(

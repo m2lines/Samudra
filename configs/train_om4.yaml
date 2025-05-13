@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
+batch_size: 1
 learning_rate: 0.0002
 scheduler: true
 loss: mse
@@ -48,7 +48,7 @@ experiment:
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 data:
-  !include data/om4_ohc.yaml
+  !include data/alex.yaml
 
 
 samudra:
@@ -72,4 +72,4 @@ samudra:
 
   corrector:
     non_negative_corrector_names: null
-    ocean_heat_corrector: true
+    ocean_heat_corrector: false

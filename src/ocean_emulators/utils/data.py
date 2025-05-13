@@ -77,6 +77,9 @@ class DataSource:
                 if "_" not in mangled_var_name:
                     parsed_var_names.append(mangled_var_name)
                     continue
+                if "anomalies" in mangled_var_name:
+                    parsed_var_names.append(mangled_var_name)
+                    continue
                 tokens = mangled_var_name.split("_")
                 var_name, level = tokens[0], int(tokens[1])
 

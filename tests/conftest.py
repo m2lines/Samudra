@@ -2,7 +2,6 @@ import dataclasses
 import pathlib
 import random
 import time
-from collections import defaultdict
 from collections.abc import Generator
 from typing import ClassVar, Self
 
@@ -16,7 +15,7 @@ from numpy.typing import ArrayLike, NDArray
 import ocean_emulators.constants as c
 from ocean_emulators.config import JulianDate, TrainBackendConfig, TrainConfig
 from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import DataSource
+from ocean_emulators.utils.data import DataSource, compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -266,32 +265,6 @@ class DataSourceDims:
             ),
         )
         return data_source, data_var_index
-
-
-def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
-    data = ds.copy()
-
-    var_groups = defaultdict(list)
-    for key in data.keys():
-        if "_lev_" in (k := str(key)):
-            base_name = k.split("_lev_")[0]
-            var_groups[base_name].append(k)
-
-    def _parse_level(x) -> float:
-        return float(x.split("_lev_")[1].replace("_", "."))
-
-    for base_var, vars_ in var_groups.items():
-        sorted_vars = sorted(vars_, key=_parse_level)
-        levels = [_parse_level(var) for var in sorted_vars]
-        if hasattr(data, "lev"):
-            levels = data.lev.values
-        da = xr.concat([data[var] for var in sorted_vars], dim="lev").assign_coords(
-            lev=("lev", levels)
-        )
-        data[base_var] = da
-        data = data.drop_vars(vars_)
-
-    return data
 
 
 def maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource | None:

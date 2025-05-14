@@ -32,18 +32,13 @@ from ocean_emulators.datasets import (
 from ocean_emulators.utils.data import (
     DataSource,
     Normalize,
+    compact_dataset,
     extract_wet_mask,
     validate_data,
 )
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_train_data
-from tests.conftest import (
-    DEFAULT_CONFIG,
-    DataSourceDims,
-    TrainPair,
-    cache_dir,
-    compact_dataset,
-)
+from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
 
 
 @pytest.fixture

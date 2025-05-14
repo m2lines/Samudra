@@ -1,6 +1,7 @@
 """Test core Datasets and DataLoaders."""
 
 import contextlib
+import dataclasses
 import datetime
 import os
 from collections.abc import Callable, Generator
@@ -32,7 +33,6 @@ from ocean_emulators.datasets import (
 from ocean_emulators.utils.data import (
     DataSource,
     Normalize,
-    compact_dataset,
     extract_wet_mask,
     validate_data,
 )
@@ -398,24 +398,14 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
     assert_equal_samples(original_samples, new_samples)
 
 
+# Warning: the names/constants used in this test are catered to the implementation
+# details of the caches used in `data_source`. For example, this only works for the
+# constants "remote-om4" and "compact", which this tests uses to create specific paths
+# to a local directory of cached data.
 @pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
 def test_compact_loader__equals_flat_loader(
     data_source: DataSource, pytestconfig: pytest.Config
 ):
-    if data_source.is_compact:
-        raise ValueError(
-            "This test uses internals from the `data_source` test fixture"
-            " to create flat and compact datasets! Please don't use the "
-            "'compact' `data_source` fixture."
-        )
-
-    def _compact(data, means, stds):
-        return compact_dataset(data), compact_dataset(means), compact_dataset(stds)
-
-    flat_data = data_source
-    compact_data = data_source.map(_compact)
-    compact_data.name = "compact"  # Needed in order to access local cache of data.
-
     cache = cache_dir(pytestconfig)
     default_config = str(pytestconfig.rootpath / "configs" / DEFAULT_CONFIG)
 
@@ -428,8 +418,13 @@ def test_compact_loader__equals_flat_loader(
             ]
         )
 
-    flat_config = make_config(flat_data)
-    compact_config = make_config(compact_data)
+    flat_config = make_config(data_source)
+
+    # Now, we get the compact data from its local data cache! We can do this just by
+    # passing in the correct name. The cache will already have been set up by the test
+    # fixture.
+    compact_source = dataclasses.replace(data_source, name="compact")
+    compact_config = make_config(compact_source)
 
     with make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader:
         original_samples = [extract_sample_arrays(sample) for sample in flat_loader]

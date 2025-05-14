@@ -348,3 +348,24 @@ like so:
 ```shell
 uvx snakeviz <benchmark_path>.prof
 ```
+
+We also have a few other profiling tools available in the environment, including:
+
+[py-spy](https://github.com/benfred/py-spy), which captures python + native CPU usage:
+```shell
+uv run py-spy record --native -o profile.svg -- ./.venv/bin/python  src/ocean_emulators/train.py configs/train_om4.yaml
+```
+
+[memray](https://github.com/bloomberg/memray), which captures peak memory usage:
+
+```shell
+uv run memray run src/ocean_emulators/train.py --config configs/train_om4.yaml
+uv run memray flamegraph path/to/memray-output.bin
+```
+
+And [scalene](https://github.com/joaomdmoura/scalene), which shows per-line python/native CPU usage,
+memory usage and GPU (though the latter is a bit deceptive since it is async wrt the highlighted code).
+
+```shell
+uv run scalene src/ocean_emulators/train.py configs/train_om4.yaml
+```

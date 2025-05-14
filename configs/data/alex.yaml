@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=../schemas/DataConfig.json
 
-data_path: /home/alxmrs/Ocean_Emulator/.data_cache/compact/OM4.zarr
-data_means_path: /home/alxmrs/Ocean_Emulator/.data_cache/compact/OM4_means.nc
-data_stds_path: /home/alxmrs/Ocean_Emulator/.data_cache/compact/OM4_stds.nc
+data_path: /home/alxmrs/Ocean_Emulator/.data_cache/samudra/OM4.zarr
+data_means_path: /home/alxmrs/Ocean_Emulator/.data_cache/samudra/OM4_means.nc
+data_stds_path: /home/alxmrs/Ocean_Emulator/.data_cache/samudra/OM4_stds.nc
 loader_version: om4-torch
 num_workers: 4
 hist: 1

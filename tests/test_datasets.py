@@ -390,14 +390,12 @@ def assert_equal_samples(original_samples, new_samples):
 )
 @pytest.mark.parametrize("data_source", ["mock"], indirect=True)
 def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
-    with (
-        make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader,
-        make_loader(train_config, version=loader_version) as new_loader,
-    ):
+    with make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader:
         original_samples = [extract_sample_arrays(sample) for sample in original_loader]
+    with make_loader(train_config, version=loader_version) as new_loader:
         new_samples = [extract_sample_arrays(sample) for sample in new_loader]
 
-        assert_equal_samples(original_samples, new_samples)
+    assert_equal_samples(original_samples, new_samples)
 
 
 @pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
@@ -433,14 +431,12 @@ def test_compact_loader__equals_flat_loader(
     flat_config = make_config(flat_data)
     compact_config = make_config(compact_data)
 
-    with (
-        make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader,
-        make_loader(compact_config, version=LoaderVersion.OM4_TORCH) as compact_loader,
-    ):
+    with make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader:
         original_samples = [extract_sample_arrays(sample) for sample in flat_loader]
+    with make_loader(compact_config, version=LoaderVersion.OM4_TORCH) as compact_loader:
         new_samples = [extract_sample_arrays(sample) for sample in compact_loader]
 
-        assert_equal_samples(original_samples, new_samples)
+    assert_equal_samples(original_samples, new_samples)
 
 
 @pytest.fixture

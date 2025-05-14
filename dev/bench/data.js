@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747241806612,
+  "lastUpdate": 1747241808559,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1982,6 +1982,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.25787340421501",
             "extra": "mean: 110.10066298280007 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff81c07df95dda17ba1dfb9971412c08c781c751",
+          "message": "Add & document some profiling tools (#233)\n\nDocument some helpful profiling tools I've been using and how to call\nthem.",
+          "timestamp": "2025-05-14T12:12:01-04:00",
+          "tree_id": "fd878e3503e902e8193f3214a27215347d2cf9c3",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/ff81c07df95dda17ba1dfb9971412c08c781c751"
+        },
+        "date": 1747241807700,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.17267110135061173,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7502925839736372",
+            "extra": "mean: 5.791357049200042 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.04390378179388642,
+            "unit": "iter/sec",
+            "range": "stddev: 0.721063408262901",
+            "extra": "mean: 22.777081133799946 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.12847493478873134,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10961939719760452",
+            "extra": "mean: 7.783619440200027 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.009720141144220717,
+            "unit": "iter/sec",
+            "range": "stddev: 2.3425248771308143",
+            "extra": "mean: 102.87916452679988 sec\nrounds: 5"
           }
         ]
       }

@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import re
 from collections.abc import Callable
 from functools import cached_property
 from typing import Literal, Self
@@ -32,6 +33,12 @@ from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.multiton import Multiton
 
 
+def _var_name_encode_level(var_name: str) -> bool:
+    """Check if the variable name encodes the level."""
+    var_name_encodes_level = re.compile(r"_[0-9]+")
+    return bool(var_name_encodes_level.search(var_name))
+
+
 @dataclasses.dataclass
 class DataSource:
     """Data source for the model."""
@@ -45,10 +52,9 @@ class DataSource:
     def is_compact(self) -> bool:
         """Check if the data source is compact."""
         return all(
-            "_" not in str(v)
+            not _var_name_encode_level(str(v))
             for d in [self.data, self.means, self.stds]
             for v in d.keys()
-            if "anom" not in str(v)
         )
 
     def filter(
@@ -73,10 +79,7 @@ class DataSource:
         if self.is_compact:
             parsed_var_names, levels = [], []
             for mangled_var_name in var_names:
-                if "_" not in mangled_var_name:
-                    parsed_var_names.append(mangled_var_name)
-                    continue
-                if "anomalies" in mangled_var_name:
+                if not _var_name_encode_level(mangled_var_name):
                     parsed_var_names.append(mangled_var_name)
                     continue
                 tokens = mangled_var_name.split("_")
@@ -299,13 +302,16 @@ def conditional_rearrange(
 
     da = xr.concat([data_with_dim, data_without_dim], dim=concat_dim)
 
-    n_front = len(front)
-    n_center = data_with_dim.sizes[concat_dim]
-    n_back = len(back)
+    n_front = len(front)  # e.g. n_front=2
+    n_center = data_with_dim.sizes[concat_dim]  # e.g. n_center=10
+    n_back = len(back)  # e.g. n_back=3
 
     # In the `concat` above, we put all the `data_without_dim` vars at the end. Some of
     # these need to be moved to the front, and the rest stays at the back. Here, we
     # compute a list of indices that will sort the data in the correct order.
+    #
+    # e.g. with the example constants above, order would look like:
+    #  array([10, 11,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 12, 13, 14])
     order = np.concatenate(
         (
             # Moves vars to the front

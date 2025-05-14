@@ -242,7 +242,7 @@ def data_init(hist: int):
         data_mean = data.mean() * 0.0
         data_std = data.std() * 0.0 + 1.0
         src = DataSource("test", data, data_mean, data_std)
-        val = validate_data(src, [])
+        val = validate_data(src, tensor_map.boundary_var_names)
         (wet_without_hist, wet_mask_surface) = extract_wet_mask(
             val.data, tensor_map.prognostic_var_names, 0
         )

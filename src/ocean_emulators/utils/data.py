@@ -1,5 +1,7 @@
 import dataclasses
 import logging
+import re
+from collections import defaultdict
 from collections.abc import Callable
 from functools import cached_property
 from typing import Literal, Self
@@ -32,6 +34,12 @@ from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.multiton import Multiton
 
 
+def _var_name_encode_level(var_name: str) -> bool:
+    """Check if the variable name encodes the level."""
+    var_name_encodes_level = re.compile(r"_[0-9]+")
+    return bool(var_name_encodes_level.search(var_name))
+
+
 @dataclasses.dataclass
 class DataSource:
     """Data source for the model."""
@@ -45,10 +53,9 @@ class DataSource:
     def is_compact(self) -> bool:
         """Check if the data source is compact."""
         return all(
-            "_" not in str(v)
+            not _var_name_encode_level(str(v))
             for d in [self.data, self.means, self.stds]
             for v in d.keys()
-            if "anom" not in str(v)
         )
 
     def filter(
@@ -73,10 +80,7 @@ class DataSource:
         if self.is_compact:
             parsed_var_names, levels = [], []
             for mangled_var_name in var_names:
-                if "_" not in mangled_var_name:
-                    parsed_var_names.append(mangled_var_name)
-                    continue
-                if "anomalies" in mangled_var_name:
+                if not _var_name_encode_level(mangled_var_name):
                     parsed_var_names.append(mangled_var_name)
                     continue
                 tokens = mangled_var_name.split("_")
@@ -299,13 +303,16 @@ def conditional_rearrange(
 
     da = xr.concat([data_with_dim, data_without_dim], dim=concat_dim)
 
-    n_front = len(front)
-    n_center = data_with_dim.sizes[concat_dim]
-    n_back = len(back)
+    n_front = len(front)  # e.g. n_front=2
+    n_center = data_with_dim.sizes[concat_dim]  # e.g. n_center=10
+    n_back = len(back)  # e.g. n_back=3
 
     # In the `concat` above, we put all the `data_without_dim` vars at the end. Some of
     # these need to be moved to the front, and the rest stays at the back. Here, we
     # compute a list of indices that will sort the data in the correct order.
+    #
+    # e.g. with the example constants above, order would look like:
+    #  array([10, 11,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 12, 13, 14])
     order = np.concatenate(
         (
             # Moves vars to the front
@@ -543,8 +550,6 @@ def validate_data(
     static_data_vars: list[str] | None = None,
 ) -> DataSource:
     """Validate the data such that we have the correct format for training."""
-    anomalies_vars = get_anomalies_vars(boundary_vars)
-
     if static_data_vars is not None:
 
         def _static_data_checks(data):
@@ -561,24 +566,25 @@ def validate_data(
 
     if src.is_compact:
         src_ = src.map_data(with_lat_lon_coords)
-        return compute_anomalies(src_, anomalies_vars)
+    else:
 
-    def validated(data, means, stds):
-        data = (
-            data.pipe(flatten_masks)
-            .pipe(with_level_index_vars)
-            .pipe(with_lat_lon_coords)
-        )
+        def validated(data, means, stds):
+            data = (
+                data.pipe(flatten_masks)
+                .pipe(with_level_index_vars)
+                .pipe(with_lat_lon_coords)
+            )
 
-        # Check if data variables are in the right format
-        # This check is to ensure we convert data to the correct format
-        means = with_level_index_vars(means)
-        stds = with_level_index_vars(stds)
-        return data, means, stds
+            # Check if data variables are in the right format
+            # This check is to ensure we convert data to the correct format
+            means = with_level_index_vars(means)
+            stds = with_level_index_vars(stds)
+            return data, means, stds
 
-    src_ = src.map(validated, suffix="validated")
+        src_ = src.map(validated, suffix="validated")
 
     # Check if any anomalies are needed to be computed
+    anomalies_vars = get_anomalies_vars(boundary_vars)
     out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
 
     return out
@@ -685,3 +691,29 @@ class LoadStats:
     def accumulated(cls, stats: list["LoadStats"]) -> "LoadStats":
         """Accumulate the stats across multiple LoadStats objects in a batch."""
         return cls(sum(s.load_time_seconds for s in stats))
+
+
+def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
+    data = ds.copy()
+
+    var_groups = defaultdict(list)
+    for key in data.keys():
+        if "_lev_" in (k := str(key)):
+            base_name = k.split("_lev_")[0]
+            var_groups[base_name].append(k)
+
+    def _parse_level(x) -> float:
+        return float(x.split("_lev_")[1].replace("_", "."))
+
+    for base_var, vars_ in var_groups.items():
+        sorted_vars = sorted(vars_, key=_parse_level)
+        levels = [_parse_level(var) for var in sorted_vars]
+        if hasattr(data, "lev"):
+            levels = data.lev.values
+        da = xr.concat([data[var] for var in sorted_vars], dim="lev").assign_coords(
+            lev=("lev", levels)
+        )
+        data[base_var] = da
+        data = data.drop_vars(vars_)
+
+    return data

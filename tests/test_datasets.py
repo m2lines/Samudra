@@ -1,6 +1,7 @@
 """Test core Datasets and DataLoaders."""
 
 import contextlib
+import dataclasses
 import datetime
 import os
 from collections.abc import Callable, Generator
@@ -37,13 +38,7 @@ from ocean_emulators.utils.data import (
 )
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_train_data
-from tests.conftest import (
-    DEFAULT_CONFIG,
-    DataSourceDims,
-    TrainPair,
-    cache_dir,
-    compact_dataset,
-)
+from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
 
 
 @pytest.fixture
@@ -369,49 +364,48 @@ def test_inference__data_is_not_zero(inference_loader_pair):
 ORIGINAL_LOADER_VERSION = LoaderVersion.OM4_EAGER
 
 
+def assert_equal_samples(original_samples, new_samples):
+    for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
+        assert x_orig.dtype == x_new.dtype, "Input data types do not match."
+        assert y_orig.dtype == y_new.dtype, "Output data types do not match."
+
+        x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
+        y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
+
+        x_not_equal_index = list(zip(*np.where(x_not_equal)))
+        y_not_equal_index = list(zip(*np.where(y_not_equal)))
+
+        assert not np.any(x_not_equal), (
+            f"{len(x_not_equal_index)} values differ: "
+            f"{x_orig[x_not_equal_index]} != {x_new[x_not_equal_index]}."
+        )
+        assert not np.any(y_not_equal), (
+            f"{len(y_not_equal_index)} values differ: "
+            f"{y_orig[y_not_equal_index]} != {y_new[y_not_equal_index]}."
+        )
+
+
 @pytest.mark.parametrize(
     "loader_version", [v for v in LoaderVersion if v != ORIGINAL_LOADER_VERSION]
 )
 @pytest.mark.parametrize("data_source", ["mock"], indirect=True)
 def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
-    with (
-        make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader,
-        make_loader(train_config, version=loader_version) as new_loader,
-    ):
+    with make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader:
         original_samples = [extract_sample_arrays(sample) for sample in original_loader]
+    with make_loader(train_config, version=loader_version) as new_loader:
         new_samples = [extract_sample_arrays(sample) for sample in new_loader]
 
-        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
-            assert x_orig.dtype == x_new.dtype, "Input data types do not match."
-            assert y_orig.dtype == y_new.dtype, "Output data types do not match."
-
-            x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
-            y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
-
-            x_not_equal_index = list(zip(*np.where(x_not_equal)))
-            y_not_equal_index = list(zip(*np.where(y_not_equal)))
-
-            assert not np.any(x_not_equal), (
-                f"{len(x_not_equal_index)} values differ: "
-                f"{x_orig[x_not_equal_index]} != {x_new[x_not_equal_index]}."
-            )
-            assert not np.any(y_not_equal), (
-                f"{len(y_not_equal_index)} values differ: "
-                f"{y_orig[y_not_equal_index]} != {y_new[y_not_equal_index]}."
-            )
+    assert_equal_samples(original_samples, new_samples)
 
 
+# Warning: the names/constants used in this test are catered to the implementation
+# details of the caches used in `data_source`. For example, this only works for the
+# constants "remote-om4" and "compact", which this tests uses to create specific paths
+# to a local directory of cached data.
 @pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
 def test_compact_loader__equals_flat_loader(
     data_source: DataSource, pytestconfig: pytest.Config
 ):
-    def _compact(data, means, stds):
-        return compact_dataset(data), compact_dataset(means), compact_dataset(stds)
-
-    flat_data = data_source
-    compact_data = data_source.map(_compact)
-    compact_data.name = "compact"  # Needed in order to access local cache of data.
-
     cache = cache_dir(pytestconfig)
     default_config = str(pytestconfig.rootpath / "configs" / DEFAULT_CONFIG)
 
@@ -424,34 +418,20 @@ def test_compact_loader__equals_flat_loader(
             ]
         )
 
-    flat_config = make_config(flat_data)
-    compact_config = make_config(compact_data)
+    flat_config = make_config(data_source)
 
-    with (
-        make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader,
-        make_loader(compact_config, version=LoaderVersion.OM4_TORCH) as compact_loader,
-    ):
+    # Now, we get the compact data from its local data cache! We can do this just by
+    # passing in the correct name. The cache will already have been set up by the test
+    # fixture.
+    compact_source = dataclasses.replace(data_source, name="compact")
+    compact_config = make_config(compact_source)
+
+    with make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader:
         original_samples = [extract_sample_arrays(sample) for sample in flat_loader]
+    with make_loader(compact_config, version=LoaderVersion.OM4_TORCH) as compact_loader:
         new_samples = [extract_sample_arrays(sample) for sample in compact_loader]
 
-        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
-            assert x_orig.dtype == x_new.dtype, "Input data types do not match."
-            assert y_orig.dtype == y_new.dtype, "Output data types do not match."
-
-            x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
-            y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
-
-            x_not_equal_index = list(zip(*np.where(x_not_equal)))
-            y_not_equal_index = list(zip(*np.where(y_not_equal)))
-
-            assert not np.any(x_not_equal), (
-                f"{len(x_not_equal_index)} values differ: "
-                f"{x_orig[x_not_equal_index[0]]} != {x_new[x_not_equal_index[0]]}."
-            )
-            assert not np.any(y_not_equal), (
-                f"{len(y_not_equal_index)} values differ: "
-                f"{y_orig[y_not_equal_index[0]]} != {y_new[y_not_equal_index[0]]}."
-            )
+    assert_equal_samples(original_samples, new_samples)
 
 
 @pytest.fixture

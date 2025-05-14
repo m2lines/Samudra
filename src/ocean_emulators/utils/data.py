@@ -569,8 +569,6 @@ def validate_data(
     static_data_vars: list[str] | None = None,
 ) -> DataSource:
     """Validate the data such that we have the correct format for training."""
-    anomalies_vars = get_anomalies_vars(boundary_vars)
-
     if static_data_vars is not None:
 
         def _static_data_checks(data):
@@ -587,24 +585,25 @@ def validate_data(
 
     if src.is_compact:
         src_ = src.map_data(with_lat_lon_coords)
-        return compute_anomalies(src_, anomalies_vars)
+    else:
 
-    def validated(data, means, stds):
-        data = (
-            data.pipe(flatten_masks)
-            .pipe(with_level_index_vars)
-            .pipe(with_lat_lon_coords)
-        )
+        def validated(data, means, stds):
+            data = (
+                data.pipe(flatten_masks)
+                .pipe(with_level_index_vars)
+                .pipe(with_lat_lon_coords)
+            )
 
-        # Check if data variables are in the right format
-        # This check is to ensure we convert data to the correct format
-        means = with_level_index_vars(means)
-        stds = with_level_index_vars(stds)
-        return data, means, stds
+            # Check if data variables are in the right format
+            # This check is to ensure we convert data to the correct format
+            means = with_level_index_vars(means)
+            stds = with_level_index_vars(stds)
+            return data, means, stds
 
-    src_ = src.map(validated, suffix="validated")
+        src_ = src.map(validated, suffix="validated")
 
     # Check if any anomalies are needed to be computed
+    anomalies_vars = get_anomalies_vars(boundary_vars)
     out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
 
     return out

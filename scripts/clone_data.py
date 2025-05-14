@@ -11,13 +11,16 @@
 #   "numcodecs>=0.15",
 #   "distributed",
 #   "tenacity",
+#   "ocean-emulators",
 # ]
+#
+# [tool.uv.sources]
+# ocean-emulators = { path = "../" }
 # ///
 
 import argparse
 import os
 import pathlib
-from collections import defaultdict
 
 import dask
 import dask.diagnostics
@@ -25,38 +28,14 @@ import xarray as xr
 from dask.distributed import LocalCluster
 from tenacity import retry
 
+from ocean_emulators.utils.data import compact_dataset
+
 DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 
 
 @retry
 def robust_open_dataset(target: str, **kwargs) -> xr.Dataset:
     return xr.open_dataset(target, **kwargs)
-
-
-def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
-    data = ds.copy()
-
-    var_groups = defaultdict(list)
-    for key in data.keys():
-        if "_lev_" in (k := str(key)):
-            base_name = k.split("_lev_")[0]
-            var_groups[base_name].append(k)
-
-    def _parse_level(x) -> float:
-        return float(x.split("_lev_")[1].replace("_", "."))
-
-    for base_var, vars_ in var_groups.items():
-        sorted_vars = sorted(vars_, key=_parse_level)
-        levels = [_parse_level(var) for var in sorted_vars]
-        if hasattr(data, "lev"):
-            levels = data.lev.values
-        da = xr.concat([data[var] for var in sorted_vars], dim="lev").assign_coords(
-            lev=("lev", levels)
-        )
-        data[base_var] = da
-        data = data.drop_vars(vars_)
-
-    return data
 
 
 def main(args: argparse.Namespace) -> None:

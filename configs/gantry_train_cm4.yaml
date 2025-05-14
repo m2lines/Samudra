@@ -86,7 +86,7 @@ samudra:
   corrector:
     non_negative_corrector_names:
       - "so"
-    ocean_heat_corrector: false
+    ocean_heat_corrector: true
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

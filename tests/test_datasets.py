@@ -357,6 +357,27 @@ def test_inference__data_is_not_zero(inference_loader_pair):
 ORIGINAL_LOADER_VERSION = LoaderVersion.OM4_EAGER
 
 
+def assert_equal_samples(original_samples, new_samples):
+    for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
+        assert x_orig.dtype == x_new.dtype, "Input data types do not match."
+        assert y_orig.dtype == y_new.dtype, "Output data types do not match."
+
+        x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
+        y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
+
+        x_not_equal_index = list(zip(*np.where(x_not_equal)))
+        y_not_equal_index = list(zip(*np.where(y_not_equal)))
+
+        assert not np.any(x_not_equal), (
+            f"{len(x_not_equal_index)} values differ: "
+            f"{x_orig[x_not_equal_index]} != {x_new[x_not_equal_index]}."
+        )
+        assert not np.any(y_not_equal), (
+            f"{len(y_not_equal_index)} values differ: "
+            f"{y_orig[y_not_equal_index]} != {y_new[y_not_equal_index]}."
+        )
+
+
 @pytest.mark.parametrize(
     "loader_version", [v for v in LoaderVersion if v != ORIGINAL_LOADER_VERSION]
 )
@@ -369,30 +390,20 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
         original_samples = [extract_sample_arrays(sample) for sample in original_loader]
         new_samples = [extract_sample_arrays(sample) for sample in new_loader]
 
-        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
-            assert x_orig.dtype == x_new.dtype, "Input data types do not match."
-            assert y_orig.dtype == y_new.dtype, "Output data types do not match."
-
-            x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
-            y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
-
-            x_not_equal_index = list(zip(*np.where(x_not_equal)))
-            y_not_equal_index = list(zip(*np.where(y_not_equal)))
-
-            assert not np.any(x_not_equal), (
-                f"{len(x_not_equal_index)} values differ: "
-                f"{x_orig[x_not_equal_index]} != {x_new[x_not_equal_index]}."
-            )
-            assert not np.any(y_not_equal), (
-                f"{len(y_not_equal_index)} values differ: "
-                f"{y_orig[y_not_equal_index]} != {y_new[y_not_equal_index]}."
-            )
+        assert_equal_samples(original_samples, new_samples)
 
 
 @pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
 def test_compact_loader__equals_flat_loader(
     data_source: DataSource, pytestconfig: pytest.Config
 ):
+    if data_source.is_compact:
+        raise ValueError(
+            "This test uses internals from the `data_source` test fixture"
+            " to create flat and compact datasets! Please don't use the "
+            "'compact' `data_source` fixture."
+        )
+
     def _compact(data, means, stds):
         return compact_dataset(data), compact_dataset(means), compact_dataset(stds)
 
@@ -422,24 +433,7 @@ def test_compact_loader__equals_flat_loader(
         original_samples = [extract_sample_arrays(sample) for sample in flat_loader]
         new_samples = [extract_sample_arrays(sample) for sample in compact_loader]
 
-        for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
-            assert x_orig.dtype == x_new.dtype, "Input data types do not match."
-            assert y_orig.dtype == y_new.dtype, "Output data types do not match."
-
-            x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
-            y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
-
-            x_not_equal_index = list(zip(*np.where(x_not_equal)))
-            y_not_equal_index = list(zip(*np.where(y_not_equal)))
-
-            assert not np.any(x_not_equal), (
-                f"{len(x_not_equal_index)} values differ: "
-                f"{x_orig[x_not_equal_index[0]]} != {x_new[x_not_equal_index[0]]}."
-            )
-            assert not np.any(y_not_equal), (
-                f"{len(y_not_equal_index)} values differ: "
-                f"{y_orig[y_not_equal_index[0]]} != {y_new[y_not_equal_index[0]]}."
-            )
+        assert_equal_samples(original_samples, new_samples)
 
 
 @pytest.fixture

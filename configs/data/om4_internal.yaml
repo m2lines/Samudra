@@ -3,3 +3,4 @@
 data_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies
 data_means_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_means
 data_stds_path: 3D_data_OM4_5daily_v0.2.1_with_hfds_anomalies_stds
+static_data_vars: []

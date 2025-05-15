@@ -74,8 +74,8 @@ def main(args: argparse.Namespace) -> None:
 
     for name, dest_fmt in [
         ("OM4", "zarr"),
-        ("OM4_means", "netcdf"),
-        ("OM4_stds", "netcdf"),
+        ("OM4_means", "zarr"),
+        ("OM4_stds", "zarr"),
     ]:
         dest = os.path.join(args.dest, name)
         source = DATA_ROOT + name
@@ -92,7 +92,9 @@ def main(args: argparse.Namespace) -> None:
 
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":
-                data.chunk(output_chunks).to_zarr(dest + ".zarr")
+                if name == "OM4":
+                    data = data.chunk(output_chunks)
+                data.to_zarr(dest + ".zarr")
             else:
                 data.to_netcdf(dest + ".nc")
 

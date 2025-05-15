@@ -194,12 +194,13 @@ class Eval:
         self.model.load_state_dict(new_state_dict)
 
     def init_inference_store(self):
+        sliced_src = self.src.slice(self.inference_time)
         self.num_time_steps = get_inference_steps(
-            self.inference_time,
+            sliced_src,
             hist=self.hist,
         )
         self.inference_dataset = InferenceDataset(
-            src=self.src.slice(self.inference_time),
+            src=sliced_src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             wet=self.wet_without_hist_cpu,

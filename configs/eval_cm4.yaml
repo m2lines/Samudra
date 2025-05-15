@@ -4,8 +4,8 @@ debug: true
 save_zarr: true
 disk_mode: true
 inference_time:
-  start: 311-01-01
-  end: 351-01-01
+  start: 0311-01-01
+  end: 0351-01-01
 num_model_steps_forward: 370
 
 experiment:

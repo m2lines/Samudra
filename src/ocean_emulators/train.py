@@ -425,6 +425,8 @@ class Trainer:
         )
 
     def run(self) -> None:
+        logger.info(f"Starting training")
+        
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")

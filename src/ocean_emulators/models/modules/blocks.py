@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 import torch
 import torch.nn as nn
+import torch.utils.checkpoint
 
 from ocean_emulators.models.modules.activations import CappedGELU
 
@@ -145,6 +146,7 @@ class ConvNeXtBlock(CoreBlock):
         pad="circular",
         upscale_factor: int = 4,
         norm="batch",
+        checkpoint_simple: bool = False,
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
         assert n_layers == 1, "Can only use a single layer here!"
@@ -212,6 +214,7 @@ class ConvNeXtBlock(CoreBlock):
             )
         )
         self.convblock = torch.nn.Sequential(*convblock)
+        self.checkpoint_simple = checkpoint_simple
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # return self.skip_module(x) + self.convblock(x)
@@ -224,5 +227,8 @@ class ConvNeXtBlock(CoreBlock):
                 x = torch.nn.functional.pad(
                     x, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            x = layer(x)
+            if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
+                x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
+            else:
+                x = layer(x)
         return skip + x

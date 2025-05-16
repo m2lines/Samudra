@@ -57,6 +57,7 @@ class CorrectorConfig(BaseConfig):
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
+Checkpointing = Literal["blocks", "simple"]
 
 
 class SamudraConfig(BaseConfig):
@@ -74,6 +75,8 @@ class SamudraConfig(BaseConfig):
     corrector: CorrectorConfig = CorrectorConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
+
+    checkpointing: Checkpointing | None = None
 
 
 class DistributedConfig(BaseConfig):

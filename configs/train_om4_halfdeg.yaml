@@ -18,10 +18,10 @@ train_time:
   end: "1966-12-31"
 val_time:
   start: "1967-01-01"
-  end: "1967-12-31"
+  end: "1967-12-29"
 inference_times:
   - start: "1967-01-01"
-    end: "1967-12-31"
+    end: "1967-12-29"
 data_stride: [1]
 steps: [4]
 step_transition: []
@@ -35,14 +35,14 @@ experiment:
   base_output_dir: .LOCAL
   gantry: false
   wandb:
-    mode: online
+    mode: disabled
     project: ocean-emulators
     entity: m2lines
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 data:
-  !include data/om4_ohc.yaml
+  !include data/public.yaml
 
 
 samudra:
@@ -53,7 +53,7 @@ samudra:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
-  checkpointing: simple
+  checkpointing: blocks
 
   core_block:
     block_type: "conv_next_block"

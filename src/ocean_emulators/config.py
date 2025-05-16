@@ -4,10 +4,11 @@ from typing import Any, Literal
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
+from ocean_emulators.utils.profiler import Profiler
 
 
 class WandBConfig(BaseConfig):
-    mode: str = "disabled"  # online, disabled
+    mode: Literal["online", "disabled"] = "disabled"
     project: str = "3D_ocean_emu_CM4"
     entity: str = "suryadheeshjith"
     group: str | None = None
@@ -123,6 +124,15 @@ class ExperimentConfig(BaseConfig):
                 return Path(self.cluster_data_dir)
 
 
+class ProfilerConfig(BaseConfig):
+    # How often (in batches processed) to take a snapshot of the CUDA memory
+    # (None = no snapshots)
+    cuda_snapshot_frequency: int | None = None
+
+    def build(self, output_dir: Path) -> Profiler:
+        return Profiler(output_dir, self.cuda_snapshot_frequency)
+
+
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 LossType = Literal[
@@ -148,6 +158,9 @@ class TrainConfig(TopLevelConfig):
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True
     backend: TrainBackendConfig = "auto"
+
+    # Profiling parameters
+    profiler: ProfilerConfig = ProfilerConfig()
 
     # Data parameters at root level
     data_percent: float = 1.0

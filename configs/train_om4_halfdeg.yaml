@@ -15,17 +15,17 @@ inference_epochs: [-1]
 data_percent: 1.0
 train_time:
   start: "1958-01-03"
-  end: "1967-12-29"
+  end: "1966-12-31"
 val_time:
   start: "1967-01-01"
-  end: "1967-12-29"
+  end: "1967-12-31"
 inference_times:
   - start: "1967-01-01"
-    end: "1967-12-29"
+    end: "1967-12-31"
 data_stride: [1]
 steps: [4]
 step_transition: []
-preemptible: false
+preemptible: true
 
 backend: auto
 
@@ -53,6 +53,7 @@ samudra:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
+  checkpointing: simple
 
   core_block:
     block_type: "conv_next_block"

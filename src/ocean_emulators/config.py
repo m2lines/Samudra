@@ -2,6 +2,8 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal
 
+from pydantic import Field
+
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
 
@@ -76,7 +78,12 @@ class SamudraConfig(BaseConfig):
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
 
-    checkpointing: Checkpointing | None = None
+    checkpointing: Checkpointing | None = Field(
+        default=None,
+        description="Checkpointing strategy for the model; "
+        "'blocks' for recomputing each CoreBlock, "
+        "'simple' for recomputing only cheap layers like scales and nonlinearities",
+    )
 
 
 class DistributedConfig(BaseConfig):

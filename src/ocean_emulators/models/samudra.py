@@ -1,7 +1,11 @@
+from typing import assert_never
+
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.utils.checkpoint
 
+from ocean_emulators.config import SamudraConfig
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.corrector import Correctors
 from ocean_emulators.models.modules.blocks import (
@@ -19,7 +23,7 @@ from ocean_emulators.utils.train import pairwise
 
 
 class Samudra(BaseModel):
-    def __init__(self, config, hist, wet, area_weights, static_data):
+    def __init__(self, config: SamudraConfig, hist, wet, area_weights, static_data):
         super().__init__(
             ch_width=config.ch_width,
             n_out=config.n_out,
@@ -39,6 +43,19 @@ class Samudra(BaseModel):
         dilation = config.dilation.copy()
         n_layers = config.n_layers.copy()
 
+        match config.checkpointing:
+            case "blocks":
+                self.checkpoint_blocks = True
+                checkpoint_simple = False
+            case "simple":
+                self.checkpoint_blocks = False
+                checkpoint_simple = True
+            case None:
+                self.checkpoint_blocks = False
+                checkpoint_simple = False
+            case _:
+                assert_never(config.checkpointing)
+
         # going down
         layers = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
@@ -55,6 +72,7 @@ class Samudra(BaseModel):
                     pad=config.pad,
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
+                    checkpoint_simple=checkpoint_simple,
                 )
             )
             # Down sampling block
@@ -73,6 +91,7 @@ class Samudra(BaseModel):
                 pad=config.pad,
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
+                checkpoint_simple=checkpoint_simple,
             )
         )
 
@@ -100,6 +119,7 @@ class Samudra(BaseModel):
                     pad=config.pad,
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
+                    checkpoint_simple=checkpoint_simple,
                 )
             )
             layers.append(
@@ -119,6 +139,7 @@ class Samudra(BaseModel):
                 pad=config.pad,
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
+                checkpoint_simple=checkpoint_simple,
             )
         )
 
@@ -144,7 +165,10 @@ class Samudra(BaseModel):
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            fts = layer(fts)
+            if self.checkpoint_blocks:
+                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
+            else:
+                fts = layer(fts)
             if count < self.num_steps:
                 if isinstance(layer, CoreBlock):
                     temp[count] = fts

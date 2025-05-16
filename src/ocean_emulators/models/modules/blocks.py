@@ -92,6 +92,7 @@ class ConvBlock(CoreBlock):
         n_layers: int = 1,
         activation: Callable[[], torch.nn.Module] = CappedGELU,
         pad="circular",
+        checkpoint_simple: bool = False,
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
 
@@ -111,7 +112,7 @@ class ConvBlock(CoreBlock):
             layers.append(activation())
 
         self.layers = nn.ModuleList(layers)
-        # self.layers = nn.ModuleList(layer)
+        self.checkpoint_simple = checkpoint_simple
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
@@ -122,7 +123,10 @@ class ConvBlock(CoreBlock):
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            fts = layer(fts)
+            if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
+                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
+            else:
+                fts = layer(fts)
         return fts
 
 

@@ -1,1 +1,1 @@
-Dependencies are installed via `uv`. Please run tests with `uv run pytest 'not manual and not cuda' ...`" when making potentially breaking code changes. You can run precommit hooks with `uvx pre-commit run`
+Dependencies are installed via `uv`. Please run tests with `uv run pytest -m 'not manual and not cuda' ...`" when making potentially breaking code changes. You can run precommit hooks with `uvx pre-commit run`

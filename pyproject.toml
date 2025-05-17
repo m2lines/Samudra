@@ -29,6 +29,7 @@ dependencies = [
   "dask>=2025.2",
   "einops>=0.8.1",
   "jaxtyping>=0.3",
+  "lightning>=2.5.1.post0",
   "matplotlib>=3.10.1",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
   "pydantic-settings>=2.8.1",

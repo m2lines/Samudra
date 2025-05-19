@@ -353,7 +353,7 @@ class Trainer:
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
 
-        self.profiler = cfg.profiler.build(self.output_dir)
+        self.profiler = cfg.profiler.build(self.output_dir, self.device)
 
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()

@@ -20,5 +20,8 @@ class Profiler:
         if self.cuda_snapshot_frequency is not None:
             if num_batches_seen % self.cuda_snapshot_frequency == 0:
                 torch.cuda.memory._dump_snapshot(
-                    self.output_dir / f"cuda_memory_snapshot_{num_batches_seen}.json"
+                    str(
+                        self.output_dir
+                        / f"cuda_memory_snapshot_{num_batches_seen}.json"
+                    )
                 )

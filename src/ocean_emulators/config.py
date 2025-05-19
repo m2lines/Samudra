@@ -2,6 +2,8 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Literal
 
+import torch
+
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
 from ocean_emulators.utils.profiler import Profiler
@@ -129,7 +131,12 @@ class ProfilerConfig(BaseConfig):
     # (None = no snapshots)
     cuda_snapshot_frequency: int | None = None
 
-    def build(self, output_dir: Path) -> Profiler:
+    def build(self, output_dir: Path, device: torch.device) -> Profiler:
+        if self.cuda_snapshot_frequency is not None and device.type != "cuda":
+            raise ValueError(
+                "cuda_snapshot_frequency is only supported on CUDA devices, got "
+                f"{device.type}"
+            )
         return Profiler(output_dir, self.cuda_snapshot_frequency)
 
 

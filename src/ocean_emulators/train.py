@@ -353,6 +353,8 @@ class Trainer:
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
 
+        self.profiler = cfg.profiler.build(self.output_dir, self.device)
+
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
 
@@ -425,6 +427,8 @@ class Trainer:
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")
+
+        self.profiler.start()
 
         start_time = time.perf_counter()
         for epoch in range(self.start_epoch, self.epochs + 1):
@@ -552,6 +556,8 @@ class Trainer:
 
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
+
+            self.profiler.after_batch(self.num_batches_seen)
 
         if self.scheduler is not None:
             self.scheduler.step()

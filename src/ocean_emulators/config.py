@@ -4,9 +4,7 @@ from typing import Annotated, Any, Literal
 
 import cftime
 import torch
-from pydantic import PlainSerializer, PlainValidator, WithJsonSchema
-
-from pydantic import Field
+from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion

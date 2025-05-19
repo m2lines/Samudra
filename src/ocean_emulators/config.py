@@ -3,9 +3,8 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 import cftime
-from pydantic import PlainSerializer, PlainValidator, WithJsonSchema
-
 import torch
+from pydantic import PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion

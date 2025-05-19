@@ -3,7 +3,6 @@ import logging
 from collections.abc import Callable
 from typing import Literal, Self
 
-import cftime
 import numpy as np
 import torch
 import xarray as xr
@@ -29,6 +28,8 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.multiton import Multiton
+
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -82,6 +83,22 @@ class DataSource:
 
     def slice(self, time: TimeConfig) -> Self:
         """Slice the data source to only include the specified time slice."""
+        data_time_min = self.data.time.min().item()
+        data_time_max = self.data.time.max().item()
+        if time.start.datetime > data_time_max or time.end.datetime < data_time_min:
+            raise ValueError(
+                f"Time slice {time} is entirely outside the range of the data "
+                f"{data_time_min.strftime('%Y-%m-%d')} to "
+                f"{data_time_max.strftime('%Y-%m-%d')}"
+            )
+
+        if time.start.datetime < data_time_min or time.end.datetime > data_time_max:
+            logger.warning(
+                f"Time slice {time} is partially outside the range of the data "
+                f"{data_time_min.strftime('%Y-%m-%d')} to "
+                f"{data_time_max.strftime('%Y-%m-%d')}"
+            )
+
         data = self.data.sel(time=time.time_slice)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
 
@@ -116,6 +133,17 @@ class DataSource:
         return norm
 
     @classmethod
+    def from_dataset(cls, dataset: xr.Dataset, *, name: str = "dataset") -> Self:
+        """Create a DataSource from the data, computing means and stds."""
+        # TODO(alxmrs): Support compact data
+        assert "lev" not in dataset.dims, "We currently only support non-compact data"
+
+        means = dataset.mean()
+        stds = dataset.std()
+
+        return cls(name=name, data=dataset, means=means, stds=stds)
+
+    @classmethod
     def from_config(cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
 
@@ -125,7 +153,7 @@ class DataSource:
             data = xr.open_dataset(
                 root / cfg.data.data_path,
                 engine="netcdf4",
-                chunks={"time": 1, "lat": 180, "lon": 360},
+                chunks={"time": 1},
             )
         else:
             data = xr.open_dataset(
@@ -232,30 +260,22 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
     return weights
 
 
-def get_inference_steps(time_config: TimeConfig, hist: int = 1):
+def get_inference_steps(data_source: DataSource, hist: int = 1):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
     Args:
-        time_config: Time configuration
+        data_source: The data source sliced to the inference time range
         hist: Number of rollout steps
 
     Returns:
-        num_steps: Number of rollout steps
+        num_steps: Total number of rolled-out inferences which fit into the time range
     """
-    time_delta = TIME_DELTA
-    start_time_str = time_config.start
-    start_year, start_month, start_day = start_time_str.split("-")
-    start_time = cftime.DatetimeNoLeap(
-        int(start_year), int(start_month), int(start_day), 0, 0, 0
-    )
+    start_time = data_source.data.time.min().item()
+    end_time = data_source.data.time.max().item()
 
-    end_time_str = time_config.end
-    end_year, end_month, end_day = end_time_str.split("-")
-    end_time = cftime.DatetimeNoLeap(
-        int(end_year), int(end_month), int(end_day), 0, 0, 0
-    )
-    num_steps = (end_time - start_time).days // time_delta + 1
+    num_steps = (end_time - start_time).days // TIME_DELTA + 1
+
     # Might have extra remaining days, so we remove them
     mod = num_steps % (hist + 1)
     num_steps = num_steps - mod

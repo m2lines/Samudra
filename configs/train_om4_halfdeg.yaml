@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=schemas/TrainConfig.json
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 70
+batch_size: 2
+learning_rate: 0.0002
+scheduler: true
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: [-1]
+data_percent: 1.0
+train_time:
+  start: "1958-01-03"
+  end: "1967-12-29"
+val_time:
+  start: "1967-01-01"
+  end: "1967-12-29"
+inference_times:
+  - start: "1967-01-01"
+    end: "1967-12-29"
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: false
+
+backend: auto
+
+experiment:
+  name: om4_samudra_halfdeg
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  gantry: false
+  wandb:
+    mode: online
+    project: ocean-emulators
+    entity: m2lines
+  network: Samudra
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds_hfds_anom
+data:
+  !include data/om4_ohc.yaml
+
+
+samudra:
+  ch_width: [157, 200, 250, 300, 400]
+  n_out: 77
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: "circular"
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 4
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "bilinear_upsample"
+
+  corrector:
+    non_negative_corrector_names: null
+    ocean_heat_corrector: false

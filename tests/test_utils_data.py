@@ -93,7 +93,7 @@ def test_compute_anomalies():
     """Test the compute_anomalies function."""
     # Create test dataset with OM4 format variables
     daterange = xr.cftime_range(
-        "2000-08-05", "2010-12-31", freq="5D", calendar="noleap"
+        "2000-08-05", "2010-12-31", freq="5D", calendar="julian"
     )
     N = len(daterange)
 

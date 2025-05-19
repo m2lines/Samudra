@@ -1,8 +1,10 @@
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
+import cftime
 import torch
+from pydantic import PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
@@ -18,13 +20,56 @@ class WandBConfig(BaseConfig):
     notes: str | None = None
 
 
+class JulianDate:
+    """Represents a Julian date as a cftime.datetime at noon on the relevant day.
+
+    This is the format the OM4 data uses, so we match that here.
+    TODO(jder): probably worth asserting the date format when opening the data.
+    """
+
+    datetime: cftime.datetime
+
+    def __init__(self, s: str):
+        datetime = cftime.datetime.strptime(s, "%Y-%m-%d", calendar="julian")
+        datetime = datetime.replace(hour=12)
+        self.datetime = datetime
+
+    def __str__(self) -> str:
+        return self.datetime.strftime("%Y-%m-%d")
+
+
+def _julian_date_validator(value: str | JulianDate) -> JulianDate:
+    """Pydantic validator which must handle strings or JulianDate objects."""
+    if isinstance(value, str):
+        return JulianDate(value)
+    else:
+        return value
+
+
+"""Represents a Julian date as a string."""
+DateConfig = Annotated[
+    JulianDate,
+    PlainValidator(_julian_date_validator),
+    PlainSerializer(JulianDate.__str__),
+    WithJsonSchema({"type": "string", "format": "date"}),
+]
+
+
 class TimeConfig(BaseConfig):
-    start: str
-    end: str
+    """Represents a time slice of the data.
+
+    Endpoints are Julian dates (not times) but cftime stores them in datetimes.
+    """
+
+    start: DateConfig
+    end: DateConfig
 
     @property
     def time_slice(self) -> slice:
-        return slice(self.start, self.end)
+        return slice(self.start.datetime, self.end.datetime)
+
+    def __str__(self) -> str:
+        return f"{self.start} to {self.end}"
 
 
 class DataConfig(BaseConfig):
@@ -175,8 +220,12 @@ class TrainConfig(TopLevelConfig):
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]
-    train_time: TimeConfig = TimeConfig(start="151-01-06", end="306-01-01")
-    val_time: TimeConfig = TimeConfig(start="306-01-01", end="311-01-01")
+    train_time: TimeConfig = TimeConfig(
+        start=JulianDate("0151-01-06"), end=JulianDate("0306-01-01")
+    )
+    val_time: TimeConfig = TimeConfig(
+        start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
+    )
     inference_times: list[TimeConfig] = []
 
     # Config components
@@ -205,7 +254,9 @@ class EvalConfig(TopLevelConfig):
     backend: EvalBackendConfig = "auto"
 
     # Config components
-    inference_time: TimeConfig = TimeConfig(start="311-01-01", end="351-01-01")
+    inference_time: TimeConfig = TimeConfig(
+        start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
+    )
     experiment: ExperimentConfig
     data: DataConfig
     samudra: SamudraConfig = SamudraConfig()

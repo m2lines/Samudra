@@ -123,6 +123,8 @@ class ConvBlock(CoreBlock):
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
+                # conv2d layers are expensive so we save their activations,
+                # other (simple) layers are cheap, so we don't save their activations.
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
             else:

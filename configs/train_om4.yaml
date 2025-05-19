@@ -35,7 +35,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: local_om4_samudra
+  name: 2025-05-19-bench-215-compact-disabled
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false
@@ -43,7 +43,7 @@ experiment:
     mode: online
     project: ocean-emulators
     entity: m2lines
-    group: samudra-train-om4-compact-disabled
+    group: samudra-train-om4-compact
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom

@@ -4,20 +4,20 @@ debug: true
 save_zarr: true
 disk_mode: true
 inference_time:
-  start: 311-01-01
-  end: 351-01-01
-num_model_steps_forward: 370
+  start: "0311-01-01"
+  end: "0351-01-01"
+num_model_steps_forward: 200
 
 experiment:
   name: local_cm4_samudra
   rand_seed: 15
-  base_output_dir: .LOCAL
+  base_output_dir: /global/cfs/cdirs/m4874/suryad/Predictions_Zarr_25Mar-19May2025/
   gantry: false
   wandb:
     mode: online
     project: ocean-emulator
     entity: ai2cm
-    group: samudra-inference-2in2out
+    group: samudra-inference-1in1out
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
@@ -38,11 +38,12 @@ samudra:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 4
-    norm: "batch"
+    norm: "instance"
 
   corrector:
     non_negative_corrector_names:
       - "so"
+    ocean_heat_corrector: true
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

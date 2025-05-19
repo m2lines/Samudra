@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747698329817,
+  "lastUpdate": 1747698331757,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2190,6 +2190,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.4437811656932669",
             "extra": "mean: 103.60962119300021 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "50579904a32d156dbb0accb473f4cabb23f2738d",
+          "message": "Apply same fix to benchmarks, too (#245)\n\nLooks like this wasn't a perf regression, it was a failure. Sorry, I\nshould have checked here after finding it in the other two places!",
+          "timestamp": "2025-05-19T19:00:44-04:00",
+          "tree_id": "eaf4c42454c0be041b139e98fae1da1f31c209a9",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/50579904a32d156dbb0accb473f4cabb23f2738d"
+        },
+        "date": 1747698330949,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.19280430743899504,
+            "unit": "iter/sec",
+            "range": "stddev: 0.24502839882247845",
+            "extra": "mean: 5.186606115200038 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.046562747005027286,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4783840935314069",
+            "extra": "mean: 21.476396138999963 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.12400506981642946,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10668534587643125",
+            "extra": "mean: 8.06418641979999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.009590209262365113,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6877916349379576",
+            "extra": "mean: 104.27301142679994 sec\nrounds: 5"
           }
         ]
       }

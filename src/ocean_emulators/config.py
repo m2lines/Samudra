@@ -126,9 +126,11 @@ class SamudraConfig(BaseConfig):
 
     checkpointing: Checkpointing | None = Field(
         default=None,
-        description="Checkpointing strategy for the model; "
-        "'blocks' for recomputing each CoreBlock, "
-        "'simple' for recomputing only cheap layers like scales and nonlinearities",
+        description="""Strategy for storing activations for the model for use in
+        the backward pass. If not set, the model will store all activations in memory
+        (fast but lots of memory). If set to 'blocks', the model will recompute each
+        CoreBlock in the backward pass. If set to 'simple', the model will recompute
+        only cheap layers like scales and nonlinearities.""",
     )
 
 

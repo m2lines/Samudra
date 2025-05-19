@@ -195,6 +195,9 @@ class MetricLogger:
                     named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
 
                 logging.info(log_msg.format(i, len(data_loader), **named_metrics))
+
+                if torch.cuda.is_available():
+                    torch.cuda.reset_peak_memory_stats()
             i += 1
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time

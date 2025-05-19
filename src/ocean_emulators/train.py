@@ -382,12 +382,13 @@ class Trainer:
         inference_datasets = []
         num_steps_inf_set = []
         for i in range(num_splits):
+            sliced_src = self.inference_src.slice(self.inference_times[i])
             num_time_steps = get_inference_steps(
-                self.inference_times[i],
+                sliced_src,
                 hist=self.hist,
             )
             inference_dataset = InferenceDataset(
-                src=self.inference_src.slice(self.inference_times[i]),
+                src=sliced_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 wet=self.wet_without_hist_cpu,
@@ -424,6 +425,8 @@ class Trainer:
         )
 
     def run(self) -> None:
+        logger.info(f"Starting training")
+
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")

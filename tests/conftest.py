@@ -13,7 +13,7 @@ from aiohttp import ServerDisconnectedError
 from numpy.typing import ArrayLike, NDArray
 
 import ocean_emulators.constants as c
-from ocean_emulators.config import TrainBackendConfig, TrainConfig
+from ocean_emulators.config import JulianDate, TrainBackendConfig, TrainConfig
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.multiton import MultitonScope
@@ -133,9 +133,7 @@ class DataSourceDims:
     days_since_start: NDArray[np.uint32] = dataclasses.field(
         default_factory=lambda: np.array([0, 5, 10], dtype=np.uint32)
     )
-    start_day: cftime.datetime = cftime.DatetimeNoLeap.strptime(
-        "1969-08-05", "%Y-%m-%d", "noleap"
-    )
+    start_day: cftime.datetime = JulianDate("1969-08-05").datetime
 
     def __post_init__(self):
         if np.any(self.lat < -90.0) or np.any(self.lat > 90.0):
@@ -349,7 +347,7 @@ def data_source(request, pytestconfig) -> DataSource:
     match request.param:
         case "mock":
             time_range = xr.cftime_range(
-                "1975-08-05", "1975-12-31", freq="5D", calendar="noleap"
+                "1975-08-05", "1975-12-31", freq="5D", calendar="julian"
             )
             dims = DataSourceDims()
             dims.set_time_range(time_range)

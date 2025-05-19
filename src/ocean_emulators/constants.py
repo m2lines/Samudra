@@ -15,7 +15,7 @@ from ocean_emulators.utils.multiton import Multiton
 # Our Arrays will be either `torch.Tensor`s or `xarray.DataArray`s.
 Array = TypeVar("Array", torch.Tensor, xr.DataArray)
 
-Grid = Float[Array, "180 360"]
+Grid = Float[Array, "lat lon"]
 Prognostic = Float[
     Grid, "*batch prognostic_vars"
 ]  # equivalent to "*batch prognostic_vars lat lon"
@@ -28,7 +28,7 @@ Input: TypeAlias = Float[Grid, "*batch total_vars"]
 
 Example = tuple[Input, Prognostic] | tuple[xr.Dataset, xr.Dataset]
 
-GridMask = Bool[Array, "180 360"]
+GridMask = Bool[Array, "lat lon"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
 SingleChannelVar = Float[torch.Tensor, "batch time lat lon"]

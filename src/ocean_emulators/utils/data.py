@@ -137,8 +137,8 @@ class DataSource:
         """Create a DataSource from the data, computing means and stds."""
         assert "lev" not in dataset.dims, "We currently only support non-compact data"
 
-        means = dataset.map(lambda x: x.mean())
-        stds = dataset.map(lambda x: x.std())
+        means = dataset.mean()
+        stds = dataset.std()
 
         return cls(name="dataset", data=dataset, means=means, stds=stds)
 

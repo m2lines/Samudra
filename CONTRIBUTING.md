@@ -349,6 +349,8 @@ like so:
 uvx snakeviz <benchmark_path>.prof
 ```
 
+### Profiling CPU Usage + Memory
+
 We also have a few other profiling tools available in the environment, including:
 
 [py-spy](https://github.com/benfred/py-spy), which captures python + native CPU usage:
@@ -369,3 +371,15 @@ memory usage and GPU (though the latter is a bit deceptive since it is async wrt
 ```shell
 uv run scalene src/ocean_emulators/train.py configs/train_om4.yaml
 ```
+
+### Profiling CUDA Memory
+
+You can turn on profiling of CUDA memory by setting the `profiler.cuda_snapshot_frequency` to a non-None value
+in the config. eg:
+
+```shell
+uv run memray run src/ocean_emulators/train.py --config configs/train_om4.yaml --profiler.cuda_snapshot_frequency 10
+```
+
+This will take a snapshot of the CUDA memory every 10 batches in the output directory. These can be visualized with
+https://docs.pytorch.org/memory_viz -- see https://pytorch.org/blog/understanding-gpu-memory-1/ for more details.

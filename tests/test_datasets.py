@@ -177,7 +177,6 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     start_day=st.dates(
         min_value=datetime.date(1900, 1, 1),  # to quiet cftime warning about year < 0
     ),
-    calendar=st.sampled_from(["noleap", "standard"]),
 )
 @example(
     data_var_index=0,
@@ -185,7 +184,6 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lng=np.array([0.0, 180.0]),
     days_since_start=np.array([5, 10, 15, 20, 25]),
     start_day=datetime.date(2020, 1, 1),
-    calendar="noleap",
 )
 @example(
     data_var_index=255,
@@ -193,7 +191,6 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lng=np.array([360.0]),
     days_since_start=np.array([999]),
     start_day=datetime.date(2000, 5, 1),
-    calendar="noleap",
 )
 @example(
     data_var_index=7,
@@ -201,7 +198,6 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lng=np.array([0.0]),
     days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.date(2000, 5, 1),
-    calendar="noleap",
 )
 @example(
     lat=np.array([32.87]),
@@ -209,7 +205,6 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     data_var_index=0,
     days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.date(2000, 5, 1),
-    calendar="noleap",
 )
 @example(
     data_var_index=0,
@@ -217,7 +212,6 @@ def vector_of(max_vec_size: int, min_vec_size=1):
     lng=np.array([1.375]),
     days_since_start=np.array([0], dtype=np.uint32),
     start_day=datetime.date(2000, 1, 1),
-    calendar="noleap",
 )
 @settings(deadline=1000)
 def test_test_util__data_source_roundtrip(
@@ -226,12 +220,11 @@ def test_test_util__data_source_roundtrip(
     lng: NDArray[np.floating],
     days_since_start: NDArray[np.uint32],
     start_day: datetime.date,
-    calendar: str,
 ) -> None:
     # We use hour=12 because that's what cftime uses when
     # converting from ordinals (in DataSourceDims)
     start_day_cf = cftime.datetime(
-        start_day.year, start_day.month, start_day.day, hour=12, calendar=calendar
+        start_day.year, start_day.month, start_day.day, hour=12, calendar="julian"
     )
 
     # start

@@ -1,15 +1,20 @@
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
+
+import cftime
+import torch
+from pydantic import PlainSerializer, PlainValidator, WithJsonSchema
 
 from pydantic import Field
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
+from ocean_emulators.utils.profiler import Profiler
 
 
 class WandBConfig(BaseConfig):
-    mode: str = "disabled"  # online, disabled
+    mode: Literal["online", "disabled"] = "disabled"
     project: str = "3D_ocean_emu_CM4"
     entity: str = "suryadheeshjith"
     group: str | None = None
@@ -17,13 +22,56 @@ class WandBConfig(BaseConfig):
     notes: str | None = None
 
 
+class JulianDate:
+    """Represents a Julian date as a cftime.datetime at noon on the relevant day.
+
+    This is the format the OM4 data uses, so we match that here.
+    TODO(jder): probably worth asserting the date format when opening the data.
+    """
+
+    datetime: cftime.datetime
+
+    def __init__(self, s: str):
+        datetime = cftime.datetime.strptime(s, "%Y-%m-%d", calendar="julian")
+        datetime = datetime.replace(hour=12)
+        self.datetime = datetime
+
+    def __str__(self) -> str:
+        return self.datetime.strftime("%Y-%m-%d")
+
+
+def _julian_date_validator(value: str | JulianDate) -> JulianDate:
+    """Pydantic validator which must handle strings or JulianDate objects."""
+    if isinstance(value, str):
+        return JulianDate(value)
+    else:
+        return value
+
+
+"""Represents a Julian date as a string."""
+DateConfig = Annotated[
+    JulianDate,
+    PlainValidator(_julian_date_validator),
+    PlainSerializer(JulianDate.__str__),
+    WithJsonSchema({"type": "string", "format": "date"}),
+]
+
+
 class TimeConfig(BaseConfig):
-    start: str
-    end: str
+    """Represents a time slice of the data.
+
+    Endpoints are Julian dates (not times) but cftime stores them in datetimes.
+    """
+
+    start: DateConfig
+    end: DateConfig
 
     @property
     def time_slice(self) -> slice:
-        return slice(self.start, self.end)
+        return slice(self.start.datetime, self.end.datetime)
+
+    def __str__(self) -> str:
+        return f"{self.start} to {self.end}"
 
 
 class DataConfig(BaseConfig):
@@ -133,6 +181,20 @@ class ExperimentConfig(BaseConfig):
                 return Path(self.cluster_data_dir)
 
 
+class ProfilerConfig(BaseConfig):
+    # How often (in batches processed) to take a snapshot of the CUDA memory
+    # (None = no snapshots)
+    cuda_snapshot_frequency: int | None = None
+
+    def build(self, output_dir: Path, device: torch.device) -> Profiler:
+        if self.cuda_snapshot_frequency is not None and device.type != "cuda":
+            raise ValueError(
+                "cuda_snapshot_frequency is only supported on CUDA devices, got "
+                f"{device.type}"
+            )
+        return Profiler(output_dir, self.cuda_snapshot_frequency)
+
+
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 LossType = Literal[
@@ -159,14 +221,21 @@ class TrainConfig(TopLevelConfig):
     faster_decay_at_start: bool = True
     backend: TrainBackendConfig = "auto"
 
+    # Profiling parameters
+    profiler: ProfilerConfig = ProfilerConfig()
+
     # Data parameters at root level
     data_percent: float = 1.0
     data_stride: list[int] = [1]
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]
-    train_time: TimeConfig = TimeConfig(start="151-01-06", end="306-01-01")
-    val_time: TimeConfig = TimeConfig(start="306-01-01", end="311-01-01")
+    train_time: TimeConfig = TimeConfig(
+        start=JulianDate("0151-01-06"), end=JulianDate("0306-01-01")
+    )
+    val_time: TimeConfig = TimeConfig(
+        start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
+    )
     inference_times: list[TimeConfig] = []
 
     # Config components
@@ -195,7 +264,9 @@ class EvalConfig(TopLevelConfig):
     backend: EvalBackendConfig = "auto"
 
     # Config components
-    inference_time: TimeConfig = TimeConfig(start="311-01-01", end="351-01-01")
+    inference_time: TimeConfig = TimeConfig(
+        start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
+    )
     experiment: ExperimentConfig
     data: DataConfig
     samudra: SamudraConfig = SamudraConfig()

@@ -353,6 +353,8 @@ class Trainer:
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
 
+        self.profiler = cfg.profiler.build(self.output_dir, self.device)
+
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
 
@@ -380,12 +382,13 @@ class Trainer:
         inference_datasets = []
         num_steps_inf_set = []
         for i in range(num_splits):
+            sliced_src = self.inference_src.slice(self.inference_times[i])
             num_time_steps = get_inference_steps(
-                self.inference_times[i],
+                sliced_src,
                 hist=self.hist,
             )
             inference_dataset = InferenceDataset(
-                src=self.inference_src.slice(self.inference_times[i]),
+                src=sliced_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 wet=self.wet_without_hist_cpu,
@@ -422,9 +425,13 @@ class Trainer:
         )
 
     def run(self) -> None:
+        logger.info(f"Starting training")
+
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")
+
+        self.profiler.start()
 
         start_time = time.perf_counter()
         for epoch in range(self.start_epoch, self.epochs + 1):
@@ -552,6 +559,8 @@ class Trainer:
 
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
+
+            self.profiler.after_batch(self.num_batches_seen)
 
         if self.scheduler is not None:
             self.scheduler.step()

@@ -423,14 +423,14 @@ class OceanHeatCorrector(BaseCorrector):
             self.hist,    # JRS
         )
 
-       # HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1 # JRSv3
+       # HC_correct_ratio = (global_HC_t0 + dHC_expected) / global_HC_t1 # JRSv4
 
-       # T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1) # JRSv3
+       # T_corrected = T_pred * HC_correct_ratio.view(-1, 1, 1, 1) # JRSv4
 
-        #print(f"dHC_expected: {dHC_expected}") # JRSv3; torch.Size([6]) 
+        #print(f"dHC_expected: {dHC_expected}") # JRSv4; torch.Size([6]) 
         
         #T_corrected = torch.zeros_like(T_pred)
-        T_corrected = T_pred.clone() # JRSv3 debug
+        T_corrected = T_pred.clone() # JRSv4 debug
 
         for iii in range(self.hist + 1):
             #print(iii)
@@ -439,25 +439,29 @@ class OceanHeatCorrector(BaseCorrector):
                 #print("idx_input",idx_input)
                 idx_flux = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii
                 #print("idx_flux",idx_flux) #  when hist=1, batch_size = 3, idx_flux = [0, 2, 4]
-                HC_correct_ratio = (global_HC_t0[idx_input] + dHC_expected[idx_flux]) / global_HC_t1[idx_flux]
+                HC_correct_ratio = dHC_expected[idx_flux] / (global_HC_t1[idx_flux] - global_HC_t0[idx_input])
+                #= (global_HC_t0[idx_input] + dHC_expected[idx_flux]) / global_HC_t1[idx_flux]
                 #T_corrected[idx_flux] = T_pred[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1)
-                T_corrected[idx_flux] = T_corrected[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1)  # JRSv3 debug
+                T_corrected[idx_flux] = T_input[idx_input] + (T_corrected[idx_flux] - T_input[idx_input]) * HC_correct_ratio.view(-1, 1, 1, 1)  # JRSv4 debug
 
             else:
                 idx_input = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii - 1
                 #print("idx_input",idx_input) # [0, 2, 4]
                 idx_flux = torch.arange(fts_input_boundary.size(0))*(self.hist+1) + iii
                 #print("idx_flux",idx_flux) # [1, 3, 5]
-                HC_correct_ratio = (global_HC_t1[idx_input] + dHC_expected[idx_flux]) / global_HC_t1[idx_flux]
+                HC_correct_ratio = dHC_expected[idx_flux] / (global_HC_t1[idx_flux] - global_HC_t1[idx_input])
+
+                #(global_HC_t1[idx_input] + dHC_expected[idx_flux]) / global_HC_t1[idx_flux]
                 #print("HC_correct_ratio",HC_correct_ratio)
                 #T_corrected[idx_flux] = T_pred[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1)
-                T_corrected[idx_flux] = T_corrected[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1) # JRSv3 debug
+                T_corrected[idx_flux] = T_corrected[idx_input] + (T_corrected[idx_flux] - T_corrected[idx_input]) * HC_correct_ratio.view(-1, 1, 1, 1)
+                #T_corrected[idx_flux] * HC_correct_ratio.view(-1, 1, 1, 1) # JRSv4 debug
                 
             global_HC_t1 = compute_ocean_heat_content(
                 T_corrected, self.dz, self.area_weighted_func
-            )  # JRSv3 debug
+            )  # JRSv4 debug
 
-        fts[:, self.thetao_idx] = T_corrected #T_corrected
+        fts[:, self.thetao_idx] = T_corrected 
 
         fts = self._normalize_fts_prognostic(fts)
         fts = self._unflatten_hist(fts)

@@ -41,7 +41,7 @@ backend: auto
 
 experiment:
   base_name: train
-  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-fix32 #local_cm4_samudra
+  sub_name: samudra-perlmutter-cm4-m2lines-OHCOn-wfo-fix4 #local_cm4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false

@@ -105,7 +105,7 @@ class CorrectorConfig(BaseConfig):
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
-Checkpointing = Literal["blocks", "simple"]
+Checkpointing = Literal["all", "simple"]
 
 
 class SamudraConfig(BaseConfig):
@@ -128,9 +128,10 @@ class SamudraConfig(BaseConfig):
         default=None,
         description="""Strategy for storing activations for the model for use in
         the backward pass. If not set, the model will store all activations in memory
-        (fast but lots of memory). If set to 'blocks', the model will recompute each
-        CoreBlock in the backward pass. If set to 'simple', the model will recompute
-        only cheap layers like scales and nonlinearities.""",
+        (fast but lots of memory). If set to 'all', the model will recompute each
+        top-level layer (CoreBlocks, scaling layers, etc.) in the backward pass.
+        If set to 'simple', the model will recompute only cheap layers like scales
+        and nonlinearities.""",
     )
 
 

@@ -44,14 +44,14 @@ class Samudra(BaseModel):
         n_layers = config.n_layers.copy()
 
         match config.checkpointing:
-            case "blocks":
-                self.checkpoint_blocks = True
+            case "all":
+                self.checkpoint_all = True
                 checkpoint_simple = False
             case "simple":
-                self.checkpoint_blocks = False
+                self.checkpoint_all = False
                 checkpoint_simple = True
             case None:
-                self.checkpoint_blocks = False
+                self.checkpoint_all = False
                 checkpoint_simple = False
             case _:
                 assert_never(config.checkpointing)
@@ -165,7 +165,7 @@ class Samudra(BaseModel):
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            if self.checkpoint_blocks:
+            if self.checkpoint_all:
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
             else:
                 fts = layer(fts)

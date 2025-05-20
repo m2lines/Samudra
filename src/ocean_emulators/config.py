@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 
 import cftime
 import torch
-from pydantic import PlainSerializer, PlainValidator, WithJsonSchema
+from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
@@ -105,6 +105,7 @@ class CorrectorConfig(BaseConfig):
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
+Checkpointing = Literal["all", "simple"]
 
 
 class SamudraConfig(BaseConfig):
@@ -122,6 +123,16 @@ class SamudraConfig(BaseConfig):
     corrector: CorrectorConfig = CorrectorConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
+
+    checkpointing: Checkpointing | None = Field(
+        default=None,
+        description="""Strategy for storing activations for the model for use in
+        the backward pass. If not set, the model will store all activations in memory
+        (fast but lots of memory). If set to 'all', the model will recompute each
+        top-level layer (CoreBlocks, scaling layers, etc.) in the backward pass.
+        If set to 'simple', the model will recompute only cheap layers like scales
+        and nonlinearities.""",
+    )
 
 
 class DistributedConfig(BaseConfig):

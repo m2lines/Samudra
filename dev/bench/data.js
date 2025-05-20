@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747771061866,
+  "lastUpdate": 1747771063782,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2294,6 +2294,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6877916349379576",
             "extra": "mean: 104.27301142679994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d6830a1c89aaad5ac0b1488cb19f45960b48f166",
+          "message": "Activation Checkpointing (#243)\n\nI am looking into fitting the high res models on our GPUs, so I tried a\ncouple options for activation checkpointing: checkpoint each\nConvNeXtBlock and other top-level layers (\"all\") or checkpointing just\nsimple scalings/nonlinearities (\"simple\").\n\nResults are here:\nhttps://wandb.ai/m2lines/ocean-emulators/reports/Checkpointing-2025-05-16--VmlldzoxMjgwOTIyOA\n\ntl;dr: \"all\" saves about 67% of GPU memory usage (!) but at a\nperformance cost of about 10%. \"simple\" saves about 20% of GPU memory\nbut has practically no performance degradation. There are probably\nstrategies in between those two we could look at, too. (Perhaps also\nsome wins to be had by using the extra space to pre-load future steps\nworth of data or similar.)",
+          "timestamp": "2025-05-20T15:10:49-04:00",
+          "tree_id": "d0f7ce37b57625846e6198b323e9edcb4529910f",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/d6830a1c89aaad5ac0b1488cb19f45960b48f166"
+        },
+        "date": 1747771062884,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.18491686286574113,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2921219332469261",
+            "extra": "mean: 5.407835632200022 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.04868497420598307,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9275715236559205",
+            "extra": "mean: 20.54021833859997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.1278092627861711,
+            "unit": "iter/sec",
+            "range": "stddev: 0.089728646994505",
+            "extra": "mean: 7.824159049199989 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.009942562699931963,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6037746029239257",
+            "extra": "mean: 100.57769110239988 sec\nrounds: 5"
           }
         ]
       }

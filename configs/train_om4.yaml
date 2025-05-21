@@ -35,7 +35,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: 2025-05-19-bench-215-compact-enabled
+  name: 2025-05-21-bench-215-compact-enabled1
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false

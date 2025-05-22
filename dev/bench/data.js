@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747929835358,
+  "lastUpdate": 1747952711185,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1224,6 +1224,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.48677097898961175",
             "extra": "mean: 139.8453750598 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ea6c3ccf85283472fe7dea10c421310c7309458e",
+          "message": "Torch Loader works with compact data. (#215)\n\nThis PR depends on #211. Fixes #204.\n\nHere is the WandB profile results:\nhttps://wandb.ai/m2lines/ocean-emulators/reports/Compaction-and-Vectorization-on-Data-Load-Time--VmlldzoxMjg1MDE4NQ\n\nConclusions: compaction is at least as fast as before, but often\npredictably faster.",
+          "timestamp": "2025-05-22T14:42:30-07:00",
+          "tree_id": "3ac0be2c892c274e4df61226b84c28f86ca6a928",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/ea6c3ccf85283472fe7dea10c421310c7309458e"
+        },
+        "date": 1747952710191,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.19763234985555772,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13890165388740922",
+            "extra": "mean: 5.059900369199999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.04839226472213922,
+            "unit": "iter/sec",
+            "range": "stddev: 0.561742846737054",
+            "extra": "mean: 20.664459614400005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.1350834731289528,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09347638751865638",
+            "extra": "mean: 7.402830093399984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007181711180854332,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13480467696066134",
+            "extra": "mean: 139.242580886 sec\nrounds: 5"
           }
         ]
       }

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747952711185,
+  "lastUpdate": 1747952712852,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2502,6 +2502,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.42053263538538505",
             "extra": "mean: 98.46958480519997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ea6c3ccf85283472fe7dea10c421310c7309458e",
+          "message": "Torch Loader works with compact data. (#215)\n\nThis PR depends on #211. Fixes #204.\n\nHere is the WandB profile results:\nhttps://wandb.ai/m2lines/ocean-emulators/reports/Compaction-and-Vectorization-on-Data-Load-Time--VmlldzoxMjg1MDE4NQ\n\nConclusions: compaction is at least as fast as before, but often\npredictably faster.",
+          "timestamp": "2025-05-22T14:42:30-07:00",
+          "tree_id": "3ac0be2c892c274e4df61226b84c28f86ca6a928",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/ea6c3ccf85283472fe7dea10c421310c7309458e"
+        },
+        "date": 1747952712127,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.1953602256331596,
+            "unit": "iter/sec",
+            "range": "stddev: 0.38284148713957716",
+            "extra": "mean: 5.118749206799976 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.048917463218172176,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1110152688933874",
+            "extra": "mean: 20.442597269200043 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.1281596065898112,
+            "unit": "iter/sec",
+            "range": "stddev: 0.023254332155223222",
+            "extra": "mean: 7.802770518800116 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.010246132388796453,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6880261137824993",
+            "extra": "mean: 97.59780198560011 sec\nrounds: 5"
           }
         ]
       }

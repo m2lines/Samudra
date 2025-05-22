@@ -35,7 +35,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: 2025-05-22-bench-215-baseline-new-seed-multiproc
+  name: 2025-05-22-bench-215-compact-new-seed-multiproc
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false

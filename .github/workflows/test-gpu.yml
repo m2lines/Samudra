@@ -26,7 +26,7 @@ jobs:
 
       - name: Create cloud runner
         id: aws-start
-        uses: omsf/start-aws-gha-runner@v1.0.0
+        uses: mihasya/start-aws-gha-runner@fix-worker-lookup
         with:
           aws_image_id: ami-00096836009b16a22 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch
           aws_instance_type: g6.xlarge

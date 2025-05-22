@@ -32,6 +32,8 @@ jobs:
           aws_image_id: ami-00096836009b16a22 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch
           aws_instance_type: g6.xlarge
           aws_home_dir: /home/ubuntu
+        env:
+          GH_PAT: ${{ secrets.GITHUB_TOKEN }}
 
   run-tests:
     needs: start-aws-runner
@@ -79,3 +81,5 @@ jobs:
         uses: omsf/stop-aws-gha-runner@v1.0.0
         with:
           instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
+        env:
+          GH_PAT: ${{ secrets.GITHUB_TOKEN }}

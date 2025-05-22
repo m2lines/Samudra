@@ -1,63 +1,43 @@
-# Run GPU-only tests for the project via pytest
 name: Test GPU
-
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch:
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
+  push
+env:
+  AWS_REGION : "us-east-1"
+# permission can be added at job level or workflow level
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
 jobs:
-  create-runner:
+  start-aws-runner:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     outputs:
-      label: ${{ steps.create-runner.outputs.label }}
+      mapping: ${{ steps.aws-start.outputs.mapping }}
+      instances: ${{ steps.aws-start.outputs.instances }}
     steps:
-      - id: create-runner
-        uses: Open-Athena/gce-github-runner@main
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          token: ${{ secrets.GH_SA_TOKEN }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          service_account_key: ${{ secrets.GCP_SA_KEY }}
-          runner_service_account: ${{ secrets.GCP_RUNNER_SA_EMAIL }}
-          image_project: deeplearning-platform-release
-          # It is easiest if this cuda version (cu121) matches the cuda version below.
-          # (We could relax this since installing torch below pulls in the right version of cuda
-          # libraries, but then you have a mismatch between the cuda toolkit and those libraries, which seems possibly bad.)
-          # You can find the latest image from:
-          # gcloud compute images list --project deeplearning-platform-release --no-standard-images --format="value(NAME)" --filter="name~'pytorch-2-2-cu121-v.*-ubuntu-2204-conda'"
-          image: pytorch-2-2-cu121-v20250327-ubuntu-2204-conda
-          machine_zone: "us-central1-a"
-          machine_type: "g2-standard-8"
-          disk_size: "200GB"
-          accelerator: "count=1,type=nvidia-l4"
-          # shutdown_timeout: 1800 # uncomment to allow your CI machines to stay around after running for debugging purposes
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          role-session-name: github-actions-session
+          aws-region: us-east-1
 
-  test:
-    runs-on: ${{ needs.create-runner.outputs.label }}
-    env:
-      # see note about machine image above
-      CUDA_VERSION: 12.1
-    needs: create-runner
+      - name: Create cloud runner
+        id: aws-start
+        uses: omsf/start-aws-gha-runner@v1.0.0
+        with:
+          aws_image_id: ami-00096836009b16a22 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch
+          aws_instance_type: g6.xlarge
+          aws_home_dir: /home/ubuntu
+        env:
+          GH_PAT: ${{ secrets.GH_SA_TOKEN }}
+
+  run-tests:
+    needs: start-aws-runner
+    runs-on: ${{ fromJSON(needs.start-aws-runner.outputs.instances) }}
     steps:
-      - name: Install nvidia drivers
-        run: |
-          sudo /opt/deeplearning/install-driver.sh
-          if test -d /usr/local/cuda-$CUDA_VERSION/bin ; then
-            echo /usr/local/cuda-$CUDA_VERSION/bin >> $GITHUB_PATH
-          else
-            # bail
-            echo "Correct CUDA version not installed"
-            exit 1
-          fi
-
       - name: Check out code
         uses: actions/checkout@v2
 
@@ -82,3 +62,26 @@ jobs:
 
       - name: Run pytest
         run: uv run --locked pytest -n 2 -v -m "not manual and cuda"
+
+  stop-aws-runner:
+    runs-on: ubuntu-latest
+    permissions:
+        id-token: write
+        contents: read
+    needs:
+      - start-aws-runner
+      - run-tests
+    if: ${{ always() }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: us-east-1
+
+      - name: Stop instances
+        uses: omsf/stop-aws-gha-runner@v1.0.0
+        with:
+          instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
+        env:
+          GH_PAT: ${{ secrets.GH_SA_TOKEN }}

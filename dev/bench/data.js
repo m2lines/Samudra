@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747929833391,
+  "lastUpdate": 1747929835358,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2398,6 +2398,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6037746029239257",
             "extra": "mean: 100.57769110239988 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "m@mihasya.com",
+            "name": "Mikhail P",
+            "username": "mihasya"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3f47b96bedd2e1fb0bf6a45205e57ebb9ed5afa",
+          "message": "Revert \"Switch to using EC2 for CI workers\" (#249)\n\nReverting while we figure out why EC2 runners are not registering\ncorrectly when running on the parent repo.\n\nReverts suryadheeshjith/Ocean_Emulator#246",
+          "timestamp": "2025-05-22T08:21:10-07:00",
+          "tree_id": "d0f7ce37b57625846e6198b323e9edcb4529910f",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/f3f47b96bedd2e1fb0bf6a45205e57ebb9ed5afa"
+        },
+        "date": 1747929834442,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.19110160272176757,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3307962426482684",
+            "extra": "mean: 5.23281848900001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.04805523137889997,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8388242066228467",
+            "extra": "mean: 20.80938893239995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.12989231475549146,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09261669277074258",
+            "extra": "mean: 7.69868488279999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.010155420092186599,
+            "unit": "iter/sec",
+            "range": "stddev: 0.42053263538538505",
+            "extra": "mean: 98.46958480519997 sec\nrounds: 5"
           }
         ]
       }

@@ -8,18 +8,12 @@ on:
       - main
   workflow_dispatch:
 
-env:
-  AWS_REGION : "us-east-1"
-# permission can be added at job level or workflow level
 permissions:
   id-token: write   # This is required for requesting the JWT
   contents: read    # This is required for actions/checkout
 jobs:
   start-aws-runner:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     outputs:
       mapping: ${{ steps.aws-start.outputs.mapping }}
       instances: ${{ steps.aws-start.outputs.instances }}
@@ -72,9 +66,6 @@ jobs:
 
   stop-aws-runner:
     runs-on: ubuntu-latest
-    permissions:
-        id-token: write
-        contents: read
     needs:
       - start-aws-runner
       - run-tests

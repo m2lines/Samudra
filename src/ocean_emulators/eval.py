@@ -98,7 +98,9 @@ class Eval:
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         raw = DataSource.from_config(cfg, use_dask=True)
-        self.src = validate_data(raw, cfg.data.static_data_vars)
+        self.src = validate_data(
+            raw, self.boundary_var_names, cfg.data.static_data_vars
+        )
         self.data = self.src.data
         self.static_data = None
         if cfg.data.static_data_vars is not None:

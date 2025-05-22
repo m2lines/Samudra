@@ -21,7 +21,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource, LoadStats
+from ocean_emulators.utils.data import DataSource, LoadStats, conditional_rearrange
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
 
@@ -181,11 +181,23 @@ class InferenceDataset(Dataset):
             data_in_ds = data_in_src.normalize()
         else:
             data_in_ds = data_in_src.data
-        data_in_np: np.ndarray = (
-            data_in_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
+
+        if "lev" in data_in_ds.dims:
+            data_in_np: np.ndarray = (
+                conditional_rearrange(
+                    data_in_ds,
+                    "window_dim time (variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            data_in_np = (
+                data_in_ds.to_array()
+                .transpose("window_dim", "time", "variable", "lat", "lon")
+                .to_numpy()
+            )
         data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
         data_in = torch.where(self.wet, data_in, self.masked_fill_value)
         if not self.normalize_before_mask:
@@ -237,11 +249,22 @@ class InferenceDataset(Dataset):
             label_ds = label_src.normalize()
         else:
             label_ds = label_src.data
-        label_np: np.ndarray = (
-            label_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
+        if "lev" in label_ds.dims:
+            label_np: np.ndarray = (
+                conditional_rearrange(
+                    label_ds,
+                    "window_dim time (variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            label_np = (
+                label_ds.to_array()
+                .transpose("window_dim", "time", "variable", "lat", "lon")
+                .to_numpy()
+            )
         label: torch.Tensor = torch.from_numpy(label_np).float()
         label = torch.where(self.wet, label, self.masked_fill_value)
         if not self.normalize_before_mask:
@@ -618,12 +641,24 @@ class TorchTrainDataset(Dataset):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
-            prognostic_all = torch.from_numpy(
-                self._prognostic_src.data.isel(time=x_index)
-                .to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-            )
+
+            if "lev" in self._prognostic_src.data.dims:
+                prognostic_all = torch.from_numpy(
+                    conditional_rearrange(
+                        self._prognostic_src.data.isel(time=x_index),
+                        "time (variable lev)=var lat lon",
+                        concat_dim="var",
+                    )
+                    .rename({"var": "variable"})
+                    .to_numpy()
+                )
+            else:
+                prognostic_all = torch.from_numpy(
+                    self._prognostic_src.data.isel(time=x_index)
+                    .to_array()
+                    .transpose("time", "variable", "lat", "lon")
+                    .to_numpy()
+                )
             boundary = torch.from_numpy(
                 self._boundary_src.data.isel(time=x_index)
                 .to_array()
@@ -632,11 +667,7 @@ class TorchTrainDataset(Dataset):
             )
 
             input_, label = self._get_input_and_label(prognostic_all, boundary)
-
-            TD.insert(
-                input_=input_,
-                label=label,
-            )
+            TD.insert(input_=input_, label=label)
 
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
         return TD

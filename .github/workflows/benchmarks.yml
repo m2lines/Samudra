@@ -12,13 +12,11 @@ on:
 permissions:
   contents: write # Allow updating content on GitHub pages
   deployments: write # Allow to deploy to GitHub pages
+  id-token: write   # This is required for interacting with AWS via OIDC
 
 jobs:
   start-aws-runner:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     outputs:
       mapping: ${{ steps.aws-start.outputs.mapping }}
       instances: ${{ steps.aws-start.outputs.instances }}
@@ -109,9 +107,6 @@ jobs:
 
   stop-aws-runner:
     runs-on: ubuntu-latest
-    permissions:
-        id-token: write
-        contents: read
     needs:
       - start-aws-runner
       - test

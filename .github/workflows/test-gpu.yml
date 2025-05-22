@@ -33,7 +33,7 @@ jobs:
           aws_instance_type: g6.xlarge
           aws_home_dir: /home/ubuntu
         env:
-          GH_PAT: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_SA_TOKEN }}
 
   run-tests:
     needs: start-aws-runner
@@ -82,4 +82,4 @@ jobs:
         with:
           instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
         env:
-          GH_PAT: ${{ secrets.GITHUB_TOKEN }}
+          GH_PAT: ${{ secrets.GH_SA_TOKEN }}

@@ -35,7 +35,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: 2025-05-21-bench-215-compact-enabled-with-vec-single-proc
+  name: 2025-05-22-bench-215-compact-enabled-new-seed
   rand_seed: 15
   base_output_dir: .LOCAL
   gantry: false

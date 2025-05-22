@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write   # This is required for requesting the JWT
+  id-token: write   # This is required for interacting with AWS via OIDC
   contents: read    # This is required for actions/checkout
 jobs:
   start-aws-runner:

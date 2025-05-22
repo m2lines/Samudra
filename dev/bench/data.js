@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747771063782,
+  "lastUpdate": 1747929833391,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1172,6 +1172,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.4224786853745308",
             "extra": "mean: 144.9507537626 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "m@mihasya.com",
+            "name": "Mikhail P",
+            "username": "mihasya"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f3f47b96bedd2e1fb0bf6a45205e57ebb9ed5afa",
+          "message": "Revert \"Switch to using EC2 for CI workers\" (#249)\n\nReverting while we figure out why EC2 runners are not registering\ncorrectly when running on the parent repo.\n\nReverts suryadheeshjith/Ocean_Emulator#246",
+          "timestamp": "2025-05-22T08:21:10-07:00",
+          "tree_id": "d0f7ce37b57625846e6198b323e9edcb4529910f",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/f3f47b96bedd2e1fb0bf6a45205e57ebb9ed5afa"
+        },
+        "date": 1747929832251,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.1884313043010343,
+            "unit": "iter/sec",
+            "range": "stddev: 0.515699577521025",
+            "extra": "mean: 5.306973826399985 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.049503129345499636,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7974173614700626",
+            "extra": "mean: 20.200743129199985 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.13805140077170294,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11207753949948228",
+            "extra": "mean: 7.243678763200023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.007150754893198183,
+            "unit": "iter/sec",
+            "range": "stddev: 0.48677097898961175",
+            "extra": "mean: 139.8453750598 sec\nrounds: 5"
           }
         ]
       }

@@ -1,6 +1,13 @@
 name: Test GPU
 on:
-  push
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
 env:
   AWS_REGION : "us-east-1"
 # permission can be added at job level or workflow level

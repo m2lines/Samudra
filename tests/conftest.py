@@ -15,7 +15,7 @@ from numpy.typing import ArrayLike, NDArray
 import ocean_emulators.constants as c
 from ocean_emulators.config import JulianDate, TrainBackendConfig, TrainConfig
 from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import DataSource
+from ocean_emulators.utils.data import DataSource, compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -337,7 +337,7 @@ def backend(request) -> TrainBackendConfig:
     return request.param
 
 
-@pytest.fixture(scope="session", params=["mock", "remote-om4"])
+@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
 def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     # Use cached data if available.
@@ -376,7 +376,7 @@ def data_source(request, pytestconfig) -> DataSource:
             return DataSource(
                 name=request.param, data=ds, means=ds.mean(), stds=ds.std()
             )
-        case "remote-om4":
+        case "remote-om4" | "compact":
             # The chunk-size should be about the same as the size of the time slice
             # for optimal download time. In local experiments, this time range (which
             # matches the mock data) is about 30 items.
@@ -396,6 +396,11 @@ def data_source(request, pytestconfig) -> DataSource:
                     REMOTE_DATA + "OM4_stds", engine="zarr", chunks={}
                 ).compute()
             )
+
+            if request.param == "compact":
+                data = compact_dataset(data)
+                means = compact_dataset(means)
+                stds = compact_dataset(stds)
 
             return DataSource(
                 name=request.param,

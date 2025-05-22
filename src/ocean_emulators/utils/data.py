@@ -1,6 +1,9 @@
 import dataclasses
 import logging
+import re
+from collections import defaultdict
 from collections.abc import Callable
+from functools import cached_property
 from typing import Literal, Self
 
 import numpy as np
@@ -32,6 +35,12 @@ from ocean_emulators.utils.multiton import Multiton
 logger = logging.getLogger(__name__)
 
 
+def _var_name_encode_level(var_name: str) -> bool:
+    """Check if the variable name encodes the level."""
+    var_name_encodes_level = re.compile(r"_[0-9]+")
+    return bool(var_name_encodes_level.search(var_name))
+
+
 @dataclasses.dataclass
 class DataSource:
     """Data source for the model."""
@@ -41,20 +50,65 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
 
+    @cached_property
+    def is_compact(self) -> bool:
+        """Check if the data source is compact."""
+        return all(
+            not _var_name_encode_level(str(v))
+            for d in [self.data, self.means, self.stds]
+            for v in d.keys()
+        )
+
     def filter(
         self,
         var_names: PrognosticVarNames | BoundaryVarNames,
         *,
         prefix: str,
     ) -> Self:
-        """Filter the data source to only include the specified variables."""
+        """Filter the data source to only include the specified variables (and levels).
+
+        If the dataset is compact, it will also filter the levels based on the
+        variable names (which encode the level in the name).
+
+        Args:
+            var_names: Variable names to filter.
+            prefix: Prefix for the new data source name.
+
+        Returns:
+            A new `DataSource` only with the filtered variables and levels.
+        """
+        name = f"{prefix}[{self.name}]"
+        if self.is_compact:
+            parsed_var_names, levels = [], []
+            for mangled_var_name in var_names:
+                if not _var_name_encode_level(mangled_var_name):
+                    parsed_var_names.append(mangled_var_name)
+                    continue
+                tokens = mangled_var_name.split("_")
+                var_name, level = tokens[0], int(tokens[1])
+
+                parsed_var_names.append(var_name)
+                # Build set of total levels
+                if level not in levels:
+                    levels.append(level)
+
+            data = self.data[parsed_var_names]
+            means = self.means[parsed_var_names]
+            stds = self.stds[parsed_var_names]
+            if levels:
+                data = data.isel(lev=levels)
+                means = means.isel(lev=levels)
+                stds = stds.isel(lev=levels)
+
+            return dataclasses.replace(
+                self, name=name, data=data, means=means, stds=stds
+            )
+
         data = self.data[var_names]
         means = self.means[var_names]
         stds = self.stds[var_names]
 
-        return dataclasses.replace(
-            self, name=f"{prefix}[{self.name}]", data=data, means=means, stds=stds
-        )
+        return dataclasses.replace(self, name=name, data=data, means=means, stds=stds)
 
     def map(
         self,
@@ -63,9 +117,12 @@ class DataSource:
             tuple[xr.Dataset, xr.Dataset, xr.Dataset],
         ],
         *,
-        suffix: str,
+        suffix: str | None = None,
     ) -> Self:
         """Map the function over the data source."""
+        if suffix is None:
+            suffix = func.__qualname__
+
         data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
 
         return dataclasses.replace(
@@ -121,8 +178,33 @@ class DataSource:
         reshape_vars[variable_axis] = -1
 
         # TODO(alxmrs): Do we have to reshape twice?
-        means_np = self.means.to_array().to_numpy().reshape(-1)
-        stds_np = self.stds.to_array().to_numpy().reshape(-1)
+        if "lev" in self.means.dims:
+            means_np = (
+                conditional_rearrange(
+                    self.means,
+                    "(variable lev)=var",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+                .reshape(-1)
+            )
+        else:
+            means_np = self.means.to_array().to_numpy().reshape(-1)
+        if "lev" in self.stds.dims:
+            stds_np = (
+                conditional_rearrange(
+                    self.stds,
+                    "(variable lev)=var",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+                .reshape(-1)
+            )
+        else:
+            stds_np = self.stds.to_array().to_numpy().reshape(-1)
+
         means = torch.from_numpy(means_np).reshape(reshape_vars)
         stds = torch.from_numpy(stds_np).reshape(reshape_vars)
 
@@ -182,6 +264,93 @@ class DataSource:
             means=means,
             stds=stds,
         )
+
+
+def conditional_rearrange(
+    data: xr.Dataset, pattern: str, except_dim="lev", concat_dim="variable"
+) -> xr.DataArray:
+    """Rearrange a Dataset using an einsum notation with and without a dimension.
+
+    When a dataset has variables with a mixture of dimensions and an einsum-like
+    rearrange is applied on that dataset, it's common that the pattern will combinate
+    one too many variables. Sometimes, it's desirable to apply the rearrange pattern
+    on two versions of the data: one including variables with that dimension and one
+    without, and then concatenate them along a new dimension.
+
+    For example, surface level boundary variables, which only occur at t0, should not be
+    combinatorially rearranged with depth variables that have multiple time steps. In
+    such a situation, this function can be used to apply a standard einsum rearrangement
+    to depth and surface variables, including and excluding variables who have a `time`
+    dimension, respectively.
+
+    This method is stable: even if it creates a new number of dimensions, it will
+    preserve the order of the variables in the original dataset.
+
+    Args:
+        data: The dataset to rearrange.
+        pattern: The einsum pattern to use for rearranging.
+        except_dim: The dimension to exclude from the pattern.
+        concat_dim: The dimension to concatenate along.
+
+    Returns:
+        The combined, rearranged dataset as a `xarray.DataArray`.
+    """
+    assert except_dim in pattern, f"{except_dim} must be in the pattern."
+
+    all_vars = list(data.keys())
+
+    vars_with_dim = [v for v in data if except_dim in data[v].dims]
+    vars_without_dim = [v for v in data if except_dim not in data[v].dims]
+
+    # Some of the `vars_without_dim` may need to appear before or behind `vars_with_dim`
+    # in the final data array. These lists help preserve the correct order of the vars,
+    # even after a rearrangement (i.e. merge to two or more dimensions).
+    back = [
+        v
+        for v in vars_without_dim
+        if all_vars.index(v) > all_vars.index(vars_with_dim[0])
+    ]
+    front = [
+        v
+        for v in vars_without_dim
+        if all_vars.index(v) < all_vars.index(vars_with_dim[-1])
+    ]
+
+    data_with_dim = (
+        data[vars_with_dim]
+        .to_array()
+        .einops.rearrange(pattern, dask="allowed")
+        .drop_vars(concat_dim, errors="ignore")
+    )
+    data_without_dim = (
+        data[vars_without_dim]
+        .to_array()
+        .einops.rearrange(pattern.replace(except_dim, ""), dask="allowed")
+        .drop_vars(concat_dim, errors="ignore")
+    )
+
+    da = xr.concat([data_with_dim, data_without_dim], dim=concat_dim)
+
+    n_front = len(front)  # e.g. n_front=2
+    n_center = data_with_dim.sizes[concat_dim]  # e.g. n_center=10
+    n_back = len(back)  # e.g. n_back=3
+
+    # In the `concat` above, we put all the `data_without_dim` vars at the end. Some of
+    # these need to be moved to the front, and the rest stays at the back. Here, we
+    # compute a list of indices that will sort the data in the correct order.
+    #
+    # e.g. with the example constants above, order would look like:
+    #  array([10, 11,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 12, 13, 14])
+    order = np.concatenate(
+        (
+            # Moves vars to the front
+            np.roll(np.arange((new_front := n_center + n_front)), n_front),
+            np.arange(new_front, new_front + n_back),  # rest of vars
+        )
+    )
+    order_da = xr.DataArray(order, dims=concat_dim)
+
+    return da.sortby(order_da)
 
 
 def extract_wet_mask(
@@ -396,7 +565,9 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
 
 
 def validate_data(
-    src: DataSource, static_data_vars: list[str] | None = None
+    src: DataSource,
+    boundary_vars: BoundaryVarNames,
+    static_data_vars: list[str] | None = None,
 ) -> DataSource:
     """Validate the data such that we have the correct format for training."""
     if static_data_vars is not None:
@@ -413,25 +584,27 @@ def validate_data(
 
         src = src.map_data(_static_data_checks, suffix="static_data_checked")
 
-    def _rename(data, means, stds):
-        data = (
-            data.pipe(flatten_masks)
-            .pipe(with_level_index_vars)
-            .pipe(with_lat_lon_coords)
-        )
+    if src.is_compact:
+        src_ = src.map_data(with_lat_lon_coords)
+    else:
 
-        # Check if data variables are in the right format
-        # This check is to ensure we convert data to the correct format
-        means = with_level_index_vars(means)
-        stds = with_level_index_vars(stds)
-        return data, means, stds
+        def validated(data, means, stds):
+            data = (
+                data.pipe(flatten_masks)
+                .pipe(with_level_index_vars)
+                .pipe(with_lat_lon_coords)
+            )
 
-    src_ = src.map(_rename, suffix="validated")
+            # Check if data variables are in the right format
+            # This check is to ensure we convert data to the correct format
+            means = with_level_index_vars(means)
+            stds = with_level_index_vars(stds)
+            return data, means, stds
+
+        src_ = src.map(validated, suffix="validated")
 
     # Check if any anomalies are needed to be computed
-    tensor_map = TensorMap.get_instance()
-    anomalies_vars = get_anomalies_vars(tensor_map.boundary_var_names)
-
+    anomalies_vars = get_anomalies_vars(boundary_vars)
     out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
 
     return out
@@ -538,3 +711,29 @@ class LoadStats:
     def accumulated(cls, stats: list["LoadStats"]) -> "LoadStats":
         """Accumulate the stats across multiple LoadStats objects in a batch."""
         return cls(sum(s.load_time_seconds for s in stats))
+
+
+def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
+    data = ds.copy()
+
+    var_groups = defaultdict(list)
+    for key in data.keys():
+        if "_lev_" in (k := str(key)):
+            base_name = k.split("_lev_")[0]
+            var_groups[base_name].append(k)
+
+    def _parse_level(x) -> float:
+        return float(x.split("_lev_")[1].replace("_", "."))
+
+    for base_var, vars_ in var_groups.items():
+        sorted_vars = sorted(vars_, key=_parse_level)
+        levels = [_parse_level(var) for var in sorted_vars]
+        if hasattr(data, "lev"):
+            levels = data.lev.values
+        da = xr.concat([data[var] for var in sorted_vars], dim="lev").assign_coords(
+            lev=("lev", levels)
+        )
+        data[base_var] = da
+        data = data.drop_vars(vars_)
+
+    return data

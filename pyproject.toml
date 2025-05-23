@@ -47,6 +47,7 @@ dependencies = [
 [dependency-groups]
 dev = [
   "beartype>=0.20",
+  "coiled>=1.99",
   "fsspec>=2025.3",
   "hypothesis[numpy]>=6.127.2",
   "ipykernel>=6.29.5",

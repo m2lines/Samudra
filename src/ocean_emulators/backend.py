@@ -25,6 +25,9 @@ def init_train_backend(
         case "nccl":
             device = torch.device("cuda")
             dist_cfg = init_distributed_mode()
+        case "mps":
+            device = torch.device("mps")
+            dist_cfg = None
         case "auto" if torch.cuda.is_available():
             logging.info("auto backend detected CUDA")
             device = torch.device("cuda")
@@ -37,6 +40,10 @@ def init_train_backend(
                     exc_info=e,
                 )
                 dist_cfg = None
+        case "auto" if torch.backends.mps.is_available():
+            logging.info("auto backend detected MPS")
+            device = torch.device("mps")
+            dist_cfg = None
         case "auto":
             logging.info("auto backend: cuda not found, using CPU")
             device = torch.device("cpu")
@@ -58,13 +65,22 @@ def init_eval_backend(backend: EvalBackendConfig) -> torch.device:
             device = torch.device("cpu")
         case "cuda":
             device = torch.device("cuda")
+        case "mps":
+            device = torch.device("mps")
         case "auto" if torch.cuda.is_available():
             logging.info("auto backend detected CUDA")
             device = torch.device("cuda")
+        case "auto" if torch.backends.mps.is_available():
+            logging.info("auto backend detected MPS")
+            device = torch.device("mps")
         case "auto":
             logging.info("auto backend: cuda not found, using CPU")
             device = torch.device("cpu")
         case _:
             raise ValueError(f"Invalid backend: {backend}")
+
+    # We set this globally so we don't need to hand the device around.
+    # See https://github.com/suryadheeshjith/Ocean_Emulator/issues/87.
+    set_device(device)
 
     return device

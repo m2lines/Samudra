@@ -426,7 +426,7 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
     lats = torch.from_numpy(data.lat.to_numpy())
     weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
     weights /= weights.sum()
-    return weights
+    return weights.to(torch.float32)
 
 
 def get_inference_steps(data_source: DataSource, hist: int = 1):

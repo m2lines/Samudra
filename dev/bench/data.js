@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1747952712852,
+  "lastUpdate": 1748007639610,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1276,6 +1276,56 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.13480467696066134",
             "extra": "mean: 139.242580886 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "mihasya",
+            "username": "mihasya",
+            "email": "m@mihasya.com"
+          },
+          "committer": {
+            "name": "mihasya",
+            "username": "mihasya",
+            "email": "m@mihasya.com"
+          },
+          "id": "a4e8a8862791a04104ac27a7d98a32155c7f221e",
+          "message": "use fixed/vendored version of gha-runner on benchmark workflow",
+          "timestamp": "2025-05-22T18:24:50Z",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/a4e8a8862791a04104ac27a7d98a32155c7f221e"
+        },
+        "date": 1748007638886,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.2617661501641519,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3091794003539715",
+            "extra": "mean: 3.820203641200004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.06663613527422867,
+            "unit": "iter/sec",
+            "range": "stddev: 0.33575227343370356",
+            "extra": "mean: 15.006872710800007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.19279759459940143,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10105792660984869",
+            "extra": "mean: 5.186786702799997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.008704564066344268,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23081076676807682",
+            "extra": "mean: 114.88226088960005 sec\nrounds: 5"
           }
         ]
       }

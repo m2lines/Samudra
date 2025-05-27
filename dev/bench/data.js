@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1748355005177,
+  "lastUpdate": 1748355006642,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2706,6 +2706,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6767896641855309",
             "extra": "mean: 85.45743386459999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "m@mihasya.com",
+            "name": "Mikhail P",
+            "username": "mihasya"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d586ae5475dc034925ee58d35e9376a73c6d0981",
+          "message": "Switch to using EC2 for CI workers, take 2 (#250)\n\nThis changeset switches the repo to use OpenAthena's EC2 account to\nperform CI checks.\n\nUnlike its predecessor, #246, this PR depends on a branch of\n`start-gha-ec2-runner` which contains a fix for a bug that prevented the\nrunner machines from being detected by GHA. We will upstream this fix\nand send a follow-up PR when the fix has been accepted.\n\nWe observe a modest improvement in benchmarks when running on AWS\n`g6.xlarge` VMs vs `g2-standard-8` Google Cloud VMs.",
+          "timestamp": "2025-05-27T06:38:11-07:00",
+          "tree_id": "0a2f733705754f56bc04f44be0e10fd48ad40fa2",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/d586ae5475dc034925ee58d35e9376a73c6d0981"
+        },
+        "date": 1748355006053,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.2879019876220538,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2123753961156003",
+            "extra": "mean: 3.473404293800013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.07192143839846069,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5441461141256482",
+            "extra": "mean: 13.904060072600032 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.19395529780361837,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09336021008967484",
+            "extra": "mean: 5.155827200000021 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.012699829861767181,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4117022051818577",
+            "extra": "mean: 78.74121235359999 sec\nrounds: 5"
           }
         ]
       }

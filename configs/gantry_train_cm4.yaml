@@ -6,8 +6,8 @@ pin_mem: true
 save_freq: 5
 epochs: 120
 batch_size: 3
-learning_rate: 0.0002
-scheduler: true
+learning_rate: 0.0001
+scheduler: false
 loss: mse
 finetune: false
 resume_ckpt_path: null
@@ -51,7 +51,7 @@ experiment:
     mode: online
     project: ocean-emulator
     entity: ai2cm
-    group: samudra-train-2in2out
+    group: samudra-train-1in1out
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
@@ -60,10 +60,13 @@ data:
   data_path: /climate-default/2025-02-10-cm4-piControl-ocean-200yr-dataset/data_uncompressed.zarr
   data_means_path: /statsdata/centering.nc
   data_stds_path: /statsdata/scaling-full-field.nc
+  static_data_vars:
+    - sea_surface_fraction
+    - hfgeou
   scaling_residuals_file: null
   num_workers: 4
-  hist: 1
-
+  hist: 0
+  normalize_before_mask: false
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]
@@ -79,11 +82,12 @@ samudra:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 4
-    norm: "batch"
+    norm: "instance"
 
   corrector:
     non_negative_corrector_names:
       - "so"
+    ocean_heat_corrector: false
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

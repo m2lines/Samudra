@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1748443891271,
+  "lastUpdate": 1748535147578,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1428,6 +1428,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.16305057916098264",
             "extra": "mean: 103.24933379439999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "m@mihasya.com",
+            "name": "Mikhail P",
+            "username": "mihasya"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd9c83eef13b76242972bb05ca858bfc872618bb",
+          "message": "Remove pointer to patched version of GH Action (#254)\n\nMinor cleanup from #250 removing a reference to a patched CI dependency.",
+          "timestamp": "2025-05-29T08:39:15-07:00",
+          "tree_id": "c8ac84cac2c120a97b3b75ff9d967ab5fce952aa",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/cd9c83eef13b76242972bb05ca858bfc872618bb"
+        },
+        "date": 1748535146669,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-mock-train_default.test.yaml]",
+            "value": 0.26972835353855,
+            "unit": "iter/sec",
+            "range": "stddev: 0.262568311224251",
+            "extra": "mean: 3.7074337453999933 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-mock-train_default.test.yaml]",
+            "value": 0.06624735514435279,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9537382849676402",
+            "extra": "mean: 15.094942248199994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-mock-train_default.test.yaml]",
+            "value": 0.1924269539376995,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15767553294733316",
+            "extra": "mean: 5.196777164199989 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-mock-train_default.test.yaml]",
+            "value": 0.008853005104733642,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4602156783364526",
+            "extra": "mean: 112.95599496099996 sec\nrounds: 5"
           }
         ]
       }

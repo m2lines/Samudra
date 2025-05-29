@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1748535147578,
+  "lastUpdate": 1748535148819,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2910,6 +2910,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3575905419060481",
             "extra": "mean: 73.38236983239995 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "m@mihasya.com",
+            "name": "Mikhail P",
+            "username": "mihasya"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd9c83eef13b76242972bb05ca858bfc872618bb",
+          "message": "Remove pointer to patched version of GH Action (#254)\n\nMinor cleanup from #250 removing a reference to a patched CI dependency.",
+          "timestamp": "2025-05-29T08:39:15-07:00",
+          "tree_id": "c8ac84cac2c120a97b3b75ff9d967ab5fce952aa",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/cd9c83eef13b76242972bb05ca858bfc872618bb"
+        },
+        "date": 1748535148310,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 0.25493553941094166,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12352234543405288",
+            "extra": "mean: 3.922560198199972 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.06686470306366986,
+            "unit": "iter/sec",
+            "range": "stddev: 0.40299779826144594",
+            "extra": "mean: 14.955573780800023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.18774462971066186,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08668800917285621",
+            "extra": "mean: 5.326384043799953 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.011968950384872234,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4958067812813021",
+            "extra": "mean: 83.54951502380004 sec\nrounds: 5"
           }
         ]
       }

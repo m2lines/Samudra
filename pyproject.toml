@@ -42,6 +42,7 @@ dependencies = [
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",
+  "xesmf>=0.8.10",
   "zarr<3",
 ]
 

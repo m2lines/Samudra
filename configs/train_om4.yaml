@@ -26,7 +26,7 @@ inference_times:
     end: "1995-01-03"
   - start: "1995-01-03"
     end: "2005-01-03"
-  - start: "2004-10-05"
+  - start: "2005-01-03"
     end: "2014-10-05"
 data_stride: [1]
 steps: [4]
@@ -48,7 +48,7 @@ experiment:
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 data:
-  !include data/om4_ohc.yaml
+  !include data/public.yaml
 
 
 samudra:
@@ -72,4 +72,4 @@ samudra:
 
   corrector:
     non_negative_corrector_names: null
-    ocean_heat_corrector: true
+    ocean_heat_corrector: false

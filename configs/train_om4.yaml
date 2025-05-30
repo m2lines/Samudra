@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
+batch_size: 3
 learning_rate: 0.0002
 scheduler: true
 loss: mse
@@ -20,22 +20,22 @@ val_time:
   start: "2013-10-05"
   end: "2014-10-05"
 inference_times:
-  - start: "1975-01-03"
-    end: "1980-01-03"
-  - start: "1980-01-03"
-    end: "1985-01-03"
-  - start: "1985-01-03"
-    end: "1990-01-03"
-  - start: "1990-01-03"
-    end: "1995-01-03"
-  - start: "1995-01-03"
-    end: "2000-01-03"
-  - start: "2000-01-03"
-    end: "2005-01-03"
-  - start: "2005-01-03"
-    end: "2010-01-03"
-  - start: "2010-01-03"
-    end: "2014-10-05"
+  - start: "2014-10-10"
+    end: "2015-10-10"
+  - start: "2015-10-10"
+    end: "2016-10-10"
+  - start: "2016-10-10"
+    end: "2017-10-10"
+  - start: "2017-10-10"
+    end: "2018-10-10"
+  - start: "2018-10-10"
+    end: "2019-10-10"
+  - start: "2019-10-10"
+    end: "2020-10-10"
+  - start: "2020-10-10"
+    end: "2021-10-10"
+  - start: "2021-10-10"
+    end: "2022-12-24"
 data_stride: [1]
 steps: [4]
 step_transition: []

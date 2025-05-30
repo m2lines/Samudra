@@ -19,4 +19,4 @@ git clone git@github.com:suryadheeshjith/Ocean_Emulator.git
 cd Ocean_Emulator
 git switch $BRANCH
 
-echo "Run in a tmux: uv run torchrun --standalone --nnodes=1 --nproc-per-node=auto -m ocean_emulators.train $CONFIG --experiment.cluster_data_dir=$ROOT_DIR/data/public --experiment.base_output_dir=$ROOT_DIR/$SHARED_FS_NAME"
+echo "Run in a tmux: uv run torchrun --standalone --nnodes=1 --nproc-per-node=auto -m ocean_emulators.train $CONFIG --experiment.cluster_data_dir=$ROOT_DIR/data/public --experiment.base_output_dir=$ROOT_DIR/$SHARED_FS_NAME --experiment.wandb.mode=online"

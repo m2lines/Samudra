@@ -110,3 +110,7 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = [ "cftime.*", "scipy.*", "fsspec.*" ]
 follow_untyped_imports = true
+
+[tool.pixi.workspace]
+channels = [ "conda-forge" ]
+platforms = [ "linux-64", "osx-arm64", "osx-64", "win-64" ]

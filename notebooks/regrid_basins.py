@@ -1,39 +1,115 @@
 # %%
 """
-Regrid basin_arctic.nc data to match the grid from om4.zarr using xESMF.
+Regrid all basin data to match the grid from om4.zarr using xESMF.
 
-This script follows the approach from the MOM6 Analysis Cookbook:
-https://mom6-analysiscookbook.readthedocs.io/en/latest/notebooks/Horizontal_Remapping.html
+This script:
+1. Loads all basin files from BASINS_PATH
+2. Combines them into a single grid with unique integer IDs per basin
+3. Regrids the combined data using KDTree nearest neighbor
+4. Splits the regridded data back into per-basin boolean grids
+5. Saves all basin masks as variables in a zarr file
+
+This approach is more efficient than regridding each basin separately.
 """
 
-import xarray as xr
-import xesmf as xe
+from pathlib import Path
+
 import numpy as np
+import xarray as xr
 from scipy.spatial import KDTree
+
+BASINS_PATH = Path("/Users/jder/oa/data/basins/")
+HIGH_RES_DATA_PATH = Path("/Users/jder/oa/data/half_deg_10y/")
+
+# Define basin names and their IDs
+BASIN_INFO = {
+    "Arctic": {"file": "basin_Arctic.nc", "id": 1},
+    "Atlantic": {"file": "basin_At_noArctic.nc", "id": 2},
+    "Indian": {"file": "basin_In.nc", "id": 3},
+    "Pacific": {"file": "basin_Pa.nc", "id": 4},
+    "Southern": {"file": "basin_SO_32S.nc", "id": 5},
+}
 
 
 # %%
-def load_source_data():
-    """Load the source basin data."""
-    print("Loading source data from ../temp/basin_Arctic.nc...")
-    ds = xr.open_dataset("../temp/basin_Arctic.nc")
-    print(f"Source data shape: {ds.basin.shape}")
-    print(f"Source lon range: {ds.lon.min().values:.2f} to {ds.lon.max().values:.2f}")
-    print(f"Source lat range: {ds.lat.min().values:.2f} to {ds.lat.max().values:.2f}")
-    return ds
+def load_all_basin_data():
+    """Load all basin data and combine into a single grid with unique IDs."""
+    print("Loading all basin data...")
+
+    combined_data = None
+    reference_coords = None
+
+    for basin_name, info in BASIN_INFO.items():
+        file_path = BASINS_PATH / info["file"]
+        print(f"  Loading {basin_name} from {info['file']}...")
+
+        ds = xr.open_dataset(file_path)
+
+        # Store reference coordinates from first file
+        if reference_coords is None:
+            reference_coords = {"lon": ds.lon, "lat": ds.lat}
+            combined_data = np.zeros_like(ds.basin.values, dtype=np.int32)
+
+        # Verify coordinates match across files
+        if not (
+            np.allclose(ds.lon.values, reference_coords["lon"].values)
+            and np.allclose(ds.lat.values, reference_coords["lat"].values)
+        ):
+            raise ValueError(
+                f"Coordinates in {info['file']} don't match reference grid"
+            )
+
+        # Add basin data with unique ID where basin exists (non-NaN and non-zero)
+        basin_mask = ~np.isnan(ds.basin.values) & (ds.basin.values != 0)
+        combined_data[basin_mask] = info["id"]
+
+        print(f"    Found {np.sum(basin_mask)} points for {basin_name}")
+
+    # Ensure we have data
+    if combined_data is None or reference_coords is None:
+        raise ValueError("No basin data was loaded")
+
+    # Create combined dataset
+    combined_ds = xr.Dataset(
+        {
+            "basin_id": (
+                ["lat", "lon"],
+                combined_data,
+                {
+                    "long_name": "Combined basin IDs",
+                    "description": "Integer ID for each basin: "
+                    + ", ".join(
+                        [f"{info['id']}={name}" for name, info in BASIN_INFO.items()]
+                    ),
+                    "valid_range": [0, len(BASIN_INFO)],
+                },
+            )
+        },
+        coords=reference_coords,
+    )
+
+    print(f"\nCombined basin data:")
+    print(f"  Grid shape: {combined_data.shape}")
+    print(f"  Total basin points: {np.sum(combined_data > 0)}")
+    basin_points = combined_data[combined_data > 0]
+    if len(basin_points) > 0:
+        print(f"  Basin ID range: {np.min(basin_points)} to {np.max(basin_points)}")
+
+    return combined_ds
 
 
 # %%
 def load_target_grid():
     """Load the target grid from om4.zarr."""
-    print("\nLoading target grid from ../temp/om4.zarr...")
-    ds = xr.open_zarr("../temp/om4.zarr")
+    print("\nLoading target grid from OM4.zarr...")
+    ds = xr.open_zarr(HIGH_RES_DATA_PATH / "OM4.zarr")
 
     # Create a minimal grid dataset with just the coordinates we need
+    # Rename dimensions to match our expected naming convention
     target_grid = xr.Dataset(
         {
-            "lon": ds.x,  # x coordinate represents longitude
-            "lat": ds.y,  # y coordinate represents latitude
+            "lon": ds.x.rename({"x": "lon"}),  # x coordinate represents longitude
+            "lat": ds.y.rename({"y": "lat"}),  # y coordinate represents latitude
         }
     )
 
@@ -49,31 +125,28 @@ def load_target_grid():
 
 
 # %%
-def regrid_with_kdtree(source_ds, target_grid):
+def regrid_combined_basins(source_ds, target_grid):
     """
-    Regrid source data to target grid using KDTree for nearest neighbor lookup.
-
-    This approach directly maps each target grid point to its nearest source point,
-    handling NaNs by finding the closest non-NaN value.
+    Regrid combined basin data to target grid using KDTree for nearest neighbor lookup.
     """
-    print("\nRegridding using KDTree nearest neighbor lookup...")
+    print("\nRegridding combined basin data using KDTree...")
 
     # Get source data
-    source_data = source_ds.basin.values
+    source_data = source_ds.basin_id.values
     source_lons, source_lats = np.meshgrid(source_ds.lon.values, source_ds.lat.values)
 
-    # Find valid (non-NaN) source points
-    valid_mask = ~np.isnan(source_data)
+    # Find valid (non-zero) source points - these are our basin points
+    valid_mask = source_data > 0
 
     if not np.any(valid_mask):
-        raise ValueError("All source data points are NaN - cannot regrid")
+        raise ValueError("No basin data found in source - cannot regrid")
 
     # Create arrays of valid source points and their values
     valid_points = np.column_stack((source_lons[valid_mask], source_lats[valid_mask]))
     valid_values = source_data[valid_mask]
 
     print(
-        f"Found {len(valid_values)} valid source points out of {source_data.size} total"
+        f"Found {len(valid_values)} valid basin points out of {source_data.size} total"
     )
 
     # Build KDTree for efficient nearest neighbor search
@@ -97,111 +170,241 @@ def regrid_with_kdtree(source_ds, target_grid):
     regridded_data = target_values.reshape(target_lons.shape)
 
     # Create output DataArray
-    basin_regridded = xr.DataArray(
+    basin_id_regridded = xr.DataArray(
         regridded_data,
         coords={
             "lat": target_grid.lat,
             "lon": target_grid.lon,
         },
         dims=["lat", "lon"],
-        name="basin",
+        name="basin_id",
+        attrs={
+            "long_name": "Regridded basin IDs",
+            "description": "Integer ID for each basin: "
+            + ", ".join([f"{info['id']}={name}" for name, info in BASIN_INFO.items()]),
+            "regrid_method": "nearest_neighbor_kdtree",
+            "regridded_from": "combined basin files",
+            "regridded_to": "om4.zarr grid",
+            "valid_range": [1, len(BASIN_INFO)],
+        },
     )
 
-    # Add attributes
-    basin_regridded.attrs.update(source_ds.basin.attrs)
-    basin_regridded.attrs["regrid_method"] = "nearest_neighbor_kdtree"
-    basin_regridded.attrs["regridded_from"] = "basin_Arctic.nc"
-    basin_regridded.attrs["regridded_to"] = "om4.zarr grid"
-    basin_regridded.attrs["nan_handling"] = (
-        "NaNs excluded from source, nearest valid value used"
-    )
-
-    print(f"Regridded data shape: {basin_regridded.shape}")
+    print(f"Regridded data shape: {basin_id_regridded.shape}")
     print(
-        f"Data range: {basin_regridded.min().values:.2f} to {basin_regridded.max().values:.2f}"
+        f"Basin ID range: {basin_id_regridded.min().values} to {basin_id_regridded.max().values}"
     )
     print(f"Mean distance to nearest source point: {distances.mean():.4f} degrees")
 
-    return basin_regridded
+    return basin_id_regridded
 
 
 # %%
-def save_regridded_data(
-    basin_regridded, output_path="../temp/basin_arctic_regridded.nc"
-):
-    """Save the regridded data to a new NetCDF file."""
-    print(f"\nSaving regridded data to {output_path}...")
+def create_boolean_basin_masks(basin_id_regridded):
+    """
+    Split the regridded basin ID data into separate boolean masks for each basin.
+    """
+    print("\nCreating boolean masks for each basin...")
 
-    # Create a new dataset with the regridded data
-    ds_out = xr.Dataset({"basin": basin_regridded})
+    basin_masks = {}
+
+    for basin_name, info in BASIN_INFO.items():
+        basin_id = info["id"]
+
+        # Create boolean mask for this basin
+        mask = basin_id_regridded == basin_id
+
+        # Add attributes
+        mask.attrs = {
+            "long_name": f"{basin_name} basin mask",
+            "description": f"Boolean mask for {basin_name} basin (1=in basin, 0=not in basin)",
+            "basin_id": basin_id,
+            "regrid_method": "nearest_neighbor_kdtree",
+            "source": f"basin_{basin_name}.nc via combined regridding",
+        }
+
+        basin_masks[f"basin_{basin_name.lower()}"] = mask
+
+        # Print statistics
+        n_points = int(mask.sum().values)
+        total_points = mask.size
+        percentage = (n_points / total_points) * 100
+
+        print(f"  {basin_name:>10}: {n_points:>7} points ({percentage:>5.2f}% of grid)")
+
+    return basin_masks
+
+
+# %%
+def save_basin_masks_zarr(
+    basin_masks, target_grid, output_path=BASINS_PATH / "basin_masks_regridded.zarr"
+):
+    """Save all basin masks to a single zarr file."""
+    print(f"\nSaving basin masks to {output_path}...")
+
+    # Create dataset with all basin masks
+    ds_out = xr.Dataset(basin_masks)
+
+    # Add coordinate information
+    ds_out = ds_out.assign_coords({"lon": target_grid.lon, "lat": target_grid.lat})
 
     # Add global attributes
-    ds_out.attrs["title"] = "Arctic basin mask regridded to OM4 half-degree grid"
-    ds_out.attrs["source"] = "basin_Arctic.nc"
-    ds_out.attrs["regrid_method"] = "nearest_neighbor_kdtree"
-    ds_out.attrs["created_by"] = "regrid_basins.py"
+    ds_out.attrs.update(
+        {
+            "title": "Basin masks regridded to OM4 half-degree grid",
+            "description": "Boolean masks for ocean basins regridded from 1° to 0.5° resolution",
+            "source_files": ", ".join([info["file"] for info in BASIN_INFO.values()]),
+            "regrid_method": "nearest_neighbor_kdtree",
+            "created_by": "regrid_basins.py",
+            "basins_included": ", ".join(BASIN_INFO.keys()),
+            "grid_resolution": "0.5 degree",
+            "coordinate_system": "WGS84",
+        }
+    )
 
-    # Save to NetCDF
-    ds_out.to_netcdf(output_path)
-    print(f"Data saved successfully to {output_path}")
+    # Save to zarr (remove existing if it exists)
+    import shutil
+
+    if Path(output_path).exists():
+        shutil.rmtree(output_path)
+
+    ds_out.to_zarr(output_path, mode="w")
+    print(f"Basin masks saved successfully to {output_path}")
 
     return ds_out
 
 
 # %%
-# Load the data
-print("=== Step 1: Loading Data ===")
-source_ds = load_source_data()
-target_grid = load_target_grid()
+def create_comparison_plot(basin_masks, output_path="../temp/basin_comparison.png"):
+    """Create a comparison plot showing original vs regridded basin data."""
+    print(f"\nCreating comparison plot...")
+
+    try:
+        import matplotlib.pyplot as plt
+        import matplotlib.patches as patches
+
+        # Load original Arctic basin for comparison
+        original_ds = xr.open_dataset(BASINS_PATH / "basin_Arctic.nc")
+        original_mask = ~np.isnan(original_ds.basin.values) & (
+            original_ds.basin.values != 0
+        )
+
+        # Get regridded Arctic basin
+        regridded_mask = basin_masks["basin_arctic"]
+
+        # Create figure with subplots
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+
+        # Plot original data
+        im1 = ax1.imshow(
+            original_mask.astype(float),
+            extent=[
+                original_ds.lon.min(),
+                original_ds.lon.max(),
+                original_ds.lat.min(),
+                original_ds.lat.max(),
+            ],
+            cmap="Blues",
+            origin="lower",
+            aspect="auto",
+        )
+        ax1.set_title(
+            f"Original Arctic Basin\n({original_ds.basin.shape[0]}×{original_ds.basin.shape[1]} grid, ~1° resolution)"
+        )
+        ax1.set_xlabel("Longitude")
+        ax1.set_ylabel("Latitude")
+        ax1.grid(True, alpha=0.3)
+
+        # Plot regridded data
+        im2 = ax2.imshow(
+            regridded_mask.values.astype(float),
+            extent=[
+                regridded_mask.lon.min(),
+                regridded_mask.lon.max(),
+                regridded_mask.lat.min(),
+                regridded_mask.lat.max(),
+            ],
+            cmap="Blues",
+            origin="lower",
+            aspect="auto",
+        )
+        ax2.set_title(
+            f"Regridded Arctic Basin\n({regridded_mask.shape[0]}×{regridded_mask.shape[1]} grid, ~0.5° resolution)"
+        )
+        ax2.set_xlabel("Longitude")
+        ax2.set_ylabel("Latitude")
+        ax2.grid(True, alpha=0.3)
+
+        # Add colorbars
+        plt.colorbar(im1, ax=ax1, label="Basin mask", shrink=0.8)
+        plt.colorbar(im2, ax=ax2, label="Basin mask", shrink=0.8)
+
+        # Add statistics text
+        orig_points = int(np.sum(original_mask))
+        regrid_points = int(regridded_mask.sum().values)
+
+        fig.suptitle(
+            f"Basin Regridding Comparison\n"
+            f"Original: {orig_points:,} points | "
+            f"Regridded: {regrid_points:,} points | "
+            f"Ratio: {regrid_points / orig_points:.2f}×",
+            fontsize=14,
+            fontweight="bold",
+        )
+
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+        print(f"Comparison plot saved to {output_path}")
+        plt.show()
+
+        return True
+
+    except ImportError:
+        print("Matplotlib not available - skipping comparison plot")
+        return False
+    except Exception as e:
+        print(f"Error creating plot: {e}")
+        return False
+
 
 # %%
-# Regrid the basin data
-print("\n=== Step 2: Regridding Data ===")
-basin_regridded = regrid_with_kdtree(source_ds, target_grid)
+# Main execution
+if __name__ == "__main__":
+    # Load and combine all basin data
+    print("=== Step 1: Loading and Combining Basin Data ===")
+    combined_source = load_all_basin_data()
 
-# %%
-# Save the regridded data
-print("\n=== Step 3: Saving Results ===")
-output_ds = save_regridded_data(basin_regridded)
+    # Load target grid
+    print("\n=== Step 2: Loading Target Grid ===")
+    target_grid = load_target_grid()
 
-print("\n=== Regridding completed successfully! ===")
-print("\nRegridded dataset summary:")
-print(output_ds)
+    # Regrid the combined basin data
+    print("\n=== Step 3: Regridding Combined Data ===")
+    basin_id_regridded = regrid_combined_basins(combined_source, target_grid)
 
-# %%
-# Create comparison plot
-print("\n=== Step 4: Creating Comparison Plot ===")
-try:
-    import matplotlib.pyplot as plt
+    # Create boolean masks for each basin
+    print("\n=== Step 4: Creating Boolean Basin Masks ===")
+    basin_masks = create_boolean_basin_masks(basin_id_regridded)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    # Save all masks to zarr
+    print("\n=== Step 5: Saving Results ===")
+    output_ds = save_basin_masks_zarr(basin_masks, target_grid)
 
-    # Original data
-    source_ds.basin.plot(ax=ax1, x="lon", y="lat", cmap="tab10")
-    ax1.set_title("Original Basin Data (1° grid)")
-    ax1.set_xlabel("Longitude")
-    ax1.set_ylabel("Latitude")
+    # Create comparison plot
+    print("\n=== Step 6: Creating Comparison Plot ===")
+    create_comparison_plot(basin_masks)
 
-    # Regridded data
-    basin_regridded.plot(ax=ax2, x="lon", y="lat", cmap="tab10")
-    ax2.set_title("Regridded Basin Data (0.5° grid)")
-    ax2.set_xlabel("Longitude")
-    ax2.set_ylabel("Latitude")
+    print("\n=== Basin Regridding Completed Successfully! ===")
+    print(f"\nFinal dataset summary:")
+    print(output_ds)
 
-    plt.tight_layout()
-    plt.savefig("./temp/basin_regrid_comparison.png", dpi=150, bbox_inches="tight")
-    print(f"\nComparison plot saved to ./temp/basin_regrid_comparison.png")
-    plt.show()
-
-except ImportError:
-    print("\nMatplotlib not available - skipping comparison plot")
-
-# %%
-# Summary information
-print("\n=== Summary ===")
-print(f"Original grid: {source_ds.basin.shape} (lat x lon)")
-print(f"Target grid: {basin_regridded.shape} (lat x lon)")
-print(f"Original resolution: ~{abs(source_ds.lat[1] - source_ds.lat[0]).values:.1f}°")
-print(f"Target resolution: ~{abs(target_grid.lat[1] - target_grid.lat[0]).values:.1f}°")
-print(f"Regridding method: nearest_neighbor_kdtree")
-print(f"Output file: ./temp/basin_arctic_regridded.nc")
+    print(f"\nBasin coverage summary:")
+    for var_name in output_ds.data_vars:
+        if str(var_name).startswith("basin_"):
+            mask = output_ds[var_name]
+            n_points = int(mask.sum().values)
+            total_points = mask.size
+            percentage = (n_points / total_points) * 100
+            basin_name = str(var_name).replace("basin_", "").title()
+            print(
+                f"  {basin_name:>10}: {n_points:>7} points ({percentage:>5.2f}% of grid)"
+            )

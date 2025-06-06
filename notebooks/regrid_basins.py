@@ -135,18 +135,21 @@ def regrid_combined_basins(source_ds, target_grid):
     source_data = source_ds.basin_id.values
     source_lons, source_lats = np.meshgrid(source_ds.lon.values, source_ds.lat.values)
 
-    # Find valid (non-zero) source points - these are our basin points
-    valid_mask = source_data > 0
+    # Include ALL source points (both basin and non-basin/land)
+    # This ensures that points closest to land/non-basin areas remain unassigned
+    valid_mask = ~np.isnan(source_data)  # Only exclude NaN values, include zeros
 
     if not np.any(valid_mask):
-        raise ValueError("No basin data found in source - cannot regrid")
+        raise ValueError("All source data points are NaN - cannot regrid")
 
-    # Create arrays of valid source points and their values
+    # Create arrays of all valid source points and their values (including zeros)
     valid_points = np.column_stack((source_lons[valid_mask], source_lats[valid_mask]))
     valid_values = source_data[valid_mask]
 
+    basin_points = np.sum(valid_values > 0)
+    zero_points = np.sum(valid_values == 0)
     print(
-        f"Found {len(valid_values)} valid basin points out of {source_data.size} total"
+        f"Found {len(valid_values)} total source points: {basin_points} basin points + {zero_points} non-basin points"
     )
 
     # Build KDTree for efficient nearest neighbor search
@@ -202,6 +205,7 @@ def regrid_combined_basins(source_ds, target_grid):
 def create_boolean_basin_masks(basin_id_regridded):
     """
     Split the regridded basin ID data into separate boolean masks for each basin.
+    Only points with positive basin IDs are included; zero values represent land/non-basin areas.
     """
     print("\nCreating boolean masks for each basin...")
 
@@ -210,16 +214,17 @@ def create_boolean_basin_masks(basin_id_regridded):
     for basin_name, info in BASIN_INFO.items():
         basin_id = info["id"]
 
-        # Create boolean mask for this basin
+        # Create boolean mask for this basin (only positive IDs, zeros remain as False)
         mask = basin_id_regridded == basin_id
 
         # Add attributes
         mask.attrs = {
             "long_name": f"{basin_name} basin mask",
-            "description": f"Boolean mask for {basin_name} basin (1=in basin, 0=not in basin)",
+            "description": f"Boolean mask for {basin_name} basin (1=in basin, 0=not in basin or land)",
             "basin_id": basin_id,
             "regrid_method": "nearest_neighbor_kdtree",
             "source": f"basin_{basin_name}.nc via combined regridding",
+            "note": "Zero values in source represent land/non-basin areas and remain unassigned",
         }
 
         basin_masks[f"basin_{basin_name.lower()}"] = mask
@@ -227,9 +232,18 @@ def create_boolean_basin_masks(basin_id_regridded):
         # Print statistics
         n_points = int(mask.sum().values)
         total_points = mask.size
+        zero_points = int((basin_id_regridded == 0).sum().values)
         percentage = (n_points / total_points) * 100
 
         print(f"  {basin_name:>10}: {n_points:>7} points ({percentage:>5.2f}% of grid)")
+
+    # Print statistics about non-basin (land/zero) points
+    zero_points = int((basin_id_regridded == 0).sum().values)
+    total_points = basin_id_regridded.size
+    zero_percentage = (zero_points / total_points) * 100
+    print(
+        f"  {'Land/Non-basin':>10}: {zero_points:>7} points ({zero_percentage:>5.2f}% of grid)"
+    )
 
     return basin_masks
 

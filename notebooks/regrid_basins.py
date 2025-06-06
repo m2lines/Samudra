@@ -1,6 +1,6 @@
 # %%
 """
-Regrid all basin data to match the grid from om4.zarr using xESMF.
+Regrid all basin data to match the grid from om4.zarr using a KDTree.
 
 This script:
 1. Loads all basin files from BASINS_PATH
@@ -9,7 +9,8 @@ This script:
 4. Splits the regridded data back into per-basin boolean grids
 5. Saves all basin masks as variables in a zarr file
 
-This approach is more efficient than regridding each basin separately.
+Rather than regridding each separately, this ensures that each point
+is assigned to only one basin.
 """
 
 from pathlib import Path

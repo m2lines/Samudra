@@ -356,19 +356,21 @@ def process_mask(mask):
     return mask
 
 
-basin_root = "/Users/jder/oa/data/basins"
-atlantic_mask0 = xr.open_dataset(f"{basin_root}/basin_At_noArctic.nc")["basin"]
+basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_regridded.zarr")
+atlantic_mask0 = basins["basin_atlantic"]
 atlantic_mask = atlantic_mask0.where(atlantic_mask0["lat"] >= -32)
 atlantic_mask = process_mask(atlantic_mask)
-pacific_mask0 = xr.open_dataset(f"{basin_root}/basin_Pa.nc")["basin"]
-pacific_mask = pacific_mask0.where(pacific_mask0["lat"] >= -32)
+pacific_mask0 = basins["basin_pacific"]
+pacific_mask = pacific_mask0.where(
+    pacific_mask0["lat"] >= -32
+)  # TODO: include this -32 masking in the basin data
 pacific_mask = process_mask(pacific_mask)
-indian_ocean_mask0 = xr.open_dataset(f"{basin_root}/basin_In.nc")["basin"]
+indian_ocean_mask0 = basins["basin_indian"]
 indian_ocean_mask = indian_ocean_mask0.where(indian_ocean_mask0["lat"] >= -32)
 indian_ocean_mask = process_mask(indian_ocean_mask)
-southern_ocean_mask0 = xr.open_dataset(f"{basin_root}/basin_SO_32S.nc")["basin"]
+southern_ocean_mask0 = basins["basin_southern"]
 southern_ocean_mask = process_mask(southern_ocean_mask0)
-arctic_mask0 = xr.open_dataset(f"{basin_root}/basin_Arctic.nc")["basin"]
+arctic_mask0 = basins["basin_arctic"]
 arctic_ocean_mask = process_mask(arctic_mask0)
 
 basin_masks = xr.Dataset(

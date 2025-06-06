@@ -15,7 +15,6 @@ on:
 
 permissions:
   id-token: write # This is required for interacting with AWS via OIDC
-  contents: read # This is required for actions/checkout
 
 jobs:
   stop-aws-runner:

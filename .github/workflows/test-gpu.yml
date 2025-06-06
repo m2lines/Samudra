@@ -14,8 +14,6 @@ permissions:
 jobs:
   start-aws-runner:
     uses: ./.github/workflows/aws-runner-start.yml
-    with:
-      use_fix_worker_lookup: true
     secrets:
       AWS_ROLE: ${{ secrets.AWS_ROLE }}
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

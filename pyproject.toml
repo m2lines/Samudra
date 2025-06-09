@@ -30,7 +30,7 @@ dependencies = [
   "einops>=0.8.1",
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
-  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
+  "numpy>=1.26.4,<2", # There is some incompatibility between a dependency and numpy 2+
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",
   "pyyaml>=6.0.2",
@@ -68,6 +68,7 @@ dev = [
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
+  "tqdm>=4.67.1",
   "types-pyyaml>=6.0.12.20241230",
   "xarrayutils>=2.0.1",
 ]

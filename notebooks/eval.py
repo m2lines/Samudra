@@ -26,7 +26,7 @@ pred_dict = {}
 pred_dict["pred_1"] = {
     "name": "samudra-trained-on-halfdeg-om4-10y-test-on-om4",
     "run_name": "samudra-trained-on-halfdeg-om4-10y-test-on-om4",
-    "path": "/Users/jder/oa/Ocean_Emulator/.LOCAL/samudra-trained-on-halfdeg-om4-10y-test-on-om4/predictions.zarr",
+    "path": "/Users/jder/oa/scratch/om4_samudra_halfdeg_predictions/predictions_clean.zarr",
     "ls": ["thetao", "so", "uo", "vo", "tos", "zos"],
 }
 
@@ -242,7 +242,8 @@ def process_data(data, pred_dict):
 
         assert ds_prediction.time.size == ds_groundtruth.time.size, (
             f"Sizes different for {key}: {ds_prediction.time.size}!="
-            f"{ds_groundtruth.time.size}"
+            f"{ds_groundtruth.time.size}; prediction range is {ds_prediction.time.values[0]} to {ds_prediction.time.values[-1]}"
+            f"groundtruth range is {ds_groundtruth.time.values[0]} to {ds_groundtruth.time.values[-1]}"
         )
         if "model_path" in ds_prediction.attrs:
             copy_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
@@ -271,7 +272,7 @@ groundtruth_rollout = xr.open_dataset(
     chunks={},
 )
 groundtruth_rollout = groundtruth_rollout.sel(
-    time=slice("1967-01-13", "1967-12-24")
+    time=slice("1958-01-13", "1967-12-29")
 )  # These dates are not the eval dates, they are the dates from the rollout (ie not jan1 beacuse we need 10 days of history)
 groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
 
@@ -4015,7 +4016,9 @@ def global_surface_map_bias(
 # %%
 if "mask" in data.data_vars:
     mask = data.mask
-    surface_mask = mask.isel(time=0, lev=0)
+    surface_mask = mask.isel(
+        time=0, lev=0, missing_dims="ignore"
+    )  # TODO: we don't have time anymore
 else:
     mask = data.wetmask
     surface_mask = mask.isel(lev=0)

@@ -98,6 +98,7 @@ class DataConfig(BaseConfig):
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
+    use_spdl: bool = False
     concurrent_compute: bool = False
 
 

@@ -430,6 +430,19 @@ def test_compact_loader__equals_flat_loader(
     assert_equal_samples(original_samples, new_samples)
 
 
+@pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
+def test_loader__is_same__with_spdl(train_config):
+    data_config = train_config.data.model_copy(update={"use_spdl": True})
+    spdl_config = train_config.model_copy(update={"data": data_config})
+
+    with make_loader(train_config, version=LoaderVersion.OM4_TORCH) as original_loader:
+        original_samples = [extract_sample_arrays(sample) for sample in original_loader]
+    with make_loader(spdl_config, version=LoaderVersion.OM4_TORCH) as new_loader:
+        new_samples = [extract_sample_arrays(sample) for sample in new_loader]
+
+    assert_equal_samples(original_samples, new_samples)
+
+
 @pytest.fixture
 def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     # Create data

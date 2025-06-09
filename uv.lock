@@ -2574,6 +2574,7 @@ dependencies = [
     { name = "requests" },
     { name = "s3fs" },
     { name = "scipy" },
+    { name = "spdl" },
     { name = "torch" },
     { name = "torchinfo" },
     { name = "wandb" },
@@ -2620,6 +2621,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.3" },
     { name = "s3fs", specifier = ">=2025.5.1" },
     { name = "scipy", specifier = ">=1.15.2" },
+    { name = "spdl", specifier = ">=0.0.14" },
     { name = "torch", specifier = "~=2.2.1" },
     { name = "torchinfo", specifier = ">=1.8" },
     { name = "wandb", specifier = ">=0.19.8" },
@@ -3870,6 +3872,46 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/c0/8b/f45dd378f6c97e8ff9332ff3d03ecb0b8c491be5bb7a698783b5a2f358ec/SQLAlchemy-1.4.54-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b5e0d47d619c739bdc636bbe007da4519fc953393304a5943e0b5aec96c9877c", size = 1629232 },
     { url = "https://files.pythonhosted.org/packages/0d/3c/884fe389f5bec86a310b81e79abaa1e26e5d78dc10a84d544a6822833e47/SQLAlchemy-1.4.54-cp312-cp312-win32.whl", hash = "sha256:12bc0141b245918b80d9d17eca94663dbd3f5266ac77a0be60750f36102bbb0f", size = 1592027 },
     { url = "https://files.pythonhosted.org/packages/01/c3/c690d037be57efd3a69cde16a2ef1bd2a905dafe869434d33836de0983d0/SQLAlchemy-1.4.54-cp312-cp312-win_amd64.whl", hash = "sha256:f941aaf15f47f316123e1933f9ea91a6efda73a161a6ab6046d1cde37be62c88", size = 1593827 },
+]
+
+[[package]]
+name = "spdl"
+version = "0.0.14"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "spdl-core" },
+    { name = "spdl-io" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bf/4f/89ab0d7ebcce5b3f64d2c1b3a1a660bd5dc535b05ec5eee123c0c66edd76/spdl-0.0.14-py3-none-any.whl", hash = "sha256:bb26ec0cd3615777cb2a75d0ba9d51aad71fca96da0ab810ed8cc2327b192445", size = 2535 },
+]
+
+[[package]]
+name = "spdl-core"
+version = "0.0.14"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4d/3f/38dfe4d05234d9f6521654f92064054dd01dff99300e240d121ec1a10af3/spdl_core-0.0.14-py3-none-any.whl", hash = "sha256:88c2c365b44697ccd4dc5480f155a5ec82958dd6916f10b2f0a6ae1c23391453", size = 57860 },
+]
+
+[[package]]
+name = "spdl-io"
+version = "0.0.14"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/3d/0061a390786c848d251b0171bd06d3c65eff0cf7a448add69562487e3ff9/spdl_io-0.0.14-cp311-cp311-macosx_14_0_universal2.whl", hash = "sha256:84476348f2c5fb053870b89db305dbf9a5232f03b260300d5082392290df3f16", size = 5624068 },
+    { url = "https://files.pythonhosted.org/packages/5e/01/223d99940e9b9f3b8560385a2d8d4e0f545f99777e0d76b37e4e42b8b7d8/spdl_io-0.0.14-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b922d725d5b40a3f444655b733f5b5764a25cdbd7803662589a5940a77e73405", size = 7093854 },
+    { url = "https://files.pythonhosted.org/packages/39/73/beff57b913c17da93518fe1cb40745f8c83f42b3de7950d023db515b5cfa/spdl_io-0.0.14-cp311-cp311-manylinux_2_27_x86_64.whl", hash = "sha256:b28fcdb82df6d114fbaa2016cd5fc162d35c2711faa6746120091bae5ae2c88d", size = 9283013 },
+    { url = "https://files.pythonhosted.org/packages/ac/6a/6fd6b6bb403768e8af140561cd97e0b6ff02ac5ad19836e1df7b8c244b8f/spdl_io-0.0.14-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:44428179b397d26ca9463e0d09700afb7273ef7fff604f19973fff0f8a8334ae", size = 5616683 },
+    { url = "https://files.pythonhosted.org/packages/48/20/4b50914911f6bab9f775db5578bb06fa0a179582acd6835d47647f2adf9e/spdl_io-0.0.14-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:6ec6ce3d08284be77a180e4351ecf77d791390eaccb2c41b7bd385b6de9a40d7", size = 7082977 },
+    { url = "https://files.pythonhosted.org/packages/bc/63/20a203b8d1e6932be16d4654c6bddc7763230f017ec7c7b24262c7e189ba/spdl_io-0.0.14-cp312-cp312-manylinux_2_27_x86_64.whl", hash = "sha256:11e9e50c9381c113ba8f594b50791b5432b608d78883e3e681e113019ced9e2d", size = 9276908 },
+    { url = "https://files.pythonhosted.org/packages/5f/0e/6d3ccf4c4d08e57b46714c4cbce09f8a292df2e5b10acc4e58ccdad89114/spdl_io-0.0.14-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:72f016ef7884520d46ffc8e59fd6f69aa632b9d2d9b8a0c7b7d245591d002345", size = 5616299 },
+    { url = "https://files.pythonhosted.org/packages/a7/5a/a01a148c8bedfbb7fcca91d5ca3bc8e3a431ba2e823dc7a78f24034873ce/spdl_io-0.0.14-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:582e20800419ada8b83904e97a3d1485ff900512ff8c236dbd672af7bcbdc7e0", size = 7082891 },
+    { url = "https://files.pythonhosted.org/packages/68/63/3979188bdc14b458433d35b95adbbc0a869e9f07741005322ca41d27c1c4/spdl_io-0.0.14-cp313-cp313-manylinux_2_27_x86_64.whl", hash = "sha256:aeaee4420327a2ea979102ffa7d0409dd581ed2d3c0e40496c4dfadb046e9d81", size = 9276920 },
+    { url = "https://files.pythonhosted.org/packages/43/f2/086f214179ee90545776e4069b9839917380178b13e1e939a2785501a83a/spdl_io-0.0.14-cp313-cp313t-macosx_14_0_arm64.whl", hash = "sha256:9c77055c83ec436b7a776320f9a38ad0cc0dba8641f3c76e33a68d52b8ce5c54", size = 5646525 },
 ]
 
 [[package]]

@@ -19,6 +19,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
+from spdl.pipeline import Pipeline, PipelineBuilder
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -354,6 +355,7 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.num_workers: int = cfg.data.num_workers
+        self.use_spdl: bool = cfg.data.use_spdl
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
         self.val_time = cfg.val_time
@@ -514,69 +516,97 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
-        # iters = len(self.train_loader)
-        for data_iter_step, data in enumerate(
-            metric_logger.log_every(self.train_loader, 1, header)
-        ):
-            if self.debug and (data_iter_step + 1) % 5 == 0:
-                break
 
-            self.optimizer.zero_grad()
-            data.to(self.device)
-            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
-            TO.loss.backward()
-            self._ema(model=self.model)
-            train_aggregator.record_batch(TO)
+        iterator: DataLoader | Pipeline = self.train_loader
 
-            self.num_batches_seen += 1
+        if self.use_spdl:
+            prefetch_factor = 2  # this is the default value -- we may want to tune it.
 
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-
-            self.optimizer.step()
-
-            lr = (
-                self.optimizer.param_groups[-1]["lr"]
-                if self.scheduler is None
-                else self.scheduler.get_last_lr()[0]
+            iterator = (
+                PipelineBuilder()
+                .add_source(range(len(self.train_dataset)))
+                .pipe(
+                    self.train_dataset.__getitem__,
+                    concurrency=self.num_workers,
+                    output_order="input",
+                )
+                .aggregate(self.batch_size)
+                .pipe(collate_train_data)
+                .add_sink(prefetch_factor)
+                .build(num_threads=self.num_workers)
             )
+            iterator.start()
 
-            with torch.no_grad():
-                # Reduce losses
-                loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
-                metrics = {
-                    "train/batch/loss": loss_value_reduce,
-                    "train/batch/lr": lr,
-                    "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
-                    **self.loss_aggregator.get_channel_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                    **self.loss_aggregator.get_depth_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                    **self.loss_aggregator.get_variable_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                    "train/batch/data_load_time": metric_logger.meters[
-                        "data_load_time"
-                    ].value,
-                    "train/batch/data_wait_time": metric_logger.meters[
-                        "data_wait_time"
-                    ].value,
-                }
-            if (it_time := metric_logger.meters["iter_time"]).count > 0:
-                metrics["train/batch/iter_time"] = it_time.value
+        try:
+            for data_iter_step, data in enumerate(
+                metric_logger.log_every(iterator, 1, header)
+            ):
+                if self.debug and (data_iter_step + 1) % 5 == 0:
+                    break
 
-            self.wandb_logger.log(metrics, step=self.num_batches_seen)
+                self.optimizer.zero_grad()
+                data.to(self.device)
+                TO: TrainBatchOutput = Stepper.train_batch(
+                    self.model, data, self.loss_fn
+                )
+                TO.loss.backward()
+                self._ema(model=self.model)
+                train_aggregator.record_batch(TO)
 
-            metric_logger.update(loss=loss_value_reduce.item())
-            metric_logger.update(lr=lr)
+                self.num_batches_seen += 1
 
-            self.profiler.after_batch(self.num_batches_seen)
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
-        if self.scheduler is not None:
-            self.scheduler.step()
+                self.optimizer.step()
+
+                lr = (
+                    self.optimizer.param_groups[-1]["lr"]
+                    if self.scheduler is None
+                    else self.scheduler.get_last_lr()[0]
+                )
+
+                with torch.no_grad():
+                    # Reduce losses
+                    loss_value_reduce = all_reduce_mean(TO.loss.detach())
+                    loss_per_channel_reduce = all_reduce_mean(
+                        TO.loss_per_channel.detach()
+                    )
+                    metrics = {
+                        "train/batch/loss": loss_value_reduce,
+                        "train/batch/lr": lr,
+                        "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
+                        **self.loss_aggregator.get_channel_loss_dict(
+                            label="train", loss_per_channel=loss_per_channel_reduce
+                        ),
+                        **self.loss_aggregator.get_depth_loss_dict(
+                            label="train", loss_per_channel=loss_per_channel_reduce
+                        ),
+                        **self.loss_aggregator.get_variable_loss_dict(
+                            label="train", loss_per_channel=loss_per_channel_reduce
+                        ),
+                        "train/batch/data_load_time": metric_logger.meters[
+                            "data_load_time"
+                        ].value,
+                        "train/batch/data_wait_time": metric_logger.meters[
+                            "data_wait_time"
+                        ].value,
+                    }
+                if (it_time := metric_logger.meters["iter_time"]).count > 0:
+                    metrics["train/batch/iter_time"] = it_time.value
+
+                self.wandb_logger.log(metrics, step=self.num_batches_seen)
+
+                metric_logger.update(loss=loss_value_reduce.item())
+                metric_logger.update(lr=lr)
+
+                self.profiler.after_batch(self.num_batches_seen)
+
+            if self.scheduler is not None:
+                self.scheduler.step()
+        finally:
+            if self.use_spdl:
+                iterator.stop()
 
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
@@ -786,6 +816,9 @@ class Trainer:
                     f"Collate function not defined for loader version "
                     f"{self.loader_version}"
                 )
+
+        self.train_dataset = train_data
+        self.val_dataset = val_data
 
         # Create data loaders
         self.train_loader = DataLoader(

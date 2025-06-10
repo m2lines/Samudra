@@ -14,6 +14,7 @@ is assigned to only one basin.
 """
 
 from pathlib import Path
+from typing import Dict, Any
 
 import numpy as np
 import xarray as xr
@@ -23,7 +24,7 @@ BASINS_PATH = Path("/Users/jder/oa/data/basins/")
 HIGH_RES_DATA_PATH = Path("/Users/jder/oa/data/half_deg_10y/")
 
 # Define basin names and their IDs
-BASIN_INFO = {
+BASIN_INFO: Dict[str, Dict[str, Any]] = {
     "Arctic": {"file": "basin_Arctic.nc", "id": 1},
     "Atlantic": {"file": "basin_At_noArctic.nc", "id": 2},
     "Indian": {"file": "basin_In.nc", "id": 3},
@@ -267,7 +268,9 @@ def save_basin_masks_zarr(
         {
             "title": "Basin masks regridded to OM4 half-degree grid",
             "description": "Boolean masks for ocean basins regridded from 1° to 0.5° resolution",
-            "source_files": ", ".join([info["file"] for info in BASIN_INFO.values()]),
+            "source_files": ", ".join(
+                [str(info["file"]) for info in BASIN_INFO.values()]
+            ),
             "regrid_method": "nearest_neighbor_kdtree",
             "created_by": "regrid_basins.py",
             "basins_included": ", ".join(BASIN_INFO.keys()),
@@ -284,6 +287,102 @@ def save_basin_masks_zarr(
 
     ds_out.to_zarr(output_path, mode="w")
     print(f"Basin masks saved successfully to {output_path}")
+
+    return ds_out
+
+
+# %%
+def create_original_basin_masks(combined_source_ds):
+    """
+    Create boolean masks for each basin from the original combined source data.
+    This creates the same format as the regridded masks but for the original resolution.
+    """
+    print("\nCreating boolean masks for original basin data...")
+
+    basin_masks = {}
+    source_data = combined_source_ds.basin_id.values
+
+    for basin_name, info in BASIN_INFO.items():
+        basin_id = info["id"]
+
+        # Create boolean mask for this basin (only positive IDs, zeros remain as False)
+        mask_data = source_data == basin_id
+
+        # Create DataArray with same structure as regridded version
+        mask = xr.DataArray(
+            mask_data,
+            coords={
+                "lat": combined_source_ds.lat,
+                "lon": combined_source_ds.lon,
+            },
+            dims=["lat", "lon"],
+            name=f"basin_{basin_name.lower()}",
+            attrs={
+                "long_name": f"{basin_name} basin mask",
+                "description": f"Boolean mask for {basin_name} basin (1=in basin, 0=not in basin or land)",
+                "basin_id": basin_id,
+                "source": f"basin_{basin_name}.nc via combined original data",
+                "note": "Zero values represent land/non-basin areas and remain unassigned",
+            },
+        )
+
+        basin_masks[f"basin_{basin_name.lower()}"] = mask
+
+        # Print statistics
+        n_points = int(mask.sum().values)
+        total_points = mask.size
+        percentage = (n_points / total_points) * 100
+
+        print(f"  {basin_name:>10}: {n_points:>7} points ({percentage:>5.2f}% of grid)")
+
+    # Print statistics about non-basin (land/zero) points
+    zero_points = int((source_data == 0).sum())
+    total_points = source_data.size
+    zero_percentage = (zero_points / total_points) * 100
+    print(
+        f"  {'Land/Non-basin':>10}: {zero_points:>7} points ({zero_percentage:>5.2f}% of grid)"
+    )
+
+    return basin_masks
+
+
+# %%
+def save_original_basin_masks_zarr(
+    basin_masks, source_grid, output_path=BASINS_PATH / "basin_masks_original.zarr"
+):
+    """Save original basin masks to a single zarr file in the same format as regridded ones."""
+    print(f"\nSaving original basin masks to {output_path}...")
+
+    # Create dataset with all basin masks
+    ds_out = xr.Dataset(basin_masks)
+
+    # Add coordinate information
+    ds_out = ds_out.assign_coords({"lon": source_grid.lon, "lat": source_grid.lat})
+
+    # Add global attributes
+    ds_out.attrs.update(
+        {
+            "title": "Original basin masks at 1-degree resolution",
+            "description": "Boolean masks for ocean basins at original 1° resolution",
+            "source_files": ", ".join(
+                [str(info["file"]) for info in BASIN_INFO.values()]
+            ),
+            "regrid_method": "none",
+            "created_by": "regrid_basins.py",
+            "basins_included": ", ".join(BASIN_INFO.keys()),
+            "grid_resolution": "1 degree",
+            "coordinate_system": "WGS84",
+        }
+    )
+
+    # Save to zarr (remove existing if it exists)
+    import shutil
+
+    if Path(output_path).exists():
+        shutil.rmtree(output_path)
+
+    ds_out.to_zarr(output_path, mode="w")
+    print(f"Original basin masks saved successfully to {output_path}")
 
     return ds_out
 
@@ -404,18 +503,43 @@ if __name__ == "__main__":
     print("\n=== Step 5: Saving Results ===")
     output_ds = save_basin_masks_zarr(basin_masks, target_grid)
 
+    # Create original basin masks
+    print("\n=== Step 6: Creating Original Basin Masks ===")
+    original_basin_masks = create_original_basin_masks(combined_source)
+
+    # Save original basin masks to zarr
+    print("\n=== Step 7: Saving Original Basin Masks ===")
+    original_output_ds = save_original_basin_masks_zarr(
+        original_basin_masks, combined_source
+    )
+
     # Create comparison plot
-    print("\n=== Step 6: Creating Comparison Plot ===")
+    print("\n=== Step 8: Creating Comparison Plot ===")
     create_comparison_plot(basin_masks)
 
     print("\n=== Basin Regridding Completed Successfully! ===")
-    print(f"\nFinal dataset summary:")
+    print(f"\nRegridded dataset summary:")
     print(output_ds)
 
-    print(f"\nBasin coverage summary:")
+    print(f"\nOriginal dataset summary:")
+    print(original_output_ds)
+
+    print(f"\nRegridded basin coverage summary:")
     for var_name in output_ds.data_vars:
         if str(var_name).startswith("basin_"):
             mask = output_ds[var_name]
+            n_points = int(mask.sum().values)
+            total_points = mask.size
+            percentage = (n_points / total_points) * 100
+            basin_name = str(var_name).replace("basin_", "").title()
+            print(
+                f"  {basin_name:>10}: {n_points:>7} points ({percentage:>5.2f}% of grid)"
+            )
+
+    print(f"\nOriginal basin coverage summary:")
+    for var_name in original_output_ds.data_vars:
+        if str(var_name).startswith("basin_"):
+            mask = original_output_ds[var_name]
             n_points = int(mask.sum().values)
             total_points = mask.size
             percentage = (n_points / total_points) * 100

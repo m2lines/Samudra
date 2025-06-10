@@ -48,6 +48,36 @@ output_path = (
 )
 
 # %%
+from ocean_emulators.utils.data import spherical_area_weights
+
+# Read files
+# Groundtruth
+groundtruth_rollout = xr.open_dataset(
+    "/Users/jder/oa/data/half_deg_10y/OM4.zarr",
+    engine="zarr",
+    chunks={},
+)
+groundtruth_rollout = groundtruth_rollout.sel(
+    time=slice("1958-01-13", "1967-12-29")
+)  # These dates are not the eval dates, they are the dates from the rollout (ie not jan1 beacuse we need 10 days of history)
+groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
+
+
+groundtruth_rollout = groundtruth_rollout.assign(
+    areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
+)
+
+# This function processes the ds_groundtruth and predictions for plotting
+# The predictions are loaded into pred_dict
+ds_groundtruth, pred_dict = process_data(groundtruth_rollout, pred_dict)
+data = ds_groundtruth
+
+# %%
+
+basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_regridded.zarr")
+
+
+# %%
 # [Optional] Convert nc files to zarr
 # ds_prediction = xr.open_dataset('/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/autoregressive_predictions.nc', engine='netcdf4').isel(sample=0)
 # ds_prediction = ds_prediction.chunk({'time': 10, 'lat': 180, 'lon': 360})
@@ -262,31 +292,6 @@ def process_data(data, pred_dict):
 
 
 # %%
-from ocean_emulators.utils.data import spherical_area_weights
-
-# Read files
-# Groundtruth
-groundtruth_rollout = xr.open_dataset(
-    "/Users/jder/oa/data/half_deg_10y/OM4.zarr",
-    engine="zarr",
-    chunks={},
-)
-groundtruth_rollout = groundtruth_rollout.sel(
-    time=slice("1958-01-13", "1967-12-29")
-)  # These dates are not the eval dates, they are the dates from the rollout (ie not jan1 beacuse we need 10 days of history)
-groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
-
-
-groundtruth_rollout = groundtruth_rollout.assign(
-    areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
-)
-
-# This function processes the ds_groundtruth and predictions for plotting
-# The predictions are loaded into pred_dict
-ds_groundtruth, pred_dict = process_data(groundtruth_rollout, pred_dict)
-data = ds_groundtruth
-
-# %%
 var_list = {
     "vo": r"$v$ $( m/s )$",
     "uo": r"$u$ $( m/s )$",
@@ -357,7 +362,6 @@ def process_mask(mask):
     return mask
 
 
-basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_regridded.zarr")
 atlantic_mask0 = basins["basin_atlantic"]
 atlantic_mask = atlantic_mask0.where(atlantic_mask0["lat"] >= -32)
 atlantic_mask = process_mask(atlantic_mask)

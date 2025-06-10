@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749580960981,
+  "lastUpdate": 1749580962330,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3322,6 +3322,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.25224580658194756",
             "extra": "mean: 60.29674548720002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "87e1ec3a77ea6a1fde81946786cc3d0873cf268a",
+          "message": "Deduplicate start/stop jobs, remove patched version of action (#256)\n\nI resisted doing this because this is more moving pieces and also more\ncode, but this is also at least the third time we've had them drift out\nof sync (in this case, one was using the mihasya patched version and the\nother not), so I think it's probably worth it.",
+          "timestamp": "2025-06-10T14:19:58-04:00",
+          "tree_id": "0fb347ff79be7fba168adb4c0760c6a343a62f12",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/87e1ec3a77ea6a1fde81946786cc3d0873cf268a"
+        },
+        "date": 1749580961744,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 1.2759609418413964,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011016778692026821",
+            "extra": "mean: 783.7230491999662 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.25331023152060533,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013908027640403917",
+            "extra": "mean: 3.9477284197999554 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.1948612868008294,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07908910852860435",
+            "extra": "mean: 5.131855672400002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.015623856096446427,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9326206153696651",
+            "extra": "mean: 64.00468577199999 sec\nrounds: 5"
           }
         ]
       }

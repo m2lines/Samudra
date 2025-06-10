@@ -97,5 +97,5 @@ def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
     """Creating a trainer with overlapping train + val/inf times should error."""
 
     with MultitonScope():
-        with pytest.raises(Exception, match="Training time range.*"):
+        with pytest.raises(ValueError, match="Training time range.*"):
             Trainer(train_config)

@@ -412,9 +412,9 @@ def data_source(request, pytestconfig) -> DataSource:
             raise ValueError(f"Unknown data source: {request.param}.")
 
 
-@pytest.fixture(scope="session")
-def extra_args() -> list[str]:
-    return []
+@pytest.fixture(scope="session", params=[[]])
+def extra_args(request) -> list[str]:
+    return request.param
 
 
 @pytest.fixture(scope="session")

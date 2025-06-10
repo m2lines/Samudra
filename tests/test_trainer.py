@@ -5,6 +5,8 @@ import tempfile
 import pytest
 import torch
 
+from ocean_emulators.train import Trainer
+from ocean_emulators.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, TrainPair
 
 
@@ -57,3 +59,43 @@ def test_checkpoint(trainer_pair: TrainPair, caplog):
     out2 = trainer.model.forward_once(X[0][0].to(trainer.device))
 
     assert torch.allclose(out, out2)
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name,extra_config_args",
+    [
+        (
+            "mock",
+            DEFAULT_CONFIG,
+            [
+                "--train_time.start",
+                "1975-08-01",
+                "--train_time.end",
+                "1975-09-01",
+                "--val_time.start",
+                "1975-08-15",
+                "--val_time.end",
+                "1975-09-01",
+            ],
+        ),
+        (
+            "mock",
+            DEFAULT_CONFIG,
+            [
+                "--train_time.start",
+                "1975-08-01",
+                "--train_time.end",
+                "1975-09-01",
+                "--inference_times",
+                '[{"start": "1975-08-15", "end": "1975-09-01"}]',
+            ],
+        ),
+    ],
+    indirect=True,
+)
+def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
+    """Creating a trainer with overlapping train + val/inf times should error."""
+
+    with MultitonScope():
+        with pytest.raises(ValueError, match="Training time range.*"):
+            Trainer(train_config)

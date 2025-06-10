@@ -1,6 +1,6 @@
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 import cftime
 import torch
@@ -59,6 +59,7 @@ class TimeConfig(BaseConfig):
     """Represents a time slice of the data.
 
     Endpoints are Julian dates (not times) but cftime stores them in datetimes.
+    The final endpoint is exclusive.
     """
 
     start: DateConfig
@@ -67,6 +68,20 @@ class TimeConfig(BaseConfig):
     @property
     def time_slice(self) -> slice:
         return slice(self.start.datetime, self.end.datetime)
+
+    def overlaps(self, other: Self) -> bool:
+        """Check if this time range overlaps with another time range.
+
+        Args:
+            other: Another TimeConfig to check for overlap
+
+        Returns:
+            True if the time ranges overlap, False otherwise
+        """
+        return (
+            self.start.datetime < other.end.datetime
+            and self.end.datetime > other.start.datetime
+        )
 
     def __str__(self) -> str:
         return f"{self.start} to {self.end}"

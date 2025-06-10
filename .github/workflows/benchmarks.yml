@@ -12,31 +12,14 @@ on:
 permissions:
   contents: write # Allow updating content on GitHub pages
   deployments: write # Allow to deploy to GitHub pages
-  id-token: write   # This is required for interacting with AWS via OIDC
+  id-token: write # This is required for interacting with AWS via OIDC
 
 jobs:
   start-aws-runner:
-    runs-on: ubuntu-latest
-    outputs:
-      mapping: ${{ steps.aws-start.outputs.mapping }}
-      instances: ${{ steps.aws-start.outputs.instances }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE }}
-          role-session-name: github-actions-session
-          aws-region: us-east-1
-
-      - name: Create cloud runner
-        id: aws-start
-        uses: omsf/start-aws-gha-runner@v1.0.0
-        with:
-          aws_image_id: ami-00096836009b16a22 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch
-          aws_instance_type: g6.xlarge
-          aws_home_dir: /home/ubuntu
-        env:
-          GH_PAT: ${{ secrets.GH_SA_TOKEN }}
+    uses: ./.github/workflows/aws-runner-start.yml
+    secrets:
+      AWS_ROLE: ${{ secrets.AWS_ROLE }}
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
   test:
     needs: start-aws-runner
@@ -106,21 +89,13 @@ jobs:
           alert-comment-cc-users: "@alxmrs,@jder"
 
   stop-aws-runner:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/aws-runner-stop.yml
     needs:
       - start-aws-runner
       - test
     if: ${{ always() }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE }}
-          aws-region: us-east-1
-
-      - name: Stop instances
-        uses: omsf/stop-aws-gha-runner@v1.0.0
-        with:
-          instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
-        env:
-          GH_PAT: ${{ secrets.GH_SA_TOKEN }}
+    with:
+      instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
+    secrets:
+      AWS_ROLE: ${{ secrets.AWS_ROLE }}
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

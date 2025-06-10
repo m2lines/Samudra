@@ -1,0 +1,34 @@
+name: Stop AWS Runner
+
+on:
+  workflow_call:
+    inputs:
+      instance_mapping:
+        description: "Instance mapping from the start workflow"
+        required: true
+        type: string
+    secrets:
+      AWS_ROLE:
+        required: true
+      GH_SA_TOKEN:
+        required: true
+
+permissions:
+  id-token: write # This is required for interacting with AWS via OIDC
+
+jobs:
+  stop-aws-runner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: us-east-1
+
+      - name: Stop instances
+        uses: omsf/stop-aws-gha-runner@v1.0.0
+        with:
+          instance_mapping: ${{ inputs.instance_mapping }}
+        env:
+          GH_PAT: ${{ secrets.GH_SA_TOKEN }}

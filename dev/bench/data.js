@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749580908984,
+  "lastUpdate": 1749580910165,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3218,6 +3218,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.17302647685957595",
             "extra": "mean: 59.24216485400002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "07aa2191c4c8c85a267c5fdcd54c201fb0cec1f6",
+          "message": "Complain if the validation or inference time ranges overlap with train (#258)\n\nI did this by accident last week so let's prevent people from doing it.\n\n---------\n\nCo-authored-by: Copilot <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2025-06-10T14:20:15-04:00",
+          "tree_id": "39ff4517aeaf326cbff211d3b6f8035a28a5e4ce",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/07aa2191c4c8c85a267c5fdcd54c201fb0cec1f6"
+        },
+        "date": 1749580909686,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.30339494781557,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03299218900497334",
+            "extra": "mean: 767.2271567999815 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.2483562697126072,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04210633238543347",
+            "extra": "mean: 4.026473747399973 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19775311430748366,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07384074187340443",
+            "extra": "mean: 5.0568103744000386 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.016584643033715363,
+            "unit": "iter/sec",
+            "range": "stddev: 0.25224580658194756",
+            "extra": "mean: 60.29674548720002 sec\nrounds: 5"
           }
         ]
       }

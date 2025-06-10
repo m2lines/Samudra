@@ -2850,7 +2850,8 @@ plt.savefig(os.path.join(temp_path, "SST_Global_map.png"), bbox_inches="tight", 
 
 # %%
 # Single Snapshot (First, Middle, Last)
-time_indices = [0, 300, 599]
+last_index = len(data.time) - 1
+time_indices = [0, last_index // 2, last_index]
 Days_to_Eq = 0
 
 
@@ -3092,7 +3093,8 @@ plt.savefig(
 
 # %%
 # Single Snapshot (First, Middle, Last)
-time_indices = [0, 300, 599]
+last_index = len(data.time) - 1
+time_indices = [0, last_index // 2, last_index]
 Days_to_Eq = 0
 
 

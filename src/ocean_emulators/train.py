@@ -156,15 +156,17 @@ class Trainer:
 
         # Dataloaders
         logger.info(f"Loading data")
-        assert not cfg.train_time.overlaps(cfg.val_time), (
-            f"Training time range {cfg.train_time} overlaps "
-            f"with validation time range {cfg.val_time}"
-        )
-        for i, inf_time in enumerate(cfg.inference_times):
-            assert not cfg.train_time.overlaps(inf_time), (
+        if cfg.train_time.overlaps(cfg.val_time):
+            raise ValueError(
                 f"Training time range {cfg.train_time} overlaps "
-                f"with inference time range {i}: {inf_time}"
+                f"with validation time range {cfg.val_time}"
             )
+        for i, inf_time in enumerate(cfg.inference_times):
+            if cfg.train_time.overlaps(inf_time):
+                raise ValueError(
+                    f"Training time range {cfg.train_time} overlaps "
+                    f"with inference time range {i}: {inf_time}"
+                )
 
         self.loader_version = LoaderVersion(cfg.data.loader_version)
         self.data_dir = cfg.experiment.data_dir

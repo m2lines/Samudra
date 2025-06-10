@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749576183228,
+  "lastUpdate": 1749576184541,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3114,6 +3114,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4083603376072332",
             "extra": "mean: 76.84921271260005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cd2e5d64d8d9b6ceb2a1ed6220c622dc00763ee9",
+          "message": "Switch to torch loader and reduce default number of workers per GPU (#255)\n\nI think the torch loader is a good default now, and I found 4 workers by\ndefault overloads the 8-GPU systems I've been using, resulting in very\nlong waits at the start of an epoch. 1-worker-per-GPU seems to be too\nfew on my other host, so I was thinking this might be a better default.\n(Though of course might need tuning.)",
+          "timestamp": "2025-06-10T13:00:58-04:00",
+          "tree_id": "6cfee0c0e32770bde2438ef83e8574ba905f607f",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/cd2e5d64d8d9b6ceb2a1ed6220c622dc00763ee9"
+        },
+        "date": 1749576184034,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-mock-train_default.test.yaml]",
+            "value": 1.2632050507398964,
+            "unit": "iter/sec",
+            "range": "stddev: 0.029235975444639076",
+            "extra": "mean: 791.6371133999746 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-mock-train_default.test.yaml]",
+            "value": 0.2556804163078871,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006876906669233305",
+            "extra": "mean: 3.9111325553999903 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-mock-train_default.test.yaml]",
+            "value": 0.1970428845844339,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05609207267115057",
+            "extra": "mean: 5.075037356000007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-mock-train_default.test.yaml]",
+            "value": 0.016879869303636365,
+            "unit": "iter/sec",
+            "range": "stddev: 0.17302647685957595",
+            "extra": "mean: 59.24216485400002 sec\nrounds: 5"
           }
         ]
       }

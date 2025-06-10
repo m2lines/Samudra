@@ -62,7 +62,7 @@ def test_checkpoint(trainer_pair: TrainPair, caplog):
 
 
 @pytest.mark.parametrize(
-    "data_source,config_name,extra_args",
+    "data_source,config_name,extra_config_args",
     [
         (
             "mock",

@@ -1,6 +1,6 @@
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 import cftime
 import torch
@@ -69,7 +69,7 @@ class TimeConfig(BaseConfig):
     def time_slice(self) -> slice:
         return slice(self.start.datetime, self.end.datetime)
 
-    def overlaps(self, other: "TimeConfig") -> bool:
+    def overlaps(self, other: Self) -> bool:
         """Check if this time range overlaps with another time range.
 
         Args:

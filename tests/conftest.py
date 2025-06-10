@@ -413,7 +413,7 @@ def data_source(request, pytestconfig) -> DataSource:
 
 
 @pytest.fixture(scope="session", params=[[]])
-def extra_args(request) -> list[str]:
+def extra_config_args(request) -> list[str]:
     return request.param
 
 
@@ -423,7 +423,7 @@ def train_config(
     pytestconfig: pytest.Config,
     config_name: str,
     backend: TrainBackendConfig,
-    extra_args: list[str],
+    extra_config_args: list[str],
 ) -> TrainConfig:
     """
     This fixture is used to create a config/trainer pair for each possible
@@ -447,7 +447,7 @@ def train_config(
             "--backend",
             backend,
         ]
-        + extra_args
+        + extra_config_args
     )
 
     return train_config

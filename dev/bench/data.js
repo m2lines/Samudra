@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1749759005214,
+  "lastUpdate": 1749773993550,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1736,6 +1736,56 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.11764469889675631",
             "extra": "mean: 68.238228674 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jesse Rusak",
+            "username": "jder",
+            "email": "jesse@openathena.ai"
+          },
+          "committer": {
+            "name": "Jesse Rusak",
+            "username": "jder",
+            "email": "jesse@openathena.ai"
+          },
+          "id": "0e31869aa37d0a6ce5187bfba7b11917c9e8fefc",
+          "message": "Revert \"Switch to torch loader and reduce default number of workers per GPU (#255)\"\n\nThis reverts commit cd2e5d64d8d9b6ceb2a1ed6220c622dc00763ee9.",
+          "timestamp": "2025-06-12T23:47:31Z",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/0e31869aa37d0a6ce5187bfba7b11917c9e8fefc"
+        },
+        "date": 1749773992928,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.2623169572129951,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4135723820985303",
+            "extra": "mean: 3.8121820664000152 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07045030412242953,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4802428531271452",
+            "extra": "mean: 14.19440288379999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.20727079458185568,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07625110110805886",
+            "extra": "mean: 4.8246063900000085 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.009684578348176268,
+            "unit": "iter/sec",
+            "range": "stddev: 0.22425569216508875",
+            "extra": "mean: 103.2569477006 sec\nrounds: 5"
           }
         ]
       }

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750090975231,
+  "lastUpdate": 1750090976481,
   "repoUrl": "https://github.com/suryadheeshjith/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3576,6 +3576,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.13873674831466504",
             "extra": "mean: 60.6471403044 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a644488d63d087f52514e991d2ca60937f56e212",
+          "message": "Use passed loader version to decide whether to use dask (#260)\n\n@alxmrs pretty sure this is why our benchmarks did something surprising\nwhen we changed the default loader version. Previously the passed\n`version` was ignored for the purpose of deciding whether to use dask or\nnot. Seems like good additional evidence that we should try and tackle\nthis duplication sometime soon.\n\nThis also makes me want to move to a world where we're not using config\nobjects in most tests. It's hard to tell whether this change is\nsufficient -- if any other code we're calling here transitively uses\n`cfg.data.loader_version`, then it's probably broken. We could also make\na new train config but then if the *caller* is using\n`cfg.data.loader_version` we have the same problem. We could update all\ncallers to mutate train config rather than passing in verison and\ntime_config separately but I would rather move away from manipulating\nconfig rather than towards. (But could be convinced this is still worth\ndoing in the short term.)",
+          "timestamp": "2025-06-16T11:57:54-04:00",
+          "tree_id": "b1f88c1e9950ab1dba0d7d5cc696362e6df605d8",
+          "url": "https://github.com/suryadheeshjith/Ocean_Emulator/commit/a644488d63d087f52514e991d2ca60937f56e212"
+        },
+        "date": 1750090975963,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.286008379957789,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01937676619228541",
+            "extra": "mean: 777.599909599985 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07044165578120938,
+            "unit": "iter/sec",
+            "range": "stddev: 0.33365539503642194",
+            "extra": "mean: 14.196145574799994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1971834154747392,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0795033265624155",
+            "extra": "mean: 5.071420421400035 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01589746663838833,
+            "unit": "iter/sec",
+            "range": "stddev: 1.2269667394225694",
+            "extra": "mean: 62.9031041704 sec\nrounds: 5"
           }
         ]
       }

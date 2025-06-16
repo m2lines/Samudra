@@ -60,7 +60,7 @@ def make_loader(
     if version is None:
         version = LoaderVersion(cfg.data.loader_version)
 
-    use_dask = version != LoaderVersion.OM4_TORCH.value
+    use_dask = version != LoaderVersion.OM4_TORCH
     raw = DataSource.from_config(cfg, use_dask=use_dask)
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]

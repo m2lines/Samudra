@@ -52,12 +52,15 @@ def make_loader(
     cfg: TrainConfig,
     time_config: TimeConfig | None = None,
     drop_last: bool = True,
-    version: LoaderVersion = LoaderVersion.OM4_EAGER,
+    version: LoaderVersion | None = None,
 ) -> Generator[DataLoader, None, None]:
     if time_config is None:
         time_config = cfg.train_time
 
-    use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
+    if version is None:
+        version = LoaderVersion(cfg.data.loader_version)
+
+    use_dask = version != LoaderVersion.OM4_TORCH
     raw = DataSource.from_config(cfg, use_dask=use_dask)
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]

@@ -55,6 +55,8 @@ def main(args: argparse.Namespace) -> float:
 
     zarr3_config = {}
     if args.use_zarrs:
+        import zarrs  # noqa: F401
+
         assert use_zarr_v3, "Zarrs (the rust backend) only supports Zarr v3!"
         zarr3_config.update({"codec_pipeline.path": "zarrs.ZarrsCodecPipeline"})
 

@@ -12,6 +12,7 @@
 #   "distributed",
 #   "tenacity",
 #   "ocean-emulators",
+#   "s3fs",
 # ]
 #
 # [tool.uv.sources]
@@ -73,7 +74,7 @@ def main(args: argparse.Namespace) -> None:
             if dest_fmt.lower() == "zarr":
                 if name == "OM4":
                     data = data.chunk(output_chunks)
-                data.to_zarr(dest + ".zarr")
+                data.to_zarr(dest + ".zarr", mode="w")
             else:
                 data.to_netcdf(dest + ".nc")
 

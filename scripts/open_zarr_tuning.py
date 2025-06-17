@@ -37,7 +37,7 @@ def main(args: argparse.Namespace) -> float:
     """Calculates elapsed time to open Zarr source over several iterations."""
     source = args.source or REMOTE_DATA
 
-    chunks: Any = {}
+    chunks: Any = {}  # For some reason `dict[str, int] | None` doesn't pass type check.
     if tc := args.time_chunks:
         assert not args.disable_dask, "Dask must be enabled for time chunks to be set."
         chunks["time"] = tc

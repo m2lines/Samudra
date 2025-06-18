@@ -16,6 +16,11 @@ from dask.diagnostics.progress import ProgressBar
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from xarrayutils.plotting import box_plot, linear_piecewise_scale
 
+from os import environ
+
+environ["FSSPEC_S3_ENDPOINT_URL"] = "https://nyu1.osn.mghpcc.org"
+environ["AWS_PROFILE"] = "m2l"
+
 # %matplotlib inline
 
 # %%
@@ -24,9 +29,9 @@ dataset_name = "OM4"
 
 pred_dict = {}
 pred_dict["pred_1"] = {
-    "name": "samudra-recreate-paper-om4",
-    "run_name": "samudra-recreate-paper-om4",
-    "path": "/Users/jder/oa/scratch/om4_samudra_lowres_predictions/predictions.zarr",
+    "name": "samudra-10-year-high-res",
+    "run_name": "samudra-10-year-high-res",
+    "path": "/Users/jder/oa/scratch/samudra_matching_rollout_10y_train/predictions.zarr",
     "ls": ["thetao", "so", "uo", "vo", "tos", "zos"],
 }
 
@@ -53,7 +58,7 @@ from ocean_emulators.utils.data import spherical_area_weights
 # Read files
 # Groundtruth
 groundtruth_rollout = xr.open_dataset(
-    "/Users/jder/oa/data/public/OM4.zarr",
+    "s3://emulators/sd5313/OM4_highres/om4_halfdeg.zarr",
     engine="zarr",
     chunks={},
 )
@@ -61,7 +66,7 @@ groundtruth_rollout = groundtruth_rollout.sel(
     time=slice("2014-10-20", "2022-12-24")
 )  # These dates are not the eval dates, they are the dates from the rollout (ie not jan1 beacuse we need 10 days of history)
 if "y" in groundtruth_rollout.coords:
-    groundtruth_rollout = groundtruth_rollout.drop_vars(["lat", "lon"])
+    groundtruth_rollout = groundtruth_rollout.drop_vars(["lat", "lon"], errors="ignore")
     groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
 
 
@@ -72,8 +77,8 @@ groundtruth_rollout = groundtruth_rollout.assign(
 
 # %%
 
-basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_original.zarr")
-
+# basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_original.zarr")
+basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_regridded.zarr")
 
 # %%
 # [Optional] Convert nc files to zarr

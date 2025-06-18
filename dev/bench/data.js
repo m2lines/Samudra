@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750274290089,
+  "lastUpdate": 1750274846006,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1760,6 +1760,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14165644183692938",
             "extra": "mean: 73.05987227860003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f662af829c4088ae43c55060a116d7bb09aaffa",
+          "message": "Avoid failing benchmarks when they regress (#264)\n\nThis is a bit weird since I always think something went wrong, but I\nthink regressions are \"normal\" and not failures. In addition, failing\nthe first \"store\" task causes the second one to never run, which seems\nbad.",
+          "timestamp": "2025-06-18T15:01:41-04:00",
+          "tree_id": "7deb607a3746aef4172aedcb6a2c5e4d5c0459d6",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/5f662af829c4088ae43c55060a116d7bb09aaffa"
+        },
+        "date": 1750274845227,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.277756420008245,
+            "unit": "iter/sec",
+            "range": "stddev: 0.019760080264875437",
+            "extra": "mean: 782.6217769999914 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06728627100128563,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8334095483031617",
+            "extra": "mean: 14.861872787999994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.20589841229669018,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09486406029743173",
+            "extra": "mean: 4.856764017000023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013861848617101852,
+            "unit": "iter/sec",
+            "range": "stddev: 0.24263095963673764",
+            "extra": "mean: 72.1404502114 sec\nrounds: 5"
           }
         ]
       }

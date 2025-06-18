@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=schemas/IceChunkRepoConfig.json
+fs: s3
+bucket_or_root: fomo-checkpoints

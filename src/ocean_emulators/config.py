@@ -1,8 +1,10 @@
+import os
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Any, Literal, Self, assert_never
 
 import cftime
+import icechunk
 import torch
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 
@@ -159,6 +161,44 @@ class DistributedConfig(BaseConfig):
     dist_backend: str | None = None
 
 
+class IceChunkRepoConfig(BaseConfig):
+    # Azure and other bucket providers are not currently supported.
+    fs: Literal["s3", "gcs", "local", "memory"] = "s3"
+    bucket_or_root: str = ""
+    prefix: str | None = None
+
+    def create_or_open(self) -> icechunk.Repository:
+        bucket, prefix = self.bucket_or_root, self.prefix
+        match self.fs:
+            case "s3":
+                icechunk_store = icechunk.s3_storage(
+                    bucket=bucket, prefix=prefix, from_env=True
+                )
+            case "gcs":
+                icechunk_store = icechunk.gcs_storage(
+                    bucket=bucket, prefix=prefix, from_env=True
+                )
+            case "local":
+                path = os.path.join(bucket, prefix) if prefix else bucket
+                icechunk_store = icechunk.local_filesystem_storage(path)
+            case "memory":
+                if bucket != "" or prefix is not None:
+                    raise UserWarning(
+                        "In memory icechunk stores don't have names, "
+                        "yet `bucket_or_root` or `prefix` was provided."
+                    )
+                icechunk_store = icechunk.in_memory_storage()
+            case _:
+                assert_never(self.fs)
+
+        if icechunk.Repository.exists(icechunk_store):
+            repo = icechunk.Repository.open(icechunk_store)
+        else:
+            repo = icechunk.Repository.create(icechunk_store)
+
+        return repo
+
+
 class ExperimentConfig(BaseConfig):
     name: str = "cm4_samudra"
     rand_seed: int = 1
@@ -259,6 +299,7 @@ class TrainConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     samudra: SamudraConfig
+    checkpoint_repo: IceChunkRepoConfig | None = None
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
@@ -287,6 +328,7 @@ class EvalConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     samudra: SamudraConfig = SamudraConfig()
+    checkpoint_repo: IceChunkRepoConfig | None = None
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

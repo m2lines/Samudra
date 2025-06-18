@@ -28,6 +28,7 @@ dependencies = [
   "dacite>=1.9.2",
   "dask>=2025.2",
   "einops>=0.8.1",
+  "icechunk>=0.2.16",
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
@@ -42,7 +43,7 @@ dependencies = [
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",
-  "zarr<3",
+  "zarr",
 ]
 
 [dependency-groups]

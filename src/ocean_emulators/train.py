@@ -298,6 +298,11 @@ class Trainer:
             cfg.experiment.wandb.mode == "online", is_main_process()
         )
 
+        # Checkpoints & Preemption
+        self.checkpoint_repo = None
+        if repo_cfg := cfg.checkpoint_repo:
+            self.checkpoint_repo = repo_cfg.create_or_open()
+
         self.ckpt_paths = CheckpointPaths(self.nets_dir)
 
         # Check for preemption

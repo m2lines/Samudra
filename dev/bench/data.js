@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750274288587,
+  "lastUpdate": 1750274290089,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3522,6 +3522,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.2269667394225694",
             "extra": "mean: 62.9031041704 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9f3b92249932b442b16a93744398acd50aabcc9c",
+          "message": "Notes on how to reproduce OM4 half-deg preprocessing. (#261)\n\nI've refreshed the contributing guide, adding a data engineering\nsection. Here, I explain how to clone the data and how to start a coiled\nnotebook to create the half-deg data. The docs indicate that this all\nmay change soon -- and that is my plan. I am happy to refresh these docs\noverall.\n\n---------\n\nCo-authored-by: Surya <surya.dheeshjith@gmail.com>",
+          "timestamp": "2025-06-18T11:52:16-07:00",
+          "tree_id": "96598efc2baf77a86569cde8e32850a308b0cfed",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/9f3b92249932b442b16a93744398acd50aabcc9c"
+        },
+        "date": 1750274289472,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2600873933610808,
+            "unit": "iter/sec",
+            "range": "stddev: 0.035119516628354504",
+            "extra": "mean: 793.5957500000541 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07051789012702615,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7963645988480913",
+            "extra": "mean: 14.180798634200027 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19150619920016068,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09677539280957344",
+            "extra": "mean: 5.221763076999968 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01544718719494644,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1156607438926149",
+            "extra": "mean: 64.73670496640003 sec\nrounds: 5"
           }
         ]
       }

@@ -744,13 +744,11 @@ def _open_dataset(
         return xr.open_dataset(
             path,
             chunks=chunks,
-            consolidated=True,
-            engine="zarr",
+            engine="netcdf4" if path.endswith(".nc") else "zarr",
         )
     else:
         return xr.open_dataset(
             root / path if root else path,
             chunks=chunks,
-            consolidated=True,
-            engine="zarr",
+            engine="netcdf4" if path.endswith(".nc") else "zarr",
         )

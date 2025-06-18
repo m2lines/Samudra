@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750090976481,
+  "lastUpdate": 1750274288587,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1708,6 +1708,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.15330692516465308",
             "extra": "mean: 69.9124189418 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9f3b92249932b442b16a93744398acd50aabcc9c",
+          "message": "Notes on how to reproduce OM4 half-deg preprocessing. (#261)\n\nI've refreshed the contributing guide, adding a data engineering\nsection. Here, I explain how to clone the data and how to start a coiled\nnotebook to create the half-deg data. The docs indicate that this all\nmay change soon -- and that is my plan. I am happy to refresh these docs\noverall.\n\n---------\n\nCo-authored-by: Surya <surya.dheeshjith@gmail.com>",
+          "timestamp": "2025-06-18T11:52:16-07:00",
+          "tree_id": "96598efc2baf77a86569cde8e32850a308b0cfed",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/9f3b92249932b442b16a93744398acd50aabcc9c"
+        },
+        "date": 1750274287793,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.279651482393934,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013527511473291953",
+            "extra": "mean: 781.462776199993 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06842798008947724,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7494418126394848",
+            "extra": "mean: 14.613904994599988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.2025737917742135,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09870940585952467",
+            "extra": "mean: 4.936472735399991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013687404163350968,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14165644183692938",
+            "extra": "mean: 73.05987227860003 sec\nrounds: 5"
           }
         ]
       }

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750274846006,
+  "lastUpdate": 1750274847312,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3626,6 +3626,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1156607438926149",
             "extra": "mean: 64.73670496640003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f662af829c4088ae43c55060a116d7bb09aaffa",
+          "message": "Avoid failing benchmarks when they regress (#264)\n\nThis is a bit weird since I always think something went wrong, but I\nthink regressions are \"normal\" and not failures. In addition, failing\nthe first \"store\" task causes the second one to never run, which seems\nbad.",
+          "timestamp": "2025-06-18T15:01:41-04:00",
+          "tree_id": "7deb607a3746aef4172aedcb6a2c5e4d5c0459d6",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/5f662af829c4088ae43c55060a116d7bb09aaffa"
+        },
+        "date": 1750274846819,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2638761950114328,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028107516980727748",
+            "extra": "mean: 791.2167377999822 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07192833580357433,
+            "unit": "iter/sec",
+            "range": "stddev: 0.34220090226190236",
+            "extra": "mean: 13.902726774199982 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.197177214716821,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07115261501091602",
+            "extra": "mean: 5.07157990559997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.015563976504020166,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1507209267650743",
+            "extra": "mean: 64.25093225639993 sec\nrounds: 5"
           }
         ]
       }

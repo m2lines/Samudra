@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+coiled notebook start --container pangeo/pangeo-notebook --disk-size 256

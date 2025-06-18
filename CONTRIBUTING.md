@@ -1,6 +1,6 @@
 # Contributing Guide
 
-Everyone can contribute to Ocean Emulator, and we value everyone's contributions. There are several ways to contribute,
+Everyone can contribute to Ocean Emulator, and we value everyone's contributions. There are several ways to help,
 including:
 
 * Reporting bugs or feature requests in our [issue tracker](https://github.com/suryadheeshjith/Ocean_Emulator/issues).
@@ -155,26 +155,32 @@ git push --force-with-lease
 
 10. Celebrating submitting your patch to Ocean Emulator — well done!
 
-## Training the model
+## Running Oceans Emulator
+
+### Training the model
 
 ```bash
 DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH
+uv run scripts/clone_data.py $DATA_PATH --compact_variables
 uv run -m ocean_emulators.train configs/train_om4.yaml --cluster_data_dir $DATA_PATH
 ```
 
 You can run `uv run -m ocean_emulators.train --help` to see all the options available.
 
-## Evaluating the model
+To learn more about other datasets used during training, please see the _Data Engineering_ section below.
+
+### Evaluating the model
 
 ```bash
 DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH
+uv run scripts/clone_data.py $DATA_PATH --compact_variables
 # (then put a checkpoint of the model at path/to/checkpoint)
 uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --cluster_data_dir $DATA_PATH
 ```
 
 You can run `uv run -m ocean_emulators.eval --help` to see all the options available.
+
+To learn more about other datasets used during evaluation, please see the _Data Engineering_ section below.
 
 ## Configuration
 
@@ -207,7 +213,7 @@ you can use to reproduce the run by passing to train e.g. `uv run -m ocean_emula
 
 ## VS Code Integration
 
-If you're using VS Code, we reccommend installing the `ruff` and `mypy` extensions. For the latter,
+If you're using VS Code, we recommend installing the `ruff` and `mypy` extensions. For the latter,
 you'll want to configure it to use pyproject.toml, which you can do with a `.vscode/settings.json` file:
 
 ```json
@@ -218,7 +224,7 @@ you'll want to configure it to use pyproject.toml, which you can do with a `.vsc
 }
 ```
 
-## How to run tests
+## Testing Oceans Emulator
 
 <details>
 <summary><strong>TL;DR</strong></summary>
@@ -230,8 +236,6 @@ pytest -m "not manual and not cuda"
 pytest -m "not manual and not cuda" -n auto
 # all manual tests
 pytest -m manual
-# just the model weights test
-pytest -k "model and weights" --model1 <path/to/model1.pt> --model2 <path/to/model2.pt>
 ```
 
 </details>
@@ -252,8 +256,6 @@ And to exclude all cuda-marked tests, run:
 pytest -m "not cuda"
 ```
 
-Note that for now you can't run both cuda and non-cuda tests together, see [#87](https://github.com/suryadheeshjith/Ocean_Emulator/issues/87).
-
 "manual" tests are not run in continuous integration (CI), but are useful checks during the development process. For
 example, evaluating if two model weights are equal is marked `manual`. All manual tests can be run like so:
 
@@ -267,37 +269,29 @@ To exclude manual tests, run:
 pytest -m "not manual"
 ```
 
-Usually, if a test is marked `manual`, it means that it should be run alone. Further, manual tests often need to be run
-with specific arguments. To run a specific subsets of tests — or even a single test — at a time with arguments, please
-do the following:
-```bash
-# single test
-pytest -k "models_have_same_weights" --model1 <path/to/model1.pt> --model2 <path/to/model2.pt>
-# test that match "model" and are manual
-pytest -k "models" -m manual --model1 <path/to/model1.pt> --model2 <path/to/model2.pt>
-# all model weights tests
-pytest -l "models and weights" --model1 <path/to/model1.pt> --model2 <path/to/model2.pt>
-```
-
 **To run the same tests that are run in CI, please run the following:**
 
 ```bash
 pytest -m "not manual and not cuda"
 ```
 
-## Testing with Multitons
+### Testing with Multitons
 
 We have a set of singletons in the code which use the "Multiton" helper to prevent tests from interfering with each other.
 When writing tests, you can either:
 
+```python3
    def test_foo():
       with MultitonScope():
          # set up whatever singletons you need
          Normalize.init_instance(…)
          assert …
+```
 
 Or you can initialize them in a Generator-based fixture:
 
+
+```python3
    @pytest.fixture()
    def my_fixture():
        with MultitonScope():
@@ -306,6 +300,7 @@ Or you can initialize them in a Generator-based fixture:
 
    def test_foo(my_fixture):
        assert … # in this code, the Normalize instance is the one from my_fixture
+```
 
 ## Benchmarking & Profiling
 
@@ -383,3 +378,67 @@ uv run memray run src/ocean_emulators/train.py --config configs/train_om4.yaml -
 
 This will take a snapshot of the CUDA memory every 10 batches in the output directory. These can be visualized with
 https://docs.pytorch.org/memory_viz -- see https://pytorch.org/blog/understanding-gpu-memory-1/ for more details.
+
+## Data Engineering
+
+Here are a few notes on how to replicate the core datasets used in this emulator.
+
+### Cloning Data
+
+We've provided a script to clone training and evaluation data locally (or on the target machine):
+```shell
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH --compact_variables
+```
+
+To use the legacy (flattened) skew of the dataset, you can omit the `--commpact_variables` flag:
+
+```shell
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH
+```
+
+To see all available options for this script (for example, to set a different chunking scheme), please run:
+
+```shell
+uv run scripts/clone_data.py -h
+```
+
+### Regridding & pre-processing OM4 data
+
+As of 2025-06-16, we perform these operations on top of Dask clusters inside notebooks, though this is likely to change
+in the near future.
+
+To spin up a coiled notebook, please do the following:
+
+1. Make sure coiled in installed. If you've installed all the dev dependencies, then it should be in your local env.
+   ```shell
+   uv pip install coiled
+   ```
+
+2. Log in to coiled. This may require creating an account (recommended: sign in with a Google or Github SSO).
+   ```shell
+   coiled login
+   ```
+
+3. Connect to a cloud provider. Here are a few commands to set up the top three cloud providers:
+   ```shell
+   coiled setup aws
+   coiled setup gcp
+   coiled setup azure
+   ```
+
+4. Once you have coiled infra ready-to-go, spin up a notebook with a Pangeo docker image via the following script:
+   ```shell
+   ./scripts/coiled-pangeo-notebook
+   # The script only has one command, which you could also just run directly:
+   coiled notebook start --container pangeo/pangeo-notebook --disk-size 256
+   ```
+   > Note: Coiled _does_ come with a `--sync` flag that is supposed to replicate your local environment with the remote
+   > notebook. I have found this doesn't work, likely, because my local environment contains a large data cache.
+   > You may try running the above command with the `--sync` flag added after switching into the `./notebooks` directory
+   > -- I bet that might work.
+
+5. Last, but not least, copy the most up-to-date pre-processing notebook into the Jupyter Lab instance that just opened
+   up. This can be found in the `./notebooks/` directory with the name "YYYY-MM-DD-data_preprocess.ipynb". We recommend
+   selecting the latest / most recent version.

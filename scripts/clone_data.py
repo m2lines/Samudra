@@ -1,4 +1,4 @@
-"""Script to clone remote Samudra data locally."""
+"""Script to clone remote Oceans Emulator data locally."""
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [

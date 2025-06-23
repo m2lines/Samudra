@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750274847312,
+  "lastUpdate": 1750700098216,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1812,6 +1812,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.24263095963673764",
             "extra": "mean: 72.1404502114 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "72cb9be4c09bcad079e6648a880b3cbc6e24b361",
+          "message": "Support absolute URLs for file paths, remove '*' support (#262)\n\nAt the moment, we don't support `root` being a URL but this seems like a\nstep in the right direction.\n\nI also don't think we need the \"*\" support, and defaulting to `debug:\nfalse` in eval is consistent with the other configurations.\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2025-06-23T13:08:51-04:00",
+          "tree_id": "5a023c1cd0f4ac43133276ef8f72ac1d23c53e52",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/72cb9be4c09bcad079e6648a880b3cbc6e24b361"
+        },
+        "date": 1750700097505,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.282435280003015,
+            "unit": "iter/sec",
+            "range": "stddev: 0.029712756338617",
+            "extra": "mean: 779.7664456000064 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07025347018085569,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3582300928276252",
+            "extra": "mean: 14.234172310999998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1997026008897286,
+            "unit": "iter/sec",
+            "range": "stddev: 0.20813233671647652",
+            "extra": "mean: 5.00744605000001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013407374845859608,
+            "unit": "iter/sec",
+            "range": "stddev: 0.41703317111339155",
+            "extra": "mean: 74.58581649999996 sec\nrounds: 5"
           }
         ]
       }

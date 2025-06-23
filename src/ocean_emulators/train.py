@@ -12,14 +12,14 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from functools import partial
-from typing import Any, assert_never
+from typing import Any, assert_never, cast
 
 import dask
 import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
-from spdl.pipeline import Pipeline, PipelineBuilder
+from spdl.pipeline import Pipeline  # type: ignore
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -83,6 +83,7 @@ from ocean_emulators.utils.loss import (
 )
 from ocean_emulators.utils.train import (
     CheckpointPaths,
+    as_spdl_pipeline,
     collate_inference_data,
     collate_train_data,
 )
@@ -520,20 +521,10 @@ class Trainer:
         iterator: DataLoader | Pipeline = self.train_loader
 
         if self.use_spdl:
-            prefetch_factor = 2  # this is the default value -- we may want to tune it.
-
-            iterator = (
-                PipelineBuilder()
-                .add_source(range(len(self.train_dataset)))
-                .pipe(
-                    self.train_dataset.__getitem__,
-                    concurrency=self.num_workers,
-                    output_order="input",
-                )
-                .aggregate(self.batch_size)
-                .pipe(collate_train_data)
-                .add_sink(prefetch_factor)
-                .build(num_threads=self.num_workers)
+            iterator = as_spdl_pipeline(
+                self.train_dataset,
+                num_workers=self.num_workers,
+                batch_size=self.batch_size,
             )
             iterator.start()
 
@@ -606,7 +597,7 @@ class Trainer:
                 self.scheduler.step()
         finally:
             if self.use_spdl:
-                iterator.stop()
+                cast(Pipeline, iterator).stop()
 
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()

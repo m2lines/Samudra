@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
+from spdl.pipeline import Pipeline  # type: ignore
 from torch.utils.data import DataLoader
 from torchinfo import summary
 
@@ -148,7 +149,12 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, data_loader: DataLoader["TrainData"], print_freq, header=None):
+    def log_every(
+        self,
+        data_loader: DataLoader["TrainData"] | Pipeline["TrainData"],
+        print_freq,
+        header=None,
+    ):
         i = 0
         if not header:
             header = ""
@@ -183,7 +189,9 @@ class MetricLogger:
                 data_load_time.update(obj.load_stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
-            if i % print_freq == 0 or i == len(data_loader) - 1:
+            if hasattr(data_loader, "__len__") and (
+                i % print_freq == 0 or i == len(data_loader) - 1
+            ):
                 eta_seconds = iter_time.global_avg * (len(data_loader) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 named_metrics = dict(
@@ -202,10 +210,7 @@ class MetricLogger:
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info(
-            f"{header} Total time: {total_time_str} "
-            f"({total_time / len(data_loader):.4f} s / it)"
-        )
+        logging.info(f"{header} Total time: {total_time_str} ")
 
 
 def get_model_summary(model: torch.nn.Module, num_input_channels: int):

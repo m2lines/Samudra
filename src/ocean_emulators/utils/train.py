@@ -1,8 +1,10 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from itertools import tee
 from pathlib import Path
 
 import torch
+import torch.utils.data
+from spdl.pipeline import Pipeline, PipelineBuilder  # type: ignore
 from xarray_einstats.einops import rearrange  # noqa: F401
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
@@ -65,3 +67,27 @@ class CheckpointPaths:
     @property
     def best_validation_checkpoint_path(self) -> Path:
         return self.checkpoint_dir / "best_validation_ckpt.pt"
+
+
+def as_spdl_pipeline(
+    dataset: torch.utils.data.Dataset["TrainData"],
+    *,
+    num_workers: int,
+    batch_size: int,
+    prefetch_factor: int = 2,
+    collate_fn: Callable = collate_train_data,
+) -> Pipeline:
+    """Migrates an existing torch.Dataset into a tunable SPDL data loader pipeline."""
+    return (
+        PipelineBuilder()
+        .add_source(range(len(dataset)))  # type: ignore
+        .pipe(
+            dataset.__getitem__,
+            concurrency=num_workers,
+            output_order="input",
+        )
+        .aggregate(batch_size)
+        .pipe(collate_fn)
+        .add_sink(prefetch_factor)
+        .build(num_threads=num_workers)
+    )

@@ -37,7 +37,7 @@ from ocean_emulators.utils.data import (
     validate_data,
 )
 from ocean_emulators.utils.multiton import MultitonScope
-from ocean_emulators.utils.train import collate_train_data
+from ocean_emulators.utils.train import as_spdl_pipeline, collate_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
 
 
@@ -119,14 +119,27 @@ def make_loader(
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
 
-        loader = DataLoader(
-            data,
-            batch_size=cfg.batch_size,
-            drop_last=drop_last,
-            collate_fn=collate_fn,
-        )
+        if cfg.data.use_spdl:
+            loader = as_spdl_pipeline(
+                data,
+                batch_size=cfg.batch_size,
+                num_workers=cfg.data.num_workers,
+                collate_fn=collate_fn,
+            )
+            loader.start()
+        else:
+            loader = DataLoader(
+                data,
+                batch_size=cfg.batch_size,
+                num_workers=cfg.data.num_workers,
+                drop_last=drop_last,
+                collate_fn=collate_fn,
+            )
 
         yield loader
+
+        if cfg.data.use_spdl:
+            loader.stop()
 
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:

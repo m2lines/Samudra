@@ -615,19 +615,33 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 
-        with torch.no_grad(), self._test_context():
-            for data_iter_step, data in enumerate(
-                metric_logger.log_every(self.val_loader, 1, header)
-            ):
-                if self.debug and (data_iter_step + 1) % 5 == 0:
-                    break
+        iterator: DataLoader | Pipeline = self.val_loader
 
-                data.to(self.device)
-                VO: ValBatchOutput = Stepper.validate_batch(
-                    self.model, data, self.loss_fn
-                )
-                val_aggregator.record_validation_batch(VO)
-                metric_logger.update(loss=VO.loss)
+        if self.use_spdl:
+            iterator = as_spdl_pipeline(
+                self.val_dataset,
+                num_workers=self.num_workers,
+                batch_size=self.batch_size,
+            )
+            iterator.start()
+
+        try:
+            with torch.no_grad(), self._test_context():
+                for data_iter_step, data in enumerate(
+                    metric_logger.log_every(iterator, 1, header)
+                ):
+                    if self.debug and (data_iter_step + 1) % 5 == 0:
+                        break
+
+                    data.to(self.device)
+                    VO: ValBatchOutput = Stepper.validate_batch(
+                        self.model, data, self.loss_fn
+                    )
+                    val_aggregator.record_validation_batch(VO)
+                    metric_logger.update(loss=VO.loss)
+        finally:
+            if self.use_spdl:
+                cast(Pipeline, iterator).stop()
 
         logger.info(f"Aggregating validation logs")
         return val_aggregator.get_logs(label="val")

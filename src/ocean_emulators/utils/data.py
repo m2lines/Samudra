@@ -733,12 +733,12 @@ def _open_dataset(
     """Open a dataset with appropriate engine and parameters based on path type.
 
     Args:
-        path: Path to the dataset, or absolute url (eg s3://...)
+        path: Path to the dataset, or absolute url (e.g. "s3://...")
         root: root directory to prepend to relative paths
         chunks: Optional chunking parameters for dask
 
     Returns:
-        xarray.Dataset
+        An `xarray.Dataset` found at the `path` location.
     """
     if (url := urlparse(path)) and url.netloc:  # absolute url
         return xr.open_dataset(

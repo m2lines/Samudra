@@ -5,6 +5,7 @@ import dataclasses
 import datetime
 import os
 from collections.abc import Callable, Generator
+from typing import cast
 
 import cftime
 import numpy as np
@@ -15,6 +16,7 @@ from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
+from spdl.pipeline import Pipeline  # type: ignore
 from torch.utils.data import ConcatDataset, DataLoader
 
 from ocean_emulators.config import TimeConfig, TrainConfig
@@ -53,7 +55,7 @@ def make_loader(
     time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion | None = None,
-) -> Generator[DataLoader, None, None]:
+) -> Generator[DataLoader | Pipeline, None, None]:
     if time_config is None:
         time_config = cfg.train_time
 
@@ -119,6 +121,9 @@ def make_loader(
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
 
+        # Unused, but needed for type checking.
+        loader: DataLoader | Pipeline | None = None
+
         if cfg.data.use_spdl:
             loader = as_spdl_pipeline(
                 data,
@@ -126,7 +131,7 @@ def make_loader(
                 num_workers=cfg.data.num_workers,
                 collate_fn=collate_fn,
             )
-            loader.start()
+            cast(Pipeline, loader).start()
         else:
             loader = DataLoader(
                 data,
@@ -139,7 +144,7 @@ def make_loader(
         yield loader
 
         if cfg.data.use_spdl:
-            loader.stop()
+            cast(Pipeline, loader).stop()
 
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
@@ -609,12 +614,13 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
     cfg = train_config
 
     with make_loader(cfg, version=loader_version) as loader:
+        loader_ = cast(DataLoader, loader)
 
         @benchmark
         def bench():
-            indices = np.random.randint(0, len(loader), size=len(loader))
+            indices = np.random.randint(0, len(loader_), size=len(loader_))
             for idx in indices:
-                _ = loader.dataset[int(idx)]
+                _ = loader_.dataset[int(idx)]
 
 
 @pytest.mark.manual

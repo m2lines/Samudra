@@ -170,7 +170,11 @@ class MetricLogger:
         self.meters["iter_time"] = iter_time
         self.meters["data_wait_time"] = data_wait_time
         self.meters["data_load_time"] = data_load_time
-        space_fmt = ":" + str(len(str(len(data_loader)))) + "d"
+        if hasattr(data_loader, "__len__"):
+            space_fmt = ":" + str(len(str(len(data_loader)))) + "d"
+        else:
+            space_fmt = ":<?>d"
+
         log_msg_list: list[str] = [
             header,
             "[{0" + space_fmt + "}/{1}]",

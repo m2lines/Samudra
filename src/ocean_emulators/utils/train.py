@@ -69,6 +69,7 @@ class CheckpointPaths:
         return self.checkpoint_dir / "best_validation_ckpt.pt"
 
 
+# TODO(alxmrs): How do we implement "drop_last"?
 def as_spdl_pipeline(
     dataset: torch.utils.data.Dataset["TrainData"],
     *,

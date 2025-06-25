@@ -4,6 +4,7 @@
 import contextlib
 import datetime
 import logging
+import multiprocessing
 import os
 import tempfile
 import time
@@ -109,6 +110,9 @@ class Trainer:
 
         # Distributed mode
         dask.config.set(scheduler="synchronous")
+        self.mp_context = (
+            multiprocessing.get_context("spawn") if cfg.data.num_workers > 0 else None
+        )
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
@@ -171,6 +175,7 @@ class Trainer:
         self.loader_version = LoaderVersion(cfg.data.loader_version)
         self.data_dir = cfg.experiment.data_dir
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
+        self.concurrent_compute = cfg.data.concurrent_compute
 
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)
@@ -437,6 +442,7 @@ class Trainer:
             pin_memory=False,
             drop_last=False,
             collate_fn=collate_inference_data,
+            multiprocessing_context=self.mp_context,
         )
 
     def run(self) -> None:
@@ -735,6 +741,7 @@ class Trainer:
                             normalize_before_mask=self.normalize_before_mask,
                             masked_fill_value=self.normalize_fill_value,
                             stride=stride,
+                            concurrent_compute=self.concurrent_compute,
                         )
                         for stride in self.data_stride
                     ]
@@ -753,6 +760,7 @@ class Trainer:
                             normalize_before_mask=self.normalize_before_mask,
                             masked_fill_value=self.normalize_fill_value,
                             stride=stride,
+                            concurrent_compute=self.concurrent_compute,
                         )
                         for stride in self.data_stride
                     ]
@@ -792,6 +800,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             drop_last=True,
             collate_fn=collate_fn,
+            multiprocessing_context=self.mp_context,
         )
 
         self.val_loader = DataLoader(
@@ -802,6 +811,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             drop_last=False,
             collate_fn=collate_fn,
+            multiprocessing_context=self.mp_context,
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):

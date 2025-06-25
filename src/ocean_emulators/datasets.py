@@ -585,6 +585,7 @@ class TorchTrainDataset(Dataset):
         normalize_before_mask: bool,
         masked_fill_value: float,
         stride: int = 1,
+        concurrent_compute: bool = False,
     ):
         super().__init__()
         self.device = get_device()
@@ -594,6 +595,7 @@ class TorchTrainDataset(Dataset):
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
+        self.concurrent_compute: bool = concurrent_compute
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
@@ -641,11 +643,16 @@ class TorchTrainDataset(Dataset):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
+            prognostic_selected = self._prognostic_src.data.isel(time=x_index)
+            boundary_selected = self._boundary_src.data.isel(time=x_index)
 
-            if "lev" in self._prognostic_src.data.dims:
+            if self.concurrent_compute:
+                concurrent_compute(prognostic_selected, boundary_selected)
+
+            if "lev" in prognostic_selected.dims:
                 prognostic_all = torch.from_numpy(
                     conditional_rearrange(
-                        self._prognostic_src.data.isel(time=x_index),
+                        prognostic_selected,
                         "time (variable lev)=var lat lon",
                         concat_dim="var",
                     )
@@ -654,14 +661,12 @@ class TorchTrainDataset(Dataset):
                 )
             else:
                 prognostic_all = torch.from_numpy(
-                    self._prognostic_src.data.isel(time=x_index)
-                    .to_array()
+                    prognostic_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
                 )
             boundary = torch.from_numpy(
-                self._boundary_src.data.isel(time=x_index)
-                .to_array()
+                boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
             )
@@ -735,3 +740,22 @@ class TorchTrainDataset(Dataset):
 
         window_index = idx + step * (self.hist + 1) * self.stride
         return self.rolling_indices.isel(window=window_index, drop=True)
+
+
+def concurrent_compute(
+    *datasets: xr.Dataset,
+) -> None:
+    from concurrent.futures import ThreadPoolExecutor, wait
+
+    def load_variable_data(var: xr.Variable) -> None:
+        var.load()
+
+    with ThreadPoolExecutor(
+        max_workers=None, thread_name_prefix="concurrent_compute"
+    ) as executor:
+        futures = []
+        for ds in datasets:
+            for var in ds.variables.values():
+                futures.append(executor.submit(load_variable_data, var))
+
+        wait(futures)

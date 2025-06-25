@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+data_path: s3://emulators/sd5313/OM4_highres/om4_halfdeg.zarr
+data_means_path: s3://emulators/sd5313/OM4_highres/om4_halfdeg_means.zarr
+data_stds_path: s3://emulators/sd5313/OM4_highres/om4_halfdeg_stds.zarr
+static_data_vars: []

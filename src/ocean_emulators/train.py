@@ -102,10 +102,8 @@ class Trainer:
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
-            cfg.data.num_workers = 0  # Disable multi-processing on CPU
             cfg.pin_mem = False
         elif cfg.disk_mode:
-            cfg.data.num_workers = torch.cuda.device_count() * cfg.data.num_workers
             cfg.pin_mem = True
 
         # Distributed mode
@@ -165,12 +163,6 @@ class Trainer:
                 f"Training time range {cfg.train_time} overlaps "
                 f"with validation time range {cfg.val_time}"
             )
-        for i, inf_time in enumerate(cfg.inference_times):
-            if cfg.train_time.overlaps(inf_time):
-                raise ValueError(
-                    f"Training time range {cfg.train_time} overlaps "
-                    f"with inference time range {i}: {inf_time}"
-                )
 
         self.loader_version = LoaderVersion(cfg.data.loader_version)
         self.data_dir = cfg.experiment.data_dir
@@ -586,6 +578,7 @@ class Trainer:
         if self.scheduler is not None:
             self.scheduler.step()
 
+        logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
 
     def validate_one_epoch(self, epoch):
@@ -615,6 +608,7 @@ class Trainer:
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
+        logger.info(f"Aggregating validation logs")
         return val_aggregator.get_logs(label="val")
 
     def inference_one_epoch(self, epoch):
@@ -647,6 +641,8 @@ class Trainer:
                         num_steps // 2, self.max_train_model_steps_forward
                     ),
                 )
+
+        logger.info(f"Aggregating inference logs")
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}
 
@@ -851,9 +847,9 @@ class Trainer:
         )
         self.save_checkpoint(epoch, self.ckpt_paths.latest_checkpoint_path)
         if epoch > 0 and epoch % self.save_freq == 0:
-            self.save_checkpoint(
-                epoch, self.ckpt_paths.latest_checkpoint_path_with_epoch(epoch)
-            )
+            path = self.ckpt_paths.latest_checkpoint_path_with_epoch(epoch)
+            logger.info(f"Saving per-epoch checkpoint to {path}")
+            self.save_checkpoint(epoch, path)
 
         with self._ema_context():
             logger.info(

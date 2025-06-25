@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+# TODO(jder): the URLs below assume you have FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org
+# as well as the appropriate AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (or other S3 credentials) in your environment.
+# Once we have a clear story for launching this task remotely we should remove this implicit requirement.
+
+data_path: s3://emulators/sd5313/OM4_highres/om4_halfdeg.zarr
+data_means_path: s3://emulators/sd5313/OM4_highres/om4_halfdeg_means.zarr
+data_stds_path: s3://emulators/sd5313/OM4_highres/om4_halfdeg_stds.zarr
+static_data_vars: []

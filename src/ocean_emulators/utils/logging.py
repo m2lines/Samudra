@@ -170,11 +170,7 @@ class MetricLogger:
         self.meters["iter_time"] = iter_time
         self.meters["data_wait_time"] = data_wait_time
         self.meters["data_load_time"] = data_load_time
-        if hasattr(data_loader, "__len__"):
-            space_fmt = ":" + str(len(str(len(data_loader)))) + "d"
-        else:
-            space_fmt = ":<?>d"
-
+        space_fmt = ":" + str(len(str(len(data_loader)))) + "d"
         log_msg_list: list[str] = [
             header,
             "[{0" + space_fmt + "}/{1}]",
@@ -193,9 +189,7 @@ class MetricLogger:
                 data_load_time.update(obj.load_stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
-            if hasattr(data_loader, "__len__") and (
-                i % print_freq == 0 or i == len(data_loader) - 1
-            ):
+            if i % print_freq == 0 or i == len(data_loader) - 1:
                 eta_seconds = iter_time.global_avg * (len(data_loader) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 named_metrics = dict(
@@ -214,7 +208,10 @@ class MetricLogger:
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info(f"{header} Total time: {total_time_str} ")
+        logging.info(
+            f"{header} Total time: {total_time_str} "
+            f"({total_time / len(data_loader):.4f} s / it)"
+        )
 
 
 def get_model_summary(model: torch.nn.Module, num_input_channels: int):

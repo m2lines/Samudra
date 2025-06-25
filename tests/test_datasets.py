@@ -129,6 +129,7 @@ def make_loader(
                 data,
                 batch_size=cfg.batch_size,
                 num_workers=cfg.data.num_workers,
+                drop_last=drop_last,
                 collate_fn=collate_fn,
             )
             cast(Pipeline, loader).start()

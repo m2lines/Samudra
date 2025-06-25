@@ -525,6 +525,7 @@ class Trainer:
                 self.train_dataset,
                 num_workers=self.num_workers,
                 batch_size=self.batch_size,
+                drop_last=True,
             )
             iterator.start()
 
@@ -622,6 +623,7 @@ class Trainer:
                 self.val_dataset,
                 num_workers=self.num_workers,
                 batch_size=self.batch_size,
+                drop_last=False,
             )
             iterator.start()
 

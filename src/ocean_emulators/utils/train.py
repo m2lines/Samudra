@@ -1,10 +1,12 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Sequence, Sized
 from itertools import tee
 from pathlib import Path
+from typing import cast
 
 import torch
 import torch.utils.data
 from spdl.pipeline import Pipeline, PipelineBuilder  # type: ignore
+from torch.utils.data import SequentialSampler
 from xarray_einstats.einops import rearrange  # noqa: F401
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
@@ -69,19 +71,28 @@ class CheckpointPaths:
         return self.checkpoint_dir / "best_validation_ckpt.pt"
 
 
-# TODO(alxmrs): How do we implement "drop_last"?
 def as_spdl_pipeline(
     dataset: torch.utils.data.Dataset["TrainData"],
     *,
     num_workers: int,
     batch_size: int,
     prefetch_factor: int = 2,
+    drop_last: bool = False,
+    sampler: torch.utils.data.Sampler | None = None,
     collate_fn: Callable = collate_train_data,
 ) -> Pipeline:
     """Migrates an existing torch.Dataset into a tunable SPDL data loader pipeline."""
-    return (
+    dataset_ = cast(Sized, dataset)
+    if sampler is None:
+        sampler = SequentialSampler(dataset_)
+
+    samples = list(sampler)
+    if drop_last:
+        samples = samples[:-1]
+
+    pipeline = (
         PipelineBuilder()
-        .add_source(range(len(dataset)))  # type: ignore
+        .add_source(samples)
         .pipe(
             dataset.__getitem__,
             concurrency=num_workers,
@@ -92,3 +103,8 @@ def as_spdl_pipeline(
         .add_sink(prefetch_factor)
         .build(num_threads=num_workers)
     )
+
+    # Our current data pipeline requires us to know the length up front.
+    setattr(pipeline, "__len__", lambda: len(dataset_))
+
+    return pipeline

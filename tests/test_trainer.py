@@ -78,23 +78,11 @@ def test_checkpoint(trainer_pair: TrainPair, caplog):
                 "1975-09-01",
             ],
         ),
-        (
-            "mock",
-            DEFAULT_CONFIG,
-            [
-                "--train_time.start",
-                "1975-08-01",
-                "--train_time.end",
-                "1975-09-01",
-                "--inference_times",
-                '[{"start": "1975-08-15", "end": "1975-09-01"}]',
-            ],
-        ),
     ],
     indirect=True,
 )
 def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
-    """Creating a trainer with overlapping train + val/inf times should error."""
+    """Creating a trainer with overlapping train + val times should error."""
 
     with MultitonScope():
         with pytest.raises(ValueError, match="Training time range.*"):

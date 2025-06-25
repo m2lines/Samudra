@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750874164017,
+  "lastUpdate": 1750874166122,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3834,6 +3834,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.22814152076892982",
             "extra": "mean: 65.45743425660007 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "32f3043d20bb43b24a1a097004f5c0f34f013075",
+          "message": "Tweaks while running half-degree experiments (#283)\n\nThe 3 commits are independent so probably easiest to review that way.\n(Happy to break into separate PRs but I think they're all pretty\nuncontroversial.)\n\n* Updates config for the half-degree experiments to load remotely when\ndesired and to avoid doing inference during training.\n* Adds a flag to load xarray variables concurrently based on [this\nsuggestion](https://github.com/pydata/xarray/issues/8965#issuecomment-2083787484).\nThis helps a lot locally with small datasizes (3x improvement for me)\nbut with larger batch sizes it seems to not help (maybe GIL\ncontention?).\n* Swaps to the the \"spawn\" multiprocessing type since the s3fs requires\nthis when passing those stores around.\n* Adds more logging statements so you can tell what's going on more\neasily\n* Removes some logic we had about tweaking the number of workers based\non the number of GPUs in use -- the worker counts are are *already* per\nGPU so this was using `num_gpus * num_gpus * num_workers` workers in\ntotal. Also allows us to use multiple workers for CPU jobs, for testing\npurposes.",
+          "timestamp": "2025-06-25T13:20:35-04:00",
+          "tree_id": "83e2145e1efb9308a0172521dcd9a66d10070aca",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/32f3043d20bb43b24a1a097004f5c0f34f013075"
+        },
+        "date": 1750874165617,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.242908630794658,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028888238209976814",
+            "extra": "mean: 804.5643703999758 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06919374438085289,
+            "unit": "iter/sec",
+            "range": "stddev: 0.41912162127384534",
+            "extra": "mean: 14.452173515800041 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.08084525855235832,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06083002859071351",
+            "extra": "mean: 12.369309195199913 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.010170908708447808,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19842781812418364",
+            "extra": "mean: 98.31963187020001 sec\nrounds: 5"
           }
         ]
       }

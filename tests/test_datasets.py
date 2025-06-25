@@ -55,6 +55,7 @@ def make_loader(
     time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion | None = None,
+    use_spdl: bool = False,
 ) -> Generator[DataLoader | Pipeline, None, None]:
     if time_config is None:
         time_config = cfg.train_time
@@ -124,7 +125,7 @@ def make_loader(
         # Unused, but needed for type checking.
         loader: DataLoader | Pipeline | None = None
 
-        if cfg.data.use_spdl:
+        if cfg.data.use_spdl or use_spdl:
             loader = as_spdl_pipeline(
                 data,
                 batch_size=cfg.batch_size,
@@ -144,7 +145,7 @@ def make_loader(
 
         yield loader
 
-        if cfg.data.use_spdl:
+        if cfg.data.use_spdl or use_spdl:
             cast(Pipeline, loader).stop()
 
 
@@ -451,12 +452,11 @@ def test_compact_loader__equals_flat_loader(
 
 @pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
 def test_loader__is_same__with_spdl(train_config):
-    data_config = train_config.data.model_copy(update={"use_spdl": True})
-    spdl_config = train_config.model_copy(update={"data": data_config})
-
     with make_loader(train_config, version=LoaderVersion.OM4_TORCH) as original_loader:
         original_samples = [extract_sample_arrays(sample) for sample in original_loader]
-    with make_loader(spdl_config, version=LoaderVersion.OM4_TORCH) as new_loader:
+    with make_loader(
+        train_config, version=LoaderVersion.OM4_TORCH, use_spdl=True
+    ) as new_loader:
         new_samples = [extract_sample_arrays(sample) for sample in new_loader]
 
     assert_equal_samples(original_samples, new_samples)

@@ -98,6 +98,7 @@ class DataConfig(BaseConfig):
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
+    concurrent_compute: bool = False
 
 
 BlockType = Literal["conv_next_block", "conv_block"]

@@ -11,17 +11,31 @@ scheduler: true
 loss: mse
 finetune: false
 resume_ckpt_path: null
-inference_epochs: [-1]
+inference_epochs: []
 data_percent: 1.0
 train_time:
-  start: "1958-01-03"
-  end: "1967-12-29"
+  start: "1975-01-03"
+  end: "2013-10-05"
 val_time:
-  start: "1967-01-01"
-  end: "1967-12-29"
+  start: "2013-10-05"
+  end: "2014-10-05"
 inference_times:
-  - start: "1967-01-01"
-    end: "1967-12-29"
+  - start: "1975-01-03"
+    end: "1980-01-03"
+  - start: "1980-01-03"
+    end: "1985-01-03"
+  - start: "1985-01-03"
+    end: "1990-01-03"
+  - start: "1990-01-03"
+    end: "1995-01-03"
+  - start: "1995-01-03"
+    end: "2000-01-03"
+  - start: "2000-01-03"
+    end: "2005-01-03"
+  - start: "2005-01-03"
+    end: "2010-01-03"
+  - start: "2010-01-03"
+    end: "2014-10-05"
 data_stride: [1]
 steps: [4]
 step_transition: []
@@ -42,8 +56,7 @@ experiment:
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 data:
-  !include data/om4_ohc.yaml
-
+  !include data/om4_halfdeg_remote.yaml
 
 samudra:
   ch_width: [157, 200, 250, 300, 400]

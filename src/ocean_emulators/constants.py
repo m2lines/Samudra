@@ -1,10 +1,13 @@
 import enum
 import logging
-from typing import TypeAlias, TypeVar
+from collections.abc import Generator
+from typing import Protocol, TypeAlias, TypeVar
 
 import torch
 import xarray as xr
 from jaxtyping import Bool, Float
+from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import _BaseDataLoaderIter
 
 from ocean_emulators.utils.multiton import Multiton
 
@@ -236,6 +239,29 @@ def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
 class LoaderVersion(enum.Enum):
     OM4_EAGER = "om4-eager"
     OM4_TORCH = "om4-torch"
+
+
+T_co = TypeVar("T_co", covariant=True)
+
+
+class DataIterator(Protocol[T_co]):
+    def __len__(self) -> int: ...
+
+    def __iter__(self) -> Generator[T_co, None, None] | _BaseDataLoaderIter: ...
+
+    def start(self): ...
+
+    def stop(self): ...
+
+
+class ResumableDataLoader(DataLoader, DataIterator):
+    def start(self):
+        """NoOp start of pipeline."""
+        pass
+
+    def stop(self):
+        """NoOp stop of pipeline."""
+        pass
 
 
 # TODO(#95): See if this can be removed and replaced.

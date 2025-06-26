@@ -16,14 +16,15 @@ from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
-from spdl.pipeline import Pipeline
 from torch.utils.data import ConcatDataset, DataLoader
 
 from ocean_emulators.config import TimeConfig, TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
+    DataIterator,
     LoaderVersion,
+    ResumableDataLoader,
     TensorMap,
 )
 from ocean_emulators.datasets import (
@@ -56,7 +57,7 @@ def make_loader(
     drop_last: bool = True,
     version: LoaderVersion | None = None,
     use_spdl: bool = False,
-) -> Generator[DataLoader | Pipeline, None, None]:
+) -> Generator[DataIterator, None, None]:
     if time_config is None:
         time_config = cfg.train_time
 
@@ -122,9 +123,6 @@ def make_loader(
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
 
-        # Unused, but needed for type checking.
-        loader: DataLoader | Pipeline | None = None
-
         if cfg.data.use_spdl or use_spdl:
             loader = as_spdl_pipeline(
                 data,
@@ -133,9 +131,8 @@ def make_loader(
                 drop_last=drop_last,
                 collate_fn=collate_fn,
             )
-            cast(Pipeline, loader).start()
         else:
-            loader = DataLoader(
+            loader = ResumableDataLoader(
                 data,
                 batch_size=cfg.batch_size,
                 num_workers=cfg.data.num_workers,
@@ -143,10 +140,11 @@ def make_loader(
                 collate_fn=collate_fn,
             )
 
+        loader.start()
+
         yield loader
 
-        if cfg.data.use_spdl or use_spdl:
-            cast(Pipeline, loader).stop()
+        loader.stop()
 
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:

@@ -11,13 +11,12 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from torchinfo import summary
 
-from ocean_emulators.utils.train import SizedPipeline
+from ocean_emulators.constants import DataIterator
 
 if TYPE_CHECKING:
-    from ocean_emulators.datasets import TrainData
+    pass
 
 
 def handle_logging(cfg):
@@ -152,7 +151,7 @@ class MetricLogger:
 
     def log_every(
         self,
-        data_loader: DataLoader["TrainData"] | SizedPipeline,
+        data_loader: DataIterator,
         print_freq,
         header=None,
     ):

@@ -12,14 +12,13 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from functools import partial
-from typing import Any, assert_never, cast
+from typing import Any, assert_never
 
 import dask
 import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
-from spdl.pipeline import Pipeline
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -36,9 +35,11 @@ from ocean_emulators.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
+    DataIterator,
     Grid,
     LoaderVersion,
     PrognosticVarNames,
+    ResumableDataLoader,
     TensorMap,
     construct_metadata,
 )
@@ -83,7 +84,6 @@ from ocean_emulators.utils.loss import (
 )
 from ocean_emulators.utils.train import (
     CheckpointPaths,
-    SizedPipeline,
     as_spdl_pipeline,
     collate_inference_data,
     collate_train_data,
@@ -382,8 +382,8 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: DataLoader[TrainData]
-        self.val_loader: DataLoader[TrainData]
+        self.train_loader: ResumableDataLoader
+        self.val_loader: ResumableDataLoader
         self.inference_loader: DataLoader
 
     def init_inference_stores(self):
@@ -519,8 +519,7 @@ class Trainer:
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
 
-        iterator: DataLoader | SizedPipeline = self.train_loader
-
+        iterator: DataIterator = self.train_loader
         if self.use_spdl:
             iterator = as_spdl_pipeline(
                 self.train_dataset,
@@ -528,7 +527,8 @@ class Trainer:
                 batch_size=self.batch_size,
                 drop_last=True,
             )
-            iterator.start()
+
+        iterator.start()
 
         try:
             for data_iter_step, data in enumerate(
@@ -598,8 +598,7 @@ class Trainer:
             if self.scheduler is not None:
                 self.scheduler.step()
         finally:
-            if self.use_spdl:
-                cast(Pipeline, iterator).stop()
+            iterator.stop()
 
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
@@ -617,8 +616,7 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 
-        iterator: DataLoader | SizedPipeline = self.val_loader
-
+        iterator: DataIterator = self.val_loader
         if self.use_spdl:
             iterator = as_spdl_pipeline(
                 self.val_dataset,
@@ -626,7 +624,8 @@ class Trainer:
                 batch_size=self.batch_size,
                 drop_last=False,
             )
-            iterator.start()
+
+        iterator.start()
 
         try:
             with torch.no_grad(), self._test_context():
@@ -643,8 +642,7 @@ class Trainer:
                     val_aggregator.record_validation_batch(VO)
                     metric_logger.update(loss=VO.loss)
         finally:
-            if self.use_spdl:
-                cast(Pipeline, iterator).stop()
+            iterator.stop()
 
         logger.info(f"Aggregating validation logs")
         return val_aggregator.get_logs(label="val")
@@ -829,7 +827,7 @@ class Trainer:
         self.val_dataset = val_data
 
         # Create data loaders
-        self.train_loader = DataLoader(
+        self.train_loader = ResumableDataLoader(
             train_data,
             batch_size=self.batch_size,
             sampler=self.train_sampler,
@@ -840,7 +838,7 @@ class Trainer:
             multiprocessing_context=self.mp_context,
         )
 
-        self.val_loader = DataLoader(
+        self.val_loader = ResumableDataLoader(
             val_data,
             batch_size=self.batch_size,
             sampler=self.val_sampler,

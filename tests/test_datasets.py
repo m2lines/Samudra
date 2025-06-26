@@ -16,7 +16,7 @@ from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
-from spdl.pipeline import Pipeline  # type: ignore
+from spdl.pipeline import Pipeline
 from torch.utils.data import ConcatDataset, DataLoader
 
 from ocean_emulators.config import TimeConfig, TrainConfig

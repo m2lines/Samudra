@@ -19,7 +19,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import xarray as xr
-from spdl.pipeline import Pipeline  # type: ignore
+from spdl.pipeline import Pipeline
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -83,6 +83,7 @@ from ocean_emulators.utils.loss import (
 )
 from ocean_emulators.utils.train import (
     CheckpointPaths,
+    SizedPipeline,
     as_spdl_pipeline,
     collate_inference_data,
     collate_train_data,
@@ -518,7 +519,7 @@ class Trainer:
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
 
-        iterator: DataLoader | Pipeline = self.train_loader
+        iterator: DataLoader | SizedPipeline = self.train_loader
 
         if self.use_spdl:
             iterator = as_spdl_pipeline(
@@ -616,7 +617,7 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 
-        iterator: DataLoader | Pipeline = self.val_loader
+        iterator: DataLoader | SizedPipeline = self.val_loader
 
         if self.use_spdl:
             iterator = as_spdl_pipeline(

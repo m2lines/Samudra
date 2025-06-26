@@ -1,3 +1,4 @@
+from abc import ABC
 from collections.abc import Callable, Sequence, Sized
 from itertools import tee
 from pathlib import Path
@@ -5,7 +6,7 @@ from typing import cast
 
 import torch
 import torch.utils.data
-from spdl.pipeline import Pipeline, PipelineBuilder  # type: ignore
+from spdl.pipeline import Pipeline, PipelineBuilder
 from torch.utils.data import SequentialSampler
 from xarray_einstats.einops import rearrange  # noqa: F401
 
@@ -71,6 +72,10 @@ class CheckpointPaths:
         return self.checkpoint_dir / "best_validation_ckpt.pt"
 
 
+class SizedPipeline(Pipeline, Sized, ABC):
+    pass
+
+
 def as_spdl_pipeline(
     dataset: torch.utils.data.Dataset["TrainData"],
     *,
@@ -80,7 +85,7 @@ def as_spdl_pipeline(
     drop_last: bool = False,
     sampler: torch.utils.data.Sampler | None = None,
     collate_fn: Callable = collate_train_data,
-) -> Pipeline:
+) -> SizedPipeline:
     """Migrates an existing torch.Dataset into a tunable SPDL data loader pipeline."""
     dataset_ = cast(Sized, dataset)
     if sampler is None:
@@ -90,7 +95,7 @@ def as_spdl_pipeline(
     if drop_last:
         samples = samples[:-1]
 
-    pipeline = (
+    pipeline: Pipeline = (
         PipelineBuilder()
         .add_source(samples)
         .pipe(
@@ -107,4 +112,4 @@ def as_spdl_pipeline(
     # Our current data pipeline requires us to know the length up front.
     setattr(pipeline, "__len__", lambda: len(dataset_))
 
-    return pipeline
+    return cast(SizedPipeline, pipeline)

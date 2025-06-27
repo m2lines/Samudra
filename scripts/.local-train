@@ -11,4 +11,4 @@ echo 'Using config file:' $CONFIG_PATH
 # current date
 DATE=$(date +%Y-%m-%d)
 
-uv run torchrun -m src.ocean_emulators.train $CONFIG_PATH --experiment.cluster_data_dir $OCEAN_DATA_DIR --experiment.name "${DATE}-test" --data.loader_version om4-torch
+uv run torchrun -m src.ocean_emulators.train $CONFIG_PATH --experiment.data_root $OCEAN_DATA_DIR --experiment.name "${DATE}-test" --data.loader_version om4-torch

@@ -38,7 +38,6 @@ experiment:
   name: local_om4_samudra
   rand_seed: 15
   base_output_dir: .LOCAL
-  gantry: false
   wandb:
     mode: disabled
     project: ocean-emulators

@@ -19,7 +19,6 @@ import dask
 import numpy as np
 import torch
 import torch.nn as nn
-import xarray as xr
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -166,9 +165,11 @@ class Trainer:
             )
 
         self.loader_version = LoaderVersion(cfg.data.loader_version)
-        self.data_dir = cfg.experiment.data_dir
-        self.scaling_residuals_file = cfg.data.scaling_residuals_file
-
+        self.scaling_residuals_file = (
+            cfg.experiment.resolved_data_root.resolve(cfg.data.scaling_residuals_file)
+            if cfg.data.scaling_residuals_file is not None
+            else None
+        )
         self.executor: ThreadPoolExecutor | None = None
         if cfg.data.concurrent_compute:
             self.executor = ThreadPoolExecutor(
@@ -264,10 +265,7 @@ class Trainer:
                 "With loss of 'mse_residual_scaled' you"
                 " must supply a scaling_residuals_file"
             )
-            scaling_residuals = xr.open_zarr(
-                os.path.join(self.data_dir, self.scaling_residuals_file),
-                consolidated=True,
-            )
+            scaling_residuals = self.scaling_residuals_file.open()
             scale = torch.from_numpy(
                 (
                     self.src.stds[self.prognostic_var_names]

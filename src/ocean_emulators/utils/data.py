@@ -4,9 +4,7 @@ import re
 from collections import defaultdict
 from collections.abc import Callable
 from functools import cached_property
-from pathlib import Path
 from typing import Literal, Self
-from urllib.parse import urlparse
 
 import numpy as np
 import torch
@@ -230,24 +228,16 @@ class DataSource:
     @classmethod
     def from_config(cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
-        root = cfg.experiment.data_dir
+        root = cfg.experiment.resolved_data_root
 
-        data = _open_dataset(cfg.data.data_path, root, chunks)
-        means = _open_dataset(
-            cfg.data.data_means_path,
-            root,
-            chunks,
-        )
-        stds = _open_dataset(
-            cfg.data.data_stds_path,
-            root,
-            chunks,
-        )
+        data = root.resolve(cfg.data.data_location).open(chunks)
+        means = root.resolve(cfg.data.data_means_location).open(chunks)
+        stds = root.resolve(cfg.data.data_stds_location).open(chunks)
 
         dask = "with_dask" if use_dask else "without_dask"
 
         return cls(
-            name=f"{cfg.experiment.name}-{cfg.experiment.data_dir.name}-{dask}",
+            name=f"{cfg.experiment.name}-{data}-{dask}",
             data=data,
             means=means,
             stds=stds,
@@ -725,30 +715,3 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
         data = data.drop_vars(vars_)
 
     return data
-
-
-def _open_dataset(
-    path: str, root: Path, chunks: dict[str, int] | None = None
-) -> xr.Dataset:
-    """Open a dataset with appropriate engine and parameters based on path type.
-
-    Args:
-        path: Path to the dataset, or absolute url (e.g. "s3://...")
-        root: root directory to prepend to relative paths
-        chunks: Optional chunking parameters for dask
-
-    Returns:
-        An `xarray.Dataset` found at the `path` location.
-    """
-    if (url := urlparse(path)) and url.netloc:  # absolute url
-        return xr.open_dataset(
-            path,
-            chunks=chunks,
-            engine="netcdf4" if path.endswith(".nc") else "zarr",
-        )
-    else:
-        return xr.open_dataset(
-            root / path if root else path,
-            chunks=chunks,
-            engine="netcdf4" if path.endswith(".nc") else "zarr",
-        )

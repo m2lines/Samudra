@@ -442,7 +442,7 @@ def train_config(
         [
             # file to read
             str(pytestconfig.rootpath / "configs" / config_name),
-            "--experiment.cluster_data_dir",
+            "--experiment.data_root",
             str(cache / data_source.name),
             "--backend",
             backend,

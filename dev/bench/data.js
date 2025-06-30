@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1750874166122,
+  "lastUpdate": 1751315396534,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1916,6 +1916,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1585540164941068",
             "extra": "mean: 107.66487915060002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8b0601504cae8d4940cd645928e53660f6a886a4",
+          "message": "Put OSN Bucket keys in environment variables. (#285)\n\nI plan to scrub the access keys that I checked in. For good measure, I\nalso plan to invalidate these keys and get new ones for myself.\n\nThis PR also adds a script that converts jupyter notebooks into Python\nscripts. It fixes #287.\n\n---------\n\nCo-authored-by: Ryan Williams <nobigdealstyle@gmail.com>",
+          "timestamp": "2025-06-30T12:52:21-07:00",
+          "tree_id": "c5c5b0946a4178d50c6a0b380166935812bfbf44",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/8b0601504cae8d4940cd645928e53660f6a886a4"
+        },
+        "date": 1751315395864,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.3024160606146504,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006885193647572271",
+            "extra": "mean: 767.8037996000057 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06677421815838273,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4468789154920082",
+            "extra": "mean: 14.975839891200007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.079074574047734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18467526790378164",
+            "extra": "mean: 12.646290062799983 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.008524999739728518,
+            "unit": "iter/sec",
+            "range": "stddev: 4.920336872321891",
+            "extra": "mean: 117.3020563672 sec\nrounds: 5"
           }
         ]
       }

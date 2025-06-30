@@ -302,6 +302,18 @@ Or you can initialize them in a Generator-based fixture:
        assert … # in this code, the Normalize instance is the one from my_fixture
 ```
 
+### Preventing checking-in secrets
+
+In our pre-commit check, we use a tool developed by Yelp that detects strings that look suspiciously like secrets and
+raises alarms. If this is blocking your patch **and you've manually inspected the sources for secrets and vetted that
+there are, in fact, none checked in**, the following command will regenerate a metadata file to pass this check:
+
+```shell
+uvx detect-secrets scan > .secrets.baseline
+```
+
+Please check in the baseline after generating.
+
 ## Benchmarking & Profiling
 
 We use `pytest-benchmark` to measure performance regressions in this project. Our intentions are to cultivate a culture

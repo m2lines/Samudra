@@ -27,6 +27,7 @@ repos:
     entry: uv run --dev mypy
     types_or: [python, pyi]
     args: ["--config", "pyproject.toml"]
+    exclude: ^notebooks/
 - repo: https://github.com/tox-dev/pyproject-fmt
   rev: "v2.5.0"
   hooks:
@@ -40,3 +41,8 @@ repos:
     entry: uv run src/ocean_emulators/config_schema.py
     pass_filenames: false
     args: []
+-   repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+    -   id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']

@@ -599,6 +599,7 @@ class Trainer:
                 self.scheduler.step()
         finally:
             iterator.stop()
+            del iterator
 
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()

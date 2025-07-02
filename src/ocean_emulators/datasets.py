@@ -681,6 +681,10 @@ class TorchTrainDataset(Dataset):
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
         return TD
 
+    def __del__(self):
+        self._executor.shutdown(wait=True)
+        super().__del__()
+
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps

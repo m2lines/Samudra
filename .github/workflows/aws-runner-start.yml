@@ -25,11 +25,6 @@ on:
       instances:
         description: "Instance IDs"
         value: ${{ jobs.start-aws-runner.outputs.instances }}
-    secrets:
-      AWS_ROLE:
-        required: true
-      GH_SA_TOKEN:
-        required: true
 
 permissions:
   id-token: write # This is required for interacting with AWS via OIDC

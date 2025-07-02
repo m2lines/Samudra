@@ -7,11 +7,6 @@ on:
         description: "Instance mapping from the start workflow"
         required: true
         type: string
-    secrets:
-      AWS_ROLE:
-        required: true
-      GH_SA_TOKEN:
-        required: true
 
 permissions:
   id-token: write # This is required for interacting with AWS via OIDC

@@ -20,12 +20,12 @@ jobs:
     runs-on: ${{ fromJSON(needs.start-aws-runner.outputs.instances) }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
         # Invalidate the data cache every time the data source changes.
         # If an exact cache isn't found, fall back to previous cache.
       - name: Cache test data
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: .data_cache/
           key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/*.test.yaml') }}
@@ -34,7 +34,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 

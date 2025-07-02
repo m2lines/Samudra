@@ -17,9 +17,6 @@ permissions:
 jobs:
   start-aws-runner:
     uses: ./.github/workflows/aws-runner-start.yml
-    secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
-      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
   test:
     needs: start-aws-runner
@@ -96,6 +93,3 @@ jobs:
     if: ${{ always() }}
     with:
       instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
-    secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
-      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

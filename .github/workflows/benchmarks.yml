@@ -17,6 +17,7 @@ permissions:
 jobs:
   start-aws-runner:
     uses: ./.github/workflows/aws-runner-start.yml
+    secrets: inherit
 
   test:
     needs: start-aws-runner
@@ -93,3 +94,4 @@ jobs:
     if: ${{ always() }}
     with:
       instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
+    secrets: inherit

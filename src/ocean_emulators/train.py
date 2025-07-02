@@ -11,6 +11,7 @@ import time
 import warnings
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Any, assert_never
 
@@ -167,7 +168,13 @@ class Trainer:
         self.loader_version = LoaderVersion(cfg.data.loader_version)
         self.data_dir = cfg.experiment.data_dir
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
-        self.concurrent_compute = cfg.data.concurrent_compute
+
+        if cfg.data.concurrent_compute:
+            self.executor = ThreadPoolExecutor(
+                max_workers=None, thread_name_prefix="concurrent_compute"
+            )
+        else:
+            self.executor = None
 
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)
@@ -737,7 +744,7 @@ class Trainer:
                             normalize_before_mask=self.normalize_before_mask,
                             masked_fill_value=self.normalize_fill_value,
                             stride=stride,
-                            concurrent_compute=self.concurrent_compute,
+                            executor=self.executor,
                         )
                         for stride in self.data_stride
                     ]
@@ -756,7 +763,7 @@ class Trainer:
                             normalize_before_mask=self.normalize_before_mask,
                             masked_fill_value=self.normalize_fill_value,
                             stride=stride,
-                            concurrent_compute=self.concurrent_compute,
+                            executor=self.executor,
                         )
                         for stride in self.data_stride
                     ]
@@ -948,6 +955,8 @@ class Trainer:
             self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
+        if self.executor is not None:
+            self.executor.shutdown()
         self.wandb_logger.finish()
 
 

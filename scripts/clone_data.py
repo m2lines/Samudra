@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "xarray[io]",
-#   "zarr<3",
+#   "zarr>=3",
 #   "dask",
 #   "requests",
 #   "aiohttp",
@@ -69,11 +69,14 @@ def main(args: argparse.Namespace) -> None:
         if args.compact_variables:
             data = compact_dataset(data)
 
+        # Turn off compression
+        encoding = {var: {"compressors": None} for var in data.data_vars.keys()}
+
         with dask.diagnostics.ProgressBar():
             if dest_fmt.lower() == "zarr":
                 if name == "OM4":
                     data = data.chunk(output_chunks)
-                data.to_zarr(dest + ".zarr")
+                data.to_zarr(dest + ".zarr", encoding=encoding, zarr_format=3)
             else:
                 data.to_netcdf(dest + ".nc")
 
@@ -95,7 +98,7 @@ if __name__ == "__main__":
         default=None,
         help="end index for data.isel() along time dimension.",
     )
-    parser.add_argument("--write_time_chunks", type=int, default=10)
+    parser.add_argument("--write_time_chunks", type=int, default=1)
     parser.add_argument("--compact_variables", action="store_true")
     parser.add_argument("--local_cluster", action="store_true")
 

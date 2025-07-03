@@ -3,6 +3,7 @@
 # - cleaner dataset modules
 import contextlib
 import datetime
+import functools
 import logging
 import multiprocessing
 import os
@@ -45,6 +46,7 @@ from ocean_emulators.constants import (
 from ocean_emulators.datasets import (
     InferenceDataset,
     InferenceDatasets,
+    SpdlTorchDataLoader,
     TorchTrainDataset,
     TrainData,
     TrainDataset,
@@ -174,6 +176,7 @@ class Trainer:
             self.executor = ThreadPoolExecutor(
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
+        self.use_spdl = cfg.data.use_spdl
 
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)
@@ -794,27 +797,59 @@ class Trainer:
                 )
 
         # Create data loaders
-        self.train_loader = DataLoader(
-            train_data,
-            batch_size=self.batch_size,
-            sampler=self.train_sampler,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_mem,
-            drop_last=True,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+        if self.use_spdl:
+            train_sampler = (
+                RandomSampler
+                if self.distributed is None
+                else functools.partial(DistributedSampler, shuffle=True)
+            )
+            val_sampler = (
+                RandomSampler
+                if self.distributed is None
+                else functools.partial(DistributedSampler, shuffle=False)
+            )
+            self.train_loader = SpdlTorchDataLoader(
+                train_data,
+                io_workers=self.num_workers + 2,
+                cpu_workers=self.batch_size + 2,
+                batch_size=self.batch_size,
+                sampler=train_sampler,
+                pin_memory=self.pin_mem,
+                drop_last=True,
+                collate_fn=collate_fn,
+            )
+            self.val_loader = SpdlTorchDataLoader(
+                val_data,
+                io_workers=self.num_workers + 2,
+                cpu_workers=self.batch_size + 2,
+                batch_size=self.batch_size,
+                sampler=val_sampler,
+                pin_memory=self.pin_mem,
+                drop_last=False,
+                collate_fn=collate_fn,
+            )
+        else:
+            self.train_loader = DataLoader(
+                train_data,
+                batch_size=self.batch_size,
+                sampler=self.train_sampler,
+                num_workers=self.num_workers,
+                pin_memory=self.pin_mem,
+                drop_last=True,
+                collate_fn=collate_fn,
+                multiprocessing_context=self.mp_context,
+            )
 
-        self.val_loader = DataLoader(
-            val_data,
-            batch_size=self.batch_size,
-            sampler=self.val_sampler,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_mem,
-            drop_last=False,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+            self.val_loader = DataLoader(
+                val_data,
+                batch_size=self.batch_size,
+                sampler=self.val_sampler,
+                num_workers=self.num_workers,
+                pin_memory=self.pin_mem,
+                drop_last=False,
+                collate_fn=collate_fn,
+                multiprocessing_context=self.mp_context,
+            )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

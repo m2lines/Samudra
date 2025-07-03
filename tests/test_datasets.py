@@ -26,6 +26,7 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.datasets import (
     InferenceDataset,
+    SpdlTorchDataLoader,
     TorchTrainDataset,
     TrainData,
     TrainDataset,
@@ -53,6 +54,7 @@ def make_loader(
     time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion | None = None,
+    use_spdl_loader: bool = False,
 ) -> Generator[DataLoader, None, None]:
     if time_config is None:
         time_config = cfg.train_time
@@ -119,12 +121,25 @@ def make_loader(
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
 
-        loader = DataLoader(
-            data,
-            batch_size=cfg.batch_size,
-            drop_last=drop_last,
-            collate_fn=collate_fn,
-        )
+        if use_spdl_loader:
+            assert version == LoaderVersion.OM4_TORCH, (
+                "SPDL Loader only works for the Torch Dataset!"
+            )
+            loader = SpdlTorchDataLoader(
+                data,
+                io_workers=cfg.data.num_workers + 2,
+                cpu_workers=cfg.batch_size + 2,
+                batch_size=cfg.batch_size,
+                drop_last=drop_last,
+                collate_fn=collate_fn,
+            )
+        else:
+            loader = DataLoader(
+                data,
+                batch_size=cfg.batch_size,
+                drop_last=drop_last,
+                collate_fn=collate_fn,
+            )
 
         yield loader
 
@@ -389,6 +404,17 @@ def test_new_loaders__are_equal_to_v1_data_loader(train_config, loader_version):
     with make_loader(train_config, version=ORIGINAL_LOADER_VERSION) as original_loader:
         original_samples = [extract_sample_arrays(sample) for sample in original_loader]
     with make_loader(train_config, version=loader_version) as new_loader:
+        new_samples = [extract_sample_arrays(sample) for sample in new_loader]
+
+    assert_equal_samples(original_samples, new_samples)
+
+
+def test_spdl_data_loader__is_equal_to_torch_loader(train_config):
+    with make_loader(train_config, version=LoaderVersion.OM4_TORCH) as original_loader:
+        original_samples = [extract_sample_arrays(sample) for sample in original_loader]
+    with make_loader(
+        train_config, version=LoaderVersion.OM4_TORCH, use_spdl_loader=True
+    ) as new_loader:
         new_samples = [extract_sample_arrays(sample) for sample in new_loader]
 
     assert_equal_samples(original_samples, new_samples)

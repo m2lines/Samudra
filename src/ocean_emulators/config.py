@@ -115,6 +115,12 @@ class DataConfig(BaseConfig):
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+    use_spdl: bool = False
+
+    def __post_init__(self):
+        """Validates configuration."""
+        if self.use_spdl and self.loader_version != str(LoaderVersion.OM4_TORCH.value):
+            raise ValueError("SPDL can only be used with the OM4 Torch Dataset!")
 
 
 BlockType = Literal["conv_next_block", "conv_block"]

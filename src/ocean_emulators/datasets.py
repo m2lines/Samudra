@@ -1,15 +1,20 @@
+import itertools
 import logging
 import time
+import warnings
+from collections.abc import Callable, Iterable
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Any
+from typing import Any, TypeVar
 
 import numpy as np
+import spdl
 import torch
 import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
-from torch.utils.data import Dataset
+from spdl.pipeline import PipelineBuilder
+from torch.utils.data import ConcatDataset, Dataset, Sampler
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
@@ -597,7 +602,7 @@ class TorchTrainDataset(Dataset):
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
-        self._executor = executor
+        self.executor = executor
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
@@ -638,51 +643,64 @@ class TorchTrainDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
+    def perform_io(self, x_index, *, executor=None) -> tuple[xr.Dataset, xr.Dataset]:
+        prognostic_selected = self._prognostic_src.data.isel(time=x_index)
+        boundary_selected = self._boundary_src.data.isel(time=x_index)
+
+        if executor is not None:
+            concurrent_compute(
+                prognostic_selected, boundary_selected, executor=self._executor
+            )
+
+        return prognostic_selected, boundary_selected
+
+    def prognostic_to_tensor(self, prognostic_selected):
+        if "lev" in prognostic_selected.dims:
+            prognostic_all = torch.from_numpy(
+                conditional_rearrange(
+                    prognostic_selected,
+                    "time (variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+            )
+        else:
+            prognostic_all = torch.from_numpy(
+                prognostic_selected.to_array()
+                .transpose("time", "variable", "lat", "lon")
+                .to_numpy()
+            )
+
+        return prognostic_all
+
+    def boundary_to_tensor(self, boundary_selected):
+        boundary = torch.from_numpy(
+            boundary_selected.to_array()
+            .transpose("time", "variable", "lat", "lon")
+            .to_numpy()
+        )
+        return boundary
+
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         TD = TrainData(self.num_prognostic_channels)
 
         for step in range(self.steps):
-            x_index = self._get_x_index(idx, step)
-            prognostic_selected = self._prognostic_src.data.isel(time=x_index)
-            boundary_selected = self._boundary_src.data.isel(time=x_index)
+            x_index = self.index_by_step(idx, step)
+            prognostic_selected, boundary_selected = self.perform_io(x_index)
 
-            if self._executor is not None:
-                assert self._executor is not None
-                concurrent_compute(
-                    prognostic_selected, boundary_selected, executor=self._executor
-                )
+            prognostic = self.prognostic_to_tensor(prognostic_selected)
+            boundary = self.boundary_to_tensor(boundary_selected)
 
-            if "lev" in prognostic_selected.dims:
-                prognostic_all = torch.from_numpy(
-                    conditional_rearrange(
-                        prognostic_selected,
-                        "time (variable lev)=var lat lon",
-                        concat_dim="var",
-                    )
-                    .rename({"var": "variable"})
-                    .to_numpy()
-                )
-            else:
-                prognostic_all = torch.from_numpy(
-                    prognostic_selected.to_array()
-                    .transpose("time", "variable", "lat", "lon")
-                    .to_numpy()
-                )
-            boundary = torch.from_numpy(
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-            )
-
-            input_, label = self._get_input_and_label(prognostic_all, boundary)
+            input_, label = self.join_and_partition_by_time(prognostic, boundary)
             TD.insert(input_=input_, label=label)
 
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
         return TD
 
-    def _get_input_and_label(
+    def join_and_partition_by_time(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
         prognostic_all: Float[torch.Tensor, "time variable lat lon"],
@@ -736,7 +754,7 @@ class TorchTrainDataset(Dataset):
 
         return prognostic_steps
 
-    def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
+    def index_by_step(self, idx: int, step: int) -> xr.DataArray:
         assert isinstance(idx, int)
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")
@@ -760,3 +778,104 @@ def concurrent_compute(
             futures.append(executor.submit(load_variable_data, var))
 
     wait(futures)
+
+
+T = TypeVar("T")
+WithSteps = tuple[int, T]
+
+
+class SpdlTorchDataLoader:
+    def __init__(
+        self,
+        dataset: ConcatDataset,
+        collate_fn: Callable,
+        io_workers: int,
+        cpu_workers: int,
+        batch_size: int,
+        drop_last: bool = False,
+        sampler: type[Sampler] | None = None,
+        pin_memory: bool = False,
+        timeout: float | None = None,
+    ) -> None:
+        first_dataset = dataset.datasets[0]
+        assert isinstance(first_dataset, TorchTrainDataset), (
+            "This DataLoader only works with TorchTrainDataset."
+        )
+        self.dataset: TorchTrainDataset = first_dataset
+        self.steps = self.dataset.steps
+        self.collate_fn = collate_fn
+        self._executor = self.dataset.executor
+        self._sampler_klass = sampler
+        self._drop_last = drop_last
+        self._timeout = timeout
+        self._batch_size = batch_size
+        self._io_workers = io_workers
+        self._cpu_workers = cpu_workers
+        if pin_memory:
+            warnings.warn(f"Pinning memory is currently not supported in {self!r}.")
+
+    def _source(self) -> Iterable[int]:
+        """Generated indexes to load, using the input sampler."""
+        samples = list(range(len(self.dataset)))
+        if self._sampler_klass is not None:
+            samples = self._sampler_klass(samples)
+        if self._drop_last:
+            samples = itertools.islice(samples, len(samples) - 1)
+        yield from samples
+
+    def _with_steps(self, index: int) -> Iterable[WithSteps[xr.DataArray]]:
+        yield from (
+            (step, self.dataset.index_by_step(index, step))
+            for step in range(self.steps)
+        )
+
+    def _download(
+        self, x_index_pair: WithSteps[xr.DataArray]
+    ) -> WithSteps[tuple[xr.Dataset, xr.Dataset]]:
+        step, x_index = x_index_pair
+        return step, self.dataset.perform_io(x_index, executor=self._executor)
+
+    def _process_traindata(
+        self, downloaded: list[WithSteps[tuple[xr.Dataset, xr.Dataset]]]
+    ) -> TrainData:
+        train_data = TrainData(self.dataset.num_prognostic_channels)
+
+        # Ensure that the pipeline-level aggregation respects the steps of train data!
+        steps = [step for step, _ in downloaded]
+        assert steps == list(range(self.steps))
+
+        for _, (prognostic_selected, boundary_selected) in downloaded:
+            prognostic = self.dataset.prognostic_to_tensor(prognostic_selected)
+            boundary = self.dataset.boundary_to_tensor(boundary_selected)
+            input_, label = self.dataset.join_and_partition_by_time(
+                prognostic, boundary
+            )
+            train_data.insert(input_, label)
+
+        return train_data
+
+    def _build_pipeline(self) -> spdl.pipeline.Pipeline[TrainData]:
+        total_workers = self._io_workers + self._cpu_workers + 2
+        return (
+            PipelineBuilder()
+            .add_source(self._source())
+            .pipe(self._with_steps, output_order="input")
+            .pipe(
+                self._download,
+                concurrency=self._io_workers,
+                executor=self._executor,
+                output_order="input",
+            )
+            .aggregate(self.steps)
+            .pipe(self._process_traindata, concurrency=self._cpu_workers)
+            .aggregate(self._batch_size)
+            .pipe(self.collate_fn, concurrency=self._cpu_workers)
+            .add_sink(6)
+            .build(num_threads=total_workers)
+        )
+
+    def __iter__(self) -> Iterable[TrainData]:
+        pipeline = self._build_pipeline()
+
+        with pipeline.auto_stop():
+            yield from pipeline.get_iterator(timeout=self._timeout)

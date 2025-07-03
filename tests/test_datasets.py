@@ -124,7 +124,8 @@ def make_loader(
             assert version == LoaderVersion.OM4_TORCH, (
                 "SPDL Loader only works for the Torch Dataset!"
             )
-            loader = SpdlTorchDataLoader(
+            assert isinstance(data, ConcatDataset), "Must not be an inference dataset!"
+            loader: DataLoader = SpdlTorchDataLoader(
                 data,
                 io_workers=cfg.data.num_workers + 2,
                 cpu_workers=cfg.batch_size + 2,

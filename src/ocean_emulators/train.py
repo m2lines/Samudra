@@ -3,6 +3,7 @@
 # - cleaner dataset modules
 import contextlib
 import datetime
+import functools
 import logging
 import multiprocessing
 import os

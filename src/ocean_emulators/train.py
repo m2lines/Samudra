@@ -169,12 +169,11 @@ class Trainer:
         self.data_dir = cfg.experiment.data_dir
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
+        self.executor: ThreadPoolExecutor | None = None
         if cfg.data.concurrent_compute:
             self.executor = ThreadPoolExecutor(
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
-        else:
-            self.executor = None
 
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)

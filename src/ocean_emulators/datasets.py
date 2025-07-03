@@ -5,6 +5,7 @@ import warnings
 from collections.abc import Callable, Iterable
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
+from functools import partial
 from typing import Any, TypeVar
 
 import numpy as np
@@ -14,7 +15,14 @@ import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
 from spdl.pipeline import PipelineBuilder
-from torch.utils.data import ConcatDataset, Dataset, Sampler
+from spdl.pipeline._pipeline import PipelineIterator
+from torch.utils.data import (
+    ConcatDataset,
+    DataLoader,
+    Dataset,
+    DistributedSampler,
+    Sampler,
+)
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
@@ -784,7 +792,7 @@ T = TypeVar("T")
 WithSteps = tuple[int, T]
 
 
-class SpdlTorchDataLoader:
+class SpdlTorchDataLoader(DataLoader):
     def __init__(
         self,
         dataset: ConcatDataset,
@@ -793,39 +801,44 @@ class SpdlTorchDataLoader:
         cpu_workers: int,
         batch_size: int,
         drop_last: bool = False,
-        sampler: type[Sampler] | None = None,
+        sampler: type[Sampler] | partial[DistributedSampler] | None = None,
         pin_memory: bool = False,
-        timeout: float | None = None,
+        timeout: float = 0,
     ) -> None:
+        super().__init__(
+            dataset,
+            batch_size,
+            collate_fn=collate_fn,
+            pin_memory=pin_memory,
+            drop_last=drop_last,
+        )
         first_dataset = dataset.datasets[0]
         assert isinstance(first_dataset, TorchTrainDataset), (
             "This DataLoader only works with TorchTrainDataset."
         )
-        self.dataset: TorchTrainDataset = first_dataset
-        self.steps = self.dataset.steps
-        self.collate_fn = collate_fn
-        self._executor = self.dataset.executor
+        self.first_dataset: TorchTrainDataset = first_dataset
+        self.steps = self.first_dataset.steps
+        self.executor = self.first_dataset.executor
         self._sampler_klass = sampler
-        self._drop_last = drop_last
-        self._timeout = timeout
-        self._batch_size = batch_size
-        self._io_workers = io_workers
-        self._cpu_workers = cpu_workers
+        self.io_workers = io_workers
+        self.cpu_workers = cpu_workers
+        self.timeout = timeout
         if pin_memory:
             warnings.warn(f"Pinning memory is currently not supported in {self!r}.")
 
     def _source(self) -> Iterable[int]:
         """Generated indexes to load, using the input sampler."""
-        samples = list(range(len(self.dataset)))
+        items = list(range(len(self)))
+        samples: Iterable = items
         if self._sampler_klass is not None:
-            samples = self._sampler_klass(samples)
-        if self._drop_last:
-            samples = itertools.islice(samples, len(samples) - 1)
+            samples = self._sampler_klass(items)
+        if self.drop_last:
+            samples = itertools.islice(samples, len(items) - 1)
         yield from samples
 
     def _with_steps(self, index: int) -> Iterable[WithSteps[xr.DataArray]]:
         yield from (
-            (step, self.dataset.index_by_step(index, step))
+            (step, self.first_dataset.index_by_step(index, step))
             for step in range(self.steps)
         )
 
@@ -833,21 +846,21 @@ class SpdlTorchDataLoader:
         self, x_index_pair: WithSteps[xr.DataArray]
     ) -> WithSteps[tuple[xr.Dataset, xr.Dataset]]:
         step, x_index = x_index_pair
-        return step, self.dataset.perform_io(x_index, executor=self._executor)
+        return step, self.first_dataset.perform_io(x_index, executor=self.executor)
 
     def _process_traindata(
         self, downloaded: list[WithSteps[tuple[xr.Dataset, xr.Dataset]]]
     ) -> TrainData:
-        train_data = TrainData(self.dataset.num_prognostic_channels)
+        train_data = TrainData(self.first_dataset.num_prognostic_channels)
 
         # Ensure that the pipeline-level aggregation respects the steps of train data!
         steps = [step for step, _ in downloaded]
         assert steps == list(range(self.steps))
 
         for _, (prognostic_selected, boundary_selected) in downloaded:
-            prognostic = self.dataset.prognostic_to_tensor(prognostic_selected)
-            boundary = self.dataset.boundary_to_tensor(boundary_selected)
-            input_, label = self.dataset.join_and_partition_by_time(
+            prognostic = self.first_dataset.prognostic_to_tensor(prognostic_selected)
+            boundary = self.first_dataset.boundary_to_tensor(boundary_selected)
+            input_, label = self.first_dataset.join_and_partition_by_time(
                 prognostic, boundary
             )
             train_data.insert(input_, label)
@@ -855,27 +868,39 @@ class SpdlTorchDataLoader:
         return train_data
 
     def _build_pipeline(self) -> spdl.pipeline.Pipeline[TrainData]:
-        total_workers = self._io_workers + self._cpu_workers + 2
-        return (
+        total_workers = self.io_workers + self.cpu_workers + 2
+        pipeline: spdl.pipeline.Pipeline[TrainData] = (
             PipelineBuilder()
-            .add_source(self._source())
-            .pipe(self._with_steps, output_order="input")
+            .add_source(self._source())  # type: ignore
+            .pipe(self._with_steps, output_order="input")  # type: ignore
             .pipe(
-                self._download,
-                concurrency=self._io_workers,
-                executor=self._executor,
+                self._download,  # type: ignore
+                concurrency=self.io_workers,
+                executor=self.executor,
                 output_order="input",
             )
             .aggregate(self.steps)
-            .pipe(self._process_traindata, concurrency=self._cpu_workers)
-            .aggregate(self._batch_size)
-            .pipe(self.collate_fn, concurrency=self._cpu_workers)
+            .pipe(self._process_traindata, concurrency=self.cpu_workers)
+            .aggregate(self.batch_size or 1)
+            .pipe(self.collate_fn, concurrency=self.cpu_workers)
             .add_sink(6)
             .build(num_threads=total_workers)
         )
 
-    def __iter__(self) -> Iterable[TrainData]:
+        return pipeline
+
+    # This doesn't return the same type as the base data loader type, but I don't think
+    # this should be a problem, so we ignore type checking.
+    def __iter__(self) -> PipelineIterator[TrainData]:  # type: ignore
         pipeline = self._build_pipeline()
 
+        # TIL that the __exit__ condition will still be called even though we use
+        # a `return` instead of a `yield`.
         with pipeline.auto_stop():
-            yield from pipeline.get_iterator(timeout=self._timeout)
+            # Need to adapt the `DataLoader.timeout` type with the
+            # `spdl.pipeline.Pipeline.timeout` type. The former uses `0` as "no timeout"
+            # whereas the latter uses `None`.
+            timeout = None if self.timeout == 0 else self.timeout
+            iterator = pipeline.get_iterator(timeout=timeout)
+            assert isinstance(iterator, PipelineIterator)
+            return iterator

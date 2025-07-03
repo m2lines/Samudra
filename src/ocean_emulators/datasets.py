@@ -869,7 +869,7 @@ class SpdlTorchDataLoader(DataLoader):
 
     def _build_pipeline(self) -> spdl.pipeline.Pipeline[TrainData]:
         total_workers = self.io_workers + self.cpu_workers + 2
-        pipeline: spdl.pipeline.Pipeline[TrainData] = (
+        return (
             PipelineBuilder()
             .add_source(self._source())  # type: ignore
             .pipe(self._with_steps, output_order="input")  # type: ignore
@@ -886,8 +886,6 @@ class SpdlTorchDataLoader(DataLoader):
             .add_sink(6)
             .build(num_threads=total_workers)
         )
-
-        return pipeline
 
     # This doesn't return the same type as the base data loader type, but I don't think
     # this should be a problem, so we ignore type checking.

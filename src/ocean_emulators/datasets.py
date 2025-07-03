@@ -649,6 +649,7 @@ class TorchTrainDataset(Dataset):
             boundary_selected = self._boundary_src.data.isel(time=x_index)
 
             if self._executor is not None:
+                assert self._executor is not None
                 concurrent_compute(
                     prognostic_selected, boundary_selected, executor=self._executor
                 )
@@ -680,10 +681,6 @@ class TorchTrainDataset(Dataset):
 
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
         return TD
-
-    def __del__(self):
-        self._executor.shutdown(wait=True)
-        super().__del__()
 
     def _get_input_and_label(
         self,

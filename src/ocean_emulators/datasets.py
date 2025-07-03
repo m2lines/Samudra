@@ -1,3 +1,4 @@
+import itertools
 import logging
 import time
 from collections.abc import Callable, Iterable, Iterator

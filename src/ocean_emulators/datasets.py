@@ -883,6 +883,7 @@ class SpdlTorchDataLoader(DataLoader):
             .pipe(self._process_traindata, concurrency=self.cpu_workers)
             .aggregate(self.batch_size or 1)
             .pipe(self.collate_fn, concurrency=self.cpu_workers)
+            # Later, we can add a step to efficiently dispatch data to GPU.
             .add_sink(6)
             .build(num_threads=total_workers)
         )

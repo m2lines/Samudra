@@ -597,7 +597,6 @@ class TorchTrainDataset(Dataset):
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
-        self.concurrent_compute: bool = executor is not None
         self._executor = executor
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
@@ -649,8 +648,7 @@ class TorchTrainDataset(Dataset):
             prognostic_selected = self._prognostic_src.data.isel(time=x_index)
             boundary_selected = self._boundary_src.data.isel(time=x_index)
 
-            if self.concurrent_compute:
-                assert self._executor is not None
+            if self._executor is not None:
                 concurrent_compute(
                     prognostic_selected, boundary_selected, executor=self._executor
                 )

@@ -795,6 +795,53 @@ WithSteps = tuple[int, T]
 
 
 class SpdlTorchDataLoader(DataLoader):
+    """
+    A high-performance DataLoader that uses SPDL (Scalable and Performant Data Loading)
+    for efficient parallel data loading and processing of ocean emulator training data.
+
+    This DataLoader is specifically designed for `TorchTrainDataset` instances and
+    provides concurrent I/O operations and CPU processing using a pipeline architecture.
+    It separates I/O-bound operations (data loading) from CPU-bound operations
+    (tensor processing) to maximize throughput.
+
+    Args:
+        dataset: A `ConcatDataset` containing `TorchTrainDataset` instances
+        collate_fn: Function to collate individual samples into batches
+        io_workers: Number of worker threads for I/O operations (data loading)
+        cpu_workers: Number of worker threads for CPU processing (tensor operations)
+        batch_size: Number of samples per batch
+        drop_last: Whether to drop the last incomplete batch
+        sampler: Optional sampler class (supports distributed training samplers).
+        pin_memory: Whether to pin memory (currently not supported, will warn)
+        timeout: Timeout in seconds for pipeline operations (0 means no timeout)
+
+    Attributes:
+        first_dataset: The first `TorchTrainDataset from the `ConcatDataset`
+        steps: Number of time steps per training sample
+        executor: `ThreadPoolExecutor` for concurrent operations
+        io_workers: Number of I/O worker threads
+        cpu_workers: Number of CPU worker threads
+        timeout: Pipeline timeout value
+
+    Note:
+        This DataLoader only works with TorchTrainDataset instances and will raise
+        an assertion error if used with other dataset types. The pin_memory feature
+        is currently not supported and will generate a warning if enabled.
+
+    Example:
+        >>> from ocean_emulators.utils.train import collate_train_data
+        >>> loader = SpdlTorchDataLoader(
+        ...     dataset=train_dataset,
+        ...     collate_fn=collate_train_data,
+        ...     io_workers=4,
+        ...     cpu_workers=2,
+        ...     batch_size=8
+        ... )
+        >>> for batch in loader:
+        ...     # Process batch
+        ...     pass
+    """
+
     def __init__(
         self,
         dataset: ConcatDataset,
@@ -839,6 +886,8 @@ class SpdlTorchDataLoader(DataLoader):
         yield from samples
 
     def _with_steps(self, index: int) -> Iterable[WithSteps[xr.DataArray]]:
+        """Create a window into the dataset by combining the item index with steps."""
+        # This is a flatmap-like operation.
         yield from (
             (step, self.first_dataset.index_by_step(index, step))
             for step in range(self.steps)
@@ -847,12 +896,14 @@ class SpdlTorchDataLoader(DataLoader):
     def _download(
         self, x_index_pair: WithSteps[xr.DataArray]
     ) -> WithSteps[tuple[xr.Dataset, xr.Dataset]]:
+        """Given a window into the data, perform all IO operations."""
         step, x_index = x_index_pair
         return step, self.first_dataset.perform_io(x_index, executor=self.executor)
 
     def _process_traindata(
         self, downloaded: list[WithSteps[tuple[xr.Dataset, xr.Dataset]]]
     ) -> TrainData:
+        """Create a TrainData by aggregating across all steps across an index."""
         train_data = TrainData(self.first_dataset.num_prognostic_channels)
 
         # Ensure that the pipeline-level aggregation respects the steps of train data!
@@ -870,7 +921,10 @@ class SpdlTorchDataLoader(DataLoader):
         return train_data
 
     def _build_pipeline(self) -> spdl.pipeline.Pipeline[TrainData]:
+        """Wire together steps into an SPDL pipeline."""
         total_workers = self.io_workers + self.cpu_workers + 2
+        # Below, we ignore type information because this pipeline can't infer that the
+        # return type is `TrainData`.
         return (
             PipelineBuilder()
             .add_source(self._source())  # type: ignore
@@ -890,9 +944,10 @@ class SpdlTorchDataLoader(DataLoader):
             .build(num_threads=total_workers)
         )
 
-    # This doesn't return the same type as the base data loader type, but I don't think
-    # this should be a problem, so we ignore type checking.
+    # NB(alxmrs): This doesn't return the same type as the base data loader type, but I
+    # don't think this should be a problem, so we ignore type checking.
     def __iter__(self) -> PipelineIterator[TrainData]:  # type: ignore
+        """Iterate across batches of examples."""
         pipeline = self._build_pipeline()
 
         # TIL that the __exit__ condition will still be called even though we use

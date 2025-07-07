@@ -697,7 +697,9 @@ class TorchTrainDataset(Dataset):
 
         for step in range(self.steps):
             x_index = self.index_by_step(idx, step)
-            prognostic_selected, boundary_selected = self.perform_io(x_index)
+            prognostic_selected, boundary_selected = self.perform_io(
+                x_index, executor=self.executor
+            )
 
             prognostic = self.prognostic_to_tensor(prognostic_selected)
             boundary = self.boundary_to_tensor(boundary_selected)

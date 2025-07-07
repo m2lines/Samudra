@@ -657,7 +657,7 @@ class TorchTrainDataset(Dataset):
 
         if executor is not None:
             concurrent_compute(
-                prognostic_selected, boundary_selected, executor=self._executor
+                prognostic_selected, boundary_selected, executor=executor
             )
 
         return prognostic_selected, boundary_selected

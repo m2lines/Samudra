@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1751914008879,
+  "lastUpdate": 1751924795056,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2020,6 +2020,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9577207582242829",
             "extra": "mean: 115.11811733479999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "52ae948638fd948154d8aa445a146cdb411b3346",
+          "message": "Updated `concurrent_compute` logic to create a thread pool only once. (#288)\n\nI think that it's a good idea to try to load all the data variables\nconcurrently. However, before this PR, we create and then tear down the\nexecutor way too many times (per loop per getitem). This change will\nallow to to see how effective we can concurrently load Xarray data.",
+          "timestamp": "2025-07-07T14:10:50-07:00",
+          "tree_id": "528b34aa5b5b696c4bbbe921eb5716497b18ec9a",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/52ae948638fd948154d8aa445a146cdb411b3346"
+        },
+        "date": 1751924794252,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2683366206069064,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03737432159552265",
+            "extra": "mean: 788.4342246000074 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06863162678721287,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7218410681293501",
+            "extra": "mean: 14.570541990800013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.08026914643705897,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1428850163290985",
+            "extra": "mean: 12.458086878799998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.009114763454235243,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2412905434797989",
+            "extra": "mean: 109.71211760140002 sec\nrounds: 5"
           }
         ]
       }

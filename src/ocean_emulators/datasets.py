@@ -1,5 +1,7 @@
 import logging
 import time
+from concurrent.futures import wait
+from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Any
 
 import numpy as np
@@ -585,7 +587,7 @@ class TorchTrainDataset(Dataset):
         normalize_before_mask: bool,
         masked_fill_value: float,
         stride: int = 1,
-        concurrent_compute: bool = False,
+        executor: ThreadPoolExecutor | None = None,
     ):
         super().__init__()
         self.device = get_device()
@@ -595,7 +597,7 @@ class TorchTrainDataset(Dataset):
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
-        self.concurrent_compute: bool = concurrent_compute
+        self._executor = executor
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
@@ -646,8 +648,10 @@ class TorchTrainDataset(Dataset):
             prognostic_selected = self._prognostic_src.data.isel(time=x_index)
             boundary_selected = self._boundary_src.data.isel(time=x_index)
 
-            if self.concurrent_compute:
-                concurrent_compute(prognostic_selected, boundary_selected)
+            if self._executor is not None:
+                concurrent_compute(
+                    prognostic_selected, boundary_selected, executor=self._executor
+                )
 
             if "lev" in prognostic_selected.dims:
                 prognostic_all = torch.from_numpy(
@@ -744,18 +748,14 @@ class TorchTrainDataset(Dataset):
 
 def concurrent_compute(
     *datasets: xr.Dataset,
+    executor: ThreadPoolExecutor,
 ) -> None:
-    from concurrent.futures import ThreadPoolExecutor, wait
-
     def load_variable_data(var: xr.Variable) -> None:
         var.load()
 
-    with ThreadPoolExecutor(
-        max_workers=None, thread_name_prefix="concurrent_compute"
-    ) as executor:
-        futures = []
-        for ds in datasets:
-            for var in ds.variables.values():
-                futures.append(executor.submit(load_variable_data, var))
+    futures = []
+    for ds in datasets:
+        for var in ds.variables.values():
+            futures.append(executor.submit(load_variable_data, var))
 
-        wait(futures)
+    wait(futures)

@@ -376,7 +376,9 @@ ORIGINAL_LOADER_VERSION = LoaderVersion.OM4_EAGER
 
 
 def assert_equal_samples(original_samples, new_samples):
-    for (x_orig, y_orig), (x_new, y_new) in zip(original_samples, new_samples):
+    for (x_orig, y_orig), (x_new, y_new) in zip(
+        original_samples, new_samples, strict=True
+    ):
         assert x_orig.dtype == x_new.dtype, "Input data types do not match."
         assert y_orig.dtype == y_new.dtype, "Output data types do not match."
 

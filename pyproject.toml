@@ -39,6 +39,7 @@ dependencies = [
   "scipy>=1.15.2",
   "torch~=2.2.1",
   "torchinfo>=1.8",
+  "uvloop>=0.21",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",

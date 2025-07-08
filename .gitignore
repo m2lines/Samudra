@@ -1,6 +1,8 @@
 __pycache__
 .DS_Store
 .ipynb_checkpoints
+.mypy_cache
+.cache
 download-beaker.sh
 jobs
 saved_nets
@@ -35,3 +37,4 @@ output.log
 .vscode/
 .data_cache/
 configs/schemas/
+/playpen

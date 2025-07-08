@@ -4,6 +4,7 @@
 import contextlib
 import datetime
 import functools
+import itertools
 import logging
 import multiprocessing
 import os
@@ -83,6 +84,7 @@ from ocean_emulators.utils.loss import (
     decomposed_mse_mae,
     decomposed_mse_scaled,
 )
+from ocean_emulators.utils.throughput import measure_throughput
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -177,6 +179,9 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
         self.use_spdl = cfg.data.use_spdl
+        self.auto_configure_spdl_pipeline_workers = (
+            cfg.data.auto_configure_spdl_pipeline_workers
+        )
 
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)
@@ -688,6 +693,53 @@ class Trainer:
 
         return cur_step
 
+    def _find_best_loader_config(
+        self, train_data, collate_fn, train_sampler
+    ) -> tuple[int, int]:
+        """Find the concurrency parameters for optimal throughput."""
+        assert self.use_spdl, "Feature only works for the SPDL DataLoader!"
+
+        # NB(alxmrs): In my experience, more resources doesn't automatically imply more
+        # throughput. Further, the best config will change from machine to machine.
+        # Instead of guessing manually, we might as well sample before performing a
+        # training run.
+        options = [
+            dict(io=8, cpu=4),
+            dict(io=12, cpu=6),
+            dict(io=16, cpu=8),
+            dict(io=20, cpu=10),
+            dict(io=24, cpu=12),
+        ]
+        best_opt, best_throughput = {}, 0.0
+
+        for opt in options:
+            # The total number of threads in the pool will be the sum of the IO and CPU
+            # workers plus a small fudge factor.
+            loader = SpdlTorchDataLoader(
+                train_data,
+                io_workers=opt["io"],
+                cpu_workers=opt["cpu"],
+                batch_size=self.batch_size,
+                sampler=train_sampler,
+                pin_memory=self.pin_mem,
+                collate_fn=collate_fn,
+            )
+
+            with measure_throughput(print_stats=False) as m:
+                # Take only the first 50 items
+                for td in itertools.islice(loader, 50):
+                    for idx in range(len(td)):
+                        m.record(td[idx])
+
+            throughput = m.get_throughput_gbps()
+
+            if throughput > best_throughput:
+                best_throughput = throughput
+                best_opt = opt
+
+        logger.info(f"Optimal throughput: {best_throughput} from {best_opt!r}.")
+        return best_opt["io"], best_opt["cpu"]
+
     def init_data_loaders(self, cur_step: int) -> None:
         """Initialize training and validation data loaders.
 
@@ -808,10 +860,19 @@ class Trainer:
                 if self.distributed is None
                 else functools.partial(DistributedSampler, shuffle=False)
             )
+
+            if self.auto_configure_spdl_pipeline_workers:
+                io_workers, cpu_workers = self._find_best_loader_config(
+                    train_data, collate_fn, train_sampler
+                )
+            else:
+                # Otherwise, make an educated guess based on the config.
+                io_workers, cpu_workers = self.num_workers + 2, self.batch_size + 2
+
             self.train_loader = SpdlTorchDataLoader(
                 train_data,
-                io_workers=self.num_workers + 2,
-                cpu_workers=self.batch_size + 2,
+                io_workers=io_workers,
+                cpu_workers=cpu_workers,
                 batch_size=self.batch_size,
                 sampler=train_sampler,
                 pin_memory=self.pin_mem,
@@ -839,7 +900,6 @@ class Trainer:
                 collate_fn=collate_fn,
                 multiprocessing_context=self.mp_context,
             )
-
             self.val_loader = DataLoader(
                 val_data,
                 batch_size=self.batch_size,

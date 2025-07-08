@@ -100,11 +100,15 @@ class DataConfig(BaseConfig):
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
     use_spdl: bool = False
+    auto_configure_spdl_pipeline_workers: bool = False
 
     def __post_init__(self):
         """Validates configuration."""
         if self.use_spdl and self.loader_version != str(LoaderVersion.OM4_TORCH.value):
             raise ValueError("SPDL can only be used with the OM4 Torch Dataset!")
+
+        if self.auto_configure_spdl_pipeline_workers and not self.use_spdl:
+            raise ValueError("Auto-configure feature only works when using SPDL!")
 
 
 BlockType = Literal["conv_next_block", "conv_block"]

@@ -208,6 +208,7 @@ class TestS3Location:
         assert isinstance(resolved, S3Location)
         assert resolved.path == "base/path/subdir/file.zarr"
 
+
 class TestLocationValidation:
     """Test cases for the Location validation annotation and string conversion."""
 

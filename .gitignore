@@ -1,6 +1,8 @@
 __pycache__
-.*
-/playpen
+.DS_Store
+.ipynb_checkpoints
+.mypy_cache
+.cache
 download-beaker.sh
 jobs
 saved_nets
@@ -8,6 +10,7 @@ Preds
 old_files
 videos
 wandb
+.LOCAL
 train
 save_data
 outputs
@@ -26,5 +29,12 @@ profile-logs/
 *.mp4
 *.gif
 output.log
+.idea
 *.egg-info/
+.venv/
+.benchmarks/
+.hypothesis/
+.vscode/
+.data_cache/
 configs/schemas/
+/playpen

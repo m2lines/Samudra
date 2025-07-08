@@ -42,6 +42,14 @@ class Eval:
     def __init__(self, cfg: EvalConfig) -> None:
         cfg.prepare_output_dirs()
 
+        # Turn on uvloop as the asyncio backend
+        if cfg.data.use_uvloop:
+            import asyncio
+
+            import uvloop
+
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
         self.device = init_eval_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device

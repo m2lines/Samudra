@@ -98,6 +98,14 @@ class Trainer:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
+        # Turn on uvloop as the asyncio backend
+        if cfg.data.use_uvloop:
+            import asyncio
+
+            import uvloop
+
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
 

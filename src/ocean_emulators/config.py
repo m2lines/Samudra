@@ -116,6 +116,14 @@ class DataConfig(BaseConfig):
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+    # `uvloop` is a drop-in replacement for `asyncio` that provides
+    # Go-level concurrency performance. It hooks up Python's async event loop
+    # with `libuv`, which is Node.js's core event loop library, written in C.
+    # This feature is only worth turning on if you plan to use concurrency when
+    # loading data, i.e. performing IO-bound, async operations. This often happens
+    # with our dependencies -- for example, Zarr v3 uses asyncio to handle IO-bound
+    # operations -- as well as explicitly in SPDL pipelines.
+    use_uvloop: bool = False
     use_spdl: bool = False
 
     def __post_init__(self):

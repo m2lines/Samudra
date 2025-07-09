@@ -144,27 +144,27 @@ class DataConfig(BaseConfig):
         source = validate_data(source, boundary_var_names, self.static_data_vars)
 
         if use_dask:
-            data_using_dask = source
+            # If we're already using dask, we don't need a second source
+            source_using_dask = source
         else:
-            data_using_dask = DataSource.from_locations(
+            # If we're not using dask for the main source, create a separate one
+            source_using_dask = DataSource.from_locations(
                 data_location=data_location,
                 means_location=means_location,
                 stds_location=stds_location,
                 use_dask=True,
             )
-            data_using_dask = validate_data(
-                data_using_dask, boundary_var_names, self.static_data_vars
+            source_using_dask = validate_data(
+                source_using_dask, boundary_var_names, self.static_data_vars
             )
-        scaling_residuals_location = (
-            data_root.resolve(self.scaling_residuals_file)
-            if self.scaling_residuals_file is not None
-            else None
-        )
-        scaling_residuals = (
-            scaling_residuals_location.open()
-            if scaling_residuals_location is not None
-            else None
-        )
+
+        if self.scaling_residuals_file is not None:
+            scaling_residuals_location = data_root.resolve(self.scaling_residuals_file)
+            scaling_residuals = scaling_residuals_location.open()
+        else:
+            scaling_residuals_location = None
+            scaling_residuals = None
+
         static_data = (
             source.data[self.static_data_vars]
             if self.static_data_vars is not None
@@ -182,7 +182,7 @@ class DataConfig(BaseConfig):
         )
         return DataContainer(
             source,
-            data_using_dask,
+            source_using_dask,
             loader_version,
             supports_fork,
             scaling_residuals,

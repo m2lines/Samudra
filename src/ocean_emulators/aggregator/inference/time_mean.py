@@ -177,7 +177,7 @@ class TimeMeanAggregator:
                 )
                 bias_map = pair.bias().cpu().numpy()
                 vmin_bias, vmax_bias = get_cmap_limits(bias_map, diverging=True)
-                cmap = plt.cm.get_cmap("RdBu_r")
+                cmap = plt.colormaps.get_cmap("RdBu_r")
                 cmap.set_bad(color=(0.7, 0.7, 0.7))
 
                 bias_fig: plt.Figure = plot_imshow(
@@ -300,7 +300,7 @@ class TimeMeanEvaluatorAggregator:
         for pred in preds:
             bias_data = pred.bias().cpu().numpy()
             vmin_bias, vmax_bias = get_cmap_limits(bias_data, diverging=True)
-            cmap = plt.cm.get_cmap("RdBu_r")
+            cmap = plt.colormaps.get_cmap("RdBu_r")
             cmap.set_bad(color=(0.7, 0.7, 0.7))
             bias_fig = plot_imshow(
                 bias_data, vmin=vmin_bias, vmax=vmax_bias, cmap=cmap, nan_padding=False

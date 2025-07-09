@@ -4,14 +4,15 @@ import re
 from collections import defaultdict
 from collections.abc import Callable
 from functools import cached_property
-from typing import Literal, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
 
-from ocean_emulators.config import EvalConfig, TimeConfig, TrainConfig
+if TYPE_CHECKING:
+    from ocean_emulators.config import TimeConfig
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
@@ -23,6 +24,7 @@ from ocean_emulators.constants import (
     Grid,
     GridMask,
     Input,
+    LoaderVersion,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
@@ -30,6 +32,7 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.derived_variables import add_derived_variables
+from ocean_emulators.utils.location import ResolvedLocation
 from ocean_emulators.utils.multiton import Multiton
 
 logger = logging.getLogger(__name__)
@@ -138,7 +141,7 @@ class DataSource:
         data = func(self.data.copy())
         return dataclasses.replace(self, name=f"{self.name}_{suffix}", data=data)
 
-    def slice(self, time: TimeConfig) -> Self:
+    def slice(self, time: "TimeConfig") -> Self:
         """Slice the data source to only include the specified time slice."""
         data_time_min = self.data.time.min().item()
         data_time_max = self.data.time.max().item()
@@ -226,22 +229,35 @@ class DataSource:
         return cls(name=name, data=dataset, means=means, stds=stds)
 
     @classmethod
-    def from_config(cls, cfg: TrainConfig | EvalConfig, *, use_dask: bool) -> Self:
+    def from_locations(
+        cls,
+        data_location: ResolvedLocation,
+        means_location: ResolvedLocation,
+        stds_location: ResolvedLocation,
+        *,
+        use_dask: bool,
+    ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
-        root = cfg.experiment.resolved_data_root
-
-        data = root.resolve(cfg.data.data_location).open(chunks)
-        means = root.resolve(cfg.data.data_means_location).open(chunks)
-        stds = root.resolve(cfg.data.data_stds_location).open(chunks)
-
-        dask = "with_dask" if use_dask else "without_dask"
+        data = data_location.open(chunks)
+        means = means_location.open(chunks)
+        stds = stds_location.open(chunks)
 
         return cls(
-            name=f"{cfg.experiment.name}-{data}-{dask}",
+            name=f"{data_location}-{use_dask}",
             data=data,
             means=means,
             stds=stds,
         )
+
+
+@dataclasses.dataclass
+class DataContainer:
+    source: DataSource
+    source_using_dask: DataSource
+    loader_version: LoaderVersion
+    supports_fork: bool
+    scaling_residuals: xr.Dataset | None = None
+    static_data: xr.Dataset | None = None
 
 
 def conditional_rearrange(
@@ -500,7 +516,7 @@ def compute_anomalies(
                 data[var] = (
                     data[base_var] - climatology.sel(dayofyear=day_of_year)
                 ).compute()
-                data = data.drop(["dayofyear"])
+                data = data.drop_vars(["dayofyear"])
                 means[var] = data[var].mean().compute()
                 stds[var] = data[var].std().compute()
         return data, means, stds

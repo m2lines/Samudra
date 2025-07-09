@@ -250,22 +250,14 @@ class DataSource:
         )
 
 
+@dataclasses.dataclass
 class DataContainer:
-    def __init__(
-        self,
-        source: DataSource,
-        source_using_dask: DataSource,
-        loader_version: LoaderVersion,
-        supports_fork: bool,
-        scaling_residuals: xr.Dataset | None = None,
-        static_data: xr.Dataset | None = None,
-    ):
-        self.source = source
-        self.source_using_dask = source_using_dask
-        self.loader_version = loader_version
-        self.scaling_residuals = scaling_residuals
-        self.static_data = static_data
-        self.supports_fork = supports_fork
+    source: DataSource
+    source_using_dask: DataSource
+    loader_version: LoaderVersion
+    supports_fork: bool
+    scaling_residuals: xr.Dataset | None = None
+    static_data: xr.Dataset | None = None
 
 
 def conditional_rearrange(

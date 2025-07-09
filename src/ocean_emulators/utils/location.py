@@ -42,6 +42,10 @@ class ResolvedLocation(ABC):
     def resolve(self, location: "Location") -> "ResolvedLocation":
         pass
 
+    @abstractmethod
+    def supports_fork(self) -> bool:
+        pass
+
     def __truediv__(self, other: "Location") -> "ResolvedLocation":
         return self.resolve(other)
 
@@ -88,6 +92,9 @@ class S3Location(ResolvedLocation, BaseModel):
             )
         return location
 
+    def supports_fork(self) -> bool:
+        return False  # s3fs does not support forking
+
     def __str__(self) -> str:
         return self.url()
 
@@ -114,6 +121,9 @@ class LocalLocation(ResolvedLocation, BaseModel):
         if isinstance(location, UnresolvedLocation):
             return LocalLocation(path=self.path / location.path)
         return location
+
+    def supports_fork(self) -> bool:
+        return True
 
     def __str__(self) -> str:
         return str(self.path)

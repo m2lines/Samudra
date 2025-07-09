@@ -13,6 +13,7 @@ from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
+from multiprocessing.context import BaseContext
 from typing import Any, assert_never
 
 import dask
@@ -36,7 +37,6 @@ from ocean_emulators.constants import (
     PROGNOSTIC_VARS,
     BoundaryVarNames,
     Grid,
-    LoaderVersion,
     PrognosticVarNames,
     TensorMap,
     construct_metadata,
@@ -51,12 +51,10 @@ from ocean_emulators.datasets import (
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
-    DataSource,
     Normalize,
     extract_wet_mask,
     get_inference_steps,
     spherical_area_weights,
-    validate_data,
 )
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
@@ -108,9 +106,6 @@ class Trainer:
 
         # Distributed mode
         dask.config.set(scheduler="synchronous")
-        self.mp_context = (
-            multiprocessing.get_context("spawn") if cfg.data.num_workers > 0 else None
-        )
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
@@ -139,6 +134,18 @@ class Trainer:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
+        self.data_container = cfg.data.build(
+            data_root=cfg.experiment.resolved_data_root,
+            boundary_var_names=self.boundary_var_names,
+        )
+
+        self.mp_context: BaseContext | None = None
+        if cfg.data.num_workers > 0:
+            if self.data_container.supports_fork:
+                self.mp_context = multiprocessing.get_context("fork")
+            else:
+                self.mp_context = multiprocessing.get_context("spawn")
+
         self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
@@ -164,33 +171,22 @@ class Trainer:
                 f"with validation time range {cfg.val_time}"
             )
 
-        self.loader_version = LoaderVersion(cfg.data.loader_version)
-        self.scaling_residuals_file = (
-            cfg.experiment.resolved_data_root.resolve(cfg.data.scaling_residuals_file)
-            if cfg.data.scaling_residuals_file is not None
-            else None
-        )
         self.executor: ThreadPoolExecutor | None = None
         if cfg.data.concurrent_compute:
             self.executor = ThreadPoolExecutor(
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
 
-        use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
-        raw = DataSource.from_config(cfg, use_dask=use_dask)
-        self.src = validate_data(
-            raw, self.boundary_var_names, cfg.data.static_data_vars
-        )
-        self.data = self.src.data
-        self.static_data = None
-        if cfg.data.static_data_vars is not None:
-            self.static_data = self.data[cfg.data.static_data_vars]
+        self.src = self.data_container.source
+        self.data = self.data_container.source.data
+        self.static_data = self.data_container.static_data
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
-        raw = DataSource.from_config(cfg, use_dask=True)
-        self.inference_src = validate_data(raw, self.boundary_var_names)
+        self.inference_src = self.data_container.source_using_dask
+
+        self.loader_version = self.data_container.loader_version
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -233,7 +229,7 @@ class Trainer:
                 hist=cfg.data.hist,
                 wet=self.wet,
                 area_weights=self.area_weights,
-                static_data=self.static_data,
+                static_data=self.data_container.static_data,
             ).to(self.device)
         else:
             raise NotImplementedError
@@ -261,15 +257,14 @@ class Trainer:
             )
         elif cfg.loss == "mse_residual_scaled":
             logger.info("Using decomposed mse loss with scaled residuals")
-            assert self.scaling_residuals_file is not None, (
+            assert self.data_container.scaling_residuals is not None, (
                 "With loss of 'mse_residual_scaled' you"
                 " must supply a scaling_residuals_file"
             )
-            scaling_residuals = self.scaling_residuals_file.open()
             scale = torch.from_numpy(
                 (
                     self.src.stds[self.prognostic_var_names]
-                    / scaling_residuals[self.prognostic_var_names]
+                    / self.data_container.scaling_residuals[self.prognostic_var_names]
                 )
                 .compute()
                 .to_array()

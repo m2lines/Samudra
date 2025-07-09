@@ -877,10 +877,10 @@ class SpdlTorchDataLoader(DataIterator):
 
     def _with_steps(self, index: int) -> Iterable[WithSteps[xr.DataArray]]:
         """Create a window into the dataset by combining the item index with steps."""
-        # The input is a `ConcatDataset` that differs by `stride`, which affects what
-        # data should be selected while creating examples. Besides the
-        # data selection, all the other operations within the data loader are not
-        # affected.
+        # The input is a `ConcatDataset` where each internal ds differs by `stride`,
+        # which affects what data should be selected while creating examples.
+        # Besides the data selection, all the other operations within the data loader
+        # are not affected.
         which_dataset = np.searchsorted(self.dataset.cumulative_sizes, index)
         ds = self.dataset.datasets[which_dataset]
         assert isinstance(ds, TorchTrainDataset), (
@@ -933,9 +933,13 @@ class SpdlTorchDataLoader(DataIterator):
                 output_order="input",
             )
             .aggregate(self.steps)
-            .pipe(self._process_traindata, concurrency=self.cpu_workers)
+            .pipe(
+                self._process_traindata,
+                concurrency=self.cpu_workers,
+                output_order="input",
+            )
             .aggregate(self.batch_size or 1)
-            .pipe(self.collate_fn, concurrency=self.cpu_workers)
+            .pipe(self.collate_fn, concurrency=self.cpu_workers, output_order="input")
             # Later, we can add a step to efficiently dispatch data to GPU.
             .add_sink(6)
             .build(num_threads=total_workers)

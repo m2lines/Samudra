@@ -32,7 +32,9 @@ class Stepper:
     @staticmethod
     @torch.no_grad()
     def validate_batch(
-        model: BaseModel | torch.nn.parallel.DistributedDataParallel,
+        model: BaseModel
+        | torch.nn.parallel.DistributedDataParallel
+        | torch.nn.parallel.DataParallel,
         batch: TrainData,
         loss_fn: Callable,
     ) -> ValBatchOutput:

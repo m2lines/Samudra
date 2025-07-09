@@ -45,7 +45,7 @@ class EMATracker:
 
     def __init__(
         self,
-        model: Samudra | nn.parallel.DistributedDataParallel,
+        model: Samudra | nn.parallel.DistributedDataParallel | nn.parallel.DataParallel,
         decay: float = 0.999,
         faster_decay_at_start: bool = True,
     ):
@@ -81,7 +81,10 @@ class EMATracker:
 
         self._stored_params: list[torch.Tensor] = []
 
-    def __call__(self, model: Samudra | nn.parallel.DistributedDataParallel):
+    def __call__(
+        self,
+        model: Samudra | nn.parallel.DistributedDataParallel | nn.parallel.DataParallel,
+    ):
         """
         Update the moving average of the parameters.
 
@@ -120,7 +123,10 @@ class EMATracker:
                         "but it does not"
                     )
 
-    def copy_to(self, model: Samudra | nn.parallel.DistributedDataParallel):
+    def copy_to(
+        self,
+        model: Samudra | nn.parallel.DistributedDataParallel | nn.parallel.DataParallel,
+    ):
         """
         Copy the averaged parameters to the model, overwriting its values.
         """

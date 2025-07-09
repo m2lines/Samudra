@@ -3,7 +3,6 @@
 # - cleaner dataset modules
 import contextlib
 import datetime
-import functools
 import logging
 import multiprocessing
 import os
@@ -94,7 +93,7 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer:
-    model: Samudra | nn.parallel.DistributedDataParallel
+    model: Samudra | nn.parallel.DistributedDataParallel | nn.parallel.DataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
@@ -179,6 +178,10 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
         self.use_spdl = cfg.data.use_spdl
+        if self.distributed and self.use_spdl:
+            raise ValueError(
+                "SPDL needs to be configured with the `cuda` backend, not `nccl`."
+            )
 
         use_dask = cfg.data.loader_version != LoaderVersion.OM4_TORCH.value
         raw = DataSource.from_config(cfg, use_dask=use_dask)
@@ -340,6 +343,13 @@ class Trainer:
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
+            )
+
+        # If we're using SPDL, we need DP (not DDP)
+        if self.use_spdl:
+            self.model = nn.parallel.DataParallel(
+                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
+                device_ids=list(range(torch.cuda.device_count())),
             )
 
         # EMA
@@ -797,16 +807,8 @@ class Trainer:
 
         # Create data loaders
         if self.use_spdl:
-            train_sampler = (
-                RandomSampler
-                if self.distributed is None
-                else functools.partial(DistributedSampler, shuffle=True)
-            )
-            val_sampler = (
-                RandomSampler
-                if self.distributed is None
-                else functools.partial(DistributedSampler, shuffle=False)
-            )
+            train_sampler = RandomSampler
+            val_sampler = RandomSampler
             self.train_loader = SpdlTorchDataLoader(
                 train_data,
                 io_workers=self.num_workers + 2,

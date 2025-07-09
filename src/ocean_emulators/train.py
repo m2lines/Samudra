@@ -269,6 +269,7 @@ class Trainer:
                 "With loss of 'mse_residual_scaled' you"
                 " must supply a scaling_residuals_file"
             )
+            scaling_residuals = self.scaling_residuals_file.open()
             scale = torch.from_numpy(
                 (
                     self.src.stds[self.prognostic_var_names]

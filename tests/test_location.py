@@ -126,14 +126,16 @@ class TestLocalLocation:
             # Create a zarr store
             zarr_path = Path(tmp_dir) / "test.zarr"
             ds = xr.Dataset({"temperature": (["x", "y"], [[1, 2], [3, 4]])})
+            ds = ds.chunk({"x": 1, "y": 1})
             ds.to_zarr(zarr_path)
 
             # Test opening with chunks
             loc = LocalLocation(path=zarr_path)
-            opened_ds = loc.open(chunks={})
+            opened_ds = loc.open(chunks={"x": 2, "y": 2})
 
             assert isinstance(opened_ds, xr.Dataset)
             assert "temperature" in opened_ds.data_vars
+            assert opened_ds.temperature.chunks == ((2,), (2,))
 
 
 class TestS3Location:

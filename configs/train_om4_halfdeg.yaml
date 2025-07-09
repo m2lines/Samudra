@@ -47,7 +47,6 @@ experiment:
   name: om4_samudra_halfdeg
   rand_seed: 15
   base_output_dir: .LOCAL
-  gantry: false
   wandb:
     mode: online
     project: ocean-emulators

@@ -14,7 +14,7 @@ DATE=$(date +%Y-%m-%d)
 uv run src/ocean_emulators/eval.py \
     $CONFIG_PATH \
     --ckpt_path /pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL/2025-04-05-train-test/saved_nets/best_validation_ckpt.pt \
-    --experiment.cluster_data_dir $OCEAN_DATA_DIR \
+    --experiment.data_root $OCEAN_DATA_DIR \
     --data @configs/data/om4_internal.yaml \
     --experiment.name "${DATE}-om4-speed-test" \
     --save_zarr true

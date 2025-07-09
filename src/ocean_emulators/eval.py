@@ -91,10 +91,10 @@ class Eval:
 
         # Dataloaders
         logger.info(f"Loading data")
-        self.data_dir = cfg.experiment.data_dir
-        self.data_path = cfg.data.data_path
-        self.data_means_path = cfg.data.data_means_path
-        self.data_stds_path = cfg.data.data_stds_path
+        self.data_dir = cfg.experiment.resolved_data_root
+        self.data_location = cfg.data.data_location
+        self.data_means_location = cfg.data.data_means_location
+        self.data_stds_location = cfg.data.data_stds_location
         self.scaling_residuals_file = cfg.data.scaling_residuals_file
 
         raw = DataSource.from_config(cfg, use_dask=True)

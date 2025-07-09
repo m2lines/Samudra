@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752103961069,
+  "lastUpdate": 1752103962176,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4458,6 +4458,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 3.867143679983108",
             "extra": "mean: 101.11824064199996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "628310a0e41f387ea808db2027112753ff6c7820",
+          "message": "Fix performance regression by moving towards a more buildy world with DataContainer (#295)\n\nFixes the performance regression from\n[here](https://github.com/LaureZanna/Ocean_Emulator/commit/32f3043d20bb43b24a1a097004f5c0f34f013075#commitcomment-160869800)\nby detecting if the data source supports forking or not.\n\nDoing this required a bit of code movement so I took the opportunity to\nmove us closer towards a world where creating the trainer is `trainer =\ncfg.build()` by moving a bunch of the stuff in `Trainer.__init__` into\n`DataConfig.build` and creating a new class which is the result of that\nmethod, `DataContainer`. This also reduces some of the duplication\nbetween train/eval/tests.\n\nLast commit is some drive-by fixes for warnings that were being printed\nin tests.",
+          "timestamp": "2025-07-09T19:10:04-04:00",
+          "tree_id": "9ef480f8a8af2a3a899f1af138ef0f5623910c5b",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/628310a0e41f387ea808db2027112753ff6c7820"
+        },
+        "date": 1752103961778,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2552960712153403,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02708861350047886",
+            "extra": "mean: 796.6248145999771 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2507511946010124,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02424740351059275",
+            "extra": "mean: 799.5195242000136 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19360106348304268,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0657015089858014",
+            "extra": "mean: 5.165260882400003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.015305987302328244,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4193031114150969",
+            "extra": "mean: 65.33391020439998 sec\nrounds: 5"
           }
         ]
       }

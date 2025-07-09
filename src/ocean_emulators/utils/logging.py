@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from torchinfo import summary
+
+from ocean_emulators.constants import DataIterator
 
 if TYPE_CHECKING:
     from ocean_emulators.datasets import TrainData
@@ -148,7 +149,9 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, data_loader: DataLoader["TrainData"], print_freq, header=None):
+    def log_every(
+        self, data_loader: DataIterator["TrainData"], print_freq, header=None
+    ):
         i = 0
         if not header:
             header = ""

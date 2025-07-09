@@ -1,8 +1,7 @@
 import itertools
 import logging
 import time
-import warnings
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from functools import partial
@@ -15,19 +14,13 @@ import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
 from spdl.pipeline import PipelineBuilder
-from spdl.pipeline._pipeline import PipelineIterator
-from torch.utils.data import (
-    ConcatDataset,
-    DataLoader,
-    Dataset,
-    DistributedSampler,
-    Sampler,
-)
+from torch.utils.data import ConcatDataset, Dataset, DistributedSampler, Sampler
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
     Boundary,
     BoundaryVarNames,
+    DataIterator,
     Example,
     GridMask,
     Input,
@@ -794,7 +787,7 @@ T = TypeVar("T")
 WithSteps = tuple[int, T]
 
 
-class SpdlTorchDataLoader(DataLoader):
+class SpdlTorchDataLoader(DataIterator):
     """
     A high-performance DataLoader that uses SPDL (Scalable and Performant Data Loading)
     for efficient parallel data loading and processing of ocean emulator training data.
@@ -830,6 +823,7 @@ class SpdlTorchDataLoader(DataLoader):
 
     Example:
         >>> from ocean_emulators.utils.train import collate_train_data
+        >>> train_dataset = TorchTrainDataset(...)
         >>> loader = SpdlTorchDataLoader(
         ...     dataset=train_dataset,
         ...     collate_fn=collate_train_data,
@@ -854,26 +848,25 @@ class SpdlTorchDataLoader(DataLoader):
         pin_memory: bool = False,
         timeout: float = 0,
     ) -> None:
-        super().__init__(
-            dataset,
-            batch_size,
-            collate_fn=collate_fn,
-            pin_memory=pin_memory,
-            drop_last=drop_last,
-        )
+        self.dataset = dataset
         first_dataset = dataset.datasets[0]
         assert isinstance(first_dataset, TorchTrainDataset), (
             "This DataLoader only works with TorchTrainDataset."
         )
         self.first_dataset: TorchTrainDataset = first_dataset
+        self.batch_size = batch_size
+        self.collate_fn = collate_fn
+        self.pin_memory = pin_memory
         self.steps = self.first_dataset.steps
         self.executor = self.first_dataset.executor
+        self.drop_last = drop_last
         self._sampler_klass = sampler
         self.io_workers = io_workers
         self.cpu_workers = cpu_workers
         self.timeout = timeout
+
         if pin_memory:
-            warnings.warn(f"Pinning memory is currently not supported in {self!r}.")
+            raise ValueError(f"Pinning memory is currently not supported in {self!r}.")
 
     def _source(self) -> Iterable[int]:
         """Generated indexes to load, using the input sampler."""
@@ -882,16 +875,26 @@ class SpdlTorchDataLoader(DataLoader):
         if self._sampler_klass is not None:
             samples = self._sampler_klass(items)
         if self.drop_last:
-            samples = itertools.islice(samples, len(items) - 1)
+            length = len(items) // self.batch_size
+        else:
+            length = int(np.ceil(len(items) / self.batch_size))
+        samples = itertools.islice(samples, length * self.batch_size)
         yield from samples
 
     def _with_steps(self, index: int) -> Iterable[WithSteps[xr.DataArray]]:
         """Create a window into the dataset by combining the item index with steps."""
-        # This is a flatmap-like operation.
-        yield from (
-            (step, self.first_dataset.index_by_step(index, step))
-            for step in range(self.steps)
+        # The input is a `ConcatDataset` that differs by `stride`, which affects what
+        # data should be selected while creating examples. Besides the
+        # data selection, all the other operations within the data loader are not
+        # affected.
+        which_dataset = np.searchsorted(self.dataset.cumulative_sizes, index)
+        ds = self.dataset.datasets[which_dataset]
+        assert isinstance(ds, TorchTrainDataset), (
+            "Only TorchTrainDataset instances are supported."
         )
+
+        # This is a flatmap-like operation.
+        yield from ((step, ds.index_by_step(index, step)) for step in range(self.steps))
 
     def _download(
         self, x_index_pair: WithSteps[xr.DataArray]
@@ -928,7 +931,7 @@ class SpdlTorchDataLoader(DataLoader):
         return (
             PipelineBuilder()
             .add_source(self._source())  # type: ignore
-            .pipe(self._with_steps, output_order="input")  # type: ignore
+            .pipe(self._with_steps)  # type: ignore
             .pipe(
                 self._download,  # type: ignore
                 concurrency=self.io_workers,
@@ -944,19 +947,16 @@ class SpdlTorchDataLoader(DataLoader):
             .build(num_threads=total_workers)
         )
 
-    # NB(alxmrs): This doesn't return the same type as the base data loader type, but I
-    # don't think this should be a problem, so we ignore type checking.
-    def __iter__(self) -> PipelineIterator[TrainData]:  # type: ignore
+    def __len__(self) -> int:
+        return len(self.dataset)
+
+    def __iter__(self) -> Iterator[TrainData]:
         """Iterate across batches of examples."""
         pipeline = self._build_pipeline()
 
-        # TIL that the __exit__ condition will still be called even though we use
-        # a `return` instead of a `yield`.
         with pipeline.auto_stop():
             # Need to adapt the `DataLoader.timeout` type with the
             # `spdl.pipeline.Pipeline.timeout` type. The former uses `0` as "no timeout"
             # whereas the latter uses `None`.
             timeout = None if self.timeout == 0 else self.timeout
-            iterator = pipeline.get_iterator(timeout=timeout)
-            assert isinstance(iterator, PipelineIterator)
-            return iterator
+            yield from pipeline.get_iterator(timeout=timeout)

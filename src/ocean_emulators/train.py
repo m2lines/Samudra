@@ -36,6 +36,7 @@ from ocean_emulators.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
+    DataIterator,
     Grid,
     LoaderVersion,
     PrognosticVarNames,
@@ -385,8 +386,8 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: DataLoader[TrainData]
-        self.val_loader: DataLoader[TrainData]
+        self.train_loader: DataIterator[TrainData]
+        self.val_loader: DataIterator[TrainData]
         self.inference_loader: DataLoader
 
     def init_inference_stores(self):

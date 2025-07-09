@@ -1,6 +1,7 @@
 import enum
 import logging
-from typing import TypeAlias, TypeVar
+from collections.abc import Iterator
+from typing import Protocol, TypeAlias, TypeVar
 
 import torch
 import xarray as xr
@@ -322,3 +323,14 @@ class TensorMap(Multiton):
         """
         for i, k in enumerate(self.boundary_var_names):
             self.INPT_BOUNDARY_IDX[k] = torch.tensor([i])
+
+
+T_co = TypeVar("T_co", covariant=True)
+
+
+class DataIterator(Protocol[T_co]):
+    dataset: torch.utils.data.Dataset
+
+    def __iter__(self) -> Iterator[T_co]: ...
+
+    def __len__(self) -> int: ...

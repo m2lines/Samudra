@@ -20,6 +20,7 @@ from ocean_emulators.config import TimeConfig, TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
+    DataIterator,
     LoaderVersion,
     TensorMap,
 )
@@ -54,7 +55,7 @@ def make_loader(
     drop_last: bool = True,
     version: LoaderVersion | None = None,
     use_spdl_loader: bool = False,
-) -> Generator[DataLoader, None, None]:
+) -> Generator[DataIterator[TrainData], None, None]:
     if time_config is None:
         time_config = cfg.train_time
 
@@ -125,12 +126,11 @@ def make_loader(
                 "SPDL Loader only works for the Torch Dataset!"
             )
             assert isinstance(data, ConcatDataset), "Must not be an inference dataset!"
-            loader: DataLoader = SpdlTorchDataLoader(
+            loader: DataIterator = SpdlTorchDataLoader(
                 data,
                 io_workers=cfg.data.num_workers + 2,
                 cpu_workers=cfg.batch_size + 2,
                 batch_size=cfg.batch_size,
-                drop_last=drop_last,
                 collate_fn=collate_fn,
             )
         else:
@@ -381,6 +381,12 @@ def assert_equal_samples(original_samples, new_samples):
     ):
         assert x_orig.dtype == x_new.dtype, "Input data types do not match."
         assert y_orig.dtype == y_new.dtype, "Output data types do not match."
+        assert x_orig.shape == x_new.shape, (
+            "Input: Original and new data shapes do not match."
+        )
+        assert y_orig.shape == y_new.shape, (
+            "Output: Original and new data shapes do not match."
+        )
 
         x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
         y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
@@ -388,13 +394,20 @@ def assert_equal_samples(original_samples, new_samples):
         x_not_equal_index = list(zip(*np.where(x_not_equal)))
         y_not_equal_index = list(zip(*np.where(y_not_equal)))
 
+        x_few_vals = min(5, len(x_not_equal_index))
+        y_few_vals = min(5, len(y_not_equal_index))
+
         assert not np.any(x_not_equal), (
             f"{len(x_not_equal_index)} values differ: "
-            f"{x_orig[x_not_equal_index]} != {x_new[x_not_equal_index]}."
+            f"{[x_orig[x_not_equal_index[i]] for i in range(x_few_vals)]}... != "
+            f"{[x_new[x_not_equal_index[i]] for i in range(x_few_vals)]}..."
+            "."
         )
         assert not np.any(y_not_equal), (
             f"{len(y_not_equal_index)} values differ: "
-            f"{y_orig[y_not_equal_index]} != {y_new[y_not_equal_index]}."
+            f"{[y_orig[y_not_equal_index[i]] for i in range(y_few_vals)]}... != "
+            f"{[y_new[y_not_equal_index[i]] for i in range(y_few_vals)]}..."
+            "."
         )
 
 

@@ -516,7 +516,7 @@ def compute_anomalies(
                 data[var] = (
                     data[base_var] - climatology.sel(dayofyear=day_of_year)
                 ).compute()
-                data = data.drop(["dayofyear"])
+                data = data.drop_vars(["dayofyear"])
                 means[var] = data[var].mean().compute()
                 stds[var] = data[var].std().compute()
         return data, means, stds

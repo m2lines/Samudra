@@ -8,6 +8,7 @@ from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import LoaderVersion
+from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
 
 
@@ -87,11 +88,26 @@ class TimeConfig(BaseConfig):
         return f"{self.start} to {self.end}"
 
 
+LOCATION_DOCS = (
+    "Use a string relative to the `data_root` or use a structured location "
+    "see location.py for possible types."
+)
+
+
 class DataConfig(BaseConfig):
-    data_path: str = "CM4_5daily_v0.4.0"
-    data_means_path: str = "CM4_5daily_v0.4.0_means"
-    data_stds_path: str = "CM4_5daily_v0.4.0_stds"
-    scaling_residuals_file: str | None = None
+    data_location: Location = Field(
+        description="Location of the data; " + LOCATION_DOCS
+    )
+    data_means_location: Location = Field(
+        description="Location of the data means; " + LOCATION_DOCS
+    )
+    data_stds_location: Location = Field(
+        description="Location of the data standard deviations; " + LOCATION_DOCS
+    )
+    scaling_residuals_file: Location | None = Field(
+        description="Location of the scaling residuals file; " + LOCATION_DOCS,
+        default=None,
+    )
     static_data_vars: list[str] | None = None
     num_workers: int = 2
     hist: int = 1
@@ -163,10 +179,9 @@ class ExperimentConfig(BaseConfig):
     name: str = "cm4_samudra"
     rand_seed: int = 1
     base_output_dir: str = "train"
-    gantry: bool = False
     # we require this to be set by the user but have optional here
     # so we can leave it out of config files
-    cluster_data_dir: str | None = None
+    data_root: Location | None = None
     wandb: WandBConfig
 
     # Model configuration
@@ -185,17 +200,13 @@ class ExperimentConfig(BaseConfig):
         return self.output_dir / "saved_nets"
 
     @cached_property
-    def data_dir(self) -> Path:
-        if self.gantry:
-            return Path("/")
-        else:
-            if self.cluster_data_dir is None:
-                raise ValueError(
-                    "cluster_data_dir must be set, try"
-                    " --experiment.cluster_data_dir=path/to/data"
-                )
-            else:
-                return Path(self.cluster_data_dir)
+    def resolved_data_root(self) -> ResolvedLocation:
+        if self.data_root is None:
+            raise ValueError(
+                "data_root must be set, try --experiment.data_root=path/to/data"
+            )
+        default_root = LocalLocation(path=Path("."))
+        return default_root.resolve(self.data_root)
 
 
 class ProfilerConfig(BaseConfig):

@@ -45,8 +45,7 @@ experiment:
   name: cm4_samudra
   rand_seed: 5
   base_output_dir: train
-  gantry: false
-  cluster_data_dir: /pscratch/sd/s/suryad/data
+  data_root: /pscratch/sd/s/suryad/data
   wandb:
     mode: online
     project: ocean-emulator

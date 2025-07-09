@@ -162,7 +162,7 @@ git push --force-with-lease
 ```bash
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH --compact_variables
-uv run -m ocean_emulators.train configs/train_om4.yaml --cluster_data_dir $DATA_PATH
+uv run -m ocean_emulators.train configs/train_om4.yaml --data_root $DATA_PATH
 ```
 
 You can run `uv run -m ocean_emulators.train --help` to see all the options available.
@@ -175,7 +175,7 @@ To learn more about other datasets used during training, please see the _Data En
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH --compact_variables
 # (then put a checkpoint of the model at path/to/checkpoint)
-uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --cluster_data_dir $DATA_PATH
+uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --data_root $DATA_PATH
 ```
 
 You can run `uv run -m ocean_emulators.eval --help` to see all the options available.
@@ -349,7 +349,7 @@ uv run pytest --benchmark-only --benchmark-cprofile="tottime_per" --benchmark-cp
 (Please consult [these docs](https://pytest-benchmark.readthedocs.io/en/latest/usage.html#:~:text=%2D%2Dbenchmark%2Dcprofile%3DCOLUMN)
 to see all available values for the `--benchmark-cprofile` flag.)
 
-This will generate a `.prof` file located in the `` directory (by default). You can visualize this trace with `snakeviz`
+This will generate a `.prof` file located in the `.` directory (by default). You can visualize this trace with `snakeviz`
 like so:
 
 ```shell

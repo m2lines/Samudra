@@ -42,11 +42,11 @@ experiment:
   network: Samudra
   prognostic_vars_key: thermo_dynamic_5
   boundary_vars_key: tau_hfds
-  cluster_data_dir: .data_cache/
+  data_root: .data_cache/
 data:
-  data_path: data.zarr
-  data_means_path: means.nc
-  data_stds_path: stds.nc
+  data_location: data.zarr
+  data_means_location: means.nc
+  data_stds_location: stds.nc
   scaling_residuals_file: null
   num_workers: 4
   hist: 0

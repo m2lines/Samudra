@@ -3,7 +3,6 @@
 import contextlib
 import dataclasses
 import datetime
-import os
 from collections.abc import Callable, Generator
 
 import cftime
@@ -139,7 +138,7 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
 
 
 def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
-    ds = xr.open_zarr(os.path.join(cfg.experiment.data_dir, cfg.data.data_path))
+    ds = cfg.experiment.resolved_data_root.resolve(cfg.data.data_location).open()
 
     data_size = ds.sel(time=time_slice).time.size
     steps = cfg.steps[0]
@@ -409,7 +408,7 @@ def test_compact_loader__equals_flat_loader(
         return TrainConfig.from_yaml_and_cli(
             [
                 default_config,
-                "--experiment.cluster_data_dir",
+                "--experiment.data_root",
                 str(cache / src.name),
             ]
         )

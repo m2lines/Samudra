@@ -1,4 +1,3 @@
-import itertools
 import logging
 import time
 from collections.abc import Callable, Iterable, Iterator
@@ -874,11 +873,6 @@ class SpdlTorchDataLoader(DataIterator):
         samples: Iterable = items
         if self._sampler_klass is not None:
             samples = self._sampler_klass(items)
-        if self.drop_last:
-            length = len(items) // self.batch_size
-        else:
-            length = int(np.ceil(len(items) / self.batch_size))
-        samples = itertools.islice(samples, length * self.batch_size)
         yield from samples
 
     def _with_steps(self, index: int) -> Iterable[WithSteps[xr.DataArray]]:

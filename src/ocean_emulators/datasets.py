@@ -643,13 +643,13 @@ class TorchTrainDataset(Dataset):
     def __len__(self) -> int:
         return self.size
 
-    def perform_io(self, x_index, *, executor=None) -> tuple[xr.Dataset, xr.Dataset]:
+    def load_prognostic_and_boundary(self, x_index) -> tuple[xr.Dataset, xr.Dataset]:
         prognostic_selected = self._prognostic_src.data.isel(time=x_index)
         boundary_selected = self._boundary_src.data.isel(time=x_index)
 
-        if executor is not None:
+        if self.executor is not None:
             concurrent_compute(
-                prognostic_selected, boundary_selected, executor=executor
+                prognostic_selected, boundary_selected, executor=self.executor
             )
 
         return prognostic_selected, boundary_selected
@@ -689,20 +689,20 @@ class TorchTrainDataset(Dataset):
 
         for step in range(self.steps):
             x_index = self.index_by_step(idx, step)
-            prognostic_selected, boundary_selected = self.perform_io(
-                x_index, executor=self.executor
+            prognostic_selected, boundary_selected = self.load_prognostic_and_boundary(
+                x_index
             )
 
             prognostic = self.prognostic_to_tensor(prognostic_selected)
             boundary = self.boundary_to_tensor(boundary_selected)
 
-            input_, label = self.join_and_partition_by_time(prognostic, boundary)
+            input_, label = self.get_input_and_label(prognostic, boundary)
             TD.insert(input_=input_, label=label)
 
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
         return TD
 
-    def join_and_partition_by_time(
+    def get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
         prognostic_all: Float[torch.Tensor, "time variable lat lon"],
@@ -895,7 +895,7 @@ class SpdlTorchDataLoader(DataIterator):
     ) -> WithSteps[tuple[xr.Dataset, xr.Dataset]]:
         """Given a window into the data, perform all IO operations."""
         step, x_index = x_index_pair
-        return step, self.first_dataset.perform_io(x_index, executor=self.executor)
+        return step, self.first_dataset.load_prognostic_and_boundary(x_index)
 
     def _process_traindata(
         self, downloaded: list[WithSteps[tuple[xr.Dataset, xr.Dataset]]]
@@ -910,9 +910,7 @@ class SpdlTorchDataLoader(DataIterator):
         for _, (prognostic_selected, boundary_selected) in downloaded:
             prognostic = self.first_dataset.prognostic_to_tensor(prognostic_selected)
             boundary = self.first_dataset.boundary_to_tensor(boundary_selected)
-            input_, label = self.first_dataset.join_and_partition_by_time(
-                prognostic, boundary
-            )
+            input_, label = self.first_dataset.get_input_and_label(prognostic, boundary)
             train_data.insert(input_, label)
 
         return train_data

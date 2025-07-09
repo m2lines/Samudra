@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752004168706,
+  "lastUpdate": 1752071463284,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2124,6 +2124,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.35237170686674646",
             "extra": "mean: 106.09216044440002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cc0d2b287407dd91f914074ec94f4e75da12779c",
+          "message": "Add a \"Location\" to support S3 and local paths (#284)\n\nThis lets us:\n* Add structured info for locations (eg s3 endpoint URLs)\n* Still use raw strings most of the time\n* Get some type safety to know if we've correctly resolved these against\nthe root before opening.\n* (In a future PR) detect the need for \"spawn\" multiprocessing (required\nfor S3 but not for local files) which has a performance cost.\n\nAlso removes the \"gantry\" boolean because I think we can use\n`data_root:/` if we want that",
+          "timestamp": "2025-07-09T09:55:11-04:00",
+          "tree_id": "50a1e982f6219a0b40fd1a418f47ee6ecafb894e",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/cc0d2b287407dd91f914074ec94f4e75da12779c"
+        },
+        "date": 1752071462469,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.3006482586738843,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02848003202743674",
+            "extra": "mean: 768.8473754000029 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06934207658397938,
+            "unit": "iter/sec",
+            "range": "stddev: 0.39743518518007204",
+            "extra": "mean: 14.421258336400001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.08119363245453748,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08298976921675245",
+            "extra": "mean: 12.316236751200005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.00908505650966302,
+            "unit": "iter/sec",
+            "range": "stddev: 2.021888294566076",
+            "extra": "mean: 110.07086185280005 sec\nrounds: 5"
           }
         ]
       }

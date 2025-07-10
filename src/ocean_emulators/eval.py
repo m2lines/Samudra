@@ -142,7 +142,7 @@ class Eval:
         else:
             raise NotImplementedError
 
-        get_model_summary(model, self.num_in)
+        get_model_summary(model, None, cfg.debug)
 
         self.model = model
         if cfg.ckpt_path is None:

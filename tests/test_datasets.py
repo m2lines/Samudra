@@ -54,7 +54,13 @@ def make_loader(
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
-    container = cfg.data.build(cfg.experiment.resolved_data_root, boundary)
+    data_config = (
+        cfg.data
+        if version is None
+        else cfg.data.model_copy(update={"loader_version": str(version.value)})
+    )
+
+    container = data_config.build(cfg.experiment.resolved_data_root, boundary)
     version = container.loader_version
     src = container.source
     if src.is_compact and version != LoaderVersion.OM4_TORCH:

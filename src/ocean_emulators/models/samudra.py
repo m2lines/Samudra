@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from typing import assert_never
 
 import numpy as np
@@ -158,7 +157,7 @@ class Samudra(BaseModel):
             skip_inputs.append(torch.zeros_like(fts))
         count = 0
         for layer in self.layers:
-            crop: Sequence | np.ndarray = fts.shape[2:]
+            crop: torch.Size | np.ndarray = fts.shape[2:]
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
                     fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad

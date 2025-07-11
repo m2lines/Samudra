@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752253800513,
+  "lastUpdate": 1752253802263,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4562,6 +4562,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4193031114150969",
             "extra": "mean: 65.33391020439998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1946c397256e79c51032d671dae1c58466a27af3",
+          "message": "Fix bug which ignored loader version in tests (#297)\n\nOur benchmarks showed a surprising jump in one of them after #295:\n<img width=\"1028\" height=\"514\" alt=\"Screenshot 2025-07-10 at 10 26\n37 AM\"\nsrc=\"https://github.com/user-attachments/assets/3322d95a-817e-4113-be9a-704ed2b3638c\"\n/>\n\nTurns out we were always building a torch loader, not an eager loader.\nRunning the benchmarks locally after this change again shows a big\nperformance gap between eager and torch loaders.",
+          "timestamp": "2025-07-11T12:44:20-04:00",
+          "tree_id": "bfd6a865745f3919d0465de8fe384d3b749a6cbb",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/1946c397256e79c51032d671dae1c58466a27af3"
+        },
+        "date": 1752253801802,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2449692206832164,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022060454312354327",
+            "extra": "mean: 803.232709200006 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07213688588125138,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3628930060857919",
+            "extra": "mean: 13.862533540000005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19771669042294865,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10332725531166359",
+            "extra": "mean: 5.057741953199979 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.015596531062254447,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13693051921621888",
+            "extra": "mean: 64.11682161940003 sec\nrounds: 5"
           }
         ]
       }

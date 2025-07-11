@@ -31,7 +31,7 @@ pred_dict = {}
 pred_dict["pred_1"] = {
     "name": "samudra-10-year-high-res",
     "run_name": "samudra-10-year-high-res",
-    "path": "/Users/jder/oa/scratch/samudra_matching_rollout_10y_train/predictions.zarr",
+    "path": "/data/om4_samudra_lowres_predictions/predictions.zarr",
     "ls": ["thetao", "so", "uo", "vo", "tos", "zos"],
 }
 
@@ -46,7 +46,7 @@ key1 = list(pred_dict.keys())[0]
 levels = 19
 
 output_path = (
-    "/Users/jder/oa/Ocean_Emulator/temp/outputs/"
+    "/tmp/viz_outputs/"
     + str(datetime.now())[:10]
     + "_"
     + "_".join([pred_dict[k]["run_name"] for k in pred_dict.keys()])
@@ -58,7 +58,7 @@ from ocean_emulators.utils.data import spherical_area_weights
 # Read files
 # Groundtruth
 groundtruth_rollout = xr.open_dataset(
-    "s3://emulators/sd5313/OM4_highres/om4_halfdeg.zarr",
+    "/data/public/OM4.zarr",
     engine="zarr",
     chunks={},
 )
@@ -77,8 +77,8 @@ groundtruth_rollout = groundtruth_rollout.assign(
 
 # %%
 
-# basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_original.zarr")
-basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_regridded.zarr")
+basins = xr.open_dataset("/data/basins/basin_masks_original.zarr")
+# basins = xr.open_dataset("/data/basins/basin_masks_regridded.zarr")
 
 # %%
 # [Optional] Convert nc files to zarr
@@ -4045,7 +4045,8 @@ c_p = 3850  # J/(kg C)
 rho_0 = 1025  # kg/m^3
 zeta_joules_factor = 1e21
 
-for var in movie_var_list:
+# DISABLED: Movie generation section
+if False:  # for var in movie_var_list:
     if var == "OHC":
         ohc_gt = (
             (data["thetao"] * c_p * rho_0 / zeta_joules_factor)

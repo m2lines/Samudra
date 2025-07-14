@@ -10,7 +10,7 @@ resources:
 env:
   CONFIG: configs/train_om4.yaml # FIXME: Override this with the current config!
   REMOTE_BUCKET: oa-fomo
-  DATA_ROOT_PATH: data/
+  DATA_ROOT_PATH: data/om4_onedeg_compact/  # FIXME: Either this or the data `!include` needs to change.
   OUTPUT_PATH: outputs/
 
 file_mounts:

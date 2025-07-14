@@ -12,7 +12,10 @@ resources:
 env:
   CONFIG: null
   REMOTE_BUCKET: oa-fomo
+  # We assume that data in this directory is named in the same pattern as
+  # the $DATA_CONFIG yaml.
   DATA_ROOT_PATH: null # data/om4_onedeg_compact/
+  DATA_CONFIG: configs/data/om4_sky_local.yaml
   OUTPUT_PATH: outputs/
 
 # FIXME: Please pass in secrets with `--secret`
@@ -65,7 +68,7 @@ run: |
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
     --experiment.data_root=/data \
-    --data=@configs/data/om4_sky_local.yaml \
+    --data=@{DATA_CONFIG} \
     --experiment.base_output_dir=/outputs \
     --experiment.wandb.mode=online \
     --samudra.checkpointing=all

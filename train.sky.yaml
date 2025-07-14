@@ -10,7 +10,7 @@ resources:
 env:
   CONFIG: configs/train_om4.yaml # FIXME: Override this with the current config!
   REMOTE_BUCKET: oa-fomo
-  DATA_ROOT_PATH: data/om4_onedeg_compact/  # FIXME: Either this or the data `!include` needs to change.
+  DATA_ROOT_PATH: data/om4_onedeg_compact/
   OUTPUT_PATH: outputs/
 
 file_mounts:
@@ -56,6 +56,7 @@ run: |
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
     --experiment.data_root=/data \
+    --data=@configs/data/om4_sky_local.yaml \
     --experiment.base_output_dir=/outputs \
     --experiment.wandb.mode=online \
     --samudra.checkpointing=all

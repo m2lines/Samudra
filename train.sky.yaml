@@ -4,24 +4,33 @@ resources:
   # 8x NVIDIA A100 GPU
   accelerators: A100:8
   disk_tier: best
-#  disk_size: 1_000 # in GiBs FIXME: Revise allocation based on current dataset size!
+#  disk_size: 1_000 # in GiBs
 
 # FIXME: Remember to pass environment variables with `--env` or `--env-file`
+# All `null` values must be specified in order for this script to run!
+# When flags are not specified, `sky` will check your local environment variables.
 env:
-  CONFIG: configs/train_om4.yaml # FIXME: Override this with the current config!
+  CONFIG: null
   REMOTE_BUCKET: oa-fomo
-  DATA_ROOT_PATH: data/om4_onedeg_compact/
+  DATA_ROOT_PATH: null # data/om4_onedeg_compact/
   OUTPUT_PATH: outputs/
+
+# FIXME: Please pass in secrets with `--secret`
+# When flags are not specified, `sky` will check your local environment variables.
+secrets:
+  WANDB_API_KEY: null
+  AWS_ACCESS_KEY_ID: null
+  AWS_SECRET_ACCESS_KEY: null
 
 file_mounts:
   /data:
     name: train-data
-    source: s3://{REMOTE_BUCKET}/{DATA_ROOT_PATH}
+    source: s3://${REMOTE_BUCKET}/${DATA_ROOT_PATH}
     mode: COPY
 
   /outputs:
     name: checkpoints-and-outputs
-    source: s3://{REMOTE_BUCKET}/{OUTPUT_PATH}
+    source: s3://${REMOTE_BUCKET}/${OUTPUT_PATH}
     mode: MOUNT_CACHED
 
 workdir: .

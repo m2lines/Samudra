@@ -39,3 +39,6 @@ output.log
 configs/schemas/
 /playpen
 *.env
+build/
+.pytype/
+.claude/

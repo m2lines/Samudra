@@ -4,13 +4,13 @@ resources:
   # 8x NVIDIA A100 GPU
   accelerators: A100:8
   disk_tier: best
-#  disk_size: 1_000 # in GiBs TODO: Revise allocation based on current dataset size!
+#  disk_size: 1_000 # in GiBs FIXME: Revise allocation based on current dataset size!
 
-# TODO: Remember to pass environment variables with `--env` or `--env-file`
+# FIXME: Remember to pass environment variables with `--env` or `--env-file`
 env:
-  CONFIG: config/train_om4.yaml # TODO: Override this with the current config!
-  REMOTE_BUCKET: fomo-data-eng
-  DATA_ROOT_PATH: from_osn/
+  CONFIG: configs/train_om4.yaml # FIXME: Override this with the current config!
+  REMOTE_BUCKET: oa-fomo
+  DATA_ROOT_PATH: data/
   OUTPUT_PATH: outputs/
 
 file_mounts:
@@ -25,6 +25,17 @@ file_mounts:
     mode: MOUNT_CACHED
 
 workdir: .
+
+setup: |
+  # Ensure `uv` is installed.
+  if ! command -v uv & /dev/null; then
+    echo "installing uv."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+  else
+    echo "uv is already installed."
+  fi
+  # Install dependencies
+  uv sync
 
 run: |
   MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)

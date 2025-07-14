@@ -9,7 +9,8 @@ resources:
 # FIXME: Remember to pass environment variables with `--env` or `--env-file`
 # All `null` values must be specified in order for this script to run!
 # When flags are not specified, `sky` will check your local environment variables.
-env:
+# `--env-file` ONLY supports environment variables, you cannot pass secrets via a .env file.
+envs:
   CONFIG: null
   REMOTE_BUCKET: oa-fomo
   # We assume that data in this directory is named in the same pattern as
@@ -27,12 +28,10 @@ secrets:
 
 file_mounts:
   /data:
-    name: train-data
     source: s3://${REMOTE_BUCKET}/${DATA_ROOT_PATH}
     mode: COPY
 
   /outputs:
-    name: checkpoints-and-outputs
     source: s3://${REMOTE_BUCKET}/${OUTPUT_PATH}
     mode: MOUNT_CACHED
 

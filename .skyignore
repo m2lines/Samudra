@@ -1,0 +1,7 @@
+.github/
+notebooks/
+scripts/
+tests/
+# just in case! Ignore data files
+*.zarr
+*.nc

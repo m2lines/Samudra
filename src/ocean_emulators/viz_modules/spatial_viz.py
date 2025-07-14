@@ -1,15 +1,14 @@
 """Spatial visualization module for ocean data."""
 
 import os
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import xarray as xr
-from typing import Dict, List, Tuple, Optional
 import cmocean as cm
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import xarray as xr
 from matplotlib.ticker import FixedLocator
 
 
@@ -65,7 +64,9 @@ def remove_climatology(ds: xr.DataArray) -> xr.DataArray:
             return res
         except (AttributeError, KeyError):
             # Simple fallback: just return the data minus its mean (no seasonal cycle removal)
-            print("Warning: Could not remove seasonal climatology, returning data minus mean")
+            print(
+                "Warning: Could not remove seasonal climatology, returning data minus mean"
+            )
             return ds - ds.mean("time")
 
 
@@ -125,7 +126,7 @@ def map_bias_avg(data_pred1: xr.DataArray, fig, title: str = "", **kwargs):
     return ax, im
 
 
-def create_spatial_directories(output_path: str) -> Dict[str, str]:
+def create_spatial_directories(output_path: str) -> dict[str, str]:
     """
     Create directories for spatial outputs.
 
@@ -151,7 +152,7 @@ def create_spatial_directories(output_path: str) -> Dict[str, str]:
     return directories
 
 
-def setup_cartopy_projection(ax, extent: Optional[List[float]] = None):
+def setup_cartopy_projection(ax, extent: list[float] | None = None):
     """
     Setup cartopy projection and features for ocean plots.
 
@@ -166,13 +167,18 @@ def setup_cartopy_projection(ax, extent: Optional[List[float]] = None):
 
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
     ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    ax.add_feature(cfeature.LAND, color='lightgray')
+    ax.add_feature(cfeature.LAND, color="lightgray")
     ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
 
 
-def plot_ohc_map(ohc_data: xr.DataArray, ax, title: str,
-                 vmin: Optional[float] = None, vmax: Optional[float] = None,
-                 cmap: str = "RdBu_r") -> None:
+def plot_ohc_map(
+    ohc_data: xr.DataArray,
+    ax,
+    title: str,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: str = "RdBu_r",
+) -> None:
     """
     Plot Ocean Heat Content map.
 
@@ -196,7 +202,7 @@ def plot_ohc_map(ohc_data: xr.DataArray, ax, title: str,
         cmap=cmap,
         vmin=vmin,
         vmax=vmax,
-        add_colorbar=False
+        add_colorbar=False,
     )
 
     ax.set_title(title)
@@ -205,9 +211,14 @@ def plot_ohc_map(ohc_data: xr.DataArray, ax, title: str,
     return im
 
 
-def plot_sst_map(sst_data: xr.DataArray, ax, title: str,
-                 vmin: Optional[float] = None, vmax: Optional[float] = None,
-                 cmap: str = "thermal") -> None:
+def plot_sst_map(
+    sst_data: xr.DataArray,
+    ax,
+    title: str,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: str = "thermal",
+) -> None:
     """
     Plot Sea Surface Temperature map.
 
@@ -231,7 +242,7 @@ def plot_sst_map(sst_data: xr.DataArray, ax, title: str,
         cmap=getattr(cm.cm, cmap, "viridis"),  # Use cm.cm to access colormaps
         vmin=vmin,
         vmax=vmax,
-        add_colorbar=False
+        add_colorbar=False,
     )
 
     ax.set_title(title)
@@ -240,9 +251,14 @@ def plot_sst_map(sst_data: xr.DataArray, ax, title: str,
     return im
 
 
-def plot_bias_map(bias_data: xr.DataArray, ax, title: str,
-                  vmin: Optional[float] = None, vmax: Optional[float] = None,
-                  cmap: str = "RdBu_r") -> None:
+def plot_bias_map(
+    bias_data: xr.DataArray,
+    ax,
+    title: str,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: str = "RdBu_r",
+) -> None:
     """
     Plot bias map between prediction and truth.
 
@@ -265,7 +281,7 @@ def plot_bias_map(bias_data: xr.DataArray, ax, title: str,
         cmap=cmap,
         vmin=vmin,
         vmax=vmax,
-        add_colorbar=False
+        add_colorbar=False,
     )
 
     ax.set_title(title)
@@ -274,11 +290,13 @@ def plot_bias_map(bias_data: xr.DataArray, ax, title: str,
     return im
 
 
-def create_ohc_timeseries_plots(ds_groundtruth: xr.Dataset,
-                                pred_dict: Dict[str, Dict],
-                                output_path: str,
-                                titles: List[str],
-                                dataset_name: str = "OM4") -> None:
+def create_ohc_timeseries_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    output_path: str,
+    titles: list[str],
+    dataset_name: str = "OM4",
+) -> None:
     """
     Create OHC timeseries plots (OHC.png and OHC_ref0_noanomaly.png).
 
@@ -303,13 +321,17 @@ def create_ohc_timeseries_plots(ds_groundtruth: xr.Dataset,
 
     # OHC with anomaly (deseasonalized) - OHC.png
     plt.rcdefaults()
-    fig, ax = plt.subplots(1, 1, figsize=(10, 3), gridspec_kw={"wspace": 0.25, "hspace": 0.5})
+    fig, ax = plt.subplots(
+        1, 1, figsize=(10, 3), gridspec_kw={"wspace": 0.25, "hspace": 0.5}
+    )
     plt.rcParams.update({"font.size": 9})
 
     # Compute OHC for ground truth with deseasonalization
-    OHC = ((ds_groundtruth["thetao"] * c_p * rho_0) * ds_groundtruth["areacello"] * ds_groundtruth["dz"]).sum(
-        ["x", "y", "lev"]
-    ) / 1e21
+    OHC = (
+        (ds_groundtruth["thetao"] * c_p * rho_0)
+        * ds_groundtruth["areacello"]
+        * ds_groundtruth["dz"]
+    ).sum(["x", "y", "lev"]) / 1e21
 
     # Apply deseasonalization (remove climatology)
     # Simplified deseasonalization - remove monthly means
@@ -338,45 +360,67 @@ def create_ohc_timeseries_plots(ds_groundtruth: xr.Dataset,
 
         # Convert time for matplotlib
         pred_time_vals = pd.to_datetime([str(t) for t in OHC_pred.time.values])
-        ax.plot(pred_time_vals, OHC_pred, label=titles[i] if i < len(titles) else k,
-                color=plt.cm.tab10(i), linewidth=1)
+        ax.plot(
+            pred_time_vals,
+            OHC_pred,
+            label=titles[i] if i < len(titles) else k,
+            color=plt.cm.tab10(i),
+            linewidth=1,
+        )
 
         # Compute trend
         coeffs_OHC_pred_trend = np.polyfit(np.arange(OHC_pred.size), OHC_pred, 1)
-        trend_line = np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0] + coeffs_OHC_pred_trend[1]
-        ax.plot(pred_time_vals, trend_line, color=plt.cm.tab10(i), linestyle='--', linewidth=1)
+        trend_line = (
+            np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
+            + coeffs_OHC_pred_trend[1]
+        )
+        ax.plot(
+            pred_time_vals,
+            trend_line,
+            color=plt.cm.tab10(i),
+            linestyle="--",
+            linewidth=1,
+        )
 
-        compare_file.write(f"\nOHC {titles[i] if i < len(titles) else k} Trend Slope : {coeffs_OHC_pred_trend[0]}")
+        compare_file.write(
+            f"\nOHC {titles[i] if i < len(titles) else k} Trend Slope : {coeffs_OHC_pred_trend[0]}"
+        )
 
     # Plot ground truth
     truth_time_vals = pd.to_datetime([str(t) for t in OHC.time.values])
-    ax.plot(truth_time_vals, OHC, label=dataset_name, color='k', linewidth=1)
+    ax.plot(truth_time_vals, OHC, label=dataset_name, color="k", linewidth=1)
 
     # Ground truth trend
     coeffs_OHC_trend = np.polyfit(np.arange(OHC.size), OHC, 1)
     trend_line_gt = np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1]
-    ax.plot(truth_time_vals, trend_line_gt, color='k', linestyle='--', linewidth=1)
+    ax.plot(truth_time_vals, trend_line_gt, color="k", linestyle="--", linewidth=1)
 
     compare_file.write(f"\nOHC GT Trend Slope : {coeffs_OHC_trend[0]}")
 
     ax.set_title("")
-    ax.set_xlabel('Time')
-    ax.set_ylabel('OHC Anomaly (ZJ)')
+    ax.set_xlabel("Time")
+    ax.set_ylabel("OHC Anomaly (ZJ)")
     handles, labels = ax.get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.89), ncols=3)
 
-    plt.savefig(os.path.join(directories["ohc"], "OHC.png"), bbox_inches="tight", dpi=600)
+    plt.savefig(
+        os.path.join(directories["ohc"], "OHC.png"), bbox_inches="tight", dpi=600
+    )
     plt.close()
 
     # OHC without anomaly (reference) - OHC_ref0_noanomaly.png
     plt.rcdefaults()
-    fig, ax = plt.subplots(1, 1, figsize=(10, 3), gridspec_kw={"wspace": 0.25, "hspace": 0.5})
+    fig, ax = plt.subplots(
+        1, 1, figsize=(10, 3), gridspec_kw={"wspace": 0.25, "hspace": 0.5}
+    )
     plt.rcParams.update({"font.size": 9})
 
     # Compute OHC for ground truth without deseasonalization, relative to first timestep
-    OHC_ref = ((ds_groundtruth["thetao"] * c_p * rho_0) * ds_groundtruth["areacello"] * ds_groundtruth["dz"]).sum(
-        ["x", "y", "lev"]
-    ) / 1e21
+    OHC_ref = (
+        (ds_groundtruth["thetao"] * c_p * rho_0)
+        * ds_groundtruth["areacello"]
+        * ds_groundtruth["dz"]
+    ).sum(["x", "y", "lev"]) / 1e21
     OHC_ref = OHC_ref - OHC_ref.isel(time=0)  # Reference to first timestep
     OHC_ref = OHC_ref.rename("OHC")
     OHC_ref = OHC_ref.assign_attrs(units="ZJ")
@@ -388,46 +432,70 @@ def create_ohc_timeseries_plots(ds_groundtruth: xr.Dataset,
             * pred_data["ds_prediction"]["areacello"]
             * pred_data["ds_prediction"]["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
-        OHC_pred_ref = OHC_pred_ref - OHC_pred_ref.isel(time=0)  # Reference to first timestep
+        OHC_pred_ref = OHC_pred_ref - OHC_pred_ref.isel(
+            time=0
+        )  # Reference to first timestep
         OHC_pred_ref = OHC_pred_ref.rename("OHC")
         OHC_pred_ref = OHC_pred_ref.assign_attrs(units="ZJ")
 
         # Convert time for matplotlib
         pred_time_vals = pd.to_datetime([str(t) for t in OHC_pred_ref.time.values])
-        ax.plot(pred_time_vals, OHC_pred_ref, label=titles[i] if i < len(titles) else k,
-                color=plt.cm.tab10(i), linewidth=1)
+        ax.plot(
+            pred_time_vals,
+            OHC_pred_ref,
+            label=titles[i] if i < len(titles) else k,
+            color=plt.cm.tab10(i),
+            linewidth=1,
+        )
 
         # Compute trend
-        coeffs_OHC_pred_trend = np.polyfit(np.arange(OHC_pred_ref.size), OHC_pred_ref, 1)
-        trend_line = np.arange(OHC_pred_ref.size) * coeffs_OHC_pred_trend[0] + coeffs_OHC_pred_trend[1]
-        ax.plot(pred_time_vals, trend_line, color=plt.cm.tab10(i), linestyle='--', linewidth=1)
+        coeffs_OHC_pred_trend = np.polyfit(
+            np.arange(OHC_pred_ref.size), OHC_pred_ref, 1
+        )
+        trend_line = (
+            np.arange(OHC_pred_ref.size) * coeffs_OHC_pred_trend[0]
+            + coeffs_OHC_pred_trend[1]
+        )
+        ax.plot(
+            pred_time_vals,
+            trend_line,
+            color=plt.cm.tab10(i),
+            linestyle="--",
+            linewidth=1,
+        )
 
     # Plot ground truth
     truth_time_vals = pd.to_datetime([str(t) for t in OHC_ref.time.values])
-    ax.plot(truth_time_vals, OHC_ref, label=dataset_name, color='k', linewidth=1)
+    ax.plot(truth_time_vals, OHC_ref, label=dataset_name, color="k", linewidth=1)
 
     # Ground truth trend
     coeffs_OHC_trend = np.polyfit(np.arange(OHC_ref.size), OHC_ref, 1)
     trend_line_gt = np.arange(OHC_ref.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1]
-    ax.plot(truth_time_vals, trend_line_gt, color='k', linestyle='--', linewidth=1)
+    ax.plot(truth_time_vals, trend_line_gt, color="k", linestyle="--", linewidth=1)
 
     ax.set_title("")
-    ax.set_xlabel('Time')
-    ax.set_ylabel('OHC (ZJ)')
+    ax.set_xlabel("Time")
+    ax.set_ylabel("OHC (ZJ)")
     handles, labels = ax.get_legend_handles_labels()
     fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.89), ncols=3)
 
-    plt.savefig(os.path.join(directories["ohc"], "OHC_ref0_noanomaly.png"), bbox_inches="tight", dpi=600)
+    plt.savefig(
+        os.path.join(directories["ohc"], "OHC_ref0_noanomaly.png"),
+        bbox_inches="tight",
+        dpi=600,
+    )
     plt.close()
 
     compare_file.close()
 
 
-def create_ohc_bias_difference_maps(ds_groundtruth: xr.Dataset,
-                                   pred_dict: Dict[str, Dict],
-                                   output_path: str,
-                                   titles: List[str],
-                                   dataset_name: str = "OM4") -> None:
+def create_ohc_bias_difference_maps(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    output_path: str,
+    titles: list[str],
+    dataset_name: str = "OM4",
+) -> None:
     """
     Create OHC bias difference maps (OHC_Bias_Map_Diff1_2.png, OHC_Bias_Map_Diff1_3.png, and OHC_Bias_Map_Diff_Last_First.png).
 
@@ -452,9 +520,19 @@ def create_ohc_bias_difference_maps(ds_groundtruth: xr.Dataset,
     # For compatibility, use same approach but adapt to actual data size
     year_length = min(73, n_times // 6)  # Adapt to data size
     first_year = slice(None, year_length)
-    last_year = slice(-year_length, -1) if year_length < n_times else slice(-year_length, None)
-    second_last_year = slice(-2*year_length, -year_length) if 2*year_length < n_times else slice(None, year_length)
-    third_last_year = slice(-3*year_length, -2*year_length) if 3*year_length < n_times else slice(None, year_length)
+    last_year = (
+        slice(-year_length, -1) if year_length < n_times else slice(-year_length, None)
+    )
+    second_last_year = (
+        slice(-2 * year_length, -year_length)
+        if 2 * year_length < n_times
+        else slice(None, year_length)
+    )
+    third_last_year = (
+        slice(-3 * year_length, -2 * year_length)
+        if 3 * year_length < n_times
+        else slice(None, year_length)
+    )
 
     # Process ground truth and first prediction for OHC computation
     gt_ohc = None
@@ -476,9 +554,13 @@ def create_ohc_bias_difference_maps(ds_groundtruth: xr.Dataset,
             OHC_gt = OHC_gt.rename("OHC Anomaly")
             # Only assign coordinate attributes if coordinates exist
             if "y" in OHC_gt.coords:
-                OHC_gt["y"] = OHC_gt.y.assign_attrs(long_name="latitude", units=r"${^o}$")
+                OHC_gt["y"] = OHC_gt.y.assign_attrs(
+                    long_name="latitude", units=r"${^o}$"
+                )
             if "x" in OHC_gt.coords:
-                OHC_gt["x"] = OHC_gt.x.assign_attrs(long_name="longitude", units=r"${^o}$")
+                OHC_gt["x"] = OHC_gt.x.assign_attrs(
+                    long_name="longitude", units=r"${^o}$"
+                )
             OHC_gt = OHC_gt.assign_attrs(units="ZJ")
             gt_ohc = OHC_gt
 
@@ -486,9 +568,7 @@ def create_ohc_bias_difference_maps(ds_groundtruth: xr.Dataset,
         if i == 0:  # Only process the first prediction
             ds_pred = pred_data["ds_prediction"]
             OHC_pred = (
-                (ds_pred["thetao"] * c_p * rho_0)
-                * ds_pred["areacello"]
-                * ds_pred["dz"]
+                (ds_pred["thetao"] * c_p * rho_0) * ds_pred["areacello"] * ds_pred["dz"]
             ).sum(["lev"]) / 1e21  # Sum over depth only, keep spatial dimensions
 
             OHC_pred = remove_climatology(OHC_pred)
@@ -496,9 +576,13 @@ def create_ohc_bias_difference_maps(ds_groundtruth: xr.Dataset,
             OHC_pred = OHC_pred.rename("OHC Anomaly")
             # Only assign coordinate attributes if coordinates exist
             if "y" in OHC_pred.coords:
-                OHC_pred["y"] = OHC_pred.y.assign_attrs(long_name="latitude", units=r"${^o}$")
+                OHC_pred["y"] = OHC_pred.y.assign_attrs(
+                    long_name="latitude", units=r"${^o}$"
+                )
             if "x" in OHC_pred.coords:
-                OHC_pred["x"] = OHC_pred.x.assign_attrs(long_name="longitude", units=r"${^o}$")
+                OHC_pred["x"] = OHC_pred.x.assign_attrs(
+                    long_name="longitude", units=r"${^o}$"
+                )
             OHC_pred = OHC_pred.assign_attrs(units="ZJ")
             pred1_ohc = OHC_pred
             break
@@ -533,7 +617,7 @@ def create_ohc_bias_difference_maps(ds_groundtruth: xr.Dataset,
     plt.close()
 
     # Create OHC_Bias_Map_Diff1_3.png (Last Year - Third Last Year) if we have enough data
-    if 3*year_length < n_times:
+    if 3 * year_length < n_times:
         da = (
             pred1_ohc.isel(time=last_year).mean("time")
             - pred1_ohc.isel(time=third_last_year).mean("time")
@@ -585,11 +669,13 @@ def create_ohc_bias_difference_maps(ds_groundtruth: xr.Dataset,
     plt.close()
 
 
-def create_ohc_depth_timeseries(ds_groundtruth: xr.Dataset,
-                               pred_dict: Dict[str, Dict],
-                               output_path: str,
-                               titles: List[str],
-                               dataset_name: str = "OM4") -> None:
+def create_ohc_depth_timeseries(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    output_path: str,
+    titles: list[str],
+    dataset_name: str = "OM4",
+) -> None:
     """
     Create OHC depth-wise timeseries plot (OHC_Timeseries_depths.png).
 
@@ -620,19 +706,15 @@ def create_ohc_depth_timeseries(ds_groundtruth: xr.Dataset,
 
     # Define depth ranges
     depth_ranges = {
-        "upper": slice(0, 700),      # 0-700m
-        "mid": slice(700, 2000),     # 700-2000m
-        "deep": slice(2000, None)    # 2000m+
+        "upper": slice(0, 700),  # 0-700m
+        "mid": slice(700, 2000),  # 700-2000m
+        "deep": slice(2000, None),  # 2000m+
     }
 
-    depth_labels = {
-        "upper": "0-0.7km",
-        "mid": "0.7-2.0km",
-        "deep": "2.0-6.0km"
-    }
+    depth_labels = {"upper": "0-0.7km", "mid": "0.7-2.0km", "deep": "2.0-6.0km"}
 
     # Color list for predictions
-    clist = ['red', 'blue', 'green', 'orange', 'purple', 'brown']
+    clist = ["red", "blue", "green", "orange", "purple", "brown"]
 
     # Store trend calculations for summary
     pred_trends = {}
@@ -640,7 +722,6 @@ def create_ohc_depth_timeseries(ds_groundtruth: xr.Dataset,
 
     # Process each depth range
     for depth_idx, (depth_name, depth_slice) in enumerate(depth_ranges.items()):
-
         # Compute OHC for ground truth at this depth
         OHC_truth = (
             (ds_groundtruth["thetao"].sel(lev=depth_slice) * c_p * rho_0)
@@ -663,7 +744,9 @@ def create_ohc_depth_timeseries(ds_groundtruth: xr.Dataset,
             ls="--",
         )
 
-        compare_file.write(f"\n{depth_name.title()} - GT Trend Slope : {coeffs_OHC_ground_trend[0]}")
+        compare_file.write(
+            f"\n{depth_name.title()} - GT Trend Slope : {coeffs_OHC_ground_trend[0]}"
+        )
         gt_trends[depth_name] = coeffs_OHC_ground_trend[0] * 73
 
         # Process predictions
@@ -737,15 +820,19 @@ def create_ohc_depth_timeseries(ds_groundtruth: xr.Dataset,
 
     # Save the plot
     plt.savefig(
-        os.path.join(directories["ohc"], "OHC_Timeseries_depths.png"), bbox_inches="tight", dpi=600
+        os.path.join(directories["ohc"], "OHC_Timeseries_depths.png"),
+        bbox_inches="tight",
+        dpi=600,
     )
     plt.close()
 
 
-def create_ohc_analysis_plots(ds_groundtruth: xr.Dataset,
-                             pred_dict: Dict[str, Dict],
-                             output_path: str,
-                             titles: List[str]) -> None:
+def create_ohc_analysis_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    output_path: str,
+    titles: list[str],
+) -> None:
     """
     Create Ocean Heat Content analysis plots.
 
@@ -784,20 +871,34 @@ def create_ohc_analysis_plots(ds_groundtruth: xr.Dataset,
     directories = create_spatial_directories(output_path)
 
     # Global OHC map
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, ax = plt.subplots(
+        1, 1, figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()}
+    )
     im = plot_ohc_map(ohc_gt.mean("time"), ax, "Ground Truth OHC")
     plt.colorbar(im, ax=ax, shrink=0.6, label="OHC (ZJ)")
-    plt.savefig(os.path.join(directories["ohc"], "OHC_Global_map.png"), dpi=300, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(directories["ohc"], "OHC_Global_map.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
     plt.close()
 
     # OHC bias maps
     for i, (key, ohc_pred) in enumerate(ohc_preds.items()):
         bias = ohc_pred.mean("time") - ohc_gt.mean("time")
 
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
-        im = plot_bias_map(bias, ax, f"OHC Bias: {titles[i] if i < len(titles) else key}")
+        fig, ax = plt.subplots(
+            1, 1, figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()}
+        )
+        im = plot_bias_map(
+            bias, ax, f"OHC Bias: {titles[i] if i < len(titles) else key}"
+        )
         plt.colorbar(im, ax=ax, shrink=0.6, label="OHC Bias (ZJ)")
-        plt.savefig(os.path.join(directories["ohc"], f"OHC_Bias_Map_{key}.png"), dpi=300, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(directories["ohc"], f"OHC_Bias_Map_{key}.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
     # Add missing OHC timeseries plots
@@ -810,12 +911,14 @@ def create_ohc_analysis_plots(ds_groundtruth: xr.Dataset,
     create_ohc_depth_timeseries(ds_groundtruth, pred_dict, output_path, titles)
 
 
-def create_sst_analysis_plots(ds_groundtruth: xr.Dataset,
-                             pred_dict: Dict[str, Dict],
-                             output_path: str,
-                             titles: List[str],
-                             basin_masks: Optional[xr.Dataset] = None,
-                             dataset_name: str = "OM4") -> None:
+def create_sst_analysis_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    output_path: str,
+    titles: list[str],
+    basin_masks: xr.Dataset | None = None,
+    dataset_name: str = "OM4",
+) -> None:
     """
     Create comprehensive temperature analysis plots including SST maps, snapshots, bias analysis, and temperature profiles.
 
@@ -836,10 +939,16 @@ def create_sst_analysis_plots(ds_groundtruth: xr.Dataset,
         sst_gt = ds_groundtruth["thetao"].isel(lev=0)
 
     # Global SST map
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, ax = plt.subplots(
+        1, 1, figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()}
+    )
     im = plot_sst_map(sst_gt.mean("time"), ax, "Ground Truth SST")
     plt.colorbar(im, ax=ax, shrink=0.6, label="SST (°C)")
-    plt.savefig(os.path.join(directories["temperature"], "SST_Global_map.png"), dpi=300, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(directories["temperature"], "SST_Global_map.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
     plt.close()
 
     # SST snapshots at different times
@@ -848,14 +957,26 @@ def create_sst_analysis_plots(ds_groundtruth: xr.Dataset,
     time_labels = ["Start", "Mid", "End"]
 
     for i, (time_idx, label) in enumerate(zip(time_indices, time_labels)):
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+        fig, ax = plt.subplots(
+            1, 1, figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()}
+        )
         im = plot_sst_map(sst_gt.isel(time=time_idx), ax, f"SST Snapshot - {label}")
         plt.colorbar(im, ax=ax, shrink=0.6, label="SST (°C)")
-        plt.savefig(os.path.join(directories["temperature"], f"SST_map_snapshot_t_{time_idx}.png"), dpi=300, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(
+                directories["temperature"], f"SST_map_snapshot_t_{time_idx}.png"
+            ),
+            dpi=300,
+            bbox_inches="tight",
+        )
 
         # Also save middle snapshot as t_300 for gold standard compatibility
         if i == 1 and abs(time_idx - 300) <= 5:  # Middle snapshot close to 300
-            plt.savefig(os.path.join(directories["temperature"], "SST_map_snapshot_t_300.png"), dpi=300, bbox_inches='tight')
+            plt.savefig(
+                os.path.join(directories["temperature"], "SST_map_snapshot_t_300.png"),
+                dpi=300,
+                bbox_inches="tight",
+            )
 
         plt.close()
 
@@ -869,7 +990,9 @@ def create_sst_analysis_plots(ds_groundtruth: xr.Dataset,
 
         plt.rcParams.update({"font.size": 14})
         fig, axs = plt.subplots(
-            2, 2, figsize=(16, 6),
+            2,
+            2,
+            figsize=(16, 6),
             subplot_kw={"projection": ccrs.PlateCarree()},
             gridspec_kw={"wspace": 0.02, "hspace": 0.23},
         )
@@ -900,39 +1023,50 @@ def create_sst_analysis_plots(ds_groundtruth: xr.Dataset,
 
             # Plot SST using thermal colormap
             im = sst_data.plot(
-                ax=ax, transform=ccrs.PlateCarree(),
-                cmap=getattr(cm.cm, 'thermal', 'viridis'),
-                add_colorbar=False
+                ax=ax,
+                transform=ccrs.PlateCarree(),
+                cmap=getattr(cm.cm, "thermal", "viridis"),
+                add_colorbar=False,
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black")
             ax.set_title(title, fontsize=14)
             setup_cartopy_projection(ax)
 
         # Add colorbar for SST plots
-        cbar = fig.colorbar(im, ax=axs[:2], orientation="vertical", fraction=0.01, pad=0.02)
+        cbar = fig.colorbar(
+            im, ax=axs[:2], orientation="vertical", fraction=0.01, pad=0.02
+        )
         cbar.set_label(r"SST [°C]", fontsize=14)
 
         # Plot bias in the third panel
         sst_bias = pred1_sst - gt_sst
         im_bias = sst_bias.plot(
-            ax=axs[3], transform=ccrs.PlateCarree(),
-            cmap="RdBu_r", vmin=-0.5, vmax=0.5,
-            add_colorbar=False
+            ax=axs[3],
+            transform=ccrs.PlateCarree(),
+            cmap="RdBu_r",
+            vmin=-0.5,
+            vmax=0.5,
+            add_colorbar=False,
         )
         axs[3].add_feature(cfeature.COASTLINE, edgecolor="black")
         axs[3].set_title(f"{pred_dict[key1].get('name', key1)} Bias", fontsize=14)
         setup_cartopy_projection(axs[3])
 
         # Add colorbar for bias plot
-        cbar = fig.colorbar(im_bias, ax=axs[3:], orientation="vertical", fraction=0.1, pad=0.02)
+        cbar = fig.colorbar(
+            im_bias, ax=axs[3:], orientation="vertical", fraction=0.1, pad=0.02
+        )
         cbar.set_label(r"SST Bias [°C]", fontsize=14)
 
         # Remove the empty axis
         fig.delaxes(axs[2])
 
         plt.savefig(
-            os.path.join(directories["temperature"], f"SST_detailed_snapshot_t_{t_index}.png"),
-            bbox_inches="tight", dpi=600,
+            os.path.join(
+                directories["temperature"], f"SST_detailed_snapshot_t_{t_index}.png"
+            ),
+            bbox_inches="tight",
+            dpi=600,
         )
         plt.close()
 
@@ -947,10 +1081,18 @@ def create_sst_analysis_plots(ds_groundtruth: xr.Dataset,
 
         bias = sst_pred.mean("time") - sst_gt.mean("time")
 
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
-        im = plot_bias_map(bias, ax, f"SST Bias: {titles[i] if i < len(titles) else key}")
+        fig, ax = plt.subplots(
+            1, 1, figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()}
+        )
+        im = plot_bias_map(
+            bias, ax, f"SST Bias: {titles[i] if i < len(titles) else key}"
+        )
         plt.colorbar(im, ax=ax, shrink=0.6, label="SST Bias (°C)")
-        plt.savefig(os.path.join(directories["temperature"], f"SST_Bias_Map_{key}.png"), dpi=300, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(directories["temperature"], f"SST_Bias_Map_{key}.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
     # ✅ INTEGRATED: Temperature profile analysis (Last Year - First Year plots)
@@ -970,33 +1112,57 @@ def create_sst_analysis_plots(ds_groundtruth: xr.Dataset,
             n_times = len(ds_groundtruth["thetao"].time)
             year_length = min(73, n_times // 6)  # Adapt to actual data size
 
-            print(f"⏰ Using time slices: first {year_length} vs last {year_length} timesteps")
+            print(
+                f"⏰ Using time slices: first {year_length} vs last {year_length} timesteps"
+            )
 
             # 1. CM4 (Last Year - First Year) - simplified without climatology removal
             print("📈 Computing CM4 temperature change...")
-            CM4_last = ds_groundtruth["thetao"].isel(time=slice(-year_length, None)).mean(dim="time")
-            CM4_first = ds_groundtruth["thetao"].isel(time=slice(0, year_length)).mean(dim="time")
+            CM4_last = (
+                ds_groundtruth["thetao"]
+                .isel(time=slice(-year_length, None))
+                .mean(dim="time")
+            )
+            CM4_first = (
+                ds_groundtruth["thetao"]
+                .isel(time=slice(0, year_length))
+                .mean(dim="time")
+            )
             CM4_lastyear_change = CM4_last - CM4_first
 
             # Create simple basin-averaged plots instead of complex basin analysis
             print("🗺️ Creating CM4 profile plot...")
-            create_simple_temperature_profile(CM4_lastyear_change, f"{dataset_name} (Last Year - First Year)", output_path)
+            create_simple_temperature_profile(
+                CM4_lastyear_change,
+                f"{dataset_name} (Last Year - First Year)",
+                output_path,
+            )
 
             # 2. Prediction (Last Year - First Year)
             print("📈 Computing prediction temperature change...")
-            pred_last = ds_pred["thetao"].isel(time=slice(-year_length, None)).mean(dim="time")
-            pred_first = ds_pred["thetao"].isel(time=slice(0, year_length)).mean(dim="time")
+            pred_last = (
+                ds_pred["thetao"].isel(time=slice(-year_length, None)).mean(dim="time")
+            )
+            pred_first = (
+                ds_pred["thetao"].isel(time=slice(0, year_length)).mean(dim="time")
+            )
             pred_lastyear_change = pred_last - pred_first
 
             print("🗺️ Creating prediction profile plot...")
-            create_simple_temperature_profile(pred_lastyear_change, f"{pred_name} (Last Year - First Year)", output_path)
+            create_simple_temperature_profile(
+                pred_lastyear_change,
+                f"{pred_name} (Last Year - First Year)",
+                output_path,
+            )
 
             # 3. Bias (Last Year - First Year)
             print("📊 Computing bias...")
             bias_lastyear_change = pred_lastyear_change - CM4_lastyear_change
 
             print("🗺️ Creating bias profile plot...")
-            create_simple_temperature_profile(bias_lastyear_change, "(Last Year - First Year) Bias", output_path)
+            create_simple_temperature_profile(
+                bias_lastyear_change, "(Last Year - First Year) Bias", output_path
+            )
 
             print("✅ Temperature profile plots completed successfully!")
 
@@ -1008,10 +1174,12 @@ def create_sst_analysis_plots(ds_groundtruth: xr.Dataset,
         print("⚠️ Basin masks not provided, skipping temperature profile plots")
 
 
-def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
-                                  pred_dict: Dict[str, Dict],
-                                  output_path: str,
-                                  titles: List[str]) -> None:
+def create_salinity_analysis_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    output_path: str,
+    titles: list[str],
+) -> None:
     """
     Create salinity analysis plots including time series and spatial maps.
 
@@ -1025,7 +1193,7 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
 
     # Physical constants
     rho_0 = 1025  # kg/m^3
-    clist = ['red', 'blue', 'green', 'orange', 'purple', 'brown']
+    clist = ["red", "blue", "green", "orange", "purple", "brown"]
 
     # ✅ INTEGRATED: Create salinity time series plots (originally in "missing" function)
 
@@ -1034,9 +1202,11 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
     plt.rcParams.update({"font.size": 9})
 
-    salinity = ((ds_groundtruth["so"] * rho_0) * ds_groundtruth["areacello"] * ds_groundtruth["dz"]).sum(
-        ["x", "y", "lev"]
-    )
+    salinity = (
+        (ds_groundtruth["so"] * rho_0)
+        * ds_groundtruth["areacello"]
+        * ds_groundtruth["dz"]
+    ).sum(["x", "y", "lev"])
     salinity = salinity.rename("Salinity")
     salinity = salinity.assign_attrs(units="g")
 
@@ -1057,20 +1227,31 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
             coeffs_salinity_pred_trend = np.polyfit(
                 np.arange(salinity_pred.size), salinity_pred, 1
             )
-            trend_line = np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0] + coeffs_salinity_pred_trend[1]
-            ax.plot(salinity_pred.time, trend_line, c=clist[i % len(clist)], linestyle='--')
+            trend_line = (
+                np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0]
+                + coeffs_salinity_pred_trend[1]
+            )
+            ax.plot(
+                salinity_pred.time, trend_line, c=clist[i % len(clist)], linestyle="--"
+            )
 
     # Plot ground truth
     coeffs_salinity_trend = np.polyfit(np.arange(salinity.size), salinity, 1)
     salinity.plot(ax=ax, label="OM4", c="k")
-    trend_line_gt = np.arange(salinity.size) * coeffs_salinity_trend[0] + coeffs_salinity_trend[1]
-    ax.plot(salinity.time, trend_line_gt, c="k", linestyle='--')
+    trend_line_gt = (
+        np.arange(salinity.size) * coeffs_salinity_trend[0] + coeffs_salinity_trend[1]
+    )
+    ax.plot(salinity.time, trend_line_gt, c="k", linestyle="--")
 
     ax.set_ylim([5.861e22, 5.8632e22])
     ax.legend(ncol=3)
     ax.set_title("")
 
-    plt.savefig(os.path.join(directories["salinity"], "Salinity.png"), bbox_inches="tight", dpi=600)
+    plt.savefig(
+        os.path.join(directories["salinity"], "Salinity.png"),
+        bbox_inches="tight",
+        dpi=600,
+    )
     plt.close()
 
     # 2. Deseasonalized salinity time series
@@ -1081,9 +1262,11 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
     plt.rcParams.update({"font.size": 9})
 
     # Compute volume-weighted mean salinity for ground truth
-    salinity_deseason = ds_groundtruth["so"].weighted(
-        ds_groundtruth["areacello"] * ds_groundtruth["dz"]
-    ).mean(["x", "y", "lev"])
+    salinity_deseason = (
+        ds_groundtruth["so"]
+        .weighted(ds_groundtruth["areacello"] * ds_groundtruth["dz"])
+        .mean(["x", "y", "lev"])
+    )
 
     # Apply deseasonalization
     salinity_deseason = remove_climatology(salinity_deseason)
@@ -1094,9 +1277,11 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
     for i, (k, pred_data) in enumerate(pred_dict.items()):
         if "so" in pred_data["ds_prediction"].data_vars:
             ds_pred = pred_data["ds_prediction"]
-            salinity_pred_deseason = ds_pred["so"].weighted(
-                ds_pred["areacello"] * ds_pred["dz"]
-            ).mean(["x", "y", "lev"])
+            salinity_pred_deseason = (
+                ds_pred["so"]
+                .weighted(ds_pred["areacello"] * ds_pred["dz"])
+                .mean(["x", "y", "lev"])
+            )
 
             # Apply deseasonalization
             salinity_pred_deseason = remove_climatology(salinity_pred_deseason)
@@ -1110,21 +1295,35 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
             coeffs_salinity_pred_trend = np.polyfit(
                 np.arange(salinity_pred_deseason.size), salinity_pred_deseason, 1
             )
-            trend_line = np.arange(salinity_pred_deseason.size) * coeffs_salinity_pred_trend[0] + coeffs_salinity_pred_trend[1]
-            ax.plot(salinity_pred_deseason.time, trend_line, c=clist[i % len(clist)], linestyle='--')
+            trend_line = (
+                np.arange(salinity_pred_deseason.size) * coeffs_salinity_pred_trend[0]
+                + coeffs_salinity_pred_trend[1]
+            )
+            ax.plot(
+                salinity_pred_deseason.time,
+                trend_line,
+                c=clist[i % len(clist)],
+                linestyle="--",
+            )
 
     # Plot ground truth
-    coeffs_salinity_trend = np.polyfit(np.arange(salinity_deseason.size), salinity_deseason, 1)
+    coeffs_salinity_trend = np.polyfit(
+        np.arange(salinity_deseason.size), salinity_deseason, 1
+    )
     salinity_deseason.plot(ax=ax, label="OM4", c="k")
-    trend_line_gt = np.arange(salinity_deseason.size) * coeffs_salinity_trend[0] + coeffs_salinity_trend[1]
-    ax.plot(salinity_deseason.time, trend_line_gt, c="k", linestyle='--')
+    trend_line_gt = (
+        np.arange(salinity_deseason.size) * coeffs_salinity_trend[0]
+        + coeffs_salinity_trend[1]
+    )
+    ax.plot(salinity_deseason.time, trend_line_gt, c="k", linestyle="--")
 
     ax.legend(ncol=3)
     ax.set_title("")
 
     plt.savefig(
         os.path.join(directories["salinity"], "salinity_deseasonalized.png"),
-        bbox_inches="tight", dpi=600
+        bbox_inches="tight",
+        dpi=600,
     )
     plt.close()
 
@@ -1134,9 +1333,11 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
     plt.rcParams.update({"font.size": 9})
 
     # Same as first plot - total salinity mass
-    salinity = ((ds_groundtruth["so"] * rho_0) * ds_groundtruth["areacello"] * ds_groundtruth["dz"]).sum(
-        ["x", "y", "lev"]
-    )
+    salinity = (
+        (ds_groundtruth["so"] * rho_0)
+        * ds_groundtruth["areacello"]
+        * ds_groundtruth["dz"]
+    ).sum(["x", "y", "lev"])
     salinity = salinity.rename("Salinity")
     salinity = salinity.assign_attrs(units="g")
 
@@ -1157,20 +1358,33 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
             coeffs_salinity_pred_trend = np.polyfit(
                 np.arange(salinity_pred.size), salinity_pred, 1
             )
-            trend_line = np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0] + coeffs_salinity_pred_trend[1]
-            ax.plot(salinity_pred.time, trend_line, c=clist[i % len(clist)], linestyle='--')
+            trend_line = (
+                np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0]
+                + coeffs_salinity_pred_trend[1]
+            )
+            ax.plot(
+                salinity_pred.time, trend_line, c=clist[i % len(clist)], linestyle="--"
+            )
 
     # Plot ground truth
     coeffs_salinity_trend = np.polyfit(np.arange(salinity.size), salinity, 1)
     salinity.plot(ax=ax, label="OM4", c="k")
-    trend_line_gt = np.arange(salinity.size) * coeffs_salinity_trend[0] + coeffs_salinity_trend[1]
-    ax.plot(salinity.time, trend_line_gt, c="k", linestyle='--')
+    trend_line_gt = (
+        np.arange(salinity.size) * coeffs_salinity_trend[0] + coeffs_salinity_trend[1]
+    )
+    ax.plot(salinity.time, trend_line_gt, c="k", linestyle="--")
 
     ax.set_ylim([5.861e22, 5.8632e22])
     ax.legend(ncol=3)
     ax.set_title("")
 
-    plt.savefig(os.path.join(directories["salinity"], "salinity_manuall_non_deseasonalized .png"), bbox_inches="tight", dpi=600)
+    plt.savefig(
+        os.path.join(
+            directories["salinity"], "salinity_manuall_non_deseasonalized .png"
+        ),
+        bbox_inches="tight",
+        dpi=600,
+    )
     plt.close()
 
     # ✅ INTEGRATED: Spatial salinity analysis (original core functionality)
@@ -1179,17 +1393,20 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
     sss_gt = ds_groundtruth["so"].isel(lev=0)
 
     # Global SSS map
-    fig, ax = plt.subplots(1, 1, figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+    fig, ax = plt.subplots(
+        1, 1, figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()}
+    )
     im = sss_gt.mean("time").plot(
-        ax=ax,
-        transform=ccrs.PlateCarree(),
-        cmap=cm.cm.haline,
-        add_colorbar=False
+        ax=ax, transform=ccrs.PlateCarree(), cmap=cm.cm.haline, add_colorbar=False
     )
     ax.set_title("Ground Truth Sea Surface Salinity")
     setup_cartopy_projection(ax)
     plt.colorbar(im, ax=ax, shrink=0.6, label="SSS (psu)")
-    plt.savefig(os.path.join(directories["salinity"], "SeaSurfaceSalinity_Global_map.png"), dpi=300, bbox_inches='tight')
+    plt.savefig(
+        os.path.join(directories["salinity"], "SeaSurfaceSalinity_Global_map.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
     plt.close()
 
     # SSS snapshots
@@ -1197,25 +1414,30 @@ def create_salinity_analysis_plots(ds_groundtruth: xr.Dataset,
     time_indices = [0, last_index // 2, last_index]
 
     for i, time_idx in enumerate(time_indices):
-        fig, ax = plt.subplots(1, 1, figsize=(12, 8), subplot_kw={'projection': ccrs.PlateCarree()})
+        fig, ax = plt.subplots(
+            1, 1, figsize=(12, 8), subplot_kw={"projection": ccrs.PlateCarree()}
+        )
         im = sss_gt.isel(time=time_idx).plot(
-            ax=ax,
-            transform=ccrs.PlateCarree(),
-            cmap=cm.cm.haline,
-            add_colorbar=False
+            ax=ax, transform=ccrs.PlateCarree(), cmap=cm.cm.haline, add_colorbar=False
         )
         ax.set_title(f"SSS Snapshot - Time {time_idx}")
         setup_cartopy_projection(ax)
         plt.colorbar(im, ax=ax, shrink=0.6, label="SSS (psu)")
-        plt.savefig(os.path.join(directories["salinity"], f"SSS_map_snapshot_t_{time_idx}.png"), dpi=300, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(directories["salinity"], f"SSS_map_snapshot_t_{time_idx}.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
 
-def create_basin_comparison_plots(ds_groundtruth: xr.Dataset,
-                                 pred_dict: Dict[str, Dict],
-                                 basin_masks: xr.Dataset,
-                                 output_path: str,
-                                 titles: List[str]) -> None:
+def create_basin_comparison_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    basin_masks: xr.Dataset,
+    output_path: str,
+    titles: list[str],
+) -> None:
     """
     Create basin-specific comparison plots.
 
@@ -1235,7 +1457,9 @@ def create_basin_comparison_plots(ds_groundtruth: xr.Dataset,
         if variable not in ds_groundtruth.data_vars:
             continue
 
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12), subplot_kw={'projection': ccrs.PlateCarree()})
+        fig, axes = plt.subplots(
+            2, 3, figsize=(18, 12), subplot_kw={"projection": ccrs.PlateCarree()}
+        )
         axes = axes.flatten()
 
         for i, basin_name in enumerate(basin_masks.data_vars):
@@ -1253,7 +1477,7 @@ def create_basin_comparison_plots(ds_groundtruth: xr.Dataset,
                 ax=ax,
                 transform=ccrs.PlateCarree(),
                 cmap="RdBu_r" if variable == "thetao" else cm.cm.haline,
-                add_colorbar=False
+                add_colorbar=False,
             )
 
             ax.set_title(f"{basin_name} - {variable}")
@@ -1263,25 +1487,30 @@ def create_basin_comparison_plots(ds_groundtruth: xr.Dataset,
             basin_mask.plot.contour(
                 ax=ax,
                 transform=ccrs.PlateCarree(),
-                colors='black',
+                colors="black",
                 linewidths=1,
-                add_colorbar=False
+                add_colorbar=False,
             )
 
         plt.tight_layout()
         # Use temperature directory for thetao, salinity for so
         dir_name = "temperature" if variable == "thetao" else "salinity"
-        plt.savefig(os.path.join(directories[dir_name], f"{variable}_basin_comparison.png"),
-                   dpi=300, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(directories[dir_name], f"{variable}_basin_comparison.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
 
-def create_ohc_basin_plots(ds_groundtruth: xr.Dataset,
-                          pred_dict: Dict[str, Dict],
-                          basin_masks: xr.Dataset,
-                          output_path: str,
-                          titles: List[str],
-                          dataset_name: str = "OM4") -> None:
+def create_ohc_basin_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    basin_masks: xr.Dataset,
+    output_path: str,
+    titles: list[str],
+    dataset_name: str = "OM4",
+) -> None:
     """
     Create OHC basin timeseries plots (OHC_Basin.png).
 
@@ -1324,7 +1553,7 @@ def create_ohc_basin_plots(ds_groundtruth: xr.Dataset,
         pred_dict[k]["regionwise_ohc"] = {}
 
     # Color list for plotting predictions
-    clist = ['red', 'blue', 'green', 'orange', 'purple', 'brown']
+    clist = ["red", "blue", "green", "orange", "purple", "brown"]
 
     # Process each basin
     for i, basin_name in enumerate(list(basin_masks.data_vars)):
@@ -1397,17 +1626,21 @@ def create_ohc_basin_plots(ds_groundtruth: xr.Dataset,
     compare_file.write("\n")
     compare_file.close()
 
-    plt.savefig(os.path.join(directories["ohc"], "OHC_Basin.png"), bbox_inches="tight", dpi=600)
+    plt.savefig(
+        os.path.join(directories["ohc"], "OHC_Basin.png"), bbox_inches="tight", dpi=600
+    )
     plt.close()
 
 
-def create_ohc_basin_upper_plots(ds_groundtruth: xr.Dataset,
-                                pred_dict: Dict[str, Dict],
-                                basin_masks: xr.Dataset,
-                                output_path: str,
-                                titles: List[str],
-                                dataset_name: str = "OM4",
-                                max_level: int = 700) -> None:
+def create_ohc_basin_upper_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    basin_masks: xr.Dataset,
+    output_path: str,
+    titles: list[str],
+    dataset_name: str = "OM4",
+    max_level: int = 700,
+) -> None:
     """
     Create upper ocean OHC basin timeseries plots (OHC_Basin_upto_700m.png).
 
@@ -1451,7 +1684,7 @@ def create_ohc_basin_upper_plots(ds_groundtruth: xr.Dataset,
         pred_dict[k]["regionwise_ohc"] = {}
 
     # Color list for plotting predictions
-    clist = ['red', 'blue', 'green', 'orange', 'purple', 'brown']
+    clist = ["red", "blue", "green", "orange", "purple", "brown"]
 
     # Process each basin
     for i, basin_name in enumerate(list(basin_masks.data_vars)):
@@ -1536,16 +1769,19 @@ def create_ohc_basin_upper_plots(ds_groundtruth: xr.Dataset,
 
     plt.savefig(
         os.path.join(directories["ohc"], f"OHC_Basin_upto_{max_level}m.png"),
-        bbox_inches="tight", dpi=600
+        bbox_inches="tight",
+        dpi=600,
     )
     plt.close()
 
 
-def create_missing_salinity_plots(ds_groundtruth: xr.Dataset,
-                                  pred_dict: Dict[str, Dict],
-                                  output_path: str,
-                                  titles: List[str],
-                                  dataset_name: str = "OM4") -> None:
+def create_missing_salinity_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    output_path: str,
+    titles: list[str],
+    dataset_name: str = "OM4",
+) -> None:
     """
     Create missing salinity plots: Salinity.png and salinity_deseasonalized.png.
 
@@ -1562,16 +1798,18 @@ def create_missing_salinity_plots(ds_groundtruth: xr.Dataset,
     rho_0 = 1025  # kg/m^3
 
     # Color list for plotting predictions
-    clist = ['red', 'blue', 'green', 'orange', 'purple', 'brown']
+    clist = ["red", "blue", "green", "orange", "purple", "brown"]
 
     # 1. Create Salinity.png (non-deseasonalized total salinity mass)
     plt.rcdefaults()
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
     plt.rcParams.update({"font.size": 9})
 
-    salinity = ((ds_groundtruth["so"] * rho_0) * ds_groundtruth["areacello"] * ds_groundtruth["dz"]).sum(
-        ["x", "y", "lev"]
-    )
+    salinity = (
+        (ds_groundtruth["so"] * rho_0)
+        * ds_groundtruth["areacello"]
+        * ds_groundtruth["dz"]
+    ).sum(["x", "y", "lev"])
     salinity = salinity.rename("Salinity")
     salinity = salinity.assign_attrs(units="g")
 
@@ -1592,20 +1830,31 @@ def create_missing_salinity_plots(ds_groundtruth: xr.Dataset,
             coeffs_salinity_pred_trend = np.polyfit(
                 np.arange(salinity_pred.size), salinity_pred, 1
             )
-            trend_line = np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0] + coeffs_salinity_pred_trend[1]
-            ax.plot(salinity_pred.time, trend_line, c=clist[i % len(clist)], linestyle='--')
+            trend_line = (
+                np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0]
+                + coeffs_salinity_pred_trend[1]
+            )
+            ax.plot(
+                salinity_pred.time, trend_line, c=clist[i % len(clist)], linestyle="--"
+            )
 
     # Plot ground truth
     coeffs_salinity_trend = np.polyfit(np.arange(salinity.size), salinity, 1)
     salinity.plot(ax=ax, label=dataset_name, c="k")
-    trend_line_gt = np.arange(salinity.size) * coeffs_salinity_trend[0] + coeffs_salinity_trend[1]
-    ax.plot(salinity.time, trend_line_gt, c="k", linestyle='--')
+    trend_line_gt = (
+        np.arange(salinity.size) * coeffs_salinity_trend[0] + coeffs_salinity_trend[1]
+    )
+    ax.plot(salinity.time, trend_line_gt, c="k", linestyle="--")
 
     ax.set_ylim([5.861e22, 5.8632e22])
     ax.legend(ncol=3)
     ax.set_title("")
 
-    plt.savefig(os.path.join(directories["salinity"], "Salinity.png"), bbox_inches="tight", dpi=600)
+    plt.savefig(
+        os.path.join(directories["salinity"], "Salinity.png"),
+        bbox_inches="tight",
+        dpi=600,
+    )
     plt.close()
 
     # 2. Create salinity_deseasonalized.png (deseasonalized volume-weighted mean)
@@ -1616,9 +1865,11 @@ def create_missing_salinity_plots(ds_groundtruth: xr.Dataset,
     plt.rcParams.update({"font.size": 9})
 
     # Compute volume-weighted mean salinity for ground truth
-    salinity_deseason = ds_groundtruth["so"].weighted(
-        ds_groundtruth["areacello"] * ds_groundtruth["dz"]
-    ).mean(["x", "y", "lev"])
+    salinity_deseason = (
+        ds_groundtruth["so"]
+        .weighted(ds_groundtruth["areacello"] * ds_groundtruth["dz"])
+        .mean(["x", "y", "lev"])
+    )
 
     # Apply deseasonalization
     salinity_deseason = remove_climatology(salinity_deseason)
@@ -1629,9 +1880,11 @@ def create_missing_salinity_plots(ds_groundtruth: xr.Dataset,
     for i, (k, pred_data) in enumerate(pred_dict.items()):
         if "so" in pred_data["ds_prediction"].data_vars:
             ds_pred = pred_data["ds_prediction"]
-            salinity_pred_deseason = ds_pred["so"].weighted(
-                ds_pred["areacello"] * ds_pred["dz"]
-            ).mean(["x", "y", "lev"])
+            salinity_pred_deseason = (
+                ds_pred["so"]
+                .weighted(ds_pred["areacello"] * ds_pred["dz"])
+                .mean(["x", "y", "lev"])
+            )
 
             # Apply deseasonalization
             salinity_pred_deseason = remove_climatology(salinity_pred_deseason)
@@ -1645,26 +1898,42 @@ def create_missing_salinity_plots(ds_groundtruth: xr.Dataset,
             coeffs_salinity_pred_trend = np.polyfit(
                 np.arange(salinity_pred_deseason.size), salinity_pred_deseason, 1
             )
-            trend_line = np.arange(salinity_pred_deseason.size) * coeffs_salinity_pred_trend[0] + coeffs_salinity_pred_trend[1]
-            ax.plot(salinity_pred_deseason.time, trend_line, c=clist[i % len(clist)], linestyle='--')
+            trend_line = (
+                np.arange(salinity_pred_deseason.size) * coeffs_salinity_pred_trend[0]
+                + coeffs_salinity_pred_trend[1]
+            )
+            ax.plot(
+                salinity_pred_deseason.time,
+                trend_line,
+                c=clist[i % len(clist)],
+                linestyle="--",
+            )
 
     # Plot ground truth
-    coeffs_salinity_trend = np.polyfit(np.arange(salinity_deseason.size), salinity_deseason, 1)
+    coeffs_salinity_trend = np.polyfit(
+        np.arange(salinity_deseason.size), salinity_deseason, 1
+    )
     salinity_deseason.plot(ax=ax, label=dataset_name, c="k")
-    trend_line_gt = np.arange(salinity_deseason.size) * coeffs_salinity_trend[0] + coeffs_salinity_trend[1]
-    ax.plot(salinity_deseason.time, trend_line_gt, c="k", linestyle='--')
+    trend_line_gt = (
+        np.arange(salinity_deseason.size) * coeffs_salinity_trend[0]
+        + coeffs_salinity_trend[1]
+    )
+    ax.plot(salinity_deseason.time, trend_line_gt, c="k", linestyle="--")
 
     ax.legend(ncol=3)
     ax.set_title("")
 
     plt.savefig(
         os.path.join(directories["salinity"], "salinity_deseasonalized.png"),
-        bbox_inches="tight", dpi=600
+        bbox_inches="tight",
+        dpi=600,
     )
     plt.close()
 
 
-def get_basin_datasets(ds: xr.DataArray, ds_groundtruth: xr.Dataset, basin_masks: xr.Dataset) -> Tuple[List[xr.DataArray], List[str]]:
+def get_basin_datasets(
+    ds: xr.DataArray, ds_groundtruth: xr.Dataset, basin_masks: xr.Dataset
+) -> tuple[list[xr.DataArray], list[str]]:
     """
     Split data by ocean basin and compute area-weighted meridional averages.
 
@@ -1702,12 +1971,14 @@ def get_basin_datasets(ds: xr.DataArray, ds_groundtruth: xr.Dataset, basin_masks
     return basin_data, basin_titles
 
 
-def ocean_temperature_profile(datasets: List[xr.DataArray],
-                             titles: List[str],
-                             plot_title: str,
-                             output_path: str,
-                             vmin: float = -0.3,
-                             vmax: float = 0.3) -> None:
+def ocean_temperature_profile(
+    datasets: list[xr.DataArray],
+    titles: list[str],
+    plot_title: str,
+    output_path: str,
+    vmin: float = -0.3,
+    vmax: float = 0.3,
+) -> None:
     """
     Create vertical temperature profile plots by ocean basin.
 
@@ -1722,7 +1993,9 @@ def ocean_temperature_profile(datasets: List[xr.DataArray],
     directories = create_spatial_directories(output_path)
 
     fig, axs = plt.subplots(
-        2, 3, figsize=(16, 6),
+        2,
+        3,
+        figsize=(16, 6),
         gridspec_kw={
             "width_ratios": [0.05] * 3,
             "height_ratios": [0.05] * 2,
@@ -1755,7 +2028,11 @@ def ocean_temperature_profile(datasets: List[xr.DataArray],
     cbar = fig.colorbar(im, ax=ax[:], orientation="vertical", fraction=0.02, pad=0.02)
     cbar.set_label(r"$\theta_O$ [$\degree C$]")
 
-    plt.savefig(os.path.join(directories["temperature"], f"{plot_title}.png"), bbox_inches="tight", dpi=600)
+    plt.savefig(
+        os.path.join(directories["temperature"], f"{plot_title}.png"),
+        bbox_inches="tight",
+        dpi=600,
+    )
     plt.close()
 
 
@@ -1791,33 +2068,49 @@ def _deprecated_create_missing_temperature_profile_plots():
         n_times = len(ds_groundtruth["thetao"].time)
         year_length = min(73, n_times // 6)  # Adapt to actual data size
 
-        print(f"⏰ Using time slices: first {year_length} vs last {year_length} timesteps")
+        print(
+            f"⏰ Using time slices: first {year_length} vs last {year_length} timesteps"
+        )
 
         # 1. CM4 (Last Year - First Year) - simplified without climatology removal
         print("📈 Computing CM4 temperature change...")
-        CM4_last = ds_groundtruth["thetao"].isel(time=slice(-year_length, None)).mean(dim="time")
-        CM4_first = ds_groundtruth["thetao"].isel(time=slice(0, year_length)).mean(dim="time")
+        CM4_last = (
+            ds_groundtruth["thetao"]
+            .isel(time=slice(-year_length, None))
+            .mean(dim="time")
+        )
+        CM4_first = (
+            ds_groundtruth["thetao"].isel(time=slice(0, year_length)).mean(dim="time")
+        )
         CM4_lastyear_change = CM4_last - CM4_first
 
         # Create simple basin-averaged plots instead of complex basin analysis
         print("🗺️ Creating CM4 profile plot...")
-        create_simple_temperature_profile(CM4_lastyear_change, f"{dataset_name} (Last Year - First Year)", output_path)
+        create_simple_temperature_profile(
+            CM4_lastyear_change, f"{dataset_name} (Last Year - First Year)", output_path
+        )
 
         # 2. Prediction (Last Year - First Year)
         print("📈 Computing prediction temperature change...")
-        pred_last = ds_pred["thetao"].isel(time=slice(-year_length, None)).mean(dim="time")
+        pred_last = (
+            ds_pred["thetao"].isel(time=slice(-year_length, None)).mean(dim="time")
+        )
         pred_first = ds_pred["thetao"].isel(time=slice(0, year_length)).mean(dim="time")
         pred_lastyear_change = pred_last - pred_first
 
         print("🗺️ Creating prediction profile plot...")
-        create_simple_temperature_profile(pred_lastyear_change, f"{pred_name} (Last Year - First Year)", output_path)
+        create_simple_temperature_profile(
+            pred_lastyear_change, f"{pred_name} (Last Year - First Year)", output_path
+        )
 
         # 3. Bias (Last Year - First Year)
         print("📊 Computing bias...")
         bias_lastyear_change = pred_lastyear_change - CM4_lastyear_change
 
         print("🗺️ Creating bias profile plot...")
-        create_simple_temperature_profile(bias_lastyear_change, "(Last Year - First Year) Bias", output_path)
+        create_simple_temperature_profile(
+            bias_lastyear_change, "(Last Year - First Year) Bias", output_path
+        )
 
         print("✅ Temperature profile plots completed successfully!")
 
@@ -1827,7 +2120,9 @@ def _deprecated_create_missing_temperature_profile_plots():
         return
 
 
-def create_simple_temperature_profile(temp_data: xr.DataArray, plot_title: str, output_path: str) -> None:
+def create_simple_temperature_profile(
+    temp_data: xr.DataArray, plot_title: str, output_path: str
+) -> None:
     """
     Create a simplified temperature profile plot (global average).
 
@@ -1849,12 +2144,7 @@ def create_simple_temperature_profile(temp_data: xr.DataArray, plot_title: str, 
 
         # Plot as simple contour
         im = temp_zonal_mean.plot(
-            ax=ax,
-            y="lev",
-            cmap="RdBu_r",
-            vmin=-0.5,
-            vmax=0.5,
-            add_colorbar=False
+            ax=ax, y="lev", cmap="RdBu_r", vmin=-0.5, vmax=0.5, add_colorbar=False
         )
 
         ax.invert_yaxis()
@@ -1866,25 +2156,42 @@ def create_simple_temperature_profile(temp_data: xr.DataArray, plot_title: str, 
         plt.colorbar(im, ax=ax, label="Temperature Change (°C)")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(directories["temperature"], f"{plot_title}.png"), dpi=300, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(directories["temperature"], f"{plot_title}.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
     except Exception as e:
         print(f"⚠️ Simplified temperature profile plot failed for {plot_title}: {e}")
         # Create minimal placeholder plot
         fig, ax = plt.subplots(1, 1, figsize=(8, 6))
-        ax.text(0.5, 0.5, f"Temperature Profile\n{plot_title}\n(Data processing error)",
-                ha='center', va='center', transform=ax.transAxes, fontsize=12)
+        ax.text(
+            0.5,
+            0.5,
+            f"Temperature Profile\n{plot_title}\n(Data processing error)",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            fontsize=12,
+        )
         ax.set_title(plot_title)
-        plt.savefig(os.path.join(directories["temperature"], f"{plot_title}.png"), dpi=300, bbox_inches='tight')
+        plt.savefig(
+            os.path.join(directories["temperature"], f"{plot_title}.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
         plt.close()
 
 
-def generate_all_spatial_plots(ds_groundtruth: xr.Dataset,
-                              pred_dict: Dict[str, Dict],
-                              basin_masks: xr.Dataset,
-                              output_path: str,
-                              titles: List[str]) -> None:
+def generate_all_spatial_plots(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict],
+    basin_masks: xr.Dataset,
+    output_path: str,
+    titles: list[str],
+) -> None:
     """
     Generate all spatial visualization plots.
 
@@ -1909,12 +2216,16 @@ def generate_all_spatial_plots(ds_groundtruth: xr.Dataset,
 
     # Create upper ocean OHC Basin plots
     print("🏄 Creating upper ocean OHC basin plots...")
-    create_ohc_basin_upper_plots(ds_groundtruth, pred_dict, basin_masks, output_path, titles)
+    create_ohc_basin_upper_plots(
+        ds_groundtruth, pred_dict, basin_masks, output_path, titles
+    )
     print("✅ Upper ocean OHC basin plots completed")
 
     # Create comprehensive temperature analysis plots (SST + profiles)
     print("🌡️ Creating comprehensive temperature analysis plots...")
-    create_sst_analysis_plots(ds_groundtruth, pred_dict, output_path, titles, basin_masks)
+    create_sst_analysis_plots(
+        ds_groundtruth, pred_dict, output_path, titles, basin_masks
+    )
     print("✅ Comprehensive temperature analysis plots completed")
 
     # Create salinity plots
@@ -1924,7 +2235,9 @@ def generate_all_spatial_plots(ds_groundtruth: xr.Dataset,
 
     # Create basin comparison plots
     print("🗺️ Creating basin comparison plots...")
-    create_basin_comparison_plots(ds_groundtruth, pred_dict, basin_masks, output_path, titles)
+    create_basin_comparison_plots(
+        ds_groundtruth, pred_dict, basin_masks, output_path, titles
+    )
     print("✅ Basin comparison plots completed")
 
     # Create missing salinity plots

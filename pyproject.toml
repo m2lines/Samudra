@@ -1,7 +1,7 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 
-requires = ["setuptools", "wheel"]
+requires = [ "setuptools", "wheel" ]
 
 [project]
 name = "ocean-emulators"
@@ -9,110 +9,110 @@ version = "1.0"
 
 description = "Train and evaluate ocean model emulators"
 readme = "README.md"
-keywords = ["climate", "emulation", "machine learning", "ocean"]
+keywords = [ "climate", "emulation", "machine learning", "ocean" ]
 license = { file = "LICENSE" }
 requires-python = ">=3.11"
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "aiohttp>=3.11.13",
-    "cftime>=1.6.4.post1",
-    "dacite>=1.9.2",
-    "dask>=2025.2",
-    "einops>=0.8.1",
-    "jaxtyping>=0.3",
-    "matplotlib>=3.10.1",
-    "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
-    "pydantic-settings>=2.8.1",
-    "pytest-xdist[psutil]>=3.6.1",
-    "pyyaml>=6.0.2",
-    "requests>=2.32.3",
-    "s3fs>=2025.5.1",
-    "scipy>=1.15.2",
-    "torch~=2.2.1",
-    "torchinfo>=1.8",
-    "wandb>=0.19.8",
-    "xarray[io]>=2025.1.2",
-    "xarray-einstats[einops]>=0.8",
-    "xesmf>=0.8.10",
-    "zarr<3",
+  "aiohttp>=3.11.13",
+  "cftime>=1.6.4.post1",
+  "dacite>=1.9.2",
+  "dask>=2025.2",
+  "einops>=0.8.1",
+  "jaxtyping>=0.3",
+  "matplotlib>=3.10.1",
+  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
+  "pydantic-settings>=2.8.1",
+  "pytest-xdist[psutil]>=3.6.1",
+  "pyyaml>=6.0.2",
+  "requests>=2.32.3",
+  "s3fs>=2025.5.1",
+  "scipy>=1.15.2",
+  "torch~=2.2.1",
+  "torchinfo>=1.8",
+  "wandb>=0.19.8",
+  "xarray[io]>=2025.1.2",
+  "xarray-einstats[einops]>=0.8",
+  "xesmf>=0.8.10",
+  "zarr<3",
 ]
 
 [dependency-groups]
 dev = [
-    "beartype>=0.20",
-    "coiled>=1.99",
-    "cartopy>=0.24.1",
-    "cmocean>=4.0.3",
-    "fsspec>=2025.3",
-    "hypothesis[numpy]>=6.127.2",
-    "ipykernel>=6.29.5",
-    "jupyter>=1.1.1",
-    "lineapy>=0.2.3",
-    "memray>=1.17.1",
-    "mypy>=1.15",
-    "nc-time-axis>=1.4.1",
-    "py-spy>=0.4",
-    "pytest>=8.3.4",
-    "pytest-benchmark[histogram]>=5.1",
-    "pytest-profiling>=1.8.1",
-    "s3fs>=2025.3",
-    "scalene>=1.5.51",
-    "snakeviz>=2.2.2",
-    "tenacity>=9",
-    "tqdm>=4.67.1",
-    "types-pyyaml>=6.0.12.20241230",
-    "xarrayutils>=2.0.1",
-    "pytest-timeout>=2.4.0",
+  "beartype>=0.20",
+  "cartopy>=0.24.1",
+  "cmocean>=4.0.3",
+  "coiled>=1.99",
+  "fsspec>=2025.3",
+  "hypothesis[numpy]>=6.127.2",
+  "ipykernel>=6.29.5",
+  "jupyter>=1.1.1",
+  "lineapy>=0.2.3",
+  "memray>=1.17.1",
+  "mypy>=1.15",
+  "nc-time-axis>=1.4.1",
+  "py-spy>=0.4",
+  "pytest>=8.3.4",
+  "pytest-benchmark[histogram]>=5.1",
+  "pytest-profiling>=1.8.1",
+  "pytest-timeout>=2.4",
+  "s3fs>=2025.3",
+  "scalene>=1.5.51",
+  "snakeviz>=2.2.2",
+  "tenacity>=9",
+  "tqdm>=4.67.1",
+  "types-pyyaml>=6.0.12.20241230",
+  "xarrayutils>=2.0.1",
 ]
 
 [tool.ruff]
-lint.select = ["D", "E", "F", "I", "UP", "W"]
+lint.select = [ "D", "E", "F", "I", "UP", "W" ]
 # F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 lint.ignore = [
-    "D1",
-    "D200",
-    "D205",
-    "D212",
-    "E203",
-    "E402",
-    "F541",
-    "F722",
-    "UP038", # This rule is deprecated.
-    "W293",
+  "D1",
+  "D200",
+  "D205",
+  "D212",
+  "E203",
+  "E402",
+  "F541",
+  "F722",
+  "UP038", # This rule is deprecated.
+  "W293",
 ]
-lint.per-file-ignores."*/__init__.py" = ["F401"]
-lint.per-file-ignores."scripts/*" = ["D"]
-lint.per-file-ignores."test_*.py" = ["D"]
+lint.per-file-ignores."*/__init__.py" = [ "F401" ]
+lint.per-file-ignores."scripts/*" = [ "D" ]
+lint.per-file-ignores."test_*.py" = [ "D" ]
 lint.isort.split-on-trailing-comma = false
 lint.pydocstyle.convention = "google"
 
 [tool.pytest.ini_options]
 markers = [
-    "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
-    "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
-    "only_configs: used to mark tests that only run on specific configs (not used on command line)",
-    "all_configs: used to mark tests that run on all configs (not used on command line)",
+  "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
+  "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
+  "only_configs: used to mark tests that only run on specific configs (not used on command line)",
+  "all_configs: used to mark tests that run on all configs (not used on command line)",
 ]
-pythonpath = ["src"]
-testpaths = ["tests"]
+pythonpath = [ "src" ]
+testpaths = [ "tests" ]
 addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers --timeout=3000"
 
 [tool.mypy]
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["cftime.*", "scipy.*", "fsspec.*"]
+module = [ "cftime.*", "scipy.*", "fsspec.*" ]
 follow_untyped_imports = true
 
 [tool.pixi.workspace]
-channels = ["conda-forge"]
-platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+channels = [ "conda-forge" ]
+platforms = [ "linux-64", "osx-arm64", "osx-64", "win-64" ]

@@ -5,12 +5,11 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import pytest
-import xarray as xr
-from PIL import Image, ImageChops
+from PIL import Image
 
 
 class VizSnapshotTester:
@@ -21,7 +20,7 @@ class VizSnapshotTester:
         self.snapshot_dir = Path("tests/snapshots") / test_name
         self.snapshot_dir.mkdir(parents=True, exist_ok=True)
 
-    def capture_outputs(self, output_dir: Path) -> Dict[str, Any]:
+    def capture_outputs(self, output_dir: Path) -> dict[str, Any]:
         """Capture all outputs from viz.py execution."""
         outputs = {
             "plots": self._capture_plots(output_dir),
@@ -31,7 +30,7 @@ class VizSnapshotTester:
         }
         return outputs
 
-    def _capture_plots(self, output_dir: Path) -> Dict[str, str]:
+    def _capture_plots(self, output_dir: Path) -> dict[str, str]:
         """Capture plot files and their hashes."""
         plots = {}
         for plot_file in output_dir.rglob("*.png"):
@@ -39,7 +38,7 @@ class VizSnapshotTester:
             plots[str(rel_path)] = self._hash_image(plot_file)
         return plots
 
-    def _capture_data_files(self, output_dir: Path) -> Dict[str, str]:
+    def _capture_data_files(self, output_dir: Path) -> dict[str, str]:
         """Capture data files and their hashes."""
         data_files = {}
         for data_file in output_dir.rglob("*.txt"):
@@ -47,14 +46,14 @@ class VizSnapshotTester:
             data_files[str(rel_path)] = self._hash_file(data_file)
         return data_files
 
-    def _capture_metrics(self, output_dir: Path) -> Dict[str, Any]:
+    def _capture_metrics(self, output_dir: Path) -> dict[str, Any]:
         """Capture numerical metrics from output files."""
         metrics = {}
 
         # Look for text files with metrics
         for txt_file in output_dir.rglob("*.txt"):
             try:
-                with open(txt_file, "r") as f:
+                with open(txt_file) as f:
                     content = f.read()
                     # Extract numerical values from the content
                     rel_path = txt_file.relative_to(output_dir)
@@ -64,7 +63,7 @@ class VizSnapshotTester:
 
         return metrics
 
-    def _capture_file_structure(self, output_dir: Path) -> Dict[str, List[str]]:
+    def _capture_file_structure(self, output_dir: Path) -> dict[str, list[str]]:
         """Capture the directory structure and file listing."""
         structure = {}
         for root, dirs, files in os.walk(output_dir):
@@ -93,7 +92,7 @@ class VizSnapshotTester:
         with open(file_path, "rb") as f:
             return hashlib.md5(f.read()).hexdigest()
 
-    def _extract_numbers(self, text: str) -> List[float]:
+    def _extract_numbers(self, text: str) -> list[float]:
         """Extract numerical values from text."""
         import re
 
@@ -101,14 +100,14 @@ class VizSnapshotTester:
         numbers = re.findall(r"-?\d+\.?\d*(?:[eE][+-]?\d+)?", text)
         return [float(n) for n in numbers if n]
 
-    def save_snapshot(self, outputs: Dict[str, Any]):
+    def save_snapshot(self, outputs: dict[str, Any]):
         """Save outputs as a snapshot."""
         snapshot_file = self.snapshot_dir / "snapshot.json"
         with open(snapshot_file, "w") as f:
             json.dump(outputs, f, indent=2, default=str)
         print(f"Snapshot saved to {snapshot_file}")
 
-    def compare_with_snapshot(self, current_outputs: Dict[str, Any]) -> bool:
+    def compare_with_snapshot(self, current_outputs: dict[str, Any]) -> bool:
         """Compare current outputs with saved snapshot."""
         snapshot_file = self.snapshot_dir / "snapshot.json"
 
@@ -116,18 +115,18 @@ class VizSnapshotTester:
             print(f"No snapshot found at {snapshot_file}")
             return False
 
-        with open(snapshot_file, "r") as f:
+        with open(snapshot_file) as f:
             saved_outputs = json.load(f)
 
         return self._compare_outputs(saved_outputs, current_outputs)
 
     def compare_with_config_expected(
-        self, current_outputs: Dict[str, Any], expected_outputs: Dict[str, List[str]]
+        self, current_outputs: dict[str, Any], expected_outputs: dict[str, list[str]]
     ) -> bool:
         """Compare current outputs against config-defined expected outputs."""
         return self._compare_config_outputs(expected_outputs, current_outputs)
 
-    def _compare_outputs(self, saved: Dict[str, Any], current: Dict[str, Any]) -> bool:
+    def _compare_outputs(self, saved: dict[str, Any], current: dict[str, Any]) -> bool:
         """Compare two output dictionaries."""
         if saved.keys() != current.keys():
             print(f"Different output categories: {saved.keys()} vs {current.keys()}")
@@ -152,7 +151,7 @@ class VizSnapshotTester:
         else:
             return saved == current
 
-    def _compare_plots(self, saved: Dict[str, str], current: Dict[str, str]) -> bool:
+    def _compare_plots(self, saved: dict[str, str], current: dict[str, str]) -> bool:
         """Compare plot hashes."""
         if saved.keys() != current.keys():
             print(f"Different plot files: {saved.keys()} vs {current.keys()}")
@@ -166,7 +165,7 @@ class VizSnapshotTester:
         return True
 
     def _compare_data_files(
-        self, saved: Dict[str, str], current: Dict[str, str]
+        self, saved: dict[str, str], current: dict[str, str]
     ) -> bool:
         """Compare data file hashes."""
         if saved.keys() != current.keys():
@@ -181,7 +180,7 @@ class VizSnapshotTester:
         return True
 
     def _compare_metrics(
-        self, saved: Dict[str, List[float]], current: Dict[str, List[float]]
+        self, saved: dict[str, list[float]], current: dict[str, list[float]]
     ) -> bool:
         """Compare numerical metrics with tolerance."""
         if saved.keys() != current.keys():
@@ -206,7 +205,7 @@ class VizSnapshotTester:
         return True
 
     def _compare_file_structure(
-        self, saved: Dict[str, List[str]], current: Dict[str, List[str]]
+        self, saved: dict[str, list[str]], current: dict[str, list[str]]
     ) -> bool:
         """Compare file structure."""
         if saved.keys() != current.keys():
@@ -223,7 +222,7 @@ class VizSnapshotTester:
         return True
 
     def _compare_config_outputs(
-        self, expected: Dict[str, List[str]], current: Dict[str, Any]
+        self, expected: dict[str, list[str]], current: dict[str, Any]
     ) -> bool:
         """Compare current outputs against config-defined expected outputs."""
         print(f"Checking expected plots: {expected.get('plots', [])}")
@@ -290,7 +289,6 @@ def test_viz_baseline_snapshot(temp_output_dir, snapshot_tester):
     """
     print("Using existing gold outputs as baseline...")
 
-    import shutil
     from pathlib import Path
 
     # Copy the existing gold outputs to our test directory
@@ -355,6 +353,7 @@ def test_minimal_zos_only():
     """
     import tempfile
     from pathlib import Path
+
     from ocean_emulators.viz_modules.config import VizConfig
     from ocean_emulators.viz_modules.main import run_visualization_pipeline
 
@@ -406,7 +405,7 @@ def test_minimal_zos_only():
             raise
 
 
-def run_refactored_viz_script(output_dir: Path, config=None) -> Dict[str, Any]:
+def run_refactored_viz_script(output_dir: Path, config=None) -> dict[str, Any]:
     """Execute the refactored viz.py script and return outputs."""
     from ocean_emulators.viz import run_viz_analysis
 

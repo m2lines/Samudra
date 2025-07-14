@@ -1,8 +1,10 @@
 """Data processing module for ocean visualization."""
 
 from copy import deepcopy
+
 import numpy as np
 import xarray as xr
+
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 from ocean_emulators.utils.data import spherical_area_weights
 
@@ -10,13 +12,13 @@ from ocean_emulators.utils.data import spherical_area_weights
 def rename_vars(data: xr.Dataset) -> xr.Dataset:
     """
     Rename variables if required.
-    
+
     Converts OM4 data format variables from: var_lev_depthlevel (e.g., so_lev_1040_0)
     to: var_depthlevelidx (e.g., so_0)
-    
+
     Args:
         data: Input dataset with OM4 format variable names
-        
+
     Returns:
         Dataset with renamed variables
     """
@@ -55,7 +57,9 @@ def _combine_variables_by_level(ds: xr.Dataset, combine_vars: list) -> xr.Datase
     return ds
 
 
-def combine_variables_by_level(ds_groundtruth: xr.Dataset, pred_dict: dict, combine_ground: bool = True) -> tuple[xr.Dataset, dict]:
+def combine_variables_by_level(
+    ds_groundtruth: xr.Dataset, pred_dict: dict, combine_ground: bool = True
+) -> tuple[xr.Dataset, dict]:
     """
     Combine variables by level for ground truth and predictions.
 
@@ -78,11 +82,17 @@ def combine_variables_by_level(ds_groundtruth: xr.Dataset, pred_dict: dict, comb
     return ds_groundtruth, pred_dict
 
 
-def _postprocess_for_plot(ds: xr.Dataset, areacello: np.ndarray, dz: np.ndarray, 
-                         times: xr.DataArray, wetmask: xr.DataArray, coords=None) -> xr.Dataset:
+def _postprocess_for_plot(
+    ds: xr.Dataset,
+    areacello: np.ndarray,
+    dz: np.ndarray,
+    times: xr.DataArray,
+    wetmask: xr.DataArray,
+    coords=None,
+) -> xr.Dataset:
     """
     Postprocess the dataset to make it compatible with plotting functions.
-    
+
     Args:
         ds: Input dataset
         areacello: Area weights array
@@ -90,7 +100,7 @@ def _postprocess_for_plot(ds: xr.Dataset, areacello: np.ndarray, dz: np.ndarray,
         times: Time coordinates
         wetmask: Wet mask for land/ocean
         coords: Additional coordinates to assign
-        
+
     Returns:
         Postprocessed dataset
     """
@@ -98,7 +108,7 @@ def _postprocess_for_plot(ds: xr.Dataset, areacello: np.ndarray, dz: np.ndarray,
     ds["time"] = times
     if coords is not None:
         ds = ds.assign_coords(coords)
-    
+
     # Add units and labels for plotting
     if "thetao" in ds.data_vars:
         ds["thetao"] = ds["thetao"].assign_attrs(
@@ -129,8 +139,9 @@ def _postprocess_for_plot(ds: xr.Dataset, areacello: np.ndarray, dz: np.ndarray,
     return ds
 
 
-def postprocess_for_plot(ds_groundtruth: xr.Dataset, areacello: xr.DataArray, 
-                        dz: np.ndarray, pred_dict: dict) -> tuple[xr.Dataset, dict]:
+def postprocess_for_plot(
+    ds_groundtruth: xr.Dataset, areacello: xr.DataArray, dz: np.ndarray, pred_dict: dict
+) -> tuple[xr.Dataset, dict]:
     """
     Postprocess for plotting.
 
@@ -182,51 +193,51 @@ def postprocess_for_plot(ds_groundtruth: xr.Dataset, areacello: xr.DataArray,
 def load_prediction_data(pred_dict: dict) -> dict:
     """
     Load prediction data from the configured paths.
-    
+
     Args:
         pred_dict: Dictionary containing prediction configuration
-        
+
     Returns:
         Updated prediction dictionary with loaded datasets
     """
     copy_dict = deepcopy(pred_dict)
-    
+
     for key in pred_dict.keys():
         ds_prediction = xr.open_zarr(
             pred_dict[key]["path"], chunks={"time": 10, "lat": 180, "lon": 360}
         )
-        
+
         if "model_path" in ds_prediction.attrs:
             copy_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
 
         pred_dict[key]["ds_prediction"] = ds_prediction
-    
+
     return pred_dict
 
 
 def process_data(data: xr.Dataset, pred_dict: dict) -> tuple[xr.Dataset, dict]:
     """
     Get plot ready OM4 data.
-    
+
     Main data processing pipeline that:
     1. Renames variables from OM4 format
     2. Loads prediction data
     3. Combines variables by level
     4. Postprocesses for plotting
-    
+
     Args:
         data: Ground truth dataset
         pred_dict: Dictionary containing prediction configuration
-        
+
     Returns:
         Tuple of (processed ground truth dataset, processed prediction dictionary)
     """
     # Rename variables from OM4 format
     ds_groundtruth = rename_vars(data)
-    
+
     # Load prediction data
     pred_dict = load_prediction_data(pred_dict)
-    
+
     # Validate time dimensions match
     for key in pred_dict.keys():
         ds_prediction = pred_dict[key]["ds_prediction"]
@@ -235,7 +246,7 @@ def process_data(data: xr.Dataset, pred_dict: dict) -> tuple[xr.Dataset, dict]:
             f"{ds_groundtruth.time.size}; prediction range is {ds_prediction.time.values[0]} to {ds_prediction.time.values[-1]}"
             f"groundtruth range is {ds_groundtruth.time.values[0]} to {ds_groundtruth.time.values[-1]}"
         )
-    
+
     # Combine variables by level
     ds_groundtruth, pred_dict = combine_variables_by_level(ds_groundtruth, pred_dict)
 
@@ -250,10 +261,10 @@ def process_data(data: xr.Dataset, pred_dict: dict) -> tuple[xr.Dataset, dict]:
 def load_groundtruth_data(data_path: str) -> xr.Dataset:
     """
     Load and prepare ground truth data.
-    
+
     Args:
         data_path: Path to the ground truth data
-        
+
     Returns:
         Loaded ground truth dataset with area weights
     """
@@ -265,25 +276,27 @@ def load_groundtruth_data(data_path: str) -> xr.Dataset:
     groundtruth_rollout = groundtruth_rollout.sel(
         time=slice("2014-10-20", "2022-12-24")
     )  # These dates are not the eval dates, they are the dates from the rollout
-    
+
     if "y" in groundtruth_rollout.coords:
-        groundtruth_rollout = groundtruth_rollout.drop_vars(["lat", "lon"], errors="ignore")
+        groundtruth_rollout = groundtruth_rollout.drop_vars(
+            ["lat", "lon"], errors="ignore"
+        )
         groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
 
     groundtruth_rollout = groundtruth_rollout.assign(
         areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
     )
-    
+
     return groundtruth_rollout
 
 
 def load_basin_data(basin_path: str) -> xr.Dataset:
     """
     Load basin mask data.
-    
+
     Args:
         basin_path: Path to the basin mask data
-        
+
     Returns:
         Loaded basin dataset
     """
@@ -293,10 +306,10 @@ def load_basin_data(basin_path: str) -> xr.Dataset:
 def remove_climatology(ds: xr.Dataset) -> xr.Dataset:
     """
     Remove seasonal climatology from the dataset.
-    
+
     Args:
         ds: Input dataset
-        
+
     Returns:
         Dataset with climatology removed
     """

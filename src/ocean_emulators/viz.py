@@ -2,12 +2,12 @@
 
 import os
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Any
 
 from ocean_emulators.viz_modules import run_visualization_pipeline
 
 
-def get_default_config() -> Dict[str, Any]:
+def get_default_config() -> dict[str, Any]:
     """Get the default configuration for visualization."""
     pred_dict = {}
     pred_dict["pred_1"] = {
@@ -26,7 +26,7 @@ def get_default_config() -> Dict[str, Any]:
         + "_"
         + "_".join([pred_dict[k]["run_name"] for k in pred_dict.keys()])
     )
-    
+
     return {
         "dataset_name": "OM4",
         "pred_dict": pred_dict,
@@ -34,31 +34,33 @@ def get_default_config() -> Dict[str, Any]:
         "levels": levels,
         "output_path": output_path,
         "groundtruth_path": "/data/public/OM4.zarr",
-        "basin_path": "/data/basins/basin_masks_original.zarr"
+        "basin_path": "/data/basins/basin_masks_original.zarr",
     }
 
 
-def run_viz_analysis(config: Optional[Dict[str, Any]] = None, minimal: bool = False) -> str:
+def run_viz_analysis(
+    config: dict[str, Any] | None = None, minimal: bool = False
+) -> str:
     """
     Run the visualization analysis pipeline.
-    
+
     Args:
         config: Configuration dictionary. If None, uses default config.
         minimal: If True, run minimal analysis for testing
-        
+
     Returns:
         Path to the output directory where visualizations are saved.
     """
     if config is None:
         config = get_default_config()
-    
+
     # Set up environment
     os.environ["FSSPEC_S3_ENDPOINT_URL"] = "https://nyu1.osn.mghpcc.org"
     os.environ["AWS_PROFILE"] = "m2l"
-    
+
     # Run the visualization pipeline
     output_path = run_visualization_pipeline(config, minimal=minimal)
-    
+
     return output_path
 
 

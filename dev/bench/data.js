@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752504045492,
+  "lastUpdate": 1752504046577,
   "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4666,6 +4666,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.13693051921621888",
             "extra": "mean: 64.11682161940003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3683713b49d46850d0f38310c278c7e1b78de68a",
+          "message": "Improvements from trying to understand the model (#296)\n\n* Makes the model summary include grid sizes by delaying calling it\nuntil we have data to run a forward pass (this will probably slow down\nbenchmarks but we can ignore)\n* This required making TrainData a typing.Mapping to satisfy the summary\nfunction (though this still isn't perfect, it somehow can't figure out\nhow much memory it uses)\n* When debug = true, include all the layers not just top ones\n* Rename and add type annotations to the core samudra model.",
+          "timestamp": "2025-07-14T10:15:12-04:00",
+          "tree_id": "aa79754e00d8aefa067e3de159cde356a2d9ddb0",
+          "url": "https://github.com/LaureZanna/Ocean_Emulator/commit/3683713b49d46850d0f38310c278c7e1b78de68a"
+        },
+        "date": 1752504046110,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2925501522377736,
+            "unit": "iter/sec",
+            "range": "stddev: 0.038409179874388646",
+            "extra": "mean: 773.6643706000223 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07198145383388076,
+            "unit": "iter/sec",
+            "range": "stddev: 0.38653558868383014",
+            "extra": "mean: 13.892467389000036 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1964246867691096,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07375063724142698",
+            "extra": "mean: 5.091009772999996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.015678897487895763,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12133223801546983",
+            "extra": "mean: 63.779994784200106 sec\nrounds: 5"
           }
         ]
       }

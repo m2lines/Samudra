@@ -234,8 +234,6 @@ class Trainer:
         else:
             raise NotImplementedError
 
-        get_model_summary(model, self.num_in)
-
         self.model = model
         self.nets_dir = cfg.experiment.nets_dir
         self.network = cfg.experiment.network
@@ -522,6 +520,10 @@ class Trainer:
 
             self.optimizer.zero_grad()
             data.to(self.device)
+
+            if self.num_batches_seen == 0:
+                get_model_summary(self.model, data, self.debug)
+
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()
             self._ema(model=self.model)

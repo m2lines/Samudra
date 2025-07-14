@@ -95,7 +95,7 @@ if __name__ == "__main__":
         default=None,
         help="end index for data.isel() along time dimension.",
     )
-    parser.add_argument("--write_time_chunks", type=int, default=10)
+    parser.add_argument("--write_time_chunks", type=int, default=1)
     parser.add_argument("--compact_variables", action="store_true")
     parser.add_argument("--local_cluster", action="store_true")
 

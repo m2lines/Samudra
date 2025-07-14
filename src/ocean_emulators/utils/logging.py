@@ -7,6 +7,7 @@ import time
 import traceback
 import warnings
 from collections import defaultdict, deque
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -208,11 +209,13 @@ class MetricLogger:
         )
 
 
-def get_model_summary(model: torch.nn.Module, num_input_channels: int):
+def get_model_summary(model: torch.nn.Module, data: Mapping | None, debug: bool):
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     logging.info(f"Number of parameters: {params}")
-    logging.info(summary(model))
+    depth = 10 if debug else 2
+    # we pass verbose = 0 because we log the summary ourselves
+    logging.info(summary(model, input_data=[data], depth=depth, verbose=0))
 
 
 def elapsed(func=None, *, level: int = logging.INFO):

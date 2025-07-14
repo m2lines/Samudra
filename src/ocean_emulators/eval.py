@@ -21,12 +21,10 @@ from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
-    DataSource,
     Normalize,
     extract_wet_mask,
     get_inference_steps,
     spherical_area_weights,
-    validate_data,
 )
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import is_main_process, set_seed
@@ -91,20 +89,14 @@ class Eval:
 
         # Dataloaders
         logger.info(f"Loading data")
-        self.data_dir = cfg.experiment.resolved_data_root
-        self.data_location = cfg.data.data_location
-        self.data_means_location = cfg.data.data_means_location
-        self.data_stds_location = cfg.data.data_stds_location
-        self.scaling_residuals_file = cfg.data.scaling_residuals_file
-
-        raw = DataSource.from_config(cfg, use_dask=True)
-        self.src = validate_data(
-            raw, self.boundary_var_names, cfg.data.static_data_vars
+        self.data_container = cfg.data.build(
+            cfg.experiment.resolved_data_root,
+            self.boundary_var_names,
         )
+
+        self.src = self.data_container.source_using_dask
         self.data = self.src.data
-        self.static_data = None
-        if cfg.data.static_data_vars is not None:
-            self.static_data = self.data[cfg.data.static_data_vars]
+        self.static_data = self.data_container.static_data
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
@@ -150,7 +142,7 @@ class Eval:
         else:
             raise NotImplementedError
 
-        get_model_summary(model, self.num_in)
+        get_model_summary(model, None, cfg.debug)
 
         self.model = model
         if cfg.ckpt_path is None:

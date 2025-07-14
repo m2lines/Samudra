@@ -31,12 +31,7 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
-from ocean_emulators.utils.data import (
-    DataSource,
-    Normalize,
-    extract_wet_mask,
-    validate_data,
-)
+from ocean_emulators.utils.data import DataSource, Normalize, extract_wet_mask
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
@@ -59,21 +54,25 @@ def make_loader(
     if time_config is None:
         time_config = cfg.train_time
 
-    if version is None:
-        version = LoaderVersion(cfg.data.loader_version)
-
-    use_dask = version != LoaderVersion.OM4_TORCH
-    raw = DataSource.from_config(cfg, use_dask=use_dask)
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
-    if raw.is_compact and version != LoaderVersion.OM4_TORCH:
+
+    data_config = (
+        cfg.data
+        if version is None
+        else cfg.data.model_copy(update={"loader_version": str(version.value)})
+    )
+
+    container = data_config.build(cfg.experiment.resolved_data_root, boundary)
+    version = container.loader_version
+    src = container.source
+    if src.is_compact and version != LoaderVersion.OM4_TORCH:
         pytest.skip(f"{version} does not support compact data.")
 
     with MultitonScope():
         TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
-        src = validate_data(raw, boundary)
         wet, wet_surface = extract_wet_mask(src.data, prognostic, cfg.data.hist)
         wet_without_hist, _ = extract_wet_mask(src.data, prognostic, 0)
         normalize_before_mask = cfg.data.normalize_before_mask

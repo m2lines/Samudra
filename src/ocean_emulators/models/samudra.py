@@ -150,14 +150,14 @@ class Samudra(BaseModel):
         self.corrector = Correctors(config.corrector, hist, area_weights, static_data)
         self.num_steps = int(len(config.ch_width) - 1)
 
-    def forward_once(self, fts):
+    def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         fts_input = fts.clone().detach()
-        temp: list[torch.Tensor] = []
+        skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
-            temp.append(torch.zeros_like(fts))
+            skip_inputs.append(torch.zeros_like(fts))
         count = 0
         for layer in self.layers:
-            crop = fts.shape[2:]
+            crop: torch.Size | np.ndarray = fts.shape[2:]
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
                     fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
@@ -166,12 +166,12 @@ class Samudra(BaseModel):
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
             if self.checkpoint_all:
-                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
+                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
             else:
                 fts = layer(fts)
             if count < self.num_steps:
                 if isinstance(layer, CoreBlock):
-                    temp[count] = fts
+                    skip_inputs[count] = fts
                     count += 1
             elif count >= self.num_steps:
                 if isinstance(layer, BilinearUpsample) or isinstance(
@@ -179,7 +179,7 @@ class Samudra(BaseModel):
                 ):
                     crop = np.array(fts.shape[2:])
                     shape = np.array(
-                        temp[int(2 * self.num_steps - count - 1)].shape[2:]
+                        skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
                     )
                     pads = shape - crop
                     pads = [
@@ -189,7 +189,7 @@ class Samudra(BaseModel):
                         pads[0] - pads[0] // 2,
                     ]
                     fts = nn.functional.pad(fts, pads)
-                    fts += temp[int(2 * self.num_steps - count - 1)]
+                    fts += skip_inputs[int(2 * self.num_steps - count - 1)]
                     count += 1
         fts = self.corrector(fts_input, fts)
         return torch.where(self.wet, fts, 0.0)

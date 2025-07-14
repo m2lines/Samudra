@@ -340,6 +340,9 @@ class TrainData:
                 self.td_dict[step][1].to(device),
             )
 
+    def __iter__(self):
+        return iter(self.td_dict)
+
 
 class TrainDataset(Dataset):
     """

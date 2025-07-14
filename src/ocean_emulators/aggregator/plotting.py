@@ -61,10 +61,10 @@ def plot_paneled_data(
 ):
     """Plot a list of 2D data arrays in a paneled plot."""
     if diverging:
-        cmap = plt.cm.get_cmap("RdBu_r")
+        cmap = plt.colormaps.get_cmap("RdBu_r")
         cmap.set_bad(color=(0.7, 0.7, 0.7))
     else:
-        cmap = plt.cm.get_cmap("viridis")
+        cmap = plt.colormaps.get_cmap("viridis")
         cmap.set_bad(color="white")
     vmin = np.inf
     vmax = -np.inf

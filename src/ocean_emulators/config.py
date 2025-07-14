@@ -7,7 +7,8 @@ import torch
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import LoaderVersion
+from ocean_emulators.constants import BoundaryVarNames, LoaderVersion
+from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
 
@@ -121,6 +122,72 @@ class DataConfig(BaseConfig):
         """Validates configuration."""
         if self.use_spdl and self.loader_version != str(LoaderVersion.OM4_TORCH.value):
             raise ValueError("SPDL can only be used with the OM4 Torch Dataset!")
+
+    def build(
+        self,
+        data_root: ResolvedLocation,
+        boundary_var_names: BoundaryVarNames,
+    ) -> DataContainer:
+        loader_version = LoaderVersion(self.loader_version)
+        use_dask = loader_version != LoaderVersion.OM4_TORCH
+
+        data_location = data_root.resolve(self.data_location)
+        means_location = data_root.resolve(self.data_means_location)
+        stds_location = data_root.resolve(self.data_stds_location)
+
+        source = DataSource.from_locations(
+            data_location=data_location,
+            means_location=means_location,
+            stds_location=stds_location,
+            use_dask=use_dask,
+        )
+        source = validate_data(source, boundary_var_names, self.static_data_vars)
+
+        if use_dask:
+            # If we're already using dask, we don't need a second source
+            source_using_dask = source
+        else:
+            # If we're not using dask for the main source, create a separate one
+            source_using_dask = DataSource.from_locations(
+                data_location=data_location,
+                means_location=means_location,
+                stds_location=stds_location,
+                use_dask=True,
+            )
+            source_using_dask = validate_data(
+                source_using_dask, boundary_var_names, self.static_data_vars
+            )
+
+        if self.scaling_residuals_file is not None:
+            scaling_residuals_location = data_root.resolve(self.scaling_residuals_file)
+            scaling_residuals = scaling_residuals_location.open()
+        else:
+            scaling_residuals_location = None
+            scaling_residuals = None
+
+        static_data = (
+            source.data[self.static_data_vars]
+            if self.static_data_vars is not None
+            else None
+        )
+
+        supports_fork = all(
+            location is None or location.supports_fork
+            for location in [
+                data_location,
+                means_location,
+                stds_location,
+                scaling_residuals_location,
+            ]
+        )
+        return DataContainer(
+            source,
+            source_using_dask,
+            loader_version,
+            supports_fork,
+            scaling_residuals,
+            static_data,
+        )
 
 
 BlockType = Literal["conv_next_block", "conv_block"]

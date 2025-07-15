@@ -1,3 +1,21 @@
+# ~
+# Entrypoint to run a training job on a single-node, 8x A100 GPU cluster with skypilot.
+# ~
+#
+# To create or re-use a cluster:
+# ```
+# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
+# export AWS_ACCESS_KEY_ID=<my-aws-id>
+# export AWS_SECRET_ACCESS_KEY=<my-aws-access-key>
+# sky launch -c fomo-cluster train.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY --env AWS_ACCESS_KEY_ID --env AWS_SECRET_ACCESS_KEY
+# ```
+# As the job progresses, skypilot will provide commands to locally monitor each stage.
+#
+#
+# To get debug traces when running `sky` commands, set this environment variable:
+# ```
+# export SKYPILOT_DEBUG=true
+# ```
 resources:
   # Optional; if left out, automatically pick the cheapest cloud.
   cloud: lambda
@@ -7,32 +25,31 @@ resources:
 #  disk_size: 1_000 # in GiBs
 
 # FIXME: Remember to pass environment variables with `--env` or `--env-file`
-# All `null` values must be specified in order for this script to run!
-# When flags are not specified, `sky` will check your local environment variables.
-# `--env-file` ONLY supports environment variables, you cannot pass secrets via a .env file.
+# FIXME: All `null` values must be specified in order for this script to run!
+# When flags are not specified, `sky` should check your local environment variables.
 envs:
+  # Secrets
+  # As of v0.9.3, `sky` supports passing in secrets via a dotenv file! So, you can specify these with `--env-file`.
+  # To pass in secrets, we recommend setting environment variable and then ONLY passing in the name via `--env`
+  WANDB_API_KEY: null  # e.g. `--env WANDB_API_KEY`
+  AWS_ACCESS_KEY_ID: null  # e.g. `--env AWS_ACCESS_ID`
+  AWS_SECRET_ACCESS_KEY: null  # e.g. --env AWS_SECRET_ACCESS_KEY`
+
   CONFIG: null
-  REMOTE_BUCKET: oa-fomo
+  OUTPUTS_BUCKET: oa-fomo-outputs
+  DATA_BUCKET: oa-fomo
   # We assume that data in this directory is named in the same pattern as
   # the $DATA_CONFIG yaml.
-  DATA_ROOT_PATH: null # data/om4_onedeg_compact/
+  DATA_ROOT_PATH: null # data/om4_onedeg_compact  # NOTE: path cannot end in a slash `/`.
   DATA_CONFIG: configs/data/om4_sky_local.yaml
-  OUTPUT_PATH: outputs/
-
-# FIXME: Please pass in secrets with `--secret`
-# When flags are not specified, `sky` will check your local environment variables.
-secrets:
-  WANDB_API_KEY: null
-  AWS_ACCESS_KEY_ID: null
-  AWS_SECRET_ACCESS_KEY: null
 
 file_mounts:
   /data:
-    source: s3://${REMOTE_BUCKET}/${DATA_ROOT_PATH}
+    source: s3://${DATA_BUCKET}/${DATA_ROOT_PATH}
     mode: COPY
 
   /outputs:
-    source: s3://${REMOTE_BUCKET}/${OUTPUT_PATH}
+    source: s3://${OUTPUTS_BUCKET}
     mode: MOUNT_CACHED
 
 workdir: .

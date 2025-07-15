@@ -1,4 +1,5 @@
 .github/
+.venv/  # also in the .gitignore, but we want to doubly make sure this doesn't transfer!
 notebooks/
 scripts/
 tests/

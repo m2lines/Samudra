@@ -67,7 +67,7 @@ run: |
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
     --experiment.data_root=/data \
-    --data=@{DATA_CONFIG} \
+    --data=@${DATA_CONFIG} \
     --experiment.base_output_dir=/outputs \
     --experiment.wandb.mode=online \
     --samudra.checkpointing=all

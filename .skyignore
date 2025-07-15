@@ -1,8 +1,10 @@
 .github/
-.venv/  # also in the .gitignore, but we want to doubly make sure this doesn't transfer!
 notebooks/
 scripts/
 tests/
 # just in case! Ignore data files
 *.zarr
 *.nc
+# also in the .gitignore, but we want to doubly make sure this doesn't transfer!
+.venv/
+.git/

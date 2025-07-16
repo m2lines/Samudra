@@ -12,4 +12,6 @@ data_stds_location:
   type: local
   path: /data/OM4_means.zarr
 
-static_data_vars: []
+static_data_vars:
+  - sea_surface_fraction
+  - hfgeou

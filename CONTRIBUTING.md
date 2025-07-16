@@ -162,12 +162,20 @@ git push --force-with-lease
 ```bash
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH --compact_variables
-uv run -m ocean_emulators.train configs/train_om4.yaml --data_root $DATA_PATH
+uv run -m ocean_emulators.train configs/train_om4.yaml --experiment.data_root $DATA_PATH
 ```
 
 You can run `uv run -m ocean_emulators.train --help` to see all the options available.
 
 To learn more about other datasets used during training, please see the _Data Engineering_ section below.
+
+To run a remote training job with Skypilot, use the following command:
+```shell
+# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
+# sky launch -c fomo-cluster train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env
+```
+
+Please read the docstring in the `train.sky.yaml` for more information.
 
 ### Evaluating the model
 
@@ -175,7 +183,7 @@ To learn more about other datasets used during training, please see the _Data En
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH --compact_variables
 # (then put a checkpoint of the model at path/to/checkpoint)
-uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --data_root $DATA_PATH
+uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH
 ```
 
 You can run `uv run -m ocean_emulators.eval --help` to see all the options available.

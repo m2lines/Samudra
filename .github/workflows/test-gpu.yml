@@ -11,16 +11,14 @@ on:
 permissions:
   id-token: write # This is required for interacting with AWS via OIDC
   contents: read # This is required for actions/checkout
-jobs:
-  start-aws-runner:
-    uses: ./.github/workflows/aws-runner-start.yml
-    secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
-      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
+jobs:
+  ec2:
+    uses: Open-Athena/ec2/.github/workflows/runner.yml@main
+    secrets: inherit
   run-tests:
-    needs: start-aws-runner
-    runs-on: ${{ fromJSON(needs.start-aws-runner.outputs.instances) }}
+    needs: ec2
+    runs-on: ${{ needs.ec2.outputs.instance }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -46,15 +44,3 @@ jobs:
 
       - name: Run pytest
         run: uv run --locked pytest -n 2 -v -m "not manual and cuda"
-
-  stop-aws-runner:
-    uses: ./.github/workflows/aws-runner-stop.yml
-    needs:
-      - start-aws-runner
-      - run-tests
-    if: ${{ always() }}
-    with:
-      instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
-    secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
-      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

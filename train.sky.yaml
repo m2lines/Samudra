@@ -2,12 +2,15 @@
 # Entrypoint to run a training job on a single-node, 8x A100 GPU cluster with skypilot.
 # ~
 #
+# First, make sure that all your credentials are set up:
+# ```
+# sky check -v
+# ```
+#
 # To create or re-use a cluster:
 # ```
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# export AWS_ACCESS_KEY_ID=<my-aws-id>
-# export AWS_SECRET_ACCESS_KEY=<my-aws-access-key>
-# sky launch -c fomo-cluster train.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY --env AWS_ACCESS_KEY_ID --env AWS_SECRET_ACCESS_KEY
+# sky launch -c fomo-cluster train.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
 # ```
 # As the job progresses, skypilot will provide commands to locally monitor each stage.
 #
@@ -26,14 +29,14 @@ resources:
 
 # FIXME: Remember to pass environment variables with `--env` or `--env-file`
 # FIXME: All `null` values must be specified in order for this script to run!
-# When flags are not specified, `sky` should check your local environment variables.
 envs:
   # Secrets
   # As of v0.9.3, `sky` supports passing in secrets via a dotenv file! So, you can specify these with `--env-file`.
   # To pass in secrets, we recommend setting environment variable and then ONLY passing in the name via `--env`
   WANDB_API_KEY: null  # e.g. `--env WANDB_API_KEY`
-  AWS_ACCESS_KEY_ID: null  # e.g. `--env AWS_ACCESS_ID`
-  AWS_SECRET_ACCESS_KEY: null  # e.g. --env AWS_SECRET_ACCESS_KEY`
+  # Run `sky check aws -v` to verify that AWS storage is properly set up.
+  # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
+  # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
 
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs

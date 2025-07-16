@@ -37,7 +37,7 @@ dependencies = [
   "requests>=2.32.3",
   "s3fs>=2025.5.1",
   "scipy>=1.15.2",
-  "skypilot-nightly[aws,lambda]>=1.0.0.dev20250715",
+  "skypilot-nightly[aws,lambda]>=1.0.0.dev20250715", # We should upgrade to "skypilot[aws,lambda]>=0.10" when ready.
   "torch~=2.2.1",
   "torchinfo>=1.8",
   "wandb>=0.19.8",

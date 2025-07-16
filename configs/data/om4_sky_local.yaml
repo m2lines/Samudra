@@ -2,14 +2,14 @@
 
 data_location:
   type: local
-  path: OM4.zarr
+  path: /data/OM4.zarr
 
 data_means_location:
   type: local
-  path: OM4_means.zarr
+  path: /data/OM4_means.zarr
 
 data_stds_location:
   type: local
-  path: OM4_means.zarr
+  path: /data/OM4_means.zarr
 
 static_data_vars: []

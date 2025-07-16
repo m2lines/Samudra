@@ -77,7 +77,7 @@ run: |
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
     --data=@${DATA_CONFIG} \
-    --experiment.data_root=null \
+    --experiment.data_root=/data/ \
     --experiment.name=${EXPERIMENT_NAME} \
     --experiment.base_output_dir=/outputs  \
     --experiment.wandb.mode=online \

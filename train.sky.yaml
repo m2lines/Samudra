@@ -39,6 +39,7 @@ envs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
 
   CONFIG: null
+  EXPERIMENT_NAME: null
   OUTPUTS_BUCKET: oa-fomo-outputs
   DATA_BUCKET: oa-fomo
   # We assume that data in this directory is named in the same pattern as
@@ -56,17 +57,6 @@ file_mounts:
     mode: MOUNT_CACHED
 
 workdir: .
-
-setup: |
-  # Ensure `uv` is installed.
-  if ! command -v uv & /dev/null; then
-    echo "installing uv."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-  else
-    echo "uv is already installed."
-  fi
-  # Install dependencies
-  uv sync
 
 run: |
   MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)
@@ -86,8 +76,9 @@ run: |
     --master_port=8008 \
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
-    --experiment.data_root=/data \
+    --experiment.data_root=/data/ \
     --data=@${DATA_CONFIG} \
-    --experiment.base_output_dir=/outputs \
+    --experiment.name=${EXPERIMENT_NAME} \
+    --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \
     --samudra.checkpointing=all

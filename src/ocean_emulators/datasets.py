@@ -11,8 +11,11 @@ from einops import rearrange
 from jaxtyping import Float
 from torch.utils.data import Dataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
+import crab_load
+import asyncio
 
 from ocean_emulators.constants import (
+    DEPTH_LEVELS,
     Boundary,
     BoundaryVarNames,
     Example,
@@ -651,12 +654,8 @@ class TorchTrainDataset(Dataset):
             prognostic_selected = self._prognostic_src.data.isel(time=x_index)
             boundary_selected = self._boundary_src.data.isel(time=x_index)
 
-            if self._executor is not None:
-                concurrent_compute(
-                    prognostic_selected, boundary_selected, executor=self._executor
-                )
-
             if "lev" in prognostic_selected.dims:
+                assert False
                 prognostic_all = torch.from_numpy(
                     conditional_rearrange(
                         prognostic_selected,
@@ -667,16 +666,32 @@ class TorchTrainDataset(Dataset):
                     .to_numpy()
                 )
             else:
-                prognostic_all = torch.from_numpy(
-                    prognostic_selected.to_array()
-                    .transpose("time", "variable", "lat", "lon")
-                    .to_numpy()
-                )
-            boundary = torch.from_numpy(
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-            )
+                async def get_data(array: xr.Dataset):
+                    paths = [f"/{var.split('_')[0]}_lev_{str(DEPTH_LEVELS[int(var.split('_')[1])]).replace('.', '_')}" if "_" in var and not "_anom" in var else f"/{var}" for var in array.data_vars.keys()]
+                    return await crab_load.get_data("/home/jder/data/om4/OM4.zarr", x_index.to_numpy(), paths)
+
+                if self._executor is not None:
+                    concurrent_compute(
+                        prognostic_selected, boundary_selected, executor=self._executor
+                    )
+                    prognostic_all = torch.from_numpy(
+                        prognostic_selected.to_array()
+                        .transpose("time", "variable", "lat", "lon")
+                        .to_numpy()
+                    )
+                    boundary = torch.from_numpy(
+                        boundary_selected.to_array()
+                        .transpose("time", "variable", "lat", "lon")
+                        .to_numpy()
+                    )
+                else:
+                    prognostic_all = torch.from_numpy(
+                        asyncio.run(get_data(prognostic_selected))
+                    )
+                    boundary = torch.from_numpy(
+                        asyncio.run(get_data(boundary_selected))
+                    )
+
 
             input_, label = self._get_input_and_label(prognostic_all, boundary)
             TD.insert(input_=input_, label=label)

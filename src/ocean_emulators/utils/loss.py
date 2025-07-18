@@ -1,5 +1,9 @@
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
+from jaxtyping import Float
+
+from ocean_emulators.utils.distributed import get_world_size
 
 
 def decomposed_mse(
@@ -67,3 +71,46 @@ def decomposed_mse_mae(
     mae = F.l1_loss(pred, target, reduction="none")
     combined = (mse + mae) / 2
     return combined.mean(dim=(0, 2, 3))
+
+
+N_WINDOW = 25
+
+
+class MseDynamic:
+    def __init__(self, wet: torch.Tensor, stds: torch.Tensor):
+        self.wet: Float[torch.Tensor, "lat lon"] = wet
+        self.per_channel_scale: Float[torch.Tensor, "var "] = torch.ones(stds.shape[0])
+        self.stds: Float[torch.Tensor, "var "] = 1.0 / stds
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist var lat lon"],
+        target: Float[torch.Tensor, "batch hist var lat lon"],
+    ):
+        loss_with_history_channels = decomposed_mse(pred, target, self.wet)
+        loss_including_history_dimension = loss_with_history_channels.reshape(
+            self.per_channel_scale.shape[0], -1
+        ) * self.per_channel_scale.unsqueeze(1)
+        return loss_including_history_dimension.reshape(-1)
+
+    def update(
+        self,
+        pred: Float[torch.Tensor, "batch hist var lat lon"],
+        target: Float[torch.Tensor, "batch hist var lat lon"],
+    ):
+        new_target_weights = 1.0 / decomposed_mse(pred, target, self.wet)
+        # Reshape from channels * history to channels by averaging
+        new_target_weights: Float[torch.Tensor, var] = new_target_weights.reshape(
+            self.per_channel_scale.shape[0], -1
+        ).mean(dim=1)
+        new_target_weights = new_target_weights.min(self.stds)
+
+        if get_world_size() > 1:
+            dist.all_reduce(new_target_weights, op=dist.ReduceOp.AVG)
+
+        self.per_channel_scale = (
+            self.per_channel_scale * (N_WINDOW - 1) + new_target_weights
+        ) / N_WINDOW
+
+    def loss_scale_per_channel(self):
+        return self.per_channel_scale

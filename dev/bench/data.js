@@ -1,6 +1,6 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752532902288,
-  "repoUrl": "https://github.com/LaureZanna/Ocean_Emulator",
+  "lastUpdate": 1752812756566,
+  "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
       {
@@ -2384,6 +2384,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.06730585842608666",
             "extra": "mean: 74.74820531519998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "227c5a7be10702ef2dca2b285166f53f889d4c94",
+          "message": "The default chunks of `clone_data` should be time=1. (#306)\n\nI just verified this and it looks like in the OSN pod, chunks are\n`time=1`, but by default, we write `time=10` chunks. I want to remedy\nthis so we don't make any accidents when automating are testing setup.",
+          "timestamp": "2025-07-14T15:16:21-07:00",
+          "tree_id": "e7090b1bcca421369346568cca8089ad091ff662",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/227c5a7be10702ef2dca2b285166f53f889d4c94"
+        },
+        "date": 1752812755886,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.22986991900524,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02400030602895909",
+            "extra": "mean: 813.0941204000123 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.0694194235399118,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7816636018677365",
+            "extra": "mean: 14.405190204799998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1894634233102771,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07658199694690336",
+            "extra": "mean: 5.278063610000004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012904567777697816,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14808009516629886",
+            "extra": "mean: 77.49194062339998 sec\nrounds: 5"
           }
         ]
       }

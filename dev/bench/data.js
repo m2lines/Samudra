@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752812756566,
+  "lastUpdate": 1752812757616,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4874,6 +4874,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.11208174875792931",
             "extra": "mean: 63.8803847486 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "227c5a7be10702ef2dca2b285166f53f889d4c94",
+          "message": "The default chunks of `clone_data` should be time=1. (#306)\n\nI just verified this and it looks like in the OSN pod, chunks are\n`time=1`, but by default, we write `time=10` chunks. I want to remedy\nthis so we don't make any accidents when automating are testing setup.",
+          "timestamp": "2025-07-14T15:16:21-07:00",
+          "tree_id": "e7090b1bcca421369346568cca8089ad091ff662",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/227c5a7be10702ef2dca2b285166f53f889d4c94"
+        },
+        "date": 1752812757201,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.214978163318985,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0363692470871584",
+            "extra": "mean: 823.0600599999889 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07150401334669337,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5802694464383088",
+            "extra": "mean: 13.985228984999958 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19308048713261342,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09915794453518381",
+            "extra": "mean: 5.1791872646000225 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01495642547188826,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3182934174701547",
+            "extra": "mean: 66.86089546459989 sec\nrounds: 5"
           }
         ]
       }

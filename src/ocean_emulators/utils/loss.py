@@ -79,7 +79,9 @@ N_WINDOW = 25
 class MseDynamic:
     def __init__(self, wet: torch.Tensor, stds: torch.Tensor):
         self.wet: Float[torch.Tensor, "lat lon"] = wet
-        self.per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(stds.shape[0])
+        self.per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
+            stds.shape[0], device=wet.device
+        )
         self.stds: Float[torch.Tensor, " var"] = 1.0 / stds
 
     def __call__(

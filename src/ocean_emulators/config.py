@@ -329,7 +329,7 @@ class TrainConfig(TopLevelConfig):
     data_stride: list[int] = [1]
     steps: list[int] = [4]
     step_transition: list[int] = []
-    inference_epochs: list[int] = [-1]
+    inference_epochs: list[int] | None = [-1]
     train_time: TimeConfig = TimeConfig(
         start=JulianDate("0151-01-06"), end=JulianDate("0306-01-01")
     )

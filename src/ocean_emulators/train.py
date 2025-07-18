@@ -377,7 +377,8 @@ class Trainer:
         assert self.tensor_map is not None
         self.loss_aggregator = LossAggregator.init_instance()
 
-        self.init_inference_stores()
+        if self.inference_epochs:
+            self.init_inference_stores()
 
         # Add type annotations for samplers
         self.train_sampler: DistributedSampler | RandomSampler
@@ -471,7 +472,9 @@ class Trainer:
             val_stats = self.validate_one_epoch(epoch)
             end_epoch_val_time = time.perf_counter()
 
-            if -1 in self.inference_epochs or epoch in self.inference_epochs:
+            if self.inference_epochs is not None and (
+                -1 in self.inference_epochs or epoch in self.inference_epochs
+            ):
                 inf_stats = self.inference_one_epoch(epoch)
                 end_epoch_inf_time = time.perf_counter()
             else:

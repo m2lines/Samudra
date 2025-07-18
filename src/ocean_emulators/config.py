@@ -272,7 +272,7 @@ class ExperimentConfig(BaseConfig):
             raise ValueError(
                 "data_root must be set, try --experiment.data_root=path/to/data"
             )
-        default_root = LocalLocation(path=Path("."))
+        default_root = LocalLocation(path=Path.cwd())
         return default_root.resolve(self.data_root)
 
 

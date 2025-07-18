@@ -84,25 +84,32 @@ class MseDynamic:
 
     def __call__(
         self,
-        pred: Float[torch.Tensor, "batch hist+var lat lon"],
-        target: Float[torch.Tensor, "batch hist+var lat lon"],
-    ) -> Float[torch.Tensor, " hist+var"]:
-        loss_with_history_channels: Float[torch.Tensor, " hist+var"] = decomposed_mse(pred, target, self.wet)
-        scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = loss_with_history_channels.reshape(
-            self.per_channel_scale.shape[0], -1
-        ) * self.per_channel_scale.unsqueeze(1)
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+    ) -> Float[torch.Tensor, " hist*var"]:
+        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = decomposed_mse(
+            pred, target, self.wet
+        )
+        scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
+            loss_with_history_channels.reshape(self.per_channel_scale.shape[0], -1)
+            * self.per_channel_scale.unsqueeze(1)
+        )
         return scaled_loss_including_history_dimension.reshape(-1)
 
     def update(
         self,
-        pred: Float[torch.Tensor, "batch hist+var lat lon"],
-        target: Float[torch.Tensor, "batch hist+var lat lon"],
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
     ):
-        new_target_weights = 1.0 / decomposed_mse(pred, target, self.wet)
+        new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = (
+            1.0 / decomposed_mse(pred, target, self.wet)
+        )
         # Reshape from channels * history to channels by averaging
-        new_target_weights: Float[torch.Tensor, " var"] = new_target_weights.reshape(
-            self.per_channel_scale.shape[0], -1
-        ).mean(dim=1)
+        new_target_weights: Float[torch.Tensor, " var"] = (
+            new_target_weights_with_history.reshape(
+                self.per_channel_scale.shape[0], -1
+            ).mean(dim=1)
+        )
         new_target_weights = new_target_weights.min(self.stds)
 
         if get_world_size() > 1:

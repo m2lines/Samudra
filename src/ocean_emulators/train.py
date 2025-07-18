@@ -239,6 +239,7 @@ class Trainer:
         self.nets_dir = cfg.experiment.nets_dir
         self.network = cfg.experiment.network
 
+        self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         # Loss function
         if cfg.loss == "mse":
             logger.info("Using decomposed mse loss")

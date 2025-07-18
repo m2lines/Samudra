@@ -72,6 +72,7 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import (
+    MseDynamic,
     decomposed_mse,
     decomposed_mse_cos_weighted,
     decomposed_mse_diff_weighted,
@@ -273,6 +274,14 @@ class Trainer:
         elif cfg.loss == "mse_mae":
             logger.info("Using decomposed mse loss with mae")
             self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
+        elif cfg.loss == "mse_dynamic":
+            logger.info("Using dynamic MSE loss")
+            self.loss_fn = MseDynamic(
+                wet=self.wet,
+                stds=torch.from_numpy(
+                    self.src.stds[self.prognostic_var_names].to_array().to_numpy()
+                ).to(device=self.device),
+            )
         else:
             assert_never(cfg.loss)
 
@@ -527,6 +536,7 @@ class Trainer:
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()
             self._ema(model=self.model)
+
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
@@ -535,6 +545,16 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             self.optimizer.step()
+
+            if update := getattr(self.loss_fn, "update", None):
+                with torch.no_grad():
+                    # TODO: could avoid a second forward pass here
+                    single_step_data = TrainData(data.num_prognostic_channels)
+                    # Each entry in data is one step in a rollout.
+                    input, label = data[0]
+                    single_step_data.insert(input, label)
+                    pred = self.model(single_step_data)
+                    update(pred[0], label)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -566,6 +586,15 @@ class Trainer:
                         "data_wait_time"
                     ].value,
                 }
+            if loss_per_channel := getattr(
+                self.loss_fn, "loss_scale_per_channel", None
+            ):
+                metrics.update(
+                    **self.loss_aggregator.get_channel_loss_scale_dict(
+                        label="train", loss_per_channel=loss_per_channel()
+                    )
+                )
+
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
 

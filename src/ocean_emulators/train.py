@@ -889,7 +889,12 @@ class Trainer:
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
                 name = k.removeprefix("module.")
-                new_state_dict[name] = v
+                if isinstance(v, dict):
+                    new_state_dict[name] = {
+                        key.removeprefix("module."): val for key, val in v.items()
+                    }
+                else:
+                    new_state_dict[name] = v
             return new_state_dict
 
         # Load model state

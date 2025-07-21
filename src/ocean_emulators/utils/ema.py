@@ -169,6 +169,7 @@ class EMATracker:
             "num_updates": self.num_updates,
             "faster_decay_at_start": self._faster_decay_at_start,
             "module_name_to_ema_name": self._module_name_to_ema_name,
+            "ema_params": {k: v.cpu() for k, v in self._ema_params.items()},
         }
 
     @classmethod
@@ -187,4 +188,7 @@ class EMATracker:
         ema = cls(model, float(state["decay"]), state["faster_decay_at_start"])
         ema.num_updates = state["num_updates"]
         ema._module_name_to_ema_name = state["module_name_to_ema_name"]
+        if "ema_params" in state:
+            device = next(model.parameters()).device
+            ema._ema_params = {k: v.to(device) for k, v in state["ema_params"].items()}
         return ema

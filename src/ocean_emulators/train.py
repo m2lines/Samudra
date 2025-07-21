@@ -905,6 +905,16 @@ class Trainer:
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
+            loss_state = None
+            if hasattr(self.loss_fn, "state_dict"):
+                loss_state = self.loss_fn.state_dict()
+            elif hasattr(self.loss_fn, "get_state"):
+                loss_state = self.loss_fn.get_state()
+            if loss_state is not None:
+                checkpoint["loss_fn_state"] = {
+                    k: v.detach().cpu() if torch.is_tensor(v) else v
+                    for k, v in loss_state.items()
+                }
             if self.scheduler:
                 checkpoint["scheduler"] = self.scheduler.state_dict()
 
@@ -937,6 +947,17 @@ class Trainer:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
             if self.scheduler and "scheduler" in checkpoint:
                 self.scheduler.load_state_dict(checkpoint["scheduler"])
+
+            if "loss_fn_state" in checkpoint:
+                loss_state = checkpoint["loss_fn_state"]
+                loss_state = {
+                    k: v.to(self.device) if torch.is_tensor(v) else v
+                    for k, v in loss_state.items()
+                }
+                if hasattr(self.loss_fn, "load_state_dict"):
+                    self.loss_fn.load_state_dict(loss_state)
+                elif hasattr(self.loss_fn, "set_state"):
+                    self.loss_fn.set_state(loss_state)
 
             self.start_epoch = checkpoint["epoch"] + 1
             self.wandb_id = checkpoint.get("wandb_id")

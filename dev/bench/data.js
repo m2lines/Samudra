@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753207535150,
+  "lastUpdate": 1753219199818,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2488,6 +2488,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.12248228254426942",
             "extra": "mean: 76.510322143 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d93b1e51592819c9c85a1b0d5342545bdb0006f",
+          "message": "First pass at setting up one-command training with skypilot. (#298)\n\nWrote entrypoint for performing training runs with skypilot. The `sky`\ncommand is documented within the `train.sky.yaml` file and contributing\nguide.\n\nI did not successfully do a full training run, but that is because I hit\ndata engineering errors (no static_data!).\n\n<details>\n<summary>(Latest error trace related to data engineering)</summary\n\nUltimately, hitting this error seems like a good sign because the error\nis in our code, not in the provisioning system.\n```\nAssertionError: : Static data variable sea_surface_fraction not found in dataStatic data variable sea_surface_fraction not found in data\n```\n\n</details<",
+          "timestamp": "2025-07-22T20:53:08Z",
+          "tree_id": "6327f17fe130707f862aaa437aea12b22d259e56",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/8d93b1e51592819c9c85a1b0d5342545bdb0006f"
+        },
+        "date": 1753219198966,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2149770331627956,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02824251740513975",
+            "extra": "mean: 823.0608255999925 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06431722171934344,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0322193734124974",
+            "extra": "mean: 15.547935269400005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1748169716977023,
+            "unit": "iter/sec",
+            "range": "stddev: 0.16374379357115573",
+            "extra": "mean: 5.720268405800004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012583934571242383,
+            "unit": "iter/sec",
+            "range": "stddev: 4.1569945538398505",
+            "extra": "mean: 79.4664017314 sec\nrounds: 5"
           }
         ]
       }

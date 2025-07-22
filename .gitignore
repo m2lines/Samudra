@@ -38,3 +38,7 @@ output.log
 .data_cache/
 configs/schemas/
 /playpen
+*.env
+build/
+.pytype/
+.claude/

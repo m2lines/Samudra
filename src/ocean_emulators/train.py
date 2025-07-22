@@ -324,19 +324,19 @@ class Trainer:
         else:
             self.start_epoch = 1
 
+            # EMA (is created in load_checkpoint if we're doing that)
+            self._ema = EMATracker(
+                self.model,
+                decay=cfg.ema_decay,
+                faster_decay_at_start=cfg.faster_decay_at_start,
+            )
+
         # Modify DDP setup based on device
         if self.distributed is not None:
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
             )
-
-        # EMA
-        self._ema = EMATracker(
-            self.model,
-            decay=cfg.ema_decay,
-            faster_decay_at_start=cfg.faster_decay_at_start,
-        )
 
         # Training
         self.epochs = cfg.epochs

@@ -77,12 +77,16 @@ N_WINDOW = 25
 
 
 class MseDynamic:
-    def __init__(self, wet: torch.Tensor, stds: torch.Tensor):
+    def __init__(self, wet: torch.Tensor, stds: torch.Tensor, *, should_limit: bool):
         self.wet: Float[torch.Tensor, "lat lon"] = wet
         self.per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
             stds.shape[0], device=wet.device
         )
-        self.stds: Float[torch.Tensor, " var"] = 1.0 / stds
+        if should_limit:
+            vars: Float[torch.Tensor, " var"] = stds.pow(2)
+            self.limits: Float[torch.Tensor, " var"] | None = 1.0 / vars
+        else:
+            self.limits = None
 
     def __call__(
         self,
@@ -112,7 +116,8 @@ class MseDynamic:
                 self.per_channel_scale.shape[0], -1
             ).mean(dim=1)
         )
-        new_target_weights = new_target_weights.min(self.stds)
+        if self.limits:
+            new_target_weights = new_target_weights.min(self.limits)
 
         if get_world_size() > 1:
             dist.all_reduce(new_target_weights, op=dist.ReduceOp.AVG)

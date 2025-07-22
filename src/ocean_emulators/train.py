@@ -276,13 +276,15 @@ class Trainer:
         elif cfg.loss == "mse_mae":
             logger.info("Using decomposed mse loss with mae")
             self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
-        elif cfg.loss == "mse_dynamic":
-            logger.info("Using dynamic MSE loss")
+        elif cfg.loss == "mse_dynamic" or cfg.loss == "mse_dynamic_no_limit":
+            should_limit = cfg.loss == "mse_dynamic"
+            logger.info(f"Using dynamic MSE loss (limit = {should_limit})")
             self.loss_fn = MseDynamic(
                 wet=self.wet,
                 stds=torch.from_numpy(
                     self.src.stds[self.prognostic_var_names].to_array().to_numpy()
                 ).to(device=self.device),
+                should_limit=should_limit,
             )
         else:
             assert_never(cfg.loss)

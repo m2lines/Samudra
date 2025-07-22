@@ -299,6 +299,7 @@ LossType = Literal[
     "mse_residual_scaled",
     "mse_mae",
     "mse_dynamic",
+    "mse_dynamic_no_limit",
 ]
 
 

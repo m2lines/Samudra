@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1752812757616,
+  "lastUpdate": 1753207533987,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2436,6 +2436,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14808009516629886",
             "extra": "mean: 77.49194062339998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a8eca0d2e569a74291d1df4d6853506871c7904f",
+          "message": "Avoid LocalLocation relative footgun (#309)\n\nPreviously, we permitted you to make *relative* local locations as in:\n\n```yaml\ndata_location:\n  type: local\n  path: foo/bar\n```\n\nBut the rule is that if you give a ResolvedLocation (type: local is a\nResolvedLocation) then it's *not* resolved relative to the data_root. So\nthis is actually relative to the cwd rather than data_root. This is just\nconfusing so we are now forbidding relative local locations; instead you\nwant:\n\n```yaml\ndata_location: \"foo/bar\"\n```\n\nThis means we can no longer express \"resolved paths which are relative\nto cwd\" but this seems preferable to having this footgun.\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2025-07-22T17:39:29Z",
+          "tree_id": "fa6e4a01bd0246e61bd7566ccbbf968152db6951",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a8eca0d2e569a74291d1df4d6853506871c7904f"
+        },
+        "date": 1753207533048,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.232869093467998,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017817592005739985",
+            "extra": "mean: 811.116123599993 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07085317832130113,
+            "unit": "iter/sec",
+            "range": "stddev: 0.22808454537843714",
+            "extra": "mean: 14.113692902600002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19188691227290458,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09430403750004134",
+            "extra": "mean: 5.211402842200016 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013070131872284778,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12248228254426942",
+            "extra": "mean: 76.510322143 sec\nrounds: 5"
           }
         ]
       }

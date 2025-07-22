@@ -100,7 +100,7 @@ class S3Location(ResolvedLocation, BaseModel):
 
 
 class LocalLocation(ResolvedLocation, BaseModel):
-    """A local filesystem path.
+    """A local absolute filesystem path.
 
     For example:
     ```yaml
@@ -112,6 +112,17 @@ class LocalLocation(ResolvedLocation, BaseModel):
 
     type: Literal["local"] = "local"
     path: Path
+
+    @model_validator(mode="after")
+    def validate_path(self) -> Self:
+        if not self.path.is_absolute():
+            raise ValueError(
+                "Locations with type: 'local' must be absolute. "
+                "For relative paths, use a string instead of a structured location. "
+                "i.e. 'my/relative/path' instead of "
+                "{type: 'local', path: 'my/relative/path'}"
+            )
+        return self
 
     def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
         engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"

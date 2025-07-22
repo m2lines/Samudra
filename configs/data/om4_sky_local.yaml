@@ -2,15 +2,15 @@
 
 data_location:
   type: local
-  path: /data/OM4.zarr
+  path: OM4.zarr
 
 data_means_location:
   type: local
-  path: /data/OM4_means.zarr
+  path: OM4_means.zarr
 
 data_stds_location:
   type: local
-  path: /data/OM4_means.zarr
+  path: OM4_means.zarr
 
 static_data_vars:
   - sea_surface_fraction

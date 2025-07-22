@@ -27,8 +27,8 @@ resources:
   disk_tier: best
 #  disk_size: 1_000 # in GiBs
 
-# FIXME: Remember to pass environment variables with `--env` or `--env-file`
-# FIXME: All `null` values must be specified in order for this script to run!
+# NOTE: Remember to pass environment variables with `--env` or `--env-file`
+# NOTE: All `null` values must be specified in order for this script to run!
 envs:
   # Secrets
   # As of v0.9.3, `sky` supports passing in secrets via a dotenv file! So, you can specify these with `--env-file`.
@@ -38,8 +38,8 @@ envs:
   # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
 
+  # TODO(alxmrs): Drive everything except secrets from the primary config file.
   CONFIG: null
-  EXPERIMENT_NAME: null
   OUTPUTS_BUCKET: oa-fomo-outputs
   DATA_BUCKET: oa-fomo
   # We assume that data in this directory is named in the same pattern as
@@ -78,7 +78,6 @@ run: |
     -m ocean_emulators.train ${CONFIG} \
     --data=@${DATA_CONFIG} \
     --experiment.data_root=/data/ \
-    --experiment.name=${EXPERIMENT_NAME} \
-    --experiment.base_output_dir=/outputs  \
+    --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \
     --samudra.checkpointing=all

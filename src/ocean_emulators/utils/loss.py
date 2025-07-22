@@ -107,8 +107,10 @@ class MseDynamic:
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
     ):
+        mse_loss = decomposed_mse(pred, target, self.wet)
+        mse_loss = torch.where(mse_loss == 0, 1e-8, mse_loss)
         new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = (
-            1.0 / decomposed_mse(pred, target, self.wet)
+            1.0 / mse_loss
         )
         # Reshape from channels * history to channels by averaging
         new_target_weights: Float[torch.Tensor, " var"] = (

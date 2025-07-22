@@ -117,7 +117,7 @@ class LocalLocation(ResolvedLocation, BaseModel):
     def validate_path(self) -> Self:
         if not self.path.is_absolute():
             raise ValueError(
-                "Locations with type: local must be absolute. "
+                "Locations with type: 'local' must be absolute. "
                 "For relative paths, use a string instead of a structured location. "
                 "i.e. 'my/relative/path' instead of "
                 "{type: 'local', path: 'my/relative/path'}"

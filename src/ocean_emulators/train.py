@@ -905,14 +905,15 @@ class Trainer:
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
-            loss_state = None
+            loss_state: dict[str, Any] | None = None
             if hasattr(self.loss_fn, "state_dict"):
                 loss_state = self.loss_fn.state_dict()
             elif hasattr(self.loss_fn, "get_state"):
                 loss_state = self.loss_fn.get_state()
-            if loss_state is not None:
+
+            if loss_state:
                 checkpoint["loss_fn_state"] = {
-                    k: v.detach().cpu() if torch.is_tensor(v) else v
+                    k: v.detach().cpu() if isinstance(v, torch.Tensor) else v
                     for k, v in loss_state.items()
                 }
             if self.scheduler:
@@ -949,10 +950,9 @@ class Trainer:
                 self.scheduler.load_state_dict(checkpoint["scheduler"])
 
             if "loss_fn_state" in checkpoint:
-                loss_state = checkpoint["loss_fn_state"]
                 loss_state = {
-                    k: v.to(self.device) if torch.is_tensor(v) else v
-                    for k, v in loss_state.items()
+                    k: v.to(self.device) if isinstance(v, torch.Tensor) else v
+                    for k, v in checkpoint["loss_fn_state"].items()
                 }
                 if hasattr(self.loss_fn, "load_state_dict"):
                     self.loss_fn.load_state_dict(loss_state)

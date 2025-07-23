@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753283397562,
+  "lastUpdate": 1753283398947,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5186,6 +5186,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7962984456221619",
             "extra": "mean: 66.11328605239996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "19c72a4b92ea5a55405704f61a9ec41edc804339",
+          "message": "Skypilot 0.10.0 just came out!  (#314)\n\nPinning to that stable version instead of depending on nightly.",
+          "timestamp": "2025-07-23T14:41:46Z",
+          "tree_id": "d5efb931789a4189eac83520a16db5ad34576e0e",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/19c72a4b92ea5a55405704f61a9ec41edc804339"
+        },
+        "date": 1753283398263,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2376706342498445,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02873660410470452",
+            "extra": "mean: 807.9694001999997 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06851940047570126,
+            "unit": "iter/sec",
+            "range": "stddev: 0.358883019576516",
+            "extra": "mean: 14.594406738200018 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18482250974040018,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09529631341313574",
+            "extra": "mean: 5.410596368400093 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01371473105351525,
+            "unit": "iter/sec",
+            "range": "stddev: 0.184090545079249",
+            "extra": "mean: 72.91429894599996 sec\nrounds: 5"
           }
         ]
       }

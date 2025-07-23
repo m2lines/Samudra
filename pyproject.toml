@@ -36,7 +36,7 @@ dependencies = [
   "pyyaml>=6.0.2",
   "requests>=2.32.3",
   "s3fs>=2025.5.1",
-  "scipy>=1.15.2",                # We should upgrade to "skypilot[aws,lambda]>=0.10" when ready.
+  "scipy>=1.15.2",
   "skypilot[aws,lambda]>=0.10",
   "torch~=2.2.1",
   "torchinfo>=1.8",

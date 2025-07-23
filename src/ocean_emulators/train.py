@@ -324,7 +324,7 @@ class Trainer:
         else:
             self.start_epoch = 1
 
-            # EMA (is created in load_checkpoint if we're doing that)
+            # EMA (if not restoring from a checkpoint)
             self._ema = EMATracker(
                 self.model,
                 decay=cfg.ema_decay,

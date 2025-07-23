@@ -1,6 +1,4 @@
 import logging
-import os
-import tempfile
 
 import pytest
 import torch
@@ -40,23 +38,29 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
     [("remote-om4", "train_default_2step.test.yaml")],
     indirect=True,
 )
-def test_checkpoint(trainer_pair: TrainPair, caplog):
+def test_checkpoint(train_config, caplog):
     caplog.set_level(logging.INFO)
-    _, trainer = trainer_pair
+    train_config.epochs = 2
+    train_config.save_freq = 1
 
-    data = trainer.inference_loader.dataset[0]
-    X, y = data
-    trainer.best_val_loss = 10
-    trainer.best_inf_loss = 10
+    with MultitonScope():
+        e2e_trainer = Trainer(train_config)
+        e2e_trainer.run()
 
-    model = trainer.model
-    out = model.forward_once(X[0][0].to(trainer.device))
+        data = e2e_trainer.inference_loader.dataset[0]
+        X, y = data
+        out = e2e_trainer.model.forward_once(X[0][0].to(e2e_trainer.device))
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        trainer.save_checkpoint(1, os.path.join(tmpdir, "test.pt"))
-        trainer.load_checkpoint(os.path.join(tmpdir, "test.pt"))
+    with MultitonScope():
+        train_config.resume_ckpt_path = (
+            e2e_trainer.ckpt_paths.latest_checkpoint_path_with_epoch(1)
+        )
+        restarted_trainer = Trainer(train_config)
+        restarted_trainer.run()
 
-    out2 = trainer.model.forward_once(X[0][0].to(trainer.device))
+        out2 = restarted_trainer.model.forward_once(
+            X[0][0].to(restarted_trainer.device)
+        )
 
     assert torch.allclose(out, out2)
 

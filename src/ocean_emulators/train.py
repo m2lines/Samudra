@@ -922,6 +922,12 @@ class Trainer:
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
+            loss_state: dict[str, Any] | None = None
+            if hasattr(self.loss_fn, "state_dict"):
+                loss_state = self.loss_fn.state_dict()
+
+            if loss_state is not None:
+                checkpoint["loss_fn_state"] = loss_state
             if self.scheduler:
                 checkpoint["scheduler"] = self.scheduler.state_dict()
 
@@ -954,6 +960,11 @@ class Trainer:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
             if self.scheduler and "scheduler" in checkpoint:
                 self.scheduler.load_state_dict(checkpoint["scheduler"])
+
+            if "loss_fn_state" in checkpoint and hasattr(
+                self.loss_fn, "load_state_dict"
+            ):
+                self.loss_fn.load_state_dict(checkpoint["loss_fn_state"])
 
             self.start_epoch = checkpoint["epoch"] + 1
             self.wandb_id = checkpoint.get("wandb_id")

@@ -130,3 +130,13 @@ class MseDynamic:
 
     def loss_scale_per_channel(self):
         return self.per_channel_scale
+
+    # new methods for saving and loading state
+    def state_dict(self) -> dict[str, torch.Tensor]:
+        """Return state dictionary for checkpointing."""
+        return {"per_channel_scale": self.per_channel_scale.detach().cpu()}
+
+    def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
+        """Load state from ``state_dict``."""
+        if "per_channel_scale" in state:
+            self.per_channel_scale = state["per_channel_scale"].to(self.wet.device)

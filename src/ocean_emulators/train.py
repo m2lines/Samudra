@@ -908,14 +908,9 @@ class Trainer:
             loss_state: dict[str, Any] | None = None
             if hasattr(self.loss_fn, "state_dict"):
                 loss_state = self.loss_fn.state_dict()
-            elif hasattr(self.loss_fn, "get_state"):
-                loss_state = self.loss_fn.get_state()
 
-            if loss_state:
-                checkpoint["loss_fn_state"] = {
-                    k: v.detach().cpu() if isinstance(v, torch.Tensor) else v
-                    for k, v in loss_state.items()
-                }
+            if loss_state is not None:
+                checkpoint["loss_fn_state"] = loss_state
             if self.scheduler:
                 checkpoint["scheduler"] = self.scheduler.state_dict()
 
@@ -949,15 +944,10 @@ class Trainer:
             if self.scheduler and "scheduler" in checkpoint:
                 self.scheduler.load_state_dict(checkpoint["scheduler"])
 
-            if "loss_fn_state" in checkpoint:
-                loss_state = {
-                    k: v.to(self.device) if isinstance(v, torch.Tensor) else v
-                    for k, v in checkpoint["loss_fn_state"].items()
-                }
-                if hasattr(self.loss_fn, "load_state_dict"):
-                    self.loss_fn.load_state_dict(loss_state)
-                elif hasattr(self.loss_fn, "set_state"):
-                    self.loss_fn.set_state(loss_state)
+            if "loss_fn_state" in checkpoint and hasattr(
+                self.loss_fn, "load_state_dict"
+            ):
+                self.loss_fn.load_state_dict(checkpoint["loss_fn_state"])
 
             self.start_epoch = checkpoint["epoch"] + 1
             self.wandb_id = checkpoint.get("wandb_id")

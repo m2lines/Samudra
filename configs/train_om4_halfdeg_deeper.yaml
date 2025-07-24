@@ -59,7 +59,7 @@ data:
 
 samudra:
   checkpointing: all
-  ch_width: [162, 200, 250, 300, 400]
+  ch_width: [162, 200, 250, 300, 400, 450]
   n_out: 154
   dilation: [1, 1, 2, 4, 8]
   n_layers: [1, 1, 1, 1, 1]

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=schemas/TrainConfig.json
 
-debug: false
+debug: true
 disk_mode: true
 pin_mem: true
 save_freq: 5
@@ -59,7 +59,7 @@ data:
 
 samudra:
   checkpointing: all
-  ch_width: [162, 200, 250, 300, 400, 450]
+  ch_width: [162, 200, 225, 250, 300, 400]
   n_out: 154
   dilation: [1, 1, 2, 4, 8]
   n_layers: [1, 1, 1, 1, 1]

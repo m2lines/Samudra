@@ -51,9 +51,15 @@ uv run ruff format src/
 uv run mypy src/
 ```
 
-### Training and Evaluation
+### Training, Evaluation, and Visualization
 
 Please ask if you need to train or evaluate a model.
+
+For vizualization or other long-running tasks:
+
+* Run with `PYTHONUNBUFFERED=1 uv run ... > /tmp/logfile.txt 2>&1`
+* Wait for a while with `timeout $time tail --pid=$pid -f /tmp/logfile.txt`
+* You may need to run this repeatedly.
 
 ## High-Level Architecture
 

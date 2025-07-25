@@ -4,7 +4,7 @@ This file provides guidance to automated agents when working with code in this r
 
 ## Overview
 
-Ocean Emulator is a PyTorch-based machine learning project for training and evaluating ocean model emulators. It implements a ConvNeXt U-Net neural network architecture.
+Ocean Emulator is a PyTorch-based machine learning project for training and evaluating models that emulate ocean physics. Currently, it implements a ConvNeXt U-Net neural network architecture.
 
 ## Development Commands
 
@@ -75,6 +75,7 @@ For vizualization or other long-running tasks:
    * Checkpointing with model state and optimizer
    * Weights & Biases integration for experiment tracking
    * Learning rate scheduling and warmup
+   * Initializes data loaders and training datasets.
 
 4. **Evaluation System** (`src/ocean_emulators/eval.py`, `aggregator/`)
    * Comprehensive metrics including RMSE, bias, correlations

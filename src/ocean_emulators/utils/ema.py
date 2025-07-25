@@ -45,7 +45,7 @@ class EMATracker:
 
     def __init__(
         self,
-        model: Samudra | nn.parallel.DistributedDataParallel,
+        model: torch.nn.Module,
         decay: float = 0.999,
         faster_decay_at_start: bool = True,
     ):
@@ -157,29 +157,38 @@ class EMATracker:
         for c_param, param in zip(self._stored_params, parameters):
             param.data.copy_(c_param.data)
 
-    def get_state(self):
+    def get_state(self, include_ema_params: bool):
         """
-        Get the state of the EMA tracker, excluding weights.
+        Get the state of the EMA tracker.
+
+        Args:
+            include_ema_params: Whether to include the EMA parameters in the state.
+            You probably want this to be True when saving a checkpoint meant to resume
+            training (i.e. not an EMA checkpoint) or False when saving a checkpoint for
+            evaluation (i.e. a checkpoint where the model weights are the EMA weights).
 
         Returns:
             The state of the EMA tracker.
         """
-        return {
+        state = {
             "decay": self.decay,
             "num_updates": self.num_updates,
             "faster_decay_at_start": self._faster_decay_at_start,
             "module_name_to_ema_name": self._module_name_to_ema_name,
         }
+        if include_ema_params:
+            state["ema_params"] = self._ema_params
+        return state
 
     @classmethod
-    def from_state(cls, state, model) -> "EMATracker":
+    def from_state(cls, state, model: torch.nn.Module) -> "EMATracker":
         """
         Create an EMA tracker from a state.
 
         Args:
             state: The state of the EMA tracker.
             model: The model whose parameters should be tracked, used to
-                initialize the EMA weights. Should come from an EMA checkpoint.
+                initialize the EMA weights if they are not provided in the state.
 
         Returns:
             The EMA tracker.
@@ -187,4 +196,10 @@ class EMATracker:
         ema = cls(model, float(state["decay"]), state["faster_decay_at_start"])
         ema.num_updates = state["num_updates"]
         ema._module_name_to_ema_name = state["module_name_to_ema_name"]
+        if ema_params := state.get("ema_params"):
+            assert ema_params.keys() == ema._ema_params.keys(), (
+                "EMA parameters keys do not match. "
+                "This is likely due to a mismatch between the model and checkpoint."
+            )
+            ema._ema_params = ema_params
         return ema

@@ -14,6 +14,7 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from multiprocessing.context import BaseContext
+from pathlib import Path
 from typing import Any, assert_never
 
 import dask
@@ -852,24 +853,38 @@ class Trainer:
             logger.info(f"Saving per-epoch checkpoint to {path}")
             self.save_checkpoint(epoch, path)
 
-        with self._ema_context():
-            logger.info(
-                f"Saving latest EMA checkpoint to {self.ckpt_paths.ema_checkpoint_path}"
-            )
-            self.save_checkpoint(epoch, self.ckpt_paths.ema_checkpoint_path)
+        logger.info(
+            f"Saving latest EMA checkpoint to {self.ckpt_paths.ema_checkpoint_path}"
+        )
+        self.save_checkpoint(
+            epoch,
+            self.ckpt_paths.ema_checkpoint_path,
+            for_inference=True,
+        )
 
-    def save_checkpoint(self, epoch, checkpoint_path):
+    def save_checkpoint(
+        self,
+        epoch: int,
+        checkpoint_path: Path,
+        for_inference: bool = False,
+    ):
+        if for_inference:
+            with self._ema_context():
+                model_state_dict = self.model.state_dict()
+        else:
+            model_state_dict = self.model.state_dict()
+
         # Create temporary file in the same directory as the target
         temp_dir = os.path.dirname(checkpoint_path)
         with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
             temporary_location = tmp.name
             checkpoint = {
-                "model": self.model.state_dict(),
+                "model": model_state_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "epoch": epoch,
                 "best_val_loss": self.best_val_loss,
                 "best_inf_loss": self.best_inf_loss,
-                "ema": self._ema.get_state(),
+                "ema": self._ema.get_state(include_ema_params=not for_inference),
                 "num_batches_seen": self.num_batches_seen,
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,

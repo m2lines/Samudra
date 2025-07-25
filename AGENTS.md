@@ -118,7 +118,7 @@ scripts/                  # Data download and preprocessing
 
 1. **Data Format**: Uses Zarr format for efficient array storage
 2. **Distributed Training**: Supports multi-GPU via PyTorch DDP
-3. **Memory Management**: Includes profiling tools (memray, py-spy, scalene)
+3. **Performance Mindset**: We include profiling tools (memray, py-spy, scalene) and aim to keep the code performant core train and eval loops.
 4. **Testing Philosophy**: Tests marked as `manual` or `cuda` for selective execution
 5. **Pre-commit Hooks**: Enforces code quality (ruff, mypy, detect-secrets)
 6. **Cloud Training**: Supports SkyPilot for remote job execution

@@ -9,6 +9,7 @@ Ocean Emulator is a PyTorch-based machine learning project for training and eval
 ## Development Commands
 
 ### Environment Setup
+
 ```bash
 # Install dependencies with uv
 uv sync --dev
@@ -16,6 +17,7 @@ source .venv/bin/activate
 ```
 
 ### Running Tests
+
 ```bash
 # Run standard tests (excluding manual and CUDA tests)
 uv run pytest -m "not manual and not cuda"
@@ -37,6 +39,7 @@ uv run pytest --benchmark-only --benchmark-autosave
 ```
 
 ### Code Quality Checks
+
 ```bash
 # Run all pre-commit checks (linting, formatting, type checking)
 uvx pre-commit run --all-files
@@ -66,34 +69,34 @@ For vizualization or other long-running tasks:
 ### Core Components
 
 1. **Model Architecture** (`src/ocean_emulators/models/`)
-   - `convnext_unet.py`: Main neural network implementing ocean predictions
-   - `modules/`: Reusable network blocks (ConvNext, etc.)
-   - Models predict ocean variables from ocean model data
+   * `convnext_unet.py`: Main neural network implementing ocean predictions
+   * `modules/`: Reusable network blocks (ConvNext, etc.)
+   * Models predict ocean variables from ocean model data
 
 2. **Data Pipeline** (`src/ocean_emulators/datasets.py`)
-   - Handles OM4 and CM4 ocean model data via Zarr format
-   - Supports time-based train/validation splits
-   - Variables include temperature, salinity, u/v velocities, sea surface height, and heat
-   - Data normalization and preprocessing
+   * Handles OM4 and CM4 ocean model data via Zarr format
+   * Supports time-based train/validation splits
+   * Variables include temperature, salinity, u/v velocities, sea surface height, and heat
+   * Data normalization and preprocessing
 
 3. **Training Loop** (`src/ocean_emulators/train.py`)
-   - Distributed training support via PyTorch DDP
-   - Checkpointing with model state and optimizer
-   - Weights & Biases integration for experiment tracking
-   - Learning rate scheduling and warmup
+   * Distributed training support via PyTorch DDP
+   * Checkpointing with model state and optimizer
+   * Weights & Biases integration for experiment tracking
+   * Learning rate scheduling and warmup
 
 4. **Evaluation System** (`src/ocean_emulators/eval.py`, `aggregator/`)
-   - Comprehensive metrics including RMSE, bias, correlations
-   - Ocean heat content (OHC) analysis
-   - ENSO metrics and basin-specific analysis
-   - Visualization tools for maps, time series, PDFs
-   - Aggregator pattern for metric collection
+   * Comprehensive metrics including RMSE, bias, correlations
+   * Ocean heat content (OHC) analysis
+   * ENSO metrics and basin-specific analysis
+   * Visualization tools for maps, time series, PDFs
+   * Aggregator pattern for metric collection
 
 5. **Configuration System** (`src/ocean_emulators/config.py`)
-   - YAML-based configuration with JSON schema validation
-   - Hierarchical configs with `!include` directives
-   - Pydantic models for type safety
-   - Command-line overrides supported
+   * YAML-based configuration with JSON schema validation
+   * Hierarchical configs with `!include` directives
+   * Pydantic models for type safety
+   * Command-line overrides supported
 
 ### Key Design Patterns
 
@@ -103,7 +106,8 @@ For vizualization or other long-running tasks:
 4. **Aggregator Pattern**: For collecting distributed metrics during evaluation
 
 ### Project Structure
-```
+
+```text
 src/ocean_emulators/
 ├── train.py              # Training entry point
 ├── eval.py               # Evaluation entry point

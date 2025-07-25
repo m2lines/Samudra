@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
+from ocean_emulators.constants import Grid
 from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
 
@@ -76,8 +77,19 @@ N_WINDOW = 25
 
 
 class MseDynamic:
-    def __init__(self, wet: torch.Tensor, stds: torch.Tensor, *, should_limit: bool):
-        self.wet: Float[torch.Tensor, "lat lon"] = wet
+    """A loss function that scales each channel contribute equally to the loss.
+
+    See: https://m2lines.slack.com/files/U086XUETAJ0/F0952H4G3GF/dynamic_loss_weighting.pptx
+    """
+
+    def __init__(
+        self,
+        wet: Grid,
+        stds: Float[torch.Tensor, " var"],
+        *,
+        should_limit: bool,
+    ):
+        self.wet: Grid = wet
         self.per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
             stds.shape[0], device=wet.device
         )
@@ -127,7 +139,7 @@ class MseDynamic:
             self.per_channel_scale * (N_WINDOW - 1) + new_target_weights
         ) / N_WINDOW
 
-    def loss_scale_per_channel(self):
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
         return self.per_channel_scale
 
     # new methods for saving and loading state

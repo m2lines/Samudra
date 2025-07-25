@@ -618,7 +618,7 @@ class Trainer:
 
             if update := getattr(self.loss_fn, "update", None):
                 with torch.no_grad():
-                    # TODO: could avoid a second forward pass here
+                    # TODO(jder): could avoid a second forward pass here
                     single_step_data = TrainData(data.num_prognostic_channels)
                     # Each entry in data is one step in a rollout.
                     input, label = data[0]

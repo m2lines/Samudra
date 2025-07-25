@@ -29,7 +29,13 @@ from torch.utils.data import (
 )
 
 from ocean_emulators import config
-from ocean_emulators.aggregator import Aggregator, LossAggregator
+from ocean_emulators.aggregator import Aggregator
+from ocean_emulators.aggregator.loss import (
+    get_channel_loss_dict,
+    get_channel_loss_scale_dict,
+    get_depth_loss_dict,
+    get_variable_loss_dict,
+)
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
@@ -378,7 +384,6 @@ class Trainer:
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
 
         assert self.tensor_map is not None
-        self.loss_aggregator = LossAggregator.init_instance()
 
         if self.inference_epochs:
             self.init_inference_stores()
@@ -565,13 +570,13 @@ class Trainer:
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
                     "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
-                    **self.loss_aggregator.get_channel_loss_dict(
+                    **get_channel_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
-                    **self.loss_aggregator.get_depth_loss_dict(
+                    **get_depth_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
-                    **self.loss_aggregator.get_variable_loss_dict(
+                    **get_variable_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
                     "train/batch/data_load_time": metric_logger.meters[
@@ -591,10 +596,10 @@ class Trainer:
 
                     metrics.update(
                         {
-                            **self.loss_aggregator.get_channel_loss_scale_dict(
+                            **get_channel_loss_scale_dict(
                                 label="train", loss_per_channel=loss_per_channel
                             ),
-                            **self.loss_aggregator.get_channel_loss_dict(
+                            **get_channel_loss_dict(
                                 label="train",
                                 loss_per_channel=unscaled_loss_per_channel,
                                 loss_name="loss_unscaled",

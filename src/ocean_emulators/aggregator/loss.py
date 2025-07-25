@@ -37,9 +37,9 @@ class LossAggregator(Multiton):
         return metrics
 
     def get_channel_loss_dict(
-        self, label: str, loss_per_channel: torch.Tensor
+        self, label: str, loss_per_channel: torch.Tensor, loss_name: str = "loss"
     ) -> dict[str, torch.Tensor]:
-        return self.get_channel_dict(label, "loss", loss_per_channel)
+        return self.get_channel_dict(label, loss_name, loss_per_channel)
 
     def get_channel_loss_scale_dict(
         self, label: str, loss_per_channel: torch.Tensor

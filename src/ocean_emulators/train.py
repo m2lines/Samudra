@@ -551,16 +551,6 @@ class Trainer:
 
             self.optimizer.step()
 
-            if update := getattr(self.loss_fn, "update", None):
-                with torch.no_grad():
-                    # TODO: could avoid a second forward pass here
-                    single_step_data = TrainData(data.num_prognostic_channels)
-                    # Each entry in data is one step in a rollout.
-                    input, label = data[0]
-                    single_step_data.insert(input, label)
-                    pred = self.model(single_step_data)
-                    update(pred[0], label)
-
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
                 if self.scheduler is None
@@ -591,14 +581,27 @@ class Trainer:
                         "data_wait_time"
                     ].value,
                 }
-            if loss_per_channel := getattr(
-                self.loss_fn, "loss_scale_per_channel", None
-            ):
-                metrics.update(
-                    **self.loss_aggregator.get_channel_loss_scale_dict(
-                        label="train", loss_per_channel=loss_per_channel()
+
+                if loss_per_channel_fn := getattr(
+                    self.loss_fn, "loss_scale_per_channel", None
+                ):
+                    loss_per_channel = loss_per_channel_fn()
+                    unscaled_loss_per_channel = TO.loss_per_channel / loss_per_channel
+                    unscaled_loss = torch.mean(unscaled_loss_per_channel)
+
+                    metrics.update(
+                        {
+                            **self.loss_aggregator.get_channel_loss_scale_dict(
+                                label="train", loss_per_channel=loss_per_channel
+                            ),
+                            **self.loss_aggregator.get_channel_loss_dict(
+                                label="train",
+                                loss_per_channel=unscaled_loss_per_channel,
+                                loss_name="loss_unscaled",
+                            ),
+                            "train/batch/loss_unscaled": unscaled_loss,
+                        }
                     )
-                )
 
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
@@ -607,6 +610,16 @@ class Trainer:
 
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
+
+            if update := getattr(self.loss_fn, "update", None):
+                with torch.no_grad():
+                    # TODO: could avoid a second forward pass here
+                    single_step_data = TrainData(data.num_prognostic_channels)
+                    # Each entry in data is one step in a rollout.
+                    input, label = data[0]
+                    single_step_data.insert(input, label)
+                    pred = self.model(single_step_data)
+                    update(pred[0], label)
 
             self.profiler.after_batch(self.num_batches_seen)
 

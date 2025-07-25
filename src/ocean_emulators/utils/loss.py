@@ -1,9 +1,8 @@
 import torch
-import torch.distributed as dist
 import torch.nn.functional as F
 from jaxtyping import Float
 
-from ocean_emulators.utils.distributed import get_world_size
+from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
 
 def decomposed_mse(
@@ -122,7 +121,7 @@ class MseDynamic:
             new_target_weights = new_target_weights.min(self.limits)
 
         if get_world_size() > 1:
-            dist.all_reduce(new_target_weights, op=dist.ReduceOp.AVG)
+            all_reduce_mean(new_target_weights)
 
         self.per_channel_scale = (
             self.per_channel_scale * (N_WINDOW - 1) + new_target_weights

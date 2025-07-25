@@ -43,15 +43,6 @@ uv run pytest --benchmark-only --benchmark-autosave
 ```bash
 # Run all pre-commit checks (linting, formatting, type checking)
 uvx pre-commit run --all-files
-
-# Run Ruff linter only
-uv run ruff check src/
-
-# Run Ruff formatter
-uv run ruff format src/
-
-# Run MyPy type checker
-uv run mypy src/
 ```
 
 ### Training, Evaluation, and Visualization

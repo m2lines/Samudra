@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753536514695,
+  "lastUpdate": 1753536515964,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5290,6 +5290,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.184090545079249",
             "extra": "mean: 72.91429894599996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a290621e470ab5f4abdecd9f2d1bbf0c8b19e79",
+          "message": "AGENTS.md (#316)\n\nI keep wanting to put things in here so made a first cut at it so we can\ngrow it over time.\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2025-07-26T13:03:11Z",
+          "tree_id": "93de5b5c63179f0e0e9007484dbe1043bbe90816",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/5a290621e470ab5f4abdecd9f2d1bbf0c8b19e79"
+        },
+        "date": 1753536515488,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.308723016181537,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010323689391921806",
+            "extra": "mean: 764.1036243999906 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.0692609983376631,
+            "unit": "iter/sec",
+            "range": "stddev: 0.17046953433775328",
+            "extra": "mean: 14.438140136600008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1952525062191809,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08334556129824325",
+            "extra": "mean: 5.121573184199997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.015633314407082616,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1829330532247559",
+            "extra": "mean: 63.965962300799994 sec\nrounds: 5"
           }
         ]
       }

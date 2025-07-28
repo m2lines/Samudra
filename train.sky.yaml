@@ -48,15 +48,32 @@ envs:
   DATA_CONFIG: configs/data/om4_sky_local.yaml
 
 file_mounts:
-  /data:
-    source: s3://${DATA_BUCKET}/${DATA_ROOT_PATH}
-    mode: COPY
+# Using manual `rclone` in the setup section until we can pass args to file mounts.
+#  /data:
+#    source: s3://${DATA_BUCKET}/${DATA_ROOT_PATH}
+#    mode: COPY
 
   /outputs:
     source: s3://${OUTPUTS_BUCKET}
     mode: MOUNT_CACHED
 
 workdir: .
+
+setup: |
+  mkdir /data/
+
+  RCLONE_CONF = $(rclone config file)
+
+  cat << EOF > $RCLONE_CONF
+  [oa-general]
+  type = s3
+  provider = AWS
+  env_auth = true
+  EOF
+
+  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_means.zarr /data/OM4_means.zarr
+  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_stds.zarr /data/OM4_stds.zarr
+  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4.zarr /data/OM4.zarr --transfers=32
 
 run: |
   MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)

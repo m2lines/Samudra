@@ -48,10 +48,7 @@ envs:
   DATA_CONFIG: configs/data/om4_sky_local.yaml
 
 file_mounts:
-# Using manual `rclone` in the setup section until we can pass args to file mounts.
-#  /data:
-#    source: s3://${DATA_BUCKET}/${DATA_ROOT_PATH}
-#    mode: COPY
+  # TODO(alxmrs): Consider adding a data/ copy here once `mount_options` feature exists.
 
   /outputs:
     source: s3://${OUTPUTS_BUCKET}
@@ -60,6 +57,7 @@ file_mounts:
 workdir: .
 
 setup: |
+
   mkdir ~/data/
 
   RCLONE_CONF=$(rclone config file | awk '/Configuration file is stored at:/ {getline; print}')

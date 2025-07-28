@@ -60,7 +60,6 @@ class EMATracker:
                 num_updates) / (10 + num_updates)). If False, the decay rate
                 will be decay.
         """
-        super().__init__()
         if decay < 0.0 or decay > 1.0:
             raise ValueError("Decay must be between 0 and 1")
 

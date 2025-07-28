@@ -57,7 +57,6 @@ file_mounts:
 workdir: .
 
 setup: |
-
   mkdir ~/data/
   rclone config create s3-source s3 provider=AWS env_auth=true
 

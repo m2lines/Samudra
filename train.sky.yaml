@@ -62,7 +62,7 @@ workdir: .
 setup: |
   mkdir /data/
 
-  RCLONE_CONF = $(rclone config file)
+  RCLONE_CONF=$(rclone config file | awk '/Configuration file is stored at:/ {getline; print}')
 
   cat << EOF > $RCLONE_CONF
   [oa-general]

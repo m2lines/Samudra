@@ -97,6 +97,10 @@ class EMATracker:
                 all_equal(self._ema_params[k], other._ema_params[k])
                 for k in self._ema_params
             )
+            and all(
+                all_equal(a, b)
+                for a, b in zip(self._stored_params, other._stored_params, strict=True)
+            )
         )
 
     def __call__(self, model: Samudra | nn.parallel.DistributedDataParallel):

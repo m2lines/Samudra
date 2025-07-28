@@ -417,7 +417,7 @@ def extra_config_args(request) -> list[str]:
     return request.param
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 def train_config(
     data_source: DataSource,
     pytestconfig: pytest.Config,

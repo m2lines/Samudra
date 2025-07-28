@@ -60,7 +60,7 @@ file_mounts:
 workdir: .
 
 setup: |
-  mkdir /data/
+  mkdir ~/data/
 
   RCLONE_CONF=$(rclone config file | awk '/Configuration file is stored at:/ {getline; print}')
 
@@ -71,9 +71,9 @@ setup: |
   env_auth = true
   EOF
 
-  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_means.zarr /data/OM4_means.zarr
-  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_stds.zarr /data/OM4_stds.zarr
-  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4.zarr /data/OM4.zarr --transfers=32
+  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_means.zarr ~/data/OM4_means.zarr
+  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_stds.zarr ~/data/OM4_stds.zarr
+  rclone copy --progress oa-general:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4.zarr ~/data/OM4.zarr --transfers=32
 
 run: |
   MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)
@@ -94,7 +94,7 @@ run: |
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
     --data=@${DATA_CONFIG} \
-    --experiment.data_root=/data/ \
+    --experiment.data_root=~/data/ \
     --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \
     --samudra.checkpointing=all

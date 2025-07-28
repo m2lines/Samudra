@@ -77,6 +77,8 @@ run: |
   MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)
   echo "Starting distributed training, head node: $MASTER_ADDR"
 
+  DATA_DIR=$(realpath ~/data)
+
   # Explicit check for torchrun
   if ! command -v torchrun >/dev/null 2>&1; then
       echo "ERROR: torchrun command not found" >&2
@@ -92,7 +94,7 @@ run: |
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
     --data=@${DATA_CONFIG} \
-    --experiment.data_root=~/data/ \
+    --experiment.data_root=${DATA_DIR} \
     --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \
     --samudra.checkpointing=all

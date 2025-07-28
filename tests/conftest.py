@@ -444,10 +444,6 @@ def train_config(
     """
     This fixture is used to create a config/trainer pair for each possible
     configuration.
-
-    This is session-scoped so that the config/trainer pair is created once per
-    configuration, then trainer_pair will set up the Multiton scope and skip rules
-    for each test at a per-function level.
     """
     cache = cache_dir(pytestconfig)
     assert (cache / data_source.name).exists(), (

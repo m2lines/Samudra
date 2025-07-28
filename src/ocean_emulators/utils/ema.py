@@ -176,8 +176,10 @@ class EMATracker:
         Args:
             parameters: The parameters to be updated with the values stored by `store`
         """
-        for c_param, param in zip(self._stored_params, parameters):
+        for c_param, param in zip(self._stored_params, parameters, strict=True):
             param.data.copy_(c_param.data)
+
+        self._stored_params = []
 
     def get_state(self, include_ema_params: bool):
         """

@@ -12,6 +12,9 @@ data_stds_location:
   type: local
   path: OM4_means.zarr
 
+# More workers than default; needed for faster data_iter time.
+num_workers: 4
+
 static_data_vars:
   - sea_surface_fraction
   - hfgeou

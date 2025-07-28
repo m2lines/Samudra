@@ -50,6 +50,7 @@ dependencies = [
 dev = [
   "beartype>=0.20",
   "coiled>=1.99",
+  "filelock>=3.17",
   "fsspec>=2025.3",
   "hypothesis[numpy]>=6.127.2",
   "ipykernel>=6.29.5",

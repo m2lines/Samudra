@@ -81,6 +81,24 @@ class EMATracker:
 
         self._stored_params: list[torch.Tensor] = []
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, EMATracker):
+            return False
+
+        def all_equal(a: torch.Tensor, b: torch.Tensor) -> bool:
+            return torch.all(a == b).item()  # type: ignore
+
+        return (
+            all_equal(self.decay, other.decay)
+            and all_equal(self.num_updates, other.num_updates)
+            and self._faster_decay_at_start == other._faster_decay_at_start
+            and self._module_name_to_ema_name == other._module_name_to_ema_name
+            and all(
+                all_equal(self._ema_params[k], other._ema_params[k])
+                for k in self._ema_params
+            )
+        )
+
     def __call__(self, model: Samudra | nn.parallel.DistributedDataParallel):
         """
         Update the moving average of the parameters.

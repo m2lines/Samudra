@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753802810290,
+  "lastUpdate": 1753802811654,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5498,6 +5498,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.19023555202479867",
             "extra": "mean: 70.558723619 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fca69bcf55ee435edceb52595536b733242cfebc",
+          "message": "Fix EMA state restore when resuming training from a checkpoint (#313)\n\nThis fixes a silly bug which overwrote all EMA state after resuming from\na checkpoint. It also now declares the two kinds of checkpoints to be\nfor different uses:\n\n* EMA checkpoints: these bake in the averaged weights into the model\nitself, and so are useful for inference that wants to start from that\naveraged model.\n* Non-EMA checkpoints: these now save the averaged model weights\nseparately from the main model weights so we can resume training without\nstarting that averaging over again.\n\nThese maybe could be renamed \"inference checkpoints\" and \"training\ncheckpoints\" or something if this turns out to be a useful distinction.\n\nI ended up not adding a test that training continues exactly as it would\nhave without checkpointing/restoring because I think there are other\nbugs that are not critical to solve right now like rand seeds not being\nsaved. (I started a [discussion\nhere](https://openathena.slack.com/archives/C0884476QSC/p1753229734048809))\n\nFixes #282",
+          "timestamp": "2025-07-29T15:00:44Z",
+          "tree_id": "284b778022da90fdfb58e7ec80b48727fb5e176c",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/fca69bcf55ee435edceb52595536b733242cfebc"
+        },
+        "date": 1753802811118,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2025657375929018,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03727358835674056",
+            "extra": "mean: 831.5553725999507 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07032378068391941,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5707032375818843",
+            "extra": "mean: 14.219940826199991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1937617335287812,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08881723658146731",
+            "extra": "mean: 5.1609777730000586 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.015140074807560123,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2054239991477934",
+            "extra": "mean: 66.04987179460004 sec\nrounds: 5"
           }
         ]
       }

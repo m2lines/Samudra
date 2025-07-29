@@ -433,6 +433,15 @@ def extra_config_args(request) -> list[str]:
     return request.param
 
 
+_NEXT_TEST_ID = 0
+
+
+def unique_test_name(config_name: str) -> str:
+    global _NEXT_TEST_ID
+    _NEXT_TEST_ID += 1
+    return f"test_{config_name}_{_NEXT_TEST_ID}"
+
+
 @pytest.fixture(scope="function")
 def train_config(
     data_source: DataSource,
@@ -459,6 +468,9 @@ def train_config(
             str(cache / data_source.name),
             "--backend",
             backend,
+            "--experiment.name",
+            # we make a unique name to avoid collisions on disk for output files
+            unique_test_name(config_name),
         ]
         + extra_config_args
     )

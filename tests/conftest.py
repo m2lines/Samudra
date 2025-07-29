@@ -441,6 +441,7 @@ def unique_test_name(config_name: str) -> str:
     _NEXT_TEST_ID += 1
     return f"test_{config_name}_{_NEXT_TEST_ID}"
 
+
 @pytest.fixture(scope="function")
 def train_config(
     data_source: DataSource,

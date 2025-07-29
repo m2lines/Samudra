@@ -248,58 +248,60 @@ class Trainer:
 
         self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         # Loss function
-        if cfg.loss == "mse":
-            logger.info("Using decomposed mse loss")
-            self.loss_fn = partial(decomposed_mse, wet=self.wet)
-        elif cfg.loss == "mse_diff_weighted":
-            assert cfg.data.hist == 1  # TEMP
-            logger.info("Using decomposed mse loss with weighted diff")
-            self.loss_fn = partial(decomposed_mse_diff_weighted, wet=self.wet)
-        elif cfg.loss == "mse_cos_weighted":
-            logger.info("Using decomposed mse loss with weighted cos")
-            area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
-            area_weights = torch.from_numpy(area_weights).to(device=self.device)
-            self.loss_fn = partial(
-                decomposed_mse_cos_weighted, wet=self.wet, cos=area_weights
-            )
-        elif cfg.loss == "mse_residual_scaled":
-            logger.info("Using decomposed mse loss with scaled residuals")
-            assert self.data_container.scaling_residuals is not None, (
-                "With loss of 'mse_residual_scaled' you"
-                " must supply a scaling_residuals_file"
-            )
-            scale = torch.from_numpy(
-                (
-                    self.src.stds[self.prognostic_var_names]
-                    / self.data_container.scaling_residuals[self.prognostic_var_names]
+        match cfg.loss:
+            case "mse":
+                logger.info("Using decomposed mse loss")
+                self.loss_fn = partial(decomposed_mse, wet=self.wet)
+            case "mse_diff_weighted":
+                assert cfg.data.hist == 1  # TEMP
+                logger.info("Using decomposed mse loss with weighted diff")
+                self.loss_fn = partial(decomposed_mse_diff_weighted, wet=self.wet)
+            case "mse_cos_weighted":
+                logger.info("Using decomposed mse loss with weighted cos")
+                area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
+                area_weights = torch.from_numpy(area_weights).to(device=self.device)
+                self.loss_fn = partial(
+                    decomposed_mse_cos_weighted, wet=self.wet, cos=area_weights
                 )
-                .compute()
-                .to_array()
-                .to_numpy()
-            ).to(device=self.device)
-            scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
-            self.loss_fn = partial(decomposed_mse_scaled, wet=self.wet, scaling=scale)
-        elif cfg.loss == "mse_mae":
-            logger.info("Using decomposed mse loss with mae")
-            self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
-        elif cfg.loss == "mse_dynamic" or cfg.loss == "mse_dynamic_no_limit":
-            should_limit = cfg.loss == "mse_dynamic"
-            logger.info(f"Using dynamic MSE loss (limit = {should_limit})")
-            self.loss_fn = MseDynamic(
-                wet=self.wet,
-                stds=torch.from_numpy(
-                    self.src.stds[self.prognostic_var_names].to_array().to_numpy()
-                ).to(device=self.device),
-                should_limit=should_limit,
-            )
-        else:
-            assert_never(cfg.loss)
+            case "mse_residual_scaled":
+                logger.info("Using decomposed mse loss with scaled residuals")
+                assert self.data_container.scaling_residuals is not None, (
+                    "With loss of 'mse_residual_scaled' you"
+                    " must supply a scaling_residuals_file"
+                )
+                scale = torch.from_numpy(
+                    (
+                        self.src.stds[self.prognostic_var_names]
+                        / self.data_container.scaling_residuals[
+                            self.prognostic_var_names
+                        ]
+                    )
+                    .compute()
+                    .to_array()
+                    .to_numpy()
+                ).to(device=self.device)
+                scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
+                self.loss_fn = partial(
+                    decomposed_mse_scaled, wet=self.wet, scaling=scale
+                )
+            case "mse_mae":
+                logger.info("Using decomposed mse loss with mae")
+                self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
+            case "mse_dynamic" | "mse_dynamic_no_limit":
+                should_limit = cfg.loss == "mse_dynamic"
+                logger.info(f"Using dynamic MSE loss (limit = {should_limit})")
+                self.loss_fn = MseDynamic(
+                    wet=self.wet,
+                    stds=torch.from_numpy(
+                        self.src.stds[self.prognostic_var_names].to_array().to_numpy()
+                    ).to(device=self.device),
+                    should_limit=should_limit,
+                )
+            case _:
+                assert_never(cfg.loss)
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
-        # self.optimizer = torch.optim.AdamW(
-        #     self.model.parameters(), lr=cfg.learning_rate, fused=True
-        # )
 
         # Scheduler
         self.scheduler = None

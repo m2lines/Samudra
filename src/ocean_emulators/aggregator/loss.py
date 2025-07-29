@@ -34,9 +34,9 @@ def get_channel_loss_dict(
 
 
 def get_channel_loss_scale_dict(
-    label: str, loss_per_channel: torch.Tensor
+    label: str, loss_scale_per_channel: torch.Tensor
 ) -> dict[str, torch.Tensor]:
-    return get_channel_dict(label, "loss_scale", loss_per_channel)
+    return get_channel_dict(label, "loss_scale", loss_scale_per_channel)
 
 
 def get_channel_dict(

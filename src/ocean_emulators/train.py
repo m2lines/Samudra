@@ -589,17 +589,26 @@ class Trainer:
                     ].value,
                 }
 
-                if loss_per_channel_fn := getattr(
+                if loss_scale_per_channel_fn := getattr(
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
-                    loss_per_channel = loss_per_channel_fn()
-                    unscaled_loss_per_channel = TO.loss_per_channel / loss_per_channel
+                    loss_scale_per_channel = loss_scale_per_channel_fn()
+                    # Reshape from channels * history to channels
+                    # by averaging along the `hist` dimension
+                    loss_per_channel = TO.loss_per_channel.reshape(
+                        loss_scale_per_channel.shape[0], -1
+                    ).mean(dim=1)
+
+                    unscaled_loss_per_channel = (
+                        loss_per_channel / loss_scale_per_channel
+                    )
                     unscaled_loss = torch.mean(unscaled_loss_per_channel)
 
                     metrics.update(
                         {
                             **get_channel_loss_scale_dict(
-                                label="train", loss_per_channel=loss_per_channel
+                                label="train",
+                                loss_scale_per_channel=loss_scale_per_channel,
                             ),
                             **get_channel_loss_dict(
                                 label="train",

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753801741910,
+  "lastUpdate": 1753801743524,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5394,6 +5394,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1829330532247559",
             "extra": "mean: 63.965962300799994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "22812c426eebfcc158fcd32d4529ce25a3092742",
+          "message": "Hopefully fix data race in cache reading/writing (#318)\n\nBreaks out the test change from #313 and fixes the bug (see eg [this\nactions\nrun](https://github.com/Open-Athena/Ocean_Emulator/actions/runs/16573115391/job/46880287790))\nthat exposed.\n\nWe now ensure that only one process (of possibly-many pytest processes)\nwrite to a given data source cache at once. We also ensure that\nprocesses that would like to `open` a given cache wait for any writers\nof that cache to finish. (They also wait for other readers, though this\nis unnecessary.) This locking is also hoisted upwards such that only one\nprocess will try to create the remote/compact/mock data in the case when\nit is not cached, which should hopefully reduce the chance of that\nfailing.\n\nFixes #257",
+          "timestamp": "2025-07-29T14:41:42Z",
+          "tree_id": "7c74980a4e88603a4e838fe3bdd4b64fe75ea52b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/22812c426eebfcc158fcd32d4529ce25a3092742"
+        },
+        "date": 1753801742926,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.257248751914828,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06104922276895987",
+            "extra": "mean: 795.3875464000021 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06906807598442025,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4744532867331867",
+            "extra": "mean: 14.478469042999995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1906041315716836,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09790941054696249",
+            "extra": "mean: 5.2464759905999925 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.014172591973173401,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19023555202479867",
+            "extra": "mean: 70.558723619 sec\nrounds: 5"
           }
         ]
       }

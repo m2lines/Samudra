@@ -310,6 +310,13 @@ class Trainer:
             cfg.resume_ckpt_path, cfg, finetune=cfg.finetune
         )
 
+        # Modify DDP setup based on device
+        if self.distributed is not None:
+            self.model = nn.parallel.DistributedDataParallel(
+                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
+                device_ids=[self.distributed.gpu],
+            )
+
         self.num_batches_seen = 0
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
@@ -330,13 +337,6 @@ class Trainer:
                 self.model,
                 decay=cfg.ema_decay,
                 faster_decay_at_start=cfg.faster_decay_at_start,
-            )
-
-        # Modify DDP setup based on device
-        if self.distributed is not None:
-            self.model = nn.parallel.DistributedDataParallel(
-                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
-                device_ids=[self.distributed.gpu],
             )
 
         # Training

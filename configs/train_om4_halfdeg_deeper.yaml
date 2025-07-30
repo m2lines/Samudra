@@ -40,6 +40,7 @@ data_stride: [1]
 steps: [4]
 step_transition: []
 preemptible: true
+test_using_ema: false
 
 backend: auto
 

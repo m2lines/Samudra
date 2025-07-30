@@ -44,7 +44,7 @@ preemptible: true
 backend: auto
 
 experiment:
-  name: om4_samudra_halfdeg_depth_at_network_end
+  name: om4_samudra_halfdeg_depth_at_network_end_instance_norm
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

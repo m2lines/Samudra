@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 1
+batch_size: 3  # 3 is acceptable for a batch norm.
 learning_rate: 0.0001  # Learning rate is smaller to accommodate a deeper model.
 scheduler: true
 loss: mse
@@ -40,12 +40,11 @@ data_stride: [1]
 steps: [4]
 step_transition: []
 preemptible: true
-test_using_ema: false  # Added because I got checkpoint serialization errors related to EMA.
 
 backend: auto
 
 experiment:
-  name: om4_samudra_halfdeg_depth_at_network_end_instance_norm
+  name: om4_samudra_halfdeg_depth_tuned_for_80gb
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
@@ -62,7 +61,7 @@ samudra:
   checkpointing: all
   ch_width: [162, 200, 250, 300, 350, 400]
   n_out: 154
-  dilation: [1, 2, 4, 2, 8]
+  dilation: [1, 2, 2, 4, 8]
   n_layers: [1, 1, 1, 1, 1]
   pred_residuals: false
   last_kernel_size: 3
@@ -72,8 +71,8 @@ samudra:
     block_type: "conv_next_block"
     kernel_size: 3
     activation: "capped_gelu"
-    upscale_factor: 4
-    norm: "instance"  # Since the batch size is 1, I'm changing this to layer norm.
+    upscale_factor: 2
+    norm: "batch"
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

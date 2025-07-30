@@ -40,7 +40,7 @@ data_stride: [1]
 steps: [4]
 step_transition: []
 preemptible: true
-test_using_ema: false
+test_using_ema: false  # Added because I got checkpoint serialization errors related to EMA.
 
 backend: auto
 

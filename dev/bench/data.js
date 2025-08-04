@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754336955272,
+  "lastUpdate": 1754336956712,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5706,6 +5706,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.15449887949279195",
             "extra": "mean: 65.62961690460001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97147185c31a4de7192cbd74e1de485391eb43c2",
+          "message": "MSE Dynamic Loss (#310)\n\nAdds a new loss function to dynamically re-weight loss scaling to make\neach channel contribute equally to the loss.",
+          "timestamp": "2025-08-04T19:22:39Z",
+          "tree_id": "37dcb9e3e141071f2da6809e342144d2d2897d3c",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/97147185c31a4de7192cbd74e1de485391eb43c2"
+        },
+        "date": 1754336956212,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.3032773818159626,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03296609410294671",
+            "extra": "mean: 767.2963667999966 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07143451981573333,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23848597425655643",
+            "extra": "mean: 13.998834213199984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19246492035068932,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08808535006299062",
+            "extra": "mean: 5.195752026800028 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.015042709341925158,
+            "unit": "iter/sec",
+            "range": "stddev: 0.41800356395116245",
+            "extra": "mean: 66.47738630520003 sec\nrounds: 5"
           }
         ]
       }

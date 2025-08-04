@@ -306,9 +306,7 @@ class Trainer:
         # Scheduler
         self.scheduler = None
         if cfg.scheduler:
-            self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                self.optimizer, T_max=cfg.epochs
-            )
+            self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
 
         # Initialize WandB
         self.wandb_logger = WandBLogger.init_instance()

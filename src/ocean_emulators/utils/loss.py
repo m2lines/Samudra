@@ -1,5 +1,9 @@
 import torch
 import torch.nn.functional as F
+from jaxtyping import Float
+
+from ocean_emulators.constants import Grid
+from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
 
 def decomposed_mse(
@@ -67,3 +71,88 @@ def decomposed_mse_mae(
     mae = F.l1_loss(pred, target, reduction="none")
     combined = (mse + mae) / 2
     return combined.mean(dim=(0, 2, 3))
+
+
+class MseDynamic:
+    """A loss function that scales each channel to contribute equally to the loss.
+
+    This uses a rolling estimate of the loss of each channel to scale each
+    channel's loss, discouraging the model from focusing on only a few channels.
+
+    See: https://openathena.slack.com/archives/C08CYM42DT3/p1752275713570969
+    """
+
+    N_WINDOW = 25
+    """Rolling window size to average over. (~number of steps)"""
+
+    def __init__(
+        self,
+        wet: Grid,
+        stds: Float[torch.Tensor, " var"],
+        *,
+        should_limit: bool,
+    ):
+        self._wet: Grid = wet
+        self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
+            stds.shape[0], device=wet.device
+        )
+        if should_limit:
+            vars: Float[torch.Tensor, " var"] = stds.pow(2)
+            self._limits: Float[torch.Tensor, " var"] | None = 1.0 / vars
+        else:
+            self._limits = None
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+    ) -> Float[torch.Tensor, " hist*var"]:
+        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = decomposed_mse(
+            pred, target, self._wet
+        )
+        scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
+            loss_with_history_channels.reshape(self._per_channel_scale.shape[0], -1)
+            * self._per_channel_scale.unsqueeze(1)
+        )
+        return scaled_loss_including_history_dimension.reshape(-1)
+
+    def update(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+    ) -> None:
+        """Given the prediction & target for this step, update the per-channel scale."""
+        mse_loss = decomposed_mse(pred, target, self._wet)
+        mse_loss = torch.where(mse_loss == 0, 1e-8, mse_loss)
+        new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = (
+            1.0 / mse_loss
+        )
+        # Reshape from channels * history to channels
+        # by averaging along the `hist` dimension
+        new_target_weights: Float[torch.Tensor, " var"] = (
+            new_target_weights_with_history.reshape(
+                self._per_channel_scale.shape[0], -1
+            ).mean(dim=1)
+        )
+        if self._limits:
+            new_target_weights = new_target_weights.min(self._limits)
+
+        if get_world_size() > 1:
+            all_reduce_mean(new_target_weights)
+
+        self._per_channel_scale = (
+            self._per_channel_scale * (MseDynamic.N_WINDOW - 1) + new_target_weights
+        ) / MseDynamic.N_WINDOW
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        return self._per_channel_scale
+
+    # new methods for saving and loading state
+    def state_dict(self) -> dict[str, torch.Tensor]:
+        """Return state dictionary for checkpointing."""
+        return {"per_channel_scale": self._per_channel_scale.detach().cpu()}
+
+    def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
+        """Load state from ``state_dict``."""
+        if "per_channel_scale" in state:
+            self._per_channel_scale = state["per_channel_scale"].to(self._wet.device)

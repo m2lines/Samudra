@@ -293,7 +293,13 @@ class ProfilerConfig(BaseConfig):
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 LossType = Literal[
-    "mse", "mse_diff_weighted", "mse_cos_weighted", "mse_residual_scaled", "mse_mae"
+    "mse",
+    "mse_diff_weighted",
+    "mse_cos_weighted",
+    "mse_residual_scaled",
+    "mse_mae",
+    "mse_dynamic",
+    "mse_dynamic_no_limit",
 ]
 
 

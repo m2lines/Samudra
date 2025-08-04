@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754336956712,
+  "lastUpdate": 1754342607599,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2852,6 +2852,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.09620982025994937",
             "extra": "mean: 76.83869853659998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "624a32a1a10d4e7fd3330079f6d8d99aff013a03",
+          "message": "Sky Train: Cloning data faster via setup section instead of file mount (#319)\n\nSince `file_mount` options don't let you pass arguments to rclone, this\nPR opts to manually `rclone` data during the `setup` stage of the job.\nThis allows us to make faster file transfers with the `--transfers`\nflag.\n\nIt also has required that I map the `data/` dir to home and not root. \nWe also set the default number of workers to 4.",
+          "timestamp": "2025-08-04T20:58:11Z",
+          "tree_id": "6729e53b5adf4b38607cec411fd3be8a77c44535",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/624a32a1a10d4e7fd3330079f6d8d99aff013a03"
+        },
+        "date": 1754342606687,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2645068867628333,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03030718161384631",
+            "extra": "mean: 790.8221066000067 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07135583208539337,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4866418597419702",
+            "extra": "mean: 14.01427144459999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19271075284353342,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10854949240367774",
+            "extra": "mean: 5.189124038200009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013335990461259157,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2973168510599323",
+            "extra": "mean: 74.98505663339999 sec\nrounds: 5"
           }
         ]
       }

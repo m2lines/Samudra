@@ -16,7 +16,7 @@ class CosineScheduler(BaseModel):
 class CosineWithTailScheduler(BaseModel):
     type: Literal["cosine_with_tail"] = "cosine_with_tail"
 
-    tail_lr: float = 0.0
+    tail_lr: float
     tail_epochs: int = 10
 
     def build(

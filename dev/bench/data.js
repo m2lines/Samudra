@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1753802811654,
+  "lastUpdate": 1754325024848,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2748,6 +2748,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.17136603733218406",
             "extra": "mean: 76.69199577340001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ac92b9abf9c99815dae6b9ae91027ea6ce7ec05f",
+          "message": "Fix UnresolvedLocation JSON schema to permit string (#325)\n\nThis was previously causing red squigglies in VS Code. It's annoying\nthat this annotation and the two `@model_*` annotations on this class\nare all required -- I spent some time looking for a more direct way to\nexpress \"this type serializes to/from a string\" in the pydantic docs but\neverything I tried was broken or more complicated than this.",
+          "timestamp": "2025-08-04T12:04:10-04:00",
+          "tree_id": "27307cf6f78e7b02e3b4a73430ebd435dbfd791b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/ac92b9abf9c99815dae6b9ae91027ea6ce7ec05f"
+        },
+        "date": 1754325024091,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2438566978082914,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02815242649124351",
+            "extra": "mean: 803.9511318000109 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06998520205327614,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3670058221912347",
+            "extra": "mean: 14.288734913399997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18521078694772086,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1783613763460729",
+            "extra": "mean: 5.39925355580001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013075527775960286,
+            "unit": "iter/sec",
+            "range": "stddev: 0.20167642142228218",
+            "extra": "mean: 76.47874847840004 sec\nrounds: 5"
           }
         ]
       }

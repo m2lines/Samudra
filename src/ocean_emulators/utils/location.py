@@ -4,7 +4,13 @@ from typing import Annotated, Any, Literal, Self
 from urllib.parse import quote, urljoin, urlparse
 
 import xarray as xr
-from pydantic import BaseModel, BeforeValidator, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    WithJsonSchema,
+    model_serializer,
+    model_validator,
+)
 
 
 class UnresolvedLocation(BaseModel):
@@ -149,6 +155,8 @@ def string_to_unresolved(data: Any) -> Any:
 
 
 Location = Annotated[
-    UnresolvedLocation | S3Location | LocalLocation,
+    Annotated[UnresolvedLocation, WithJsonSchema({"type": "string"})]
+    | S3Location
+    | LocalLocation,
     BeforeValidator(string_to_unresolved),
 ]

@@ -38,7 +38,6 @@ envs:
   # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
 
-  # TODO(alxmrs): Drive everything except secrets from the primary config file.
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs
   DATA_BUCKET: oa-fomo
@@ -48,9 +47,8 @@ envs:
   DATA_CONFIG: configs/data/om4_sky_local.yaml
 
 file_mounts:
-  /data:
-    source: s3://${DATA_BUCKET}/${DATA_ROOT_PATH}
-    mode: COPY
+  # TODO(alxmrs): Consider adding a data/ COPY file_mount here once `mount_options` feature exists.
+  # The current method of copying (in the setup section, below) is faster.
 
   /outputs:
     source: s3://${OUTPUTS_BUCKET}
@@ -58,9 +56,27 @@ file_mounts:
 
 workdir: .
 
+setup: |
+  mkdir ~/data/
+
+  RCLONE_CONF=$(rclone config file | awk '/Configuration file is stored at:/ {getline; print}')
+
+  cat << EOF > $RCLONE_CONF
+  [s3-source]
+  type = s3
+  provider = AWS
+  env_auth = true
+  EOF
+
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_means.zarr ~/data/OM4_means.zarr --ignore-existing
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_stds.zarr ~/data/OM4_stds.zarr --ignore-existing
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4.zarr ~/data/OM4.zarr --transfers=32 --ignore-existing
+
 run: |
   MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)
   echo "Starting distributed training, head node: $MASTER_ADDR"
+
+  DATA_ROOT=$(realpath ~/data)
 
   # Explicit check for torchrun
   if ! command -v torchrun >/dev/null 2>&1; then
@@ -77,7 +93,7 @@ run: |
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
     --data=@${DATA_CONFIG} \
-    --experiment.data_root=/data/ \
+    --experiment.data_root=${DATA_ROOT} \
     --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \
     --samudra.checkpointing=all

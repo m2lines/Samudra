@@ -68,6 +68,7 @@ samudra:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
+  checkpointing: all
 
   core_block:
     block_type: "conv_next_block"

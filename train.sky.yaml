@@ -26,8 +26,6 @@ resources:
   accelerators: A100-80GB:8
   disk_tier: best
 #  disk_size: 1_000 # in GiBs
-  # Will automatically stop the cluster after 10 minutes.
-  autostop: 10m
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`
 # NOTE: All `null` values must be specified in order for this script to run!

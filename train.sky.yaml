@@ -57,18 +57,18 @@ file_mounts:
 workdir: .
 
 setup: |
-  mkdir ./data/
+  mkdir ~/data/
   rclone config create s3-source s3 provider=AWS env_auth=true
 
-  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_means.zarr ./data/OM4_means.zarr --ignore-existing
-  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_stds.zarr ./data/OM4_stds.zarr --ignore-existing
-  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4.zarr ./data/OM4.zarr --transfers=32 --ignore-existing
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_means.zarr ~/data/OM4_means.zarr --ignore-existing
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_stds.zarr ~/data/OM4_stds.zarr --ignore-existing
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4.zarr ~/data/OM4.zarr --transfers=32 --ignore-existing
 
 run: |
   MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)
   echo "Starting distributed training, head node: $MASTER_ADDR"
 
-  DATA_ROOT=$(realpath ./data)
+  DATA_ROOT=$(realpath ~/data)
 
   # Explicit check for torchrun
   if ! command -v torchrun >/dev/null 2>&1; then

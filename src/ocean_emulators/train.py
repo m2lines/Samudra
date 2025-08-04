@@ -29,7 +29,13 @@ from torch.utils.data import (
 )
 
 from ocean_emulators import config
-from ocean_emulators.aggregator import Aggregator, LossAggregator
+from ocean_emulators.aggregator import Aggregator
+from ocean_emulators.aggregator.loss import (
+    get_channel_loss_dict,
+    get_channel_loss_scale_dict,
+    get_depth_loss_dict,
+    get_variable_loss_dict,
+)
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
@@ -73,6 +79,7 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import (
+    MseDynamic,
     decomposed_mse,
     decomposed_mse_cos_weighted,
     decomposed_mse_diff_weighted,
@@ -239,49 +246,62 @@ class Trainer:
         self.nets_dir = cfg.experiment.nets_dir
         self.network = cfg.experiment.network
 
+        self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         # Loss function
-        if cfg.loss == "mse":
-            logger.info("Using decomposed mse loss")
-            self.loss_fn = partial(decomposed_mse, wet=self.wet)
-        elif cfg.loss == "mse_diff_weighted":
-            assert cfg.data.hist == 1  # TEMP
-            logger.info("Using decomposed mse loss with weighted diff")
-            self.loss_fn = partial(decomposed_mse_diff_weighted, wet=self.wet)
-        elif cfg.loss == "mse_cos_weighted":
-            logger.info("Using decomposed mse loss with weighted cos")
-            area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
-            area_weights = torch.from_numpy(area_weights).to(device=self.device)
-            self.loss_fn = partial(
-                decomposed_mse_cos_weighted, wet=self.wet, cos=area_weights
-            )
-        elif cfg.loss == "mse_residual_scaled":
-            logger.info("Using decomposed mse loss with scaled residuals")
-            assert self.data_container.scaling_residuals is not None, (
-                "With loss of 'mse_residual_scaled' you"
-                " must supply a scaling_residuals_file"
-            )
-            scale = torch.from_numpy(
-                (
-                    self.src.stds[self.prognostic_var_names]
-                    / self.data_container.scaling_residuals[self.prognostic_var_names]
+        match cfg.loss:
+            case "mse":
+                logger.info("Using decomposed mse loss")
+                self.loss_fn = partial(decomposed_mse, wet=self.wet)
+            case "mse_diff_weighted":
+                assert cfg.data.hist == 1  # TEMP
+                logger.info("Using decomposed mse loss with weighted diff")
+                self.loss_fn = partial(decomposed_mse_diff_weighted, wet=self.wet)
+            case "mse_cos_weighted":
+                logger.info("Using decomposed mse loss with weighted cos")
+                area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
+                area_weights = torch.from_numpy(area_weights).to(device=self.device)
+                self.loss_fn = partial(
+                    decomposed_mse_cos_weighted, wet=self.wet, cos=area_weights
                 )
-                .compute()
-                .to_array()
-                .to_numpy()
-            ).to(device=self.device)
-            scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
-            self.loss_fn = partial(decomposed_mse_scaled, wet=self.wet, scaling=scale)
-        elif cfg.loss == "mse_mae":
-            logger.info("Using decomposed mse loss with mae")
-            self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
-        else:
-            assert_never(cfg.loss)
+            case "mse_residual_scaled":
+                logger.info("Using decomposed mse loss with scaled residuals")
+                assert self.data_container.scaling_residuals is not None, (
+                    "With loss of 'mse_residual_scaled' you"
+                    " must supply a scaling_residuals_file"
+                )
+                scale = torch.from_numpy(
+                    (
+                        self.src.stds[self.prognostic_var_names]
+                        / self.data_container.scaling_residuals[
+                            self.prognostic_var_names
+                        ]
+                    )
+                    .compute()
+                    .to_array()
+                    .to_numpy()
+                ).to(device=self.device)
+                scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
+                self.loss_fn = partial(
+                    decomposed_mse_scaled, wet=self.wet, scaling=scale
+                )
+            case "mse_mae":
+                logger.info("Using decomposed mse loss with mae")
+                self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
+            case "mse_dynamic" | "mse_dynamic_no_limit":
+                should_limit = cfg.loss == "mse_dynamic"
+                logger.info(f"Using dynamic MSE loss (limit = {should_limit})")
+                self.loss_fn = MseDynamic(
+                    wet=self.wet,
+                    stds=torch.from_numpy(
+                        self.src.stds[self.prognostic_var_names].to_array().to_numpy()
+                    ).to(device=self.device),
+                    should_limit=should_limit,
+                )
+            case _:
+                assert_never(cfg.loss)
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
-        # self.optimizer = torch.optim.AdamW(
-        #     self.model.parameters(), lr=cfg.learning_rate, fused=True
-        # )
 
         # Scheduler
         self.scheduler = None
@@ -369,9 +389,9 @@ class Trainer:
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
 
         assert self.tensor_map is not None
-        self.loss_aggregator = LossAggregator.init_instance()
 
-        self.init_inference_stores()
+        if self.inference_epochs:
+            self.init_inference_stores()
 
         # Add type annotations for samplers
         self.train_sampler: DistributedSampler | RandomSampler
@@ -531,6 +551,7 @@ class Trainer:
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()
             self._ema(model=self.model)
+
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
@@ -554,13 +575,13 @@ class Trainer:
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
                     "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
-                    **self.loss_aggregator.get_channel_loss_dict(
+                    **get_channel_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
-                    **self.loss_aggregator.get_depth_loss_dict(
+                    **get_depth_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
-                    **self.loss_aggregator.get_variable_loss_dict(
+                    **get_variable_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
                     "train/batch/data_load_time": metric_logger.meters[
@@ -570,6 +591,37 @@ class Trainer:
                         "data_wait_time"
                     ].value,
                 }
+
+                if loss_scale_per_channel_fn := getattr(
+                    self.loss_fn, "loss_scale_per_channel", None
+                ):
+                    loss_scale_per_channel = loss_scale_per_channel_fn()
+                    # Reshape from channels * history to channels
+                    # by averaging along the `hist` dimension
+                    loss_per_channel = TO.loss_per_channel.reshape(
+                        loss_scale_per_channel.shape[0], -1
+                    ).mean(dim=1)
+
+                    unscaled_loss_per_channel = (
+                        loss_per_channel / loss_scale_per_channel
+                    )
+                    unscaled_loss = torch.mean(unscaled_loss_per_channel)
+
+                    metrics.update(
+                        {
+                            **get_channel_loss_scale_dict(
+                                label="train",
+                                loss_scale_per_channel=loss_scale_per_channel,
+                            ),
+                            **get_channel_loss_dict(
+                                label="train",
+                                loss_per_channel=unscaled_loss_per_channel,
+                                loss_name="loss_unscaled",
+                            ),
+                            "train/batch/loss_unscaled": unscaled_loss,
+                        }
+                    )
+
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
 
@@ -577,6 +629,16 @@ class Trainer:
 
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
+
+            if update := getattr(self.loss_fn, "update", None):
+                with torch.no_grad():
+                    # TODO(jder): could avoid a second forward pass here
+                    single_step_data = TrainData(data.num_prognostic_channels)
+                    # Each entry in data is one step in a rollout.
+                    input, label = data[0]
+                    single_step_data.insert(input, label)
+                    pred = self.model(single_step_data)
+                    update(pred[0], label)
 
             self.profiler.after_batch(self.num_batches_seen)
 
@@ -892,6 +954,12 @@ class Trainer:
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
+            loss_state: dict[str, Any] | None = None
+            if state_dict_fn := getattr(self.loss_fn, "state_dict", None):
+                loss_state = state_dict_fn()
+
+            if loss_state is not None:
+                checkpoint["loss_fn_state"] = loss_state
             if self.scheduler:
                 checkpoint["scheduler"] = self.scheduler.state_dict()
 
@@ -924,6 +992,13 @@ class Trainer:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
             if self.scheduler and "scheduler" in checkpoint:
                 self.scheduler.load_state_dict(checkpoint["scheduler"])
+
+            if load_state_dict_fn := getattr(self.loss_fn, "load_state_dict", None):
+                assert "loss_fn_state" in checkpoint, (
+                    f"Expected to load loss state for {self.loss_fn} but "
+                    "no state found in checkpoint"
+                )
+                load_state_dict_fn(checkpoint["loss_fn_state"])
 
             self.start_epoch = checkpoint["epoch"] + 1
             self.wandb_id = checkpoint.get("wandb_id")

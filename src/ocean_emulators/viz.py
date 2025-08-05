@@ -28,7 +28,9 @@ import sys
 import warnings
 from subprocess import PIPE, STDOUT, Popen
 
-from dask import compute, delayed
+from dask.array.core import Array as DaskArray
+from dask.base import compute
+from dask.delayed import delayed
 
 try:
     from tqdm.auto import tqdm
@@ -381,11 +383,15 @@ def main(output_path):
     # pred_dict["pred_2"] = {
     #     "name": "samudra-trained-on-cm4-with-om4-configs-test-on-om4",
     #     "run_name": "samudra-trained-on-cm4-with-om4-configs-test-on-om4",
-    #     "path": "/pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL/2025-04-05-eval-samudra-cm4-trained-on-om4-configs-test-on-om4/predictions.zarr",
+    #     "path": (
+    #         "/pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL/"
+    #         "2025-04-05-eval-samudra-cm4-trained-on-om4-configs-"
+    #         "test-on-om4/predictions.zarr"
+    #     ),
     #     "ls": ["thetao", "so", "uo", "vo", "tos", "zos"],
     # }
 
-    # key1 = list(pred_dict.keys())[0]  # Unused variable
+    key1 = list(pred_dict.keys())[0]
     levels = 19
 
     # %%
@@ -419,16 +425,51 @@ def main(output_path):
 
     # %%
     # [Optional] Convert nc files to zarr
-    # ds_prediction = xr.open_dataset('/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/autoregressive_predictions.nc', engine='netcdf4').isel(sample=0)
+    # ds_prediction = xr.open_dataset(
+    #     (
+    #         '/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/'
+    #         'autoregressive_predictions.nc'
+    #     ),
+    #     engine='netcdf4'
+    # ).isel(sample=0)
     # ds_prediction = ds_prediction.chunk({'time': 10, 'lat': 180, 'lon': 360})
-    # ds_prediction.to_zarr('/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/autoregressive_predictions.zarr', encoding={var: {'compressor': None} for var in ds_prediction.data_vars}, mode='w')
+    # ds_prediction.to_zarr(
+    #     (
+    #         '/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/'
+    #         'autoregressive_predictions.zarr'
+    #     ),
+    #     encoding={var: {'compressor': None} for var in ds_prediction.data_vars},
+    #     mode='w'
+    # )
 
-    # ds_groundtruth = xr.open_dataset('/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/autoregressive_target.nc', engine='netcdf4').isel(sample=0)
+    # ds_groundtruth = xr.open_dataset(
+    #     (
+    #         '/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/'
+    #         'autoregressive_target.nc'
+    #     ),
+    #     engine='netcdf4'
+    # ).isel(sample=0)
     # ds_groundtruth = ds_groundtruth.chunk({'lat': 180, 'lon': 360, 'time': 10})
-    # ds_groundtruth.to_zarr('/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/autoregressive_groundtruth.zarr', encoding={var: {'compressor': None} for var in ds_prediction.data_vars}, mode='w')
+    # ds_groundtruth.to_zarr(
+    #     (
+    #         '/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/'
+    #         'autoregressive_groundtruth.zarr'
+    #     ),
+    #     encoding={var: {'compressor': None} for var in ds_prediction.data_vars},
+    #     mode='w'
+    # )
 
     # More assertion
-    # np.allclose(ds_groundtruth_saved.isel(time=slice(None,10)).fillna(0).to_array().to_numpy(), ds_groundtruth[list(ds_groundtruth_saved.data_vars.keys())].isel(time=slice(-ds_groundtruth_saved.time.size, None)).isel(time=slice(None,10)).fillna(0).to_array().to_numpy())
+    # np.allclose(
+    #     (
+    #         ds_groundtruth_saved.isel(time=slice(None, 10))
+    #         .fillna(0).to_array().to_numpy()
+    #     ),
+    #     ds_groundtruth[list(ds_groundtruth_saved.data_vars.keys())]
+    #     .isel(time=slice(-ds_groundtruth_saved.time.size, None))
+    #     .isel(time=slice(None,10))
+    #     .fillna(0).to_array().to_numpy()
+    # )
 
     # %%
 
@@ -535,20 +576,54 @@ def main(output_path):
         levels,
     )
     short_timeseries_plots(
-        profile_groundtruth, pred_dict, dataset_name, timeseries_path, clist, var_list
+        profile_groundtruth,
+        pred_dict,
+        dataset_name,
+        timeseries_path,
+        clist,
+        var_list,
+        key1,
     )
     shallow_timeseries_grid_plots(
         profile_groundtruth, pred_dict, dataset_name, timeseries_path, clist, var_list
     )
     temp_timeseries_shallow_grid_plots(
-        data, pred_dict, dataset_name, timeseries_path, temp_path, clist, levels
+        data,
+        pred_dict,
+        dataset_name,
+        timeseries_path,
+        temp_path,
+        clist,
+        levels,
+        profile_groundtruth,
+        var_list,
     )
-    global_thetao_time_series(data, pred_dict, temp_path, clist, var_list)
-    global_salinity_timeseries_plots(data, pred_dict, salinity_path, clist, var_list)
+    global_thetao_time_series(
+        data,
+        pred_dict,
+        temp_path,
+        clist,
+        var_list,
+        ds_groundtruth,
+        dataset_name,
+        timeseries_path,
+    )
+    global_salinity_timeseries_plots(
+        data,
+        pred_dict,
+        salinity_path,
+        clist,
+        var_list,
+        ds_groundtruth,
+        dataset_name,
+        timeseries_path,
+    )
     ohc_noanomaly_plots(
         data, pred_dict, dataset_name, ohc_path, clist, output_path, levels
     )
-    ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_path)
+    GT_ohc_slope = ohc_plots(
+        data, pred_dict, dataset_name, ohc_path, clist, output_path
+    )
     depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_path)
     basin_ohc_plots(
         data, pred_dict, dataset_name, basin_masks, ohc_path, clist, output_path
@@ -557,24 +632,49 @@ def main(output_path):
         data, pred_dict, dataset_name, basin_masks, ohc_path, clist, output_path
     )
     ocean_temperature_profile_plots(
-        data, pred_dict, dataset_name, temp_path, clist, var_list
+        data, pred_dict, dataset_name, temp_path, clist, var_list, basin_masks
     )
     ocean_salinity_profile_plots(
-        data, pred_dict, dataset_name, salinity_path, clist, var_list
+        data, pred_dict, dataset_name, salinity_path, clist, var_list, output_path
     )
-    salinity_deseasonalized_plots(
-        data, pred_dict, dataset_name, salinity_path, clist, var_list
+    GT_salinity_slope = salinity_deseasonalized_plots(
+        data,
+        pred_dict,
+        dataset_name,
+        salinity_path,
+        clist,
+        var_list,
+        metrics_path,
+        output_path,
     )
-    thetao_mae_metrics(data, pred_dict, metrics_path, output_path)
-    sst_mae_metrics(data, pred_dict, metrics_path, output_path)
-    pdf_plots_short(data, pred_dict, dataset_name, pdfs_path, clist, var_list)
-    enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path)
+    # Create OHC and salinity slopes table
+    create_ohc_salinity_slopes_table(
+        pred_dict, dataset_name, output_path, GT_ohc_slope, GT_salinity_slope
+    )
+    thetao_mae_metrics(
+        data, pred_dict, metrics_path, output_path, GT_ohc_slope, GT_salinity_slope
+    )
+    sst_mae_metrics(
+        data, pred_dict, metrics_path, output_path, GT_ohc_slope, GT_salinity_slope
+    )
+    pdf_plots_short(
+        data, pred_dict, dataset_name, pdfs_path, clist, var_list, ds_groundtruth
+    )
+    enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key1)
     ohc_maps(data, pred_dict, dataset_name, ohc_path, clist)
-    ohc_bias_maps(data, pred_dict, dataset_name, ohc_path, clist)
+    ohc_bias_maps(data, pred_dict, dataset_name, ohc_path, clist, key1, var_list)
     sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist)
-    sst_time_snapshot_maps(data, pred_dict, dataset_name, temp_path, clist)
-    salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist)
-    salinity_snapshot_maps(data, pred_dict, dataset_name, salinity_path, clist)
+    # Define key1 and time_indices for snapshot functions
+    key1 = list(pred_dict.keys())[0] if pred_dict else None
+    last_index = len(data.time) - 1
+    time_indices = [0, last_index // 2, last_index]
+
+    time_indices = [0, 100, 300]  # Define time indices for snapshot maps
+    sst_time_snapshot_maps(
+        data, pred_dict, dataset_name, temp_path, clist, var_list, key1, time_indices
+    )
+    salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist, key1)
+    salinity_snapshot_maps(data, pred_dict, dataset_name, salinity_path, clist, key1)
     movies(data, pred_dict, dataset_name, movie_path, clist, var_list)
 
 
@@ -645,24 +745,26 @@ def timeseries_plots(
 
 
 def short_timeseries_plots(
-    profile_groundtruth, pred_dict, dataset_name, timeseries_path, clist, var_list
+    profile_groundtruth, pred_dict, dataset_name, timeseries_path, clist, var_list, key1
 ):
     # %%
     # Short Timeseries plots
     shallow_levels = [2.5, 775]
+    vars = ["thetao"]
     num_shallow_levels = len(shallow_levels)
 
     plt.rcParams.update({"font.size": 14})
 
+    key1 = list(pred_dict.keys())[0]
     num_plots = 0
-    for var in ["thetao"]:
-        if "lev" in pred_dict[k]["ds_prediction"][var].coords:
+    for var in vars:
+        if "lev" in pred_dict[key1]["ds_prediction"][var].coords:
             num_plots += num_shallow_levels  # One plot per level
         else:
             num_plots += 1  # One plot for scalar variables
 
-    # Set grid size dynamically based on the number of required plots
-    cols = 2  # Number of columns
+    # TODO(jder): Set grid size dynamically based on the number of required plots
+    cols = 2
     rows = 1
 
     fig, axes = plt.subplots(rows, cols, figsize=(16, 3))
@@ -671,7 +773,7 @@ def short_timeseries_plots(
     plot_idx = 0  # Initialize plot index to track subplot positions
 
     # Loop over each variable to plot its time series
-    for v in ["thetao"]:
+    for v in vars:
         if v == "zos":
             ax = axes[plot_idx]
 
@@ -750,7 +852,6 @@ def shallow_timeseries_grid_plots(
 ):
     # %%
     shallow_levels = [2.5, 775, 2400]  # Define shallow depth levels
-    num_shallow_levels = len(shallow_levels)
 
     plt.rcParams.update({"font.size": 14})
 
@@ -814,7 +915,7 @@ def shallow_timeseries_grid_plots(
                 #     ax.set_ylim(mins - 0.1, maxs + 0.1)
                 ax.set_title(f"{lev}m $S$", fontsize=14)
                 handles, labels = ax.get_legend_handles_labels()
-            if v in pred_dict[k]["ls"]:
+            if var in pred_dict[k]["ls"]:
                 if var == "uo":  # Zonal velocity
                     # if lev > 2000:
                     #     ax.set_ylim(mins - 0.0003, maxs + 0.0003)
@@ -863,7 +964,15 @@ def shallow_timeseries_grid_plots(
 
 
 def temp_timeseries_shallow_grid_plots(
-    data, pred_dict, dataset_name, timeseries_path, temp_path, clist, levels
+    data,
+    pred_dict,
+    dataset_name,
+    timeseries_path,
+    temp_path,
+    clist,
+    levels,
+    profile_groundtruth,
+    var_list,
 ):
     shallow_levels = [2.5, 105, 550]
 
@@ -871,8 +980,9 @@ def temp_timeseries_shallow_grid_plots(
 
     plt.rcParams.update({"font.size": 12})
     num_plots = 0
+    key1 = list(pred_dict.keys())[0]
     for var in ["thetao"]:
-        if "lev" in pred_dict[k]["ds_prediction"][var].coords:
+        if "lev" in pred_dict[key1]["ds_prediction"][var].coords:
             num_plots += num_shallow_levels  # One plot per level
         else:
             num_plots += 1  # One plot for scalar variables
@@ -930,9 +1040,11 @@ def temp_timeseries_shallow_grid_plots(
                     ax.set_ylim(min_val - 0.2, max_val + 0.2)
 
                 ax.set_title(
-                    r"$\theta_O$"
-                    + f" at {pred_dict[k]['profile_prediction'][v].sel(lev=lev).lev.item()}m"
-                    + r" ($\degree C$)",
+                    (
+                        r"$\theta_O$"
+                        + f" at {pred_dict[k]['profile_prediction'][v].sel(lev=lev).lev.item()}m"
+                        + r" ($\degree C$)"
+                    ),
                     fontsize=14,
                 )
                 ax.set_xlabel("Time")
@@ -970,7 +1082,16 @@ def temp_timeseries_shallow_grid_plots(
     plt.savefig(output_file, bbox_inches="tight", dpi=600)
 
 
-def global_thetao_time_series(data, pred_dict, temp_path, clist, var_list):
+def global_thetao_time_series(
+    data,
+    pred_dict,
+    temp_path,
+    clist,
+    var_list,
+    ds_groundtruth,
+    dataset_name,
+    timeseries_path,
+):
     var = "thetao"
     Days_to_Eq = 0
 
@@ -1017,8 +1138,18 @@ def global_thetao_time_series(data, pred_dict, temp_path, clist, var_list):
     # plt.show()
 
 
-def global_salinity_timeseries_plots(data, pred_dict, salinity_path, clist, var_list):
+def global_salinity_timeseries_plots(
+    data,
+    pred_dict,
+    salinity_path,
+    clist,
+    var_list,
+    ds_groundtruth,
+    dataset_name,
+    timeseries_path,
+):
     var = "so"
+    Days_to_Eq = 0
 
     plt.rcdefaults()
     plt.rcParams.update({"font.size": 12})
@@ -1203,6 +1334,8 @@ def ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_path):
     f.close()
     plt.savefig(os.path.join(ohc_path, "OHC"), bbox_inches="tight", dpi=600)
 
+    return GT_ohc_slope
+
 
 def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_path):
     plt.rcParams.update({"font.size": 14})
@@ -1287,7 +1420,8 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
         #          xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
         #          fontsize=9, color=clist[i])
         f.write(
-            f"\nUpper - {pred_dict[k]['name']} Trend Slope : {pred_dict[k]['coeffs_OHC_pred_trend_upper'][0]}"
+            f"\nUpper - {pred_dict[k]['name']} Trend Slope : "
+            f"{pred_dict[k]['coeffs_OHC_pred_trend_upper'][0]}"
         )
         pred_dict[k]["upper_trend_pred"] = (
             pred_dict[k]["coeffs_OHC_pred_trend_upper"][0] * 73
@@ -1377,7 +1511,8 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
         #          xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
         #          fontsize=9, color=clist[i])
         f.write(
-            f"\nMiddle - {pred_dict[k]['name']} Trend Slope : {pred_dict[k]['coeffs_OHC_pred_trend_mid'][0]}"
+            f"\nMiddle - {pred_dict[k]['name']} Trend Slope : "
+            f"{pred_dict[k]['coeffs_OHC_pred_trend_mid'][0]}"
         )
         pred_dict[k]["mid_trend_pred"] = (
             pred_dict[k]["coeffs_OHC_pred_trend_mid"][0] * 73
@@ -1458,7 +1593,8 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
         #      xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
         #      fontsize=9, color=clist[i])
         f.write(
-            f"\nDeep - {pred_dict[k]['name']} Trend Slope : {pred_dict[k]['coeffs_OHC_pred_trend_deep'][0]}"
+            f"\nDeep - {pred_dict[k]['name']} Trend Slope : "
+            f"{pred_dict[k]['coeffs_OHC_pred_trend_deep'][0]}"
         )
 
         pred_dict[k]["deep_trend_pred"] = (
@@ -1477,17 +1613,35 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
     fig.legend(handles, labels, loc="lower center", bbox_to_anchor=(0.5, 0.91), ncols=3)
 
     f.write(
-        f"\nGT Trend Ratio (Upper, Mid, Deep): {upper_trend_truth / total_trend_truth:.2f}, {mid_trend_truth / total_trend_truth:.2f}, {deep_trend_truth / total_trend_truth:.2f}"
+        f"\nGT Trend Ratio (Upper, Mid, Deep): "
+        f"{upper_trend_truth / total_trend_truth:.2f}, "
+        f"{mid_trend_truth / total_trend_truth:.2f}, "
+        f"{deep_trend_truth / total_trend_truth:.2f}"
     )
     for k in pred_dict.keys():
         f.write(
-            f"\n{pred_dict[k]['name']} Trend Ratio (Upper, Mid, Deep): {pred_dict[k]['upper_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}, {pred_dict[k]['mid_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}, {pred_dict[k]['deep_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}"
+            f"\n{pred_dict[k]['name']} Trend Ratio (Upper, Mid, Deep): "
+            f"{pred_dict[k]['upper_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}, "
+            f"{pred_dict[k]['mid_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}, "
+            f"{pred_dict[k]['deep_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}"
         )
-    # ax[0].annotate(f'OHC portion of trend (truth, pred): ({upper_trend_truth/total_trend_truth:.2f}, {upper_trend_pred/total_trend_pred:.2f})',xy = (.2,.95), xycoords='axes fraction',
+    # ax[0].annotate(
+    #     f'OHC portion of trend (truth, pred): '
+    #     f'({upper_trend_truth/total_trend_truth:.2f}, '
+    #     f'{upper_trend_pred/total_trend_pred:.2f})',
+    #     xy = (.2,.95), xycoords='axes fraction',
     #             horizontalalignment='left', verticalalignment='top')
-    # ax[1].annotate(f'OHC portion of trend (truth, pred): ({mid_trend_truth/total_trend_truth:.2f}, {mid_trend_pred/total_trend_pred:.2f})',xy = (.2,.95), xycoords='axes fraction',
+    # ax[1].annotate(
+    #     f'OHC portion of trend (truth, pred): '
+    #     f'({mid_trend_truth/total_trend_truth:.2f}, '
+    #     f'{mid_trend_pred/total_trend_pred:.2f})',
+    #     xy = (.2,.95), xycoords='axes fraction',
     #             horizontalalignment='left', verticalalignment='top')
-    # ax[2].annotate(f'OHC portion of trend (truth, pred): ({deep_trend_truth/total_trend_truth:.2f}, {deep_trend_pred/total_trend_pred:.2f})',xy = (.2,.95), xycoords='axes fraction',
+    # ax[2].annotate(
+    #     f'OHC portion of trend (truth, pred): '
+    #     f'({deep_trend_truth/total_trend_truth:.2f}, '
+    #     f'{deep_trend_pred/total_trend_pred:.2f})',
+    #     xy = (.2,.95), xycoords='axes fraction',
     #             horizontalalignment='left', verticalalignment='top')
     f.write("\n")
     f.close()
@@ -1609,7 +1763,8 @@ def basin_ohc_plots(
             #      xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
             #      fontsize=9, color=clist[j])
             f.write(
-                f"\nOHC {var} {pred_dict[k]['name']} Trend Slope : {coeffs_OHC_pred_trend[0]}"
+                f"\nOHC {var} {pred_dict[k]['name']} Trend Slope : "
+                f"{coeffs_OHC_pred_trend[0]}"
             )
             pred_dict[k]["regionwise_ohc"][var] = coeffs_OHC_pred_trend[0]
 
@@ -1739,7 +1894,8 @@ def basin_ohc_upto_700_plots(
             #      xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
             #      fontsize=9, color=clist[j])
             f.write(
-                f"\nOHC {var} {pred_dict[k]['name']} Trend Slope : {coeffs_OHC_pred_trend[0]}"
+                f"\nOHC {var} {pred_dict[k]['name']} Trend Slope : "
+                f"{coeffs_OHC_pred_trend[0]}"
             )
             pred_dict[k]["regionwise_ohc"][var] = coeffs_OHC_pred_trend[0]
 
@@ -1760,7 +1916,7 @@ def basin_ohc_upto_700_plots(
 
 
 def ocean_temperature_profile_plots(
-    data, pred_dict, dataset_name, temp_path, clist, var_list
+    data, pred_dict, dataset_name, temp_path, clist, var_list, basin_masks
 ):
     # %%
     def ocean_temperature_profile(datasets, titles, plot_title, vmin=-0.3, vmax=0.3):
@@ -1839,7 +1995,7 @@ def ocean_temperature_profile_plots(
 
 
 def ocean_salinity_profile_plots(
-    data, pred_dict, dataset_name, salinity_path, clist, var_list
+    data, pred_dict, dataset_name, salinity_path, clist, var_list, output_path
 ):
     # %%
     rho_0 = 1025  # kg/m^3
@@ -1876,7 +2032,8 @@ def ocean_salinity_profile_plots(
                 ls="--",
             )
             f.write(
-                f"\nSalinity {pred_dict[k]['name']} Trend Slope : {coeffs_salinity_pred_trend[0]}"
+                f"\nSalinity {pred_dict[k]['name']} Trend Slope : "
+                f"{coeffs_salinity_pred_trend[0]}"
             )
             pred_dict[k]["salinity_slope"] = coeffs_salinity_pred_trend[0]
 
@@ -1899,7 +2056,13 @@ def ocean_salinity_profile_plots(
     print(coeffs_salinity_trend[0] * 73)
     plt.savefig(os.path.join(salinity_path, "Salinity"), bbox_inches="tight", dpi=600)
 
-    # %%
+    # Note: OHC and salinity slopes table moved to after salinity_deseasonalized_plots
+
+
+def create_ohc_salinity_slopes_table(
+    pred_dict, dataset_name, output_path, GT_ohc_slope, GT_salinity_slope
+):
+    """Create a CSV table with OHC and salinity slopes."""
     pd_data = []
     pd_data.append(
         {
@@ -1916,8 +2079,9 @@ def ocean_salinity_profile_plots(
                 "OHC": pred_dict[k]["OHC_slope"],
                 "OHC Slope Ratio": pred_dict[k]["OHC_slope"] / GT_ohc_slope,
                 "Salinity": pred_dict[k]["salinity_slope"],
-                "Salinity Slope Ratio": pred_dict[k]["salinity_slope"]
-                / GT_salinity_slope,
+                "Salinity Slope Ratio": (
+                    pred_dict[k]["salinity_slope"] / GT_salinity_slope
+                ),
             }
         )
 
@@ -1932,7 +2096,14 @@ def ocean_salinity_profile_plots(
 
 
 def salinity_deseasonalized_plots(
-    data, pred_dict, dataset_name, salinity_path, clist, var_list
+    data,
+    pred_dict,
+    dataset_name,
+    salinity_path,
+    clist,
+    var_list,
+    metrics_path,
+    output_path,
 ):
     # %%
     f = open(os.path.join(metrics_path, "salinity_deseasonalized_info.txt"), "a")
@@ -1980,7 +2151,8 @@ def salinity_deseasonalized_plots(
             #          xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
             #          fontsize=9, color=clist[i])
             f.write(
-                f"\nSalinity {pred_dict[k]['name']} Trend Slope : {coeffs_salinity_pred_trend[0]}"
+                f"\nSalinity {pred_dict[k]['name']} Trend Slope : "
+                f"{coeffs_salinity_pred_trend[0]}"
             )
             pred_dict[k]["salinity_slope"] = coeffs_salinity_pred_trend[0]
 
@@ -2008,9 +2180,17 @@ def salinity_deseasonalized_plots(
         bbox_inches="tight",
         dpi=600,
     )
+    return GT_salinity_slope
 
 
-def thetao_mae_metrics(data, pred_dict, metrics_path, output_path):
+def thetao_mae_metrics(
+    data,
+    pred_dict,
+    metrics_path,
+    output_path,
+    GT_ohc_slope=None,
+    GT_salinity_slope=None,
+):
     # %%
     da_temp = data["thetao"]  # Directly use temperature variable
     section_mask = np.isnan(da_temp).all("x").isel(time=0)
@@ -2034,7 +2214,14 @@ def thetao_mae_metrics(data, pred_dict, metrics_path, output_path):
     f.close()
 
 
-def sst_mae_metrics(data, pred_dict, metrics_path, output_path):
+def sst_mae_metrics(
+    data,
+    pred_dict,
+    metrics_path,
+    output_path,
+    GT_ohc_slope=None,
+    GT_salinity_slope=None,
+):
     # %%
     section_mask = np.isnan(data["thetao"]).isel(lev=0).isel(time=5)
     SST_gt = data["thetao"].isel(lev=0).mean("time")
@@ -2057,7 +2244,9 @@ def sst_mae_metrics(data, pred_dict, metrics_path, output_path):
     f.close()
 
 
-def pdf_plots_short(data, pred_dict, dataset_name, pdfs_path, clist, var_list):
+def pdf_plots_short(
+    data, pred_dict, dataset_name, pdfs_path, clist, var_list, ds_groundtruth
+):
     plt.rcParams.update({"font.size": 9})
     # Create a figure
     fig = plt.figure(figsize=(24, 15))
@@ -2130,7 +2319,7 @@ def pdf_plots_short(data, pred_dict, dataset_name, pdfs_path, clist, var_list):
     )
 
 
-def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path):
+def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key1):
     # %%
     clim = (
         data["thetao"].sel(lev=slice(0, 500)).groupby("time.dayofyear").mean().compute()
@@ -2650,7 +2839,7 @@ def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist):
     # plt.show()
 
 
-def ohc_bias_maps(data, pred_dict, dataset_name, ohc_path, clist):
+def ohc_bias_maps(data, pred_dict, dataset_name, ohc_path, clist, key1, var_list):
     # %%
     def map_bias_avg(data_pred1, fig, title="", **kwargs):
         var_name = kwargs["var_name"]
@@ -2986,7 +3175,9 @@ def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist):
     # Calculate Sea Surface Temperature (SST) for different scenarios
 
 
-def sst_time_snapshot_maps(data, pred_dict, dataset_name, temp_path, clist):
+def sst_time_snapshot_maps(
+    data, pred_dict, dataset_name, temp_path, clist, var_list, key1, time_indices
+):
     for t_index in time_indices:
         plt.rcParams.update({"font.size": 14})
         fig, axs = plt.subplots(
@@ -3062,7 +3253,7 @@ def sst_time_snapshot_maps(data, pred_dict, dataset_name, temp_path, clist):
     # #### Salinity Map
 
 
-def salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist):
+def salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist, key1):
     # %%
     Days_to_Eq = 0
     plt.rcParams.update({"font.size": 14})
@@ -3177,7 +3368,7 @@ def salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist):
     # plt.show()
 
 
-def salinity_snapshot_maps(data, pred_dict, dataset_name, salinity_path, clist):
+def salinity_snapshot_maps(data, pred_dict, dataset_name, salinity_path, clist, key1):
     # %%
     # Single Snapshot (First, Middle, Last)
     last_index = len(data.time) - 1
@@ -3423,7 +3614,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
 
         # if any value is dask.array compute them here.
         for k in ["vmin", "vmax"]:
-            if isinstance(kwargs[k], dsa.Array):
+            if isinstance(kwargs[k], DaskArray):
                 kwargs[k] = kwargs[k].compute()
 
         return kwargs

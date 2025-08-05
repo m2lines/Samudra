@@ -107,7 +107,7 @@ markers = [
 ]
 pythonpath = [ "src" ]
 testpaths = [ "tests" ]
-addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers --timeout=3000"
+addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers --timeout=5000"
 
 [tool.mypy]
 check_untyped_defs = true

@@ -478,8 +478,10 @@ def main(output_path):
 
     # This function processes the ds_groundtruth and predictions for plotting
     # The predictions are loaded into pred_dict
-    ds_groundtruth, pred_dict = process_data(groundtruth_rollout, pred_dict)
-    data = ds_groundtruth
+    data, pred_dict = process_data(groundtruth_rollout, pred_dict)
+
+    last_index = len(data.time) - 1
+    snapshot_time_indices = [0, last_index // 2, last_index]
 
     # %%
     var_list = {
@@ -561,7 +563,7 @@ def main(output_path):
     # Compute profile means
     with ProgressBar():
         print("Ground truth " + dataset_name)
-        profile_groundtruth = profile_mean(ds_groundtruth, groundtruth_path).load()
+        profile_groundtruth = profile_mean(data, groundtruth_path).load()
 
         for k in pred_dict.keys():
             print(k)
@@ -607,7 +609,7 @@ def main(output_path):
         temp_path,
         clist,
         var_list,
-        ds_groundtruth,
+        data,
         dataset_name,
         timeseries_path,
     )
@@ -617,7 +619,7 @@ def main(output_path):
         salinity_path,
         clist,
         var_list,
-        ds_groundtruth,
+        data,
         dataset_name,
         timeseries_path,
     )
@@ -637,10 +639,10 @@ def main(output_path):
     ocean_temperature_profile_plots(
         data, pred_dict, dataset_name, temp_path, clist, var_list, basin_masks
     )
-    ocean_salinity_profile_plots(
+    GT_salinity_slope = ocean_salinity_profile_plots(
         data, pred_dict, dataset_name, salinity_path, clist, var_list, output_path
     )
-    GT_salinity_slope = salinity_deseasonalized_plots(
+    salinity_deseasonalized_plots(
         data,
         pred_dict,
         dataset_name,
@@ -660,21 +662,24 @@ def main(output_path):
     sst_mae_metrics(
         data, pred_dict, metrics_path, output_path, GT_ohc_slope, GT_salinity_slope
     )
-    pdf_plots_short(
-        data, pred_dict, dataset_name, pdfs_path, clist, var_list, ds_groundtruth
-    )
+    pdf_plots_short(data, pred_dict, dataset_name, pdfs_path, clist, var_list, data)
     enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key1)
     ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1)
     sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1)
-    last_index = len(data.time) - 1
-    time_indices = [0, last_index // 2, last_index]
-
-    time_indices = [0, 100, 300]  # Define time indices for snapshot maps
     sst_time_snapshot_maps(
-        data, pred_dict, dataset_name, temp_path, clist, var_list, key1, time_indices
+        data,
+        pred_dict,
+        dataset_name,
+        temp_path,
+        clist,
+        var_list,
+        key1,
+        snapshot_time_indices,
     )
     salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist, key1)
-    salinity_snapshot_maps(data, pred_dict, dataset_name, salinity_path, clist, key1)
+    salinity_snapshot_maps(
+        data, pred_dict, dataset_name, salinity_path, clist, key1, snapshot_time_indices
+    )
     movies(data, pred_dict, dataset_name, movie_path, clist, var_list)
 
 
@@ -1197,7 +1202,7 @@ def ohc_noanomaly_plots(
 ):
     c_p = 3850  # J/(kg C)
     rho_0 = 1025  # kg/m^3
-    f = open(os.path.join(output_path, "compare_info.txt"), "a")
+    f = open(os.path.join(output_path, "compare_info.txt"), "w")
 
     plt.rcdefaults()
     fig, ax = plt.subplots(
@@ -1266,7 +1271,7 @@ def ohc_noanomaly_plots(
 def ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_path):
     c_p = 3850  # J/(kg C)
     rho_0 = 1025  # kg/m^3
-    f = open(os.path.join(output_path, "compare_info.txt"), "a")
+    f = open(os.path.join(output_path, "compare_info.txt"), "w")
 
     plt.rcdefaults()
     fig, ax = plt.subplots(
@@ -1344,7 +1349,7 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
     )
     plt.rcParams.update({"font.size": 9})
 
-    f = open(os.path.join(output_path, "compare_info.txt"), "a")
+    f = open(os.path.join(output_path, "compare_info.txt"), "w")
 
     # Upper - GT
     OHC_truth_upper = (
@@ -1682,7 +1687,7 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
 def basin_ohc_plots(
     data, pred_dict, dataset_name, basin_masks, ohc_path, clist, output_path
 ):
-    f = open(os.path.join(output_path, "compare_info.txt"), "a")
+    f = open(os.path.join(output_path, "compare_info.txt"), "w")
 
     c_p = 3850  # J/(kg C)
     rho_0 = 1025  # kg/m^3
@@ -1805,7 +1810,7 @@ def basin_ohc_upto_700_plots(
 ):
     # TODO(jder): this is a copy-past of the above with a limit
 
-    f = open(os.path.join(output_path, "compare_info.txt"), "a")
+    f = open(os.path.join(output_path, "compare_info.txt"), "w")
 
     c_p = 3850  # J/(kg C)
     rho_0 = 1025  # kg/m^3
@@ -1996,7 +2001,7 @@ def ocean_salinity_profile_plots(
 ):
     # %%
     rho_0 = 1025  # kg/m^3
-    f = open(os.path.join(output_path, "compare_info.txt"), "a")
+    f = open(os.path.join(output_path, "compare_info.txt"), "w")
 
     plt.rcdefaults()
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))  # Single axis for salinity plot
@@ -2052,7 +2057,7 @@ def ocean_salinity_profile_plots(
     print(coeffs_salinity_trend[0] * 73)
     plt.savefig(os.path.join(salinity_path, "Salinity"), bbox_inches="tight", dpi=600)
 
-    # Note: OHC and salinity slopes table moved to after salinity_deseasonalized_plots
+    return coeffs_salinity_trend[0]
 
 
 def create_ohc_salinity_slopes_table(
@@ -2102,7 +2107,7 @@ def salinity_deseasonalized_plots(
     output_path,
 ):
     # %%
-    f = open(os.path.join(metrics_path, "salinity_deseasonalized_info.txt"), "a")
+    f = open(os.path.join(metrics_path, "salinity_deseasonalized_info.txt"), "w")
 
     plt.rcdefaults()
     fig, ax = plt.subplots(
@@ -2150,7 +2155,7 @@ def salinity_deseasonalized_plots(
                 f"\nSalinity {pred_dict[k]['name']} Trend Slope : "
                 f"{coeffs_salinity_pred_trend[0]}"
             )
-            pred_dict[k]["salinity_slope"] = coeffs_salinity_pred_trend[0]
+            pred_dict[k]["salinity_slope_des"] = coeffs_salinity_pred_trend[0]
 
     coeffs_salinity_trend = np.polyfit(np.arange(salinity.size), salinity, 1)
     salinity.plot(ax=ax, label=dataset_name, c="k")
@@ -2201,7 +2206,7 @@ def thetao_mae_metrics(
         temp_pred = da_temp_int_x.where(~section_mask)
         pred_dict[model_key]["temp_profile"] = temp_pred
 
-    f = open(os.path.join(metrics_path, "thetao_mae_info.txt"), "a")
+    f = open(os.path.join(metrics_path, "thetao_mae_info.txt"), "w")
 
     for i, key in enumerate(pred_dict):
         mae_key = np.abs(pred_dict[key]["temp_profile"] - GT_temp_pred).mean().compute()
@@ -2231,7 +2236,7 @@ def sst_mae_metrics(
         SST_pred = SST_pred.where(~section_mask)
         pred_dict[model_key]["sst"] = SST_pred
 
-    f = open(os.path.join(metrics_path, "sst_mae_info.txt"), "a")
+    f = open(os.path.join(metrics_path, "sst_mae_info.txt"), "w")
 
     for i, key in enumerate(pred_dict):
         mae_key = np.abs(pred_dict[key]["sst"] - SST_gt).mean().compute()
@@ -3008,7 +3013,7 @@ def plot_sst(ax, sst_data, title, i):
     return im
 
 
-def plot_diff_sst(ax, sst_data, gt_sst_data, title, i):
+def plot_bias(ax, sst_data, gt_sst_data, title, vmin, vmax):
     colormap = cm.cm.balance
     colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
     sst_bias = sst_data - gt_sst_data
@@ -3019,8 +3024,8 @@ def plot_diff_sst(ax, sst_data, gt_sst_data, title, i):
         shading="auto",
         cmap=colormap,
         transform=ccrs.PlateCarree(),
-        vmin=-0.5,
-        vmax=0.5,
+        vmin=vmin,
+        vmax=vmax,
     )
     ax.add_feature(cfeature.COASTLINE, edgecolor="black")
     ax.set_title(title, fontsize=14)
@@ -3073,7 +3078,7 @@ def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1):
     cbar.set_label(r"$\theta_O$ [$\degree C$]", fontsize=14)
 
     # Plot biases for SST
-    im = plot_diff_sst(axs[3], pred1_sst, gt_sst, bias_titles[0], 3)
+    im = plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], -1.0, 1.0)
 
     # Add colorbar for bias plots
     cbar = fig.colorbar(im, ax=axs[3:], orientation="vertical", fraction=0.1, pad=0.02)
@@ -3089,11 +3094,6 @@ def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1):
         os.path.join(temp_path, "SST_Global_map.png"), bbox_inches="tight", dpi=600
     )
     # plt.show()
-
-    # %%
-    # Single Snapshot (First, Middle, Last)
-    last_index = len(data.time) - 1
-    [0, last_index // 2, last_index]
 
 
 def sst_time_snapshot_maps(
@@ -3150,7 +3150,7 @@ def sst_time_snapshot_maps(
         cbar.set_label(r"$\theta_O$ [$\degree C$]", fontsize=14)
 
         # Plot biases for SST
-        im = plot_diff_sst(axs[3], pred1_sst, gt_sst, bias_titles[0], 3)
+        im = plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], None, None)
 
         # Add colorbar for bias plots
         cbar = fig.colorbar(
@@ -3195,27 +3195,27 @@ def salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist, key1)
 
     for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
         section_mask = np.isnan(ds["so"]).isel(lev=0).isel(time=5)
-        SST_pred = ds["so"].isel(lev=0).mean("time")
-        SST_pred = SST_pred.where(~section_mask)
-        SST_pred = SST_pred.rename("2.5m " + r"$so$")
-        SST_pred["y"] = SST_pred.y.assign_attrs(long_name="latitude", units=r"${^o}$")
-        SST_pred["x"] = SST_pred.x.assign_attrs(long_name="longitude", units=r"${^o}$")
-        SST_pred = SST_pred.assign_attrs(units=r"$psu$")
+        SSS_pred = ds["so"].isel(lev=0).mean("time")
+        SSS_pred = SSS_pred.where(~section_mask)
+        SSS_pred = SSS_pred.rename("2.5m " + r"$so$")
+        SSS_pred["y"] = SSS_pred.y.assign_attrs(long_name="latitude", units=r"${^o}$")
+        SSS_pred["x"] = SSS_pred.x.assign_attrs(long_name="longitude", units=r"${^o}$")
+        SSS_pred = SSS_pred.assign_attrs(units=r"$psu$")
 
         if i == 0:
-            gt_sst = SST_pred
+            gt_sss = SSS_pred
         elif i == 1:
-            pred1_sst = SST_pred
+            pred1_sss = SSS_pred
 
         # Plot using the Cartesian lat-lon grid
-        im = plot_sst(ax, SST_pred, title, i)
+        im = plot_sst(ax, SSS_pred, title, i)
 
-    # Add colorbar for SST plots
+    # Add colorbar for SSS plots
     cbar = fig.colorbar(im, ax=axs[:2], orientation="vertical", fraction=0.01, pad=0.02)
     cbar.set_label(r"$so$ [$psu$]", fontsize=14)
 
-    # Plot biases for SST
-    im = plot_diff_sst(axs[3], pred1_sst, gt_sst, bias_titles[0], 3)
+    # Plot biases for SSS
+    im = plot_bias(axs[3], pred1_sss, gt_sss, bias_titles[0], -0.5, 0.5)
 
     # Add colorbar for bias plots
     cbar = fig.colorbar(im, ax=axs[3:], orientation="vertical", fraction=0.1, pad=0.02)
@@ -3233,12 +3233,9 @@ def salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist, key1)
     # plt.show()
 
 
-def salinity_snapshot_maps(data, pred_dict, dataset_name, salinity_path, clist, key1):
-    # %%
-    # Single Snapshot (First, Middle, Last)
-    last_index = len(data.time) - 1
-    time_indices = [0, last_index // 2, last_index]
-
+def salinity_snapshot_maps(
+    data, pred_dict, dataset_name, salinity_path, clist, key1, time_indices
+):
     def plot_sst(ax, sst_data, title, i):
         colormap = cm.cm.thermal
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))

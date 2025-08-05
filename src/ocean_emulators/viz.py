@@ -33,19 +33,7 @@ from subprocess import PIPE, STDOUT, Popen
 from dask.array.core import Array as DaskArray
 from dask.base import compute
 from dask.delayed import delayed
-
-try:
-    from tqdm.auto import tqdm
-
-    tqdm_avail = True
-except ImportError:
-    warnings.warn(
-        "Optional dependency `tqdm` not found. "
-        "This will make progressbars a lot nicer. "
-        "Install with `conda install -c conda-forge tqdm`"
-    )
-    tqdm_avail = False
-
+from tqdm.auto import tqdm
 
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 
@@ -3754,10 +3742,8 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
             # create range of frames
             timesteps = self.data[self.framedim].data
             frame_range: Iterable[int] = range(len(timesteps))
-            if tqdm_avail and progress:
+            if progress:
                 frame_range = tqdm(frame_range)
-            elif ~tqdm_avail and progress:
-                warnings.warn("Cant show progess bar at this point. Install tqdm")
 
             for fi in frame_range:
                 fig, ax, pp = self.render_frame(fi, timesteps[fi])

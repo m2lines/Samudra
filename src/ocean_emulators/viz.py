@@ -1202,7 +1202,7 @@ def ohc_noanomaly_plots(
 ):
     c_p = 3850  # J/(kg C)
     rho_0 = 1025  # kg/m^3
-    f = open(os.path.join(output_path, "compare_info.txt"), "w")
+    f = open(os.path.join(output_path, "compare_info.txt"), "a")
 
     plt.rcdefaults()
     fig, ax = plt.subplots(
@@ -1271,7 +1271,7 @@ def ohc_noanomaly_plots(
 def ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_path):
     c_p = 3850  # J/(kg C)
     rho_0 = 1025  # kg/m^3
-    f = open(os.path.join(output_path, "compare_info.txt"), "w")
+    f = open(os.path.join(output_path, "compare_info.txt"), "a")
 
     plt.rcdefaults()
     fig, ax = plt.subplots(
@@ -1349,7 +1349,7 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
     )
     plt.rcParams.update({"font.size": 9})
 
-    f = open(os.path.join(output_path, "compare_info.txt"), "w")
+    f = open(os.path.join(output_path, "compare_info.txt"), "a")
 
     # Upper - GT
     OHC_truth_upper = (
@@ -1687,7 +1687,7 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
 def basin_ohc_plots(
     data, pred_dict, dataset_name, basin_masks, ohc_path, clist, output_path
 ):
-    f = open(os.path.join(output_path, "compare_info.txt"), "w")
+    f = open(os.path.join(output_path, "compare_info.txt"), "a")
 
     c_p = 3850  # J/(kg C)
     rho_0 = 1025  # kg/m^3
@@ -1810,7 +1810,7 @@ def basin_ohc_upto_700_plots(
 ):
     # TODO(jder): this is a copy-past of the above with a limit
 
-    f = open(os.path.join(output_path, "compare_info.txt"), "w")
+    f = open(os.path.join(output_path, "compare_info.txt"), "a")
 
     c_p = 3850  # J/(kg C)
     rho_0 = 1025  # kg/m^3
@@ -2001,7 +2001,7 @@ def ocean_salinity_profile_plots(
 ):
     # %%
     rho_0 = 1025  # kg/m^3
-    f = open(os.path.join(output_path, "compare_info.txt"), "w")
+    f = open(os.path.join(output_path, "compare_info.txt"), "a")
 
     plt.rcdefaults()
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))  # Single axis for salinity plot

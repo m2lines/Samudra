@@ -43,12 +43,15 @@ dependencies = [
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",
+  "xesmf>=0.8.10",
   "zarr<3",
 ]
 
 [dependency-groups]
 dev = [
   "beartype>=0.20",
+  "cartopy>=0.24.1",
+  "cmocean>=4.0.3",
   "coiled>=1.99",
   "filelock>=3.17",
   "fsspec>=2025.3",
@@ -57,15 +60,19 @@ dev = [
   "jupyter>=1.1.1",
   "memray>=1.17.1",
   "mypy>=1.15",
+  "nc-time-axis>=1.4.1",
   "py-spy>=0.4",
   "pytest>=8.3.4",
   "pytest-benchmark[histogram]>=5.1",
   "pytest-profiling>=1.8.1",
+  "pytest-timeout>=2.4",
   "s3fs>=2025.3",
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
+  "tqdm>=4.67.1",
   "types-pyyaml>=6.0.12.20241230",
+  "xarrayutils>=2.0.1",
 ]
 
 [tool.ruff]
@@ -98,7 +105,7 @@ markers = [
 ]
 pythonpath = [ "src" ]
 testpaths = [ "tests" ]
-addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers"
+addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers --timeout=3000"
 
 [tool.mypy]
 check_untyped_defs = true
@@ -106,3 +113,7 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = [ "cftime.*", "scipy.*", "fsspec.*" ]
 follow_untyped_imports = true
+
+[tool.pixi.workspace]
+channels = [ "conda-forge" ]
+platforms = [ "linux-64", "osx-arm64", "osx-64", "win-64" ]

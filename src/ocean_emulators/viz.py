@@ -3036,7 +3036,6 @@ def plot_diff_sst(ax, sst_data, gt_sst_data, title, i):
 
 def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1):
     # %%
-    Days_to_Eq = 0
     plt.rcParams.update({"font.size": 14})
     fig, axs = plt.subplots(
         2,
@@ -3094,8 +3093,7 @@ def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1):
     # %%
     # Single Snapshot (First, Middle, Last)
     last_index = len(data.time) - 1
-    time_indices = [0, last_index // 2, last_index]
-    Days_to_Eq = 0
+    [0, last_index // 2, last_index]
 
 
 def sst_time_snapshot_maps(
@@ -3178,7 +3176,6 @@ def sst_time_snapshot_maps(
 
 def salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist, key1):
     # %%
-    Days_to_Eq = 0
     plt.rcParams.update({"font.size": 14})
     fig, axs = plt.subplots(
         2,
@@ -3241,7 +3238,6 @@ def salinity_snapshot_maps(data, pred_dict, dataset_name, salinity_path, clist, 
     # Single Snapshot (First, Middle, Last)
     last_index = len(data.time) - 1
     time_indices = [0, last_index // 2, last_index]
-    Days_to_Eq = 0
 
     def plot_sst(ax, sst_data, title, i):
         colormap = cm.cm.thermal
@@ -3397,7 +3393,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
 
     # %%
     def _core_plot(ax, data, plotmethod=None, **kwargs):
-        """Core plotting functionality"""
+        """Core plotting functionality."""
         # Deactivate cbar for contours (not sure this should be hardcoded...)
         if plotmethod == "contour":
             kwargs.pop("cbar_kwargs", None)
@@ -3421,9 +3417,8 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
             p = data.plot.contourf(ax=ax, **kwargs)
         else:
             raise RuntimeError(
-                "Input '%s' not recognized \
+                f"Input '{plotmethod}' not recognized \
             as plotmode"
-                % plotmethod
             )
         return p
 
@@ -3458,7 +3453,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
         if isinstance(da, xr.DataArray):
             data = da
         else:
-            raise RuntimeError("input of type (%s) not supported yet." % type(da))
+            raise RuntimeError(f"input of type ({type(da)}) not supported yet.")
 
         # check these explicitly to avoid any computation if these are set.
         if "vmin" not in kwargs.keys():
@@ -3589,7 +3584,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
         )
         p = _check_ffmpeg_execute(command, verbose=verbose)
 
-        print("GIF created at %s" % (gpath))
+        print(f"GIF created at {gpath}")
         if remove_movie:
             if os.path.exists(mpath):
                 os.remove(mpath)
@@ -3622,7 +3617,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
         )
         p = _check_ffmpeg_execute(command, verbose=verbose)
 
-        print("Movie created at %s" % (moviename))
+        print(f"Movie created at {moviename}")
         if remove_frames:
             rem_name = frame_pattern.replace("%05d", "*")
             for f in glob.glob(os.path.join(sourcefolder, rem_name)):
@@ -3693,9 +3688,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
             # Mandatory checks
             # Check if `framedim` exists.
             if self.framedim not in list(self.data.dims):
-                raise ValueError(
-                    "Framedim (%s) not found in input data" % self.framedim
-                )
+                raise ValueError(f"Framedim ({self.framedim}) not found in input data")
             # Check the output of plotfunc
             self.plotfunc_n_outargs = _check_plotfunc_output(
                 self.plotfunc, self.data, self.framedim, **self.kwargs
@@ -3868,15 +3861,13 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
             if os.path.exists(mpath):
                 if not overwrite_existing:
                     raise RuntimeError(
-                        "File `%s` already exists. Set `overwrite_existing` to True to overwrite."
-                        % (mpath)
+                        f"File `{mpath}` already exists. Set `overwrite_existing` to True to overwrite."
                     )
             if isgif:
                 if os.path.exists(gpath):
                     if not overwrite_existing:
                         raise RuntimeError(
-                            "File `%s` already exists. Set `overwrite_existing` to True to overwrite."
-                            % (gpath)
+                            f"File `{gpath}` already exists. Set `overwrite_existing` to True to overwrite."
                         )
 
             # print frames

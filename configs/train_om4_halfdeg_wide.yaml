@@ -6,12 +6,9 @@ pin_mem: true
 save_freq: 5
 epochs: 70
 batch_size: 4
-# With batch size doubling (2→4), you should apply linear scaling rule:
-# Reasoning:
-# - Larger batch = less noisy gradients = can handle higher LR
-# - Wide ResNet paper showed wider networks often benefit from higher LR
-# - Your model is ~2x wider, suggesting it can handle more aggressive optimization
-learning_rate: 0.0004
+# Since the model is wider than the baseline and the batch size is 4, it
+# is recommended to use a larger learning rate.
+learning_rate: 0.0008
 scheduler: true
 loss: mse
 finetune: false
@@ -49,7 +46,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: om4_samudra_halfdeg_wide
+  name: om4_samudra_halfdeg_wide_v1
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

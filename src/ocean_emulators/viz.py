@@ -52,7 +52,8 @@ def rename_vars(data: xr.Dataset) -> xr.Dataset:
     """
     Rename variables if required.
     """
-    for var_str in data.variables:
+    for raw_var in data.variables:
+        var_str = str(raw_var)
         # OM4 data format has variables in the form: var_lev_depthlevel
         # ex. so_lev_1040_0. We need to convert into var_depthlevelidx
         if "_lev_" in var_str:
@@ -664,8 +665,6 @@ def main(output_path):
     ohc_maps(data, pred_dict, dataset_name, ohc_path, clist)
     ohc_bias_maps(data, pred_dict, dataset_name, ohc_path, clist, key1, var_list)
     sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist)
-    # Define key1 and time_indices for snapshot functions
-    key1 = list(pred_dict.keys())[0] if pred_dict else None
     last_index = len(data.time) - 1
     time_indices = [0, last_index // 2, last_index]
 
@@ -1039,12 +1038,9 @@ def temp_timeseries_shallow_grid_plots(
                 elif v == "so":
                     ax.set_ylim(min_val - 0.2, max_val + 0.2)
 
+                lev_str = pred_dict[k]["profile_prediction"][v].sel(lev=lev).lev.item()
                 ax.set_title(
-                    (
-                        r"$\theta_O$"
-                        + f" at {pred_dict[k]['profile_prediction'][v].sel(lev=lev).lev.item()}m"
-                        + r" ($\degree C$)"
-                    ),
+                    (r"$\theta_O$" + f" at {lev_str}m" + r" ($\degree C$)"),
                     fontsize=14,
                 )
                 ax.set_xlabel("Time")
@@ -1255,7 +1251,6 @@ def ohc_noanomaly_plots(
     #              xytext=(pos.get_xdata()[1], pos.get_ydata()[1]),
     #              fontsize=9, color='k')
     f.write(f"\nOHC GT Trend Slope : {coeffs_OHC_trend[0]}")
-    GT_ohc_slope = coeffs_OHC_trend[0]
     # ax.legend()
     ax.set_title("")
     handles, labels = ax.get_legend_handles_labels()
@@ -1619,11 +1614,12 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
         f"{deep_trend_truth / total_trend_truth:.2f}"
     )
     for k in pred_dict.keys():
+        total_trend = pred_dict[k]["total_trend_pred"]
         f.write(
             f"\n{pred_dict[k]['name']} Trend Ratio (Upper, Mid, Deep): "
-            f"{pred_dict[k]['upper_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}, "
-            f"{pred_dict[k]['mid_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}, "
-            f"{pred_dict[k]['deep_trend_pred'] / pred_dict[k]['total_trend_pred']:.2f}"
+            f"{pred_dict[k]['upper_trend_pred'] / total_trend:.2f}, "
+            f"{pred_dict[k]['mid_trend_pred'] / total_trend:.2f}, "
+            f"{pred_dict[k]['deep_trend_pred'] / total_trend:.2f}"
         )
     # ax[0].annotate(
     #     f'OHC portion of trend (truth, pred): '
@@ -2046,7 +2042,6 @@ def ocean_salinity_profile_plots(
         ls="--",
     )
     f.write(f"\nSalinity GT Trend Slope : {coeffs_salinity_trend[0]}")
-    GT_salinity_slope = coeffs_salinity_trend[0]
     ax.set_ylim((5.861e22, 5.8632e22))
     ax.legend(ncol=3)
     ax.set_title("")
@@ -2537,12 +2532,6 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
     axs["nino_pred"].invert_yaxis()
 
     ## Stats
-    # for name,pred in zip([pred_dict[key1]["name"], pred_dict[key2]["name"]], [tropics_profile_pred, tropics_profile_pred_temp]):
-    #     mae = np.abs((pred - tropics_profile).mean(['x', 'lev']))
-    #     cor = ((pred*tropics_profile)).mean(['x', 'lev']) / np.sqrt((pred**2).mean(['x', 'lev']) * (tropics_profile**2).mean(['x', 'lev']))
-
-    #     print(name, "mae: ", mae.compute().item(), "cor: ", cor.compute().item())
-
     for name, pred in zip(
         [pred_dict[key1]["name"]],
         [tropics_profile_pred],
@@ -2632,12 +2621,6 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
     axs["nina_pred"].invert_yaxis()
 
     ## Stats
-    # for name,pred in zip([pred_dict[key1]["name"], pred_dict[key2]["name"]], [tropics_profile_pred, tropics_profile_pred_temp]):
-    #     mae = np.abs((pred - tropics_profile).mean(['x', 'lev']))
-    #     cor = ((pred*tropics_profile)).mean(['x', 'lev']) / np.sqrt((pred**2).mean(['x', 'lev']) * (tropics_profile**2).mean(['x', 'lev']))
-
-    #     print(name, "mae: ", mae.compute().item(), "cor: ", cor.compute().item())
-
     for name, pred in zip(
         [pred_dict[key1]["name"]],
         [tropics_profile_pred],
@@ -2674,7 +2657,7 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
     axs["map"].set_extent([70, 320, -25, 25], crs=ccrs.PlateCarree())
     axs["map"].stock_img()
     axs["map"].coastlines(color="0.3", lw=0.5)
-    gl = axs["map"].gridlines(draw_labels=True, color="0.4")
+    axs["map"].gridlines(draw_labels=True, color="0.4")
     box_plot(
         [bound_east, bound_west, bound_south, bound_north],
         ax=axs["map"],
@@ -2699,7 +2682,7 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
     )
 
 
-def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist):
+def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, key1):
     # %%
     # OHC Map + Bias
     Days_to_Eq = 0

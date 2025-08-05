@@ -1,9 +1,11 @@
 # %%
 import hashlib
 import os
+from collections.abc import Iterable
 from copy import deepcopy
 from os import environ
 from pathlib import Path
+from typing import Any
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -269,7 +271,7 @@ def process_mask(data, mask):
 
 
 # TODO(jder): include time range for profile mean cache key
-def profile_mean(ds: xr.Dataset, dataset_name: str = None) -> xr.Dataset:
+def profile_mean(ds: xr.Dataset, dataset_name: str) -> xr.Dataset:
     """
     Compute the profile mean of a dataset with optional caching.
 
@@ -373,7 +375,7 @@ def main(output_path):
     # Create directory
     dataset_name = "OM4"
 
-    pred_dict = {}
+    pred_dict: dict[str, dict[str, Any]] = {}
     pred_dict["pred_1"] = {
         "name": "samudra-recreate-paper-om4",
         "run_name": "samudra-recreate-paper-om4",
@@ -662,9 +664,8 @@ def main(output_path):
         data, pred_dict, dataset_name, pdfs_path, clist, var_list, ds_groundtruth
     )
     enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key1)
-    ohc_maps(data, pred_dict, dataset_name, ohc_path, clist)
-    ohc_bias_maps(data, pred_dict, dataset_name, ohc_path, clist, key1, var_list)
-    sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist)
+    ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1)
+    sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1)
     last_index = len(data.time) - 1
     time_indices = [0, last_index // 2, last_index]
 
@@ -827,7 +828,7 @@ def short_timeseries_plots(
                     break
 
     # Adjust layout to avoid overlap and place the legend outside the plot
-    fig.tight_layout(rect=[0, 0, 0.85, 0.96])
+    fig.tight_layout(rect=(0, 0, 0.85, 0.96))
 
     # Create a single legend for all plots
     handles, labels = ax.get_legend_handles_labels()
@@ -1052,7 +1053,7 @@ def temp_timeseries_shallow_grid_plots(
                     break  # Stop if the grid is full
 
     # Adjust layout to avoid overlap and place the legend outside the plot
-    fig.tight_layout(rect=[0, 0, 0.85, 0.96])  # Leave space on the right for the legend
+    fig.tight_layout(rect=(0, 0, 0.85, 0.96))  # Leave space on the right for the legend
 
     # Create a single legend for all plots
     handles, labels = ax.get_legend_handles_labels()
@@ -2682,7 +2683,7 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
     )
 
 
-def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, key1):
+def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1):
     # %%
     # OHC Map + Bias
     Days_to_Eq = 0
@@ -2821,8 +2822,6 @@ def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, key1):
     )
     # plt.show()
 
-
-def ohc_bias_maps(data, pred_dict, dataset_name, ohc_path, clist, key1, var_list):
     # %%
     def map_bias_avg(data_pred1, fig, title="", **kwargs):
         var_name = kwargs["var_name"]
@@ -2978,7 +2977,64 @@ def ohc_bias_maps(data, pred_dict, dataset_name, ohc_path, clist, key1, var_list
     )
 
 
-def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist):
+def plot_sst(ax, sst_data, title, i):
+    colormap = cm.cm.thermal
+    colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
+    mean = sst_data.mean().compute().item()
+    std = sst_data.std().compute().item()
+    vmin = mean - std
+    vmax = mean + std
+    im = ax.pcolormesh(
+        sst_data["x"],
+        sst_data["y"],
+        sst_data,
+        shading="auto",
+        cmap=colormap,
+        transform=ccrs.PlateCarree(),
+        vmin=vmin,
+        vmax=vmax,
+    )
+    ax.add_feature(cfeature.COASTLINE, edgecolor="black")
+    ax.set_title(title, fontsize=14)
+    gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.xlabel_style = {"size": 14}
+    gl.ylabel_style = {"size": 14}
+    gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
+
+    if i > 0:
+        gl.left_labels = False
+    return im
+
+
+def plot_diff_sst(ax, sst_data, gt_sst_data, title, i):
+    colormap = cm.cm.balance
+    colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
+    sst_bias = sst_data - gt_sst_data
+    im = ax.pcolormesh(
+        sst_bias["x"],
+        sst_bias["y"],
+        sst_bias,
+        shading="auto",
+        cmap=colormap,
+        transform=ccrs.PlateCarree(),
+        vmin=-0.5,
+        vmax=0.5,
+    )
+    ax.add_feature(cfeature.COASTLINE, edgecolor="black")
+    ax.set_title(title, fontsize=14)
+    gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
+    gl.top_labels = False
+    gl.right_labels = False
+    gl.xlabel_style = {"size": 14}
+    gl.ylabel_style = {"size": 14}
+    gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
+
+    return im
+
+
+def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1):
     # %%
     Days_to_Eq = 0
     plt.rcParams.update({"font.size": 14})
@@ -2990,67 +3046,6 @@ def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist):
         gridspec_kw={"wspace": 0.02, "hspace": 0.23},
     )
     axs = axs.flatten()
-
-    # Define a common plotting function for Cartesian lat-lon grids
-
-    def plot_sst(ax, sst_data, title, i):
-        colormap = cm.cm.thermal
-        colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        mean = sst_data.mean().compute().item()
-        std = sst_data.std().compute().item()
-        vmin = mean - std
-        vmax = mean + std
-        im = ax.pcolormesh(
-            sst_data["x"],
-            sst_data["y"],
-            sst_data,
-            shading="auto",
-            cmap=colormap,
-            transform=ccrs.PlateCarree(),
-            vmin=vmin,
-            vmax=vmax,
-        )
-        ax.add_feature(cfeature.COASTLINE, edgecolor="black")
-        ax.set_title(title, fontsize=14)
-        gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
-        gl.top_labels = False
-        gl.right_labels = False
-        gl.xlabel_style = {"size": 14}
-        gl.ylabel_style = {"size": 14}
-        gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
-
-        if i > 0:
-            gl.left_labels = False
-        return im
-
-    def plot_diff_sst(ax, sst_data, gt_sst_data, title, i):
-        colormap = cm.cm.balance
-        colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        sst_bias = sst_data - gt_sst_data
-        mean = sst_bias.mean().compute().item()
-        std = sst_bias.std().compute().item()
-        vmax = 1
-        vmin = -vmax
-        im = ax.pcolormesh(
-            sst_bias["x"],
-            sst_bias["y"],
-            sst_bias,
-            shading="auto",
-            cmap=colormap,
-            transform=ccrs.PlateCarree(),
-            vmin=vmin,
-            vmax=vmax,
-        )
-        ax.add_feature(cfeature.COASTLINE, edgecolor="black")
-        ax.set_title(title, fontsize=14)
-        gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
-        gl.top_labels = False
-        gl.right_labels = False
-        gl.xlabel_style = {"size": 14}
-        gl.ylabel_style = {"size": 14}
-        gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
-
-        return im
 
     # Calculate Sea Surface Temperature (SST) for different scenarios
     titles = [dataset_name, pred_dict[key1]["name"]]
@@ -3101,61 +3096,6 @@ def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist):
     last_index = len(data.time) - 1
     time_indices = [0, last_index // 2, last_index]
     Days_to_Eq = 0
-
-    def plot_sst(ax, sst_data, title, i):
-        colormap = cm.cm.thermal
-        colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        mean = sst_data.mean().compute().item()
-        std = sst_data.std().compute().item()
-        vmin = mean - std
-        vmax = mean + std
-        im = ax.pcolormesh(
-            sst_data["x"],
-            sst_data["y"],
-            sst_data,
-            shading="auto",
-            cmap=colormap,
-            transform=ccrs.PlateCarree(),
-            vmin=vmin,
-            vmax=vmax,
-        )
-        ax.add_feature(cfeature.COASTLINE, edgecolor="black")
-        ax.set_title(title, fontsize=14)
-        gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
-        gl.top_labels = False
-        gl.right_labels = False
-        gl.xlabel_style = {"size": 14}
-        gl.ylabel_style = {"size": 14}
-        gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
-
-        if i > 0:
-            gl.left_labels = False
-        return im
-
-    def plot_diff_sst(ax, sst_data, gt_sst_data, title, i):
-        colormap = cm.cm.balance
-        colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        sst_bias = sst_data - gt_sst_data
-        im = ax.pcolormesh(
-            sst_bias["x"],
-            sst_bias["y"],
-            sst_bias,
-            shading="auto",
-            cmap=colormap,
-            transform=ccrs.PlateCarree(),
-        )
-        ax.add_feature(cfeature.COASTLINE, edgecolor="black")
-        ax.set_title(title, fontsize=14)
-        gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
-        gl.top_labels = False
-        gl.right_labels = False
-        gl.xlabel_style = {"size": 14}
-        gl.ylabel_style = {"size": 14}
-        gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
-
-        return im
-
-    # Calculate Sea Surface Temperature (SST) for different scenarios
 
 
 def sst_time_snapshot_maps(
@@ -3250,61 +3190,6 @@ def salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist, key1)
     axs = axs.flatten()
 
     # Define a common plotting function for Cartesian lat-lon grids
-
-    def plot_sst(ax, sst_data, title, i):
-        colormap = cm.cm.thermal
-        colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        mean = sst_data.mean().compute().item()
-        std = sst_data.std().compute().item()
-        vmin = mean - std
-        vmax = mean + std
-        im = ax.pcolormesh(
-            sst_data["x"],
-            sst_data["y"],
-            sst_data,
-            shading="auto",
-            cmap=colormap,
-            transform=ccrs.PlateCarree(),
-            vmin=vmin,
-            vmax=vmax,
-        )
-        ax.add_feature(cfeature.COASTLINE, edgecolor="black")
-        ax.set_title(title, fontsize=14)
-        gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
-        gl.top_labels = False
-        gl.right_labels = False
-        gl.xlabel_style = {"size": 14}
-        gl.ylabel_style = {"size": 14}
-        gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
-
-        if i > 0:
-            gl.left_labels = False
-        return im
-
-    def plot_diff_sst(ax, sst_data, gt_sst_data, title, i):
-        colormap = cm.cm.balance
-        colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        sst_bias = sst_data - gt_sst_data
-        im = ax.pcolormesh(
-            sst_bias["x"],
-            sst_bias["y"],
-            sst_bias,
-            shading="auto",
-            cmap=colormap,
-            transform=ccrs.PlateCarree(),
-            vmin=-0.5,
-            vmax=0.5,
-        )
-        ax.add_feature(cfeature.COASTLINE, edgecolor="black")
-        ax.set_title(title, fontsize=14)
-        gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
-        gl.top_labels = False
-        gl.right_labels = False
-        gl.xlabel_style = {"size": 14}
-        gl.ylabel_style = {"size": 14}
-        gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
-
-        return im
 
     # Calculate Sea Surface Salinity (SSS) for different scenarios
     titles = [dataset_name, pred_dict[key1]["name"]]
@@ -3624,17 +3509,9 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
             return None
         else:
             # parse version number
-            try:
-                found = (
-                    re.search("ffmpeg version (.+?) Copyright", str(output))
-                    .group(1)
-                    .replace(" ", "")
-                )
-                return found
-            except AttributeError:
-                # ffmpeg version, Copyright not found in the original string
-                found = None
-        return found
+            if copyright := re.search("ffmpeg version (.+?) Copyright", str(output)):
+                return copyright.group(1).replace(" ", "")
+            return None
 
     def _execute_command(
         command, verbose=False, error=True, log_file="output.log", max_lines=10
@@ -3649,6 +3526,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
                 universal_newlines=True,
             )
             line_count = 0
+            assert p.stdout is not None
 
             for line in iter(p.stdout.readline, ""):
                 f.write(line)  # Write to log file
@@ -3880,7 +3758,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
             """
             # create range of frames
             timesteps = self.data[self.framedim].data
-            frame_range = range(len(timesteps))
+            frame_range: Iterable[int] = range(len(timesteps))
             if tqdm_avail and progress:
                 frame_range = tqdm(frame_range)
             elif ~tqdm_avail and progress:

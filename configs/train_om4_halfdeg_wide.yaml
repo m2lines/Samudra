@@ -41,7 +41,7 @@ inference_times:
 data_stride: [1]
 steps: [4]
 step_transition: []
-preemptible: false
+preemptible: true
 
 backend: auto
 

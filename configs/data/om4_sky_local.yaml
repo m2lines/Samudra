@@ -10,7 +10,7 @@ data_means_location:
 
 data_stds_location:
   type: local
-  path: OM4_means.zarr
+  path: OM4_stds.zarr
 
 static_data_vars:
   - sea_surface_fraction

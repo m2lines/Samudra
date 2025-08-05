@@ -12,6 +12,5 @@ data_stds_location:
   type: local
   path: OM4_stds.zarr
 
-static_data_vars:
-  - sea_surface_fraction
-  - hfgeou
+concurrent_compute: true
+num_workers: 4

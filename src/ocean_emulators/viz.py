@@ -7,9 +7,9 @@ from os import environ
 from pathlib import Path
 from typing import Any
 
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
-import cmocean as cm
+import cartopy.crs as ccrs  # type: ignore
+import cartopy.feature as cfeature  # type: ignore
+import cmocean as cm  # type: ignore
 import matplotlib
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ import pandas as pd
 import xarray as xr
 from dask.diagnostics.progress import ProgressBar
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
-from xarrayutils.plotting import box_plot, linear_piecewise_scale
+from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignore
 
 from ocean_emulators.utils.data import spherical_area_weights
 
@@ -3458,19 +3458,24 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
         # check these explicitly to avoid any computation if these are set.
         if "vmin" not in kwargs.keys():
             warnings.warn(
-                "No `vmin` provided. Data limits are calculated from input. Depending on the input this can take long. Pass `vmin` to avoid this step",
+                "No `vmin` provided. Data limits are calculated from input. "
+                "Depending on the input this can take long. Pass `vmin` to avoid "
+                "this step",
                 UserWarning,
             )
             kwargs["vmin"] = data.min().data
 
         if "vmax" not in kwargs.keys():
             warnings.warn(
-                "No `vmax` provided. Data limits are calculated from input. Depending on the input this can take long. Pass `vmax` to avoid this step",
+                "No `vmax` provided. Data limits are calculated from input. "
+                "Depending on the input this can take long. Pass `vmax` to avoid "
+                "this step",
                 UserWarning,
             )
             kwargs["vmax"] = data.max().data
 
-        # There is a bug that prevents this from working...Ill have to fix that upstream.
+        # There is a bug that prevents this from working...
+        # I'll have to fix that upstream.
         # defaults["cbar_kwargs"] = dict(extend="neither")
         # This works for now
         kwargs.setdefault("extend", "neither")
@@ -3557,7 +3562,8 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
                 return p
             except RuntimeError:
                 raise RuntimeError(
-                    "Something has gone wrong. Use `verbose=True` to check if ffmpeg displays a problem"
+                    "Something has gone wrong. Use `verbose=True` to check "
+                    "if ffmpeg displays a problem"
                 )
 
     def convert_gif(
@@ -3570,17 +3576,16 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
         gif_framerate=5,
     ):
         if gif_palette:
-            palette_filter = '-filter_complex "[0:v] split [a][b];[a] palettegen [p];[b][p] paletteuse"'
+            palette_filter = (
+                '-filter_complex "[0:v] split [a][b];[a] palettegen [p];'
+                '[b][p] paletteuse"'
+            )
         else:
             palette_filter = ""
 
-        command = "ffmpeg -y -i %s %s -r %i -s %ix%i %s" % (
-            mpath,
-            palette_filter,
-            gif_framerate,
-            resolution[0],
-            resolution[1],
-            gpath,
+        command = (
+            f'ffmpeg -y -i "{mpath}" {palette_filter} -r {gif_framerate}'
+            f' -s {resolution[0]}x{resolution[1]} "{gpath}"'
         )
         p = _check_ffmpeg_execute(command, verbose=verbose)
 
@@ -3594,12 +3599,10 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
         sourcefolder, moviename, framerate, frame_pattern, ffmpeg_options
     ):
         # we need `-y` because i can not properly diagnose the errors here...
-        command = 'ffmpeg -r %i -i "%s" -y %s -r %i "%s"' % (
-            framerate,
-            os.path.join(sourcefolder, frame_pattern),
-            ffmpeg_options,
-            framerate,
-            os.path.join(sourcefolder, moviename),
+        command = (
+            f'ffmpeg -r {framerate} -i "{os.path.join(sourcefolder, frame_pattern)}"'
+            f" -y {ffmpeg_options} -r {framerate}"
+            f' "{os.path.join(sourcefolder, moviename)}"'
         )
         return command
 
@@ -3723,8 +3726,10 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
                 )
             else:
                 warnings.warn(
-                    "The provided `plotfunc` does not provide the expected number of output arguments.\
-                Expected a function `ax,pp =plotfunc(...)` but got %i output arguments. Inserting dummy values. This should not affect output. ",
+                    "The provided `plotfunc` does not provide the expected number of "
+                    "output arguments. Expected a function `ax,pp =plotfunc(...)` but "
+                    f"got {self.plotfunc_n_outargs} output arguments. Inserting dummy "
+                    "values. This should not affect output.",
                     UserWarning,
                 )
                 _ = self.plotfunc(
@@ -3825,7 +3830,8 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
                 Set to overwrite existing files with `filename`
                 (the default is False).
             framerate : int
-                Frames per second for the output movie file. Only relevant for '.mp4' files.
+                Frames per second for the output movie file. Only relevant for
+                '.mp4' files.
                 (the default is 15)
             ffmpeg_options: str
                 Encoding options to pass to ffmpeg call.
@@ -3838,7 +3844,8 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
                 Use 1.0 to put out the same resolutions for both products.
                 (the default is 0.5).
             gif_framerate : int
-                As `framerate` but for the gif output file. Only relevant to `.gif` files.
+                As `framerate` but for the gif output file. Only relevant to
+                `.gif` files.
                 (the default is 10)
             """
             # parse out directory and filename
@@ -3861,13 +3868,15 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
             if os.path.exists(mpath):
                 if not overwrite_existing:
                     raise RuntimeError(
-                        f"File `{mpath}` already exists. Set `overwrite_existing` to True to overwrite."
+                        f"File `{mpath}` already exists. Set `overwrite_existing` "
+                        "to True to overwrite."
                     )
             if isgif:
                 if os.path.exists(gpath):
                     if not overwrite_existing:
                         raise RuntimeError(
-                            f"File `{gpath}` already exists. Set `overwrite_existing` to True to overwrite."
+                            f"File `{gpath}` already exists. Set "
+                            "`overwrite_existing` to True to overwrite."
                         )
 
             # print frames

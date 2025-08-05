@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754407412361,
+  "lastUpdate": 1754409298736,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3008,6 +3008,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14689436365552955",
             "extra": "mean: 81.5701023018 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f4adaeacda884121f7b1fa9ca7c54dad16743346",
+          "message": "Add .git to .gitignore for the sake of skypilot (#328)\n\nWithout this, it seems that skypilot attempts to upload the whole .git\nfolder. Adding this makes it skip doing so. To me, this is a bug in\nskypilot; I'll file an issue over there and use this as a workaround for\nthe time being.",
+          "timestamp": "2025-08-05T08:28:55-07:00",
+          "tree_id": "a620d42ea51ca5eaf5f8306da3c022ea0cc09662",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/f4adaeacda884121f7b1fa9ca7c54dad16743346"
+        },
+        "date": 1754409297946,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.266312971676194,
+            "unit": "iter/sec",
+            "range": "stddev: 0.026765102380862972",
+            "extra": "mean: 789.694192799999 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06931073405674053,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4495548011038106",
+            "extra": "mean: 14.427779673800023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18990276599449046,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11525138277210392",
+            "extra": "mean: 5.265852736600015 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013244027854802746,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08568033523496131",
+            "extra": "mean: 75.50573065559999 sec\nrounds: 5"
           }
         ]
       }

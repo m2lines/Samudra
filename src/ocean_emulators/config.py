@@ -11,6 +11,7 @@ from ocean_emulators.constants import BoundaryVarNames, LoaderVersion
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
+from ocean_emulators.utils.schedule import Scheduler
 
 
 class WandBConfig(BaseConfig):
@@ -312,7 +313,7 @@ class TrainConfig(TopLevelConfig):
     preemptible: bool = True
     batch_size: int = 2
     learning_rate: float = 2e-4
-    scheduler: bool = False
+    scheduler: Scheduler | None = None
     loss: LossType = "mse"
     finetune: bool = False
     resume_ckpt_path: str | None = None

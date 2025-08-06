@@ -25,7 +25,7 @@ class CosineWithTailScheduler(BaseModel):
         cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=epochs - self.tail_epochs, eta_min=self.tail_lr
         )
-        tail = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda epoch: self.tail_lr)
+        tail = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda epoch: 1.0)
         return torch.optim.lr_scheduler.SequentialLR(
             optimizer, schedulers=[cosine, tail], milestones=[epochs - self.tail_epochs]
         )

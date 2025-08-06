@@ -4,12 +4,12 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 70
+epochs: 150
 batch_size: 2
 learning_rate: 0.0002
 scheduler:
   type: cosine_with_tail
-  tail_lr: 0.000002
+  tail_lr: 0.0000001
   tail_epochs: 10
 loss: mse_dynamic_no_limit
 finetune: false

@@ -328,6 +328,13 @@ class Trainer:
             cfg.resume_ckpt_path, cfg, finetune=cfg.finetune
         )
 
+        # Modify DDP setup based on device
+        if self.distributed is not None:
+            self.model = nn.parallel.DistributedDataParallel(
+                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
+                device_ids=[self.distributed.gpu],
+            )
+
         self.num_batches_seen = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -344,13 +351,6 @@ class Trainer:
             loaded_checkpoint = True
         else:
             self.start_epoch = 1
-
-        # Modify DDP setup based on device
-        if self.distributed is not None:
-            self.model = nn.parallel.DistributedDataParallel(
-                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
-                device_ids=[self.distributed.gpu],
-            )
 
         # EMA (must come after DDP setup so parameter names match final self.model)
         if not loaded_checkpoint:

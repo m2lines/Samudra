@@ -1,5 +1,5 @@
 # ~
-# Entrypoint to run a training job on a single-node, 8x A100 GPU cluster with skypilot.
+# Entrypoint to run a training and eval pipeline with skypilot.
 # ~
 #
 # First, make sure that all your credentials are set up:
@@ -10,7 +10,7 @@
 # To create or re-use a cluster:
 # ```
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster train.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
+# sky launch -c fomo-cluster experiment.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
 # ```
 # As the job progresses, skypilot will provide commands to locally monitor each stage.
 #
@@ -19,11 +19,15 @@
 # ```
 # export SKYPILOT_DEBUG=true
 # ```
+name: experiment
+---
+name: train
+
 resources:
   # Optional; if left out, automatically pick the cheapest cloud.
   cloud: lambda
-  # 8x NVIDIA A100 GPU
-  accelerators: A100:8
+  # 8x NVIDIA A100-80GB GPU
+  accelerators: A100-80GB:8
   disk_tier: best
 #  disk_size: 1_000 # in GiBs
 
@@ -83,6 +87,74 @@ run: |
     --master_addr=$MASTER_ADDR \
     --master_port=8008 \
     --node_rank=${SKYPILOT_NODE_RANK} \
+    -m ocean_emulators.train ${CONFIG} \
+    --data=@${DATA_CONFIG} \
+    --experiment.data_root=${DATA_ROOT} \
+    --experiment.base_output_dir=/outputs/  \
+    --experiment.wandb.mode=online \
+    --samudra.checkpointing=all
+
+---
+
+name: eval
+
+resources:
+  # Optional; if left out, automatically pick the cheapest cloud.
+  cloud: lambda
+  # 1 NVIDIA A100-80GB GPU
+  accelerators: A100-80GB
+  disk_tier: best
+
+# NOTE: Remember to pass environment variables with `--env` or `--env-file`
+# NOTE: All `null` values must be specified in order for this script to run!
+envs:
+  # Secrets
+  # As of v0.9.3, `sky` supports passing in secrets via a dotenv file! So, you can specify these with `--env-file`.
+  # To pass in secrets, we recommend setting environment variable and then ONLY passing in the name via `--env`
+  WANDB_API_KEY: null  # e.g. `--env WANDB_API_KEY`
+  # Run `sky check aws -v` to verify that AWS storage is properly set up.
+  # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
+  # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
+
+  CONFIG: null
+  OUTPUTS_BUCKET: oa-fomo-outputs
+  DATA_BUCKET: oa-fomo
+  # We assume that data in this directory is named in the same pattern as
+  # the $DATA_CONFIG yaml.
+  DATA_ROOT_PATH: null # data/om4_onedeg_compact  # NOTE: path cannot end in a slash `/`.
+  DATA_CONFIG: configs/data/om4_sky_local.yaml
+
+file_mounts:
+  # TODO(alxmrs): Consider adding a data/ COPY file_mount here once `mount_options` feature exists.
+  # The current method of copying (in the setup section, below) is faster.
+
+  /outputs:
+    source: s3://${OUTPUTS_BUCKET}
+    mode: MOUNT_CACHED
+
+workdir: .
+
+setup: |
+  mkdir ~/data/
+  rclone config create s3-source s3 provider=AWS env_auth=true
+
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_means.zarr ~/data/OM4_means.zarr --ignore-existing
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_stds.zarr ~/data/OM4_stds.zarr --ignore-existing
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4.zarr ~/data/OM4.zarr --transfers=32 --ignore-existing
+
+run: |
+  DATA_ROOT=$(realpath ~/data)
+
+  uv run -m ocean_emulators.eval ${CONFIG} \
+    --experiment.data_root=${DATA_ROOT} \
+    --ckpt_path=$TARGET_CHECKPOINT \
+    --experiment.wandb.mode=online \
+    --data=@configs/data/public.yaml \
+    --experiment.name=mse_dynamic_eval \
+    --num_model_steps_forward=25 \
+    --experiment.base_output_dir=$ROOT_DIR/$SHARED_FS_NAME
+
+  uv run torchrun \
     -m ocean_emulators.train ${CONFIG} \
     --data=@${DATA_CONFIG} \
     --experiment.data_root=${DATA_ROOT} \

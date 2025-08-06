@@ -327,7 +327,7 @@ class Trainer:
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
             cfg.resume_ckpt_path,
             cfg,
-            finetune=True,  # TODO(jder): this is a hack
+            finetune=cfg.finetune,
         )
 
         self.num_batches_seen = 0

@@ -282,31 +282,108 @@ def get_basin_datasets(ds, basin_masks, data):
 def main(output_path: str):
     viz = Viz(output_path)
 
-    viz.timeseries_plots()
-    viz.short_timeseries_plots()
-    viz.shallow_timeseries_grid_plots()
-    viz.temp_timeseries_shallow_grid_plots()
-    viz.global_thetao_time_series()
-    viz.global_salinity_timeseries_plots()
-    viz.ohc_noanomaly_plots()
-    viz.ohc_plots()
-    viz.depthwise_ohc_plots()
-    viz.basin_ohc_plots()
-    viz.basin_ohc_upto_700_plots()
-    viz.ocean_temperature_profile_plots()
-    viz.ocean_salinity_profile_plots()
-    viz.salinity_deseasonalized_plots()
-    viz.create_ohc_salinity_slopes_table()
-    viz.thetao_mae_metrics()
-    viz.sst_mae_metrics()
-    viz.pdf_plots_short()
-    viz.enso_plots()
-    viz.ohc_maps()
-    viz.sst_mean_maps()
-    viz.sst_time_snapshot_maps()
-    viz.salinity_mean_map()
-    viz.salinity_snapshot_maps()
-    viz.movies()
+    import traceback
+
+    try:
+        viz.timeseries_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.short_timeseries_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.shallow_timeseries_grid_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.temp_timeseries_shallow_grid_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.global_thetao_time_series()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.global_salinity_timeseries_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.ohc_noanomaly_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.ohc_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.depthwise_ohc_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.basin_ohc_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.basin_ohc_upto_700_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.ocean_temperature_profile_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.ocean_salinity_profile_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.salinity_deseasonalized_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.create_ohc_salinity_slopes_table()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.thetao_mae_metrics()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.sst_mae_metrics()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.pdf_plots_short()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.enso_plots()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.ohc_maps()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.sst_mean_maps()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.sst_time_snapshot_maps()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.salinity_mean_map()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.salinity_snapshot_maps()
+    except Exception:
+        traceback.print_exc()
+    try:
+        viz.movies()
+    except Exception:
+        traceback.print_exc()
 
 
 class Viz:
@@ -994,7 +1071,7 @@ class Viz:
             OHC_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])
             coeffs_OHC_pred_trend = np.polyfit(np.arange(OHC_pred.size), OHC_pred, 1)
             (pos,) = ax.plot(
-                OHC_pred.time.self.data,
+                OHC_pred.time.data,
                 np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
                 + coeffs_OHC_pred_trend[1],
                 c=self.clist[i],
@@ -1012,7 +1089,7 @@ class Viz:
         OHC.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
         coeffs_OHC_trend = np.polyfit(np.arange(OHC.size), OHC, 1)
         (pos,) = ax.plot(
-            OHC.time.self.data,
+            OHC.time.data,
             np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],
             c="k",
             ls="--",
@@ -1036,7 +1113,6 @@ class Viz:
             dpi=600,
         )
 
-    @functools.cache
     def ohc_anomaly_global(self, data: xr.Dataset) -> xr.DataArray:
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
@@ -1048,7 +1124,6 @@ class Viz:
         OHC = OHC.assign_attrs(units="ZJ")
         return OHC
 
-    @functools.cache
     def linear_fit(self, var: xr.DataArray) -> tuple[float, float]:
         coeffs_trend = np.polyfit(np.arange(var.size), var, 1)
         return coeffs_trend[0], coeffs_trend[1]
@@ -1071,7 +1146,7 @@ class Viz:
             OHC_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])  # type: ignore
             coeffs_OHC_pred_trend = self.linear_fit(OHC_pred)
             (pos,) = ax.plot(
-                OHC_pred.time.self.data,
+                OHC_pred.time.data,
                 np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
                 + coeffs_OHC_pred_trend[1],
                 c=self.clist[i],
@@ -1085,7 +1160,7 @@ class Viz:
         OHC.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
         coeffs_OHC_trend = self.linear_fit(OHC)
         (pos,) = ax.plot(
-            OHC.time.self.data,
+            OHC.time.data,
             np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],  # type: ignore
             c="k",
             ls="--",
@@ -1132,7 +1207,7 @@ class Viz:
             1,
         )
         (pos,) = ax[0].plot(
-            OHC_truth_upper[Days_to_Eq:].time.self.data,
+            OHC_truth_upper[Days_to_Eq:].time.data,
             np.arange(OHC_truth_upper[Days_to_Eq:].size) * coeffs_OHC_ground_trend[0]
             + coeffs_OHC_ground_trend[1],
             c="k",
@@ -1177,7 +1252,7 @@ class Viz:
                 ax=ax[0], label=self.pred_dict[k]["name"], c=self.clist[i]
             )
             (pos,) = ax[0].plot(
-                self.pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].time.self.data,
+                self.pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].time.data,
                 np.arange(self.pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].size)
                 * self.pred_dict[k]["coeffs_OHC_pred_trend_upper"][0]
                 + self.pred_dict[k]["coeffs_OHC_pred_trend_upper"][1],
@@ -1220,7 +1295,7 @@ class Viz:
             np.arange(OHC_truth_mid[Days_to_Eq:].size), OHC_truth_mid[Days_to_Eq:], 1
         )
         (pos,) = ax[1].plot(
-            OHC_truth_mid[Days_to_Eq:].time.self.data,
+            OHC_truth_mid[Days_to_Eq:].time.data,
             np.arange(OHC_truth_mid[Days_to_Eq:].size) * coeffs_OHC_ground_trend[0]
             + coeffs_OHC_ground_trend[1],
             c="k",
@@ -1267,7 +1342,7 @@ class Viz:
                 ax=ax[1], label=self.pred_dict[k]["name"], c=self.clist[i]
             )
             (pos,) = ax[1].plot(
-                self.pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].time.self.data,
+                self.pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].time.data,
                 np.arange(self.pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].size)
                 * self.pred_dict[k]["coeffs_OHC_pred_trend_mid"][0]
                 + self.pred_dict[k]["coeffs_OHC_pred_trend_mid"][1],
@@ -1308,7 +1383,7 @@ class Viz:
             np.arange(OHC_truth_deep[Days_to_Eq:].size), OHC_truth_deep[Days_to_Eq:], 1
         )
         (pos,) = ax[2].plot(
-            OHC_truth_deep[Days_to_Eq:].time.self.data,
+            OHC_truth_deep[Days_to_Eq:].time.data,
             np.arange(OHC_truth_deep[Days_to_Eq:].size) * coeffs_OHC_ground_trend[0]
             + coeffs_OHC_ground_trend[1],
             c="k",
@@ -1355,7 +1430,7 @@ class Viz:
                 ax=ax[2], label=self.pred_dict[k]["name"], c=self.clist[i]
             )
             (pos,) = ax[2].plot(
-                self.pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].time.self.data,
+                self.pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].time.data,
                 np.arange(self.pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].size)
                 * self.pred_dict[k]["coeffs_OHC_pred_trend_deep"][0]
                 + self.pred_dict[k]["coeffs_OHC_pred_trend_deep"][1],
@@ -1497,7 +1572,7 @@ class Viz:
             coeffs_OHC_trend = np.polyfit(np.arange(OHC.size), OHC, 1)
             OHC.plot(ax=ax_flat[i], label=self.dataset_name, c="k")  # type: ignore
             (pos,) = ax_flat[i].plot(
-                OHC.time.self.data,
+                OHC.time.data,
                 np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],
                 c="k",
                 ls="--",
@@ -1530,7 +1605,7 @@ class Viz:
                     ax=ax_flat[i], label=self.pred_dict[k]["name"], c=self.clist[j]
                 )
                 (pos,) = ax_flat[i].plot(
-                    OHC_pred.time.self.data,
+                    OHC_pred.time.data,
                     np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
                     + coeffs_OHC_pred_trend[1],
                     c=self.clist[j],
@@ -1633,7 +1708,7 @@ class Viz:
             coeffs_OHC_trend = np.polyfit(np.arange(OHC.size), OHC, 1)
             OHC.plot(ax=ax_flat[i], label=self.dataset_name, c="k")  # type: ignore
             (pos,) = ax_flat[i].plot(
-                OHC.time.self.data,
+                OHC.time.data,
                 np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],
                 c="k",
                 ls="--",
@@ -1664,7 +1739,7 @@ class Viz:
                     ax=ax_flat[i], label=self.pred_dict[k]["name"], c=self.clist[j]
                 )
                 (pos,) = ax_flat[i].plot(
-                    OHC_pred.time.self.data,
+                    OHC_pred.time.data,
                     np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
                     + coeffs_OHC_pred_trend[1],
                     c=self.clist[j],
@@ -1785,11 +1860,11 @@ class Viz:
         ocean_temperature_profile(datasets, titles, plot_title)
 
     @functools.cache
-    def salinity_global(self):
+    def salinity_global(self, data: xr.Dataset) -> xr.DataArray:
         rho_0 = 1025  # kg/m^3
-        salinity = (
-            (self.data["so"] * rho_0) * self.data["areacello"] * self.data["dz"]
-        ).sum(["x", "y", "lev"])
+        salinity = ((data["so"] * rho_0) * data["areacello"] * data["dz"]).sum(
+            ["x", "y", "lev"]
+        )
         salinity = salinity.rename("Salinity")
         salinity = salinity.assign_attrs(units="g")
         return salinity
@@ -1806,14 +1881,14 @@ class Viz:
         for i, k in enumerate(self.pred_dict.keys()):
             if "so" in self.pred_dict[k]["ls"]:
                 salinity_pred = self.salinity_global(self.pred_dict[k]["ds_prediction"])
-                salinity_pred.plot(
+                salinity_pred.plot(  # type: ignore
                     ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i]
                 )
                 coeffs_salinity_pred_trend = np.polyfit(
                     np.arange(salinity_pred.size), salinity_pred, 1
                 )
                 (pos,) = ax.plot(
-                    salinity_pred.time.self.data,
+                    salinity_pred.time.data,
                     np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0]
                     + coeffs_salinity_pred_trend[1],
                     c=self.clist[i],
@@ -1826,9 +1901,9 @@ class Viz:
                 self.pred_dict[k]["salinity_slope"] = coeffs_salinity_pred_trend[0]
 
         coeffs_salinity_trend = self.linear_fit(salinity)
-        salinity.plot(ax=ax, label=self.dataset_name, c="k")
+        salinity.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
         (pos,) = ax.plot(
-            salinity.time.self.data,
+            salinity.time.data,
             np.arange(salinity.size) * coeffs_salinity_trend[0]
             + coeffs_salinity_trend[1],
             c="k",
@@ -1927,7 +2002,7 @@ class Viz:
                     np.arange(salinity_pred.size), salinity_pred, 1
                 )
                 (pos,) = ax.plot(
-                    salinity_pred.time.self.data,
+                    salinity_pred.time.data,
                     np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0]
                     + coeffs_salinity_pred_trend[1],
                     c=self.clist[i],
@@ -1946,7 +2021,7 @@ class Viz:
         coeffs_salinity_trend = np.polyfit(np.arange(salinity.size), salinity, 1)
         salinity.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
         (pos,) = ax.plot(
-            salinity.time.self.data,
+            salinity.time.data,
             np.arange(salinity.size) * coeffs_salinity_trend[0]
             + coeffs_salinity_trend[1],
             c="k",
@@ -2053,8 +2128,8 @@ class Viz:
         # Plot PDFs
         for i, v in enumerate(["thetao", "so", "zos", "uo", "vo"]):
             min_val, max_val = (
-                self.data[v].min().item(),
-                self.data[v].max().item(),
+                float(self.data[v].min().values),
+                float(self.data[v].max().values),
             )
             true_pdf, bins_true = np.histogram(
                 self.data[v], bins=150, density=True, range=(min_val, max_val)
@@ -2134,7 +2209,7 @@ class Viz:
             window = int(window / dt)
             for i, t in enumerate(T_clim.time.values):
                 day = int(t.dayofyr)
-                T_clim[i] = (T[i] - clim.sel(dayofyear=day)).self.data
+                T_clim[i] = (T[i] - clim.sel(dayofyear=day)).data
 
             T_clim = T_clim.rolling(time=window).mean()
             # T_clim = (T_clim*area).sum(["x","y"])/area.sum(["x","y"])
@@ -2277,7 +2352,7 @@ class Viz:
         )
         times = self.pred_dict[self.key1]["ds_prediction"]["time"][
             day_start : day_start + window
-        ].self.data
+        ].data
         days_of_year = [i.dayofyr for i in times]
         true_clim_to_remove = clim.sel(dayofyear=days_of_year).rename(
             {"dayofyear": "time"}
@@ -2370,7 +2445,7 @@ class Viz:
         )
         times = self.pred_dict[self.key1]["ds_prediction"]["time"][
             day_start : day_start + window
-        ].self.data
+        ].data
         days_of_year = [i.dayofyr for i in times]
         true_clim_to_remove = clim.sel(dayofyear=days_of_year).rename(
             {"dayofyear": "time"}

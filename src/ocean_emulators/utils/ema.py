@@ -220,9 +220,13 @@ class EMATracker:
         ema.num_updates = state["num_updates"]
         ema._module_name_to_ema_name = state["module_name_to_ema_name"]
         if ema_params := state.get("ema_params"):
-            assert ema_params.keys() == ema._ema_params.keys(), (
-                "EMA parameters keys do not match. "
-                "This is likely due to a mismatch between the model and checkpoint."
+            unexpected_keys = ema_params.keys() - ema._ema_params.keys()
+            missing_keys = ema._ema_params.keys() - ema_params.keys()
+            assert not unexpected_keys and not missing_keys, (
+                f"EMA parameters keys do not match. "
+                f"This is likely due to a mismatch between the model and checkpoint. "
+                f"Unexpected keys: {unexpected_keys}"
+                f"Missing keys: {missing_keys}"
             )
             ema._ema_params = ema_params
         return ema

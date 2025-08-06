@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754409299963,
+  "lastUpdate": 1754501035346,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3060,6 +3060,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08568033523496131",
             "extra": "mean: 75.50573065559999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3b96a83248b45b68304764e0a2122b54535f86d3",
+          "message": "Stop complaining about long lines (#333)\n\nThis rule seems low-value to me, and we already enforce `ruff format`\nwhich will wrap lines when reasonable. If ruff format is OK with the\nline length I don't think we should be wrapping things by hand.",
+          "timestamp": "2025-08-06T12:57:24-04:00",
+          "tree_id": "062a5871b5796fbe6a941a083e3934e5caf5fd67",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/3b96a83248b45b68304764e0a2122b54535f86d3"
+        },
+        "date": 1754501034466,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2673108062955551,
+            "unit": "iter/sec",
+            "range": "stddev: 0.031342933901319925",
+            "extra": "mean: 789.072416199997 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.0683988793532257,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8111530612073059",
+            "extra": "mean: 14.620122573000021 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18862455766396724,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10580453298438187",
+            "extra": "mean: 5.3015366206000065 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012635649229365435,
+            "unit": "iter/sec",
+            "range": "stddev: 0.694854040770107",
+            "extra": "mean: 79.14116495700002 sec\nrounds: 5"
           }
         ]
       }

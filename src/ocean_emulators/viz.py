@@ -37,6 +37,7 @@ from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 
 
 def isnan(x: xr.DataArray) -> xr.DataArray:
+    """Wrapped around np.isnan which correctly reflects the type we use it on."""
     return np.isnan(x)  # type: ignore
 
 
@@ -231,7 +232,7 @@ def process_mask(data, mask):
     return mask
 
 
-def profile_mean(ds: xr.Dataset, dataset_name: str) -> xr.Dataset:
+def profile_mean(ds: xr.Dataset) -> xr.Dataset:
     """
     Compute the mean of each variable for each time step.
     """
@@ -522,12 +523,12 @@ class Viz:
         # Compute profile means
         with ProgressBar():
             print("Ground truth " + dataset_name)
-            profile_groundtruth = profile_mean(data, groundtruth_path).load()
+            profile_groundtruth = profile_mean(data).load()
 
             for k in pred_dict.keys():
                 print(k)
                 pred_dict[k]["profile_prediction"] = profile_mean(
-                    pred_dict[k]["ds_prediction"], pred_dict[k]["path"]
+                    pred_dict[k]["ds_prediction"]
                 ).load()
 
         self.data: xr.Dataset = data
@@ -1859,7 +1860,6 @@ class Viz:
         plot_title = f"(Last Year - First Year) Bias"
         ocean_temperature_profile(datasets, titles, plot_title)
 
-    @functools.cache
     def salinity_global(self, data: xr.Dataset) -> xr.DataArray:
         rho_0 = 1025  # kg/m^3
         salinity = ((data["so"] * rho_0) * data["areacello"] * data["dz"]).sum(

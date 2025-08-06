@@ -1,3 +1,4 @@
+import functools
 import os
 from collections.abc import Iterable
 from copy import deepcopy
@@ -33,6 +34,10 @@ from dask.delayed import delayed
 from tqdm.auto import tqdm
 
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
+
+
+def isnan(x: xr.DataArray) -> xr.DataArray:
+    return np.isnan(x)  # type: ignore
 
 
 def _combine_variables_by_level(ds, combine_vars):
@@ -235,12 +240,12 @@ def profile_mean(ds: xr.Dataset, dataset_name: str) -> xr.Dataset:
 
 def get_basin_datasets(ds, basin_masks, data):
     da_temp = ds * basin_masks["Atlantic"]
-    section_mask = np.isnan(da_temp).all("x")
+    section_mask = isnan(da_temp).all("x")
     da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
     At = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Indian"]
-    section_mask = np.isnan(da_temp).all("x")
+    section_mask = isnan(da_temp).all("x")
     da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
     In = da_temp_int_x.where(~section_mask)
 
@@ -250,17 +255,17 @@ def get_basin_datasets(ds, basin_masks, data):
     Pa = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Southern"]
-    section_mask = np.isnan(da_temp).all("x")
+    section_mask = isnan(da_temp).all("x")
     da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
     So = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Arctic"]
-    section_mask = np.isnan(da_temp).all("x")
+    section_mask = isnan(da_temp).all("x")
     da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
     Ar = da_temp_int_x.where(~section_mask)
 
     da_temp = ds
-    section_mask = np.isnan(da_temp).all("x")
+    section_mask = isnan(da_temp).all("x")
     da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
     Gl = da_temp_int_x.where(~section_mask)
 
@@ -276,6 +281,32 @@ def get_basin_datasets(ds, basin_masks, data):
 
 def main(output_path: str):
     viz = Viz(output_path)
+
+    viz.timeseries_plots()
+    viz.short_timeseries_plots()
+    viz.shallow_timeseries_grid_plots()
+    viz.temp_timeseries_shallow_grid_plots()
+    viz.global_thetao_time_series()
+    viz.global_salinity_timeseries_plots()
+    viz.ohc_noanomaly_plots()
+    viz.ohc_plots()
+    viz.depthwise_ohc_plots()
+    viz.basin_ohc_plots()
+    viz.basin_ohc_upto_700_plots()
+    viz.ocean_temperature_profile_plots()
+    viz.ocean_salinity_profile_plots()
+    viz.salinity_deseasonalized_plots()
+    viz.create_ohc_salinity_slopes_table()
+    viz.thetao_mae_metrics()
+    viz.sst_mae_metrics()
+    viz.pdf_plots_short()
+    viz.enso_plots()
+    viz.ohc_maps()
+    viz.sst_mean_maps()
+    viz.sst_time_snapshot_maps()
+    viz.salinity_mean_map()
+    viz.salinity_snapshot_maps()
+    viz.movies()
 
 
 class Viz:
@@ -331,61 +362,13 @@ class Viz:
         )
 
         basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_original.zarr")
-        # basins = xr.open_dataset("/data/basins/basin_masks_regridded.zarr")
-
-        # [Optional] Convert nc files to zarr
-        # ds_prediction = xr.open_dataset(
-        #     (
-        #         '/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/'
-        #         'autoregressive_predictions.nc'
-        #     ),
-        #     engine='netcdf4'
-        # ).isel(sample=0)
-        # ds_prediction = ds_prediction.chunk({'time': 10, 'lat': 180, 'lon': 360})
-        # ds_prediction.to_zarr(
-        #     (
-        #         '/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/'
-        #         'autoregressive_predictions.zarr'
-        #     ),
-        #     encoding={var: {'compressor': None} for var in ds_prediction.data_vars},
-        #     mode='w'
-        # )
-
-        # ds_groundtruth = xr.open_dataset(
-        #     (
-        #         '/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/'
-        #         'autoregressive_target.nc'
-        #     ),
-        #     engine='netcdf4'
-        # ).isel(sample=0)
-        # ds_groundtruth = ds_groundtruth.chunk({'lat': 180, 'lon': 360, 'time': 10})
-        # ds_groundtruth.to_zarr(
-        #     (
-        #         '/pscratch/sd/s/suryad/Ocean_Emulator/temp/ai2_samudra/'
-        #         'autoregressive_groundtruth.zarr'
-        #     ),
-        #     encoding={var: {'compressor': None} for var in ds_prediction.data_vars},
-        #     mode='w'
-        # )
-
-        # More assertion
-        # np.allclose(
-        #     (
-        #         ds_groundtruth_saved.isel(time=slice(None, 10))
-        #         .fillna(0).to_array().to_numpy()
-        #     ),
-        #     ds_groundtruth[list(ds_groundtruth_saved.data_vars.keys())]
-        #     .isel(time=slice(-ds_groundtruth_saved.time.size, None))
-        #     .isel(time=slice(None,10))
-        #     .fillna(0).to_array().to_numpy()
-        # )
 
         # This function processes the ds_groundtruth and predictions for plotting
         # The predictions are loaded into pred_dict
         data, pred_dict = process_data(groundtruth_rollout, pred_dict)
 
         last_index = len(data.time) - 1
-        snapshot_time_indices = [0, last_index // 2, last_index]
+        self.time_indices = [0, last_index // 2, last_index]
 
         var_list = {
             "vo": r"$v$ $( m/s )$",
@@ -399,37 +382,37 @@ class Viz:
         }
 
         # Create folder paths
-        timeseries_path = os.path.join(output_path, f"Timeseries")
-        if not os.path.isdir(timeseries_path):
-            os.makedirs(timeseries_path)
+        self.timeseries_path = os.path.join(output_path, f"Timeseries")
+        if not os.path.isdir(self.timeseries_path):
+            os.makedirs(self.timeseries_path)
 
-        ohc_path = os.path.join(output_path, f"OHC")
-        if not os.path.isdir(ohc_path):
-            os.makedirs(ohc_path)
+        self.ohc_path = os.path.join(output_path, f"OHC")
+        if not os.path.isdir(self.ohc_path):
+            os.makedirs(self.ohc_path)
 
-        temp_path = os.path.join(output_path, f"Temperature")
-        if not os.path.isdir(temp_path):
-            os.makedirs(temp_path)
+        self.temp_path = os.path.join(output_path, f"Temperature")
+        if not os.path.isdir(self.temp_path):
+            os.makedirs(self.temp_path)
 
-        salinity_path = os.path.join(output_path, f"Salinity")
-        if not os.path.isdir(salinity_path):
-            os.makedirs(salinity_path)
+        self.salinity_path = os.path.join(output_path, f"Salinity")
+        if not os.path.isdir(self.salinity_path):
+            os.makedirs(self.salinity_path)
 
-        pdfs_path = os.path.join(output_path, f"PDFs")
-        if not os.path.isdir(pdfs_path):
-            os.makedirs(pdfs_path)
+        self.pdfs_path = os.path.join(output_path, f"PDFs")
+        if not os.path.isdir(self.pdfs_path):
+            os.makedirs(self.pdfs_path)
 
-        enso_path = os.path.join(output_path, f"ENSO")
-        if not os.path.isdir(enso_path):
-            os.makedirs(enso_path)
+        self.enso_path = os.path.join(output_path, f"ENSO")
+        if not os.path.isdir(self.enso_path):
+            os.makedirs(self.enso_path)
 
-        metrics_path = os.path.join(output_path, f"Metrics")
-        if not os.path.isdir(metrics_path):
-            os.makedirs(metrics_path)
+        self.metrics_path = os.path.join(output_path, f"Metrics")
+        if not os.path.isdir(self.metrics_path):
+            os.makedirs(self.metrics_path)
 
-        movie_path = os.path.join(output_path, f"Movies")
-        if not os.path.isdir(movie_path):
-            os.makedirs(movie_path)
+        self.movie_path = os.path.join(output_path, f"Movies")
+        if not os.path.isdir(self.movie_path):
+            os.makedirs(self.movie_path)
 
         clist = ["#ff807a", "#1e8685", "#ffb579", "#63c8ab"]
 
@@ -449,7 +432,7 @@ class Viz:
         arctic_mask0 = basins["basin_arctic"]
         arctic_ocean_mask = process_mask(data, arctic_mask0)
 
-        basin_masks = xr.Dataset(
+        self.basin_masks = xr.Dataset(
             {
                 "Atlantic": atlantic_mask,
                 "Pacific": pacific_mask,
@@ -470,196 +453,71 @@ class Viz:
                     pred_dict[k]["ds_prediction"], pred_dict[k]["path"]
                 ).load()
 
-        self.timeseries_plots(
-            profile_groundtruth,
-            pred_dict,
-            dataset_name,
-            timeseries_path,
-            clist,
-            var_list,
-            levels,
-        )
-        self.short_timeseries_plots(
-            profile_groundtruth,
-            pred_dict,
-            dataset_name,
-            timeseries_path,
-            clist,
-            var_list,
-            key1,
-        )
-        self.shallow_timeseries_grid_plots(
-            profile_groundtruth,
-            pred_dict,
-            dataset_name,
-            timeseries_path,
-            clist,
-            var_list,
-        )
-        self.temp_timeseries_shallow_grid_plots(
-            data,
-            pred_dict,
-            dataset_name,
-            timeseries_path,
-            temp_path,
-            clist,
-            levels,
-            profile_groundtruth,
-            var_list,
-        )
-        self.global_thetao_time_series(
-            data,
-            pred_dict,
-            temp_path,
-            clist,
-            var_list,
-            data,
-            dataset_name,
-            timeseries_path,
-        )
-        self.global_salinity_timeseries_plots(
-            data,
-            pred_dict,
-            salinity_path,
-            clist,
-            var_list,
-            data,
-            dataset_name,
-            timeseries_path,
-        )
-        self.ohc_noanomaly_plots(
-            data, pred_dict, dataset_name, ohc_path, clist, output_path, levels
-        )
-        GT_ohc_slope = self.ohc_plots(
-            data, pred_dict, dataset_name, ohc_path, clist, output_path
-        )
-        self.depthwise_ohc_plots(
-            data, pred_dict, dataset_name, ohc_path, clist, output_path
-        )
-        self.basin_ohc_plots(
-            data, pred_dict, dataset_name, basin_masks, ohc_path, clist, output_path
-        )
-        self.basin_ohc_upto_700_plots(
-            data, pred_dict, dataset_name, basin_masks, ohc_path, clist, output_path
-        )
-        self.ocean_temperature_profile_plots(
-            data, pred_dict, dataset_name, temp_path, clist, var_list, basin_masks
-        )
-        GT_salinity_slope = self.ocean_salinity_profile_plots(
-            data, pred_dict, dataset_name, salinity_path, clist, var_list, output_path
-        )
-        self.salinity_deseasonalized_plots(
-            data,
-            pred_dict,
-            dataset_name,
-            salinity_path,
-            clist,
-            var_list,
-            metrics_path,
-            output_path,
-        )
-        # Create OHC and salinity slopes table
-        self.create_ohc_salinity_slopes_table(
-            pred_dict, dataset_name, output_path, GT_ohc_slope, GT_salinity_slope
-        )
-        self.thetao_mae_metrics(
-            data, pred_dict, metrics_path, output_path, GT_ohc_slope, GT_salinity_slope
-        )
-        self.sst_mae_metrics(
-            data, pred_dict, metrics_path, output_path, GT_ohc_slope, GT_salinity_slope
-        )
-        self.pdf_plots_short(
-            data, pred_dict, dataset_name, pdfs_path, clist, var_list, data
-        )
-        self.enso_plots(
-            data, pred_dict, dataset_name, enso_path, clist, output_path, key1
-        )
-        self.ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1)
-        self.sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1)
-        self.sst_time_snapshot_maps(
-            data,
-            pred_dict,
-            dataset_name,
-            temp_path,
-            clist,
-            var_list,
-            key1,
-            snapshot_time_indices,
-        )
-        self.salinity_mean_map(
-            data, pred_dict, dataset_name, salinity_path, clist, key1
-        )
-        self.salinity_snapshot_maps(
-            data,
-            pred_dict,
-            dataset_name,
-            salinity_path,
-            clist,
-            key1,
-            snapshot_time_indices,
-        )
-        self.movies(data, pred_dict, dataset_name, movie_path, clist, var_list)
+        self.data: xr.Dataset = data
+        self.profile_groundtruth = profile_groundtruth
+        self.pred_dict: dict[str, dict[str, Any]] = pred_dict
+        self.dataset_name: str = dataset_name
+        self.clist: list[str] = clist
+        self.var_list: dict[str, str] = var_list
+        self.levels: int = levels
+        self.key1: str = key1
+        self.output_path: str = output_path
 
     def timeseries_plots(
         self,
-        profile_groundtruth,
-        pred_dict,
-        dataset_name,
-        timeseries_path,
-        clist,
-        var_list,
-        levels,
     ):
         ### Plotting timeseries for each variable for each level
         for v in ["uo", "vo", "thetao", "so", "zos"]:
             print(f"Plotting {v} timeseries...")
-            if not os.path.isdir(os.path.join(timeseries_path, f"{v}_timeseries")):
-                os.makedirs(os.path.join(timeseries_path, f"{v}_timeseries"))
+            if not os.path.isdir(os.path.join(self.timeseries_path, f"{v}_timeseries")):
+                os.makedirs(os.path.join(self.timeseries_path, f"{v}_timeseries"))
 
             plt.clf()
             plt.rcParams.update({"font.size": 20})
             plt.figure(figsize=(18, 10))
 
             if v == "zos":
-                profile_groundtruth[v].plot(label=dataset_name, c="k")
-                for i, k in enumerate(pred_dict.keys()):
-                    if v in pred_dict[k]["ls"]:
-                        pred_dict[k]["profile_prediction"][v].plot(
-                            label=pred_dict[k]["name"], c=clist[i]
+                self.profile_groundtruth[v].plot(label=self.dataset_name, c="k")  # type: ignore
+                for i, k in enumerate(self.pred_dict.keys()):
+                    if v in self.pred_dict[k]["ls"]:
+                        self.pred_dict[k]["profile_prediction"][v].plot(
+                            label=self.pred_dict[k]["name"], c=self.clist[i]
                         )
                 min_val, max_val = plt.ylim()
                 plt.ylim(min_val - 0.05, max_val + 0.05)
                 plt.xlabel("Time")
-                plt.ylabel(var_list[v])
+                plt.ylabel(self.var_list[v])
                 plt.legend()
                 plt.savefig(
-                    os.path.join(timeseries_path, f"{v}_timeseries/0.png"),
+                    os.path.join(self.timeseries_path, f"{v}_timeseries/0.png"),
                     bbox_inches="tight",
                     dpi=600,
                 )
                 plt.close()
             else:
-                for lev in range(levels):
+                for lev in range(self.levels):
                     plt.clf()
                     plt.rcParams.update({"font.size": 20})
                     plt.figure(figsize=(18, 10))
-                    profile_groundtruth[v].isel(lev=lev).plot(label=dataset_name, c="k")
+                    self.profile_groundtruth[v].isel(lev=lev).plot(  # type: ignore
+                        label=self.dataset_name, c="k"
+                    )
                     min_val, max_val = plt.ylim()
-                    for i, k in enumerate(pred_dict.keys()):
-                        if v in pred_dict[k]["ls"]:
-                            pred_dict[k]["profile_prediction"][v].isel(lev=lev).plot(
-                                label=pred_dict[k]["name"], c=clist[i]
-                            )
+                    for i, k in enumerate(self.pred_dict.keys()):
+                        if v in self.pred_dict[k]["ls"]:
+                            self.pred_dict[k]["profile_prediction"][v].isel(
+                                lev=lev
+                            ).plot(label=self.pred_dict[k]["name"], c=self.clist[i])
                     # if v == "thetao":
                     #     plt.ylim(min_val - 0.25, max_val + 0.25)
                     # elif v == "so":
                     #     plt.ylim(min_val - 0.2, max_val + 0.2)
 
                     plt.xlabel("Time")
-                    plt.ylabel(var_list[v])
+                    plt.ylabel(self.var_list[v])
                     plt.legend()
                     plt.savefig(
-                        os.path.join(timeseries_path, f"{v}_timeseries/{lev}.png"),
+                        os.path.join(self.timeseries_path, f"{v}_timeseries/{lev}.png"),
                         bbox_inches="tight",
                         dpi=600,
                     )
@@ -667,13 +525,6 @@ class Viz:
 
     def short_timeseries_plots(
         self,
-        profile_groundtruth,
-        pred_dict,
-        dataset_name,
-        timeseries_path,
-        clist,
-        var_list,
-        key1,
     ):
         # Short Timeseries plots
         shallow_levels = [2.5, 775]
@@ -682,10 +533,10 @@ class Viz:
 
         plt.rcParams.update({"font.size": 14})
 
-        key1 = list(pred_dict.keys())[0]
+        self.key1 = list(self.pred_dict.keys())[0]
         num_plots = 0
         for var in vars:
-            if "lev" in pred_dict[key1]["ds_prediction"][var].coords:
+            if "lev" in self.pred_dict[self.key1]["ds_prediction"][var].coords:
                 num_plots += num_shallow_levels  # One plot per level
             else:
                 num_plots += 1  # One plot for scalar variables
@@ -705,19 +556,19 @@ class Viz:
                 ax = axes[plot_idx]
 
                 # Ground truth plot
-                profile_groundtruth[v].plot(ax=ax, label=dataset_name, c="k")
-                min_val = profile_groundtruth[v].min()
-                max_val = profile_groundtruth[v].max()
+                self.profile_groundtruth[v].plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
+                min_val = self.profile_groundtruth[v].min()
+                max_val = self.profile_groundtruth[v].max()
 
-                for i, k in enumerate(pred_dict.keys()):
-                    pred_dict[k]["profile_prediction"][v].plot(
-                        ax=ax, label=pred_dict[k]["name"], c=clist[i]
+                for i, k in enumerate(self.pred_dict.keys()):
+                    self.pred_dict[k]["profile_prediction"][v].plot(
+                        ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i]
                     )
 
                 ax.set_ylim(min_val - 0.05, max_val + 0.05)
                 ax.set_title(f"{v}")
                 ax.set_xlabel("Time")
-                ax.set_ylabel(var_list[v])
+                ax.set_ylabel(self.var_list[v])
 
                 plot_idx += 1
 
@@ -726,14 +577,14 @@ class Viz:
                     ax = axes[plot_idx]
 
                     # Ground truth plot
-                    profile_groundtruth[v].sel(lev=lev).plot(
-                        ax=ax, label=dataset_name, c="k"
+                    self.profile_groundtruth[v].sel(lev=lev).plot(  # type: ignore
+                        ax=ax, label=self.dataset_name, c="k"
                     )
                     mins, maxs = plt.ylim()
 
-                    for i, k in enumerate(pred_dict.keys()):
-                        pred_dict[k]["profile_prediction"][v].sel(lev=lev).plot(
-                            ax=ax, label=pred_dict[k]["name"], c=clist[i]
+                    for i, k in enumerate(self.pred_dict.keys()):
+                        self.pred_dict[k]["profile_prediction"][v].sel(lev=lev).plot(
+                            ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i]
                         )
 
                     # Adjust y-axis limits
@@ -769,20 +620,14 @@ class Viz:
 
         # Save the figure
         output_file = os.path.join(
-            timeseries_path, "temperature_timeseries_grid_shallow_both.png"
+            self.timeseries_path, "temperature_timeseries_grid_shallow_both.png"
         )
         plt.savefig(output_file, bbox_inches="tight", dpi=600)
 
     def shallow_timeseries_grid_plots(
         self,
-        profile_groundtruth,
-        pred_dict,
-        dataset_name,
-        timeseries_path,
-        clist,
-        var_list,
     ):
-        shallow_levels = [2.5, 775, 2400]  # Define shallow depth levels
+        shallow_levels = [2.5, 775, 2400]  # Define shallow depth self.levels
 
         plt.rcParams.update({"font.size": 14})
 
@@ -792,7 +637,9 @@ class Viz:
             "vo",
             "thetao",
         ]  # List of variables for rows: salinity, zonal velocity, meridional velocity
-        cols = len(shallow_levels)  # Number of columns corresponds to shallow levels
+        cols = len(
+            shallow_levels
+        )  # Number of columns corresponds to shallow self.levels
         rows = len(variables)  # One row per variable
 
         fig, axes = plt.subplots(
@@ -820,15 +667,15 @@ class Viz:
                     continue
 
                 # Ground truth plot for each variable at the specified level
-                profile_groundtruth[var].sel(lev=lev).plot(
-                    ax=ax, label=dataset_name, c="k"
+                self.profile_groundtruth[var].sel(lev=lev).plot(  # type: ignore
+                    ax=ax, label=self.dataset_name, c="k"
                 )
                 mins, maxs = ax.get_ylim()
 
-                for i, k in enumerate(pred_dict.keys()):
-                    if var in pred_dict[k]["ls"]:
-                        pred_dict[k]["profile_prediction"][var].sel(lev=lev).plot(
-                            ax=ax, label=pred_dict[k]["name"], c=clist[i]
+                for i, k in enumerate(self.pred_dict.keys()):
+                    if var in self.pred_dict[k]["ls"]:
+                        self.pred_dict[k]["profile_prediction"][var].sel(lev=lev).plot(
+                            ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i]
                         )
 
                 # Adjust y-axis limits based on the variable
@@ -850,7 +697,7 @@ class Viz:
                     #     ax.set_ylim(mins - 0.1, maxs + 0.1)
                     ax.set_title(f"{lev}m $S$", fontsize=14)
                     handles, labels = ax.get_legend_handles_labels()
-                if var in pred_dict[k]["ls"]:
+                if var in self.pred_dict[k]["ls"]:
                     if var == "uo":  # Zonal velocity
                         # if lev > 2000:
                         #     ax.set_ylim(mins - 0.0003, maxs + 0.0003)
@@ -895,7 +742,7 @@ class Viz:
 
         # Save the figure with an updated filename
         output_file = os.path.join(
-            timeseries_path, "timeseries_grid_shallow_all_vars.png"
+            self.timeseries_path, "timeseries_grid_shallow_all_vars.png"
         )
         plt.savefig(output_file, bbox_inches="tight", dpi=600)
         # plt.show()
@@ -903,15 +750,6 @@ class Viz:
 
     def temp_timeseries_shallow_grid_plots(
         self,
-        data,
-        pred_dict,
-        dataset_name,
-        timeseries_path,
-        temp_path,
-        clist,
-        levels,
-        profile_groundtruth,
-        var_list,
     ):
         shallow_levels = [2.5, 105, 550]
 
@@ -919,9 +757,9 @@ class Viz:
 
         plt.rcParams.update({"font.size": 12})
         num_plots = 0
-        key1 = list(pred_dict.keys())[0]
+        self.key1 = list(self.pred_dict.keys())[0]
         for var in ["thetao"]:
-            if "lev" in pred_dict[key1]["ds_prediction"][var].coords:
+            if "lev" in self.pred_dict[self.key1]["ds_prediction"][var].coords:
                 num_plots += num_shallow_levels  # One plot per level
             else:
                 num_plots += 1  # One plot for scalar variables
@@ -938,14 +776,14 @@ class Viz:
         # Loop over each variable to plot its time series
         for v in ["thetao"]:
             if v == "zos":
-                # Handle 'zos' separately (no levels)
+                # Handle 'zos' separately (no self.levels)
                 ax = axes[plot_idx]
-                profile_groundtruth[v].plot(ax=ax, label=dataset_name, c="k")
+                self.profile_groundtruth[v].plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
 
-                for i, k in enumerate(pred_dict.keys()):
-                    if v in pred_dict[k]["ls"]:
-                        pred_dict[k]["profile_prediction"][v].plot(
-                            ax=ax, label=pred_dict[k]["name"], c=clist[i]
+                for i, k in enumerate(self.pred_dict.keys()):
+                    if v in self.pred_dict[k]["ls"]:
+                        self.pred_dict[k]["profile_prediction"][v].plot(
+                            ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i]
                         )
 
                 # Adjust y-axis limits and formatting
@@ -953,7 +791,7 @@ class Viz:
                 ax.set_ylim(min_val - 0.05, max_val + 0.05)
                 ax.set_title(f"{v}", fontsize=14)
                 ax.set_xlabel("Time")
-                ax.set_ylabel(var_list[v])
+                ax.set_ylabel(self.var_list[v])
 
                 plot_idx += 1  # Move to the next subplot
 
@@ -961,15 +799,17 @@ class Viz:
                 # For other variables, loop over each level
                 for lev in shallow_levels:
                     ax = axes[plot_idx]
-                    profile_groundtruth[v].sel(lev=lev).plot(
-                        ax=ax, label=dataset_name, c="k"
+                    self.profile_groundtruth[v].sel(lev=lev).plot(  # type: ignore
+                        ax=ax, label=self.dataset_name, c="k"
                     )
 
                     min_val, max_val = ax.get_ylim()
-                    for i, k in enumerate(pred_dict.keys()):
-                        if v in pred_dict[k]["ls"]:
-                            pred_dict[k]["profile_prediction"][v].sel(lev=lev).plot(
-                                ax=ax, label=pred_dict[k]["name"], c=clist[i]
+                    for i, k in enumerate(self.pred_dict.keys()):
+                        if v in self.pred_dict[k]["ls"]:
+                            self.pred_dict[k]["profile_prediction"][v].sel(
+                                lev=lev
+                            ).plot(
+                                ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i]
                             )
 
                     # Adjust y-axis limits for specific variables
@@ -979,14 +819,16 @@ class Viz:
                         ax.set_ylim(min_val - 0.2, max_val + 0.2)
 
                     lev_str = (
-                        pred_dict[k]["profile_prediction"][v].sel(lev=lev).lev.item()
+                        self.pred_dict[k]["profile_prediction"][v]
+                        .sel(lev=lev)
+                        .lev.item()
                     )
                     ax.set_title(
                         (r"$\theta_O$" + f" at {lev_str}m" + r" ($\degree C$)"),
                         fontsize=14,
                     )
                     ax.set_xlabel("Time")
-                    ax.set_ylabel(var_list[v])
+                    ax.set_ylabel(self.var_list[v])
 
                     plot_idx += 1  # Move to the next subplot
 
@@ -1017,20 +859,12 @@ class Viz:
 
         # Save the figure
         output_file = os.path.join(
-            timeseries_path, "temp_timeseries_grid_shallow_skipped.png"
+            self.timeseries_path, "temp_timeseries_grid_shallow_skipped.png"
         )
         plt.savefig(output_file, bbox_inches="tight", dpi=600)
 
     def global_thetao_time_series(
         self,
-        data,
-        pred_dict,
-        temp_path,
-        clist,
-        var_list,
-        ds_groundtruth,
-        dataset_name,
-        timeseries_path,
     ):
         var = "thetao"
         Days_to_Eq = 0
@@ -1042,26 +876,26 @@ class Viz:
         )
 
         thetao = (
-            ds_groundtruth["thetao"]
-            .weighted(ds_groundtruth["areacello"] * ds_groundtruth["dz"])
+            self.data["thetao"]
+            .weighted(self.data["areacello"] * self.data["dz"])
             .mean(["x", "y", "lev"])
         )
         thetao = thetao.rename(r"$\theta_O$")
         thetao = thetao.assign_attrs(units=r"$\degree C$")
 
-        for i, k in enumerate(pred_dict.keys()):
+        for i, k in enumerate(self.pred_dict.keys()):
             thetao_pred = (
-                pred_dict[k]["ds_prediction"][var]
-                .weighted(ds_groundtruth["areacello"] * ds_groundtruth["dz"])
+                self.pred_dict[k]["ds_prediction"][var]
+                .weighted(self.data["areacello"] * self.data["dz"])
                 .mean(["x", "y", "lev"])
             )
-            thetao_pred.plot(ax=ax, label=pred_dict[k]["name"], c=clist[i])
+            thetao_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])
             coeffs_ = np.polyfit(
                 np.arange(thetao_pred[Days_to_Eq:].size), thetao_pred[Days_to_Eq:], 1
             )
-            print(f"{pred_dict[k]['name']}: {coeffs_[0] * 73}")
+            print(f"{self.pred_dict[k]['name']}: {coeffs_[0] * 73}")
 
-        thetao.plot(ax=ax, label=dataset_name, c="k")
+        thetao.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
         coeffs_OHC_ground_trend = np.polyfit(
             np.arange(thetao[Days_to_Eq:].size), thetao[Days_to_Eq:], 1
         )
@@ -1071,7 +905,7 @@ class Viz:
         ax.set_title("")
         # ax.set_ylim([3.230, 3.245])
         plt.savefig(
-            os.path.join(timeseries_path, f"Global_Thetao_Timeseries"),
+            os.path.join(self.timeseries_path, f"Global_Thetao_Timeseries"),
             bbox_inches="tight",
             dpi=600,
         )
@@ -1079,14 +913,6 @@ class Viz:
 
     def global_salinity_timeseries_plots(
         self,
-        data,
-        pred_dict,
-        salinity_path,
-        clist,
-        var_list,
-        ds_groundtruth,
-        dataset_name,
-        timeseries_path,
     ):
         var = "so"
         Days_to_Eq = 0
@@ -1098,28 +924,28 @@ class Viz:
         )
 
         salinity = (
-            ds_groundtruth["so"]
-            .weighted(ds_groundtruth["areacello"] * ds_groundtruth["dz"])
+            self.data["so"]
+            .weighted(self.data["areacello"] * self.data["dz"])
             .mean(["x", "y", "lev"])
         )
         salinity = salinity.rename("S")
         salinity = salinity.assign_attrs(units="psu")
 
-        for i, k in enumerate(pred_dict.keys()):
+        for i, k in enumerate(self.pred_dict.keys()):
             salinity_pred = (
-                pred_dict[k]["ds_prediction"][var]
-                .weighted(ds_groundtruth["areacello"] * ds_groundtruth["dz"])
+                self.pred_dict[k]["ds_prediction"][var]
+                .weighted(self.data["areacello"] * self.data["dz"])
                 .mean(["x", "y", "lev"])
             )
-            salinity_pred.plot(ax=ax, label=pred_dict[k]["name"], c=clist[i])
+            salinity_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])
             coeffs_ = np.polyfit(
                 np.arange(salinity_pred[Days_to_Eq:].size),
                 salinity_pred[Days_to_Eq:],
                 1,
             )
-            print(f"{pred_dict[k]['name']}: {coeffs_[0] * 73}")
+            print(f"{self.pred_dict[k]['name']}: {coeffs_[0] * 73}")
 
-        salinity.plot(ax=ax, label=dataset_name, c="k")
+        salinity.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
         coeffs_salinity_ground_trend = np.polyfit(
             np.arange(salinity[Days_to_Eq:].size), salinity[Days_to_Eq:], 1
         )
@@ -1131,17 +957,15 @@ class Viz:
         ax.set_title("")
         ax.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
         plt.savefig(
-            os.path.join(timeseries_path, f"Global_Salinity_Timeseries"),
+            os.path.join(self.timeseries_path, f"Global_Salinity_Timeseries"),
             bbox_inches="tight",
             dpi=600,
         )
 
-    def ohc_noanomaly_plots(
-        self, data, pred_dict, dataset_name, ohc_path, clist, output_path, levels
-    ):
+    def ohc_noanomaly_plots(self):
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
-        f = open(os.path.join(output_path, "compare_info.txt"), "a")
+        f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
 
         plt.rcdefaults()
         fig, ax = plt.subplots(
@@ -1149,44 +973,46 @@ class Viz:
         )
         plt.rcParams.update({"font.size": 9})
 
-        OHC = ((data["thetao"] * c_p * rho_0) * data["areacello"] * data["dz"]).sum(
-            ["x", "y", "lev"]
-        ) / 1e21
+        OHC = (
+            (self.data["thetao"] * c_p * rho_0)
+            * self.data["areacello"]
+            * self.data["dz"]
+        ).sum(["x", "y", "lev"]) / 1e21
         OHC = OHC - OHC.isel(time=0)
         OHC = OHC.rename("OHC")
         OHC = OHC.assign_attrs(units="ZJ")
 
-        for i, k in enumerate(pred_dict.keys()):
+        for i, k in enumerate(self.pred_dict.keys()):
             OHC_pred = (
-                (pred_dict[k]["ds_prediction"]["thetao"] * c_p * rho_0)
-                * pred_dict[k]["ds_prediction"]["areacello"]
-                * pred_dict[k]["ds_prediction"]["dz"]
+                (self.pred_dict[k]["ds_prediction"]["thetao"] * c_p * rho_0)
+                * self.pred_dict[k]["ds_prediction"]["areacello"]
+                * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
             OHC_pred = OHC_pred - OHC_pred.isel(time=0)
             OHC_pred = OHC_pred.rename("OHC")
             OHC_pred = OHC_pred.assign_attrs(units="ZJ")
-            OHC_pred.plot(ax=ax, label=pred_dict[k]["name"], c=clist[i])
+            OHC_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])
             coeffs_OHC_pred_trend = np.polyfit(np.arange(OHC_pred.size), OHC_pred, 1)
             (pos,) = ax.plot(
-                OHC_pred.time.data,
+                OHC_pred.time.self.data,
                 np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
                 + coeffs_OHC_pred_trend[1],
-                c=clist[i],
+                c=self.clist[i],
                 ls="--",
             )
             # ax[0].annotate(f'{coeffs_OHC_pred_trend[0]:.2e}',
             #          xy=(pos.get_xdata()[-1], pos.get_ydata()[-1]),
             #          xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
-            #          fontsize=9, color=clist[i])
+            #          fontsize=9, color=self.clist[i])
             f.write(
-                f"\nOHC {pred_dict[k]['name']} Trend Slope : {coeffs_OHC_pred_trend[0]}"
+                f"\nOHC {self.pred_dict[k]['name']} Trend Slope : {coeffs_OHC_pred_trend[0]}"
             )
-            pred_dict[k]["OHC_slope"] = coeffs_OHC_pred_trend[0]
+            self.pred_dict[k]["OHC_slope"] = coeffs_OHC_pred_trend[0]
 
-        OHC.plot(ax=ax, label=dataset_name, c="k")
+        OHC.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
         coeffs_OHC_trend = np.polyfit(np.arange(OHC.size), OHC, 1)
         (pos,) = ax.plot(
-            OHC.time.data,
+            OHC.time.self.data,
             np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],
             c="k",
             ls="--",
@@ -1205,21 +1031,32 @@ class Viz:
 
         f.close()
         plt.savefig(
-            os.path.join(ohc_path, "OHC_ref0_noanomaly"), bbox_inches="tight", dpi=600
+            os.path.join(self.ohc_path, "OHC_ref0_noanomaly"),
+            bbox_inches="tight",
+            dpi=600,
         )
+
+    @functools.cache
+    def ohc_anomaly_global(self, data: xr.Dataset) -> xr.DataArray:
+        c_p = 3850  # J/(kg C)
+        rho_0 = 1025  # kg/m^3
+        OHC = ((data["thetao"] * c_p * rho_0) * data["areacello"] * data["dz"]).sum(
+            ["x", "y", "lev"]
+        ) / 1e21
+        OHC = remove_climatology(OHC)
+        OHC = OHC.rename("OHC Anomaly")
+        OHC = OHC.assign_attrs(units="ZJ")
+        return OHC
+
+    @functools.cache
+    def linear_fit(self, var: xr.DataArray) -> tuple[float, float]:
+        coeffs_trend = np.polyfit(np.arange(var.size), var, 1)
+        return coeffs_trend[0], coeffs_trend[1]
 
     def ohc_plots(
         self,
-        data,
-        pred_dict,
-        dataset_name,
-        ohc_path,
-        clist,
-        output_path,
     ):
-        c_p = 3850  # J/(kg C)
-        rho_0 = 1025  # kg/m^3
-        f = open(os.path.join(output_path, "compare_info.txt"), "a")
+        f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
 
         plt.rcdefaults()
         fig, ax = plt.subplots(
@@ -1227,52 +1064,32 @@ class Viz:
         )
         plt.rcParams.update({"font.size": 9})
 
-        OHC = ((data["thetao"] * c_p * rho_0) * data["areacello"] * data["dz"]).sum(
-            ["x", "y", "lev"]
-        ) / 1e21
-        OHC = remove_climatology(OHC)
-        OHC = OHC.rename("OHC Anomaly")
-        OHC = OHC.assign_attrs(units="ZJ")
+        OHC = self.ohc_anomaly_global(self.data)
 
-        for i, k in enumerate(pred_dict.keys()):
-            OHC_pred = (
-                (pred_dict[k]["ds_prediction"]["thetao"] * c_p * rho_0)
-                * pred_dict[k]["ds_prediction"]["areacello"]
-                * pred_dict[k]["ds_prediction"]["dz"]
-            ).sum(["x", "y", "lev"]) / 1e21
-            OHC_pred = remove_climatology(OHC_pred)
-            OHC_pred = OHC_pred.rename("OHC Anomaly")
-            OHC_pred = OHC_pred.assign_attrs(units="ZJ")
-            OHC_pred.plot(ax=ax, label=pred_dict[k]["name"], c=clist[i])
-            coeffs_OHC_pred_trend = np.polyfit(np.arange(OHC_pred.size), OHC_pred, 1)
+        for i, k in enumerate(self.pred_dict.keys()):
+            OHC_pred = self.ohc_anomaly_global(self.pred_dict[k]["ds_prediction"])
+            OHC_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])  # type: ignore
+            coeffs_OHC_pred_trend = self.linear_fit(OHC_pred)
             (pos,) = ax.plot(
-                OHC_pred.time.data,
+                OHC_pred.time.self.data,
                 np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
                 + coeffs_OHC_pred_trend[1],
-                c=clist[i],
+                c=self.clist[i],
                 ls="--",
             )
-            # ax[0].annotate(f'{coeffs_OHC_pred_trend[0]:.2e}',
-            #          xy=(pos.get_xdata()[-1], pos.get_ydata()[-1]),
-            #          xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
-            #          fontsize=9, color=clist[i])
             f.write(
-                f"\nOHC {pred_dict[k]['name']} Trend Slope : {coeffs_OHC_pred_trend[0]}"
+                f"\nOHC {self.pred_dict[k]['name']} Trend Slope : {coeffs_OHC_pred_trend[0]}"
             )
-            pred_dict[k]["OHC_slope"] = coeffs_OHC_pred_trend[0]
+            self.pred_dict[k]["OHC_slope"] = coeffs_OHC_pred_trend[0]
 
-        OHC.plot(ax=ax, label=dataset_name, c="k")
-        coeffs_OHC_trend = np.polyfit(np.arange(OHC.size), OHC, 1)
+        OHC.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
+        coeffs_OHC_trend = self.linear_fit(OHC)
         (pos,) = ax.plot(
-            OHC.time.data,
-            np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],
+            OHC.time.self.data,
+            np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],  # type: ignore
             c="k",
             ls="--",
         )
-        # ax[0].annotate(f'{coeffs_OHC_trend[0]:.2e}',
-        #              xy=(pos.get_xdata()[0], pos.get_ydata()[0]),
-        #              xytext=(pos.get_xdata()[1], pos.get_ydata()[1]),
-        #              fontsize=9, color='k')
         f.write(f"\nOHC GT Trend Slope : {coeffs_OHC_trend[0]}")
         GT_ohc_slope = coeffs_OHC_trend[0]
         # ax.legend()
@@ -1283,13 +1100,11 @@ class Viz:
         )
 
         f.close()
-        plt.savefig(os.path.join(ohc_path, "OHC"), bbox_inches="tight", dpi=600)
+        plt.savefig(os.path.join(self.ohc_path, "OHC"), bbox_inches="tight", dpi=600)
 
         return GT_ohc_slope
 
-    def depthwise_ohc_plots(
-        self, data, pred_dict, dataset_name, ohc_path, clist, output_path
-    ):
+    def depthwise_ohc_plots(self):
         plt.rcParams.update({"font.size": 14})
 
         Days_to_Eq = 0
@@ -1300,24 +1115,24 @@ class Viz:
         )
         plt.rcParams.update({"font.size": 9})
 
-        f = open(os.path.join(output_path, "compare_info.txt"), "a")
+        f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
 
         # Upper - GT
         OHC_truth_upper = (
-            (data["thetao"].sel(lev=slice(0, 700)) * c_p * rho_0)
-            * data["areacello"]
-            * data["dz"]
+            (self.data["thetao"].sel(lev=slice(0, 700)) * c_p * rho_0)
+            * self.data["areacello"]
+            * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
         OHC_truth_upper = remove_climatology(OHC_truth_upper)
-        OHC_truth_upper.plot(ax=ax[0], label=dataset_name, c="k")
+        OHC_truth_upper.plot(ax=ax[0], label=self.dataset_name, c="k")  # type: ignore
         coeffs_OHC_ground_trend = np.polyfit(
             np.arange(OHC_truth_upper[Days_to_Eq:].size),
             OHC_truth_upper[Days_to_Eq:],
             1,
         )
         (pos,) = ax[0].plot(
-            OHC_truth_upper[Days_to_Eq:].time.data,
+            OHC_truth_upper[Days_to_Eq:].time.self.data,
             np.arange(OHC_truth_upper[Days_to_Eq:].size) * coeffs_OHC_ground_trend[0]
             + coeffs_OHC_ground_trend[1],
             c="k",
@@ -1333,77 +1148,79 @@ class Viz:
         print("upper_trend_truth: ", upper_trend_truth)
 
         # Upper - Pred
-        for i, k in enumerate(pred_dict.keys()):
-            pred_dict[k]["OHC_pred_upper"] = (
+        for i, k in enumerate(self.pred_dict.keys()):
+            self.pred_dict[k]["OHC_pred_upper"] = (
                 (
-                    pred_dict[k]["ds_prediction"]["thetao"].sel(lev=slice(0, 700))
+                    self.pred_dict[k]["ds_prediction"]["thetao"].sel(lev=slice(0, 700))
                     * c_p
                     * rho_0
                 )
-                * pred_dict[k]["ds_prediction"]["areacello"]
-                * pred_dict[k]["ds_prediction"]["dz"]
+                * self.pred_dict[k]["ds_prediction"]["areacello"]
+                * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
-            pred_dict[k]["OHC_pred_upper"] = remove_climatology(
-                pred_dict[k]["OHC_pred_upper"]
+            self.pred_dict[k]["OHC_pred_upper"] = remove_climatology(
+                self.pred_dict[k]["OHC_pred_upper"]
             )
-            pred_dict[k]["OHC_pred_upper"] = pred_dict[k]["OHC_pred_upper"].rename(
-                "0-0.7km"
-            )
-            pred_dict[k]["OHC_pred_upper"] = pred_dict[k][
+            self.pred_dict[k]["OHC_pred_upper"] = self.pred_dict[k][
+                "OHC_pred_upper"
+            ].rename("0-0.7km")
+            self.pred_dict[k]["OHC_pred_upper"] = self.pred_dict[k][
                 "OHC_pred_upper"
             ].assign_attrs(units="ZJ")
-            pred_dict[k]["coeffs_OHC_pred_trend_upper"] = np.polyfit(
-                np.arange(pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].size),
-                pred_dict[k]["OHC_pred_upper"][Days_to_Eq:],
+            self.pred_dict[k]["coeffs_OHC_pred_trend_upper"] = np.polyfit(
+                np.arange(self.pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].size),
+                self.pred_dict[k]["OHC_pred_upper"][Days_to_Eq:],
                 1,
             )
-            pred_dict[k]["OHC_pred_upper"].plot(
-                ax=ax[0], label=pred_dict[k]["name"], c=clist[i]
+            self.pred_dict[k]["OHC_pred_upper"].plot(
+                ax=ax[0], label=self.pred_dict[k]["name"], c=self.clist[i]
             )
             (pos,) = ax[0].plot(
-                pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].time.data,
-                np.arange(pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].size)
-                * pred_dict[k]["coeffs_OHC_pred_trend_upper"][0]
-                + pred_dict[k]["coeffs_OHC_pred_trend_upper"][1],
-                c=clist[i],
+                self.pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].time.self.data,
+                np.arange(self.pred_dict[k]["OHC_pred_upper"][Days_to_Eq:].size)
+                * self.pred_dict[k]["coeffs_OHC_pred_trend_upper"][0]
+                + self.pred_dict[k]["coeffs_OHC_pred_trend_upper"][1],
+                c=self.clist[i],
                 ls="--",
             )
-            # ax[0].annotate(f'{pred_dict[k]["coeffs_OHC_pred_trend_upper"][0]:.2e}',
+            # ax[0].annotate(f'{self.pred_dict[k]["coeffs_OHC_pred_trend_upper"][0]:.2e}',
             #          xy=(pos.get_xdata()[-1], pos.get_ydata()[-1]),
             #          xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
-            #          fontsize=9, color=clist[i])
+            #          fontsize=9, color=self.clist[i])
             f.write(
-                f"\nUpper - {pred_dict[k]['name']} Trend Slope : "
-                f"{pred_dict[k]['coeffs_OHC_pred_trend_upper'][0]}"
+                f"\nUpper - {self.pred_dict[k]['name']} Trend Slope : "
+                f"{self.pred_dict[k]['coeffs_OHC_pred_trend_upper'][0]}"
             )
-            pred_dict[k]["upper_trend_pred"] = (
-                pred_dict[k]["coeffs_OHC_pred_trend_upper"][0] * 73
+            self.pred_dict[k]["upper_trend_pred"] = (
+                self.pred_dict[k]["coeffs_OHC_pred_trend_upper"][0] * 73
             )
             print(
-                pred_dict[k]["name"],
+                self.pred_dict[k]["name"],
                 " upper_trend_pred: ",
-                pred_dict[k]["upper_trend_pred"],
+                self.pred_dict[k]["upper_trend_pred"],
             )
-            pred_dict[k]["total_trend_pred"] = pred_dict[k]["upper_trend_pred"]
+            self.pred_dict[k]["total_trend_pred"] = self.pred_dict[k][
+                "upper_trend_pred"
+            ]
 
         # ax[0].legend()
         ax[0].set_title("OHC Anomaly")
 
         # Middle - GT
         OHC_truth_mid = (
-            (data["thetao"].sel(lev=slice(700, 2000)) * c_p * rho_0)
-            * data["areacello"]
-            * data["dz"]
+            (self.data["thetao"].sel(lev=slice(700, 2000)) * c_p * rho_0)
+            * self.data["areacello"]
+            * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
         OHC_truth_mid = remove_climatology(OHC_truth_mid)
-        OHC_truth_mid.plot(ax=ax[1], label=dataset_name, c="k")
+        OHC_truth_mid.plot(ax=ax[1], label=self.dataset_name, c="k")  # type: ignore
         coeffs_OHC_ground_trend = np.polyfit(
             np.arange(OHC_truth_mid[Days_to_Eq:].size), OHC_truth_mid[Days_to_Eq:], 1
         )
         (pos,) = ax[1].plot(
-            OHC_truth_mid[Days_to_Eq:].time.data,
+            OHC_truth_mid[Days_to_Eq:].time.self.data,
             np.arange(OHC_truth_mid[Days_to_Eq:].size) * coeffs_OHC_ground_trend[0]
             + coeffs_OHC_ground_trend[1],
             c="k",
@@ -1419,77 +1236,79 @@ class Viz:
         print("mid_trend_truth: ", mid_trend_truth)
 
         # Middle - Pred
-        for i, k in enumerate(pred_dict.keys()):
-            pred_dict[k]["OHC_pred_mid"] = (
+        for i, k in enumerate(self.pred_dict.keys()):
+            self.pred_dict[k]["OHC_pred_mid"] = (
                 (
-                    pred_dict[k]["ds_prediction"]["thetao"].sel(lev=slice(700, 2000))
+                    self.pred_dict[k]["ds_prediction"]["thetao"].sel(
+                        lev=slice(700, 2000)
+                    )
                     * c_p
                     * rho_0
                 )
-                * pred_dict[k]["ds_prediction"]["areacello"]
-                * pred_dict[k]["ds_prediction"]["dz"]
+                * self.pred_dict[k]["ds_prediction"]["areacello"]
+                * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
-            pred_dict[k]["OHC_pred_mid"] = remove_climatology(
-                pred_dict[k]["OHC_pred_mid"]
+            self.pred_dict[k]["OHC_pred_mid"] = remove_climatology(
+                self.pred_dict[k]["OHC_pred_mid"]
             )
-            pred_dict[k]["OHC_pred_mid"] = pred_dict[k]["OHC_pred_mid"].rename(
-                "0.7-2.0km"
-            )
-            pred_dict[k]["OHC_pred_mid"] = pred_dict[k]["OHC_pred_mid"].assign_attrs(
-                units="ZJ"
-            )
-            pred_dict[k]["coeffs_OHC_pred_trend_mid"] = np.polyfit(
-                np.arange(pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].size),
-                pred_dict[k]["OHC_pred_mid"][Days_to_Eq:],
+            self.pred_dict[k]["OHC_pred_mid"] = self.pred_dict[k][
+                "OHC_pred_mid"
+            ].rename("0.7-2.0km")
+            self.pred_dict[k]["OHC_pred_mid"] = self.pred_dict[k][
+                "OHC_pred_mid"
+            ].assign_attrs(units="ZJ")
+            self.pred_dict[k]["coeffs_OHC_pred_trend_mid"] = np.polyfit(
+                np.arange(self.pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].size),
+                self.pred_dict[k]["OHC_pred_mid"][Days_to_Eq:],
                 1,
             )
-            pred_dict[k]["OHC_pred_mid"].plot(
-                ax=ax[1], label=pred_dict[k]["name"], c=clist[i]
+            self.pred_dict[k]["OHC_pred_mid"].plot(
+                ax=ax[1], label=self.pred_dict[k]["name"], c=self.clist[i]
             )
             (pos,) = ax[1].plot(
-                pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].time.data,
-                np.arange(pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].size)
-                * pred_dict[k]["coeffs_OHC_pred_trend_mid"][0]
-                + pred_dict[k]["coeffs_OHC_pred_trend_mid"][1],
-                c=clist[i],
+                self.pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].time.self.data,
+                np.arange(self.pred_dict[k]["OHC_pred_mid"][Days_to_Eq:].size)
+                * self.pred_dict[k]["coeffs_OHC_pred_trend_mid"][0]
+                + self.pred_dict[k]["coeffs_OHC_pred_trend_mid"][1],
+                c=self.clist[i],
                 ls="--",
             )
-            # ax[1].annotate(f'{pred_dict[k]["coeffs_OHC_pred_trend_mid"][0]:.2e}',
+            # ax[1].annotate(f'{self.pred_dict[k]["coeffs_OHC_pred_trend_mid"][0]:.2e}',
             #          xy=(pos.get_xdata()[-1], pos.get_ydata()[-1]),
             #          xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
-            #          fontsize=9, color=clist[i])
+            #          fontsize=9, color=self.clist[i])
             f.write(
-                f"\nMiddle - {pred_dict[k]['name']} Trend Slope : "
-                f"{pred_dict[k]['coeffs_OHC_pred_trend_mid'][0]}"
+                f"\nMiddle - {self.pred_dict[k]['name']} Trend Slope : "
+                f"{self.pred_dict[k]['coeffs_OHC_pred_trend_mid'][0]}"
             )
-            pred_dict[k]["mid_trend_pred"] = (
-                pred_dict[k]["coeffs_OHC_pred_trend_mid"][0] * 73
+            self.pred_dict[k]["mid_trend_pred"] = (
+                self.pred_dict[k]["coeffs_OHC_pred_trend_mid"][0] * 73
             )
             print(
-                pred_dict[k]["name"],
+                self.pred_dict[k]["name"],
                 " mid_trend_pred: ",
-                pred_dict[k]["mid_trend_pred"],
+                self.pred_dict[k]["mid_trend_pred"],
             )
-            pred_dict[k]["total_trend_pred"] += pred_dict[k]["mid_trend_pred"]
+            self.pred_dict[k]["total_trend_pred"] += self.pred_dict[k]["mid_trend_pred"]
 
         # ax[1].legend()
         ax[1].set_title("")
 
         # Deep - GT
         OHC_truth_deep = (
-            (data["thetao"].sel(lev=slice(2000, None)) * c_p * rho_0)
-            * data["areacello"]
-            * data["dz"]
+            (self.data["thetao"].sel(lev=slice(2000, None)) * c_p * rho_0)
+            * self.data["areacello"]
+            * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
         OHC_truth_deep = remove_climatology(OHC_truth_deep)
-        OHC_truth_deep.plot(ax=ax[2], label=dataset_name, c="k")
+        OHC_truth_deep.plot(ax=ax[2], label=self.dataset_name, c="k")  # type: ignore
         coeffs_OHC_ground_trend = np.polyfit(
             np.arange(OHC_truth_deep[Days_to_Eq:].size), OHC_truth_deep[Days_to_Eq:], 1
         )
         (pos,) = ax[2].plot(
-            OHC_truth_deep[Days_to_Eq:].time.data,
+            OHC_truth_deep[Days_to_Eq:].time.self.data,
             np.arange(OHC_truth_deep[Days_to_Eq:].size) * coeffs_OHC_ground_trend[0]
             + coeffs_OHC_ground_trend[1],
             c="k",
@@ -1505,60 +1324,64 @@ class Viz:
         print("deep_trend_truth: ", deep_trend_truth)
 
         # Deep - Pred
-        for i, k in enumerate(pred_dict.keys()):
-            pred_dict[k]["OHC_pred_deep"] = (
+        for i, k in enumerate(self.pred_dict.keys()):
+            self.pred_dict[k]["OHC_pred_deep"] = (
                 (
-                    pred_dict[k]["ds_prediction"]["thetao"].sel(lev=slice(2000, None))
+                    self.pred_dict[k]["ds_prediction"]["thetao"].sel(
+                        lev=slice(2000, None)
+                    )
                     * c_p
                     * rho_0
                 )
-                * pred_dict[k]["ds_prediction"]["areacello"]
-                * pred_dict[k]["ds_prediction"]["dz"]
+                * self.pred_dict[k]["ds_prediction"]["areacello"]
+                * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
-            pred_dict[k]["OHC_pred_deep"] = remove_climatology(
-                pred_dict[k]["OHC_pred_deep"]
+            self.pred_dict[k]["OHC_pred_deep"] = remove_climatology(
+                self.pred_dict[k]["OHC_pred_deep"]
             )
-            pred_dict[k]["OHC_pred_deep"] = pred_dict[k]["OHC_pred_deep"].rename(
-                "2.0-6.0km"
-            )
-            pred_dict[k]["OHC_pred_deep"] = pred_dict[k]["OHC_pred_deep"].assign_attrs(
-                units="ZJ"
-            )
-            pred_dict[k]["coeffs_OHC_pred_trend_deep"] = np.polyfit(
-                np.arange(pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].size),
-                pred_dict[k]["OHC_pred_deep"][Days_to_Eq:],
+            self.pred_dict[k]["OHC_pred_deep"] = self.pred_dict[k][
+                "OHC_pred_deep"
+            ].rename("2.0-6.0km")
+            self.pred_dict[k]["OHC_pred_deep"] = self.pred_dict[k][
+                "OHC_pred_deep"
+            ].assign_attrs(units="ZJ")
+            self.pred_dict[k]["coeffs_OHC_pred_trend_deep"] = np.polyfit(
+                np.arange(self.pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].size),
+                self.pred_dict[k]["OHC_pred_deep"][Days_to_Eq:],
                 1,
             )
-            pred_dict[k]["OHC_pred_deep"].plot(
-                ax=ax[2], label=pred_dict[k]["name"], c=clist[i]
+            self.pred_dict[k]["OHC_pred_deep"].plot(
+                ax=ax[2], label=self.pred_dict[k]["name"], c=self.clist[i]
             )
             (pos,) = ax[2].plot(
-                pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].time.data,
-                np.arange(pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].size)
-                * pred_dict[k]["coeffs_OHC_pred_trend_deep"][0]
-                + pred_dict[k]["coeffs_OHC_pred_trend_deep"][1],
-                c=clist[i],
+                self.pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].time.self.data,
+                np.arange(self.pred_dict[k]["OHC_pred_deep"][Days_to_Eq:].size)
+                * self.pred_dict[k]["coeffs_OHC_pred_trend_deep"][0]
+                + self.pred_dict[k]["coeffs_OHC_pred_trend_deep"][1],
+                c=self.clist[i],
                 ls="--",
             )
-            # ax[2].annotate(f'{pred_dict[k]["coeffs_OHC_pred_trend_deep"][0]:.2e}',
+            # ax[2].annotate(f'{self.pred_dict[k]["coeffs_OHC_pred_trend_deep"][0]:.2e}',
             #      xy=(pos.get_xdata()[-1], pos.get_ydata()[-1]),
             #      xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
-            #      fontsize=9, color=clist[i])
+            #      fontsize=9, color=self.clist[i])
             f.write(
-                f"\nDeep - {pred_dict[k]['name']} Trend Slope : "
-                f"{pred_dict[k]['coeffs_OHC_pred_trend_deep'][0]}"
+                f"\nDeep - {self.pred_dict[k]['name']} Trend Slope : "
+                f"{self.pred_dict[k]['coeffs_OHC_pred_trend_deep'][0]}"
             )
 
-            pred_dict[k]["deep_trend_pred"] = (
-                pred_dict[k]["coeffs_OHC_pred_trend_deep"][0] * 73
+            self.pred_dict[k]["deep_trend_pred"] = (
+                self.pred_dict[k]["coeffs_OHC_pred_trend_deep"][0] * 73
             )
             print(
-                pred_dict[k]["name"],
+                self.pred_dict[k]["name"],
                 " deep_trend_pred: ",
-                pred_dict[k]["deep_trend_pred"],
+                self.pred_dict[k]["deep_trend_pred"],
             )
-            pred_dict[k]["total_trend_pred"] += pred_dict[k]["deep_trend_pred"]
+            self.pred_dict[k]["total_trend_pred"] += self.pred_dict[k][
+                "deep_trend_pred"
+            ]
 
         # ax[2].legend()
         ax[2].set_title("")
@@ -1575,37 +1398,20 @@ class Viz:
             f"{mid_trend_truth / total_trend_truth:.2f}, "
             f"{deep_trend_truth / total_trend_truth:.2f}"
         )
-        for k in pred_dict.keys():
-            total_trend = pred_dict[k]["total_trend_pred"]
+        for k in self.pred_dict.keys():
+            total_trend = self.pred_dict[k]["total_trend_pred"]
             f.write(
-                f"\n{pred_dict[k]['name']} Trend Ratio (Upper, Mid, Deep): "
-                f"{pred_dict[k]['upper_trend_pred'] / total_trend:.2f}, "
-                f"{pred_dict[k]['mid_trend_pred'] / total_trend:.2f}, "
-                f"{pred_dict[k]['deep_trend_pred'] / total_trend:.2f}"
+                f"\n{self.pred_dict[k]['name']} Trend Ratio (Upper, Mid, Deep): "
+                f"{self.pred_dict[k]['upper_trend_pred'] / total_trend:.2f}, "
+                f"{self.pred_dict[k]['mid_trend_pred'] / total_trend:.2f}, "
+                f"{self.pred_dict[k]['deep_trend_pred'] / total_trend:.2f}"
             )
-        # ax[0].annotate(
-        #     f'OHC portion of trend (truth, pred): '
-        #     f'({upper_trend_truth/total_trend_truth:.2f}, '
-        #     f'{upper_trend_pred/total_trend_pred:.2f})',
-        #     xy = (.2,.95), xycoords='axes fraction',
-        #             horizontalalignment='left', verticalalignment='top')
-        # ax[1].annotate(
-        #     f'OHC portion of trend (truth, pred): '
-        #     f'({mid_trend_truth/total_trend_truth:.2f}, '
-        #     f'{mid_trend_pred/total_trend_pred:.2f})',
-        #     xy = (.2,.95), xycoords='axes fraction',
-        #             horizontalalignment='left', verticalalignment='top')
-        # ax[2].annotate(
-        #     f'OHC portion of trend (truth, pred): '
-        #     f'({deep_trend_truth/total_trend_truth:.2f}, '
-        #     f'{deep_trend_pred/total_trend_pred:.2f})',
-        #     xy = (.2,.95), xycoords='axes fraction',
-        #             horizontalalignment='left', verticalalignment='top')
+
         f.write("\n")
         f.close()
 
         plt.savefig(
-            os.path.join(ohc_path, "OHC_Timeseries_depths"),
+            os.path.join(self.ohc_path, "OHC_Timeseries_depths"),
             bbox_inches="tight",
             dpi=600,
         )
@@ -1613,25 +1419,31 @@ class Viz:
         pd_data = []
         pd_data.append(
             {
-                "Model": dataset_name,
+                "Model": self.dataset_name,
                 "Upper": GT_upper,
                 "Middle": GT_mid,
                 "Deep": GT_deep,
             }
         )
 
-        for k in pred_dict.keys():
+        for k in self.pred_dict.keys():
             pd_data.append(
                 {
-                    "Model": pred_dict[k]["name"],
-                    "Upper": pred_dict[k]["coeffs_OHC_pred_trend_upper"][0],
-                    "Upper Slope Ratio": pred_dict[k]["coeffs_OHC_pred_trend_upper"][0]
+                    "Model": self.pred_dict[k]["name"],
+                    "Upper": self.pred_dict[k]["coeffs_OHC_pred_trend_upper"][0],
+                    "Upper Slope Ratio": self.pred_dict[k][
+                        "coeffs_OHC_pred_trend_upper"
+                    ][0]
                     / GT_upper,
-                    "Middle": pred_dict[k]["coeffs_OHC_pred_trend_mid"][0],
-                    "Middle Slope Ratio": pred_dict[k]["coeffs_OHC_pred_trend_mid"][0]
+                    "Middle": self.pred_dict[k]["coeffs_OHC_pred_trend_mid"][0],
+                    "Middle Slope Ratio": self.pred_dict[k][
+                        "coeffs_OHC_pred_trend_mid"
+                    ][0]
                     / GT_mid,
-                    "Deep": pred_dict[k]["coeffs_OHC_pred_trend_deep"][0],
-                    "Deep Slope Ratio": pred_dict[k]["coeffs_OHC_pred_trend_deep"][0]
+                    "Deep": self.pred_dict[k]["coeffs_OHC_pred_trend_deep"][0],
+                    "Deep Slope Ratio": self.pred_dict[k]["coeffs_OHC_pred_trend_deep"][
+                        0
+                    ]
                     / GT_deep,
                 }
             )
@@ -1640,15 +1452,13 @@ class Viz:
         df = pd.DataFrame(pd_data)
 
         # Define the file path
-        file_path = os.path.join(ohc_path, "depthwise_ohc_slopes_table.csv")
+        file_path = os.path.join(self.ohc_path, "depthwise_ohc_slopes_table.csv")
 
         # Save the DataFrame to a CSV file
         df.to_csv(file_path, index=False)
 
-    def basin_ohc_plots(
-        self, data, pred_dict, dataset_name, basin_masks, ohc_path, clist, output_path
-    ):
-        f = open(os.path.join(output_path, "compare_info.txt"), "a")
+    def basin_ohc_plots(self):
+        f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
 
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
@@ -1669,24 +1479,25 @@ class Viz:
         ax_flat = ax.flatten()
 
         GT_regionwise_ohc = {}
-        GT_regionwise_ohc["Model"] = dataset_name
-        for j, k in enumerate(pred_dict.keys()):
-            pred_dict[k]["regionwise_ohc"] = {}
+        GT_regionwise_ohc["Model"] = self.dataset_name
+        for j, k in enumerate(self.pred_dict.keys()):
+            self.pred_dict[k]["regionwise_ohc"] = {}
 
-        for i, var in enumerate(list(basin_masks.keys())):
+        for i, var in enumerate(list(self.basin_masks.keys())):
+            var = str(var)
             OHC = (
-                (data["thetao"] * c_p * rho_0 * basin_masks[var])
-                * data["areacello"]
-                * data["dz"]
+                (self.data["thetao"] * c_p * rho_0 * self.basin_masks[var])
+                * self.data["areacello"]
+                * self.data["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
             OHC = remove_climatology(OHC)
             OHC = OHC.rename("OHC Anomaly")
             OHC = OHC.assign_attrs(units="ZJ")
             coeffs_OHC_trend = np.polyfit(np.arange(OHC.size), OHC, 1)
-            OHC.plot(ax=ax_flat[i], label=dataset_name, c="k")
+            OHC.plot(ax=ax_flat[i], label=self.dataset_name, c="k")  # type: ignore
             (pos,) = ax_flat[i].plot(
-                OHC.time.data,
+                OHC.time.self.data,
                 np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],
                 c="k",
                 ls="--",
@@ -1697,16 +1508,16 @@ class Viz:
             #          fontsize=9, color='k')
             f.write(f"\nOHC {var} GT Trend Slope : {coeffs_OHC_trend[0]}")
             GT_regionwise_ohc[var] = coeffs_OHC_trend[0]
-            for j, k in enumerate(pred_dict.keys()):
+            for j, k in enumerate(self.pred_dict.keys()):
                 OHC_pred = (
                     (
-                        pred_dict[k]["ds_prediction"]["thetao"]
+                        self.pred_dict[k]["ds_prediction"]["thetao"]
                         * c_p
                         * rho_0
-                        * basin_masks[var]
+                        * self.basin_masks[var]
                     )
-                    * pred_dict[k]["ds_prediction"]["areacello"]
-                    * pred_dict[k]["ds_prediction"]["dz"]
+                    * self.pred_dict[k]["ds_prediction"]["areacello"]
+                    * self.pred_dict[k]["ds_prediction"]["dz"]
                 ).sum(["x", "y", "lev"]) / 1e21
 
                 OHC_pred = remove_climatology(OHC_pred)
@@ -1715,23 +1526,25 @@ class Viz:
                 coeffs_OHC_pred_trend = np.polyfit(
                     np.arange(OHC_pred.size), OHC_pred, 1
                 )
-                OHC_pred.plot(ax=ax_flat[i], label=pred_dict[k]["name"], c=clist[j])
+                OHC_pred.plot(
+                    ax=ax_flat[i], label=self.pred_dict[k]["name"], c=self.clist[j]
+                )
                 (pos,) = ax_flat[i].plot(
-                    OHC_pred.time.data,
+                    OHC_pred.time.self.data,
                     np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
                     + coeffs_OHC_pred_trend[1],
-                    c=clist[j],
+                    c=self.clist[j],
                     ls="--",
                 )
                 # ax_flat[i].annotate(f'{coeffs_OHC_pred_trend[0]:.2e}',
                 #      xy=(pos.get_xdata()[-1], pos.get_ydata()[-1]),
                 #      xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
-                #      fontsize=9, color=clist[j])
+                #      fontsize=9, color=self.clist[j])
                 f.write(
-                    f"\nOHC {var} {pred_dict[k]['name']} Trend Slope : "
+                    f"\nOHC {var} {self.pred_dict[k]['name']} Trend Slope : "
                     f"{coeffs_OHC_pred_trend[0]}"
                 )
-                pred_dict[k]["regionwise_ohc"][var] = coeffs_OHC_pred_trend[0]
+                self.pred_dict[k]["regionwise_ohc"][var] = coeffs_OHC_pred_trend[0]
 
             ax_flat[i].set_title(var + " Ocean")
 
@@ -1744,18 +1557,22 @@ class Viz:
         f.write("\n")
         f.close()
         # plt.show()
-        plt.savefig(os.path.join(ohc_path, "OHC_Basin"), bbox_inches="tight", dpi=600)
+        plt.savefig(
+            os.path.join(self.ohc_path, "OHC_Basin"), bbox_inches="tight", dpi=600
+        )
 
         pd_data = []
         pd_data.append(GT_regionwise_ohc)
 
-        for k in pred_dict.keys():
+        for k in self.pred_dict.keys():
+            k = str(k)
             d = {}
-            d["Model"] = pred_dict[k]["name"]
-            for var in basin_masks.keys():
-                d[var] = pred_dict[k]["regionwise_ohc"][var]
+            d["Model"] = self.pred_dict[k]["name"]
+            for var in self.basin_masks.keys():
+                var = str(var)
+                d[var] = self.pred_dict[k]["regionwise_ohc"][var]
                 d[var + " Slope Ratio"] = (
-                    pred_dict[k]["regionwise_ohc"][var] / GT_regionwise_ohc[var]
+                    self.pred_dict[k]["regionwise_ohc"][var] / GT_regionwise_ohc[var]
                 )
             pd_data.append(d)
 
@@ -1763,17 +1580,15 @@ class Viz:
         df = pd.DataFrame(pd_data)
 
         # Define the file path
-        file_path = os.path.join(ohc_path, "regionwise_ohc_slopes_table.csv")
+        file_path = os.path.join(self.ohc_path, "regionwise_ohc_slopes_table.csv")
 
         # Save the DataFrame to a CSV file
         df.to_csv(file_path, index=False)
 
-    def basin_ohc_upto_700_plots(
-        self, data, pred_dict, dataset_name, basin_masks, ohc_path, clist, output_path
-    ):
+    def basin_ohc_upto_700_plots(self):
         # TODO(jder): this is a copy-past of the above with a limit
 
-        f = open(os.path.join(output_path, "compare_info.txt"), "a")
+        f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
 
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
@@ -1795,51 +1610,48 @@ class Viz:
         ax_flat = ax.flatten()
 
         GT_regionwise_ohc = {}
-        GT_regionwise_ohc["Model"] = dataset_name
-        for j, k in enumerate(pred_dict.keys()):
-            pred_dict[k]["regionwise_ohc"] = {}
+        GT_regionwise_ohc["Model"] = self.dataset_name
+        for j, k in enumerate(self.pred_dict.keys()):
+            self.pred_dict[k]["regionwise_ohc"] = {}
 
-        for i, var in enumerate(list(basin_masks.keys())):
+        for i, var in enumerate(list(self.basin_masks.keys())):
+            var = str(var)
             OHC = (
                 (
-                    data["thetao"].sel(lev=slice(None, max_level))
+                    self.data["thetao"].sel(lev=slice(None, max_level))
                     * c_p
                     * rho_0
-                    * basin_masks[var]
+                    * self.basin_masks[var]
                 )
-                * data["areacello"]
-                * data["dz"]
+                * self.data["areacello"]
+                * self.data["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
             OHC = remove_climatology(OHC)
             OHC = OHC.rename(f"OHC Anomaly (Upto {max_level}m)")
             OHC = OHC.assign_attrs(units="ZJ")
             coeffs_OHC_trend = np.polyfit(np.arange(OHC.size), OHC, 1)
-            OHC.plot(ax=ax_flat[i], label=dataset_name, c="k")
+            OHC.plot(ax=ax_flat[i], label=self.dataset_name, c="k")  # type: ignore
             (pos,) = ax_flat[i].plot(
-                OHC.time.data,
+                OHC.time.self.data,
                 np.arange(OHC.size) * coeffs_OHC_trend[0] + coeffs_OHC_trend[1],
                 c="k",
                 ls="--",
             )
-            # ax_flat[i].annotate(f'{coeffs_OHC_trend[0]:.2e}',
-            #          xy=(pos.get_xdata()[0], pos.get_ydata()[0]),
-            #          xytext=(pos.get_xdata()[1], pos.get_ydata()[1]),
-            #          fontsize=9, color='k')
             f.write(f"\nOHC {var} GT Trend Slope : {coeffs_OHC_trend[0]}")
             GT_regionwise_ohc[var] = coeffs_OHC_trend[0]
-            for j, k in enumerate(pred_dict.keys()):
+            for j, k in enumerate(self.pred_dict.keys()):
                 OHC_pred = (
                     (
-                        pred_dict[k]["ds_prediction"]["thetao"].sel(
+                        self.pred_dict[k]["ds_prediction"]["thetao"].sel(
                             lev=slice(None, max_level)
                         )
                         * c_p
                         * rho_0
-                        * basin_masks[var]
+                        * self.basin_masks[var]
                     )
-                    * pred_dict[k]["ds_prediction"]["areacello"]
-                    * pred_dict[k]["ds_prediction"]["dz"]
+                    * self.pred_dict[k]["ds_prediction"]["areacello"]
+                    * self.pred_dict[k]["ds_prediction"]["dz"]
                 ).sum(["x", "y", "lev"]) / 1e21
 
                 OHC_pred = remove_climatology(OHC_pred)
@@ -1848,23 +1660,25 @@ class Viz:
                 coeffs_OHC_pred_trend = np.polyfit(
                     np.arange(OHC_pred.size), OHC_pred, 1
                 )
-                OHC_pred.plot(ax=ax_flat[i], label=pred_dict[k]["name"], c=clist[j])
+                OHC_pred.plot(
+                    ax=ax_flat[i], label=self.pred_dict[k]["name"], c=self.clist[j]
+                )
                 (pos,) = ax_flat[i].plot(
-                    OHC_pred.time.data,
+                    OHC_pred.time.self.data,
                     np.arange(OHC_pred.size) * coeffs_OHC_pred_trend[0]
                     + coeffs_OHC_pred_trend[1],
-                    c=clist[j],
+                    c=self.clist[j],
                     ls="--",
                 )
                 # ax_flat[i].annotate(f'{coeffs_OHC_pred_trend[0]:.2e}',
                 #      xy=(pos.get_xdata()[-1], pos.get_ydata()[-1]),
                 #      xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
-                #      fontsize=9, color=clist[j])
+                #      fontsize=9, color=self.clist[j])
                 f.write(
-                    f"\nOHC {var} {pred_dict[k]['name']} Trend Slope : "
+                    f"\nOHC {var} {self.pred_dict[k]['name']} Trend Slope : "
                     f"{coeffs_OHC_pred_trend[0]}"
                 )
-                pred_dict[k]["regionwise_ohc"][var] = coeffs_OHC_pred_trend[0]
+                self.pred_dict[k]["regionwise_ohc"][var] = coeffs_OHC_pred_trend[0]
 
             ax_flat[i].set_title(var + " Ocean")
 
@@ -1878,14 +1692,12 @@ class Viz:
         f.close()
         # plt.show()
         plt.savefig(
-            os.path.join(ohc_path, f"OHC_Basin_upto_{max_level}m"),
+            os.path.join(self.ohc_path, f"OHC_Basin_upto_{max_level}m"),
             bbox_inches="tight",
             dpi=600,
         )
 
-    def ocean_temperature_profile_plots(
-        self, data, pred_dict, dataset_name, temp_path, clist, var_list, basin_masks
-    ):
+    def ocean_temperature_profile_plots(self):
         def ocean_temperature_profile(
             datasets, titles, plot_title, vmin=-0.3, vmax=0.3
         ):
@@ -1938,80 +1750,85 @@ class Viz:
             cbar.set_label(r"$\theta_O$ [$\degree C$]")
             # plt.show()
             plt.savefig(
-                os.path.join(temp_path, plot_title), bbox_inches="tight", dpi=600
+                os.path.join(self.temp_path, plot_title), bbox_inches="tight", dpi=600
             )
 
-        data_thetao_ano = remove_climatology(data.thetao)
+        data_thetao_ano = remove_climatology(self.data.thetao)
         pred_thetao_ano = remove_climatology(
-            pred_dict["pred_1"]["ds_prediction"]["thetao"]
+            self.pred_dict["pred_1"]["ds_prediction"]["thetao"]
         )
 
         # Full time mean and bias [Last year - First year]
         CM4_lastyear_change = data_thetao_ano.isel(time=slice(-73, None)).mean(
             dim="time"
         ) - data_thetao_ano.isel(time=slice(0, 73)).mean(dim="time")
-        datasets, titles = get_basin_datasets(CM4_lastyear_change, basin_masks, data)
+        datasets, titles = get_basin_datasets(
+            CM4_lastyear_change, self.basin_masks, self.data
+        )
         plot_title = "CM4 (Last Year - First Year)"
         ocean_temperature_profile(datasets, titles, plot_title)
 
         pred_lastyear_change = pred_thetao_ano.isel(time=slice(-73, None)).mean(
             dim="time"
         ) - pred_thetao_ano.isel(time=slice(0, 73)).mean(dim="time")
-        datasets, titles = get_basin_datasets(pred_lastyear_change, basin_masks, data)
-        plot_title = f"{pred_dict['pred_1']['name']} (Last Year - First Year)"
+        datasets, titles = get_basin_datasets(
+            pred_lastyear_change, self.basin_masks, self.data
+        )
+        plot_title = f"{self.pred_dict['pred_1']['name']} (Last Year - First Year)"
         ocean_temperature_profile(datasets, titles, plot_title)
 
         bias_lastyear_change = pred_lastyear_change - CM4_lastyear_change
-        datasets, titles = get_basin_datasets(bias_lastyear_change, basin_masks, data)
+        datasets, titles = get_basin_datasets(
+            bias_lastyear_change, self.basin_masks, self.data
+        )
         plot_title = f"(Last Year - First Year) Bias"
         ocean_temperature_profile(datasets, titles, plot_title)
 
-    def ocean_salinity_profile_plots(
-        self, data, pred_dict, dataset_name, salinity_path, clist, var_list, output_path
-    ):
+    @functools.cache
+    def salinity_global(self):
         rho_0 = 1025  # kg/m^3
-        f = open(os.path.join(output_path, "compare_info.txt"), "a")
+        salinity = (
+            (self.data["so"] * rho_0) * self.data["areacello"] * self.data["dz"]
+        ).sum(["x", "y", "lev"])
+        salinity = salinity.rename("Salinity")
+        salinity = salinity.assign_attrs(units="g")
+        return salinity
+
+    def ocean_salinity_profile_plots(self):
+        f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
 
         plt.rcdefaults()
         fig, ax = plt.subplots(1, 1, figsize=(10, 5))  # Single axis for salinity plot
         plt.rcParams.update({"font.size": 9})
 
-        salinity = ((data["so"] * rho_0) * data["areacello"] * data["dz"]).sum(
-            ["x", "y", "lev"]
-        )
-        salinity = salinity.rename("Salinity")
-        salinity = salinity.assign_attrs(units="g")
+        salinity = self.salinity_global(self.data)
 
-        for i, k in enumerate(pred_dict.keys()):
-            if "so" in pred_dict[k]["ls"]:
-                salinity_pred = (
-                    (pred_dict[k]["ds_prediction"]["so"] * rho_0)
-                    * pred_dict[k]["ds_prediction"]["areacello"]
-                    * pred_dict[k]["ds_prediction"]["dz"]
-                ).sum(["x", "y", "lev"])
-                salinity_pred = salinity_pred.rename("Salinity")
-                salinity_pred = salinity_pred.assign_attrs(units="g")
-                salinity_pred.plot(ax=ax, label=pred_dict[k]["name"], c=clist[i])
+        for i, k in enumerate(self.pred_dict.keys()):
+            if "so" in self.pred_dict[k]["ls"]:
+                salinity_pred = self.salinity_global(self.pred_dict[k]["ds_prediction"])
+                salinity_pred.plot(
+                    ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i]
+                )
                 coeffs_salinity_pred_trend = np.polyfit(
                     np.arange(salinity_pred.size), salinity_pred, 1
                 )
                 (pos,) = ax.plot(
-                    salinity_pred.time.data,
+                    salinity_pred.time.self.data,
                     np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0]
                     + coeffs_salinity_pred_trend[1],
-                    c=clist[i],
+                    c=self.clist[i],
                     ls="--",
                 )
                 f.write(
-                    f"\nSalinity {pred_dict[k]['name']} Trend Slope : "
+                    f"\nSalinity {self.pred_dict[k]['name']} Trend Slope : "
                     f"{coeffs_salinity_pred_trend[0]}"
                 )
-                pred_dict[k]["salinity_slope"] = coeffs_salinity_pred_trend[0]
+                self.pred_dict[k]["salinity_slope"] = coeffs_salinity_pred_trend[0]
 
-        coeffs_salinity_trend = np.polyfit(np.arange(salinity.size), salinity, 1)
-        salinity.plot(ax=ax, label=dataset_name, c="k")
+        coeffs_salinity_trend = self.linear_fit(salinity)
+        salinity.plot(ax=ax, label=self.dataset_name, c="k")
         (pos,) = ax.plot(
-            salinity.time.data,
+            salinity.time.self.data,
             np.arange(salinity.size) * coeffs_salinity_trend[0]
             + coeffs_salinity_trend[1],
             c="k",
@@ -2026,33 +1843,34 @@ class Viz:
 
         print(coeffs_salinity_trend[0] * 73)
         plt.savefig(
-            os.path.join(salinity_path, "Salinity"), bbox_inches="tight", dpi=600
+            os.path.join(self.salinity_path, "Salinity"), bbox_inches="tight", dpi=600
         )
 
         return coeffs_salinity_trend[0]
 
-    def create_ohc_salinity_slopes_table(
-        self, pred_dict, dataset_name, output_path, GT_ohc_slope, GT_salinity_slope
-    ):
+    def create_ohc_salinity_slopes_table(self):
         """Create a CSV table with OHC and salinity slopes."""
+        GT_ohc_slope = self.linear_fit(self.ohc_anomaly_global(self.data))[0]
+        GT_salinity_slope = self.linear_fit(self.salinity_global(self.data))[0]
+
         pd_data = []
         pd_data.append(
             {
-                "Model": dataset_name,
+                "Model": self.dataset_name,
                 "OHC": GT_ohc_slope,
                 "Salinity": GT_salinity_slope,
             }
         )
 
-        for k in pred_dict.keys():
+        for k in self.pred_dict.keys():
             pd_data.append(
                 {
-                    "Model": pred_dict[k]["name"],
-                    "OHC": pred_dict[k]["OHC_slope"],
-                    "OHC Slope Ratio": pred_dict[k]["OHC_slope"] / GT_ohc_slope,
-                    "Salinity": pred_dict[k]["salinity_slope"],
+                    "Model": self.pred_dict[k]["name"],
+                    "OHC": self.pred_dict[k]["OHC_slope"],
+                    "OHC Slope Ratio": self.pred_dict[k]["OHC_slope"] / GT_ohc_slope,
+                    "Salinity": self.pred_dict[k]["salinity_slope"],
                     "Salinity Slope Ratio": (
-                        pred_dict[k]["salinity_slope"] / GT_salinity_slope
+                        self.pred_dict[k]["salinity_slope"] / GT_salinity_slope
                     ),
                 }
             )
@@ -2061,23 +1879,17 @@ class Viz:
         df = pd.DataFrame(pd_data)
 
         # Define the file path
-        file_path = os.path.join(output_path, "ohc_salinity_slopes_table.csv")
+        file_path = os.path.join(self.output_path, "ohc_salinity_slopes_table.csv")
 
         # Save the DataFrame to a CSV file
         df.to_csv(file_path, index=False)
 
     def salinity_deseasonalized_plots(
         self,
-        data,
-        pred_dict,
-        dataset_name,
-        salinity_path,
-        clist,
-        var_list,
-        metrics_path,
-        output_path,
     ):
-        f = open(os.path.join(metrics_path, "salinity_deseasonalized_info.txt"), "w")
+        f = open(
+            os.path.join(self.metrics_path, "salinity_deseasonalized_info.txt"), "w"
+        )
 
         plt.rcdefaults()
         fig, ax = plt.subplots(
@@ -2086,51 +1898,55 @@ class Viz:
         plt.rcParams.update({"font.size": 9})
 
         salinity = (
-            data["so"].weighted(data["areacello"] * data["dz"]).mean(["x", "y", "lev"])
+            self.data["so"]
+            .weighted(self.data["areacello"] * self.data["dz"])
+            .mean(["x", "y", "lev"])
         )
 
         salinity = remove_climatology(salinity)
         salinity = salinity.rename("Salinity")
         salinity = salinity.assign_attrs(units="psu")
 
-        for i, k in enumerate(pred_dict.keys()):
-            if "so" in pred_dict[k]["ls"]:
+        for i, k in enumerate(self.pred_dict.keys()):
+            if "so" in self.pred_dict[k]["ls"]:
                 salinity_pred = (
-                    pred_dict[k]["ds_prediction"]["so"]
+                    self.pred_dict[k]["ds_prediction"]["so"]
                     .weighted(
-                        pred_dict[k]["ds_prediction"]["areacello"]
-                        * pred_dict[k]["ds_prediction"]["dz"]
+                        self.pred_dict[k]["ds_prediction"]["areacello"]
+                        * self.pred_dict[k]["ds_prediction"]["dz"]
                     )
                     .mean(["x", "y", "lev"])
                 )
                 salinity_pred = remove_climatology(salinity_pred)
                 salinity_pred = salinity_pred.rename("Salinity")
                 salinity_pred = salinity_pred.assign_attrs(units="psu")
-                salinity_pred.plot(ax=ax, label=pred_dict[k]["name"], c=clist[i])
+                salinity_pred.plot(
+                    ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i]
+                )
                 coeffs_salinity_pred_trend = np.polyfit(
                     np.arange(salinity_pred.size), salinity_pred, 1
                 )
                 (pos,) = ax.plot(
-                    salinity_pred.time.data,
+                    salinity_pred.time.self.data,
                     np.arange(salinity_pred.size) * coeffs_salinity_pred_trend[0]
                     + coeffs_salinity_pred_trend[1],
-                    c=clist[i],
+                    c=self.clist[i],
                     ls="--",
                 )
                 # ax[1].annotate(f'{coeffs_salinity_pred_trend[0]:.2e}',
                 #          xy=(pos.get_xdata()[-1], pos.get_ydata()[-1]),
                 #          xytext=(pos.get_xdata()[-2], pos.get_ydata()[-2]),
-                #          fontsize=9, color=clist[i])
+                #          fontsize=9, color=self.clist[i])
                 f.write(
-                    f"\nSalinity {pred_dict[k]['name']} Trend Slope : "
+                    f"\nSalinity {self.pred_dict[k]['name']} Trend Slope : "
                     f"{coeffs_salinity_pred_trend[0]}"
                 )
-                pred_dict[k]["salinity_slope_des"] = coeffs_salinity_pred_trend[0]
+                self.pred_dict[k]["salinity_slope_des"] = coeffs_salinity_pred_trend[0]
 
         coeffs_salinity_trend = np.polyfit(np.arange(salinity.size), salinity, 1)
-        salinity.plot(ax=ax, label=dataset_name, c="k")
+        salinity.plot(ax=ax, label=self.dataset_name, c="k")  # type: ignore
         (pos,) = ax.plot(
-            salinity.time.data,
+            salinity.time.self.data,
             np.arange(salinity.size) * coeffs_salinity_trend[0]
             + coeffs_salinity_trend[1],
             c="k",
@@ -2148,7 +1964,7 @@ class Viz:
 
         print(coeffs_salinity_trend[0] * 73)
         plt.savefig(
-            os.path.join(salinity_path, "salinity_deseasonalized"),
+            os.path.join(self.salinity_path, "salinity_deseasonalized"),
             bbox_inches="tight",
             dpi=600,
         )
@@ -2156,67 +1972,57 @@ class Viz:
 
     def thetao_mae_metrics(
         self,
-        data,
-        pred_dict,
-        metrics_path,
-        output_path,
-        GT_ohc_slope=None,
-        GT_salinity_slope=None,
     ):
-        da_temp = data["thetao"]  # Directly use temperature variable
-        section_mask = np.isnan(da_temp).all("x").isel(time=0)
-        da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x", "time"])
+        da_temp = self.data["thetao"]  # Directly use temperature variable
+        section_mask = isnan(da_temp).all("x").isel(time=0)
+        da_temp_int_x = da_temp.weighted(self.data["areacello"]).mean(["x", "time"])
         temp_pred = da_temp_int_x.where(~section_mask)
         GT_temp_pred = temp_pred
 
-        for j, (model_key, model_data) in enumerate(pred_dict.items(), start=1):
+        for j, (model_key, model_data) in enumerate(self.pred_dict.items(), start=1):
             da_temp = model_data["ds_prediction"]["thetao"]  # Use temperature variable
-            section_mask = np.isnan(da_temp).all("x").isel(time=0)
-            da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x", "time"])
+            section_mask = isnan(da_temp).all("x").isel(time=0)
+            da_temp_int_x = da_temp.weighted(self.data["areacello"]).mean(["x", "time"])
             temp_pred = da_temp_int_x.where(~section_mask)
-            pred_dict[model_key]["temp_profile"] = temp_pred
+            self.pred_dict[model_key]["temp_profile"] = temp_pred
 
-        f = open(os.path.join(metrics_path, "thetao_mae_info.txt"), "w")
+        f = open(os.path.join(self.metrics_path, "thetao_mae_info.txt"), "w")
 
-        for i, key in enumerate(pred_dict):
+        for i, key in enumerate(self.pred_dict):
             mae_key = (
-                np.abs(pred_dict[key]["temp_profile"] - GT_temp_pred).mean().compute()
+                np.abs(self.pred_dict[key]["temp_profile"] - GT_temp_pred)
+                .mean()
+                .compute()
             )
-            f.write(f"\n Thetao {pred_dict[key]['name']} MAE : {mae_key.item()}")
+            f.write(f"\n Thetao {self.pred_dict[key]['name']} MAE : {mae_key.item()}")
 
         f.close()
 
     def sst_mae_metrics(
         self,
-        data,
-        pred_dict,
-        metrics_path,
-        output_path,
-        GT_ohc_slope=None,
-        GT_salinity_slope=None,
     ):
-        section_mask = np.isnan(data["thetao"]).isel(lev=0).isel(time=5)
-        SST_gt = data["thetao"].isel(lev=0).mean("time")
+        section_mask = isnan(self.data["thetao"]).isel(lev=0).isel(time=5)
+        SST_gt = self.data["thetao"].isel(lev=0).mean("time")
         SST_gt = SST_gt.where(~section_mask)
 
-        for j, (model_key, model_data) in enumerate(pred_dict.items(), start=1):
+        for j, (model_key, model_data) in enumerate(self.pred_dict.items(), start=1):
             section_mask = (
-                np.isnan(model_data["ds_prediction"]["thetao"]).isel(lev=0).isel(time=5)
+                isnan(model_data["ds_prediction"]["thetao"]).isel(lev=0).isel(time=5)
             )
             SST_pred = model_data["ds_prediction"]["thetao"].isel(lev=0).mean("time")
             SST_pred = SST_pred.where(~section_mask)
-            pred_dict[model_key]["sst"] = SST_pred
+            self.pred_dict[model_key]["sst"] = SST_pred
 
-        f = open(os.path.join(metrics_path, "sst_mae_info.txt"), "w")
+        f = open(os.path.join(self.metrics_path, "sst_mae_info.txt"), "w")
 
-        for i, key in enumerate(pred_dict):
-            mae_key = np.abs(pred_dict[key]["sst"] - SST_gt).mean().compute()
-            f.write(f"\n SST {pred_dict[key]['name']} MAE : {mae_key.item()}")
+        for i, key in enumerate(self.pred_dict):
+            mae_key = np.abs(self.pred_dict[key]["sst"] - SST_gt).mean().compute()
+            f.write(f"\n SST {self.pred_dict[key]['name']} MAE : {mae_key.item()}")
 
         f.close()
 
     def pdf_plots_short(
-        self, data, pred_dict, dataset_name, pdfs_path, clist, var_list, ds_groundtruth
+        self,
     ):
         plt.rcParams.update({"font.size": 9})
         # Create a figure
@@ -2247,20 +2053,20 @@ class Viz:
         # Plot PDFs
         for i, v in enumerate(["thetao", "so", "zos", "uo", "vo"]):
             min_val, max_val = (
-                ds_groundtruth[v].min().values,
-                ds_groundtruth[v].max().values,
+                self.data[v].min().item(),
+                self.data[v].max().item(),
             )
             true_pdf, bins_true = np.histogram(
-                data[v], bins=150, density=True, range=(min_val, max_val)
+                self.data[v], bins=150, density=True, range=(min_val, max_val)
             )
             axs[i].semilogy(
-                bins_true[:-1], true_pdf, label=dataset_name, color="k", lw=8
+                bins_true[:-1], true_pdf, label=self.dataset_name, color="k", lw=8
             )
 
-            for j, k in enumerate(pred_dict.keys()):
-                if v in pred_dict[k]["ls"]:
+            for j, k in enumerate(self.pred_dict.keys()):
+                if v in self.pred_dict[k]["ls"]:
                     pdf_net, bins_net = np.histogram(
-                        pred_dict[k]["ds_prediction"][v],
+                        self.pred_dict[k]["ds_prediction"][v],
                         bins=150,
                         density=True,
                         range=(min_val, max_val),
@@ -2268,16 +2074,18 @@ class Viz:
                     axs[i].semilogy(
                         bins_net[:-1],
                         pdf_net,
-                        label=pred_dict[k]["name"],
-                        color=clist[j],
+                        label=self.pred_dict[k]["name"],
+                        color=self.clist[j],
                         lw=2,
                     )
 
             axs[i].xaxis.set_major_locator(MaxNLocator(5, prune="both"))
             if i == 0:
                 axs[i].legend()
-            axs[i].set_xlabel(r"" + data[v].long_name + "[" + data[v].units + "]")
-            axs[i].set_ylabel(r"${p(}$" + data[v].long_name + " " + "${)}$")
+            axs[i].set_xlabel(
+                r"" + self.data[v].long_name + "[" + self.data[v].units + "]"
+            )
+            axs[i].set_ylabel(r"${p(}$" + self.data[v].long_name + " " + "${)}$")
 
             if v not in ["thetao", "SSH"]:
                 axs[i].set_ylim(
@@ -2290,33 +2098,28 @@ class Viz:
         # Save or show the figure
         # plt.show()
         plt.savefig(
-            os.path.join(pdfs_path, "PDF_Plots_Short"), bbox_inches="tight", dpi=600
+            os.path.join(self.pdfs_path, "PDF_Plots_Short"),
+            bbox_inches="tight",
+            dpi=600,
         )
 
     def enso_plots(
         self,
-        data,
-        pred_dict,
-        dataset_name,
-        enso_path,
-        clist,
-        output_path,
-        key1,
     ):
         clim = (
-            data["thetao"]
+            self.data["thetao"]
             .sel(lev=slice(0, 500))
             .groupby("time.dayofyear")
             .mean()
             .compute()
         )
-        data_surface = data.sel(lev=slice(0, 500))
-        for k in pred_dict.keys():
-            pred_dict[k]["ds_prediction_surface"] = pred_dict[k]["ds_prediction"].sel(
-                lev=slice(0, 500)
-            )
-            pred_dict[k]["clim_pred"] = (
-                pred_dict[k]["ds_prediction_surface"]["thetao"]
+        data_surface = self.data.sel(lev=slice(0, 500))
+        for k in self.pred_dict.keys():
+            self.pred_dict[k]["ds_prediction_surface"] = self.pred_dict[k][
+                "ds_prediction"
+            ].sel(lev=slice(0, 500))
+            self.pred_dict[k]["clim_pred"] = (
+                self.pred_dict[k]["ds_prediction_surface"]["thetao"]
                 .groupby("time.dayofyear")
                 .mean()
                 .compute()
@@ -2331,7 +2134,7 @@ class Viz:
             window = int(window / dt)
             for i, t in enumerate(T_clim.time.values):
                 day = int(t.dayofyr)
-                T_clim[i] = (T[i] - clim.sel(dayofyear=day)).data
+                T_clim[i] = (T[i] - clim.sel(dayofyear=day)).self.data
 
             T_clim = T_clim.rolling(time=window).mean()
             # T_clim = (T_clim*area).sum(["x","y"])/area.sum(["x","y"])
@@ -2340,22 +2143,22 @@ class Viz:
             return T_clim[window:]
 
         nino_true_compute_clim = NinoIndexComputeClim(
-            data_surface["thetao"][:, 0], data["areacello"]
+            data_surface["thetao"][:, 0], self.data["areacello"]
         )
         nino_true_compute_clim = nino_true_compute_clim.rename("Nino 3.4")
         nino_true_compute_clim = nino_true_compute_clim.assign_attrs(
             units=r"$\degree C$"
         )
 
-        for k in pred_dict.keys():
-            pred_dict[k]["nino_pred_compute_clim"] = NinoIndexComputeClim(
-                pred_dict[k]["ds_prediction_surface"]["thetao"][:, 0],
-                pred_dict[k]["ds_prediction"]["areacello"],
+        for k in self.pred_dict.keys():
+            self.pred_dict[k]["nino_pred_compute_clim"] = NinoIndexComputeClim(
+                self.pred_dict[k]["ds_prediction_surface"]["thetao"][:, 0],
+                self.pred_dict[k]["ds_prediction"]["areacello"],
             )
-            pred_dict[k]["nino_pred_compute_clim"] = pred_dict[k][
+            self.pred_dict[k]["nino_pred_compute_clim"] = self.pred_dict[k][
                 "nino_pred_compute_clim"
             ].rename("Nino 3.4")
-            pred_dict[k]["nino_pred_compute_clim"] = pred_dict[k][
+            self.pred_dict[k]["nino_pred_compute_clim"] = self.pred_dict[k][
                 "nino_pred_compute_clim"
             ].assign_attrs(units=r"$\degree C$")
 
@@ -2380,10 +2183,10 @@ class Viz:
 
         plt.rcParams.update({"font.size": 14})
         plt.figure(figsize=(10, 5))
-        nino_true_compute_clim.plot(label=dataset_name, c="k")
-        for i, k in enumerate(pred_dict.keys()):
-            pred_dict[k]["nino_pred_compute_clim"].plot(
-                label=pred_dict[k]["name"], c=clist[i]
+        nino_true_compute_clim.plot(label=self.dataset_name, c="k")
+        for i, k in enumerate(self.pred_dict.keys()):
+            self.pred_dict[k]["nino_pred_compute_clim"].plot(
+                label=self.pred_dict[k]["name"], c=self.clist[i]
             )
 
         ax = plt.gca()
@@ -2391,29 +2194,29 @@ class Viz:
         ax.set_title("Nino 3.4 Index")
 
         plt.savefig(
-            os.path.join(enso_path, "Climatology"), bbox_inches="tight", dpi=600
+            os.path.join(self.enso_path, "Climatology"), bbox_inches="tight", dpi=600
         )
 
-        for k in pred_dict.keys():
+        for k in self.pred_dict.keys():
             mae = np.abs(
-                (pred_dict[k]["nino_pred_compute_clim"] - nino_true_compute_clim).mean(
-                    ["time"]
-                )
+                (
+                    self.pred_dict[k]["nino_pred_compute_clim"] - nino_true_compute_clim
+                ).mean(["time"])
             )
             cor = (
-                (pred_dict[k]["nino_pred_compute_clim"] * nino_true_compute_clim)
+                (self.pred_dict[k]["nino_pred_compute_clim"] * nino_true_compute_clim)
                 / np.sqrt(
-                    (pred_dict[k]["nino_pred_compute_clim"] ** 2)
+                    (self.pred_dict[k]["nino_pred_compute_clim"] ** 2)
                     * (nino_true_compute_clim**2)
                 )
             ).mean()
-            print(pred_dict[k]["name"], "mae: ", mae.item(), "cor: ", cor.item())
+            print(self.pred_dict[k]["name"], "mae: ", mae.item(), "cor: ", cor.item())
 
         # ### Profiles and Maps
 
-        keys = list(pred_dict.keys())
+        keys = list(self.pred_dict.keys())
         # assert len(keys) >= 2, "Maps supported by atleast two keys"
-        key1 = keys[0]
+        self.key1 = keys[0]
 
         # #### ENSO Maps
 
@@ -2438,11 +2241,15 @@ class Viz:
         ############################################
         # Time Series
         ############################################
-        pred_dict[key1]["nino_pred_compute_clim"].plot(
-            label=pred_dict[key1]["name"], c=clist[0], ax=axs["time series"]
+        self.pred_dict[self.key1]["nino_pred_compute_clim"].plot(
+            label=self.pred_dict[self.key1]["name"],
+            c=self.clist[0],
+            ax=axs["time series"],
         )
 
-        nino_true_compute_clim.plot(label=dataset_name, c="k", ax=axs["time series"])
+        nino_true_compute_clim.plot(
+            label=self.dataset_name, c="k", ax=axs["time series"]
+        )
         nino_true_compute_clim.isel(
             time=slice(day_max - 30, day_max - 30 + 1)
         ).drop_vars(["lev"]).plot.scatter(s=80, c="k", ax=axs["time series"])
@@ -2463,19 +2270,21 @@ class Viz:
         window = 3
 
         time_slice = slice(
-            pred_dict[key1]["ds_prediction_surface"]["time"][day_start],
-            pred_dict[key1]["ds_prediction_surface"]["time"][day_start + window],
+            self.pred_dict[self.key1]["ds_prediction_surface"]["time"][day_start],
+            self.pred_dict[self.key1]["ds_prediction_surface"]["time"][
+                day_start + window
+            ],
         )
-        times = pred_dict[key1]["ds_prediction"]["time"][
+        times = self.pred_dict[self.key1]["ds_prediction"]["time"][
             day_start : day_start + window
-        ].data
+        ].self.data
         days_of_year = [i.dayofyr for i in times]
         true_clim_to_remove = clim.sel(dayofyear=days_of_year).rename(
             {"dayofyear": "time"}
         )
         true_clim_to_remove["time"] = times
         pred_clim_to_remove = (
-            pred_dict[key1]["clim_pred"]
+            self.pred_dict[self.key1]["clim_pred"]
             .sel(dayofyear=days_of_year)
             .rename({"dayofyear": "time"})
         )
@@ -2488,7 +2297,7 @@ class Viz:
             - true_clim_to_remove.sel(x=slice(118, 260), y=slice(-5, 5))
         ).mean(["time", "y"])
         tropics_profile_pred = (
-            pred_dict[key1]["ds_prediction_surface"]["thetao"][
+            self.pred_dict[self.key1]["ds_prediction_surface"]["thetao"][
                 day_start : day_start + window
             ].sel(lev=slice(0, 500), x=slice(118, 260), y=slice(-5, 5))
             - pred_clim_to_remove.sel(x=slice(118, 260), y=slice(-5, 5))
@@ -2520,22 +2329,24 @@ class Viz:
             vmax=2,
             add_colorbar=False,
         )
-        axs["nino_pred"].set_title(f"Nino Conditions {pred_dict[key1]['name']}")
+        axs["nino_pred"].set_title(
+            f"Nino Conditions {self.pred_dict[self.key1]['name']}"
+        )
         axs["nino_pred"].invert_yaxis()
 
         ## Stats
         for name, pred in zip(
-            [pred_dict[key1]["name"]],
+            [self.pred_dict[self.key1]["name"]],
             [tropics_profile_pred],
         ):
             mae = np.abs(
-                (pred - tropics_profile).weighted(data["dz"]).mean(["x", "lev"])
+                (pred - tropics_profile).weighted(self.data["dz"]).mean(["x", "lev"])
             )
-            cor = (pred * tropics_profile).weighted(data["dz"]).mean(
+            cor = (pred * tropics_profile).weighted(self.data["dz"]).mean(
                 ["x", "lev"]
             ) / np.sqrt(
-                (pred**2).weighted(data["dz"]).mean(["x", "lev"])
-                * (tropics_profile**2).weighted(data["dz"]).mean(["x", "lev"])
+                (pred**2).weighted(self.data["dz"]).mean(["x", "lev"])
+                * (tropics_profile**2).weighted(self.data["dz"]).mean(["x", "lev"])
             )
 
             print(
@@ -2554,19 +2365,19 @@ class Viz:
         window = 3
 
         time_slice = slice(
-            pred_dict[key1]["ds_prediction"]["time"][day_start],
-            pred_dict[key1]["ds_prediction"]["time"][day_start + window],
+            self.pred_dict[self.key1]["ds_prediction"]["time"][day_start],
+            self.pred_dict[self.key1]["ds_prediction"]["time"][day_start + window],
         )
-        times = pred_dict[key1]["ds_prediction"]["time"][
+        times = self.pred_dict[self.key1]["ds_prediction"]["time"][
             day_start : day_start + window
-        ].data
+        ].self.data
         days_of_year = [i.dayofyr for i in times]
         true_clim_to_remove = clim.sel(dayofyear=days_of_year).rename(
             {"dayofyear": "time"}
         )
         true_clim_to_remove["time"] = times
         pred_clim_to_remove = (
-            pred_dict[key1]["clim_pred"]
+            self.pred_dict[self.key1]["clim_pred"]
             .sel(dayofyear=days_of_year)
             .rename({"dayofyear": "time"})
         )
@@ -2579,7 +2390,7 @@ class Viz:
             - true_clim_to_remove.sel(x=slice(118, 260), y=slice(-5, 5))
         ).mean(["time", "y"])
         tropics_profile_pred = (
-            pred_dict[key1]["ds_prediction_surface"]["thetao"][
+            self.pred_dict[self.key1]["ds_prediction_surface"]["thetao"][
                 day_start : day_start + window
             ].sel(lev=slice(0, 500), x=slice(118, 260), y=slice(-5, 5))
             - pred_clim_to_remove.sel(x=slice(118, 260), y=slice(-5, 5))
@@ -2617,22 +2428,24 @@ class Viz:
                 "extend": "both",
             },
         )
-        axs["nina_pred"].set_title(f"Nina Conditions {pred_dict[key1]['name']}")
+        axs["nina_pred"].set_title(
+            f"Nina Conditions {self.pred_dict[self.key1]['name']}"
+        )
         axs["nina_pred"].invert_yaxis()
 
         ## Stats
         for name, pred in zip(
-            [pred_dict[key1]["name"]],
+            [self.pred_dict[self.key1]["name"]],
             [tropics_profile_pred],
         ):
             mae = np.abs(
-                (pred - tropics_profile).weighted(data["dz"]).mean(["x", "lev"])
+                (pred - tropics_profile).weighted(self.data["dz"]).mean(["x", "lev"])
             )
-            cor = (pred * tropics_profile).weighted(data["dz"]).mean(
+            cor = (pred * tropics_profile).weighted(self.data["dz"]).mean(
                 ["x", "lev"]
             ) / np.sqrt(
-                (pred**2).weighted(data["dz"]).mean(["x", "lev"])
-                * (tropics_profile**2).weighted(data["dz"]).mean(["x", "lev"])
+                (pred**2).weighted(self.data["dz"]).mean(["x", "lev"])
+                * (tropics_profile**2).weighted(self.data["dz"]).mean(["x", "lev"])
             )
 
             print(
@@ -2678,12 +2491,12 @@ class Viz:
         axs["map"].legend(bbox_to_anchor=[0.5, -0.5], loc="center", ncol=2)
 
         plt.savefig(
-            os.path.join(enso_path, "Nino_Figure_Short_with_map_single.png"),
+            os.path.join(self.enso_path, "Nino_Figure_Short_with_map_single.png"),
             bbox_inches="tight",
             dpi=600,
         )
 
-    def ohc_maps(self, data, pred_dict, dataset_name, ohc_path, clist, var_list, key1):
+    def ohc_maps(self):
         # OHC Map + Bias
         Days_to_Eq = 0
         c_p = 3850  # J/(kg C)
@@ -2777,12 +2590,12 @@ class Viz:
             return im
 
         # Calculate Ocean Heat Content for different scenarios and convert to Zeta Joules
-        titles = [dataset_name, pred_dict[key1]["name"]]
-        bias_titles = [pred_dict[key1]["name"] + " Bias"]
-        datasets = [data, pred_dict[key1]["ds_prediction"]]
+        titles = [self.dataset_name, self.pred_dict[self.key1]["name"]]
+        bias_titles = [self.pred_dict[self.key1]["name"] + " Bias"]
+        datasets = [self.data, self.pred_dict[self.key1]["ds_prediction"]]
 
         for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
-            section_mask = np.isnan(ds["thetao"]).all("lev").isel(time=5)
+            section_mask = isnan(ds["thetao"]).all("lev").isel(time=5)
             OHC_pred = (
                 (ds["thetao"][Days_to_Eq:] * c_p * rho_0 / zeta_joules_factor)
                 .weighted(ds["areacello"] * ds["dz"])
@@ -2829,7 +2642,9 @@ class Viz:
         )
         # Save or display the plot
         plt.savefig(
-            os.path.join(ohc_path, "OHC_Global_map.png"), bbox_inches="tight", dpi=600
+            os.path.join(self.ohc_path, "OHC_Global_map.png"),
+            bbox_inches="tight",
+            dpi=600,
         )
         # plt.show()
 
@@ -2865,7 +2680,7 @@ class Viz:
                 add_colorbar=False,
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)
-            ax.set_title(pred_dict[key1]["name"] + " Bias", fontsize=14)
+            ax.set_title(self.pred_dict[self.key1]["name"] + " Bias", fontsize=14)
 
             gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
             gl.top_labels = False
@@ -2878,7 +2693,7 @@ class Viz:
             cbar = fig.colorbar(
                 im, ax=ax, orientation="vertical", fraction=0.02, pad=0.02
             )
-            cbar.set_label(var_list[var_name])
+            cbar.set_label(self.var_list[var_name])
 
             # Add title
             plt.text(
@@ -2899,10 +2714,10 @@ class Viz:
         second_last_year = slice(-146, -74)
         third_last_year = slice(-219, -147)
 
-        datasets = [data, pred_dict[key1]["ds_prediction"]]
+        datasets = [self.data, self.pred_dict[self.key1]["ds_prediction"]]
 
         for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
-            section_mask = np.isnan(ds["thetao"]).all("lev")
+            section_mask = isnan(ds["thetao"]).all("lev")
             OHC_pred = (
                 (ds["thetao"][Days_to_Eq:] * c_p * rho_0 / zeta_joules_factor)
                 .weighted(ds["areacello"] * ds["dz"])
@@ -2941,7 +2756,7 @@ class Viz:
         # plot
         fig.tight_layout()
         plt.savefig(
-            os.path.join(ohc_path, "OHC_Bias_Map_Diff1_2.png"),
+            os.path.join(self.ohc_path, "OHC_Bias_Map_Diff1_2.png"),
             bbox_inches="tight",
             dpi=600,
         )
@@ -2962,7 +2777,7 @@ class Viz:
         # plot
         fig.tight_layout()
         plt.savefig(
-            os.path.join(ohc_path, "OHC_Bias_Map_Diff1_3.png"),
+            os.path.join(self.ohc_path, "OHC_Bias_Map_Diff1_3.png"),
             bbox_inches="tight",
             dpi=600,
         )
@@ -2983,7 +2798,7 @@ class Viz:
         # plot
         fig.tight_layout()
         plt.savefig(
-            os.path.join(ohc_path, "OHC_Bias_Map_Diff_Last_First.png"),
+            os.path.join(self.ohc_path, "OHC_Bias_Map_Diff_Last_First.png"),
             bbox_inches="tight",
             dpi=600,
         )
@@ -3043,7 +2858,7 @@ class Viz:
 
         return im
 
-    def sst_mean_maps(self, data, pred_dict, dataset_name, temp_path, clist, key1):
+    def sst_mean_maps(self):
         plt.rcParams.update({"font.size": 14})
         fig, axs = plt.subplots(
             2,
@@ -3055,12 +2870,12 @@ class Viz:
         axs = axs.flatten()
 
         # Calculate Sea Surface Temperature (SST) for different scenarios
-        titles = [dataset_name, pred_dict[key1]["name"]]
-        bias_titles = [pred_dict[key1]["name"] + " Bias"]
-        datasets = [data, pred_dict[key1]["ds_prediction"]]
+        titles = [self.dataset_name, self.pred_dict[self.key1]["name"]]
+        bias_titles = [self.pred_dict[self.key1]["name"] + " Bias"]
+        datasets = [self.data, self.pred_dict[self.key1]["ds_prediction"]]
 
         for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
-            section_mask = np.isnan(ds["thetao"]).isel(lev=0).isel(time=5)
+            section_mask = isnan(ds["thetao"]).isel(lev=0).isel(time=5)
             SST_pred = ds["thetao"].isel(lev=0).mean("time")
             SST_pred = SST_pred.where(~section_mask)
             SST_pred = SST_pred.rename("2.5m " + r"$\theta_O$")
@@ -3078,7 +2893,7 @@ class Viz:
                 pred1_sst = SST_pred
 
             # Plot using the Cartesian lat-lon grid
-            im = plot_sst(ax, SST_pred, title, i)
+            im = self.plot_sst(ax, SST_pred, title, i)
 
         # Add colorbar for SST plots
         cbar = fig.colorbar(
@@ -3087,7 +2902,7 @@ class Viz:
         cbar.set_label(r"$\theta_O$ [$\degree C$]", fontsize=14)
 
         # Plot biases for SST
-        im = plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], -1.0, 1.0)
+        im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], -1.0, 1.0)
 
         # Add colorbar for bias plots
         cbar = fig.colorbar(
@@ -3102,22 +2917,16 @@ class Viz:
 
         # Save or display the plot
         plt.savefig(
-            os.path.join(temp_path, "SST_Global_map.png"), bbox_inches="tight", dpi=600
+            os.path.join(self.temp_path, "SST_Global_map.png"),
+            bbox_inches="tight",
+            dpi=600,
         )
         # plt.show()
 
     def sst_time_snapshot_maps(
         self,
-        data,
-        pred_dict,
-        dataset_name,
-        temp_path,
-        clist,
-        var_list,
-        key1,
-        time_indices,
     ):
-        for t_index in time_indices:
+        for t_index in self.time_indices:
             plt.rcParams.update({"font.size": 14})
             fig, axs = plt.subplots(
                 2,
@@ -3131,17 +2940,17 @@ class Viz:
             # Define a common plotting function for Cartesian lat-lon grids
 
             titles = [
-                dataset_name + f" t={t_index}",
-                pred_dict[key1]["name"] + f" t={t_index}",
+                self.dataset_name + f" t={t_index}",
+                self.pred_dict[self.key1]["name"] + f" t={t_index}",
             ]
-            bias_titles = [pred_dict[key1]["name"] + " Bias"]
+            bias_titles = [self.pred_dict[self.key1]["name"] + " Bias"]
             datasets = [
-                data,
-                pred_dict[key1]["ds_prediction"],
+                self.data,
+                self.pred_dict[self.key1]["ds_prediction"],
             ]
 
             for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
-                section_mask = np.isnan(ds["thetao"]).isel(lev=0).isel(time=5)
+                section_mask = isnan(ds["thetao"]).isel(lev=0).isel(time=5)
                 SST_pred = ds["thetao"].isel(lev=0).isel(time=t_index)
                 SST_pred = SST_pred.where(~section_mask)
                 SST_pred = SST_pred.rename("2.5m " + r"$\theta_O$")
@@ -3159,7 +2968,7 @@ class Viz:
                     pred1_sst = SST_pred
 
                 # Plot using the Cartesian lat-lon grid
-                im = plot_sst(ax, SST_pred, title, i)
+                im = self.plot_sst(ax, SST_pred, title, i)
 
             # Add colorbar for SST plots
             cbar = fig.colorbar(
@@ -3168,7 +2977,7 @@ class Viz:
             cbar.set_label(r"$\theta_O$ [$\degree C$]", fontsize=14)
 
             # Plot biases for SST
-            im = plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], None, None)
+            im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], None, None)
 
             # Add colorbar for bias plots
             cbar = fig.colorbar(
@@ -3181,7 +2990,7 @@ class Viz:
 
             # Save or display the plot
             plt.savefig(
-                os.path.join(temp_path, f"SST_map_snapshot_t_{t_index}.png"),
+                os.path.join(self.temp_path, f"SST_map_snapshot_t_{t_index}.png"),
                 bbox_inches="tight",
                 dpi=600,
             )
@@ -3192,12 +3001,6 @@ class Viz:
 
     def salinity_mean_map(
         self,
-        data,
-        pred_dict,
-        dataset_name,
-        salinity_path,
-        clist,
-        key1,
     ):
         plt.rcParams.update({"font.size": 14})
         fig, axs = plt.subplots(
@@ -3212,12 +3015,12 @@ class Viz:
         # Define a common plotting function for Cartesian lat-lon grids
 
         # Calculate Sea Surface Salinity (SSS) for different scenarios
-        titles = [dataset_name, pred_dict[key1]["name"]]
-        bias_titles = [pred_dict[key1]["name"] + " Bias"]
-        datasets = [data, pred_dict[key1]["ds_prediction"]]
+        titles = [self.dataset_name, self.pred_dict[self.key1]["name"]]
+        bias_titles = [self.pred_dict[self.key1]["name"] + " Bias"]
+        datasets = [self.data, self.pred_dict[self.key1]["ds_prediction"]]
 
         for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
-            section_mask = np.isnan(ds["so"]).isel(lev=0).isel(time=5)
+            section_mask = isnan(ds["so"]).isel(lev=0).isel(time=5)
             SSS_pred = ds["so"].isel(lev=0).mean("time")
             SSS_pred = SSS_pred.where(~section_mask)
             SSS_pred = SSS_pred.rename("2.5m " + r"$so$")
@@ -3235,7 +3038,7 @@ class Viz:
                 pred1_sss = SSS_pred
 
             # Plot using the Cartesian lat-lon grid
-            im = plot_sst(ax, SSS_pred, title, i)
+            im = self.plot_sst(ax, SSS_pred, title, i)
 
         # Add colorbar for SSS plots
         cbar = fig.colorbar(
@@ -3244,7 +3047,7 @@ class Viz:
         cbar.set_label(r"$so$ [$psu$]", fontsize=14)
 
         # Plot biases for SSS
-        im = plot_bias(axs[3], pred1_sss, gt_sss, bias_titles[0], -0.5, 0.5)
+        im = self.plot_bias(axs[3], pred1_sss, gt_sss, bias_titles[0], -0.5, 0.5)
 
         # Add colorbar for bias plots
         cbar = fig.colorbar(
@@ -3257,14 +3060,14 @@ class Viz:
 
         # Save or display the plot
         plt.savefig(
-            os.path.join(salinity_path, "SeaSurfaceSalinity_Global_map.png"),
+            os.path.join(self.salinity_path, "SeaSurfaceSalinity_Global_map.png"),
             bbox_inches="tight",
             dpi=600,
         )
         # plt.show()
 
     def salinity_snapshot_maps(
-        self, data, pred_dict, dataset_name, salinity_path, clist, key1, time_indices
+        self,
     ):
         def plot_sst(ax, sst_data, title, i):
             colormap = cm.cm.thermal
@@ -3321,7 +3124,7 @@ class Viz:
 
             return im
 
-        for t_index in time_indices:
+        for t_index in self.time_indices:
             plt.rcParams.update({"font.size": 14})
             fig, axs = plt.subplots(
                 2,
@@ -3334,17 +3137,17 @@ class Viz:
 
             # Calculate Sea Surface Salinity (SSS) for different scenarios
             titles = [
-                dataset_name + f" t={t_index}",
-                pred_dict[key1]["name"] + f" t={t_index}",
+                self.dataset_name + f" t={t_index}",
+                self.pred_dict[self.key1]["name"] + f" t={t_index}",
             ]
-            bias_titles = [pred_dict[key1]["name"] + " Bias"]
+            bias_titles = [self.pred_dict[self.key1]["name"] + " Bias"]
             datasets = [
-                data,
-                pred_dict[key1]["ds_prediction"],
+                self.data,
+                self.pred_dict[self.key1]["ds_prediction"],
             ]
 
             for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
-                section_mask = np.isnan(ds["so"]).isel(lev=0).isel(time=5)
+                section_mask = isnan(ds["so"]).isel(lev=0).isel(time=5)
                 SST_pred = ds["so"].isel(lev=0).isel(time=t_index)
                 SST_pred = SST_pred.where(~section_mask)
                 SST_pred = SST_pred.rename("2.5m " + r"$so$")
@@ -3384,28 +3187,22 @@ class Viz:
 
             # Save or display the plot
             plt.savefig(
-                os.path.join(salinity_path, f"SSS_map_snapshot_t_{t_index}.png"),
+                os.path.join(self.salinity_path, f"SSS_map_snapshot_t_{t_index}.png"),
                 bbox_inches="tight",
                 dpi=600,
             )
             # plt.show()
 
-        # ### Movies
+    # ### Movies
 
-        # Need atleast two keys otherwise duplicate maps
+    # Need atleast two keys otherwise duplicate maps
 
     def movies(
         self,
-        data,
-        pred_dict,
-        dataset_name,
-        movie_path,
-        clist,
-        var_list,
     ):
-        keys = list(pred_dict.keys())
+        keys = list(self.pred_dict.keys())
         # assert len(keys) >= 2, "Maps supported by atleast two keys"
-        key1 = keys[0]
+        self.key1 = keys[0]
         if len(keys) == 1:
             print(
                 "Maps only support two models for now!!! Using the same key for both maps"
@@ -3486,7 +3283,7 @@ class Viz:
             )
             return ax, pp
 
-        # Data treatment
+        # data treatment
 
         def _parse_plot_defaults(da, kwargs):
             if isinstance(da, xr.DataArray):
@@ -3497,7 +3294,7 @@ class Viz:
             # check these explicitly to avoid any computation if these are set.
             if "vmin" not in kwargs.keys():
                 warnings.warn(
-                    "No `vmin` provided. Data limits are calculated from input. "
+                    "No `vmin` provided. data limits are calculated from input. "
                     "Depending on the input this can take long. Pass `vmin` to avoid "
                     "this step",
                     UserWarning,
@@ -3506,7 +3303,7 @@ class Viz:
 
             if "vmax" not in kwargs.keys():
                 warnings.warn(
-                    "No `vmax` provided. Data limits are calculated from input. "
+                    "No `vmax` provided. data limits are calculated from input. "
                     "Depending on the input this can take long. Pass `vmax` to avoid "
                     "this step",
                     UserWarning,
@@ -4010,7 +3807,7 @@ class Viz:
                 add_colorbar=False,
             )
             ax[0].add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)
-            ax[0].set_title(f"{dataset_name}", fontsize=14)
+            ax[0].set_title(f"{self.dataset_name}", fontsize=14)
             gl = ax[0].gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
             gl.top_labels = False
             gl.right_labels = False
@@ -4027,7 +3824,7 @@ class Viz:
                 add_colorbar=False,
             )
             ax[1].add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)
-            ax[1].set_title(pred_dict[key1]["name"], fontsize=14)
+            ax[1].set_title(self.pred_dict[self.key1]["name"], fontsize=14)
             gl = ax[1].gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
             gl.top_labels = False
             gl.right_labels = False
@@ -4046,7 +3843,7 @@ class Viz:
                 add_colorbar=False,
             )
             ax[2].add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)
-            ax[2].set_title(pred_dict[key2]["name"], fontsize=14)
+            ax[2].set_title(self.pred_dict[key2]["name"], fontsize=14)
             gl = ax[2].gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
             gl.top_labels = False
             gl.right_labels = False
@@ -4061,7 +3858,7 @@ class Viz:
             cbar = fig.colorbar(
                 im, ax=ax[:], orientation="vertical", fraction=0.02, pad=0.02
             )
-            cbar.set_label(var_list[var_name])
+            cbar.set_label(self.var_list[var_name])
 
             # Add timestamp text
             ax[0].text(
@@ -4123,7 +3920,7 @@ class Viz:
                 add_colorbar=False,
             )
             ax[0].add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)
-            ax[0].set_title(pred_dict[key1]["name"] + " Bias", fontsize=14)
+            ax[0].set_title(self.pred_dict[self.key1]["name"] + " Bias", fontsize=14)
             gl = ax[0].gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
             gl.top_labels = False
             gl.right_labels = False
@@ -4140,7 +3937,7 @@ class Viz:
                 add_colorbar=False,
             )
             ax[1].add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)
-            ax[1].set_title(pred_dict[key2]["name"] + " Bias", fontsize=14)
+            ax[1].set_title(self.pred_dict[key2]["name"] + " Bias", fontsize=14)
             gl = ax[1].gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
             gl.top_labels = False
             gl.right_labels = False
@@ -4155,7 +3952,7 @@ class Viz:
             cbar = fig.colorbar(
                 im, ax=ax[:], orientation="vertical", fraction=0.02, pad=0.02
             )
-            cbar.set_label(var_list[var_name])
+            cbar.set_label(self.var_list[var_name])
 
             # Add timestamp text
             ax[0].text(
@@ -4171,13 +3968,13 @@ class Viz:
 
             return ax, im
 
-        if "mask" in data.data_vars:
-            mask = data.mask
+        if "mask" in self.data.data_vars:
+            mask = self.data.mask
             surface_mask = mask.isel(
                 time=0, lev=0, missing_dims="ignore"
             )  # TODO: we don't have time anymore
         else:
-            mask = data.wetmask
+            mask = self.data.wetmask
             surface_mask = mask.isel(lev=0)
 
         # combine the two datasets into a single xarray new dimension
@@ -4190,8 +3987,8 @@ class Viz:
         for var in movie_var_list:
             if var == "OHC":
                 ohc_gt = (
-                    (data["thetao"] * c_p * rho_0 / zeta_joules_factor)
-                    .weighted(data["areacello"] * data["dz"])
+                    (self.data["thetao"] * c_p * rho_0 / zeta_joules_factor)
+                    .weighted(self.data["areacello"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )
@@ -4199,12 +3996,12 @@ class Viz:
 
                 ohc_pred1 = (
                     (
-                        pred_dict[key1]["ds_prediction"]["thetao"]
+                        self.pred_dict[self.key1]["ds_prediction"]["thetao"]
                         * c_p
                         * rho_0
                         / zeta_joules_factor
                     )
-                    .weighted(data["areacello"] * data["dz"])
+                    .weighted(self.data["areacello"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )
@@ -4212,21 +4009,27 @@ class Viz:
 
                 ohc_pred2 = (
                     (
-                        pred_dict[key2]["ds_prediction"]["thetao"]
+                        self.pred_dict[key2]["ds_prediction"]["thetao"]
                         * c_p
                         * rho_0
                         / zeta_joules_factor
                     )
-                    .weighted(data["areacello"] * data["dz"])
+                    .weighted(self.data["areacello"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )
                 data_pred2 = remove_climatology(ohc_pred2)
 
             else:
-                data_gt = data[var].isel(lev=0).compute()
-                data_pred1 = pred_dict[key1]["ds_prediction"][var].isel(lev=0).compute()
-                data_pred2 = pred_dict[key2]["ds_prediction"][var].isel(lev=0).compute()
+                data_gt = self.data[var].isel(lev=0).compute()
+                data_pred1 = (
+                    self.pred_dict[self.key1]["ds_prediction"][var]
+                    .isel(lev=0)
+                    .compute()
+                )
+                data_pred2 = (
+                    self.pred_dict[key2]["ds_prediction"][var].isel(lev=0).compute()
+                )
 
             data_gt = data_gt.where(surface_mask).compute()
             data_pred1 = data_pred1.where(surface_mask).compute()
@@ -4237,7 +4040,7 @@ class Viz:
                 da, plotfunc=global_surface_map, var_name=var, input_check=False
             )
             mov.save(
-                os.path.join(movie_path, f"{var}_surface_map_movie.mp4"),
+                os.path.join(self.movie_path, f"{var}_surface_map_movie.mp4"),
                 progress=True,
                 overwrite_existing=True,
             )
@@ -4251,7 +4054,7 @@ class Viz:
                 da, plotfunc=global_surface_map_bias, var_name=var, input_check=False
             )
             mov.save(
-                os.path.join(movie_path, f"{var}_surface_map_bias_movie.mp4"),
+                os.path.join(self.movie_path, f"{var}_surface_map_bias_movie.mp4"),
                 progress=True,
                 overwrite_existing=True,
             )

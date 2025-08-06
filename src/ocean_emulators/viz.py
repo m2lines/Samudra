@@ -1559,7 +1559,7 @@ class Viz:
         df.to_csv(file_path, index=False)
 
     def basin_ohc_upto_700_plots(self):
-        # TODO(jder): this is a copy-past of the above with a limit
+        # TODO(jder): this is a copy-paste of the above with a limit
 
         f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
 
@@ -3041,6 +3041,7 @@ class Viz:
     def salinity_snapshot_maps(
         self,
     ):
+        # TODO(jder): this is a copy-paste of self.plot_sst/plot_diff_sst but with minor changes
         def plot_sst(ax, sst_data, title, i):
             colormap = cm.cm.thermal
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
@@ -4062,7 +4063,7 @@ class VizConfig(TopLevelConfig):
     basins_location: Location
     # TODO(jder): we could extract this from the run data?
     groundtruth_time_range: TimeConfig = Field(
-        description="Dates from the rollout (not same as eval dates since we need history)"
+        description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
     )
 
     def build(self, data_root: ResolvedLocation) -> "Viz":

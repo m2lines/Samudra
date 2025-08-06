@@ -4,7 +4,9 @@ import torch
 from pydantic import BaseModel
 
 
-class CosineScheduler(BaseModel):
+class CosineSchedulerConfig(BaseModel):
+    """Cosine scheduler; see pytorch CosineAnnealingLR."""
+
     type: Literal["cosine"] = "cosine"
 
     def build(
@@ -13,7 +15,9 @@ class CosineScheduler(BaseModel):
         return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
 
-class CosineWithTailScheduler(BaseModel):
+class CosineWithTailSchedulerConfig(BaseModel):
+    """Cosine scheduler which goes to tail_lr for the last tail_epochs."""
+
     type: Literal["cosine_with_tail"] = "cosine_with_tail"
 
     tail_lr: float
@@ -35,4 +39,4 @@ class CosineWithTailScheduler(BaseModel):
         )
 
 
-Scheduler = CosineScheduler | CosineWithTailScheduler
+SchedulerConfig = CosineSchedulerConfig | CosineWithTailSchedulerConfig

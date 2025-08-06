@@ -1,6 +1,6 @@
 import torch
 
-from ocean_emulators.utils.schedule import CosineWithTailScheduler
+from ocean_emulators.utils.schedule import CosineWithTailSchedulerConfig
 
 
 def test_cosine_with_tail_holds_constant_lr():
@@ -17,7 +17,9 @@ def test_cosine_with_tail_holds_constant_lr():
 
     optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
 
-    scheduler_config = CosineWithTailScheduler(tail_lr=tail_lr, tail_epochs=tail_epochs)
+    scheduler_config = CosineWithTailSchedulerConfig(
+        tail_lr=tail_lr, tail_epochs=tail_epochs
+    )
     scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
 
     lr_history = []

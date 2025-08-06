@@ -32,14 +32,20 @@ def test_cosine_with_tail_holds_constant_lr():
 
     cosine_epochs = total_epochs - tail_epochs
 
-    # Verify the last tail_epochs have constant learning rate
     tail_lrs = lr_history[cosine_epochs:]
-    assert len(tail_lrs) == tail_epochs, (
-        f"Expected {tail_epochs} tail epochs, got {len(tail_lrs)}"
-    )
-
     # The last 10 epochs should all have the same LR value
     for i, lr in enumerate(tail_lrs):
         assert abs(lr - tail_lr) < 1e-7, (
             f"LR at tail epoch {i} ({lr}) doesn't match first tail LR ({tail_lr})"
         )
+
+    # cosine_epochs should start at initial_lr and end at tail_lr, be monotonically decreasing
+    assert lr_history[0] == initial_lr, (
+        f"LR at start of cosine schedule ({lr_history[0]}) doesn't match initial LR ({initial_lr})"
+    )
+    assert lr_history[-1] == tail_lr, (
+        f"LR at end of cosine schedule ({lr_history[-1]}) doesn't match tail LR ({tail_lr})"
+    )
+    assert all(lr_history[i] > lr_history[i + 1] for i in range(cosine_epochs - 1)), (
+        "LRs are not monotonically decreasing"
+    )

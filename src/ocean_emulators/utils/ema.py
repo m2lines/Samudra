@@ -63,7 +63,6 @@ class EMATracker:
         if decay < 0.0 or decay > 1.0:
             raise ValueError("Decay must be between 0 and 1")
 
-        self._module_name_to_ema_name = {}
         self.decay = torch.tensor(decay, dtype=torch.float32)
         self.cur_decay = torch.tensor(decay, dtype=torch.float32)
         self._faster_decay_at_start = faster_decay_at_start
@@ -73,12 +72,15 @@ class EMATracker:
 
         for name, p in model.named_parameters():
             if p.requires_grad:
-                # remove as '.'-character is not allowed in buffers
-                ema_name = name.replace(".", "")
-                self._module_name_to_ema_name.update({name: ema_name})
+                ema_name = self._get_ema_name(name)
                 self._ema_params[ema_name] = p.clone().detach().data
 
         self._stored_params: list[torch.Tensor] = []
+
+    def _get_ema_name(self, name: str) -> str:
+        # remove as '.'-character is not allowed in buffers
+        # And make ourselves agnostic to module vs not
+        return name.removeprefix("module.").replace(".", "")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, EMATracker):
@@ -91,7 +93,6 @@ class EMATracker:
             all_equal(self.decay, other.decay)
             and all_equal(self.num_updates, other.num_updates)
             and self._faster_decay_at_start == other._faster_decay_at_start
-            and self._module_name_to_ema_name == other._module_name_to_ema_name
             and all(
                 all_equal(self._ema_params[k], other._ema_params[k])
                 for k in self._ema_params
@@ -125,8 +126,8 @@ class EMATracker:
             module_parameters = dict(model.named_parameters())
 
             for key in module_parameters:
+                ema_name = self._get_ema_name(key)
                 if module_parameters[key].requires_grad:
-                    ema_name = self._module_name_to_ema_name[key]
                     self._ema_params[ema_name] = self._ema_params[ema_name].type_as(
                         module_parameters[key]
                     )
@@ -135,7 +136,7 @@ class EMATracker:
                         (1.0 - decay)
                         * (self._ema_params[ema_name] - module_parameters[key])
                     )
-                elif key in self._module_name_to_ema_name:
+                elif ema_name in self._ema_params:
                     raise ValueError(
                         f"Expected model parameter {key} to require gradient, "
                         "but it does not"
@@ -148,11 +149,9 @@ class EMATracker:
         m_param = dict(model.named_parameters())
         for key in m_param:
             if m_param[key].requires_grad:
-                m_param[key].data.copy_(
-                    self._ema_params[self._module_name_to_ema_name[key]].data
-                )
+                m_param[key].data.copy_(self._ema_params[self._get_ema_name(key)].data)
             else:
-                assert key not in self._module_name_to_ema_name
+                assert self._get_ema_name(key) not in self._ema_params
 
     def store(self, parameters: Iterable[nn.Parameter]):
         """
@@ -197,7 +196,6 @@ class EMATracker:
             "decay": self.decay,
             "num_updates": self.num_updates,
             "faster_decay_at_start": self._faster_decay_at_start,
-            "module_name_to_ema_name": self._module_name_to_ema_name,
         }
         if include_ema_params:
             state["ema_params"] = self._ema_params
@@ -218,7 +216,6 @@ class EMATracker:
         """
         ema = cls(model, float(state["decay"]), state["faster_decay_at_start"])
         ema.num_updates = state["num_updates"]
-        ema._module_name_to_ema_name = state["module_name_to_ema_name"]
         if ema_params := state.get("ema_params"):
             unexpected_keys = ema_params.keys() - ema._ema_params.keys()
             missing_keys = ema._ema_params.keys() - ema_params.keys()

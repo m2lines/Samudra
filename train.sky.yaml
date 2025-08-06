@@ -22,8 +22,8 @@
 resources:
   # Optional; if left out, automatically pick the cheapest cloud.
   cloud: lambda
-  # 8x NVIDIA A100 GPU
-  accelerators: A100:8
+  # 8x NVIDIA A100-80GB GPU
+  accelerators: A100-80GB:8
   disk_tier: best
 #  disk_size: 1_000 # in GiBs
 
@@ -58,15 +58,7 @@ workdir: .
 
 setup: |
   mkdir ~/data/
-
-  RCLONE_CONF=$(rclone config file | awk '/Configuration file is stored at:/ {getline; print}')
-
-  cat << EOF > $RCLONE_CONF
-  [s3-source]
-  type = s3
-  provider = AWS
-  env_auth = true
-  EOF
+  rclone config create s3-source s3 provider=AWS env_auth=true
 
   rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_means.zarr ~/data/OM4_means.zarr --ignore-existing
   rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4_stds.zarr ~/data/OM4_stds.zarr --ignore-existing

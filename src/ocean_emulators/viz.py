@@ -1,39 +1,38 @@
-import functools
+import dataclasses
+import gc
+import glob
 import os
+import re
+import sys
+import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from os import environ
+from pathlib import Path
+from subprocess import PIPE, STDOUT, Popen
 from typing import Any
 
 import cartopy.crs as ccrs  # type: ignore
 import cartopy.feature as cfeature  # type: ignore
 import cmocean as cm  # type: ignore
 import matplotlib
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-from dask.diagnostics.progress import ProgressBar
-from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
-from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignore
-
-from ocean_emulators.utils.data import spherical_area_weights, with_level_index_vars
-
-mpl.use("Agg")
-import gc
-import glob
-import re
-import sys
-import warnings
-from subprocess import PIPE, STDOUT, Popen
-
 from dask.array.core import Array as DaskArray
 from dask.base import compute
 from dask.delayed import delayed
+from dask.diagnostics.progress import ProgressBar
+from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
+from pydantic import BaseModel, Field
 from tqdm.auto import tqdm
+from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignore
 
+from ocean_emulators.config import TimeConfig
+from ocean_emulators.config_base import TopLevelConfig
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
+from ocean_emulators.utils.data import spherical_area_weights, with_level_index_vars
+from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 
 
 def isnan(x: xr.DataArray) -> xr.DataArray:
@@ -182,9 +181,7 @@ def process_data(data, pred_dict):
     copy_dict = deepcopy(pred_dict)
 
     for key in pred_dict.keys():
-        ds_prediction = xr.open_zarr(
-            pred_dict[key]["path"], chunks={"time": 10, "lat": 180, "lon": 360}
-        )
+        ds_prediction = pred_dict[key]["data"]
 
         assert ds_prediction.time.size == ds_groundtruth.time.size, (
             f"Sizes different for {key}: {ds_prediction.time.size}!="
@@ -280,155 +277,30 @@ def get_basin_datasets(ds, basin_masks, data):
     ]
 
 
-def main(output_path: str):
-    viz = Viz(output_path)
-
-    import traceback
-
-    try:
-        viz.timeseries_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.short_timeseries_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.shallow_timeseries_grid_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.temp_timeseries_shallow_grid_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.global_thetao_time_series()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.global_salinity_timeseries_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.ohc_noanomaly_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.ohc_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.depthwise_ohc_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.basin_ohc_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.basin_ohc_upto_700_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.ocean_temperature_profile_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.ocean_salinity_profile_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.salinity_deseasonalized_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.create_ohc_salinity_slopes_table()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.thetao_mae_metrics()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.sst_mae_metrics()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.pdf_plots_short()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.enso_plots()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.ohc_maps()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.sst_mean_maps()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.sst_time_snapshot_maps()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.salinity_mean_map()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.salinity_snapshot_maps()
-    except Exception:
-        traceback.print_exc()
-    try:
-        viz.movies()
-    except Exception:
-        traceback.print_exc()
-
-
 class Viz:
-    def __init__(self, output_path: str):
-        environ["FSSPEC_S3_ENDPOINT_URL"] = "https://nyu1.osn.mghpcc.org"
-        environ["AWS_PROFILE"] = "m2l"
-
-        # Create directory
-        dataset_name = "OM4"
+    def __init__(
+        self,
+        output_path: str,
+        dataset_name: str,
+        runs: list["VizRun"],
+        basins: xr.Dataset,
+        groundtruth_rollout: xr.Dataset,
+        time_range: slice,
+    ):
+        matplotlib.use("Agg")
 
         pred_dict: dict[str, dict[str, Any]] = {}
-        pred_dict["pred_1"] = {
-            "name": "samudra-recreate-paper-om4",
-            "run_name": "samudra-recreate-paper-om4",
-            "path": "/Users/jder/oa/data/om4_samudra_lowres_predictions/predictions.zarr",
-            "ls": ["thetao", "so", "uo", "vo", "tos", "zos"],
-        }
+        for run in runs:
+            pred_dict[run.name] = {
+                "name": run.name,
+                "data": run.data,
+                "ls": run.variables,
+            }
 
-        # pred_dict["pred_2"] = {
-        #     "name": "samudra-trained-on-cm4-with-om4-configs-test-on-om4",
-        #     "run_name": "samudra-trained-on-cm4-with-om4-configs-test-on-om4",
-        #     "path": (
-        #         "/pscratch/sd/s/suryad/Ocean_Emulator/.LOCAL/"
-        #         "2025-04-05-eval-samudra-cm4-trained-on-om4-configs-"
-        #         "test-on-om4/predictions.zarr"
-        #     ),
-        #     "ls": ["thetao", "so", "uo", "vo", "tos", "zos"],
-        # }
-
-        key1 = list(pred_dict.keys())[0]
+        key1 = runs[0].name
         levels = len(DEPTH_LEVELS)
 
-        # Read files
-        # Groundtruth
-        groundtruth_path = "/Users/jder/oa/data/public/OM4.zarr"
-        groundtruth_rollout = xr.open_dataset(
-            groundtruth_path,
-            engine="zarr",
-            chunks={},
-        )
-        groundtruth_rollout = groundtruth_rollout.sel(
-            time=slice("2014-10-20", "2022-12-24")
-        )  # These dates are not the eval dates, they are the dates from the rollout
-        # (ie not jan1 beacuse we need 10 days of history)
+        groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
         if "y" in groundtruth_rollout.coords:
             groundtruth_rollout = groundtruth_rollout.drop_vars(
                 ["lat", "lon"], errors="ignore"
@@ -438,8 +310,6 @@ class Viz:
         groundtruth_rollout = groundtruth_rollout.assign(
             areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
         )
-
-        basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_original.zarr")
 
         # This function processes the ds_groundtruth and predictions for plotting
         # The predictions are loaded into pred_dict
@@ -532,7 +402,7 @@ class Viz:
                 ).load()
 
         self.data: xr.Dataset = data
-        self.profile_groundtruth = profile_groundtruth
+        self.profile_groundtruth: xr.Dataset = profile_groundtruth
         self.pred_dict: dict[str, dict[str, Any]] = pred_dict
         self.dataset_name: str = dataset_name
         self.clist: list[str] = clist
@@ -540,6 +410,33 @@ class Viz:
         self.levels: int = levels
         self.key1: str = key1
         self.output_path: str = output_path
+
+    def run(self):
+        self.timeseries_plots()
+        self.short_timeseries_plots()
+        self.shallow_timeseries_grid_plots()
+        self.temp_timeseries_shallow_grid_plots()
+        self.global_thetao_time_series()
+        self.global_salinity_timeseries_plots()
+        self.ohc_noanomaly_plots()
+        self.ohc_plots()
+        self.depthwise_ohc_plots()
+        self.basin_ohc_plots()
+        self.basin_ohc_upto_700_plots()
+        self.ocean_temperature_profile_plots()
+        self.ocean_salinity_profile_plots()
+        self.salinity_deseasonalized_plots()
+        self.create_ohc_salinity_slopes_table()
+        self.thetao_mae_metrics()
+        self.sst_mae_metrics()
+        self.pdf_plots_short()
+        self.enso_plots()
+        self.ohc_maps()
+        self.sst_mean_maps()
+        self.sst_time_snapshot_maps()
+        self.salinity_mean_map()
+        self.salinity_snapshot_maps()
+        self.movies()
 
     def timeseries_plots(
         self,
@@ -4133,3 +4030,67 @@ class Viz:
                 progress=True,
                 overwrite_existing=True,
             )
+
+
+@dataclasses.dataclass
+class VizRun:
+    name: str
+    data: xr.Dataset
+    variables: list[str]
+
+
+class VizRunConfig(BaseModel):
+    name: str
+    location: Location
+    variables: list[str] = Field(
+        default_factory=lambda: ["thetao", "so", "uo", "vo", "tos", "zos"]
+    )
+
+    def build(self, data_root: ResolvedLocation) -> "VizRun":
+        return VizRun(
+            name=self.name,
+            data=data_root.resolve(self.location).open(chunks={}),
+            variables=self.variables,
+        )
+
+
+class VizConfig(TopLevelConfig):
+    output_path: str
+    dataset_name: str
+    runs: list[VizRunConfig]
+    groundtruth_location: Location
+    basins_location: Location
+    # TODO(jder): we could extract this from the run data?
+    groundtruth_time_range: TimeConfig = Field(
+        description="Dates from the rollout (not same as eval dates since we need history)"
+    )
+
+    def build(self, data_root: ResolvedLocation) -> "Viz":
+        groundtruth_rollout = data_root.resolve(self.groundtruth_location).open(
+            chunks={}
+        )
+        groundtruth_rollout = groundtruth_rollout.sel(
+            time=self.groundtruth_time_range.time_slice
+        )
+        return Viz(
+            self.output_path,
+            self.dataset_name,
+            [run.build(data_root) for run in self.runs],
+            data_root.resolve(self.basins_location).open(),
+            groundtruth_rollout,
+            self.groundtruth_time_range.time_slice,
+        )
+
+
+def main():
+    # Load config from YAML
+    cfg = VizConfig.from_yaml_and_cli()
+    viz = cfg.build(LocalLocation(path=Path.cwd()))
+
+    # TOOD(jder): would be nice to specify which plots to make,
+    # parallelize, re-run just needed plots on errors, etc.
+    viz.run()
+
+
+if __name__ == "__main__":
+    main()

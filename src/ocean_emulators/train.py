@@ -984,10 +984,6 @@ class Trainer:
         # Load EMA state
         model_ema_state_dict = checkpoint["ema"]
         new_ema_state_dict = remove_module_prefix(model_ema_state_dict)
-        if "ema_params" in new_ema_state_dict:
-            new_ema_state_dict["ema_params"] = remove_module_prefix(
-                new_ema_state_dict["ema_params"], prefix="module"
-            )
         self._ema = EMATracker.from_state(new_ema_state_dict, self.model)
 
         if not finetune:

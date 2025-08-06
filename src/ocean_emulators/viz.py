@@ -1,10 +1,7 @@
-# %%
-import hashlib
 import os
 from collections.abc import Iterable
 from copy import deepcopy
 from os import environ
-from pathlib import Path
 from typing import Any
 
 import cartopy.crs as ccrs  # type: ignore
@@ -20,7 +17,7 @@ from dask.diagnostics.progress import ProgressBar
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignore
 
-from ocean_emulators.utils.data import spherical_area_weights
+from ocean_emulators.utils.data import spherical_area_weights, with_level_index_vars
 
 mpl.use("Agg")
 import gc
@@ -38,23 +35,6 @@ from tqdm.auto import tqdm
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 
 
-def rename_vars(data: xr.Dataset) -> xr.Dataset:
-    """
-    Rename variables if required.
-    """
-    for raw_var in data.variables:
-        var_str = str(raw_var)
-        # OM4 data format has variables in the form: var_lev_depthlevel
-        # ex. so_lev_1040_0. We need to convert into var_depthlevelidx
-        if "_lev_" in var_str:
-            var_split = var_str.split("_lev_")
-            var = var_split[0]
-            lev_in_depth = float(var_split[1].replace("_", "."))
-            lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
-            data = data.rename({var_str: var + "_" + str(lev_in_depth_idx)})
-    return data
-
-
 def _combine_variables_by_level(ds, combine_vars):
     """
     Combine variables in the dataset along a new 'lev' dimension based on their suffix.
@@ -62,14 +42,13 @@ def _combine_variables_by_level(ds, combine_vars):
     Parameters:
     ds (xarray.Dataset): The input dataset containing variables with suffixes
                         (e.g., thetao_0, so_1).
-    lev (xarray.DataArray): lev dataarray containing lev values
     combine_vars (list): List of variable prefixes to combine.
 
     Returns:
     xarray.Dataset: The dataset with combined variables and a new 'lev' dimension.
     """
     for v in combine_vars:
-        level_numbers = [i for i in range(19)]
+        level_numbers = [i for i in range(len(DEPTH_LEVELS))]
         sorted_vars = [v + "_" + str(lev) for lev in level_numbers]
         if sorted_vars[0] not in ds.data_vars:
             continue
@@ -80,7 +59,7 @@ def _combine_variables_by_level(ds, combine_vars):
     return ds
 
 
-def combine_variables_by_level(ds_groundtruth, pred_dict, combine_ground=True):
+def combine_variables_by_level(ds_groundtruth, pred_dict):
     """
     Combine variables by level for ground truth and predictions.
 
@@ -91,10 +70,9 @@ def combine_variables_by_level(ds_groundtruth, pred_dict, combine_ground=True):
     Returns:
     xarray.Dataset, dict: Updated ground truth and prediction datasets.
     """
-    if combine_ground:
-        ds_groundtruth = _combine_variables_by_level(
-            ds_groundtruth, ["thetao", "so", "uo", "vo", "mask"]
-        )
+    ds_groundtruth = _combine_variables_by_level(
+        ds_groundtruth, ["thetao", "so", "uo", "vo", "mask"]
+    )
     for key in pred_dict.keys():
         pred_dict[key]["ds_prediction"] = _combine_variables_by_level(
             pred_dict[key]["ds_prediction"], pred_dict[key]["ls"]
@@ -192,11 +170,7 @@ def process_data(data, pred_dict):
     """
     Get plot ready OM4 data.
     """
-    ds_groundtruth = rename_vars(data)
-
-    # # Renames so further processing is easier
-    # ds_groundtruth = ds_groundtruth.rename({"lat": "lat_t", "lon": "lon_t"})
-    # ds_groundtruth = ds_groundtruth.rename({"y": "lat", "x": "lon"})
+    ds_groundtruth = with_level_index_vars(data)
 
     # Store ds_prediction
     copy_dict = deepcopy(pred_dict)
@@ -205,12 +179,6 @@ def process_data(data, pred_dict):
         ds_prediction = xr.open_zarr(
             pred_dict[key]["path"], chunks={"time": 10, "lat": 180, "lon": 360}
         )
-
-        # if ds_prediction.time.size != 598:
-        #     raise Exception(
-        #         "Are you sure your run is complete? Current prediction size: ",
-        #         ds_prediction.time.size,
-        #     )
 
         assert ds_prediction.time.size == ds_groundtruth.time.size, (
             f"Sizes different for {key}: {ds_prediction.time.size}!="
@@ -258,58 +226,11 @@ def process_mask(data, mask):
     return mask
 
 
-# TODO(jder): include time range for profile mean cache key
 def profile_mean(ds: xr.Dataset, dataset_name: str) -> xr.Dataset:
     """
-    Compute the profile mean of a dataset with optional caching.
-
-    Parameters:
-    -----------
-    ds : xr.Dataset
-        The dataset to compute the profile mean for
-    dataset_name : str, optional
-        Name of the dataset for caching. If provided, results will be cached
-        in ~/.cache/oe/profile_means/{hash_of_name}.zarr
-
-    Returns:
-    --------
-    xr.Dataset
-        The profile mean dataset
+    Compute the mean of each variable for each time step.
     """
-    if dataset_name is None:
-        # No caching, compute directly
-        return ds.weighted(ds.areacello).mean(["y", "x"])
-
-    # Create cache directory
-    cache_dir = Path.home() / ".cache" / "oe" / "profile_means"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create hash of dataset name
-    name_hash = hashlib.sha256(dataset_name.encode()).hexdigest()
-    cache_path = cache_dir / f"{name_hash}.zarr"
-
-    # Check if cached result exists
-    if cache_path.exists():
-        try:
-            print(f"Loading cached profile_mean for {dataset_name}")
-            return xr.open_zarr(cache_path, chunks=None)
-        except Exception as e:
-            print(f"Error loading cache for {dataset_name}: {e}, recomputing...")
-
-    # Compute profile mean
-    print(f"Computing profile_mean for {dataset_name}")
-    result = ds.weighted(ds.areacello).mean(["y", "x"])
-
-    # Cache the result
-    try:
-        result.to_zarr(cache_path, mode="w")
-        print(f"Cached profile_mean for {dataset_name}")
-    except Exception as e:
-        print(f"Warning: Could not cache result for {dataset_name}: {e}")
-
-    return result
-
-    # %%
+    return ds.weighted(ds.areacello).mean(["y", "x"])
 
 
 def get_basin_datasets(ds, basin_masks, data):
@@ -357,9 +278,6 @@ def main(output_path):
     environ["FSSPEC_S3_ENDPOINT_URL"] = "https://nyu1.osn.mghpcc.org"
     environ["AWS_PROFILE"] = "m2l"
 
-    # %matplotlib inline
-
-    # %%
     # Create directory
     dataset_name = "OM4"
 
@@ -383,9 +301,7 @@ def main(output_path):
     # }
 
     key1 = list(pred_dict.keys())[0]
-    levels = 19
-
-    # %%
+    levels = len(DEPTH_LEVELS)
 
     # Read files
     # Groundtruth
@@ -409,12 +325,9 @@ def main(output_path):
         areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
     )
 
-    # %%
-
     basins = xr.open_dataset("/Users/jder/oa/data/basins/basin_masks_original.zarr")
     # basins = xr.open_dataset("/data/basins/basin_masks_regridded.zarr")
 
-    # %%
     # [Optional] Convert nc files to zarr
     # ds_prediction = xr.open_dataset(
     #     (
@@ -462,8 +375,6 @@ def main(output_path):
     #     .fillna(0).to_array().to_numpy()
     # )
 
-    # %%
-
     # This function processes the ds_groundtruth and predictions for plotting
     # The predictions are loaded into pred_dict
     data, pred_dict = process_data(groundtruth_rollout, pred_dict)
@@ -471,7 +382,6 @@ def main(output_path):
     last_index = len(data.time) - 1
     snapshot_time_indices = [0, last_index // 2, last_index]
 
-    # %%
     var_list = {
         "vo": r"$v$ $( m/s )$",
         "uo": r"$u$ $( m/s )$",
@@ -483,7 +393,6 @@ def main(output_path):
         "OHC": r"$OHC$ $Anomaly$ $( ZJ )$",
     }
 
-    # %%
     # Create folder paths
     timeseries_path = os.path.join(output_path, f"Timeseries")
     if not os.path.isdir(timeseries_path):
@@ -517,10 +426,7 @@ def main(output_path):
     if not os.path.isdir(movie_path):
         os.makedirs(movie_path)
 
-    # %%
     clist = ["#ff807a", "#1e8685", "#ffb579", "#63c8ab"]
-
-    # %%
 
     atlantic_mask0 = basins["basin_atlantic"]
     atlantic_mask = atlantic_mask0.where(atlantic_mask0["lat"] >= -32)
@@ -680,7 +586,6 @@ def timeseries_plots(
     var_list,
     levels,
 ):
-    # %%
     ### Plotting timeseries for each variable for each level
     for v in ["uo", "vo", "thetao", "so", "zos"]:
         print(f"Plotting {v} timeseries...")
@@ -740,7 +645,6 @@ def timeseries_plots(
 def short_timeseries_plots(
     profile_groundtruth, pred_dict, dataset_name, timeseries_path, clist, var_list, key1
 ):
-    # %%
     # Short Timeseries plots
     shallow_levels = [2.5, 775]
     vars = ["thetao"]
@@ -843,7 +747,6 @@ def short_timeseries_plots(
 def shallow_timeseries_grid_plots(
     profile_groundtruth, pred_dict, dataset_name, timeseries_path, clist, var_list
 ):
-    # %%
     shallow_levels = [2.5, 775, 2400]  # Define shallow depth levels
 
     plt.rcParams.update({"font.size": 14})
@@ -1432,15 +1335,6 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
         * data["dz"]
     ).sum(["x", "y", "lev"]) / 1e21
 
-    # %%
-
-    # %%
-
-    # %%
-
-    # %%
-
-    # %%
     OHC_truth_mid = remove_climatology(OHC_truth_mid)
     OHC_truth_mid.plot(ax=ax[1], label=dataset_name, c="k")
     coeffs_OHC_ground_trend = np.polyfit(
@@ -1640,7 +1534,6 @@ def depthwise_ohc_plots(data, pred_dict, dataset_name, ohc_path, clist, output_p
         os.path.join(ohc_path, "OHC_Timeseries_depths"), bbox_inches="tight", dpi=600
     )
 
-    # %%
     pd_data = []
     pd_data.append(
         {"Model": dataset_name, "Upper": GT_upper, "Middle": GT_mid, "Deep": GT_deep}
@@ -1769,7 +1662,6 @@ def basin_ohc_plots(
     # plt.show()
     plt.savefig(os.path.join(ohc_path, "OHC_Basin"), bbox_inches="tight", dpi=600)
 
-    # %%
     pd_data = []
     pd_data.append(GT_regionwise_ohc)
 
@@ -1908,7 +1800,6 @@ def basin_ohc_upto_700_plots(
 def ocean_temperature_profile_plots(
     data, pred_dict, dataset_name, temp_path, clist, var_list, basin_masks
 ):
-    # %%
     def ocean_temperature_profile(datasets, titles, plot_title, vmin=-0.3, vmax=0.3):
         fig, axs = plt.subplots(
             2,
@@ -1958,11 +1849,9 @@ def ocean_temperature_profile_plots(
         # plt.show()
         plt.savefig(os.path.join(temp_path, plot_title), bbox_inches="tight", dpi=600)
 
-    # %%
     data_thetao_ano = remove_climatology(data.thetao)
     pred_thetao_ano = remove_climatology(pred_dict["pred_1"]["ds_prediction"]["thetao"])
 
-    # %%
     # Full time mean and bias [Last year - First year]
     CM4_lastyear_change = data_thetao_ano.isel(time=slice(-73, None)).mean(
         dim="time"
@@ -1987,7 +1876,6 @@ def ocean_temperature_profile_plots(
 def ocean_salinity_profile_plots(
     data, pred_dict, dataset_name, salinity_path, clist, var_list, output_path
 ):
-    # %%
     rho_0 = 1025  # kg/m^3
     f = open(os.path.join(output_path, "compare_info.txt"), "a")
 
@@ -2094,7 +1982,6 @@ def salinity_deseasonalized_plots(
     metrics_path,
     output_path,
 ):
-    # %%
     f = open(os.path.join(metrics_path, "salinity_deseasonalized_info.txt"), "w")
 
     plt.rcdefaults()
@@ -2180,7 +2067,6 @@ def thetao_mae_metrics(
     GT_ohc_slope=None,
     GT_salinity_slope=None,
 ):
-    # %%
     da_temp = data["thetao"]  # Directly use temperature variable
     section_mask = np.isnan(da_temp).all("x").isel(time=0)
     da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x", "time"])
@@ -2211,7 +2097,6 @@ def sst_mae_metrics(
     GT_ohc_slope=None,
     GT_salinity_slope=None,
 ):
-    # %%
     section_mask = np.isnan(data["thetao"]).isel(lev=0).isel(time=5)
     SST_gt = data["thetao"].isel(lev=0).mean("time")
     SST_gt = SST_gt.where(~section_mask)
@@ -2309,7 +2194,6 @@ def pdf_plots_short(
 
 
 def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key1):
-    # %%
     clim = (
         data["thetao"].sel(lev=slice(0, 500)).groupby("time.dayofyear").mean().compute()
     )
@@ -2325,7 +2209,6 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
             .compute()
         )
 
-    # %%
     def NinoIndexComputeClim(T, area, dt=5, window=150):
         T = T.load()
         T_clim = T.copy()
@@ -2343,7 +2226,6 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
 
         return T_clim[window:]
 
-    # %%
     nino_true_compute_clim = NinoIndexComputeClim(
         data_surface["thetao"][:, 0], data["areacello"]
     )
@@ -2362,7 +2244,6 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
             "nino_pred_compute_clim"
         ].assign_attrs(units=r"$\degree C$")
 
-    # %%
     day_max = int(
         (
             np.argwhere(
@@ -2382,7 +2263,6 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
         ).squeeze()
     )
 
-    # %%
     plt.rcParams.update({"font.size": 14})
     plt.figure(figsize=(10, 5))
     nino_true_compute_clim.plot(label=dataset_name, c="k")
@@ -2397,7 +2277,6 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
 
     plt.savefig(os.path.join(enso_path, "Climatology"), bbox_inches="tight", dpi=600)
 
-    # %%
     for k in pred_dict.keys():
         mae = np.abs(
             (pred_dict[k]["nino_pred_compute_clim"] - nino_true_compute_clim).mean(
@@ -2413,18 +2292,14 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
         ).mean()
         print(pred_dict[k]["name"], "mae: ", mae.item(), "cor: ", cor.item())
 
-    # %% [markdown]
     # ### Profiles and Maps
 
-    # %%
     keys = list(pred_dict.keys())
     # assert len(keys) >= 2, "Maps supported by atleast two keys"
     key1 = keys[0]
 
-    # %% [markdown]
     # #### ENSO Maps
 
-    # %%
     plt.rcParams.update({"font.size": 14})
     fig, axs = plt.subplot_mosaic(
         [
@@ -2677,7 +2552,6 @@ def enso_plots(data, pred_dict, dataset_name, enso_path, clist, output_path, key
 
 
 def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1):
-    # %%
     # OHC Map + Bias
     Days_to_Eq = 0
     c_p = 3850  # J/(kg C)
@@ -2815,7 +2689,6 @@ def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1):
     )
     # plt.show()
 
-    # %%
     def map_bias_avg(data_pred1, fig, title="", **kwargs):
         var_name = kwargs["var_name"]
 
@@ -2875,7 +2748,6 @@ def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1):
 
         return ax, im
 
-    # %%
     first_year = slice(None, 73)
     last_year = slice(-73, -1)
     second_last_year = slice(-146, -74)
@@ -2903,7 +2775,6 @@ def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1):
         elif i == 1:
             pred1_ohc = OHC_pred
 
-    # %%
     da = (
         pred1_ohc.isel(time=last_year).mean("time")
         - pred1_ohc.isel(time=second_last_year).mean("time")
@@ -2925,7 +2796,6 @@ def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1):
         dpi=600,
     )
 
-    # %%
     da = (
         pred1_ohc.isel(time=last_year).mean("time")
         - pred1_ohc.isel(time=third_last_year).mean("time")
@@ -2947,7 +2817,6 @@ def ohc_maps(data, pred_dict, dataset_name, ohc_path, clist, var_list, key1):
         dpi=600,
     )
 
-    # %%
     da = (
         pred1_ohc.isel(time=last_year).mean("time")
         - pred1_ohc.isel(time=first_year).mean("time")
@@ -3028,7 +2897,6 @@ def plot_bias(ax, sst_data, gt_sst_data, title, vmin, vmax):
 
 
 def sst_mean_maps(data, pred_dict, dataset_name, temp_path, clist, key1):
-    # %%
     plt.rcParams.update({"font.size": 14})
     fig, axs = plt.subplots(
         2,
@@ -3158,12 +3026,10 @@ def sst_time_snapshot_maps(
         # plt.show()
         plt.close()
 
-    # %% [markdown]
     # #### Salinity Map
 
 
 def salinity_mean_map(data, pred_dict, dataset_name, salinity_path, clist, key1):
-    # %%
     plt.rcParams.update({"font.size": 14})
     fig, axs = plt.subplots(
         2,
@@ -3348,17 +3214,12 @@ def salinity_snapshot_maps(
         )
         # plt.show()
 
-    # %% [markdown]
     # ### Movies
 
-    # %%
-
-    # %% [markdown]
     # Need atleast two keys otherwise duplicate maps
 
 
 def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
-    # %%
     keys = list(pred_dict.keys())
     # assert len(keys) >= 2, "Maps supported by atleast two keys"
     key1 = keys[0]
@@ -3373,10 +3234,8 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
     else:
         key2 = keys[1]
 
-    # %% [markdown]
     # #### Core
 
-    # %%
     def _core_plot(ax, data, plotmethod=None, **kwargs):
         """Core plotting functionality."""
         # Deactivate cbar for contours (not sure this should be hardcoded...)
@@ -3895,10 +3754,7 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
                     gif_framerate=gif_framerate,
                 )
 
-    # %% [markdown]
     # #### Global Map
-
-    # %%
 
     def global_surface_map(
         da, fig, timestamp, timestamp_val, framedim="time", **kwargs
@@ -4110,7 +3966,6 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
 
         return ax, im
 
-    # %%
     if "mask" in data.data_vars:
         mask = data.mask
         surface_mask = mask.isel(
@@ -4120,7 +3975,6 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
         mask = data.wetmask
         surface_mask = mask.isel(lev=0)
 
-    # %%
     # combine the two datasets into a single xarray new dimension
     movie_var_list = ["thetao", "so"]
 
@@ -4194,5 +4048,3 @@ def movies(data, pred_dict, dataset_name, movie_path, clist, var_list):
             progress=True,
             overwrite_existing=True,
         )
-
-    # %%

@@ -78,6 +78,7 @@ lint.ignore = [
   "D212",
   "E203",
   "E402",
+  "E501",  # We use ruff-format which will already wrap lines to a reasonable length.
   "F541",
   "F722",
   "UP038", # This rule is deprecated.

@@ -226,7 +226,6 @@ class EMATracker:
                 f"EMA parameters keys do not match. "
                 f"This is likely due to a mismatch between the model and checkpoint. "
                 f"Unexpected keys: {unexpected_keys}"
-                f"Missing keys: {missing_keys}"
             )
             ema._ema_params = ema_params
         return ema

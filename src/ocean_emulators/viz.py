@@ -412,6 +412,8 @@ class Viz:
 
     def run(self):
         matplotlib.use("Agg")
+        # TODO(jder): consider closing figures after each plot (they are retained
+        # in memory forever, I think?)
 
         self.timeseries_plots()
         self.short_timeseries_plots()
@@ -1715,7 +1717,7 @@ class Viz:
 
         data_thetao_ano = remove_climatology(self.data.thetao)
         pred_thetao_ano = remove_climatology(
-            self.pred_dict["pred_1"]["ds_prediction"]["thetao"]
+            self.pred_dict[self.key1]["ds_prediction"]["thetao"]
         )
 
         # Full time mean and bias [Last year - First year]
@@ -1734,7 +1736,7 @@ class Viz:
         datasets, titles = get_basin_datasets(
             pred_lastyear_change, self.basin_masks, self.data
         )
-        plot_title = f"{self.pred_dict['pred_1']['name']} (Last Year - First Year)"
+        plot_title = f"{self.pred_dict[self.key1]['name']} (Last Year - First Year)"
         ocean_temperature_profile(datasets, titles, plot_title)
 
         bias_lastyear_change = pred_lastyear_change - CM4_lastyear_change

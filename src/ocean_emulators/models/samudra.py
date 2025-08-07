@@ -59,6 +59,13 @@ class Samudra(BaseModel):
         # going down
         layers = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
+            # Calculate drop path rate for this layer
+            stage_multiplier = 1.0
+            if config.stochastic_depth.per_stage_multipliers:
+                stage_multiplier = config.stochastic_depth.per_stage_multipliers[i]
+
+            drop_rate = config.stochastic_depth.drop_path_rate * stage_multiplier
+
             # Core block
             layers.append(
                 create_block(
@@ -73,12 +80,26 @@ class Samudra(BaseModel):
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
                     checkpoint_simple=checkpoint_simple,
+                    # Early dropout parameters
+                    drop_path_rate=drop_rate,
+                    early_dropout_epochs=config.stochastic_depth.early_dropout_epochs,
+                    dropout_schedule=config.stochastic_depth.dropout_schedule,
+                    linear_decay=config.stochastic_depth.linear_decay_to_zero,
                 )
             )
             # Down sampling block
             layers.append(create_downsample(config.down_sampling_block))
 
-        # Middle block
+        # Middle block - apply same dropout settings
+        middle_stage_multiplier = 1.0
+        if config.stochastic_depth.per_stage_multipliers:
+            # Use the last multiplier for middle block
+            middle_stage_multiplier = config.stochastic_depth.per_stage_multipliers[-1]
+
+        middle_drop_rate = (
+            config.stochastic_depth.drop_path_rate * middle_stage_multiplier
+        )
+
         layers.append(
             create_block(
                 config.core_block.block_type,
@@ -92,6 +113,11 @@ class Samudra(BaseModel):
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
                 checkpoint_simple=checkpoint_simple,
+                # Early dropout parameters for middle block
+                drop_path_rate=middle_drop_rate,
+                early_dropout_epochs=config.stochastic_depth.early_dropout_epochs,
+                dropout_schedule=config.stochastic_depth.dropout_schedule,
+                linear_decay=config.stochastic_depth.linear_decay_to_zero,
             )
         )
 
@@ -107,6 +133,23 @@ class Samudra(BaseModel):
 
         # going up
         for i, (a, b) in enumerate(pairwise(ch_width[:-1])):
+            # For decoder, we can optionally disable dropout or use reduced rates
+            # For now, apply same settings as encoder
+            decoder_stage_idx = len(ch_width) - 2 - i  # Reverse index for decoder
+            decoder_stage_multiplier = 1.0
+            if config.stochastic_depth.per_stage_multipliers:
+                # Use corresponding encoder multiplier (reversed)
+                if decoder_stage_idx < len(
+                    config.stochastic_depth.per_stage_multipliers
+                ):
+                    decoder_stage_multiplier = (
+                        config.stochastic_depth.per_stage_multipliers[decoder_stage_idx]
+                    )
+
+            decoder_drop_rate = (
+                config.stochastic_depth.drop_path_rate * decoder_stage_multiplier
+            )
+
             layers.append(
                 create_block(
                     config.core_block.block_type,
@@ -120,13 +163,18 @@ class Samudra(BaseModel):
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
                     checkpoint_simple=checkpoint_simple,
+                    # Early dropout parameters for decoder
+                    drop_path_rate=decoder_drop_rate,
+                    early_dropout_epochs=config.stochastic_depth.early_dropout_epochs,
+                    dropout_schedule=config.stochastic_depth.dropout_schedule,
+                    linear_decay=config.stochastic_depth.linear_decay_to_zero,
                 )
             )
             layers.append(
                 create_upsample(config.up_sampling_block, in_channels=b, out_channels=b)
             )
 
-        # Final conv block
+        # Final conv block - typically no dropout on final layer
         layers.append(
             create_block(
                 config.core_block.block_type,
@@ -140,6 +188,9 @@ class Samudra(BaseModel):
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
                 checkpoint_simple=checkpoint_simple,
+                # No dropout on final block to preserve output quality
+                drop_path_rate=0.0,
+                early_dropout_epochs=0,
             )
         )
 

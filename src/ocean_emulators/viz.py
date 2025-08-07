@@ -439,9 +439,7 @@ class Viz:
         self.salinity_snapshot_maps()
         self.movies()
 
-    def timeseries_plots(
-        self,
-    ):
+    def timeseries_plots(self):
         ### Plotting timeseries for each variable for each level
         for v in ["uo", "vo", "thetao", "so", "zos"]:
             print(f"Plotting {v} timeseries...")
@@ -499,9 +497,7 @@ class Viz:
                     )
                     plt.close()
 
-    def short_timeseries_plots(
-        self,
-    ):
+    def short_timeseries_plots(self):
         # Short Timeseries plots
         shallow_levels = [2.5, 775]
         vars = ["thetao"]
@@ -600,9 +596,7 @@ class Viz:
         )
         plt.savefig(output_file, bbox_inches="tight", dpi=600)
 
-    def shallow_timeseries_grid_plots(
-        self,
-    ):
+    def shallow_timeseries_grid_plots(self):
         shallow_levels = [2.5, 775, 2400]  # Define shallow depth self.levels
 
         plt.rcParams.update({"font.size": 14})
@@ -724,9 +718,7 @@ class Viz:
         # plt.show()
         # plt.close(fig)
 
-    def temp_timeseries_shallow_grid_plots(
-        self,
-    ):
+    def temp_timeseries_shallow_grid_plots(self):
         shallow_levels = [2.5, 105, 550]
 
         num_shallow_levels = len(shallow_levels)
@@ -839,9 +831,7 @@ class Viz:
         )
         plt.savefig(output_file, bbox_inches="tight", dpi=600)
 
-    def global_thetao_time_series(
-        self,
-    ):
+    def global_thetao_time_series(self):
         var = "thetao"
         Days_to_Eq = 0
 
@@ -887,9 +877,7 @@ class Viz:
         )
         # plt.show()
 
-    def global_salinity_timeseries_plots(
-        self,
-    ):
+    def global_salinity_timeseries_plots(self):
         var = "so"
         Days_to_Eq = 0
 
@@ -1027,9 +1015,7 @@ class Viz:
         coeffs_trend = np.polyfit(np.arange(var.size), var, 1)
         return coeffs_trend[0], coeffs_trend[1]
 
-    def ohc_plots(
-        self,
-    ):
+    def ohc_plots(self):
         f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
 
         plt.rcdefaults()
@@ -1857,9 +1843,7 @@ class Viz:
         # Save the DataFrame to a CSV file
         df.to_csv(file_path, index=False)
 
-    def salinity_deseasonalized_plots(
-        self,
-    ):
+    def salinity_deseasonalized_plots(self):
         f = open(
             os.path.join(self.metrics_path, "salinity_deseasonalized_info.txt"), "w"
         )
@@ -1943,9 +1927,7 @@ class Viz:
         )
         return GT_salinity_slope
 
-    def thetao_mae_metrics(
-        self,
-    ):
+    def thetao_mae_metrics(self):
         da_temp = self.data["thetao"]  # Directly use temperature variable
         section_mask = isnan(da_temp).all("x").isel(time=0)
         da_temp_int_x = da_temp.weighted(self.data["areacello"]).mean(["x", "time"])
@@ -1971,9 +1953,7 @@ class Viz:
 
         f.close()
 
-    def sst_mae_metrics(
-        self,
-    ):
+    def sst_mae_metrics(self):
         section_mask = isnan(self.data["thetao"]).isel(lev=0).isel(time=5)
         SST_gt = self.data["thetao"].isel(lev=0).mean("time")
         SST_gt = SST_gt.where(~section_mask)
@@ -1994,9 +1974,7 @@ class Viz:
 
         f.close()
 
-    def pdf_plots_short(
-        self,
-    ):
+    def pdf_plots_short(self):
         plt.rcParams.update({"font.size": 9})
         # Create a figure
         fig = plt.figure(figsize=(24, 15))
@@ -2076,9 +2054,7 @@ class Viz:
             dpi=600,
         )
 
-    def enso_plots(
-        self,
-    ):
+    def enso_plots(self):
         clim = (
             self.data["thetao"]
             .sel(lev=slice(0, 500))
@@ -2896,9 +2872,7 @@ class Viz:
         )
         # plt.show()
 
-    def sst_time_snapshot_maps(
-        self,
-    ):
+    def sst_time_snapshot_maps(self):
         for t_index in self.time_indices:
             plt.rcParams.update({"font.size": 14})
             fig, axs = plt.subplots(
@@ -2972,9 +2946,7 @@ class Viz:
 
         # #### Salinity Map
 
-    def salinity_mean_map(
-        self,
-    ):
+    def salinity_mean_map(self):
         plt.rcParams.update({"font.size": 14})
         fig, axs = plt.subplots(
             2,
@@ -3039,9 +3011,7 @@ class Viz:
         )
         # plt.show()
 
-    def salinity_snapshot_maps(
-        self,
-    ):
+    def salinity_snapshot_maps(self):
         # TODO(jder): this is a copy-paste of self.plot_sst/plot_diff_sst but with minor changes
         def plot_sst(ax, sst_data, title, i):
             colormap = cm.cm.thermal
@@ -3171,9 +3141,7 @@ class Viz:
 
     # Need atleast two keys otherwise duplicate maps
 
-    def movies(
-        self,
-    ):
+    def movies(self):
         keys = list(self.pred_dict.keys())
         # assert len(keys) >= 2, "Maps supported by atleast two keys"
         self.key1 = keys[0]
@@ -4095,6 +4063,8 @@ class VizConfig(TopLevelConfig):
 
 
 def main(cfg: VizConfig):
+    # TODO(jder): set up and use logging for all this, tee to file, maybe wandb?
+
     print(f"Writing results to {cfg.output_path}")
     cfg.output_path.mkdir(parents=True, exist_ok=True)
     cfg.save_yaml(cfg.output_path / "config.yaml")

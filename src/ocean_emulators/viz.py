@@ -287,8 +287,6 @@ class Viz:
         groundtruth_rollout: xr.Dataset,
         time_range: slice,
     ):
-        matplotlib.use("Agg")
-
         pred_dict: dict[str, dict[str, Any]] = {}
         for run in runs:
             pred_dict[run.name] = {
@@ -412,6 +410,8 @@ class Viz:
         self.output_path: str = output_path
 
     def run(self):
+        matplotlib.use("Agg")
+
         self.timeseries_plots()
         self.short_timeseries_plots()
         self.shallow_timeseries_grid_plots()

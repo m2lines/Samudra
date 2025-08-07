@@ -1,11 +1,8 @@
 import filecmp
-import os
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
-
-from ocean_emulators.viz import main
 
 
 def compare_images(file1, file2, diff_dir=None):
@@ -159,31 +156,19 @@ def compare_directories(dir1, dir2, diff_dir=None):
     return non_matching, matching_count
 
 
-def test_viz_outputs_match_gold(tmp_path):
-    """Test that viz.py outputs match the gold standard outputs."""
-    gold_dir = os.path.expanduser("~/oa/data/2025-06-10_samudra-recreate-paper-om4")
+if __name__ == "__main__":
+    import argparse
+    import sys
+    import tempfile
 
-    # Run viz.py main function with temporary directory
-    test_dir = tmp_path / "viz_outputs"
-    test_dir.mkdir(exist_ok=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dir1", type=str)
+    parser.add_argument("dir2", type=str)
+    args = parser.parse_args()
 
-    print(f"Running viz.py with output path: {test_dir}")
-    main(str(test_dir))
+    diff_dir = tempfile.mkdtemp("image-diffs")
+    non_matching, _ = compare_directories(args.dir1, args.dir2, diff_dir)
+    print(f"See image differences in {diff_dir}")
 
-    # Create directory for difference images
-    diff_dir = tmp_path / "image_diffs"
-    diff_dir.mkdir(exist_ok=True)
-
-    # Compare outputs
-    non_matching, matching_count = compare_directories(gold_dir, test_dir, diff_dir)
-
-    # Print location of difference images
-    print(f"\nDifference images saved to: {diff_dir}")
-
-    # For now, just report the results
-    # Later we can make this assert that non_matching is empty
-    print(f"\n=== Test Results ===")
-    print(f"Matching files: {matching_count}")
-    print(f"Non-matching files: {len(non_matching)}")
-
-    assert len(non_matching) == 0, f"Found {len(non_matching)} non-matching files"
+    if len(non_matching) > 0:
+        sys.exit(1)

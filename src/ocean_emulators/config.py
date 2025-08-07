@@ -203,6 +203,21 @@ class CorrectorConfig(BaseConfig):
     ocean_heat_corrector: bool = False
 
 
+class StochasticDepthConfig(BaseConfig):
+    # Early dropout settings (main focus)
+    drop_path_rate: float = 0.0  # Peak drop rate during early training
+    early_dropout_epochs: int = 0  # Apply for first N epochs (0 = disabled)
+    dropout_schedule: Literal["early_only", "late_only", "constant"] = "early_only"
+
+    # Optional: Linear decay within early period
+    linear_decay_to_zero: bool = (
+        False  # Decay from drop_path_rate to 0 over early_dropout_epochs
+    )
+
+    # Optional: per-stage rates (for spatial variation)
+    per_stage_multipliers: list[float] | None = None  # e.g., [0.5, 1.0, 1.5, 2.0]
+
+
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
 Checkpointing = Literal["all", "simple"]
@@ -223,6 +238,9 @@ class SamudraConfig(BaseConfig):
     corrector: CorrectorConfig = CorrectorConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
+
+    # Stochastic depth configuration
+    stochastic_depth: StochasticDepthConfig = StochasticDepthConfig()
 
     checkpointing: Checkpointing | None = Field(
         default=None,

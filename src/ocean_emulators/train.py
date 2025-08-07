@@ -90,6 +90,7 @@ from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
     collate_train_data,
+    update_model_epoch,
 )
 from ocean_emulators.utils.wandb import WandBLogger
 
@@ -529,6 +530,10 @@ class Trainer:
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
+
+        # Update epoch information in dropout modules for early dropout scheduling
+        update_model_epoch(self.model, epoch)
+
         train_aggregator = Aggregator.get_train_aggregator()
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))

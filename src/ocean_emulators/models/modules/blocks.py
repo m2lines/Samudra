@@ -115,6 +115,8 @@ class ConvBlock(CoreBlock):
         self.checkpoint_simple = checkpoint_simple
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
+        input_fts = fts  # Save input for potential stochastic depth
+
         for layer in self.layers:
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
@@ -129,6 +131,15 @@ class ConvBlock(CoreBlock):
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
             else:
                 fts = layer(fts)
+
+        # Apply stochastic depth: for non-residual blocks, we can drop the entire transformation
+        if hasattr(self, "drop_path"):
+            # For non-residual blocks, drop_path will either return the transformed features
+            # or zero them out, effectively making this layer an identity
+            transformation = fts - input_fts  # Get the transformation
+            dropped_transformation = self.drop_path(transformation)
+            fts = input_fts + dropped_transformation
+
         return fts
 
 
@@ -223,8 +234,9 @@ class ConvNeXtBlock(CoreBlock):
         self.checkpoint_simple = checkpoint_simple
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)
+
+        # Process through convblock layers
         for layer in self.convblock:
             if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
                 x = torch.nn.functional.pad(
@@ -237,4 +249,9 @@ class ConvNeXtBlock(CoreBlock):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
             else:
                 x = layer(x)
+
+        # Apply stochastic depth to the residual path before adding skip
+        if hasattr(self, "drop_path"):
+            x = self.drop_path(x)
+
         return skip + x

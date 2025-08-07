@@ -3,6 +3,7 @@ from itertools import tee
 from pathlib import Path
 
 import torch
+from torch import nn
 from xarray_einstats.einops import rearrange  # noqa: F401
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
@@ -65,3 +66,10 @@ class CheckpointPaths:
     @property
     def best_validation_checkpoint_path(self) -> Path:
         return self.checkpoint_dir / "best_validation_ckpt.pt"
+
+
+def update_model_epoch(model: nn.Module, epoch: int):
+    """Recursively update epoch for all EarlyDropPath modules."""
+    for module in model.modules():
+        if hasattr(module, "set_epoch"):
+            module.set_epoch(epoch)

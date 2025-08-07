@@ -7,6 +7,7 @@ import sys
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
+from functools import cached_property
 from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from typing import Any
@@ -4056,9 +4057,11 @@ class VizRunConfig(BaseModel):
 
 
 class VizConfig(TopLevelConfig):
-    output_path: str
+    base_output_dir: Path
+    name: str
     dataset_name: str
     runs: list[VizRunConfig]
+    data_root: Location | None = None
     groundtruth_location: Location
     basins_location: Location
     # TODO(jder): we could extract this from the run data?
@@ -4066,15 +4069,23 @@ class VizConfig(TopLevelConfig):
         description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
     )
 
-    def build(self, data_root: ResolvedLocation) -> "Viz":
+    @cached_property
+    def output_path(self) -> Path:
+        return Path(self.base_output_dir) / self.name
+
+    def build(self, default_root: ResolvedLocation) -> "Viz":
+        if self.data_root is None:
+            data_root = default_root
+        else:
+            data_root = default_root.resolve(self.data_root)
+
         groundtruth_rollout = data_root.resolve(self.groundtruth_location).open(
             chunks={}
         )
-        groundtruth_rollout = groundtruth_rollout.sel(
-            time=self.groundtruth_time_range.time_slice
-        )
+
         return Viz(
-            self.output_path,
+            # TODO(jder): change to Path
+            str(self.output_path),
             self.dataset_name,
             [run.build(data_root) for run in self.runs],
             data_root.resolve(self.basins_location).open(),
@@ -4083,15 +4094,17 @@ class VizConfig(TopLevelConfig):
         )
 
 
-def main():
-    # Load config from YAML
-    cfg = VizConfig.from_yaml_and_cli()
+def main(cfg: VizConfig):
+    print(f"Writing results to {cfg.output_path}")
+    cfg.output_path.mkdir(parents=True, exist_ok=True)
+    cfg.save_yaml(cfg.output_path / "config.yaml")
+
     viz = cfg.build(LocalLocation(path=Path.cwd()))
 
-    # TOOD(jder): would be nice to specify which plots to make,
+    # TODO(jder): would be nice to specify which plots to make,
     # parallelize, re-run just needed plots on errors, etc.
     viz.run()
 
 
 if __name__ == "__main__":
-    main()
+    main(VizConfig.from_yaml_and_cli())

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=schemas/VizConfig.json
+
+base_output_dir: ".LOCAL"
+name: "viz_om4_halfdeg"
+dataset_name: "om4"
+groundtruth_location: "OM4.zarr"
+basins_location:
+  type: s3
+  bucket: "emulators"
+  path: "jr7309/basins/basin_masks_regridded.zarr"
+groundtruth_time_range:
+  start: "2014-10-20"
+  end: "2022-12-24"
+runs:
+  - name: "local_om4_samudra"
+    location: ".LOCAL/local_om4_samudra/predictions.zarr"

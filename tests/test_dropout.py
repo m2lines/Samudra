@@ -9,6 +9,7 @@ from ocean_emulators.config import StochasticDepthConfig
 from ocean_emulators.models.modules.activations import CappedGELU
 from ocean_emulators.models.modules.dropout import ScheduledDepthDropout
 from ocean_emulators.models.modules.factory import create_block
+from ocean_emulators.utils.dropout import StochasticDepthManager
 
 logger = logging.getLogger(__name__)
 
@@ -454,6 +455,277 @@ class TestIntegrationAndEdgeCases:
 
         # Should have very few non-zero outputs
         assert outputs_nonzero <= 5
+
+
+class TestStochasticDepthManager:
+    """Unit tests for StochasticDepthManager class."""
+
+    def test_initialization(self):
+        """Test manager initialization with config."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.2,
+            early_dropout_epochs=20,
+            dropout_schedule="early_only",
+            linear_decay_to_zero=True,
+        )
+        manager = StochasticDepthManager(config)
+
+        assert manager.config == config
+        assert manager.drop_path_modules == []
+
+    def test_calculate_drop_rate_basic(self):
+        """Test basic drop rate calculation without multipliers."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.3,
+            early_dropout_epochs=10,
+            dropout_schedule="early_only",
+        )
+        manager = StochasticDepthManager(config)
+
+        # Should return base rate for any layer when no multipliers
+        assert manager.calculate_drop_rate(0) == 0.3
+        assert manager.calculate_drop_rate(5) == 0.3
+        assert manager.calculate_drop_rate(10) == 0.3
+
+    def test_calculate_drop_rate_with_multipliers(self):
+        """Test drop rate calculation with per-stage multipliers."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.2,
+            early_dropout_epochs=10,
+            dropout_schedule="early_only",
+            per_stage_multipliers=[0.5, 1.0, 1.5, 2.0],
+        )
+        manager = StochasticDepthManager(config)
+
+        # Test each stage
+        assert manager.calculate_drop_rate(0) == 0.2 * 0.5  # 0.1
+        assert manager.calculate_drop_rate(1) == 0.2 * 1.0  # 0.2
+        assert manager.calculate_drop_rate(2) == 0.2 * 1.5  # 0.3
+        assert manager.calculate_drop_rate(3) == 0.2 * 2.0  # 0.4
+
+        # Beyond multipliers array should use last multiplier
+        assert manager.calculate_drop_rate(4) == 0.2 * 2.0  # 0.4
+        assert manager.calculate_drop_rate(10) == 0.2 * 2.0  # 0.4
+
+    def test_calculate_drop_rate_disabled_zero_rate(self):
+        """Test that zero drop_path_rate always returns 0."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.0,
+            early_dropout_epochs=10,
+            dropout_schedule="early_only",
+            per_stage_multipliers=[2.0, 3.0],  # Should be ignored
+        )
+        manager = StochasticDepthManager(config)
+
+        assert manager.calculate_drop_rate(0) == 0.0
+        assert manager.calculate_drop_rate(1) == 0.0
+
+    def test_calculate_drop_rate_disabled_zero_epochs(self):
+        """Test that zero early_dropout_epochs always returns 0."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.3,
+            early_dropout_epochs=0,
+            dropout_schedule="early_only",
+            per_stage_multipliers=[2.0, 3.0],  # Should be ignored
+        )
+        manager = StochasticDepthManager(config)
+
+        assert manager.calculate_drop_rate(0) == 0.0
+        assert manager.calculate_drop_rate(1) == 0.0
+
+    def test_create_drop_path_enabled(self):
+        """Test drop path creation when enabled."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.2,
+            early_dropout_epochs=15,
+            dropout_schedule="late_only",
+            linear_decay_to_zero=False,
+        )
+        manager = StochasticDepthManager(config)
+
+        drop_path = manager.create_drop_path(layer_index=2)
+
+        assert drop_path is not None
+        assert isinstance(drop_path, ScheduledDepthDropout)
+        assert drop_path.base_drop_prob == 0.2
+        assert drop_path.early_epochs == 15
+        assert drop_path.schedule == "late_only"
+        assert drop_path.linear_decay is False
+
+        # Should be registered for epoch tracking
+        assert len(manager.drop_path_modules) == 1
+        assert manager.drop_path_modules[0] == drop_path
+
+    def test_create_drop_path_disabled(self):
+        """Test that no drop path is created when disabled."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.0,
+            early_dropout_epochs=10,
+            dropout_schedule="early_only",
+        )
+        manager = StochasticDepthManager(config)
+
+        drop_path = manager.create_drop_path(layer_index=1)
+
+        assert drop_path is None
+        assert len(manager.drop_path_modules) == 0
+
+    def test_create_drop_path_with_multipliers(self):
+        """Test drop path creation with stage multipliers."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.1,
+            early_dropout_epochs=20,
+            dropout_schedule="constant",
+            per_stage_multipliers=[1.0, 2.0, 3.0],
+        )
+        manager = StochasticDepthManager(config)
+
+        # Create drop paths for different stages
+        drop_path_0 = manager.create_drop_path(layer_index=0)
+        drop_path_1 = manager.create_drop_path(layer_index=1)
+        drop_path_2 = manager.create_drop_path(layer_index=2)
+
+        assert drop_path_0 is not None
+        assert drop_path_1 is not None
+        assert drop_path_2 is not None
+
+        assert drop_path_0.base_drop_prob == 0.1 * 1.0  # 0.1
+        assert drop_path_1.base_drop_prob == 0.1 * 2.0  # 0.2
+        assert drop_path_2.base_drop_prob == 0.1 * 3.0  # 0.3
+
+        # All should be registered
+        assert len(manager.drop_path_modules) == 3
+
+    def test_register_model_finds_dropout_modules(self):
+        """Test that register_model finds existing dropout modules."""
+        import torch.nn as nn
+
+        # Create a simple model with dropout modules
+        model = nn.Sequential()
+
+        # Manually create some dropout modules
+        dropout1 = ScheduledDepthDropout(drop_prob=0.1, early_epochs=10)
+        dropout2 = ScheduledDepthDropout(drop_prob=0.2, early_epochs=20)
+
+        # Add them to the model
+        model.add_module("layer1", dropout1)
+        model.add_module("layer2", dropout2)
+
+        # Create manager and register model
+        config = StochasticDepthConfig(drop_path_rate=0.1, early_dropout_epochs=5)
+        manager = StochasticDepthManager(config)
+        manager.register_model(model)
+
+        # Should find and register both dropout modules
+        assert len(manager.drop_path_modules) == 2
+        assert dropout1 in manager.drop_path_modules
+        assert dropout2 in manager.drop_path_modules
+
+    def test_register_model_avoids_duplicates(self):
+        """Test that register_model doesn't add duplicates."""
+        import torch.nn as nn
+
+        config = StochasticDepthConfig(drop_path_rate=0.1, early_dropout_epochs=10)
+        manager = StochasticDepthManager(config)
+
+        # Create a dropout module through the manager first
+        dropout = manager.create_drop_path(layer_index=0)
+        assert len(manager.drop_path_modules) == 1
+
+        # Create a model containing that same dropout module
+        model = nn.Sequential()
+        model.add_module("layer", dropout)
+
+        # Register model shouldn't add duplicate
+        manager.register_model(model)
+        assert len(manager.drop_path_modules) == 1
+
+    def test_update_epoch_updates_all_modules(self):
+        """Test that update_epoch updates all registered modules."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.2,
+            early_dropout_epochs=15,
+            dropout_schedule="early_only",
+        )
+        manager = StochasticDepthManager(config)
+
+        # Create several dropout modules
+        dropout1 = manager.create_drop_path(layer_index=0)
+        dropout2 = manager.create_drop_path(layer_index=1)
+        dropout3 = manager.create_drop_path(layer_index=2)
+
+        assert dropout1 is not None
+        assert dropout2 is not None
+        assert dropout3 is not None
+
+        # All should start at epoch 0
+        assert dropout1.current_epoch == 0
+        assert dropout2.current_epoch == 0
+        assert dropout3.current_epoch == 0
+
+        # Update epoch should affect all modules
+        manager.update_epoch(10)
+
+        assert dropout1.current_epoch == 10
+        assert dropout2.current_epoch == 10
+        assert dropout3.current_epoch == 10
+
+        # Update again
+        manager.update_epoch(25)
+
+        assert dropout1.current_epoch == 25
+        assert dropout2.current_epoch == 25
+        assert dropout3.current_epoch == 25
+
+    def test_is_enabled_conditions(self):
+        """Test is_enabled method under various conditions."""
+        # Enabled case
+        config_enabled = StochasticDepthConfig(
+            drop_path_rate=0.2,
+            early_dropout_epochs=10,
+        )
+        manager_enabled = StochasticDepthManager(config_enabled)
+        assert manager_enabled.is_enabled() is True
+
+        # Disabled: zero drop rate
+        config_zero_rate = StochasticDepthConfig(
+            drop_path_rate=0.0,
+            early_dropout_epochs=10,
+        )
+        manager_zero_rate = StochasticDepthManager(config_zero_rate)
+        assert manager_zero_rate.is_enabled() is False
+
+        # Disabled: zero epochs
+        config_zero_epochs = StochasticDepthConfig(
+            drop_path_rate=0.2,
+            early_dropout_epochs=0,
+        )
+        manager_zero_epochs = StochasticDepthManager(config_zero_epochs)
+        assert manager_zero_epochs.is_enabled() is False
+
+        # Disabled: both zero
+        config_both_zero = StochasticDepthConfig(
+            drop_path_rate=0.0,
+            early_dropout_epochs=0,
+        )
+        manager_both_zero = StochasticDepthManager(config_both_zero)
+        assert manager_both_zero.is_enabled() is False
+
+    def test_build_method_integration(self):
+        """Test that StochasticDepthConfig.build() creates proper manager."""
+        config = StochasticDepthConfig(
+            drop_path_rate=0.15,
+            early_dropout_epochs=25,
+            dropout_schedule="late_only",
+            per_stage_multipliers=[0.5, 1.0, 2.0],
+        )
+
+        manager = config.build()
+
+        assert isinstance(manager, StochasticDepthManager)
+        assert manager.config == config
+        assert manager.drop_path_modules == []
+        assert manager.is_enabled() is True
 
 
 def test_dropout_integration():

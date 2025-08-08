@@ -56,18 +56,13 @@ class Samudra(BaseModel):
             case _:
                 assert_never(config.checkpointing)
 
-        # going down
+        # Build dropout manager using the build() pattern (2303.01500)
+        self.dropout_manager = config.stochastic_depth.build()
+
+        # going down - encoder layers
         layers = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
-            # Calculate drop path rate for this layer (2303.01500, 2201.03545)
-            # Per-stage multipliers allow different dropout rates at different U-Net depths
-            stage_multiplier = 1.0
-            if config.stochastic_depth.per_stage_multipliers:
-                stage_multiplier = config.stochastic_depth.per_stage_multipliers[i]
-
-            drop_rate = config.stochastic_depth.drop_path_rate * stage_multiplier
-
-            # Core block
+            # Core block with dropout manager
             layers.append(
                 create_block(
                     config.core_block.block_type,
@@ -81,26 +76,16 @@ class Samudra(BaseModel):
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
                     checkpoint_simple=checkpoint_simple,
-                    # Early dropout parameters
-                    drop_path_rate=drop_rate,
-                    early_dropout_epochs=config.stochastic_depth.early_dropout_epochs,
-                    dropout_schedule=config.stochastic_depth.dropout_schedule,
-                    linear_decay=config.stochastic_depth.linear_decay_to_zero,
+                    # Dropout managed centrally
+                    dropout_manager=self.dropout_manager,
+                    layer_index=i,
                 )
             )
             # Down sampling block
             layers.append(create_downsample(config.down_sampling_block))
 
-        # Middle block - apply same dropout settings
-        middle_stage_multiplier = 1.0
-        if config.stochastic_depth.per_stage_multipliers:
-            # Use the last multiplier for middle block
-            middle_stage_multiplier = config.stochastic_depth.per_stage_multipliers[-1]
-
-        middle_drop_rate = (
-            config.stochastic_depth.drop_path_rate * middle_stage_multiplier
-        )
-
+        # Middle block (bottleneck)
+        middle_layer_index = len(ch_width) - 1  # Last encoder index
         layers.append(
             create_block(
                 config.core_block.block_type,
@@ -114,11 +99,9 @@ class Samudra(BaseModel):
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
                 checkpoint_simple=checkpoint_simple,
-                # Early dropout parameters for middle block
-                drop_path_rate=middle_drop_rate,
-                early_dropout_epochs=config.stochastic_depth.early_dropout_epochs,
-                dropout_schedule=config.stochastic_depth.dropout_schedule,
-                linear_decay=config.stochastic_depth.linear_decay_to_zero,
+                # Dropout managed centrally
+                dropout_manager=self.dropout_manager,
+                layer_index=middle_layer_index,
             )
         )
 
@@ -132,25 +115,10 @@ class Samudra(BaseModel):
         dilation.reverse()
         n_layers.reverse()
 
-        # going up
+        # going up - decoder layers
         for i, (a, b) in enumerate(pairwise(ch_width[:-1])):
-            # For decoder, we can optionally disable dropout or use reduced rates
-            # For now, apply same settings as encoder
-            decoder_stage_idx = len(ch_width) - 2 - i  # Reverse index for decoder
-            decoder_stage_multiplier = 1.0
-            if config.stochastic_depth.per_stage_multipliers:
-                # Use corresponding encoder multiplier (reversed)
-                if decoder_stage_idx < len(
-                    config.stochastic_depth.per_stage_multipliers
-                ):
-                    decoder_stage_multiplier = (
-                        config.stochastic_depth.per_stage_multipliers[decoder_stage_idx]
-                    )
-
-            decoder_drop_rate = (
-                config.stochastic_depth.drop_path_rate * decoder_stage_multiplier
-            )
-
+            # For decoder, apply symmetric dropout to encoder
+            decoder_layer_index = len(ch_width) - 2 - i  # Mirror encoder indexing
             layers.append(
                 create_block(
                     config.core_block.block_type,
@@ -164,18 +132,16 @@ class Samudra(BaseModel):
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
                     checkpoint_simple=checkpoint_simple,
-                    # Early dropout parameters for decoder
-                    drop_path_rate=decoder_drop_rate,
-                    early_dropout_epochs=config.stochastic_depth.early_dropout_epochs,
-                    dropout_schedule=config.stochastic_depth.dropout_schedule,
-                    linear_decay=config.stochastic_depth.linear_decay_to_zero,
+                    # Dropout managed centrally
+                    dropout_manager=self.dropout_manager,
+                    layer_index=decoder_layer_index,
                 )
             )
             layers.append(
                 create_upsample(config.up_sampling_block, in_channels=b, out_channels=b)
             )
 
-        # Final conv block - typically no dropout on final layer
+        # Final conv block - no dropout on final layer to preserve output quality
         layers.append(
             create_block(
                 config.core_block.block_type,
@@ -189,9 +155,8 @@ class Samudra(BaseModel):
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
                 checkpoint_simple=checkpoint_simple,
-                # No dropout on final block to preserve output quality
-                drop_path_rate=0.0,
-                early_dropout_epochs=0,
+                # No dropout manager for final layer
+                dropout_manager=None,
             )
         )
 
@@ -201,6 +166,9 @@ class Samudra(BaseModel):
         self.layers = nn.ModuleList(layers)
         self.corrector = Correctors(config.corrector, hist, area_weights, static_data)
         self.num_steps = int(len(config.ch_width) - 1)
+
+        # Register model with dropout manager for epoch tracking (2303.01500)
+        self.dropout_manager.register_model(self)
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         fts_input = fts.clone().detach()

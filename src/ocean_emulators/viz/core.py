@@ -7,8 +7,6 @@ import sys
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
-from functools import cached_property
-from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from typing import Any
 
@@ -25,257 +23,18 @@ from dask.base import compute
 from dask.delayed import delayed
 from dask.diagnostics.progress import ProgressBar
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
-from pydantic import BaseModel, Field
 from tqdm.auto import tqdm
 from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignore
 
-from ocean_emulators.config import TimeConfig
-from ocean_emulators.config_base import TopLevelConfig
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 from ocean_emulators.utils.data import spherical_area_weights, with_level_index_vars
-from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 
 
-def isnan(x: xr.DataArray) -> xr.DataArray:
-    """Wrapped around np.isnan which correctly reflects the type we use it on."""
-    return np.isnan(x)  # type: ignore
-
-
-def _combine_variables_by_level(ds, combine_vars):
-    """
-    Combine variables in the dataset along a new 'lev' dimension based on their suffix.
-
-    Parameters:
-    ds (xarray.Dataset): The input dataset containing variables with suffixes
-                        (e.g., thetao_0, so_1).
-    combine_vars (list): List of variable prefixes to combine.
-
-    Returns:
-    xarray.Dataset: The dataset with combined variables and a new 'lev' dimension.
-    """
-    for v in combine_vars:
-        level_numbers = [i for i in range(len(DEPTH_LEVELS))]
-        sorted_vars = [v + "_" + str(lev) for lev in level_numbers]
-        if sorted_vars[0] not in ds.data_vars:
-            continue
-        combined = xr.concat([ds[var] for var in sorted_vars], dim="lev")
-        combined = combined.assign_coords(lev=DEPTH_LEVELS)
-        ds[v] = combined
-        ds = ds.drop_vars(sorted_vars)
-    return ds
-
-
-def combine_variables_by_level(ds_groundtruth, pred_dict):
-    """
-    Combine variables by level for ground truth and predictions.
-
-    Parameters:
-    ds_groundtruth (xarray.Dataset): The ground truth dataset.
-    pred_dict (dict): Dictionary containing prediction datasets.
-
-    Returns:
-    xarray.Dataset, dict: Updated ground truth and prediction datasets.
-    """
-    ds_groundtruth = _combine_variables_by_level(
-        ds_groundtruth, ["thetao", "so", "uo", "vo", "mask"]
-    )
-    for key in pred_dict.keys():
-        pred_dict[key]["ds_prediction"] = _combine_variables_by_level(
-            pred_dict[key]["ds_prediction"], pred_dict[key]["ls"]
-        )
-    return ds_groundtruth, pred_dict
-
-
-def _postprocess_for_plot(ds, areacello: np.ndarray, dz, times, wetmask, coords=None):
-    """
-    Postprocess the dataset to make it compatible with plotting functions.
-    """
-    ds = ds.transpose("time", "lev", ...)
-    ds["time"] = times
-    if coords is not None:
-        ds = ds.assign_coords(coords)
-    if "thetao" in ds.data_vars:
-        ds["thetao"] = ds["thetao"].assign_attrs(
-            long_name=r"${\theta_O}$", units=r"$\degree C$"
-        )
-    if "so" in ds.data_vars:
-        ds["so"] = ds["so"].assign_attrs(long_name=r"${s}$", units=r"psu")
-    if "zos" in ds.data_vars:
-        ds["zos"] = ds["zos"].assign_attrs(long_name=r"SSH", units=r"m")
-    if "vo" in ds.data_vars:
-        ds["vo"] = ds["vo"].assign_attrs(long_name=r"${v}$", units=r"m/s")
-    if "uo" in ds.data_vars:
-        ds["uo"] = ds["uo"].assign_attrs(long_name=r"${u}$", units=r"m/s")
-
-    ds["lev"] = ds["lev"].assign_attrs(long_name="depth", units="m")
-    if "init_time" in ds.coords:
-        ds = ds.drop(["init_time", "valid_time"])
-
-    for var in ds.data_vars:
-        if "lev" in ds[var].dims:
-            ds[var] = ds[var].where(wetmask)
-        else:
-            ds[var] = ds[var].where(wetmask.isel(lev=0))
-
-    ds["areacello"] = (["lat", "lon"], areacello)
-    ds["dz"] = ("lev", dz)
-    return ds
-
-
-def postprocess_for_plot(
-    ds_groundtruth, areacello: xr.DataArray, dz: np.ndarray, pred_dict
-):
-    """
-    Postprocess for plotting.
-
-    Parameters:
-    ds_groundtruth (xarray.Dataset): The ground truth dataset.
-    areacello (xarray.DataArray): areacello dataarray.
-    pred_dict (dict): Dictionary containing prediction datasets.
-
-    Returns:
-    xarray.Dataset, dict: Postprocessed ground truth and prediction datasets.
-    """
-    areacello_values = areacello.values
-    times = ds_groundtruth.time
-
-    # Masking land with NaNs
-    if "mask" in ds_groundtruth.data_vars:
-        wetmask = ds_groundtruth["mask"].isel(
-            time=0, missing_dims="ignore"
-        )  # our data does not always have time for a mask
-    else:
-        wetmask = ds_groundtruth.wetmask
-
-    ds_groundtruth = _postprocess_for_plot(
-        ds_groundtruth, areacello_values, dz, times, wetmask
-    )
-    coords = ds_groundtruth.coords
-
-    for key in pred_dict.keys():
-        pred_dict[key]["ds_prediction"] = _postprocess_for_plot(
-            pred_dict[key]["ds_prediction"],
-            areacello_values,
-            dz,
-            times,
-            wetmask,
-            coords=coords,
-        )
-        # Rename lat and lon to y and x
-        pred_dict[key]["ds_prediction"] = pred_dict[key]["ds_prediction"].rename(
-            {"lat": "y", "lon": "x"}
-        )
-
-    # Rename lat and lon to y and x (This needs to be done in the end!)
-    ds_groundtruth = ds_groundtruth.rename({"lat": "y", "lon": "x"})
-
-    return ds_groundtruth, pred_dict
-
-
-def process_data(data, pred_dict):
-    """
-    Get plot ready OM4 data.
-    """
-    ds_groundtruth = with_level_index_vars(data)
-
-    # Store ds_prediction
-    copy_dict = deepcopy(pred_dict)
-
-    for key in pred_dict.keys():
-        ds_prediction = pred_dict[key]["data"]
-
-        assert ds_prediction.time.size == ds_groundtruth.time.size, (
-            f"Sizes different for {key}: {ds_prediction.time.size}!="
-            f"{ds_groundtruth.time.size}; prediction range is "
-            f"{ds_prediction.time.values[0]} to "
-            f"{ds_prediction.time.values[-1]}\n"
-            f"groundtruth range is {ds_groundtruth.time.values[0]} to "
-            f"{ds_groundtruth.time.values[-1]}"
-        )
-        if "model_path" in ds_prediction.attrs:
-            copy_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
-
-        pred_dict[key]["ds_prediction"] = ds_prediction
-
-    ### Combine Variables by level
-    ds_groundtruth, pred_dict = combine_variables_by_level(ds_groundtruth, pred_dict)
-
-    ### Postprocess predictions for plotting
-    ds_groundtruth, pred_dict = postprocess_for_plot(
-        ds_groundtruth,
-        ds_groundtruth.areacello,
-        np.array(DEPTH_THICKNESS),
-        pred_dict,
-    )
-
-    return ds_groundtruth, pred_dict
-
-
-def remove_climatology(ds):
-    # Compute the climatology on the detrended data
-    climatology = ds.groupby("time.dayofyear").mean("time").compute()
-
-    # Remove the seasonal cycle (climatology) from the detrended data
-    day_of_year = ds["time"].dt.dayofyear
-    res = (ds - climatology.sel(dayofyear=day_of_year)).compute()
-
-    return res
-
-
-def process_mask(data, mask):
-    mask = mask.where(mask != 0, np.nan)
-    mask = mask.transpose("lat", "lon")
-    mask = mask.assign_coords(lat=data.y.values, lon=data.x.values)
-    mask = mask.rename({"lat": "y", "lon": "x"})
-    return mask
-
-
-def profile_mean(ds: xr.Dataset) -> xr.Dataset:
-    """
-    Compute the mean of each variable for each time step.
-    """
-    return ds.weighted(ds.areacello).mean(["y", "x"])
-
-
-def get_basin_datasets(ds, basin_masks, data):
-    da_temp = ds * basin_masks["Atlantic"]
-    section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
-    At = da_temp_int_x.where(~section_mask)
-
-    da_temp = ds * basin_masks["Indian"]
-    section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
-    In = da_temp_int_x.where(~section_mask)
-
-    da_temp = ds * basin_masks["Pacific"]
-    section_mask = np.isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
-    Pa = da_temp_int_x.where(~section_mask)
-
-    da_temp = ds * basin_masks["Southern"]
-    section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
-    So = da_temp_int_x.where(~section_mask)
-
-    da_temp = ds * basin_masks["Arctic"]
-    section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
-    Ar = da_temp_int_x.where(~section_mask)
-
-    da_temp = ds
-    section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
-    Gl = da_temp_int_x.where(~section_mask)
-
-    return [At, In, Pa, So, Ar, Gl], [
-        "Atlantic",
-        "Indian",
-        "Pacific",
-        "Southern",
-        "Arctic",
-        "Global",
-    ]
+@dataclasses.dataclass
+class VizRun:
+    name: str
+    data: xr.Dataset
+    variables: list[str]
 
 
 class Viz:
@@ -4004,79 +3763,243 @@ class Viz:
             )
 
 
-@dataclasses.dataclass
-class VizRun:
-    name: str
-    data: xr.Dataset
-    variables: list[str]
+def isnan(x: xr.DataArray) -> xr.DataArray:
+    """Wrapped around np.isnan which correctly reflects the type we use it on."""
+    return np.isnan(x)  # type: ignore
 
 
-class VizRunConfig(BaseModel):
-    name: str
-    location: Location
-    variables: list[str] = Field(
-        default_factory=lambda: ["thetao", "so", "uo", "vo", "tos", "zos"]
+def _combine_variables_by_level(ds, combine_vars):
+    """
+    Combine variables in the dataset along a new 'lev' dimension based on their suffix.
+
+    Parameters:
+    ds (xarray.Dataset): The input dataset containing variables with suffixes
+                        (e.g., thetao_0, so_1).
+    combine_vars (list): List of variable prefixes to combine.
+
+    Returns:
+    xarray.Dataset: The dataset with combined variables and a new 'lev' dimension.
+    """
+    for v in combine_vars:
+        level_numbers = [i for i in range(len(DEPTH_LEVELS))]
+        sorted_vars = [v + "_" + str(lev) for lev in level_numbers]
+        if sorted_vars[0] not in ds.data_vars:
+            continue
+        combined = xr.concat([ds[var] for var in sorted_vars], dim="lev")
+        combined = combined.assign_coords(lev=DEPTH_LEVELS)
+        ds[v] = combined
+        ds = ds.drop_vars(sorted_vars)
+    return ds
+
+
+def combine_variables_by_level(ds_groundtruth, pred_dict):
+    """
+    Combine variables by level for ground truth and predictions.
+
+    Parameters:
+    ds_groundtruth (xarray.Dataset): The ground truth dataset.
+    pred_dict (dict): Dictionary containing prediction datasets.
+
+    Returns:
+    xarray.Dataset, dict: Updated ground truth and prediction datasets.
+    """
+    ds_groundtruth = _combine_variables_by_level(
+        ds_groundtruth, ["thetao", "so", "uo", "vo", "mask"]
     )
-
-    def build(self, data_root: ResolvedLocation) -> "VizRun":
-        return VizRun(
-            name=self.name,
-            data=data_root.resolve(self.location).open(chunks={}),
-            variables=self.variables,
+    for key in pred_dict.keys():
+        pred_dict[key]["ds_prediction"] = _combine_variables_by_level(
+            pred_dict[key]["ds_prediction"], pred_dict[key]["ls"]
         )
+    return ds_groundtruth, pred_dict
 
 
-class VizConfig(TopLevelConfig):
-    base_output_dir: Path
-    name: str
-    dataset_name: str
-    runs: list[VizRunConfig]
-    data_root: Location | None = None
-    groundtruth_location: Location
-    basins_location: Location
-    # TODO(jder): we could extract this from the run data?
-    groundtruth_time_range: TimeConfig = Field(
-        description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
-    )
+def _postprocess_for_plot(ds, areacello: np.ndarray, dz, times, wetmask, coords=None):
+    """
+    Postprocess the dataset to make it compatible with plotting functions.
+    """
+    ds = ds.transpose("time", "lev", ...)
+    ds["time"] = times
+    if coords is not None:
+        ds = ds.assign_coords(coords)
+    if "thetao" in ds.data_vars:
+        ds["thetao"] = ds["thetao"].assign_attrs(
+            long_name=r"${\theta_O}$", units=r"$\degree C$"
+        )
+    if "so" in ds.data_vars:
+        ds["so"] = ds["so"].assign_attrs(long_name=r"${s}$", units=r"psu")
+    if "zos" in ds.data_vars:
+        ds["zos"] = ds["zos"].assign_attrs(long_name=r"SSH", units=r"m")
+    if "vo" in ds.data_vars:
+        ds["vo"] = ds["vo"].assign_attrs(long_name=r"${v}$", units=r"m/s")
+    if "uo" in ds.data_vars:
+        ds["uo"] = ds["uo"].assign_attrs(long_name=r"${u}$", units=r"m/s")
 
-    @cached_property
-    def output_path(self) -> Path:
-        return Path(self.base_output_dir) / self.name
+    ds["lev"] = ds["lev"].assign_attrs(long_name="depth", units="m")
+    if "init_time" in ds.coords:
+        ds = ds.drop(["init_time", "valid_time"])
 
-    def build(self, default_root: ResolvedLocation) -> "Viz":
-        if self.data_root is None:
-            data_root = default_root
+    for var in ds.data_vars:
+        if "lev" in ds[var].dims:
+            ds[var] = ds[var].where(wetmask)
         else:
-            data_root = default_root.resolve(self.data_root)
+            ds[var] = ds[var].where(wetmask.isel(lev=0))
 
-        groundtruth_rollout = data_root.resolve(self.groundtruth_location).open(
-            chunks={}
+    ds["areacello"] = (["lat", "lon"], areacello)
+    ds["dz"] = ("lev", dz)
+    return ds
+
+
+def postprocess_for_plot(
+    ds_groundtruth, areacello: xr.DataArray, dz: np.ndarray, pred_dict
+):
+    """
+    Postprocess for plotting.
+
+    Parameters:
+    ds_groundtruth (xarray.Dataset): The ground truth dataset.
+    areacello (xarray.DataArray): areacello dataarray.
+    pred_dict (dict): Dictionary containing prediction datasets.
+
+    Returns:
+    xarray.Dataset, dict: Postprocessed ground truth and prediction datasets.
+    """
+    areacello_values = areacello.values
+    times = ds_groundtruth.time
+
+    # Masking land with NaNs
+    if "mask" in ds_groundtruth.data_vars:
+        wetmask = ds_groundtruth["mask"].isel(
+            time=0, missing_dims="ignore"
+        )  # our data does not always have time for a mask
+    else:
+        wetmask = ds_groundtruth.wetmask
+
+    ds_groundtruth = _postprocess_for_plot(
+        ds_groundtruth, areacello_values, dz, times, wetmask
+    )
+    coords = ds_groundtruth.coords
+
+    for key in pred_dict.keys():
+        pred_dict[key]["ds_prediction"] = _postprocess_for_plot(
+            pred_dict[key]["ds_prediction"],
+            areacello_values,
+            dz,
+            times,
+            wetmask,
+            coords=coords,
+        )
+        # Rename lat and lon to y and x
+        pred_dict[key]["ds_prediction"] = pred_dict[key]["ds_prediction"].rename(
+            {"lat": "y", "lon": "x"}
         )
 
-        return Viz(
-            # TODO(jder): change to Path
-            str(self.output_path),
-            self.dataset_name,
-            [run.build(data_root) for run in self.runs],
-            data_root.resolve(self.basins_location).open(),
-            groundtruth_rollout,
-            self.groundtruth_time_range.time_slice,
+    # Rename lat and lon to y and x (This needs to be done in the end!)
+    ds_groundtruth = ds_groundtruth.rename({"lat": "y", "lon": "x"})
+
+    return ds_groundtruth, pred_dict
+
+
+def process_data(data, pred_dict):
+    """
+    Get plot ready OM4 data.
+    """
+    ds_groundtruth = with_level_index_vars(data)
+
+    # Store ds_prediction
+    copy_dict = deepcopy(pred_dict)
+
+    for key in pred_dict.keys():
+        ds_prediction = pred_dict[key]["data"]
+
+        assert ds_prediction.time.size == ds_groundtruth.time.size, (
+            f"Sizes different for {key}: {ds_prediction.time.size}!="
+            f"{ds_groundtruth.time.size}; prediction range is "
+            f"{ds_prediction.time.values[0]} to "
+            f"{ds_prediction.time.values[-1]}\n"
+            f"groundtruth range is {ds_groundtruth.time.values[0]} to "
+            f"{ds_groundtruth.time.values[-1]}"
         )
+        if "model_path" in ds_prediction.attrs:
+            copy_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
+
+        pred_dict[key]["ds_prediction"] = ds_prediction
+
+    ### Combine Variables by level
+    ds_groundtruth, pred_dict = combine_variables_by_level(ds_groundtruth, pred_dict)
+
+    ### Postprocess predictions for plotting
+    ds_groundtruth, pred_dict = postprocess_for_plot(
+        ds_groundtruth,
+        ds_groundtruth.areacello,
+        np.array(DEPTH_THICKNESS),
+        pred_dict,
+    )
+
+    return ds_groundtruth, pred_dict
 
 
-def main(cfg: VizConfig):
-    # TODO(jder): set up and use logging for all this, tee to file, maybe wandb?
+def remove_climatology(ds):
+    # Compute the climatology on the detrended data
+    climatology = ds.groupby("time.dayofyear").mean("time").compute()
 
-    print(f"Writing results to {cfg.output_path}")
-    cfg.output_path.mkdir(parents=True, exist_ok=True)
-    cfg.save_yaml(cfg.output_path / "config.yaml")
+    # Remove the seasonal cycle (climatology) from the detrended data
+    day_of_year = ds["time"].dt.dayofyear
+    res = (ds - climatology.sel(dayofyear=day_of_year)).compute()
 
-    viz = cfg.build(LocalLocation(path=Path.cwd()))
-
-    # TODO(jder): would be nice to specify which plots to make,
-    # parallelize, re-run just needed plots on errors, etc.
-    viz.run()
+    return res
 
 
-if __name__ == "__main__":
-    main(VizConfig.from_yaml_and_cli())
+def process_mask(data, mask):
+    mask = mask.where(mask != 0, np.nan)
+    mask = mask.transpose("lat", "lon")
+    mask = mask.assign_coords(lat=data.y.values, lon=data.x.values)
+    mask = mask.rename({"lat": "y", "lon": "x"})
+    return mask
+
+
+def profile_mean(ds: xr.Dataset) -> xr.Dataset:
+    """
+    Compute the mean of each variable for each time step.
+    """
+    return ds.weighted(ds.areacello).mean(["y", "x"])
+
+
+def get_basin_datasets(ds, basin_masks, data):
+    da_temp = ds * basin_masks["Atlantic"]
+    section_mask = isnan(da_temp).all("x")
+    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    At = da_temp_int_x.where(~section_mask)
+
+    da_temp = ds * basin_masks["Indian"]
+    section_mask = isnan(da_temp).all("x")
+    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    In = da_temp_int_x.where(~section_mask)
+
+    da_temp = ds * basin_masks["Pacific"]
+    section_mask = np.isnan(da_temp).all("x")
+    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    Pa = da_temp_int_x.where(~section_mask)
+
+    da_temp = ds * basin_masks["Southern"]
+    section_mask = isnan(da_temp).all("x")
+    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    So = da_temp_int_x.where(~section_mask)
+
+    da_temp = ds * basin_masks["Arctic"]
+    section_mask = isnan(da_temp).all("x")
+    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    Ar = da_temp_int_x.where(~section_mask)
+
+    da_temp = ds
+    section_mask = isnan(da_temp).all("x")
+    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    Gl = da_temp_int_x.where(~section_mask)
+
+    return [At, In, Pa, So, Ar, Gl], [
+        "Atlantic",
+        "Indian",
+        "Pacific",
+        "Southern",
+        "Arctic",
+        "Global",
+    ]

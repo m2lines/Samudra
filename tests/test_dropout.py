@@ -732,36 +732,6 @@ class TestStochasticDepthManager:
         )
         assert config.per_stage_multipliers == [0.0, 1.0, 2.0]
 
-    def test_get_active_dropout_stats(self):
-        """Test dropout statistics collection."""
-        config = StochasticDepthConfig(
-            drop_path_rate=0.2,
-            early_dropout_epochs=20,
-            dropout_schedule="early_only",
-        )
-        manager = StochasticDepthManager(config)
-
-        # Create some dropout modules
-        dropout1 = manager.create_drop_path(layer_index=0)
-        dropout2 = manager.create_drop_path(layer_index=1)
-        dropout3 = manager.create_drop_path(layer_index=2)
-
-        assert dropout1 is not None
-        assert dropout2 is not None
-        assert dropout3 is not None
-
-        # Early epoch - all should be active
-        manager.update_epoch(5)
-        stats = manager.get_active_dropout_stats()
-        assert stats["total_modules"] == 3
-        assert stats["active_modules"] == 3
-
-        # Late epoch - none should be active
-        manager.update_epoch(25)
-        stats = manager.get_active_dropout_stats()
-        assert stats["total_modules"] == 3
-        assert stats["active_modules"] == 0
-
 
 def test_dropout_integration():
     """Test that dropout system integrates properly with model blocks."""

@@ -362,6 +362,7 @@ class Trainer:
 
         # Training
         self.epochs = cfg.epochs
+        self.kill_after_n_epochs = cfg.kill_after_n_epochs
         self.test_using_ema = cfg.test_using_ema
         self.hist: int = cfg.data.hist
         self.steps = cfg.steps
@@ -471,6 +472,18 @@ class Trainer:
             if epoch == self.start_epoch or epoch in self.step_transition:
                 cur_step = self.get_current_step(epoch)
                 self.init_data_loaders(cur_step)
+
+            # Kill switch: if set, it will stop training after N epochs
+            if (
+                self.kill_after_n_epochs is not None
+                and epoch >= self.kill_after_n_epochs
+            ):
+                logger.warning(f"Killing after {epoch} epochs.")
+                total_time = time.perf_counter() - start_time
+                total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+                logger.info(f"Training time {total_time_str}")
+                self.finish()
+                return
 
             if isinstance(self.train_sampler, DistributedSampler):
                 self.train_sampler.set_epoch(epoch)

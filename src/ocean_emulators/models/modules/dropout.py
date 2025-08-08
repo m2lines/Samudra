@@ -77,8 +77,12 @@ class ScheduledDepthDropout(nn.Module):
         # Standard stochastic depth implementation (1603.09382)
         # During training: randomly drop layers, during inference: scale by survival probability
         keep_prob = 1 - current_drop_prob
+
+        # Create random tensor with shape (batch_size, 1, 1, ...) to broadcast properly
+        # This works for any number of dimensions
+        mask_shape = (x.shape[0],) + (1,) * (x.ndim - 1)
         random_tensor = keep_prob + torch.rand(
-            (x.shape[0], 1, 1, 1), dtype=x.dtype, device=x.device
+            mask_shape, dtype=x.dtype, device=x.device
         )
         binary_mask = torch.floor(random_tensor)
         return x.div(keep_prob) * binary_mask

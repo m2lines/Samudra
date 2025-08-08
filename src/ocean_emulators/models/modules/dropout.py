@@ -47,25 +47,26 @@ class EarlyDropPath(nn.Module):
         if self.base_drop_prob == 0.0 or self.early_epochs == 0:
             return 0.0
 
-        if self.schedule == "early_only":
-            if self.current_epoch >= self.early_epochs:
-                return 0.0  # No dropout after early period
+        match self.schedule:
+            case "early_only":
+                if self.current_epoch >= self.early_epochs:
+                    return 0.0  # No dropout after early period
 
-            if self.linear_decay:
-                # Linear decay from base_drop_prob to 0 over early_dropout_epochs
-                decay_factor = 1.0 - (self.current_epoch / self.early_epochs)
-                return self.base_drop_prob * decay_factor
-            else:
-                # Constant rate during early period
+                if self.linear_decay:
+                    # Linear decay from base_drop_prob to 0 over early_dropout_epochs
+                    decay_factor = 1.0 - (self.current_epoch / self.early_epochs)
+                    return self.base_drop_prob * decay_factor
+                else:
+                    # Constant rate during early period
+                    return self.base_drop_prob
+
+            case "late_only":
+                if self.current_epoch < self.early_epochs:
+                    return 0.0  # No dropout during early period
                 return self.base_drop_prob
 
-        elif self.schedule == "late_only":
-            if self.current_epoch < self.early_epochs:
-                return 0.0  # No dropout during early period
-            return self.base_drop_prob
-
-        else:  # constant
-            return self.base_drop_prob
+            case _:
+                return self.base_drop_prob
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         current_drop_prob = self.get_current_drop_prob()

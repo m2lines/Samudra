@@ -9,6 +9,7 @@ from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, LoaderVersion
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
+from ocean_emulators.utils.dropout import StochasticDepthManager
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
@@ -224,6 +225,10 @@ class StochasticDepthConfig(BaseConfig):
 
     # Optional: per-stage rates for spatial variation (inspired by 2201.03545)
     per_stage_multipliers: list[float] | None = None  # e.g., [0.5, 1.0, 1.5, 2.0]
+
+    def build(self):
+        """Build a StochasticDepthManager from this configuration."""
+        return StochasticDepthManager(self)
 
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]

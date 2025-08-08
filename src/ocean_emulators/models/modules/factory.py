@@ -1,5 +1,3 @@
-from typing import Literal
-
 import torch.nn as nn
 
 from ocean_emulators.models.modules.activations import CappedGELU, ReLU
@@ -11,7 +9,6 @@ from ocean_emulators.models.modules.blocks import (
     MaxPool,
     TransposedConvUpsample,
 )
-from ocean_emulators.models.modules.dropout import EarlyDropPath
 
 BLOCK_REGISTRY = {
     "conv_block": ConvBlock,
@@ -36,10 +33,8 @@ ACTIVATION_REGISTRY = {
 
 def create_block(
     block_type: str,
-    drop_path_rate: float = 0.0,
-    early_dropout_epochs: int = 0,
-    dropout_schedule: Literal["early_only", "late_only", "constant"] = "early_only",
-    linear_decay: bool = True,
+    dropout_manager=None,  # StochasticDepthManager | None
+    layer_index: int = 0,
     **kwargs,
 ) -> nn.Module:
     """A UNet block factory that supports stochastic depth dropout."""
@@ -48,18 +43,11 @@ def create_block(
 
     block = BLOCK_REGISTRY[block_type](**kwargs)
 
-    # Add early dropout if specified and block supports it
-    if (
-        drop_path_rate > 0.0
-        and early_dropout_epochs > 0
-        and isinstance(block, (ConvNeXtBlock, ConvBlock))
-    ):
-        block.drop_path = EarlyDropPath(
-            drop_prob=drop_path_rate,
-            early_epochs=early_dropout_epochs,
-            schedule=dropout_schedule,
-            linear_decay=linear_decay,
-        )
+    # Apply dropout if supported (2303.01500)
+    if dropout_manager is not None and isinstance(block, (ConvNeXtBlock, ConvBlock)):
+        drop_path = dropout_manager.create_drop_path(layer_index)
+        if drop_path is not None:
+            block.drop_path = drop_path
 
     return block
 

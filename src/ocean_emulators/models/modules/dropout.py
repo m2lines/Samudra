@@ -1,7 +1,11 @@
+import logging
+
 import torch
 import torch.nn as nn
 
 from ocean_emulators.config import DropoutSchedule
+
+logger = logging.getLogger(__name__)
 
 
 class ScheduledDepthDropout(nn.Module):
@@ -46,6 +50,11 @@ class ScheduledDepthDropout(nn.Module):
         """
         if self.base_drop_prob == 0.0 or self.early_epochs == 0:
             return 0.0
+
+        if self.schedule != "early_only" and self.linear_decay:
+            logger.warning(
+                f"'linear_decay' not supported for '{self.schedule}' dropout."
+            )
 
         match self.schedule:
             case "early_only":

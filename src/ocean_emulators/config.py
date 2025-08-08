@@ -4,7 +4,13 @@ from typing import Annotated, Any, Literal, Self
 
 import cftime
 import torch
-from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
+from pydantic import (
+    Field,
+    PlainSerializer,
+    PlainValidator,
+    WithJsonSchema,
+    field_validator,
+)
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, LoaderVersion
@@ -228,6 +234,14 @@ class StochasticDepthConfig(BaseConfig):
 
     # Optional: per-stage rates for spatial variation (inspired by 2201.03545)
     per_stage_multipliers: list[float] | None = None  # e.g., [0.5, 1.0, 1.5, 2.0]
+
+    @field_validator("per_stage_multipliers")
+    @classmethod
+    def validate_multipliers(cls, v: list[float] | None) -> list[float] | None:
+        """Validate that stage multipliers are non-negative."""
+        if v is not None and any(m < 0 for m in v):
+            raise ValueError("Stage multipliers must be non-negative")
+        return v
 
     def build(self):
         """Build a StochasticDepthManager from this configuration."""

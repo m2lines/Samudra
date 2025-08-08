@@ -204,17 +204,25 @@ class CorrectorConfig(BaseConfig):
 
 
 class StochasticDepthConfig(BaseConfig):
-    # Early dropout settings (main focus)
+    """Configuration for early dropout and stochastic depth.
+
+    Based on:
+    - "Early Dropout: Dropping layers to reduce underfitting" (2303.01500)
+    - "Deep Networks with Stochastic Depth" (1603.09382)
+    - "A ConvNet for the 2020s" (2201.03545)
+    """
+
+    # Early dropout settings (2303.01500)
     drop_path_rate: float = 0.0  # Peak drop rate during early training
     early_dropout_epochs: int = 0  # Apply for first N epochs (0 = disabled)
     dropout_schedule: Literal["early_only", "late_only", "constant"] = "early_only"
 
-    # Optional: Linear decay within early period
+    # Optional: Linear decay within early period (2303.01500)
     linear_decay_to_zero: bool = (
         False  # Decay from drop_path_rate to 0 over early_dropout_epochs
     )
 
-    # Optional: per-stage rates (for spatial variation)
+    # Optional: per-stage rates for spatial variation (inspired by 2201.03545)
     per_stage_multipliers: list[float] | None = None  # e.g., [0.5, 1.0, 1.5, 2.0]
 
 

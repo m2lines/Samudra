@@ -59,7 +59,8 @@ class Samudra(BaseModel):
         # going down
         layers = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
-            # Calculate drop path rate for this layer
+            # Calculate drop path rate for this layer (2303.01500, 2201.03545)
+            # Per-stage multipliers allow different dropout rates at different U-Net depths
             stage_multiplier = 1.0
             if config.stochastic_depth.per_stage_multipliers:
                 stage_multiplier = config.stochastic_depth.per_stage_multipliers[i]

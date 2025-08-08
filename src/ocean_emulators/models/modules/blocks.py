@@ -132,10 +132,10 @@ class ConvBlock(CoreBlock):
             else:
                 fts = layer(fts)
 
-        # Apply stochastic depth: for non-residual blocks, we can drop the entire transformation
+        # Apply stochastic depth to non-residual blocks (adapted from 1603.09382)
         if hasattr(self, "drop_path"):
             # For non-residual blocks, drop_path will either return the transformed features
-            # or zero them out, effectively making this layer an identity
+            # or zero them out, effectively making this layer an identity when dropped
             transformation = fts - input_fts  # Get the transformation
             dropped_transformation = self.drop_path(transformation)
             fts = input_fts + dropped_transformation
@@ -250,7 +250,7 @@ class ConvNeXtBlock(CoreBlock):
             else:
                 x = layer(x)
 
-        # Apply stochastic depth to the residual path before adding skip
+        # Apply stochastic depth to the residual path before adding skip (1603.09382, 2201.03545)
         if hasattr(self, "drop_path"):
             x = self.drop_path(x)
 

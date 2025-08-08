@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754678267344,
+  "lastUpdate": 1754678705796,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3216,6 +3216,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.17918772697627341",
             "extra": "mean: 77.78460959960003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "67dcd0676a9a6bef712c6d29ee0abeb6220c98b7",
+          "message": "Add a scheduler which can run a cosine schedule followed by a flat tail (#334)\n\nTo try extending the behavior seen greatly improving loss at low\nlearning rates from [this\nrun](https://openathena.slack.com/archives/C08CYM42DT3/p1753308638843249?thread_ts=1752275713.570969&cid=C08CYM42DT3).",
+          "timestamp": "2025-08-08T18:19:36Z",
+          "tree_id": "5aef0b8e92659742f4e1c09d7a901ae43089f905",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/67dcd0676a9a6bef712c6d29ee0abeb6220c98b7"
+        },
+        "date": 1754678704939,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2972799664223447,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02088998883185652",
+            "extra": "mean: 770.843631199989 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07273211779713577,
+            "unit": "iter/sec",
+            "range": "stddev: 0.34575121551448756",
+            "extra": "mean: 13.749084040000008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18582482438250822,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1423458553849846",
+            "extra": "mean: 5.381412323799998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013546098233727759,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18081139360215046",
+            "extra": "mean: 73.82199528939998 sec\nrounds: 5"
           }
         ]
       }

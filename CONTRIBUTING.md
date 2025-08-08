@@ -200,6 +200,12 @@ uv run -m ocean_emulators.viz configs/viz_om4.yaml --data_root path/to/data --na
 
 You can run `uv run -m ocean_emulators.viz --help` to see all the options available.
 
+After making changes to the visualization code, you can run the following command to compare old and new plots:
+
+```bash
+uv run -m ocean_emulators.utils.compare path/to/old/viz path/to/new/viz
+```
+
 ## Configuration
 
 ### Configuration files

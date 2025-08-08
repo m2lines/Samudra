@@ -95,17 +95,3 @@ class StochasticDepthManager:
     def is_enabled(self) -> bool:
         """Check if dropout is enabled in this configuration."""
         return self.config.drop_path_rate > 0.0 and self.config.early_dropout_epochs > 0
-
-    def get_active_dropout_stats(self) -> dict[str, int]:
-        """Return statistics about currently active dropout modules.
-
-        Returns:
-            Dictionary with 'total_modules' and 'active_modules' counts.
-        """
-        active_modules = sum(
-            1 for module in self.drop_path_modules if module.get_current_drop_prob() > 0
-        )
-        return {
-            "total_modules": len(self.drop_path_modules),
-            "active_modules": active_modules,
-        }

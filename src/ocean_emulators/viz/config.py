@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 from ocean_emulators.config import TimeConfig
 from ocean_emulators.config_base import TopLevelConfig
-from ocean_emulators.utils.location import Location, ResolvedLocation
+from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.viz.core import Viz, VizRun
 
 
@@ -60,3 +60,17 @@ class VizConfig(TopLevelConfig):
             groundtruth_rollout,
             self.groundtruth_time_range.time_slice,
         )
+
+
+def main(cfg: VizConfig):
+    # TODO(jder): set up and use logging for all this, tee to file, maybe wandb?
+
+    print(f"Writing results to {cfg.output_path}")
+    cfg.output_path.mkdir(parents=True, exist_ok=True)
+    cfg.save_yaml(cfg.output_path / "config.yaml")
+
+    viz = cfg.build(LocalLocation(path=Path.cwd()))
+
+    # TODO(jder): would be nice to specify which plots to make,
+    # parallelize, re-run just needed plots on errors, etc.
+    viz.run()

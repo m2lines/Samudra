@@ -1,6 +1,8 @@
 # %%
 """
-Regrid all basin data to match the grid from om4.zarr using a KDTree.
+Regrid all basin data to match higher resolution data using a KDTree.
+
+Was used to create emulators/jr7309/basins/basin_masks_regridded.zarr for half-degree resolution.
 
 This script:
 1. Loads all basin files from BASINS_PATH

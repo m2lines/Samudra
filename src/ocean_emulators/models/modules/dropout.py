@@ -22,6 +22,24 @@ class ScheduledDepthDropout(nn.Module):
       https://arxiv.org/abs/1603.09382
     - "A ConvNet for the 2020s" (2201.03545)
       https://arxiv.org/abs/2201.03545
+
+    Examples:
+        Early dropout that decays linearly over 20 epochs:
+        >>> dropout = ScheduledDepthDropout(
+        ...     drop_prob=0.2, early_epochs=20,
+        ...     schedule="early_only", linear_decay=True
+        ... )
+
+        Constant dropout throughout training:
+        >>> dropout = ScheduledDepthDropout(
+        ...     drop_prob=0.1, schedule="constant"
+        ... )
+
+        Late dropout starting after warmup period:
+        >>> dropout = ScheduledDepthDropout(
+        ...     drop_prob=0.15, early_epochs=30,
+        ...     schedule="late_only"
+        ... )
     """
 
     def __init__(
@@ -37,6 +55,11 @@ class ScheduledDepthDropout(nn.Module):
         self.schedule = schedule
         self.linear_decay = linear_decay
         self.current_epoch = 0  # Will be set by training loop
+
+        logger.debug(
+            f"Created ScheduledDepthDropout with schedule={schedule}, "
+            f"drop_prob={drop_prob}, early_epochs={early_epochs}"
+        )
 
     def set_epoch(self, epoch: int):
         """Called by training loop to update current epoch."""

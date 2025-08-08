@@ -220,6 +220,19 @@ class StochasticDepthConfig(BaseConfig):
     - "Early Dropout: Dropping layers to reduce underfitting" (2303.01500)
     - "Deep Networks with Stochastic Depth" (1603.09382)
     - "A ConvNet for the 2020s" (2201.03545)
+
+    Examples:
+        Early dropout that decays linearly over 20 epochs:
+        >>> config = StochasticDepthConfig(
+        ...     drop_path_rate=0.2, early_dropout_epochs=20,
+        ...     dropout_schedule="early_only", linear_decay_to_zero=True
+        ... )
+
+        Late dropout with constant rate:
+        >>> config = StochasticDepthConfig(
+        ...     drop_path_rate=0.1, early_dropout_epochs=30,
+        ...     dropout_schedule="late_only"
+        ... )
     """
 
     # Early dropout settings (2303.01500)

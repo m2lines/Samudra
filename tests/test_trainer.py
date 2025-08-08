@@ -110,3 +110,27 @@ def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
     with MultitonScope():
         with pytest.raises(ValueError, match="Training time range.*"):
             Trainer(train_config)
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name,extra_config_args",
+    [
+        (
+            "remote-om4",
+            "train_default_2step.test.yaml",
+            [
+                "--kill_after_n_epochs",
+                "1",
+                "--epochs",
+                "10",
+            ],
+        ),
+    ],
+    indirect=True,
+)
+def test_trainer__kill_switch(train_config, caplog):
+    caplog.set_level(logging.INFO)
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.run()

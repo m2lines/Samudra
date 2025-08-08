@@ -1,0 +1,8 @@
+# Core early dropout settings
+drop_path_rate: 0.15          # 15% peak dropout rate (paper recommends 0.1-0.2)
+early_dropout_epochs: 30      # Apply dropout for first 30 epochs
+dropout_schedule: "early_only"  # Only apply during early training
+linear_decay_to_zero: true    # Linear decay from 0.15 to 0 over 30 epochs
+
+# Optional: Different rates per stage (encoder progression)
+per_stage_multipliers: [0.5, 0.8, 1.0, 1.2]  # Lighter at shallow, heavier at deep layers

@@ -77,6 +77,9 @@ samudra:
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"
 
+  #  # Early Dropout Configuration
+  #  stochastic_depth: !include early_dropout.yaml
+
   corrector:
     non_negative_corrector_names: null
     ocean_heat_corrector: false

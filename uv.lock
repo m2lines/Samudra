@@ -2697,7 +2697,6 @@ dev = [
     { name = "pytest" },
     { name = "pytest-benchmark", extra = ["histogram"] },
     { name = "pytest-profiling" },
-    { name = "pytest-timeout" },
     { name = "s3fs" },
     { name = "scalene" },
     { name = "snakeviz" },
@@ -2753,7 +2752,6 @@ dev = [
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-benchmark", extras = ["histogram"], specifier = ">=5.1" },
     { name = "pytest-profiling", specifier = ">=1.8.1" },
-    { name = "pytest-timeout", specifier = ">=2.4" },
     { name = "s3fs", specifier = ">=2025.3" },
     { name = "scalene", specifier = ">=1.5.51" },
     { name = "snakeviz", specifier = ">=2.2.2" },
@@ -3534,18 +3532,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/44/74/806cafd6f2108d37979ec71e73b2ff7f7db88eabd19d3b79c5d6cc229c36/pytest-profiling-1.8.1.tar.gz", hash = "sha256:3f171fa69d5c82fa9aab76d66abd5f59da69135c37d6ae5bf7557f1b154cb08d", size = 33135, upload-time = "2024-11-29T19:34:13.85Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e3/ac/c428c66241a144617a8af7a28e2e055e1438d23b949b62ac4b401a69fb79/pytest_profiling-1.8.1-py3-none-any.whl", hash = "sha256:3dd8713a96298b42d83de8f5951df3ada3e61b3e5d2a06956684175529e17aea", size = 9929, upload-time = "2024-11-29T19:33:02.111Z" },
-]
-
-[[package]]
-name = "pytest-timeout"
-version = "2.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pytest" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ac/82/4c9ecabab13363e72d880f2fb504c5f750433b2b6f16e99f4ec21ada284c/pytest_timeout-2.4.0.tar.gz", hash = "sha256:7e68e90b01f9eff71332b25001f85c75495fc4e3a836701876183c4bcfd0540a", size = 17973, upload-time = "2025-05-05T19:44:34.99Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fa/b6/3127540ecdf1464a00e5a01ee60a1b09175f6913f0644ac748494d9c4b21/pytest_timeout-2.4.0-py3-none-any.whl", hash = "sha256:c42667e5cdadb151aeb5b26d114aff6bdf5a907f176a007a30b940d3d865b5c2", size = 14382, upload-time = "2025-05-05T19:44:33.502Z" },
 ]
 
 [[package]]

@@ -9,8 +9,7 @@ if TYPE_CHECKING:
 class StochasticDepthManager:
     """Centralized manager for applying stochastic depth to models.
 
-    Follows the build() pattern used throughout the codebase for configuration
-    management. Handles all dropout rate calculations, layer registration, and
+    Handles all dropout rate calculations, layer registration, and
     epoch tracking in one place.
     """
 

@@ -75,6 +75,10 @@ class ScheduledDepthDropout(nn.Module):
                 return self.base_drop_prob
 
             case _:
+                if self.early_epochs != 0:
+                    logger.warning(
+                        f"'early_epochs' does nothing for '{self.schedule}' dropout.'"
+                    )
                 return self.base_drop_prob
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

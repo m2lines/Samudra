@@ -43,6 +43,10 @@ class StochasticDepthManager:
 
         Returns None if dropout is disabled for this configuration.
         """
+        # Early return for better performance when dropout is disabled
+        if not self.is_enabled():
+            return None
+
         drop_rate = self.calculate_drop_rate(layer_index)
 
         if drop_rate == 0.0:

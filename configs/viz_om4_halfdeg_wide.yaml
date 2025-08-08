@@ -13,5 +13,5 @@ groundtruth_time_range:
   start: "2014-10-20"
   end: "2022-12-24"
 runs:
-  - name: "local_om4_samudra"
-    location: ".LOCAL/local_om4_samudra/predictions.zarr"
+  - name: "wide_v2"
+    location: "/home/ubuntu/jder-fs-1/om4_samudra_halfdeg_wide_v2_eval/predictions.zarr"

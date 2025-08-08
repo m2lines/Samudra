@@ -2,7 +2,7 @@
 
 base_output_dir: ".LOCAL"
 name: "viz_om4_halfdeg"
-dataset_name: "om4"
+dataset_name: "OM4"
 groundtruth_location: "OM4.zarr"
 basins_location:
   type: s3

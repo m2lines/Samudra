@@ -58,7 +58,7 @@ def compare_images(file1, file2, diff_dir=None):
         return False
 
 
-def compare_directories(dir1, dir2, diff_dir=None):
+def compare_directories(dir1: Path, dir2: Path, diff_dir: Path | None = None):
     """
     Compare two directories and return files that don't match.
 
@@ -106,19 +106,19 @@ def compare_directories(dir1, dir2, diff_dir=None):
             if compare_images(file1, file2, diff_dir):
                 matching_count += 1
             else:
-                content_different.append(str(f))
+                content_different.append(f)
         else:
             # Regular file comparison for non-PNG files
             if filecmp.cmp(file1, file2, shallow=False):
                 matching_count += 1
             else:
-                content_different.append(str(f))
+                content_different.append(f)
 
     # Files only in one directory
     for f in only_in_dir1:
-        missing_in_dir2.append(str(f))
+        missing_in_dir2.append(f)
     for f in only_in_dir2:
-        missing_in_dir1.append(str(f))
+        missing_in_dir1.append(f)
 
     # Print summary
     print(f"\n=== Directory Comparison Summary ===")
@@ -162,11 +162,11 @@ if __name__ == "__main__":
     import tempfile
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("dir1", type=str)
-    parser.add_argument("dir2", type=str)
+    parser.add_argument("dir1", type=Path)
+    parser.add_argument("dir2", type=Path)
     args = parser.parse_args()
 
-    diff_dir = tempfile.mkdtemp("image-diffs")
+    diff_dir = Path(tempfile.mkdtemp("image-diffs"))
     non_matching, _ = compare_directories(args.dir1, args.dir2, diff_dir)
     print(f"See image differences in {diff_dir}")
 

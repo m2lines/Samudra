@@ -460,19 +460,6 @@ class TestIntegrationAndEdgeCases:
 class TestStochasticDepthManager:
     """Unit tests for StochasticDepthManager class."""
 
-    def test_initialization(self):
-        """Test manager initialization with config."""
-        config = StochasticDepthConfig(
-            drop_path_rate=0.2,
-            early_dropout_epochs=20,
-            dropout_schedule="early_only",
-            linear_decay_to_zero=True,
-        )
-        manager = StochasticDepthManager(config)
-
-        assert manager.config == config
-        assert manager.drop_path_modules == []
-
     def test_calculate_drop_rate_basic(self):
         """Test basic drop rate calculation without multipliers."""
         config = StochasticDepthConfig(

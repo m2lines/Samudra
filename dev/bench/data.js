@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754678707189,
+  "lastUpdate": 1754679638896,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3268,6 +3268,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18081139360215046",
             "extra": "mean: 73.82199528939998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6e5ba43915107283105350114a69966f932e3645",
+          "message": "Un-ignoring .git folder for skypilot syncs (#338)\n\nI think this could address #337.",
+          "timestamp": "2025-08-08T18:34:59Z",
+          "tree_id": "83455ec4edd235c794aa4ce54c82240c15c974c4",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/6e5ba43915107283105350114a69966f932e3645"
+        },
+        "date": 1754679638108,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2282794247766138,
+            "unit": "iter/sec",
+            "range": "stddev: 0.031035255582474382",
+            "extra": "mean: 814.1469928000049 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07035775881751544,
+            "unit": "iter/sec",
+            "range": "stddev: 0.24727426305008451",
+            "extra": "mean: 14.213073537399998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19053900935114101,
+            "unit": "iter/sec",
+            "range": "stddev: 0.16602617309553583",
+            "extra": "mean: 5.248269125599984 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013185562979790644,
+            "unit": "iter/sec",
+            "range": "stddev: 0.35001505717680925",
+            "extra": "mean: 75.84052357360001 sec\nrounds: 5"
           }
         ]
       }

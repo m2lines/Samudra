@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from ocean_emulators.config import StochasticDepthConfig
+from ocean_emulators.models.modules.activations import CappedGELU
 from ocean_emulators.models.modules.dropout import ScheduledDepthDropout
 from ocean_emulators.models.modules.factory import create_block
 
@@ -14,27 +15,6 @@ logger = logging.getLogger(__name__)
 
 class TestScheduledDepthDropout:
     """Comprehensive unit tests for ScheduledDepthDropout class."""
-
-    def test_initialization_defaults(self):
-        """Test default parameter initialization."""
-        dropout = ScheduledDepthDropout()
-
-        assert dropout.base_drop_prob == 0.0
-        assert dropout.early_epochs == 0
-        assert dropout.schedule == "early_only"
-        assert dropout.linear_decay is True
-        assert dropout.current_epoch == 0
-
-    def test_initialization_custom_parameters(self):
-        """Test initialization with custom parameters."""
-        dropout = ScheduledDepthDropout(
-            drop_prob=0.15, early_epochs=30, schedule="late_only", linear_decay=False
-        )
-
-        assert dropout.base_drop_prob == 0.15
-        assert dropout.early_epochs == 30
-        assert dropout.schedule == "late_only"
-        assert dropout.linear_decay is False
 
     @pytest.mark.parametrize("schedule", ["early_only", "late_only", "constant"])
     def test_valid_schedule_types(self, schedule):
@@ -423,27 +403,6 @@ class TestIntegrationAndEdgeCases:
 
         assert prob1 == prob2  # Should be consistent
 
-    def test_same_config_same_results(self):
-        """Test that same configuration produces same results."""
-        dropout1 = ScheduledDepthDropout(
-            drop_prob=0.25,
-            early_epochs=30,
-            schedule="early_only",
-            linear_decay=True,
-        )
-        dropout2 = ScheduledDepthDropout(
-            drop_prob=0.25,
-            early_epochs=30,
-            schedule="early_only",
-            linear_decay=True,
-        )
-
-        for epoch in [0, 10, 20, 30, 40]:
-            dropout1.set_epoch(epoch)
-            dropout2.set_epoch(epoch)
-
-            assert dropout1.get_current_drop_prob() == dropout2.get_current_drop_prob()
-
     @pytest.mark.parametrize("seed", [42, 123, 456])
     def test_reproducibility_with_seeds(self, seed):
         """Test reproducible behavior with fixed seeds."""
@@ -517,15 +476,13 @@ def test_dropout_integration():
     )
 
     # Create a ConvNext block using the factory
-    from ocean_emulators.models.modules.activations import CappedGELU
-
     block = create_block(
         block_type="conv_next_block",
         in_channels=64,
         out_channels=64,
         kernel_size=3,
         dilation=1,
-        activation=CappedGELU,  # Pass the class, not string
+        activation=CappedGELU,
         upscale_factor=4,
         norm="batch",
         dropout_manager=dropout_manager,

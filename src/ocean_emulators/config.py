@@ -236,7 +236,7 @@ class StochasticDepthConfig(BaseConfig):
     """
 
     # Early dropout settings (2303.01500)
-    drop_path_rate: float = 0.0  # Peak drop rate during early training
+    drop_path_rate: float = 0.0  # Peak drop rate during early training, e.g. 0.1-0.2
     early_dropout_epochs: int = 0  # Apply for first N epochs (0 = disabled)
     dropout_schedule: DropoutSchedule = "early_only"
 

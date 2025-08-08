@@ -4,8 +4,8 @@ import torch.nn as nn
 from ocean_emulators.config import DropoutSchedule
 
 
-class EarlyDropPath(nn.Module):
-    """Epoch-aware Drop Path for early dropout experiments.
+class ScheduledDepthDropout(nn.Module):
+    """Epoch-aware Drop Path for (early) dropout experiments.
 
     Implements stochastic depth with epoch-based scheduling as described in:
 

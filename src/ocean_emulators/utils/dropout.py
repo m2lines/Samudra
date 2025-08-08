@@ -4,7 +4,7 @@ import torch.nn as nn
 
 if TYPE_CHECKING:
     from ocean_emulators.config import StochasticDepthConfig
-    from ocean_emulators.models.modules.dropout import EarlyDropPath
+    from ocean_emulators.models.modules.dropout import ScheduledDepthDropout
 
 
 class StochasticDepthManager:
@@ -16,7 +16,7 @@ class StochasticDepthManager:
 
     def __init__(self, config: "StochasticDepthConfig"):
         self.config = config  # StochasticDepthConfig
-        self.drop_path_modules: list[EarlyDropPath] = []
+        self.drop_path_modules: list[ScheduledDepthDropout] = []
 
     def calculate_drop_rate(self, layer_index: int) -> float:
         """Calculate dropout rate for a specific layer.
@@ -38,7 +38,7 @@ class StochasticDepthManager:
 
         return self.config.drop_path_rate * stage_multiplier
 
-    def create_drop_path(self, layer_index: int) -> "EarlyDropPath | None":
+    def create_drop_path(self, layer_index: int) -> "ScheduledDepthDropout | None":
         """Create a DropPath module for a specific layer.
 
         Returns None if dropout is disabled for this configuration.
@@ -49,9 +49,9 @@ class StochasticDepthManager:
             return None
 
         # Import at runtime to avoid circular import
-        from ocean_emulators.models.modules.dropout import EarlyDropPath
+        from ocean_emulators.models.modules.dropout import ScheduledDepthDropout
 
-        drop_path = EarlyDropPath(
+        drop_path = ScheduledDepthDropout(
             drop_prob=drop_rate,
             early_epochs=self.config.early_dropout_epochs,
             schedule=self.config.dropout_schedule,
@@ -70,11 +70,11 @@ class StochasticDepthManager:
         been registered during creation and adds them to the tracking list.
         """
         # Import at runtime to avoid circular import
-        from ocean_emulators.models.modules.dropout import EarlyDropPath
+        from ocean_emulators.models.modules.dropout import ScheduledDepthDropout
 
         for module in model.modules():
             if (
-                isinstance(module, EarlyDropPath)
+                isinstance(module, ScheduledDepthDropout)
                 and module not in self.drop_path_modules
             ):
                 self.drop_path_modules.append(module)

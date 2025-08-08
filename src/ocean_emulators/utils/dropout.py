@@ -15,7 +15,7 @@ class StochasticDepthManager:
     """
 
     def __init__(self, config: "StochasticDepthConfig"):
-        self.config = config  # StochasticDepthConfig
+        self.config = config
         self.drop_path_modules: list[ScheduledDepthDropout] = []
 
     def calculate_drop_rate(self, layer_index: int) -> float:

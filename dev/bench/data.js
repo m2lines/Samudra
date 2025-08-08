@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1754678266000,
+  "lastUpdate": 1754678267344,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6434,6 +6434,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.06653110597891153",
             "extra": "mean: 68.85831736580008 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ba0c18f9979fcd0f7143e09d7179035e2a693744",
+          "message": "Work around ema name issues (#335)\n\nI would love a more principled strategy here, but this:\n* Ensures that checkpoints which include ema params are rewritten on\nload to not have a \"module\" prefix on those params\n* Ensures that EmaTrackers always store parameters without a \"module\"\nprefix.\n* Ensures that using an EmaTracker works either with or without a\n\"module.\" prefix on the requested parameters.\n\nCloses #329",
+          "timestamp": "2025-08-08T14:11:52-04:00",
+          "tree_id": "67ba61c66ed69a2fe95c3d1aeb4a8fcdbbcb36dd",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/ba0c18f9979fcd0f7143e09d7179035e2a693744"
+        },
+        "date": 1754678266883,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2667408271638718,
+            "unit": "iter/sec",
+            "range": "stddev: 0.016789156367289917",
+            "extra": "mean: 789.427465000017 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07018096828943475,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5240801681589701",
+            "extra": "mean: 14.248877215199991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1938044968084834,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08862174954693228",
+            "extra": "mean: 5.1598389947999745 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.014888241905281242,
+            "unit": "iter/sec",
+            "range": "stddev: 0.22374753660095703",
+            "extra": "mean: 67.1670977918 sec\nrounds: 5"
           }
         ]
       }

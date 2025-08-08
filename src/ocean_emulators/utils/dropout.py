@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 import torch.nn as nn
 
 if TYPE_CHECKING:
+    from ocean_emulators.config import StochasticDepthConfig
     from ocean_emulators.models.modules.dropout import EarlyDropPath
 
 
@@ -13,7 +14,7 @@ class StochasticDepthManager:
     epoch tracking in one place.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: "StochasticDepthConfig"):
         self.config = config  # StochasticDepthConfig
         self.drop_path_modules: list[EarlyDropPath] = []
 

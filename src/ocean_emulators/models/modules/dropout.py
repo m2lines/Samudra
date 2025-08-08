@@ -1,7 +1,7 @@
-from typing import Literal
-
 import torch
 import torch.nn as nn
+
+from ocean_emulators.config import DropoutSchedule
 
 
 class EarlyDropPath(nn.Module):
@@ -24,7 +24,7 @@ class EarlyDropPath(nn.Module):
         self,
         drop_prob: float = 0.0,
         early_epochs: int = 0,
-        schedule: Literal["early_only", "late_only", "constant"] = "early_only",
+        schedule: DropoutSchedule = "early_only",
         linear_decay: bool = True,
     ):
         super().__init__()

@@ -204,6 +204,9 @@ class CorrectorConfig(BaseConfig):
     ocean_heat_corrector: bool = False
 
 
+DropoutSchedule = Literal["early_only", "late_only", "constant"]
+
+
 class StochasticDepthConfig(BaseConfig):
     """Configuration for early dropout and stochastic depth.
 
@@ -216,7 +219,7 @@ class StochasticDepthConfig(BaseConfig):
     # Early dropout settings (2303.01500)
     drop_path_rate: float = 0.0  # Peak drop rate during early training
     early_dropout_epochs: int = 0  # Apply for first N epochs (0 = disabled)
-    dropout_schedule: Literal["early_only", "late_only", "constant"] = "early_only"
+    dropout_schedule: DropoutSchedule = "early_only"
 
     # Optional: Linear decay within early period (2303.01500)
     linear_decay_to_zero: bool = (

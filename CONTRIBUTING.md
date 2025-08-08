@@ -186,9 +186,19 @@ uv run scripts/clone_data.py $DATA_PATH --compact_variables
 uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH
 ```
 
+This produces a `predictions.zarr` file in the output directory with the rollout of the model.
+
 You can run `uv run -m ocean_emulators.eval --help` to see all the options available.
 
 To learn more about other datasets used during evaluation, please see the _Data Engineering_ section below.
+
+### Visualizing outputs from the model
+
+```bash
+uv run -m ocean_emulators.viz configs/viz_om4.yaml --data_root path/to/data --name my_experiment_viz --runs='[{"name": "my_experiment", "location": "path/to/eval/output/predictions.zarr"}]'
+```
+
+You can run `uv run -m ocean_emulators.viz --help` to see all the options available.
 
 ## Configuration
 

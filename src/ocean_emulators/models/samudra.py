@@ -56,7 +56,6 @@ class Samudra(BaseModel):
             case _:
                 assert_never(config.checkpointing)
 
-        # Build dropout manager using the build() pattern (2303.01500)
         self.dropout_manager = config.stochastic_depth.build()
 
         # going down - encoder layers

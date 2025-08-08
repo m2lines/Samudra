@@ -9,16 +9,17 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write # This is required for interacting with AWS via OIDC
-  contents: read # This is required for actions/checkout
+  id-token: write # Required for interacting with AWS via OIDC
+  contents: read # Required for actions/checkout (normally set by default, but must explicitly specify when defining a custom `permissions` block.
 
 jobs:
   ec2:
-    uses: Open-Athena/ec2/.github/workflows/runner.yml@main
-    secrets: inherit
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
   run-tests:
     needs: ec2
-    runs-on: ${{ needs.ec2.outputs.instance }}
+    runs-on: ${{ needs.ec2.outputs.id }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2

@@ -971,10 +971,10 @@ class Trainer:
         checkpoint = torch.load(checkpoint_path, map_location=torch.device(self.device))
 
         # Remove module prefix from state dict
-        def remove_module_prefix(state_dict):
+        def remove_module_prefix(state_dict, prefix="module."):
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
-                name = k.removeprefix("module.")
+                name = k.removeprefix(prefix)
                 new_state_dict[name] = v
             return new_state_dict
 
@@ -986,6 +986,10 @@ class Trainer:
         # Load EMA state
         model_ema_state_dict = checkpoint["ema"]
         new_ema_state_dict = remove_module_prefix(model_ema_state_dict)
+        if "ema_params" in new_ema_state_dict:
+            new_ema_state_dict["ema_params"] = remove_module_prefix(
+                new_ema_state_dict["ema_params"], prefix="module"
+            )
         self._ema = EMATracker.from_state(new_ema_state_dict, self.model)
 
         if not finetune:

@@ -7,9 +7,17 @@ import torch.nn as nn
 class EarlyDropPath(nn.Module):
     """Epoch-aware Drop Path for early dropout experiments.
 
-    Implements stochastic depth with epoch-based scheduling as described in
-    "Early Dropout: Dropping layers to reduce underfitting" and the original
-    stochastic depth paper.
+    Implements stochastic depth with epoch-based scheduling as described in:
+
+    Early Dropout:
+    - "Early Dropout: Dropping layers to reduce underfitting" (2303.01500)
+      https://arxiv.org/abs/2303.01500
+
+    Stochastic Depth:
+    - "Deep Networks with Stochastic Depth" (1603.09382)
+      https://arxiv.org/abs/1603.09382
+    - "A ConvNet for the 2020s" (2201.03545)
+      https://arxiv.org/abs/2201.03545
     """
 
     def __init__(
@@ -31,7 +39,11 @@ class EarlyDropPath(nn.Module):
         self.current_epoch = epoch
 
     def get_current_drop_prob(self) -> float:
-        """Calculate dropout probability based on current epoch."""
+        """Calculate dropout probability based on current epoch.
+
+        Implements epoch-based scheduling as described in:
+        "Early Dropout: Dropping layers to reduce underfitting" (2303.01500)
+        """
         if self.base_drop_prob == 0.0 or self.early_epochs == 0:
             return 0.0
 
@@ -61,7 +73,8 @@ class EarlyDropPath(nn.Module):
         if not self.training or current_drop_prob == 0.0:
             return x
 
-        # Standard stochastic depth implementation
+        # Standard stochastic depth implementation (1603.09382)
+        # During training: randomly drop layers, during inference: scale by survival probability
         keep_prob = 1 - current_drop_prob
         random_tensor = keep_prob + torch.rand(
             (x.shape[0], 1, 1, 1), dtype=x.dtype, device=x.device

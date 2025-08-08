@@ -215,7 +215,10 @@ def get_model_summary(model: torch.nn.Module, data: Mapping | None, debug: bool)
     logging.info(f"Number of parameters: {params}")
     depth = 10 if debug else 2
     # we pass verbose = 0 because we log the summary ourselves
-    logging.info(summary(model, input_data=[data], depth=depth, verbose=0))
+    if data is not None:
+        logging.info(summary(model, input_data=[data], depth=depth, verbose=0))
+    else:
+        logging.info(summary(model, depth=depth, verbose=0))
 
 
 def elapsed(func=None, *, level: int = logging.INFO):

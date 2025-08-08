@@ -1,6 +1,10 @@
 import torch
 
-from ocean_emulators.aggregator.loss import LossAggregator
+from ocean_emulators.aggregator.loss import (
+    get_channel_loss_dict,
+    get_depth_loss_dict,
+    get_variable_loss_dict,
+)
 from ocean_emulators.utils.distributed import all_reduce_mean
 from ocean_emulators.utils.output import TrainBatchOutput
 from ocean_emulators.utils.wandb import Metrics
@@ -30,13 +34,10 @@ class TrainAggregator:
     def get_logs(self, label: str = "train") -> Metrics:
         loss = self._loss / self._n_batches
 
-        loss_aggregator = LossAggregator.get_instance()
         loss_per_channel = self._loss_per_channel / self._n_batches
-        depth_loss_dict = loss_aggregator.get_depth_loss_dict(label, loss_per_channel)
-        var_loss_dict = loss_aggregator.get_variable_loss_dict(label, loss_per_channel)
-        channel_loss_dict = loss_aggregator.get_channel_loss_dict(
-            label, loss_per_channel
-        )
+        depth_loss_dict = get_depth_loss_dict(label, loss_per_channel)
+        var_loss_dict = get_variable_loss_dict(label, loss_per_channel)
+        channel_loss_dict = get_channel_loss_dict(label, loss_per_channel)
         logs = {
             f"{label}/mean/loss": loss,
             **depth_loss_dict,

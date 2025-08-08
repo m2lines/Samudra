@@ -4,7 +4,13 @@ from typing import Annotated, Any, Literal, Self
 from urllib.parse import quote, urljoin, urlparse
 
 import xarray as xr
-from pydantic import BaseModel, BeforeValidator, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    WithJsonSchema,
+    model_serializer,
+    model_validator,
+)
 
 
 class UnresolvedLocation(BaseModel):
@@ -100,7 +106,7 @@ class S3Location(ResolvedLocation, BaseModel):
 
 
 class LocalLocation(ResolvedLocation, BaseModel):
-    """A local filesystem path.
+    """A local absolute filesystem path.
 
     For example:
     ```yaml
@@ -112,6 +118,17 @@ class LocalLocation(ResolvedLocation, BaseModel):
 
     type: Literal["local"] = "local"
     path: Path
+
+    @model_validator(mode="after")
+    def validate_path(self) -> Self:
+        if not self.path.is_absolute():
+            raise ValueError(
+                "Locations with type: 'local' must be absolute. "
+                "For relative paths, use a string instead of a structured location. "
+                "i.e. 'my/relative/path' instead of "
+                "{type: 'local', path: 'my/relative/path'}"
+            )
+        return self
 
     def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
         engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"
@@ -138,6 +155,8 @@ def string_to_unresolved(data: Any) -> Any:
 
 
 Location = Annotated[
-    UnresolvedLocation | S3Location | LocalLocation,
+    Annotated[UnresolvedLocation, WithJsonSchema({"type": "string"})]
+    | S3Location
+    | LocalLocation,
     BeforeValidator(string_to_unresolved),
 ]

@@ -1,6 +1,5 @@
 import torch
 
-from ocean_emulators.aggregator.loss import LossAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
@@ -31,7 +30,6 @@ class ValidateAggregator(TrainAggregator):
         }
         self._aggregators = val_aggregators
         self.normalize = Normalize.get_instance()
-        self._loss_scaling = LossAggregator.get_instance().loss_scale
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
         self.wet = wet
@@ -96,38 +94,5 @@ class ValidateAggregator(TrainAggregator):
         for agg_label in self._aggregators:
             for k, v in self._aggregators[agg_label].get_logs(label=agg_label).items():
                 logs[f"{label}/{k}"] = v
-        # TODO(jder): we have an implicit assumption here that
-        # the superclass actually only returns float values;
-        # would be nice move that to a separate, maybe standalone, function.
-        logs.update(
-            self._get_loss_scaled_mse_components(
-                validation_metrics=logs,  # type: ignore[arg-type]
-                label=label,
-            )
-        )
+
         return logs
-
-    def _get_loss_scaled_mse_components(
-        self,
-        validation_metrics: dict[str, float],
-        label: str,
-    ):
-        """
-        Account for different scales and units between variables using a
-        custom loss scaling dictionary. Then compute the fractional contributions
-        of each variable to the total loss.
-        """
-        scaled_squared_errors = {}
-
-        for var in self._loss_scaling:
-            rmse_key = f"{label}/mean/weighted_rmse/{var}"
-            if rmse_key in validation_metrics:
-                scaled_squared_errors[var] = (
-                    validation_metrics[rmse_key] / self._loss_scaling[var]
-                ) ** 2
-        scaled_squared_errors_sum = sum(scaled_squared_errors.values())
-        fractional_contribs = {
-            f"{label}/mean/mse_fractional_components/{k}": v / scaled_squared_errors_sum
-            for k, v in scaled_squared_errors.items()
-        }
-        return fractional_contribs

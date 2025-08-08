@@ -37,6 +37,7 @@ dependencies = [
   "requests>=2.32.3",
   "s3fs>=2025.5.1",
   "scipy>=1.15.2",
+  "skypilot[aws,lambda]>=0.10",
   "torch~=2.2.1",
   "torchinfo>=1.8",
   "wandb>=0.19.8",
@@ -49,11 +50,11 @@ dependencies = [
 dev = [
   "beartype>=0.20",
   "coiled>=1.99",
+  "filelock>=3.17",
   "fsspec>=2025.3",
   "hypothesis[numpy]>=6.127.2",
   "ipykernel>=6.29.5",
   "jupyter>=1.1.1",
-  "lineapy>=0.2.3",
   "memray>=1.17.1",
   "mypy>=1.15",
   "py-spy>=0.4",
@@ -77,6 +78,7 @@ lint.ignore = [
   "D212",
   "E203",
   "E402",
+  "E501",  # We use ruff-format which will already wrap lines to a reasonable length.
   "F541",
   "F722",
   "UP038", # This rule is deprecated.

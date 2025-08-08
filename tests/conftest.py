@@ -6,6 +6,7 @@ from collections.abc import Generator
 from typing import ClassVar, Self
 
 import cftime
+import filelock
 import numpy as np
 import pytest
 import xarray as xr
@@ -267,29 +268,6 @@ class DataSourceDims:
         return data_source, data_var_index
 
 
-def maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource | None:
-    """Open a cached DataSource from a cache directory if it exists."""
-    cache = cache_root / cache_name
-    try:
-        data = xr.open_zarr(cache / "data.zarr")
-        means = xr.open_dataset(cache / "means.nc")
-        stds = xr.open_dataset(cache / "stds.nc")
-        return DataSource(name=cache_name, data=data, means=means, stds=stds)
-    except FileNotFoundError:
-        return None
-
-
-def maybe_write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
-    """Write a DataSource to a cache directory if it doesn't exist."""
-    cache = cache_root / data_source.name
-    if not (dz := cache / "data.zarr").exists():
-        data_source.data.to_zarr(str(dz))
-    if not (dm := cache / "means.nc").exists():
-        data_source.means.to_netcdf(str(dm))
-    if not (ds := cache / "stds.nc").exists():
-        data_source.stds.to_netcdf(str(ds))
-
-
 def cache_dir(pytestconfig: pytest.Config) -> pathlib.Path:
     dir = pytestconfig.rootpath / ".data_cache"
     dir.mkdir(parents=True, exist_ok=True)
@@ -337,14 +315,8 @@ def backend(request) -> TrainBackendConfig:
     return request.param
 
 
-@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
-def data_source(request, pytestconfig) -> DataSource:
-    """Returns remote and in-memory `xarray.Dataset`s for tests."""
-    # Use cached data if available.
-    if cached_data := maybe_read_cache(cache_dir(pytestconfig), request.param):
-        return cached_data
-
-    match request.param:
+def _uncached_data_source(name: str) -> DataSource:
+    match name:
         case "mock":
             time_range = xr.cftime_range(
                 "1975-08-05", "1975-12-31", freq="5D", calendar="julian"
@@ -373,9 +345,7 @@ def data_source(request, pytestconfig) -> DataSource:
             }
             ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
-            return DataSource(
-                name=request.param, data=ds, means=ds.mean(), stds=ds.std()
-            )
+            return DataSource(name=name, data=ds, means=ds.mean(), stds=ds.std())
         case "remote-om4" | "compact":
             # The chunk-size should be about the same as the size of the time slice
             # for optimal download time. In local experiments, this time range (which
@@ -397,19 +367,65 @@ def data_source(request, pytestconfig) -> DataSource:
                 ).compute()
             )
 
-            if request.param == "compact":
+            if name == "compact":
                 data = compact_dataset(data)
                 means = compact_dataset(means)
                 stds = compact_dataset(stds)
 
             return DataSource(
-                name=request.param,
+                name=name,
                 data=data,
                 means=means,
                 stds=stds,
             )
         case _:
-            raise ValueError(f"Unknown data source: {request.param}.")
+            raise ValueError(f"Unknown data source: {name}.")
+
+
+def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource | None:
+    """Open a cached DataSource from a cache directory if it exists.
+
+    The caller must ensure concurrent processes/threads do not change this cache.
+    """
+    cache = cache_root / cache_name
+    try:
+        data = xr.open_zarr(cache / "data.zarr")
+        means = xr.open_dataset(cache / "means.nc")
+        stds = xr.open_dataset(cache / "stds.nc")
+        return DataSource(name=cache_name, data=data, means=means, stds=stds)
+    except (FileNotFoundError, PermissionError):
+        return None
+
+
+def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
+    """Write a DataSource to a new cache directory.
+
+    The caller must ensure concurrent processes/threads do not read or write to
+    this cache while this function is running.
+    """
+    cache = cache_root / data_source.name
+
+    assert not (dz := cache / "data.zarr").exists(), "Data already exists in cache"
+    data_source.data.to_zarr(dz)
+    assert not (dm := cache / "means.nc").exists(), "Means already exists in cache"
+    data_source.means.to_netcdf(dm)
+    assert not (ds := cache / "stds.nc").exists(), "Stds already exists in cache"
+    data_source.stds.to_netcdf(ds)
+
+
+@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
+def data_source(request, pytestconfig) -> DataSource:
+    """Returns remote and in-memory `xarray.Dataset`s for tests."""
+    our_cache_dir = cache_dir(pytestconfig)
+    data_type = request.param
+    with filelock.FileLock(our_cache_dir / f"{data_type}.lock"):
+        # Use cached data if available.
+        if cached_data := _maybe_read_cache(our_cache_dir, data_type):
+            return cached_data
+
+        new_data = _uncached_data_source(data_type)
+        _write_cache(our_cache_dir, new_data)
+        return new_data
 
 
 @pytest.fixture(scope="session", params=[[]])
@@ -417,7 +433,16 @@ def extra_config_args(request) -> list[str]:
     return request.param
 
 
-@pytest.fixture(scope="session")
+_NEXT_TEST_ID = 0
+
+
+def unique_test_name(config_name: str) -> str:
+    global _NEXT_TEST_ID
+    _NEXT_TEST_ID += 1
+    return f"test_{config_name}_{_NEXT_TEST_ID}"
+
+
+@pytest.fixture(scope="function")
 def train_config(
     data_source: DataSource,
     pytestconfig: pytest.Config,
@@ -428,14 +453,11 @@ def train_config(
     """
     This fixture is used to create a config/trainer pair for each possible
     configuration.
-
-    This is session-scoped so that the config/trainer pair is created once per
-    configuration, then trainer_pair will set up the Multiton scope and skip rules
-    for each test at a per-function level.
     """
-    # Write test data to the cache directory if they aren't already there.
     cache = cache_dir(pytestconfig)
-    maybe_write_cache(cache, data_source)
+    assert (cache / data_source.name).exists(), (
+        "Expected cache to be created by data_source fixture"
+    )
 
     # Open default training script; modify it as necessary.
     train_config = TrainConfig.from_yaml_and_cli(
@@ -446,6 +468,9 @@ def train_config(
             str(cache / data_source.name),
             "--backend",
             backend,
+            "--experiment.name",
+            # we make a unique name to avoid collisions on disk for output files
+            unique_test_name(config_name),
         ]
         + extra_config_args
     )

@@ -61,6 +61,11 @@ class TestLocalLocation:
         loc = LocalLocation(path=Path("/tmp/data"))
         assert str(loc) == "/tmp/data"
 
+    def test_must_be_absolute(self):
+        """Test LocalLocation must be absolute."""
+        with pytest.raises(ValidationError):
+            LocalLocation(path=Path("relative/path"))
+
     def test_resolve_unresolved_location(self):
         """Test resolving an UnresolvedLocation against a LocalLocation."""
         base = LocalLocation(path=Path("/base/path"))
@@ -78,7 +83,7 @@ class TestLocalLocation:
 
         resolved = base.resolve(other)
 
-        assert resolved is other
+        assert resolved == other
 
     def test_truediv_operator(self):
         """Test the / operator for path joining."""
@@ -198,7 +203,7 @@ class TestS3Location:
 
         resolved = base.resolve(other)
 
-        assert resolved is other
+        assert resolved == other
 
     def test_truediv_operator(self):
         """Test the / operator for path joining."""
@@ -235,7 +240,7 @@ class TestLocationValidation:
 
         unresolved = UnresolvedLocation(path="data/test.zarr")
         model = TestModel(location=unresolved)
-        assert model.location is unresolved
+        assert model.location == unresolved
 
 
 class TestLocationIntegration:

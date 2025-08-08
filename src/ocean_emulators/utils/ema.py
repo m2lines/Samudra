@@ -45,7 +45,7 @@ class EMATracker:
 
     def __init__(
         self,
-        model: Samudra | nn.parallel.DistributedDataParallel,
+        model: torch.nn.Module,
         decay: float = 0.999,
         faster_decay_at_start: bool = True,
     ):
@@ -60,11 +60,9 @@ class EMATracker:
                 num_updates) / (10 + num_updates)). If False, the decay rate
                 will be decay.
         """
-        super().__init__()
         if decay < 0.0 or decay > 1.0:
             raise ValueError("Decay must be between 0 and 1")
 
-        self._module_name_to_ema_name = {}
         self.decay = torch.tensor(decay, dtype=torch.float32)
         self.cur_decay = torch.tensor(decay, dtype=torch.float32)
         self._faster_decay_at_start = faster_decay_at_start
@@ -74,12 +72,36 @@ class EMATracker:
 
         for name, p in model.named_parameters():
             if p.requires_grad:
-                # remove as '.'-character is not allowed in buffers
-                ema_name = name.replace(".", "")
-                self._module_name_to_ema_name.update({name: ema_name})
+                ema_name = self._get_ema_name(name)
                 self._ema_params[ema_name] = p.clone().detach().data
 
         self._stored_params: list[torch.Tensor] = []
+
+    def _get_ema_name(self, name: str) -> str:
+        # remove as '.'-character is not allowed in buffers
+        # And make ourselves agnostic to module vs not
+        return name.removeprefix("module.").replace(".", "")
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, EMATracker):
+            return False
+
+        def all_equal(a: torch.Tensor, b: torch.Tensor) -> bool:
+            return torch.all(a == b).item()  # type: ignore
+
+        return (
+            all_equal(self.decay, other.decay)
+            and all_equal(self.num_updates, other.num_updates)
+            and self._faster_decay_at_start == other._faster_decay_at_start
+            and all(
+                all_equal(self._ema_params[k], other._ema_params[k])
+                for k in self._ema_params
+            )
+            and all(
+                all_equal(a, b)
+                for a, b in zip(self._stored_params, other._stored_params, strict=True)
+            )
+        )
 
     def __call__(self, model: Samudra | nn.parallel.DistributedDataParallel):
         """
@@ -104,8 +126,8 @@ class EMATracker:
             module_parameters = dict(model.named_parameters())
 
             for key in module_parameters:
+                ema_name = self._get_ema_name(key)
                 if module_parameters[key].requires_grad:
-                    ema_name = self._module_name_to_ema_name[key]
                     self._ema_params[ema_name] = self._ema_params[ema_name].type_as(
                         module_parameters[key]
                     )
@@ -114,7 +136,7 @@ class EMATracker:
                         (1.0 - decay)
                         * (self._ema_params[ema_name] - module_parameters[key])
                     )
-                elif key in self._module_name_to_ema_name:
+                elif ema_name in self._ema_params:
                     raise ValueError(
                         f"Expected model parameter {key} to require gradient, "
                         "but it does not"
@@ -127,11 +149,9 @@ class EMATracker:
         m_param = dict(model.named_parameters())
         for key in m_param:
             if m_param[key].requires_grad:
-                m_param[key].data.copy_(
-                    self._ema_params[self._module_name_to_ema_name[key]].data
-                )
+                m_param[key].data.copy_(self._ema_params[self._get_ema_name(key)].data)
             else:
-                assert key not in self._module_name_to_ema_name
+                assert self._get_ema_name(key) not in self._ema_params
 
     def store(self, parameters: Iterable[nn.Parameter]):
         """
@@ -154,37 +174,55 @@ class EMATracker:
         Args:
             parameters: The parameters to be updated with the values stored by `store`
         """
-        for c_param, param in zip(self._stored_params, parameters):
+        for c_param, param in zip(self._stored_params, parameters, strict=True):
             param.data.copy_(c_param.data)
 
-    def get_state(self):
+        self._stored_params = []
+
+    def get_state(self, include_ema_params: bool):
         """
-        Get the state of the EMA tracker, excluding weights.
+        Get the state of the EMA tracker.
+
+        Args:
+            include_ema_params: Whether to include the EMA parameters in the state.
+            You probably want this to be True when saving a checkpoint meant to resume
+            training (i.e. not an EMA checkpoint) or False when saving a checkpoint for
+            evaluation (i.e. a checkpoint where the model weights are the EMA weights).
 
         Returns:
             The state of the EMA tracker.
         """
-        return {
+        state = {
             "decay": self.decay,
             "num_updates": self.num_updates,
             "faster_decay_at_start": self._faster_decay_at_start,
-            "module_name_to_ema_name": self._module_name_to_ema_name,
         }
+        if include_ema_params:
+            state["ema_params"] = self._ema_params
+        return state
 
     @classmethod
-    def from_state(cls, state, model) -> "EMATracker":
+    def from_state(cls, state, model: torch.nn.Module) -> "EMATracker":
         """
         Create an EMA tracker from a state.
 
         Args:
             state: The state of the EMA tracker.
             model: The model whose parameters should be tracked, used to
-                initialize the EMA weights. Should come from an EMA checkpoint.
+                initialize the EMA weights if they are not provided in the state.
 
         Returns:
             The EMA tracker.
         """
         ema = cls(model, float(state["decay"]), state["faster_decay_at_start"])
         ema.num_updates = state["num_updates"]
-        ema._module_name_to_ema_name = state["module_name_to_ema_name"]
+        if ema_params := state.get("ema_params"):
+            unexpected_keys = ema_params.keys() - ema._ema_params.keys()
+            missing_keys = ema._ema_params.keys() - ema_params.keys()
+            assert not unexpected_keys and not missing_keys, (
+                f"EMA parameters keys do not match. "
+                f"This is likely due to a mismatch between the model and checkpoint. "
+                f"Unexpected keys: {unexpected_keys}"
+            )
+            ema._ema_params = ema_params
         return ema

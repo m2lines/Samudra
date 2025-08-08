@@ -321,6 +321,9 @@ class TrainData:
         merged[:, : self.num_prognostic_channels] = prognostic
         return merged
 
+    def values(self):
+        return self.td_dict.values()
+
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
         return self.td_dict[step]

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755022318630,
+  "lastUpdate": 1755022320021,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6954,6 +6954,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.0506186953968848",
             "extra": "mean: 68.95869582159999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34e217b5b958a2eedad46369abe00a8c643092ff",
+          "message": "New baseline model: Wide Samudra (training and eval config) (#341)\n\nSince I'm about to fork off experiments from these configurations, I\nthought it should be merged into main.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-08-12T17:45:25Z",
+          "tree_id": "bae84318a9d1acd821c6ffb35a2a7e2829d09028",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/34e217b5b958a2eedad46369abe00a8c643092ff"
+        },
+        "date": 1755022319562,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.244606398293361,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05627953427440814",
+            "extra": "mean: 803.4668641999815 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06980320538664524,
+            "unit": "iter/sec",
+            "range": "stddev: 0.325390397019778",
+            "extra": "mean: 14.325989679999998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19487589238507327,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08326312470727584",
+            "extra": "mean: 5.131471049400034 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01501357798165184,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11522161120091716",
+            "extra": "mean: 66.60637465780005 sec\nrounds: 5"
           }
         ]
       }

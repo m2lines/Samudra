@@ -8,6 +8,7 @@ import pydantic
 import yaml
 
 from ocean_emulators.config import EvalConfig, TrainConfig
+from ocean_emulators.viz import VizConfig
 
 
 def get_pydantic_models(
@@ -139,6 +140,7 @@ def main():
     # Get all available models
     models = get_pydantic_models(TrainConfig)
     models.update(get_pydantic_models(EvalConfig))
+    models.update(get_pydantic_models(VizConfig))
 
     generate_schemas(args.output_dir, models)
 

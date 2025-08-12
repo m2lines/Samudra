@@ -45,7 +45,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: om4_samudra_halfdeg_wide_v0_lr_warmup_v1_0006
+  name: om4_samudra_halfdeg_wide_v0_lr_warmup_v1_001
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

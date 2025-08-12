@@ -7,7 +7,7 @@ save_freq: 5
 epochs: 70
 batch_size: 3
 learning_rate: 0.0006
-scheduler: { type: cosine }
+scheduler: { type: cosine_with_warmup }
 kill_after_n_epochs: 20
 loss: mse
 finetune: false
@@ -45,7 +45,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: om4_samudra_halfdeg_wide_v0_lr_0006
+  name: om4_samudra_halfdeg_wide_v0_lr_warmup_v1_0006
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755020179635,
+  "lastUpdate": 1755022318630,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3424,6 +3424,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.532887148081376",
             "extra": "mean: 79.6839407874 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "34e217b5b958a2eedad46369abe00a8c643092ff",
+          "message": "New baseline model: Wide Samudra (training and eval config) (#341)\n\nSince I'm about to fork off experiments from these configurations, I\nthought it should be merged into main.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-08-12T17:45:25Z",
+          "tree_id": "bae84318a9d1acd821c6ffb35a2a7e2829d09028",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/34e217b5b958a2eedad46369abe00a8c643092ff"
+        },
+        "date": 1755022317815,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2732303172750543,
+            "unit": "iter/sec",
+            "range": "stddev: 0.020223650416903428",
+            "extra": "mean: 785.4038554000056 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06997879765453789,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3363235301090989",
+            "extra": "mean: 14.290042606000009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19235362356387206,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10529459108314856",
+            "extra": "mean: 5.198758315399994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012905661255035596,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2657167367896565",
+            "extra": "mean: 77.48537484740001 sec\nrounds: 5"
           }
         ]
       }

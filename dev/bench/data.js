@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755020178202,
+  "lastUpdate": 1755020179635,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6850,6 +6850,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4170202101556956",
             "extra": "mean: 64.69218796380005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ea4fb9343b5b9c2fb5da5fd9789fefc7c818c995",
+          "message": "Vizualization code (#339)\n\nThis is an import and reorganization of the code from [this\nnotebook](https://github.com/Open-Athena/Ocean_Emulator/blob/fixed-branch/Notebooks/notebooks/2025-04-08-Samudra_Eval_OM4.ipynb).\nThe goal was to get it to a state we could check it in and iterate from\nthere. This PR:\n\n* Moves that code from a notebook to python code in\nsrc/ocean_emulators/viz/core.py\n* Creates a new TopLevelConfig for visualization in\nsrc/ocean_emulators/viz/config.py (see CONTRIBUTING.md for an example\ninvocation)\n* Does a minimal amount of deduplication, cleanup, and typing of the\ncode there to get it passing CI and to allow the config to configure all\nthe main knobs. Also added some TODOs about clear things we might want\nto do next.\n* Includes a tool to compare old and new viz output -- this is how I\nverified that the previous notebook and this code produce nearly\nidentical results (modulo some FP error due to slight changes in\nordering, I think).\n* Includes pointers to the basin data, now in the emulator pod, which\nwas created by the new `notebooks/regrid_basins.py` code, which I\nincluded for posterity but don't think we really need to maintain per\nse.\n\nI would not try to review core.py too deeply but skimming the structure\nis good; same with notebooks/regrid_basins.py. Everything else is fair\ngame :)",
+          "timestamp": "2025-08-12T13:09:11-04:00",
+          "tree_id": "bbf84611af74016865ffa2229aea8022e132b186",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/ea4fb9343b5b9c2fb5da5fd9789fefc7c818c995"
+        },
+        "date": 1755020179171,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2600145455222236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02572824976400869",
+            "extra": "mean: 793.6416318000056 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06721630406866494,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5518593591118539",
+            "extra": "mean: 14.877342839000017 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19440563397113855,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11458262473824349",
+            "extra": "mean: 5.14388384519998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.014501434345380546,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0506186953968848",
+            "extra": "mean: 68.95869582159999 sec\nrounds: 5"
           }
         ]
       }

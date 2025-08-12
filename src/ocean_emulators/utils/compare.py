@@ -1,4 +1,5 @@
 import filecmp
+import mimetypes
 from pathlib import Path
 
 import numpy as np
@@ -101,14 +102,15 @@ def compare_directories(dir1: Path, dir2: Path, diff_dir: Path | None = None):
         file1 = dir1 / f
         file2 = dir2 / f
 
-        # Special handling for PNG files
-        if str(f).lower().endswith(".png"):
+        # Special handling for image files
+        file_mime, _encoding = mimetypes.guess_type(f)
+        if file_mime and file_mime.startswith("image/"):
             if compare_images(file1, file2, diff_dir):
                 matching_count += 1
             else:
                 content_different.append(f)
         else:
-            # Regular file comparison for non-PNG files
+            # Regular file comparison for non-image files
             if filecmp.cmp(file1, file2, shallow=False):
                 matching_count += 1
             else:
@@ -130,30 +132,28 @@ def compare_directories(dir1: Path, dir2: Path, diff_dir: Path | None = None):
     # Print present but different files first
     if content_different:
         print(f"\nFiles with different content ({len(content_different)}):")
-        for f in content_different[:10]:
-            print(f"  - {f}")
-        if len(content_different) > 10:
-            print(f"  ... and {len(content_different) - 10} more")
+        _print_file_list(content_different)
 
     # Then print missing files
     if missing_in_dir2:
         print(f"\nFiles only in {dir1.name} ({len(missing_in_dir2)}):")
-        for f in missing_in_dir2[:10]:
-            print(f"  - {f}")
-        if len(missing_in_dir2) > 10:
-            print(f"  ... and {len(missing_in_dir2) - 10} more")
+        _print_file_list(missing_in_dir2)
 
     if missing_in_dir1:
         print(f"\nFiles only in {dir2.name} ({len(missing_in_dir1)}):")
-        for f in missing_in_dir1[:10]:
-            print(f"  - {f}")
-        if len(missing_in_dir1) > 10:
-            print(f"  ... and {len(missing_in_dir1) - 10} more")
+        _print_file_list(missing_in_dir1)
 
     # Combine all non-matching for return value
     non_matching = content_different + missing_in_dir1 + missing_in_dir2
 
     return non_matching, matching_count
+
+
+def _print_file_list(file_list: list[Path]):
+    for f in file_list[:10]:
+        print(f"  - {f}")
+    if len(file_list) > 10:
+        print(f"  ... and {len(file_list) - 10} more")
 
 
 if __name__ == "__main__":

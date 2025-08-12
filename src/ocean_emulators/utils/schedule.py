@@ -45,7 +45,7 @@ class CosineWithWarmupConfig(BaseModel):
     type: Literal["cosine_with_warmup"] = "cosine_with_warmup"
 
     warmup_lr: float = 1e-6
-    warmup_epochs: int = 6
+    warmup_epochs: int = 5
 
     def build(
         self, optimizer: torch.optim.Optimizer, epochs: int

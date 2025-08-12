@@ -346,8 +346,8 @@ class TrainConfig(TopLevelConfig):
     samudra: SamudraConfig
 
     def prepare_output_dirs(self) -> None:
-        self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+        self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
 
 
 # See backend.py for how these are turned into concrete devices

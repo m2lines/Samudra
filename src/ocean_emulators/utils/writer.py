@@ -65,7 +65,7 @@ class ZarrWriter:
             coords=coords,
         )
         ds.attrs["model_path"] = str(self.model_path)
-        ds = ds.chunk({"time": 1, "lat": 180, "lon": 360})
+        ds = ds.chunk({"time": 1})
         if os.path.exists(self.pred_path):
             ds.to_zarr(self.pred_path, mode="a", append_dim="time")
         else:

@@ -55,7 +55,7 @@ experiment:
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 data:
-  !include data/om4_halfdeg_remote.yaml
+  !include data/public.yaml
 
 samudra:
   checkpointing: all

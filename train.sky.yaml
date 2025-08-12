@@ -7,12 +7,16 @@
 # sky check -v
 # ```
 #
-# To create or re-use a cluster:
+# To create a cluster:
 # ```
-# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster train.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
+# sky launch -c fomo-cluster train.sky.yaml --env-file <my-env>.env
 # ```
 # As the job progresses, skypilot will provide commands to locally monitor each stage.
+#
+# To queue work on the same cluster:
+# ```
+# sky exec fomo-cluster train.sky.yaml --env-file <my-env>.env
+# ```
 #
 #
 # To get debug traces when running `sky` commands, set this environment variable:
@@ -48,11 +52,11 @@ envs:
   #  # Experiment configurations
   #  lr_experiments:
   #    - (skip) learning_rate: 0.0001   # 6× smaller than baseline
-  #    - learning_rate: 0.0002   # 3× smaller than baseline
-  #    - learning_rate: 0.0004   # 1.5× smaller than baseline
-  #    - learning_rate: 0.0006   # Current baseline
-  #    - learning_rate: 0.001    # 1.7× larger than baseline
-  #    - learning_rate: 0.002    # 3.3× larger than baseline
+  #    - x  learning_rate: 0.0002   # 3× smaller than baseline
+  #    - xw learning_rate: 0.0004   # 1.5× smaller than baseline
+  #    - xw learning_rate: 0.0006   # Current baseline
+  #    - xw learning_rate: 0.001    # 1.7× larger than baseline
+  #    - x  learning_rate: 0.002    # 3.3× larger than baseline
   #    - learning_rate: 0.004    # 6.7× larger than baseline
   #    - (skip) learning_rate: 0.008    # 13× larger than baseline (aggressive)
   LR: null  # Experiment

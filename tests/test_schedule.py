@@ -1,9 +1,21 @@
 import torch
 
 from ocean_emulators.utils.schedule import (
+    CosineSchedulerConfig,
     CosineWithTailSchedulerConfig,
     CosineWithWarmupConfig,
 )
+
+
+def simulate_lr_history(optimizer, scheduler, total_epochs):
+    lr_history = []
+    # Need to call step after optimizer.step() to avoid warnings
+    # For testing, we'll simulate optimizer steps
+    for epoch in range(total_epochs):
+        lr_history.append(optimizer.param_groups[0]["lr"])
+        optimizer.step()  # Simulate optimizer step
+        scheduler.step()
+    return lr_history
 
 
 def test_cosine_with_tail_holds_constant_lr():
@@ -25,13 +37,7 @@ def test_cosine_with_tail_holds_constant_lr():
     )
     scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
 
-    lr_history = []
-    # Need to call step after optimizer.step() to avoid warnings
-    # For testing, we'll simulate optimizer steps
-    for epoch in range(total_epochs):
-        lr_history.append(optimizer.param_groups[0]["lr"])
-        optimizer.step()  # Simulate optimizer step
-        scheduler.step()
+    lr_history = simulate_lr_history(optimizer, scheduler, total_epochs)
 
     cosine_epochs = total_epochs - tail_epochs
 
@@ -54,6 +60,47 @@ def test_cosine_with_tail_holds_constant_lr():
     )
 
 
+def test_cosine__larger_target_than_total__stops_early():
+    """Test for a 'kill-switch'-like feature for the learning rate schedule.
+
+    Users should be able to set 'epochs' to a low number and 'target_epochs' to a
+    large number, and the LR schedule should take shape as if there were the larger
+    number of epochs, but actually end earlier.
+
+    This is useful, for example, to launch experiments with a shorter number of epochs
+    than a full training run.
+    """
+    target_epochs = 70
+    total_epochs = 7
+    initial_lr = 0.01
+
+    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
+
+    scheduler_config = CosineSchedulerConfig(
+        target_epochs=target_epochs,
+    )
+
+    scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
+    baseline_scheduler = scheduler_config.build(optimizer, epochs=target_epochs)
+
+    lr_history = simulate_lr_history(optimizer, scheduler, total_epochs)
+    base_lr_history = simulate_lr_history(optimizer, baseline_scheduler, total_epochs)
+
+    # Ensure cosine schedule's monotonically decreasing property holds
+    last_lr = float("inf")
+    for lr in lr_history:
+        assert last_lr >= lr, "Learning rate needs to be monotonically decreasing"
+        last_lr = lr
+
+    assert len(lr_history) == total_epochs
+
+    for short_lr, base_lr in zip(lr_history, base_lr_history):
+        # TODO(alxmrs): Is this an OK tolerance?
+        assert abs(short_lr - base_lr) < 1e-3, (
+            "Shortened schedule should be the same shape as standard LR schedule"
+        )
+
+
 def test_cosine_with_warmup():
     """Test for linearly increasing "warmup" before cosine annealing learning rate."""
     warmup_lr = 0.001
@@ -67,14 +114,7 @@ def test_cosine_with_warmup():
     )
     scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
 
-    # TODO(alxmrs): Extract function call.
-    lr_history = []
-    # Need to call step after optimizer.step() to avoid warnings
-    # For testing, we'll simulate optimizer steps
-    for epoch in range(total_epochs):
-        lr_history.append(optimizer.param_groups[0]["lr"])
-        optimizer.step()  # Simulate optimizer step
-        scheduler.step()
+    lr_history = simulate_lr_history(optimizer, scheduler, total_epochs)
 
     assert max(lr_history) == target_lr, "The peak LR should be the target LR"
     last_lr = -1

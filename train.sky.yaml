@@ -49,17 +49,6 @@ envs:
   # the $DATA_CONFIG yaml.
   DATA_ROOT_PATH: null # data/om4_onedeg_compact  # NOTE: path cannot end in a slash `/`.
   DATA_CONFIG: configs/data/om4_sky_local.yaml
-  #  # Experiment configurations
-  #  lr_experiments:
-  #    - (skip) learning_rate: 0.0001   # 6× smaller than baseline
-  #    - x  learning_rate: 0.0002   # 3× smaller than baseline
-  #    - xw learning_rate: 0.0004   # 1.5× smaller than baseline
-  #    - xw learning_rate: 0.0006   # Current baseline
-  #    - xw learning_rate: 0.001    # 1.7× larger than baseline
-  #    - x  learning_rate: 0.002    # 3.3× larger than baseline
-  #    - learning_rate: 0.004    # 6.7× larger than baseline
-  #    - (skip) learning_rate: 0.008    # 13× larger than baseline (aggressive)
-  LR: null  # Experiment
 
 file_mounts:
   # TODO(alxmrs): Consider adding a data/ COPY file_mount here once `mount_options` feature exists.
@@ -103,5 +92,4 @@ run: |
     --experiment.data_root=${DATA_ROOT} \
     --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \
-    --learning_rate=${LR} \
     --samudra.checkpointing=all

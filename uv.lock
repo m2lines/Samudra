@@ -2693,7 +2693,7 @@ dependencies = [
     { name = "requests" },
     { name = "s3fs" },
     { name = "scipy" },
-    { name = "skypilot-nightly", extra = ["aws"] },
+    { name = "skypilot", extra = ["aws"] },
     { name = "torch" },
     { name = "torchinfo" },
     { name = "wandb" },
@@ -2748,7 +2748,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.3" },
     { name = "s3fs", specifier = ">=2025.5.1" },
     { name = "scipy", specifier = ">=1.15.2" },
-    { name = "skypilot-nightly", extras = ["aws", "lambda"], specifier = ">=1.0.0.dev20250812" },
+    { name = "skypilot", extras = ["aws", "lambda"], specifier = ">=0.10.1" },
     { name = "torch", specifier = "~=2.2.1" },
     { name = "torchinfo", specifier = ">=1.8" },
     { name = "wandb", specifier = ">=0.19.8" },
@@ -4133,8 +4133,8 @@ wheels = [
 ]
 
 [[package]]
-name = "skypilot-nightly"
-version = "1.0.0.dev20250812"
+name = "skypilot"
+version = "0.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -4177,9 +4177,9 @@ dependencies = [
     { name = "uvicorn", extra = ["standard"] },
     { name = "wheel" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bb/73/b652982b3698d38a0931f1d4113b74b9b7c94ef95530e20e174ce33553de/skypilot_nightly-1.0.0.dev20250812.tar.gz", hash = "sha256:898750cb62f6f9a44ae7e176be70a984e33f0500ff69a19e752e3913f60b6aaf", size = 2422238 }
+sdist = { url = "https://files.pythonhosted.org/packages/47/de/3d2913dbe2784047e3fd5d586f0f2f164bef0abd75b395c8dc3d36000511/skypilot-0.10.1.tar.gz", hash = "sha256:031cc605f16d8635dc5e61841ea05e9aa38914311ef4122aca1e600e7519a2f7", size = 2414905 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/54/abea037402eaaeee4cd40acc6b49a1c2c3a1e46f3e7d9db07cb76e665d31/skypilot_nightly-1.0.0.dev20250812-py3-none-any.whl", hash = "sha256:49e0390ca3acc7be661e5a4891ae3d3fb8c0e473d84a9ddb533ab93d803e083e", size = 2651836 },
+    { url = "https://files.pythonhosted.org/packages/a6/0c/428e493dce9db08be362168d5e62d446d2f3dd7b7b8a37e6eab90767c40f/skypilot-0.10.1-py3-none-any.whl", hash = "sha256:cd7cecf15ac357115bb7a1ba246cd6b0bd5137c46d3997ab514ff3f92517932d", size = 2644931 },
 ]
 
 [package.optional-dependencies]

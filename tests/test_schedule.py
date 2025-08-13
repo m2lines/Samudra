@@ -89,3 +89,9 @@ def test_cosine_with_warmup():
             )
 
         last_lr = lr
+
+    # Ensure that after warmup, the LR does actually decrease
+    assert (top := lr_history[warmup_epochs + 1]) > (last := lr_history[-1]), (
+        "LR must decrease after warmup"
+    )
+    assert top / 20 > last, "LR must decrease by a significant amount after warmup"

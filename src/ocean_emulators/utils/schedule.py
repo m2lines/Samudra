@@ -63,7 +63,7 @@ class CosineWithWarmupConfig(BaseModel):
         return torch.optim.lr_scheduler.SequentialLR(
             optimizer,
             schedulers=[warmup, cosine],
-            milestones=[epochs - self.warmup_epochs],
+            milestones=[self.warmup_epochs],
         )
 
 

@@ -96,10 +96,9 @@ logger = logging.getLogger(__name__)
 
 
 def main(cfg: VizConfig):
-    handle_logging(cfg.debug, cfg.output_path)
-
     logger.info(f"Writing results to {cfg.output_path}")
     cfg.output_path.mkdir(parents=True, exist_ok=True)
+    handle_logging(cfg.debug, cfg.output_path)
     cfg.save_yaml(cfg.output_path / "config.yaml")
 
     viz = cfg.build(LocalLocation(path=Path.cwd()))

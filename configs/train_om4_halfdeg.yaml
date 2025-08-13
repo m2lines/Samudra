@@ -14,9 +14,9 @@ batch_size: 3
 #    - x learning_rate: 0.0006   # Current baseline
 #    - x learning_rate: 0.001    # 1.7× larger than baseline
 #    - x learning_rate: 0.002    # 3.3× larger than baseline
-#    -   learning_rate: 0.004    # 6.7× larger than baseline
+#    - x learning_rate: 0.004    # 6.7× larger than baseline
 #    - (skip) learning_rate: 0.008    # 13× larger than baseline (aggressive)
-learning_rate: 0.002
+learning_rate: 0.004
 scheduler: { type: cosine }
 kill_after_n_epochs: 20
 loss: mse
@@ -55,7 +55,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: om4_samudra_halfdeg_wide_v0_lr_v3_002
+  name: om4_samudra_halfdeg_wide_v0_lr_v3_004
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

@@ -81,6 +81,11 @@ def test_cosine__larger_target_than_total__stops_early():
     # do the full LR schedule across all (70) epochs.
     base_lr_history = simulate_lr_history(scheduler_config, initial_lr, target_epochs)
 
+    # Ensure that the full cosine schedule decreases as expected.
+    assert base_lr_history[0] / 20 > base_lr_history[-1], (
+        "Base learning rate needs to significantly decrease."
+    )
+
     # Ensure cosine schedule's monotonically decreasing property holds
     last_lr = float("inf")
     for lr in lr_history:

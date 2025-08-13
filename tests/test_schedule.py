@@ -7,11 +7,13 @@ from ocean_emulators.utils.schedule import (
 )
 
 
-def simulate_lr_history(optimizer, scheduler, total_epochs):
+def simulate_lr_history(scheduler_config, initial_lr, epochs):
+    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
+    scheduler = scheduler_config.build(optimizer, epochs=epochs)
     lr_history = []
     # Need to call step after optimizer.step() to avoid warnings
     # For testing, we'll simulate optimizer steps
-    for epoch in range(total_epochs):
+    for epoch in range(epochs):
         lr_history.append(optimizer.param_groups[0]["lr"])
         optimizer.step()  # Simulate optimizer step
         scheduler.step()
@@ -30,14 +32,10 @@ def test_cosine_with_tail_holds_constant_lr():
     tail_epochs = 10
     total_epochs = 50
 
-    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
-
     scheduler_config = CosineWithTailSchedulerConfig(
         tail_lr=tail_lr, tail_epochs=tail_epochs
     )
-    scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
-
-    lr_history = simulate_lr_history(optimizer, scheduler, total_epochs)
+    lr_history = simulate_lr_history(scheduler_config, initial_lr, total_epochs)
 
     cosine_epochs = total_epochs - tail_epochs
 
@@ -78,13 +76,10 @@ def test_cosine__larger_target_than_total__stops_early():
         target_epochs=target_epochs,
     )
 
-    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
-    scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
-    lr_history = simulate_lr_history(optimizer, scheduler, total_epochs)
-
-    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
-    baseline_scheduler = scheduler_config.build(optimizer, epochs=target_epochs)
-    base_lr_history = simulate_lr_history(optimizer, baseline_scheduler, total_epochs)
+    # stop early (at (7)).
+    lr_history = simulate_lr_history(scheduler_config, initial_lr, total_epochs)
+    # do the full LR schedule across all (70) epochs.
+    base_lr_history = simulate_lr_history(scheduler_config, initial_lr, target_epochs)
 
     # Ensure cosine schedule's monotonically decreasing property holds
     last_lr = float("inf")

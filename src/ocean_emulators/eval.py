@@ -257,7 +257,7 @@ def main():
     cfg = EvalConfig.from_yaml_and_cli()
     cfg.prepare_output_dirs()  # we do this first so logging can use them
 
-    handle_logging(cfg)
+    handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
 
     Evaluator = Eval(cfg)

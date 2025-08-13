@@ -1,6 +1,7 @@
 import dataclasses
 import gc
 import glob
+import logging
 import os
 import re
 import sys
@@ -28,6 +29,8 @@ from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignor
 
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 from ocean_emulators.utils.data import spherical_area_weights, with_level_index_vars
+
+logger = logging.getLogger(__name__)
 
 
 @dataclasses.dataclass
@@ -150,11 +153,11 @@ class Viz:
 
         # Compute profile means
         with ProgressBar():
-            print("Ground truth " + dataset_name)
+            logger.info("Computing profile for ground truth " + dataset_name)
             profile_groundtruth = profile_mean(data).load()
 
             for k in pred_dict.keys():
-                print(k)
+                logger.info("Computing profile for prediction " + k)
                 pred_dict[k]["profile_prediction"] = profile_mean(
                     pred_dict[k]["ds_prediction"]
                 ).load()
@@ -168,37 +171,6 @@ class Viz:
         self.levels: int = levels
         self.key1: str = key1
         self.output_path: str = output_path
-
-    def run(self):
-        matplotlib.use("Agg")
-        # TODO(jder): consider closing figures after each plot (they are retained
-        # in memory forever, I think?)
-
-        self.step_timeseries_plots()
-        self.step_short_timeseries_plots()
-        self.step_shallow_timeseries_grid_plots()
-        self.step_temp_timeseries_shallow_grid_plots()
-        self.step_global_thetao_time_series()
-        self.step_global_salinity_timeseries_plots()
-        self.step_ohc_noanomaly_plots()
-        self.step_ohc_plots()
-        self.step_depthwise_ohc_plots()
-        self.step_basin_ohc_plots()
-        self.step_basin_ohc_upto_700_plots()
-        self.step_ocean_temperature_profile_plots()
-        self.step_ocean_salinity_profile_plots()
-        self.step_salinity_deseasonalized_plots()
-        self.step_create_ohc_salinity_slopes_table()
-        self.step_thetao_mae_metrics()
-        self.step_sst_mae_metrics()
-        self.step_pdf_plots_short()
-        self.step_enso_plots()
-        self.step_ohc_maps()
-        self.step_sst_mean_maps()
-        self.step_sst_time_snapshot_maps()
-        self.step_salinity_mean_map()
-        self.step_salinity_snapshot_maps()
-        self.step_movies()
 
     def step_timeseries_plots(self):
         ### Plotting timeseries for each variable for each level

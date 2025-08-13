@@ -4,10 +4,10 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 70
+epochs: 20
 batch_size: 3
 learning_rate: 0.0006
-scheduler: { type: cosine }
+scheduler: { type: cosine, target_epochs: 70 }
 loss: mse
 finetune: false
 resume_ckpt_path: null
@@ -44,7 +44,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: om4_samudra_halfdeg_wide
+  name: om4_samudra_halfdeg_wide_v0_sd_v0
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
@@ -77,8 +77,16 @@ samudra:
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"
 
-  #  # Early Dropout Configuration
-  #  stochastic_depth: !include early_dropout.yaml
+  # Early Dropout Configuration
+  stochastic_depth:
+    # Core early dropout settings
+    drop_path_rate: 0.15          # 15% peak dropout rate (ConvNeXt paper (2201.03545) recommends 0.1-0.2)
+    early_dropout_epochs: 5       # Apply dropout for first 30 epochs
+    dropout_schedule: "early_only"  # Only apply during early training
+    linear_decay_to_zero: true    # Linear decay from 0.15 to 0 over 5 epochs
+
+    # Optional: Different rates per stage (encoder progression)
+    per_stage_multipliers: [0.5, 0.8, 1.0, 1.2]  # Lighter at shallow, heavier at deep layers, based on (2201.03545).
 
   corrector:
     non_negative_corrector_names: null

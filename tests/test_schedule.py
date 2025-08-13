@@ -94,7 +94,6 @@ def test_cosine__larger_target_than_total__stops_early():
     assert len(lr_history) == total_epochs
 
     for short_lr, base_lr in zip(lr_history, base_lr_history):
-        # TODO(alxmrs): Is this an OK tolerance?
         assert short_lr == base_lr, (
             "Shortened schedule should be the same shape as standard LR schedule"
         )

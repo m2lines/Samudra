@@ -73,16 +73,16 @@ def test_cosine__larger_target_than_total__stops_early():
     total_epochs = 7
     initial_lr = 0.01
 
-    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
-
     scheduler_config = CosineSchedulerConfig(
         target_epochs=target_epochs,
     )
 
+    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
     scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
-    baseline_scheduler = scheduler_config.build(optimizer, epochs=target_epochs)
-
     lr_history = simulate_lr_history(optimizer, scheduler, total_epochs)
+
+    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
+    baseline_scheduler = scheduler_config.build(optimizer, epochs=target_epochs)
     base_lr_history = simulate_lr_history(optimizer, baseline_scheduler, total_epochs)
 
     # Ensure cosine schedule's monotonically decreasing property holds
@@ -95,6 +95,6 @@ def test_cosine__larger_target_than_total__stops_early():
 
     for short_lr, base_lr in zip(lr_history, base_lr_history):
         # TODO(alxmrs): Is this an OK tolerance?
-        assert abs(short_lr - base_lr) < 1e-3, (
+        assert short_lr == base_lr, (
             "Shortened schedule should be the same shape as standard LR schedule"
         )

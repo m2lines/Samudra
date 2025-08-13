@@ -76,6 +76,11 @@ run: |
       exit 1
   fi
 
+  # Installs custom CUDA kernel for spherical convolutions used in torch-harmonics.
+  export FORCE_CUDA_EXTENSION=1
+  export TORCH_CUDA_ARCH_LIST="7.0 7.2 7.5 8.0 8.6 8.7 9.0+PTX"
+  uv pip install --no-build-isolation "torch-harmonics==0.8.0"
+
   uv run torchrun \
     --standalone \
     --nnodes=$SKYPILOT_NUM_NODES \

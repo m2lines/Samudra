@@ -1452,13 +1452,13 @@ class Viz:
         )
 
         # Full time mean and bias [Last year - First year]
-        CM4_lastyear_change = data_thetao_ano.isel(time=slice(-73, None)).mean(
+        GT_lastyear_change = data_thetao_ano.isel(time=slice(-73, None)).mean(
             dim="time"
         ) - data_thetao_ano.isel(time=slice(0, 73)).mean(dim="time")
         datasets, titles = get_basin_datasets(
-            CM4_lastyear_change, self.basin_masks, self.data
+            GT_lastyear_change, self.basin_masks, self.data
         )
-        plot_title = "CM4 (Last Year - First Year)"
+        plot_title = f"{self.dataset_name} (Last Year - First Year)"
         ocean_temperature_profile(datasets, titles, plot_title)
 
         pred_lastyear_change = pred_thetao_ano.isel(time=slice(-73, None)).mean(
@@ -1470,7 +1470,7 @@ class Viz:
         plot_title = f"{self.pred_dict[self.key1]['name']} (Last Year - First Year)"
         ocean_temperature_profile(datasets, titles, plot_title)
 
-        bias_lastyear_change = pred_lastyear_change - CM4_lastyear_change
+        bias_lastyear_change = pred_lastyear_change - GT_lastyear_change
         datasets, titles = get_basin_datasets(
             bias_lastyear_change, self.basin_masks, self.data
         )
@@ -2340,16 +2340,6 @@ class Viz:
             new_cmap = cm.cm.balance
             new_cmap.set_bad(color="grey", alpha=0.0)
 
-            # Set common color range for the colorbar
-            vmin, vmax = {
-                "thetao": (-5, 5),
-                "so": (-1, 1),
-                "uo": (-0.01, 0.01),
-                "vo": (-0.01, 0.01),
-                "zos": (-1, 1),
-                "OHC": (-0.05, 0.05),
-            }[var_name]
-
             # Create figure with one subplot
             ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
 
@@ -2357,8 +2347,6 @@ class Viz:
             im = data_pred1.plot(
                 ax=ax,
                 cmap=new_cmap,
-                vmin=vmin,
-                vmax=vmax,
                 add_colorbar=False,
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)

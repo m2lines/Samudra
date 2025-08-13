@@ -4,7 +4,7 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-epochs: 20
+epochs: 15
 batch_size: 3
 learning_rate: 0.0006
 scheduler: { type: cosine, target_epochs: 70 }

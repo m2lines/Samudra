@@ -114,7 +114,7 @@ def init_distributed_mode() -> DistributedConfig:
         f"world_size {cfg.world_size}, dist_url {cfg.dist_url}"
     )
     torch.distributed.barrier()
-    suppress_prints(cfg.rank == 0)
+    # suppress_prints(cfg.rank == 0)
     suppress_logging(cfg.rank == 0)
 
     return cfg

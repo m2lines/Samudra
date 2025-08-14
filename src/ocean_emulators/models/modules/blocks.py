@@ -3,6 +3,7 @@ from collections.abc import Callable
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
+from torch_harmonics import DiscreteContinuousConvS2
 
 from ocean_emulators.models.modules.activations import CappedGELU
 
@@ -237,4 +238,123 @@ class ConvNeXtBlock(CoreBlock):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
             else:
                 x = layer(x)
+        return skip + x
+
+
+class DiscoBlock(CoreBlock):
+    """
+    Pure DISCO convolution block following DISCO paper design patterns.
+
+    Implements a clean spherical convolution block optimized for ocean data:
+    1. DISCO Conv (spatial + channel mixing)
+    2. Normalization
+    3. Activation
+    4. DISCO Conv (refined spatial mixing)
+    5. Residual connection
+
+    Unlike DiscoConvNeXtBlock, this follows pure DISCO architecture patterns
+    without forcing ConvNeXt design choices onto spherical operations.
+    """
+
+    def __init__(
+        self,
+        in_channels: int = 300,
+        out_channels: int = 300,
+        kernel_size: int = 3,
+        dilation: int = 1,
+        n_layers: int = 1,
+        activation: Callable[[], torch.nn.Module] = CappedGELU,
+        pad="circular",  # Ignored for spherical operations
+        upscale_factor: int = 4,  # Kept for interface compatibility
+        norm="batch",
+        checkpoint_simple: bool = False,
+        disco_filter_type: str = "piecewise linear",
+        grid_shape: tuple[int, int] = (360, 720),
+    ):
+        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        assert n_layers == 1, "Can only use a single layer here!"
+
+        # Pure DISCO design - no ConvNeXt patterns
+        self.grid_shape = grid_shape
+        self.disco_filter_type = disco_filter_type
+
+        # Skip connection handling
+        if in_channels == out_channels:
+            self.skip_module = lambda x: x
+        else:
+            # Use simple DISCO conv for channel adjustment
+            self.skip_module = DiscreteContinuousConvS2(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                in_shape=grid_shape,
+                out_shape=grid_shape,
+                kernel_shape=1,  # Pointwise for channel adjustment
+                basis_type=disco_filter_type,
+                grid_in="equidistant",  # OM4 lat/lon grid
+                grid_out="equidistant",
+            )
+
+        # Main DISCO convolution sequence
+        layers = []
+
+        # First DISCO conv - primary spatial+channel mixing
+        layers.append(
+            DiscreteContinuousConvS2(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                in_shape=grid_shape,
+                out_shape=grid_shape,
+                kernel_shape=kernel_size,
+                basis_type=disco_filter_type,
+                grid_in="equidistant",
+                grid_out="equidistant",
+            )
+        )
+
+        # Normalization
+        if norm == "batch":
+            layers.append(nn.BatchNorm2d(out_channels))
+        elif norm == "instance":
+            layers.append(nn.InstanceNorm2d(out_channels))
+        elif norm == "layer":
+            layers.append(nn.GroupNorm(1, out_channels))  # Layer norm equivalent
+        elif norm == "nonorm":
+            pass
+        else:
+            raise NotImplementedError(f"Unknown norm type: {norm}")
+
+        # Activation
+        if activation is not None:
+            layers.append(activation())
+
+        # Second DISCO conv - spatial refinement
+        layers.append(
+            DiscreteContinuousConvS2(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                in_shape=grid_shape,
+                out_shape=grid_shape,
+                kernel_shape=kernel_size,
+                basis_type=disco_filter_type,
+                grid_in="equidistant",
+                grid_out="equidistant",
+            )
+        )
+
+        self.layers = nn.ModuleList(layers)
+        self.checkpoint_simple = checkpoint_simple
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Store skip connection
+        skip = self.skip_module(x)
+
+        # Main DISCO convolution path
+        for layer in self.layers:
+            if self.checkpoint_simple and not isinstance(
+                layer, DiscreteContinuousConvS2
+            ):
+                x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
+            else:
+                x = layer(x)
+
         return skip + x

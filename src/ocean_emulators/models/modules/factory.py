@@ -6,6 +6,7 @@ from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     ConvBlock,
     ConvNeXtBlock,
+    DiscoBlock,
     MaxPool,
     TransposedConvUpsample,
 )
@@ -13,6 +14,7 @@ from ocean_emulators.models.modules.blocks import (
 BLOCK_REGISTRY = {
     "conv_block": ConvBlock,
     "conv_next_block": ConvNeXtBlock,
+    "disco_block": DiscoBlock,
 }
 
 DOWNSAMPLE_REGISTRY = {
@@ -34,6 +36,12 @@ ACTIVATION_REGISTRY = {
 def create_block(block_type: str, **kwargs) -> nn.Module:
     if block_type not in BLOCK_REGISTRY:
         raise ValueError(f"Unknown block type: {block_type}")
+
+    # Only pass grid_shape to blocks that need it (currently only DiscoBlock)
+    if block_type != "disco_block" and "grid_shape" in kwargs:
+        kwargs = kwargs.copy()
+        del kwargs["grid_shape"]
+
     return BLOCK_REGISTRY[block_type](**kwargs)
 
 

@@ -56,6 +56,9 @@ class Samudra(BaseModel):
             case _:
                 assert_never(config.checkpointing)
 
+        # Extract grid shape from wet mask for DISCO blocks
+        grid_shape = wet.shape[-2:]  # (lat, lon) from (channels, lat, lon)
+
         # going down
         layers = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
@@ -73,6 +76,7 @@ class Samudra(BaseModel):
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
                     checkpoint_simple=checkpoint_simple,
+                    grid_shape=grid_shape,
                 )
             )
             # Down sampling block
@@ -92,6 +96,7 @@ class Samudra(BaseModel):
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
                 checkpoint_simple=checkpoint_simple,
+                grid_shape=grid_shape,
             )
         )
 
@@ -120,6 +125,7 @@ class Samudra(BaseModel):
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
                     checkpoint_simple=checkpoint_simple,
+                    grid_shape=grid_shape,
                 )
             )
             layers.append(
@@ -140,6 +146,7 @@ class Samudra(BaseModel):
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
                 checkpoint_simple=checkpoint_simple,
+                grid_shape=grid_shape,
             )
         )
 

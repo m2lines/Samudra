@@ -6,6 +6,8 @@
 # ```
 # sky check -v
 # ```
+# You will generally need to create a dedicated IAM user for skypilot, and put
+# your lambda credentials in ~/.lambda_cloud/ -- the `sky check -v` command has more details.
 #
 # To create or re-use a cluster:
 # ```
@@ -45,6 +47,7 @@ envs:
   # the $DATA_CONFIG yaml.
   DATA_ROOT_PATH: null # data/om4_onedeg_compact  # NOTE: path cannot end in a slash `/`.
   DATA_CONFIG: configs/data/public.yaml
+  AWS_PROFILE: ''
   ARGS: ""
 
 file_mounts:
@@ -58,6 +61,8 @@ file_mounts:
 workdir: .
 
 setup: |
+  set -ex
+
   mkdir ~/data/
   rclone config create s3-source s3 provider=AWS env_auth=true
 
@@ -66,6 +71,8 @@ setup: |
   rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH}/OM4.zarr ~/data/OM4.zarr --transfers=32 --ignore-existing
 
 run: |
+  set -ex
+
   MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)
   echo "Starting distributed training, head node: $MASTER_ADDR"
 

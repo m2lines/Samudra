@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755207955795,
+  "lastUpdate": 1755207957096,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7058,6 +7058,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.11522161120091716",
             "extra": "mean: 66.60637465780005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e4e5756144a42c22b2cd0043854da28cad0bd44d",
+          "message": "minor tweaks to skypilot setup (#348)\n\n* Fixes numba bug with print being defined inside a function rather than\na module.\n* Fixes sqlalchemy required by skypilot\n* Some docs and convenience updates",
+          "timestamp": "2025-08-14T14:19:31-07:00",
+          "tree_id": "90bf8f2e0400125696c85234419ae9622f042201",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e4e5756144a42c22b2cd0043854da28cad0bd44d"
+        },
+        "date": 1755207956682,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2669796825620196,
+            "unit": "iter/sec",
+            "range": "stddev: 0.024573617654159798",
+            "extra": "mean: 789.2786394000041 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06781283463522375,
+            "unit": "iter/sec",
+            "range": "stddev: 0.509250022224479",
+            "extra": "mean: 14.74647100919999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1963532289407739,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0994255258944995",
+            "extra": "mean: 5.092862518199945 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.014954221684960516,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11591925564546583",
+            "extra": "mean: 66.87074867999995 sec\nrounds: 5"
           }
         ]
       }

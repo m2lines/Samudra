@@ -40,8 +40,9 @@ class Samudra(BaseModel):
 
         if config.pos_channels > 0:
             self.positional_params = nn.Parameter(
-                torch.zeros(config.pos_channels, *wet.shape[-2:])
+                torch.empty(config.pos_channels, *wet.shape[-2:])
             )
+            nn.init.normal_(self.positional_params, mean=0.0, std=1e-5)
         else:
             self.register_parameter("positional_params", None)
 

@@ -3,10 +3,10 @@ import torch
 import xarray as xr
 
 from ocean_emulators.config import SamudraConfig
+from ocean_emulators.constants import TensorMap
 from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
-from ocean_emulators.constants import TensorMap
 
 
 def test_positional_parameters_update():
@@ -55,6 +55,10 @@ def test_positional_parameters_update():
 
         assert model.positional_params is not None
         assert model.positional_params.shape == (config.pos_channels, h, w)
+        assert not torch.allclose(
+            model.positional_params.detach(),
+            torch.zeros_like(model.positional_params),
+        )
 
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         x = torch.randn(1, config.ch_width[0], h, w)
@@ -65,4 +69,3 @@ def test_positional_parameters_update():
         before = model.positional_params.detach().clone()
         optimizer.step()
         assert not torch.allclose(model.positional_params.detach(), before)
-

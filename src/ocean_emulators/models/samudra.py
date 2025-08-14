@@ -24,8 +24,11 @@ from ocean_emulators.utils.train import pairwise
 
 class Samudra(BaseModel):
     def __init__(self, config: SamudraConfig, hist, wet, area_weights, static_data):
+        ch_width = config.ch_width.copy()
+        if config.pos_channels > 0:
+            ch_width[0] += config.pos_channels
         super().__init__(
-            ch_width=config.ch_width,
+            ch_width=ch_width,
             n_out=config.n_out,
             wet=wet,
             hist=hist,
@@ -35,11 +38,18 @@ class Samudra(BaseModel):
             static_data=static_data,
         )
 
+        if config.pos_channels > 0:
+            self.positional_params = nn.Parameter(
+                torch.empty(config.pos_channels, *wet.shape[-2:])
+            )
+            nn.init.normal_(self.positional_params, mean=0.0, std=1e-5)
+        else:
+            self.register_parameter("positional_params", None)
+
         # Get activation class
         activation = get_activation_cl(config.core_block.activation)
 
         # Create local copies of config lists that will be reversed
-        ch_width = config.ch_width.copy()
         dilation = config.dilation.copy()
         n_layers = config.n_layers.copy()
 
@@ -148,10 +158,13 @@ class Samudra(BaseModel):
 
         self.layers = nn.ModuleList(layers)
         self.corrector = Correctors(config.corrector, hist, area_weights, static_data)
-        self.num_steps = int(len(config.ch_width) - 1)
+        self.num_steps = int(len(ch_width) - 1)
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         fts_input = fts.clone().detach()
+        if self.positional_params is not None:
+            pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)
+            fts = torch.cat([fts, pos], dim=1)
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))

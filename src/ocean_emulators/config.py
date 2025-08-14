@@ -217,6 +217,7 @@ class SamudraConfig(BaseConfig):
     last_kernel_size: int = 3
     pad: str = "circular"
     wet: Any | None = None
+    pos_channels: int = 0
 
     # Block configurations
     core_block: BlockConfig = BlockConfig()

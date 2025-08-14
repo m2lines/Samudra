@@ -46,8 +46,6 @@ envs:
   # We assume that data in this directory is named in the same pattern as
   # the $DATA_CONFIG yaml.
   DATA_ROOT_PATH: null # data/om4_onedeg_compact  # NOTE: path cannot end in a slash `/`.
-  DATA_CONFIG: configs/data/public.yaml
-  AWS_PROFILE: ''
   ARGS: ""
 
 file_mounts:
@@ -92,7 +90,6 @@ run: |
     --master_port=8008 \
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train ${CONFIG} \
-    --data=@${DATA_CONFIG} \
     --experiment.data_root=${DATA_ROOT} \
     --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \

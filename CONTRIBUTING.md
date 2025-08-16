@@ -170,9 +170,10 @@ You can run `uv run -m ocean_emulators.train --help` to see all the options avai
 To learn more about other datasets used during training, please see the _Data Engineering_ section below.
 
 To run a remote training job with Skypilot, use the following command:
+
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env
+uv run sky launch train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env
 ```
 
 Please read the docstring in the `train.sky.yaml` for more information.
@@ -186,9 +187,25 @@ uv run scripts/clone_data.py $DATA_PATH --compact_variables
 uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH
 ```
 
+This produces a `predictions.zarr` file in the output directory with the rollout of the model.
+
 You can run `uv run -m ocean_emulators.eval --help` to see all the options available.
 
 To learn more about other datasets used during evaluation, please see the _Data Engineering_ section below.
+
+### Visualizing outputs from the model
+
+```bash
+uv run -m ocean_emulators.viz configs/viz_om4.yaml --data_root path/to/data --name my_experiment_viz --runs='[{"name": "my_experiment", "location": "path/to/eval/output/predictions.zarr"}]'
+```
+
+You can run `uv run -m ocean_emulators.viz --help` to see all the options available.
+
+After making changes to the visualization code, you can run the following command to compare old and new plots:
+
+```bash
+uv run -m ocean_emulators.utils.compare path/to/old/viz path/to/new/viz
+```
 
 ## Configuration
 

@@ -167,7 +167,7 @@ class Samudrax(eqx.Module):
                     norm=config.core_block.norm,
                 )
             )
-            # TODO(jder): downsample here
+            layers.append(AvgPool())
 
         # middle block
         layers.append(
@@ -181,7 +181,8 @@ class Samudrax(eqx.Module):
                 norm=config.core_block.norm,
             )
         )
-        # TODO(jder): Add first upsample block
+
+        layers.append(BilinearUpsample())
 
         # Reverse for upsampling path
         ch_width.reverse()
@@ -200,7 +201,7 @@ class Samudrax(eqx.Module):
                     norm=config.core_block.norm,
                 )
             )
-            # TODO(jder): Add upscample block
+        layers.append(BilinearUpsample())
 
         # TODO(alxmrs): Final conv block
 

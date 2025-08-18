@@ -10,6 +10,7 @@ from collections import defaultdict, deque
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
+import jax
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -97,14 +98,20 @@ class SmoothedValue:
 
     @property
     def global_avg(self):
+        if self.count == 0:
+            return float("nan")
         return self.total / self.count
 
     @property
     def max(self):
+        if self.count == 0:
+            return float("nan")
         return max(self.deque)
 
     @property
     def value(self):
+        if self.count == 0:
+            return float("nan")
         return self.deque[-1]
 
     def __str__(self):
@@ -126,7 +133,7 @@ class MetricLogger:
         for k, v in kwargs.items():
             if v is None:
                 continue
-            if isinstance(v, torch.Tensor):
+            if isinstance(v, (torch.Tensor, jax.Array)):
                 v = v.item()
             assert isinstance(v, (float, int))
             self.meters[k].update(v, n=n)

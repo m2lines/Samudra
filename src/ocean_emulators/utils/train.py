@@ -2,7 +2,9 @@ from collections.abc import Sequence
 from itertools import tee
 from pathlib import Path
 
+import jax
 import torch
+from jax import tree_map
 from xarray_einstats.einops import rearrange  # noqa: F401
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
@@ -32,7 +34,7 @@ def collate_train_data(data: Sequence[TrainData]) -> TrainData:
         label = torch.stack([d.get_label(step) for d in data])
         batched_data.insert(input, label)
 
-    return batched_data
+    return tree_map(jax.numpy.asarray, batched_data)
 
 
 def collate_inference_data(

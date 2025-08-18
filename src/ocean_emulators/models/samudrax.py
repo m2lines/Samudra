@@ -8,5 +8,7 @@ class Samudrax(eqx.Module):
     def __init__(self):
         pass
 
-    def __call__(self, x: Float[Grid, " channels"]) -> Float[Grid, " channels"]:
-        return x
+    def __call__(
+        self, x: Float[Grid, " prognostic_vars+boundary_vars"]
+    ) -> Float[Grid, " prognostic_vars"]:
+        return x[:154, :, :]

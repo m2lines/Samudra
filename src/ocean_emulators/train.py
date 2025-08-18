@@ -520,6 +520,7 @@ class Trainer:
                 "train/batch/loss": loss,
             }
 
+            metric_logger.update(loss=loss)
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
 

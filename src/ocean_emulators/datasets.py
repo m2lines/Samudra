@@ -2,8 +2,10 @@ import logging
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from typing import Any
 
+import jax
 import numpy as np
 import torch
 import xarray as xr
@@ -295,12 +297,13 @@ class InferenceDatasets(Dataset):
         return (self.datasets[idx], self.lengths[idx])
 
 
+@jax.tree_util.register_dataclass
+@dataclass
 class TrainData:
-    def __init__(self, num_prognostic_channels: int):
-        self.td_dict: dict[int, Example] = {}
-        self.load_stats: LoadStats | None = None
-        self.num_prognostic_channels = num_prognostic_channels
-        self.steps = 0
+    num_prognostic_channels: int = field(metadata=dict(static=True))
+    td_dict: dict[int, Example] = field(default_factory=dict)
+    load_stats: LoadStats | None = field(default=None, metadata=dict(static=True))
+    steps: int = field(default=0, metadata=dict(static=True))
 
     def insert(self, input_: Input, label: Prognostic):
         self.td_dict[self.steps] = (input_, label)

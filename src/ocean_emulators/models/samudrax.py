@@ -3,10 +3,20 @@ import typing
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-from jaxtyping import Array, Float
+from jaxtyping import Array, ArrayLike, Float
 
 from ocean_emulators.config import SamudraConfig
 from ocean_emulators.constants import Grid
+
+
+class CappedGELU(eqx.Module):
+    def __init__(self, cap_value=10.0):
+        self.cap_value = cap_value
+
+    def __call__(self, x: ArrayLike) -> Array:
+        x = jax.nn.gelu(x)
+        x = jax.lax.clamp(x, x, max=self.cap_value)
+        return x
 
 
 class ConvNeXtBlock(eqx.Module):
@@ -19,12 +29,12 @@ class ConvNeXtBlock(eqx.Module):
         out_channels: int = 1,
         kernel_size: int = 3,
         dilation: int = 1,
-        activation: eqx.Module | None = None,
+        activation: type[eqx.Module] | None = CappedGELU,
         pad="circular",
         upscale_factor: int = 4,
         norm="batch",
         *,
-        key: jax.random.PRNGKey,
+        key,
     ):
         assert kernel_size % 2 != 0, "Cannot use even kernel sizes!"
 
@@ -63,7 +73,9 @@ class ConvNeXtBlock(eqx.Module):
 
         match norm:
             case "batch":
-                self.layers.append(eqx.nn.BatchNorm(in_channels * upscale_factor))
+                self.layers.append(
+                    eqx.nn.BatchNorm(in_channels * upscale_factor, 0)
+                )  # TODO(alxmrs): Is this the right axis??
             case "instance":
                 raise NotImplementedError("No instance norm! Sorry!")
             case "nonorm":
@@ -72,7 +84,7 @@ class ConvNeXtBlock(eqx.Module):
                 typing.assert_never(norm)
 
         if activation is not None:
-            self.layers.append(activation)
+            self.layers.append(activation())
 
         # Linear post-processing -- 1x1 CNN
         self.layers.append(
@@ -86,7 +98,7 @@ class ConvNeXtBlock(eqx.Module):
         )
         k += 1
 
-    def __call__(self, x: Float[Array]) -> Float[Array]:
+    def __call__(self, x: ArrayLike) -> ArrayLike:
         skip = self.skip_module(x)
         for layer in self.layers:
             if isinstance(layer, eqx.nn.Conv2d) and layer.kernel_size[0] != 1:

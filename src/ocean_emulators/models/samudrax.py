@@ -39,7 +39,7 @@ class BilinearUpsample(eqx.Module):
 
 
 class AvgPool(eqx.Module):
-    avgpool: eqx.nn.AvgPool2d
+    avgpool: eqx.nn.AvgPool2d = eqx.field(static=True)
 
     def __init__(
         self,

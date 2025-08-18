@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, assert_never
 
 import dask
+import equinox as eqx
 import jax
 import numpy as np
 import optax
@@ -289,7 +290,9 @@ class Trainer:
             optax.clip(1.0),
             optax.adam(learning_rate=cfg.learning_rate),  # TODO: Schedule
         )
-        self.opt_state = self.optimizer.init(self.multistep_model)
+        self.opt_state = self.optimizer.init(
+            eqx.filter(self.multistep_model, eqx.is_inexact_array)
+        )
 
         # Scheduler
         # self.scheduler = None
@@ -515,9 +518,9 @@ class Trainer:
                 pred_y = jax.vmap(model)(train_data)
                 return jax.numpy.mean((train_data.get_full_label() - pred_y) ** 2)
 
-            loss, grads = jax.value_and_grad(loss)(self.multistep_model, data)
+            loss, grads = eqx.filter_value_and_grad(loss)(self.multistep_model, data)
             updates, self.opt_state = self.optimizer.update(grads, self.opt_state)
-            self.multistep_model = optax.apply_updates(self.multistep_model, updates)
+            self.multistep_model = eqx.apply_updates(self.multistep_model, updates)
 
             self.num_batches_seen += 1
             metrics: dict[str, Any] = {

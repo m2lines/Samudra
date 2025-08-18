@@ -253,7 +253,7 @@ class ExperimentConfig(BaseConfig):
     wandb: WandBConfig
 
     # Model configuration
-    network: str = "Samudra"
+    network: Literal["Samudra", "Samudrax"] = "Samudra"
     prognostic_vars_key: str = (
         "thermo_dynamic_all"  # all means all levels and _$num means $num levels
     )

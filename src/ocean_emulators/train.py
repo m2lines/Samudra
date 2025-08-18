@@ -239,8 +239,12 @@ class Trainer:
                 area_weights=self.area_weights,
                 static_data=self.data_container.static_data,
             ).to(self.device)
+        elif cfg.experiment.network == "Samudrax":
+            model = Samudrax()
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                f"Network {cfg.experiment.network} not implemented"
+            )
 
         self.model = model
         self.nets_dir = cfg.experiment.nets_dir
@@ -546,7 +550,9 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
+            predicted_outputs = self.model(data)
+
+            TO: TrainBatchOutput = self.model(data, self.loss_fn)
             TO.loss.backward()
             self._ema(model=self.model)
 

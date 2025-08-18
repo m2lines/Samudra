@@ -48,6 +48,7 @@ dependencies = [
   "zarr<3",
   "jax>=0.5.3",
   "equinox>=0.13.0",
+  "optax>=0.2.5",
 ]
 
 [dependency-groups]

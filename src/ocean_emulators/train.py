@@ -1,7 +1,6 @@
 # TODO:
 # - better stepper module and a cleaner model module
 # - cleaner dataset modules
-import contextlib
 import datetime
 import logging
 import multiprocessing
@@ -18,9 +17,11 @@ from pathlib import Path
 from typing import Any, assert_never
 
 import dask
+import jax
 import numpy as np
+import optax
 import torch
-import torch.nn as nn
+from jaxtyping import Float
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -30,12 +31,6 @@ from torch.utils.data import (
 
 from ocean_emulators import config
 from ocean_emulators.aggregator import Aggregator
-from ocean_emulators.aggregator.loss import (
-    get_channel_loss_dict,
-    get_channel_loss_scale_dict,
-    get_depth_loss_dict,
-    get_variable_loss_dict,
-)
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
@@ -56,7 +51,7 @@ from ocean_emulators.datasets import (
     TrainDataset,
 )
 from ocean_emulators.models.samudrax import Samudrax
-from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
+from ocean_emulators.stepper import Stepper, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
     extract_wet_mask,
@@ -64,17 +59,11 @@ from ocean_emulators.utils.data import (
     spherical_area_weights,
 )
 from ocean_emulators.utils.device import using_gpu
-from ocean_emulators.utils.distributed import (
-    all_reduce_mean,
-    get_world_size,
-    is_main_process,
-    set_seed,
-)
+from ocean_emulators.utils.distributed import get_world_size, is_main_process, set_seed
 from ocean_emulators.utils.ema import EMATracker
 from ocean_emulators.utils.logging import (
     MetricLogger,
     SmoothedValue,
-    get_model_summary,
     handle_logging,
     handle_warnings,
 )
@@ -289,12 +278,16 @@ class Trainer:
                 assert_never(cfg.loss)
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+        self.optimizer = optax.chain(
+            optax.clip(1.0),
+            optax.adam(learning_rate=cfg.learning_rate),  # TODO: Schedule
+        )
+        self.opt_state = self.optimizer.init(self.model)
 
         # Scheduler
-        self.scheduler = None
-        if cfg.scheduler:
-            self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
+        # self.scheduler = None
+        # if cfg.scheduler:
+        #     self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
 
         # Initialize WandB
         self.wandb_logger = WandBLogger.init_instance()
@@ -333,24 +326,8 @@ class Trainer:
         else:
             self.start_epoch = 1
 
-        # Modify DDP setup based on device
-        if self.distributed is not None:
-            self.model = nn.parallel.DistributedDataParallel(
-                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
-                device_ids=[self.distributed.gpu],
-            )
-
-        # EMA (must come after DDP setup so parameter names match final self.model)
-        if not loaded_checkpoint:
-            self._ema = EMATracker(
-                self.model,
-                decay=cfg.ema_decay,
-                faster_decay_at_start=cfg.faster_decay_at_start,
-            )
-
         # Training
         self.epochs = cfg.epochs
-        self.test_using_ema = cfg.test_using_ema
         self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
@@ -487,9 +464,6 @@ class Trainer:
             if inf_loss is not None:
                 logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
-            if is_main_process():
-                self.save_all_checkpoints(epoch, v_loss, inf_loss)
-
             time_elapsed = time.perf_counter() - start_epoch_train_time
 
             log_stats = {
@@ -516,8 +490,6 @@ class Trainer:
         self.finish()
 
     def train_one_epoch(self, epoch):
-        self.model.train(True)
-        train_aggregator = Aggregator.get_train_aggregator()
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
@@ -528,113 +500,32 @@ class Trainer:
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
-            self.optimizer.zero_grad()
-            data.to(self.device)
+            @jax.jit
+            def loss(
+                model: Samudrax,
+                x: Float[Grid, "batch channels"],
+                y: Float[Grid, "batch channels"],
+            ) -> jax.Array:
+                pred_y = jax.vmap(model)(x)
+                return jax.numpy.mean((y - pred_y) ** 2)
 
-            if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
-
-            predicted_outputs = self.model(data)
-
-            TO: TrainBatchOutput = self.model(data, self.loss_fn)
-            TO.loss.backward()
-            self._ema(model=self.model)
-
-            train_aggregator.record_batch(TO)
+            loss, grads = jax.value_and_grad(loss)(
+                self.model, data.get_input(0), data.get_label(0)
+            )
+            updates, self.opt_state = self.optimizer.update(grads, self.opt_state)
+            self.model = optax.apply_updates(self.model, updates)
 
             self.num_batches_seen += 1
-
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-
-            self.optimizer.step()
-
-            lr = (
-                self.optimizer.param_groups[-1]["lr"]
-                if self.scheduler is None
-                else self.scheduler.get_last_lr()[0]
-            )
-
-            with torch.no_grad():
-                # Reduce losses
-                loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
-                metrics = {
-                    "train/batch/loss": loss_value_reduce,
-                    "train/batch/lr": lr,
-                    "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
-                    **get_channel_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                    **get_depth_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                    **get_variable_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
-                    ),
-                    "train/batch/data_load_time": metric_logger.meters[
-                        "data_load_time"
-                    ].value,
-                    "train/batch/data_wait_time": metric_logger.meters[
-                        "data_wait_time"
-                    ].value,
-                }
-
-                if loss_scale_per_channel_fn := getattr(
-                    self.loss_fn, "loss_scale_per_channel", None
-                ):
-                    loss_scale_per_channel = loss_scale_per_channel_fn()
-                    # Reshape from channels * history to channels
-                    # by averaging along the `hist` dimension
-                    loss_per_channel = TO.loss_per_channel.reshape(
-                        loss_scale_per_channel.shape[0], -1
-                    ).mean(dim=1)
-
-                    unscaled_loss_per_channel = (
-                        loss_per_channel / loss_scale_per_channel
-                    )
-                    unscaled_loss = torch.mean(unscaled_loss_per_channel)
-
-                    metrics.update(
-                        {
-                            **get_channel_loss_scale_dict(
-                                label="train",
-                                loss_scale_per_channel=loss_scale_per_channel,
-                            ),
-                            **get_channel_loss_dict(
-                                label="train",
-                                loss_per_channel=unscaled_loss_per_channel,
-                                loss_name="loss_unscaled",
-                            ),
-                            "train/batch/loss_unscaled": unscaled_loss,
-                        }
-                    )
+            metrics: dict[str, Any] = {
+                "train/batch/loss": loss,
+            }
 
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
 
             self.wandb_logger.log(metrics, step=self.num_batches_seen)
 
-            metric_logger.update(loss=loss_value_reduce.item())
-            metric_logger.update(lr=lr)
-
-            if update := getattr(self.loss_fn, "update", None):
-                with torch.no_grad():
-                    # TODO(jder): could avoid a second forward pass here
-                    single_step_data = TrainData(data.num_prognostic_channels)
-                    # Each entry in data is one step in a rollout.
-                    input, label = data[0]
-                    single_step_data.insert(input, label)
-                    pred = self.model(single_step_data)
-                    update(pred[0], label)
-
             self.profiler.after_batch(self.num_batches_seen)
-
-        if self.scheduler is not None:
-            self.scheduler.step()
-
-        logger.info(f"Aggregating train logs")
-        return train_aggregator.get_logs()
 
     def validate_one_epoch(self, epoch):
         self.model.eval()
@@ -866,6 +757,7 @@ class Trainer:
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
+        raise NotImplementedError("Saving checkpoints is not implemented for JAX.")
         with self._test_context():
             is_best_val_loss = False
             if v_loss <= self.best_val_loss:
@@ -921,6 +813,7 @@ class Trainer:
         checkpoint_path: Path,
         for_inference: bool = False,
     ):
+        raise NotImplementedError("Saving checkpoints is not implemented for JAX.")
         if for_inference:
             with self._ema_context():
                 model_state_dict = self.model.state_dict()
@@ -955,6 +848,7 @@ class Trainer:
             os.replace(temporary_location, checkpoint_path)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
+        raise NotImplementedError("Loading checkpoints is not implemented for JAX.")
         logger.info(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=torch.device(self.device))
 
@@ -1007,31 +901,6 @@ class Trainer:
 
     def is_wandb_enabled(self):
         return self.wandb_logger.enabled and is_main_process()
-
-    @contextlib.contextmanager
-    def _test_context(self):
-        """
-        The context for running validation/inference.
-        In this context, the stepper uses the EMA model if
-        `self.test_using_ema` is True.
-        """
-        if self.test_using_ema:
-            with self._ema_context():
-                yield
-        else:
-            yield
-
-    @contextlib.contextmanager
-    def _ema_context(self):
-        """
-        A context where the stepper uses the EMA model.
-        """
-        self._ema.store(parameters=self.model.parameters())
-        self._ema.copy_to(model=self.model)
-        try:
-            yield
-        finally:
-            self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
         if self.executor is not None:

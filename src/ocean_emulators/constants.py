@@ -2,6 +2,7 @@ import enum
 import logging
 from typing import TypeAlias, TypeVar
 
+import jax
 import torch
 import xarray as xr
 from jaxtyping import Bool, Float
@@ -13,7 +14,7 @@ from ocean_emulators.utils.multiton import Multiton
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 
 # Our Arrays will be either `torch.Tensor`s or `xarray.DataArray`s.
-Array = TypeVar("Array", torch.Tensor, xr.DataArray)
+Array = TypeVar("Array", torch.Tensor, xr.DataArray, jax.Array)
 
 Grid = Float[Array, "lat lon"]
 Prognostic = Float[

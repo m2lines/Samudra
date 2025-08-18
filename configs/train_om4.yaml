@@ -43,7 +43,7 @@ experiment:
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
-  network: Samudra
+  network: Samudrax
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 data: !include data/om4_ohc.yaml

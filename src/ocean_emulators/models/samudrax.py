@@ -159,9 +159,23 @@ class Samudrax(eqx.Module):
         # Reverse for upsampling path
         ch_width.reverse()
         dilation.reverse()
-        # make upscale blocks
-        # TODO(alxmrs): Go up
 
+        # make upscale blocks
+        for i, (in_ch, out_ch) in enumerate(pairwise(ch_width[:-1])):
+            layers.append(
+                ConvNeXtBlock(
+                    in_channels=in_ch,
+                    out_channels=out_ch,
+                    kernel_size=config.core_block.kernel_size,
+                    dilation=dilation[i],
+                    activation=CappedGELU,
+                    upscale_factor=config.core_block.upscale_factor,
+                    norm=config.core_block.norm,
+                )
+            )
+            # TODO(jder): Add upscample block
+
+        # TODO(alxmrs): Final conv block
 
         pass
 

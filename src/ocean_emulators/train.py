@@ -213,7 +213,7 @@ class Trainer:
                 "Samudra is not implemented for equinox. Use Samudrax instead."
             )
         elif cfg.experiment.network == "Samudrax":
-            model = Samudrax()
+            model = Samudrax(key=jax.random.PRNGKey(0))
         else:
             raise NotImplementedError(
                 f"Network {cfg.experiment.network} not implemented"

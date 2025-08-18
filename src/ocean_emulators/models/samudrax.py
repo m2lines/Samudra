@@ -133,7 +133,7 @@ class ConvNeXtBlock(eqx.Module):
         )
         k += 1
 
-    def __call__(self, x: ArrayLike) -> ArrayLike:
+    def __call__(self, x: ArrayLike, state) -> tuple[ArrayLike, typing.Any]:
         skip = self.skip_module(x)
         for layer in self.layers:
             if isinstance(layer, eqx.nn.Conv2d) and layer.kernel_size[0] != 1:
@@ -141,18 +141,21 @@ class ConvNeXtBlock(eqx.Module):
                 # Circular wrap (longitude)
                 x = jnp.pad(
                     x,
-                    pad_width=((0, 0), (0, 0), (0, 0), (self.N_pad, self.N_pad)),
+                    pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad)),
                     mode="wrap",
                 )
                 # Reflect around the poles (latitude)
                 x = jnp.pad(
                     x,
-                    pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad), (0, 0)),
+                    pad_width=((0, 0), (self.N_pad, self.N_pad), (0, 0)),
                     mode="constant",
                     constant_values=0.0,
                 )
-            x = layer(x)
-        return skip + x
+            if isinstance(layer, eqx.nn.BatchNorm):
+                x, state = layer(x, state=state)
+            else:
+                x = layer(x)
+        return skip + x, state
 
 
 # TODO(alxmrs): Implement checkpointing
@@ -248,7 +251,9 @@ class Samudrax(eqx.Module):
         )
         self.block_depth = len(config.ch_width) - 1
 
-    def __call__(self, x: Float[Grid, " channels"]) -> Float[Grid, " channels"]:
+    def __call__(
+        self, x: Float[Grid, " channels"], state
+    ) -> tuple[Float[Grid, " channels"], typing.Any]:
         skips = []
         count = 0
         for layer in self.layers:
@@ -257,18 +262,18 @@ class Samudrax(eqx.Module):
                 # Circular wrap (longitude)
                 x = jnp.pad(
                     x,
-                    pad_width=((0, 0), (0, 0), (0, 0), (self.N_pad, self.N_pad)),
+                    pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad)),
                     mode="wrap",
                 )
                 # Reflect around the poles (latitude)
                 x = jnp.pad(
                     x,
-                    pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad), (0, 0)),
+                    pad_width=((0, 0), (self.N_pad, self.N_pad), (0, 0)),
                     mode="constant",
                     constant_values=0.0,
                 )
             else:
-                x = layer(x)
+                x, state = layer(x, state=state)
 
             if count < self.block_depth:
                 if isinstance(layer, ConvNeXtBlock):

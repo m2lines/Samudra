@@ -49,7 +49,7 @@ experiment:
 data: !include data/om4_ohc.yaml
 
 samudra:
-  ch_width: [157, 200, 250, 300, 400]
+  ch_width: [162, 200, 250, 300, 400]
   n_out: 77
   dilation: [1, 2, 4, 8]
   n_layers: [1, 1, 1, 1]

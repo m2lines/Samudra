@@ -226,7 +226,9 @@ class Trainer:
 
         self.model = model
 
-        self.multistep_model = MultiStepModel(model)
+        self.multistep_model, self.model_state = eqx.nn.make_with_state(MultiStepModel)(
+            model
+        )
 
         self.nets_dir = cfg.experiment.nets_dir
         self.network = cfg.experiment.network
@@ -510,15 +512,18 @@ class Trainer:
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
-            @jax.jit
+            @eqx.filter_jit
             def loss(
                 model: MultiStepModel,
                 train_data: TrainData,
+                state,
             ) -> jax.Array:
-                pred_y = jax.vmap(model)(train_data)
+                pred_y = model(train_data, state=state)
                 return jax.numpy.mean((train_data.get_full_label() - pred_y) ** 2)
 
-            loss, grads = eqx.filter_value_and_grad(loss)(self.multistep_model, data)
+            loss, grads = eqx.filter_value_and_grad(loss)(
+                self.multistep_model, data, state=self.model_state
+            )
             updates, self.opt_state = self.optimizer.update(grads, self.opt_state)
             self.multistep_model = eqx.apply_updates(self.multistep_model, updates)
 

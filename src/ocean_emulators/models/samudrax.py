@@ -1,41 +1,107 @@
+import typing
+
 import equinox as eqx
 import jax
-import jax.numpy as jnp
 from jaxtyping import Float
 
+from ocean_emulators.config import SamudraConfig
 from ocean_emulators.constants import Grid
 
 
-class Samudrax(eqx.Module):
-    conv1: eqx.nn.Conv2d
-    conv2: eqx.nn.Conv2d
-    conv3: eqx.nn.Conv2d
+class ConvNeXtBlock(eqx.Module):
+    skip_module: eqx.Module
+    layers: list[eqx.Module]
 
     def __init__(
         self,
-        input_channels: int = 162,
-        output_channels: int = 154,
-        hidden_dim: int = 512,
+        in_channels: int = 300,
+        out_channels: int = 1,
+        kernel_size: int = 3,
+        dilation: int = 1,
+        activation: eqx.Module | None = None,
+        pad="circular",
+        upscale_factor: int = 4,
+        norm="batch",
         *,
-        key,
+        key: jax.random.PRNGKey,
     ):
-        keys = jax.random.split(key, 3)
-        # Use 1x1 convolutions for channel-wise transformations
-        self.conv1 = eqx.nn.Conv2d(
-            input_channels, hidden_dim, kernel_size=1, key=keys[0]
-        )
-        self.conv2 = eqx.nn.Conv2d(hidden_dim, hidden_dim, kernel_size=1, key=keys[1])
-        self.conv3 = eqx.nn.Conv2d(
-            hidden_dim, output_channels, kernel_size=1, key=keys[2]
-        )
+        assert kernel_size % 2 != 0, "Cannot use even kernel sizes!"
 
-    def __call__(
-        self, x: Float[Grid, " prognostic_vars+boundary_vars"]
-    ) -> Float[Grid, " prognostic_vars"]:
-        # x shape: (prognostic_vars+boundary_vars, lat, lon)
-        # Apply sequence of 1x1 convolutions
-        x = jnp.tanh(self.conv1(x))
-        x = jnp.tanh(self.conv2(x))
-        x = self.conv3(x)
+        keys = jax.random.split(key, 3)
+        k = 0
+
+        self.N_in = in_channels
+        self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
+        self.pad = pad
+
+        if in_channels == out_channels:
+            self.skip_module = eqx.nn.Identity()
+        else:
+            # 1x1 Conv
+            self.skip_module = eqx.nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                padding="REPLICATE",  # TODO(alxmrs): Are these good padding vals?
+                key=keys[k],
+            )
+        k += 1
+
+        # CNN Block
+        self.layers = []
+        self.layers.append(
+            eqx.nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=int(out_channels * upscale_factor),
+                kernel_size=kernel_size,
+                dilation=dilation,
+                key=keys[k],
+            )
+        )
+        k += 1
+
+        match norm:
+            case "batch":
+                self.layers.append(eqx.nn.BatchNorm(in_channels * upscale_factor))
+            case "instance":
+                raise NotImplementedError("No instance norm! Sorry!")
+            case "nonorm":
+                pass
+            case _:
+                typing.assert_never(norm)
+
+        if activation is not None:
+            self.layers.append(activation)
+
+        # Linear post-processing -- 1x1 CNN
+        self.layers.append(
+            eqx.nn.Conv2d(
+                in_channels=int(in_channels * upscale_factor),
+                out_channels=out_channels,
+                kernel_size=1,
+                padding="REPLICATE",
+                key=keys[k],
+            )
+        )
+        k += 1
+
+
+# TODO(alxmrs): Implement checkpointing
+class Samudrax(eqx.Module):
+    def __init__(self, config: SamudraConfig, *, key):
+        # make downscale blocks
+
+        # middle block
+
+        # make upscale blocks
+
+        pass
+
+    def __call__(self, x: Float[Grid, " channels"]) -> Float[Grid, " channels"]:
+        # downscale blocks
+
+        # middle
+
+        # upscale blocks
 
         return x

@@ -148,15 +148,18 @@ class ConvNeXtBlock(eqx.Module):
 
 # TODO(alxmrs): Implement checkpointing
 class Samudrax(eqx.Module):
-    def __init__(self, config: SamudraConfig, *, key):
+    layers: list[eqx.Module]
+    wet: ArrayLike
+
+    def __init__(self, config: SamudraConfig, wet, *, key):
         ch_width = config.ch_width.copy()
         dilation = config.dilation.copy()
-
-        layers = []
+        self.wet = wet
 
         # make downscale blocks
         for i, (in_ch, out_ch) in enumerate(pairwise(ch_width)):
-            layers.append(
+            cur_key, key = jax.random.split(key, 2)
+            self.layers.append(
                 ConvNeXtBlock(
                     in_channels=in_ch,
                     out_channels=out_ch,
@@ -165,12 +168,14 @@ class Samudrax(eqx.Module):
                     activation=CappedGELU,
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
+                    key=cur_key,
                 )
             )
-            layers.append(AvgPool())
+            self.layers.append(AvgPool())
 
+        cur_key, key = jax.random.split(key, 2)
         # middle block
-        layers.append(
+        self.layers.append(
             ConvNeXtBlock(
                 in_channels=out_ch,
                 out_channels=out_ch,
@@ -179,10 +184,11 @@ class Samudrax(eqx.Module):
                 activation=CappedGELU,
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
+                key=cur_key
             )
         )
 
-        layers.append(BilinearUpsample())
+        self.layers.append(BilinearUpsample())
 
         # Reverse for upsampling path
         ch_width.reverse()
@@ -190,7 +196,8 @@ class Samudrax(eqx.Module):
 
         # make upscale blocks
         for i, (in_ch, out_ch) in enumerate(pairwise(ch_width[:-1])):
-            layers.append(
+            cur_key, key = jax.random.split(key, 2)
+            self.layers.append(
                 ConvNeXtBlock(
                     in_channels=in_ch,
                     out_channels=out_ch,
@@ -199,19 +206,78 @@ class Samudrax(eqx.Module):
                     activation=CappedGELU,
                     upscale_factor=config.core_block.upscale_factor,
                     norm=config.core_block.norm,
+                    key=cur_key,
                 )
             )
-        layers.append(BilinearUpsample())
+        self.layers.append(BilinearUpsample())
 
-        # TODO(alxmrs): Final conv block
+        cur_key, key = jax.random.split(key, 2)
+        # Final ConvBlock
+        self.layers.append(
+            ConvNeXtBlock(
+                in_channels=out_ch,
+                out_channels=out_ch,
+                kernel_size=config.core_block.kernel_size,
+                dilation=dilation[i],
+                activation=CappedGELU,
+                upscale_factor=config.core_block.upscale_factor,
+                norm=config.core_block.norm,
+                key=cur_key,
+            )
+        )
 
-        pass
+        cur_key, key = jax.random.split(key, 2)
+        self.layers.append(eqx.nn.Conv2d(out_channels=out_ch, kernel_size=config.last_kernel_size, key=cur_key))
+        self.block_depth = len(config.channels) - 1
 
     def __call__(self, x: Float[Grid, " channels"]) -> Float[Grid, " channels"]:
-        # downscale blocks
+        skips = []
+        count = 0
+        for layer in self.layers:
+            if isinstance(layer, eqx.nn.Conv2d):
+                # TODO(alxmrs): Verify padding is the same
+                # Circular wrap (longitude)
+                x = jnp.pad(
+                    x,
+                    pad_width=((0, 0), (0, 0), (0, 0), (self.N_pad, self.N_pad)),
+                    mode="wrap",
+                )
+                # Reflect around the poles (latitude)
+                x = jnp.pad(
+                    x,
+                    pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad), (0, 0)),
+                    mode="constant",
+                    constant_values=0.0,
+                )
+            else:
+                x = layer(x)
 
-        # middle
-
-        # upscale blocks
-
-        return x
+            if count < self.block_depth:
+                if isinstance(layer, ConvNeXtBlock):
+                    skips.append(x)
+                    count += 1
+            elif count >= self.block_depth:
+                if isinstance(layer, BilinearUpsample):
+                    crop = jnp.array(x.shape[2:])
+                    shape = jnp.array(skips[int(2 * self.block_depth - count - 1)].shape[2:])
+                    pads = shape - crop
+                    # PyTorch: pads = [pads[1]//2, pads[1]-pads[1]//2, pads[0]//2, pads[0]-pads[0]//2]
+                    pad_lat_before = pads[0] // 2
+                    pad_lat_after = pads[0] - pad_lat_before
+                    pad_lon_before = pads[1] // 2
+                    pad_lon_after = pads[1] - pad_lon_before
+                    
+                    x = jnp.pad(
+                        x,
+                        pad_width=(
+                            (0, 0),  # channels
+                            (pad_lat_before, pad_lat_after),  # latitude
+                            (pad_lon_before, pad_lon_after),  # longitude
+                        ),
+                        mode='constant',
+                        constant_values=0.0
+                    )
+                    x += skips[int(2 * self.block_depth - count - 1)]
+                    count += 1
+        # TODO(alxmrs): Do we want a corrector??
+        return jnp.where(self.wet, x, 0.0)

@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import jax
+import jax.numpy as jnp
 import numpy as np
 import torch
 import xarray as xr
@@ -18,6 +19,7 @@ from ocean_emulators.constants import (
     Boundary,
     BoundaryVarNames,
     Example,
+    Grid,
     GridMask,
     Input,
     LoaderVersion,
@@ -318,10 +320,12 @@ class TrainData:
     def get_label(self, step: int) -> Prognostic:
         return self.td_dict[step][1]
 
+    def get_full_label(self) -> Float[Grid, "steps prognostic_vars"]:
+        return jnp.stack([self.get_label(step) for step in range(self.steps)])
+
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         input, _ = self.td_dict[step]
-        merged = input.clone()
-        merged[:, : self.num_prognostic_channels] = prognostic
+        merged = input.at[: self.num_prognostic_channels].set(prognostic)
         return merged
 
     def values(self):

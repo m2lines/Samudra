@@ -21,7 +21,6 @@ import jax
 import numpy as np
 import optax
 import torch
-from jaxtyping import Float
 from torch.utils.data import (
     ConcatDataset,
     DataLoader,
@@ -50,6 +49,7 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
+from ocean_emulators.models.multistep import MultiStepModel
 from ocean_emulators.models.samudrax import Samudrax
 from ocean_emulators.stepper import Stepper, ValBatchOutput
 from ocean_emulators.utils.data import (
@@ -220,6 +220,9 @@ class Trainer:
             )
 
         self.model = model
+
+        self.multistep_model = MultiStepModel(model)
+
         self.nets_dir = cfg.experiment.nets_dir
         self.network = cfg.experiment.network
 
@@ -282,7 +285,7 @@ class Trainer:
             optax.clip(1.0),
             optax.adam(learning_rate=cfg.learning_rate),  # TODO: Schedule
         )
-        self.opt_state = self.optimizer.init(self.model)
+        self.opt_state = self.optimizer.init(self.multistep_model)
 
         # Scheduler
         # self.scheduler = None
@@ -502,18 +505,15 @@ class Trainer:
 
             @jax.jit
             def loss(
-                model: Samudrax,
-                x: Float[Grid, "batch channels"],
-                y: Float[Grid, "batch channels"],
+                model: MultiStepModel,
+                train_data: TrainData,
             ) -> jax.Array:
-                pred_y = jax.vmap(model)(x)
-                return jax.numpy.mean((y - pred_y) ** 2)
+                pred_y = jax.vmap(model)(train_data)
+                return jax.numpy.mean((train_data.get_full_label() - pred_y) ** 2)
 
-            loss, grads = jax.value_and_grad(loss)(
-                self.model, data.get_input(0), data.get_label(0)
-            )
+            loss, grads = jax.value_and_grad(loss)(self.multistep_model, data)
             updates, self.opt_state = self.optimizer.update(grads, self.opt_state)
-            self.model = optax.apply_updates(self.model, updates)
+            self.multistep_model = optax.apply_updates(self.multistep_model, updates)
 
             self.num_batches_seen += 1
             metrics: dict[str, Any] = {

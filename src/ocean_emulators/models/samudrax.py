@@ -11,6 +11,8 @@ from ocean_emulators.utils.train import pairwise
 
 
 class CappedGELU(eqx.Module):
+    cap_value: float = eqx.field(static=True)
+
     def __init__(self, cap_value=10.0):
         self.cap_value = cap_value
 
@@ -21,6 +23,8 @@ class CappedGELU(eqx.Module):
 
 
 class BilinearUpsample(eqx.Module):
+    upsampling: int = eqx.field(static=True)
+
     def __init__(self, upsampling: int = 2):
         self.upsampling = upsampling
 
@@ -35,6 +39,8 @@ class BilinearUpsample(eqx.Module):
 
 
 class AvgPool(eqx.Module):
+    avgpool: eqx.nn.AvgPool2d
+
     def __init__(
         self,
         pooling: int = 2,
@@ -50,6 +56,9 @@ class AvgPool(eqx.Module):
 class ConvNeXtBlock(eqx.Module):
     skip_module: eqx.Module
     layers: list[eqx.Module]
+
+    N_in: int = eqx.field(static=True)
+    N_pad: int = eqx.field(static=True)
 
     def __init__(
         self,
@@ -79,7 +88,7 @@ class ConvNeXtBlock(eqx.Module):
                 in_channels=in_channels,
                 out_channels=out_channels,
                 kernel_size=1,
-                padding="REPLICATE",  # TODO(alxmrs): Are these good padding vals?
+                padding="SAME",
                 key=keys[k],
             )
         k += 1
@@ -118,7 +127,7 @@ class ConvNeXtBlock(eqx.Module):
                 in_channels=int(in_channels * upscale_factor),
                 out_channels=out_channels,
                 kernel_size=1,
-                padding="REPLICATE",
+                padding="SAME",
                 key=keys[k],
             )
         )
@@ -150,11 +159,13 @@ class ConvNeXtBlock(eqx.Module):
 class Samudrax(eqx.Module):
     layers: list[eqx.Module]
     wet: ArrayLike
+    block_depth: int = eqx.field(static=True)
 
     def __init__(self, config: SamudraConfig, wet, *, key):
         ch_width = config.ch_width.copy()
         dilation = config.dilation.copy()
         self.wet = wet
+        self.layers = []
 
         # make downscale blocks
         for i, (in_ch, out_ch) in enumerate(pairwise(ch_width)):
@@ -184,7 +195,7 @@ class Samudrax(eqx.Module):
                 activation=CappedGELU,
                 upscale_factor=config.core_block.upscale_factor,
                 norm=config.core_block.norm,
-                key=cur_key
+                key=cur_key,
             )
         )
 
@@ -227,8 +238,15 @@ class Samudrax(eqx.Module):
         )
 
         cur_key, key = jax.random.split(key, 2)
-        self.layers.append(eqx.nn.Conv2d(out_channels=out_ch, kernel_size=config.last_kernel_size, key=cur_key))
-        self.block_depth = len(config.channels) - 1
+        self.layers.append(
+            eqx.nn.Conv2d(
+                in_channels=out_ch,
+                out_channels=config.n_out,
+                kernel_size=config.last_kernel_size,
+                key=cur_key,
+            )
+        )
+        self.block_depth = len(config.ch_width) - 1
 
     def __call__(self, x: Float[Grid, " channels"]) -> Float[Grid, " channels"]:
         skips = []
@@ -259,14 +277,16 @@ class Samudrax(eqx.Module):
             elif count >= self.block_depth:
                 if isinstance(layer, BilinearUpsample):
                     crop = jnp.array(x.shape[2:])
-                    shape = jnp.array(skips[int(2 * self.block_depth - count - 1)].shape[2:])
+                    shape = jnp.array(
+                        skips[int(2 * self.block_depth - count - 1)].shape[2:]
+                    )
                     pads = shape - crop
                     # PyTorch: pads = [pads[1]//2, pads[1]-pads[1]//2, pads[0]//2, pads[0]-pads[0]//2]
                     pad_lat_before = pads[0] // 2
                     pad_lat_after = pads[0] - pad_lat_before
                     pad_lon_before = pads[1] // 2
                     pad_lon_after = pads[1] - pad_lon_before
-                    
+
                     x = jnp.pad(
                         x,
                         pad_width=(
@@ -274,8 +294,8 @@ class Samudrax(eqx.Module):
                             (pad_lat_before, pad_lat_after),  # latitude
                             (pad_lon_before, pad_lon_after),  # longitude
                         ),
-                        mode='constant',
-                        constant_values=0.0
+                        mode="constant",
+                        constant_values=0.0,
                     )
                     x += skips[int(2 * self.block_depth - count - 1)]
                     count += 1

@@ -7,6 +7,7 @@ from jaxtyping import Array, ArrayLike, Float
 
 from ocean_emulators.config import SamudraConfig
 from ocean_emulators.constants import Grid
+from ocean_emulators.utils.train import pairwise
 
 
 class CappedGELU(eqx.Module):
@@ -30,7 +31,6 @@ class ConvNeXtBlock(eqx.Module):
         kernel_size: int = 3,
         dilation: int = 1,
         activation: type[eqx.Module] | None = CappedGELU,
-        pad="circular",
         upscale_factor: int = 4,
         norm="batch",
         *,
@@ -43,7 +43,6 @@ class ConvNeXtBlock(eqx.Module):
 
         self.N_in = in_channels
         self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
-        self.pad = pad
 
         if in_channels == out_channels:
             self.skip_module = eqx.nn.Identity()
@@ -123,11 +122,46 @@ class ConvNeXtBlock(eqx.Module):
 # TODO(alxmrs): Implement checkpointing
 class Samudrax(eqx.Module):
     def __init__(self, config: SamudraConfig, *, key):
+        ch_width = config.ch_width.copy()
+        dilation = config.dilation.copy()
+
+        layers = []
+
         # make downscale blocks
+        for i, (in_ch, out_ch) in enumerate(pairwise(ch_width)):
+            layers.append(
+                ConvNeXtBlock(
+                    in_channels=in_ch,
+                    out_channels=out_ch,
+                    kernel_size=config.core_block.kernel_size,
+                    dilation=dilation[i],
+                    activation=CappedGELU,
+                    upscale_factor=config.core_block.upscale_factor,
+                    norm=config.core_block.norm,
+                )
+            )
+            # TODO(jder): downsample here
 
         # middle block
+        layers.append(
+            ConvNeXtBlock(
+                in_channels=out_ch,
+                out_channels=out_ch,
+                kernel_size=config.core_block.kernel_size,
+                dilation=dilation[i],
+                activation=CappedGELU,
+                upscale_factor=config.core_block.upscale_factor,
+                norm=config.core_block.norm,
+            )
+        )
+        # TODO(jder): Add first upsample block
 
+        # Reverse for upsampling path
+        ch_width.reverse()
+        dilation.reverse()
         # make upscale blocks
+        # TODO(alxmrs): Go up
+
 
         pass
 

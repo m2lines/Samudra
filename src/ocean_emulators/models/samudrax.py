@@ -20,6 +20,33 @@ class CappedGELU(eqx.Module):
         return x
 
 
+class BilinearUpsample(eqx.Module):
+    def __init__(self, upsampling: int = 2):
+        self.upsampling = upsampling
+
+    def __call__(
+        self, x: Float[Array, "channels lat lon"]
+    ) -> Float[Array, "channels lat lon"]:
+        return jax.image.resize(
+            x,
+            (x.shape[0], x.shape[1] * self.upsampling, x.shape[2] * self.upsampling),
+            "bilinear",
+        )
+
+
+class AvgPool(eqx.Module):
+    def __init__(
+        self,
+        pooling: int = 2,
+    ):
+        self.avgpool = eqx.nn.AvgPool2d(kernel_size=pooling)
+
+    def __call__(
+        self, x: Float[Array, "channels lat lon"]
+    ) -> Float[Array, "channels lat lon"]:
+        return self.avgpool(x)
+
+
 class ConvNeXtBlock(eqx.Module):
     skip_module: eqx.Module
     layers: list[eqx.Module]

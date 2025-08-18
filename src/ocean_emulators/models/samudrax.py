@@ -63,7 +63,7 @@ class ConvNeXtBlock(eqx.Module):
         self.layers.append(
             eqx.nn.Conv2d(
                 in_channels=in_channels,
-                out_channels=int(out_channels * upscale_factor),
+                out_channels=int(in_channels * upscale_factor),
                 kernel_size=kernel_size,
                 dilation=dilation,
                 key=keys[k],

@@ -55,7 +55,7 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
-from ocean_emulators.models.samudra import Samudra
+from ocean_emulators.models.samudrax import Samudrax
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
@@ -97,7 +97,7 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer:
-    model: Samudra | nn.parallel.DistributedDataParallel
+    model: Samudrax
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
@@ -220,25 +220,9 @@ class Trainer:
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
         if "Samudra" == cfg.experiment.network:
-            if cfg.samudra.ch_width[0] != self.num_in:
-                logger.info(
-                    f"NOTE: Changing input channels to match data "
-                    f"{cfg.samudra.ch_width[0]}->{self.num_in}"
-                )
-                cfg.samudra.ch_width[0] = self.num_in
-            if cfg.samudra.n_out != self.num_out:
-                logger.info(
-                    f"NOTE: Changing output channels to match data "
-                    f"{cfg.samudra.n_out}->{self.num_out}"
-                )
-                cfg.samudra.n_out = self.num_out
-            model = Samudra(
-                cfg.samudra,
-                hist=cfg.data.hist,
-                wet=self.wet,
-                area_weights=self.area_weights,
-                static_data=self.data_container.static_data,
-            ).to(self.device)
+            raise NotImplementedError(
+                "Samudra is not implemented for equinox. Use Samudrax instead."
+            )
         elif cfg.experiment.network == "Samudrax":
             model = Samudrax()
         else:

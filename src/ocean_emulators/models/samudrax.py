@@ -2,7 +2,8 @@ import typing
 
 import equinox as eqx
 import jax
-from jaxtyping import Float
+import jax.numpy as jnp
+from jaxtyping import Array, Float
 
 from ocean_emulators.config import SamudraConfig
 from ocean_emulators.constants import Grid
@@ -84,6 +85,27 @@ class ConvNeXtBlock(eqx.Module):
             )
         )
         k += 1
+
+    def __call__(self, x: Float[Array]) -> Float[Array]:
+        skip = self.skip_module(x)
+        for layer in self.layers:
+            if isinstance(layer, eqx.nn.Conv2d) and layer.kernel_size[0] != 1:
+                # TODO(alxmrs): Verify padding is the same
+                # Circular wrap (longitude)
+                x = jnp.pad(
+                    x,
+                    pad_width=((0, 0), (0, 0), (0, 0), (self.N_pad, self.N_pad)),
+                    mode="wrap",
+                )
+                # Reflect around the poles (latitude)
+                x = jnp.pad(
+                    x,
+                    pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad), (0, 0)),
+                    mode="constant",
+                    constant_values=0.0,
+                )
+            x = layer(x)
+        return skip + x
 
 
 # TODO(alxmrs): Implement checkpointing

@@ -24,5 +24,9 @@ class MultiStepModel(eqx.Module):
                 input_tensor = x.merge_prognostic_and_boundary(
                     prognostic=outputs[-1], step=step
                 )
-            outputs.append(jax.vmap(self.model)(input_tensor, state=state))
+            outputs.append(
+                jax.vmap(
+                    self.model, in_axes=(0, None), out_axes=(0, None), axis_name="batch"
+                )(input_tensor, state)
+            )
         return jnp.stack(outputs)

@@ -3,6 +3,7 @@ import typing
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jaxtyping import Array, ArrayLike, Float
 
 from ocean_emulators.config import SamudraConfig
@@ -109,7 +110,7 @@ class ConvNeXtBlock(eqx.Module):
         match norm:
             case "batch":
                 self.layers.append(
-                    eqx.nn.BatchNorm(in_channels * upscale_factor, 0)
+                    eqx.nn.BatchNorm(in_channels * upscale_factor, axis_name="batch")
                 )  # TODO(alxmrs): Is this the right axis??
             case "instance":
                 raise NotImplementedError("No instance norm! Sorry!")
@@ -272,8 +273,10 @@ class Samudrax(eqx.Module):
                     mode="constant",
                     constant_values=0.0,
                 )
-            else:
+            elif isinstance(layer, ConvNeXtBlock):
                 x, state = layer(x, state=state)
+            else:
+                x = layer(x)
 
             if count < self.block_depth:
                 if isinstance(layer, ConvNeXtBlock):
@@ -281,11 +284,13 @@ class Samudrax(eqx.Module):
                     count += 1
             elif count >= self.block_depth:
                 if isinstance(layer, BilinearUpsample):
-                    crop = jnp.array(x.shape[2:])
-                    shape = jnp.array(
-                        skips[int(2 * self.block_depth - count - 1)].shape[2:]
+                    crop = np.array(x.shape[1:])
+                    shape = np.array(
+                        skips[int(2 * self.block_depth - count - 1)].shape[1:]
                     )
                     pads = shape - crop
+                    print(f"x.shape: {x.shape}")
+                    print(f"crop: {crop}, shape: {shape}, pads: {pads}")
                     # PyTorch: pads = [pads[1]//2, pads[1]-pads[1]//2, pads[0]//2, pads[0]-pads[0]//2]
                     pad_lat_before = pads[0] // 2
                     pad_lat_after = pads[0] - pad_lat_before

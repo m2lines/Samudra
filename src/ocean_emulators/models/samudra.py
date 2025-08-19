@@ -165,10 +165,12 @@ class Samudra(BaseModel):
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
+
             if self.checkpoint_all:
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
             else:
                 fts = layer(fts)
+
             if count < self.num_steps:
                 if isinstance(layer, CoreBlock):
                     skip_inputs[count] = fts

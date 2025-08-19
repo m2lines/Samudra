@@ -1,3 +1,5 @@
+from typing import Any
+
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -14,7 +16,9 @@ class MultiStepModel(eqx.Module):
     def __init__(self, model: Samudrax):
         self.model = model
 
-    def __call__(self, x: TrainData, state) -> Float[Grid, "steps prognostic_vars"]:
+    def __call__(
+        self, x: TrainData, state
+    ) -> tuple[Float[Grid, "steps prognostic_vars"], Any]:
         outputs: list[Float[Grid, " prognostic_vars"]] = []
         num_steps = len(x)
         for step in range(num_steps):
@@ -24,9 +28,10 @@ class MultiStepModel(eqx.Module):
                 input_tensor = x.merge_prognostic_and_boundary(
                     prognostic=outputs[-1], step=step
                 )
-            outputs.append(
-                jax.vmap(
-                    self.model, in_axes=(0, None), out_axes=(0, None), axis_name="batch"
-                )(input_tensor, state)
-            )
-        return jnp.stack(outputs)
+
+            result, state = jax.vmap(
+                self.model, in_axes=(0, None), out_axes=(0, None), axis_name="batch"
+            )(input_tensor, state)
+
+            outputs.append(result)
+        return jnp.stack(outputs), state

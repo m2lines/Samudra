@@ -188,7 +188,7 @@ class Trainer:
 
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.prognostic_var_names, cfg.data.hist
+            self.data, self.prognostic_var_names, 0
         )
         self.wet_without_hist_cpu, _ = extract_wet_mask(
             self.data, self.prognostic_var_names, 0
@@ -517,11 +517,13 @@ class Trainer:
                 model: MultiStepModel,
                 train_data: TrainData,
                 state,
-            ) -> jax.Array:
-                pred_y = model(train_data, state=state)
-                return jax.numpy.mean((train_data.get_full_label() - pred_y) ** 2)
+            ) -> tuple[jax.Array, Any]:
+                pred_y, state = model(train_data, state=state)
+                return jax.numpy.mean(
+                    (train_data.get_full_label() - pred_y) ** 2
+                ), state
 
-            loss, grads = eqx.filter_value_and_grad(loss)(
+            ((loss, state), grads) = eqx.filter_value_and_grad(loss)(
                 self.multistep_model, data, state=self.model_state
             )
             updates, self.opt_state = self.optimizer.update(grads, self.opt_state)

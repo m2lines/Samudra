@@ -46,7 +46,7 @@ class AvgPool(eqx.Module):
         self,
         pooling: int = 2,
     ):
-        self.avgpool = eqx.nn.AvgPool2d(kernel_size=pooling)
+        self.avgpool = eqx.nn.AvgPool2d(kernel_size=pooling, stride=pooling)
 
     def __call__(
         self, x: Float[Array, "channels lat lon"]
@@ -164,12 +164,14 @@ class Samudrax(eqx.Module):
     layers: list[eqx.Module]
     wet: ArrayLike
     block_depth: int = eqx.field(static=True)
+    N_pad: int = eqx.field(static=True)
 
     def __init__(self, config: SamudraConfig, wet, *, key):
         ch_width = config.ch_width.copy()
         dilation = config.dilation.copy()
         self.wet = wet
         self.layers = []
+        self.N_pad = int((config.last_kernel_size - 1) / 2)
 
         # make downscale blocks
         for i, (in_ch, out_ch) in enumerate(pairwise(ch_width)):
@@ -224,7 +226,7 @@ class Samudrax(eqx.Module):
                     key=cur_key,
                 )
             )
-        self.layers.append(BilinearUpsample())
+            self.layers.append(BilinearUpsample())
 
         cur_key, key = jax.random.split(key, 2)
         # Final ConvBlock
@@ -273,7 +275,8 @@ class Samudrax(eqx.Module):
                     mode="constant",
                     constant_values=0.0,
                 )
-            elif isinstance(layer, ConvNeXtBlock):
+
+            if isinstance(layer, ConvNeXtBlock):
                 x, state = layer(x, state=state)
             else:
                 x = layer(x)
@@ -282,6 +285,7 @@ class Samudrax(eqx.Module):
                 if isinstance(layer, ConvNeXtBlock):
                     skips.append(x)
                     count += 1
+                    print(f"x.shape: {x.shape}, count: {count}")
             elif count >= self.block_depth:
                 if isinstance(layer, BilinearUpsample):
                     crop = np.array(x.shape[1:])
@@ -289,7 +293,9 @@ class Samudrax(eqx.Module):
                         skips[int(2 * self.block_depth - count - 1)].shape[1:]
                     )
                     pads = shape - crop
-                    print(f"x.shape: {x.shape}")
+                    print(
+                        f"x.shape: {x.shape}, count: {count}, index: {2 * self.block_depth - count - 1}"
+                    )
                     print(f"crop: {crop}, shape: {shape}, pads: {pads}")
                     # PyTorch: pads = [pads[1]//2, pads[1]-pads[1]//2, pads[0]//2, pads[0]-pads[0]//2]
                     pad_lat_before = pads[0] // 2
@@ -310,4 +316,4 @@ class Samudrax(eqx.Module):
                     x += skips[int(2 * self.block_depth - count - 1)]
                     count += 1
         # TODO(alxmrs): Do we want a corrector??
-        return jnp.where(self.wet, x, 0.0)
+        return jnp.where(self.wet, x, 0.0), state

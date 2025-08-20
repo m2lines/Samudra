@@ -110,7 +110,9 @@ class ConvNeXtBlock(eqx.Module):
         match norm:
             case "batch":
                 self.layers.append(
-                    eqx.nn.BatchNorm(in_channels * upscale_factor, axis_name="batch")
+                    eqx.nn.BatchNorm(
+                        in_channels * upscale_factor, axis_name="batch", mode="batch"
+                    )
                 )  # TODO(alxmrs): Is this the right axis??
             case "instance":
                 raise NotImplementedError("No instance norm! Sorry!")

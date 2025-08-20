@@ -20,7 +20,7 @@ import dask
 import equinox as eqx
 import jax
 import numpy as np
-import optax
+import optax  # type: ignore
 import torch
 from torch.utils.data import (
     ConcatDataset,
@@ -332,7 +332,6 @@ class Trainer:
         )
 
         self.num_batches_seen = 0
-        loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
                 self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
@@ -344,7 +343,6 @@ class Trainer:
                         "This checkpoint had wandb enabled, \
                             but wandb is not enabled now!"
                     )
-            loaded_checkpoint = True
         else:
             self.start_epoch = 1
 

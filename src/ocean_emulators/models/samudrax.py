@@ -39,6 +39,35 @@ class BilinearUpsample(eqx.Module):
         )
 
 
+class GlobePaddedConv2d(eqx.Module):
+    """A Conv2d block variant that wraps around longitudes and reflection around the poles."""
+
+    conv: eqx.nn.Conv2d
+    N_pad: int = eqx.field(static=True)
+
+    def __init__(self, n_pad: int, *, key, **conv2d_kwargs):
+        self.conv = eqx.nn.Conv2d(**conv2d_kwargs, key=key)
+        self.N_pad = n_pad
+
+    def __call__(self, x):
+        # TODO(alxmrs): Verify padding is the same
+        # Circular wrap (longitude)
+        x = jnp.pad(
+            x,
+            pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad)),
+            mode="wrap",
+        )
+        # Reflect around the poles (latitude)
+        x = jnp.pad(
+            x,
+            pad_width=((0, 0), (self.N_pad, self.N_pad), (0, 0)),
+            mode="constant",
+            constant_values=0.0,
+        )
+        x = self.conv(x)
+        return x
+
+
 class AvgPool(eqx.Module):
     avgpool: eqx.nn.AvgPool2d = eqx.field(static=True)
 
@@ -82,7 +111,7 @@ class ConvNeXtBlock(eqx.Module):
         self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
 
         if in_channels == out_channels:
-            self.skip_module = eqx.nn.Identity()
+            self.skip_module: eqx.Module = eqx.nn.Identity()
         else:
             # 1x1 Conv
             self.skip_module = eqx.nn.Conv2d(
@@ -97,11 +126,12 @@ class ConvNeXtBlock(eqx.Module):
         # CNN Block
         self.layers = []
         self.layers.append(
-            eqx.nn.Conv2d(
+            GlobePaddedConv2d(
                 in_channels=in_channels,
                 out_channels=int(in_channels * upscale_factor),
                 kernel_size=kernel_size,
                 dilation=dilation,
+                n_pad=self.N_pad,
                 key=keys[k],
             )
         )
@@ -113,7 +143,7 @@ class ConvNeXtBlock(eqx.Module):
                     eqx.nn.BatchNorm(
                         in_channels * upscale_factor, axis_name="batch", mode="batch"
                     )
-                )  # TODO(alxmrs): Is this the right axis??
+                )
             case "instance":
                 raise NotImplementedError("No instance norm! Sorry!")
             case "nonorm":
@@ -136,24 +166,9 @@ class ConvNeXtBlock(eqx.Module):
         )
         k += 1
 
-    def __call__(self, x: ArrayLike, state) -> tuple[ArrayLike, typing.Any]:
+    def __call__(self, x: Array, state) -> tuple[Array, typing.Any]:
         skip = self.skip_module(x)
         for layer in self.layers:
-            if isinstance(layer, eqx.nn.Conv2d) and layer.kernel_size[0] != 1:
-                # TODO(alxmrs): Verify padding is the same
-                # Circular wrap (longitude)
-                x = jnp.pad(
-                    x,
-                    pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad)),
-                    mode="wrap",
-                )
-                # Reflect around the poles (latitude)
-                x = jnp.pad(
-                    x,
-                    pad_width=((0, 0), (self.N_pad, self.N_pad), (0, 0)),
-                    mode="constant",
-                    constant_values=0.0,
-                )
             if isinstance(layer, eqx.nn.BatchNorm):
                 x, state = layer(x, state=state)
             else:
@@ -247,10 +262,11 @@ class Samudrax(eqx.Module):
 
         cur_key, key = jax.random.split(key, 2)
         self.layers.append(
-            eqx.nn.Conv2d(
+            GlobePaddedConv2d(
                 in_channels=out_ch,
                 out_channels=config.n_out,
                 kernel_size=config.last_kernel_size,
+                n_pad=self.N_pad,
                 key=cur_key,
             )
         )
@@ -262,22 +278,6 @@ class Samudrax(eqx.Module):
         skips = []
         count = 0
         for layer in self.layers:
-            if isinstance(layer, eqx.nn.Conv2d):
-                # TODO(alxmrs): Verify padding is the same
-                # Circular wrap (longitude)
-                x = jnp.pad(
-                    x,
-                    pad_width=((0, 0), (0, 0), (self.N_pad, self.N_pad)),
-                    mode="wrap",
-                )
-                # Reflect around the poles (latitude)
-                x = jnp.pad(
-                    x,
-                    pad_width=((0, 0), (self.N_pad, self.N_pad), (0, 0)),
-                    mode="constant",
-                    constant_values=0.0,
-                )
-
             if isinstance(layer, ConvNeXtBlock):
                 x, state = layer(x, state=state)
             else:

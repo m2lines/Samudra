@@ -325,7 +325,8 @@ class TrainData:
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         input, _ = self.td_dict[step]
-        merged = input.at[: self.num_prognostic_channels].set(prognostic)
+        # Replace the prognostic portion along the channel axis, not the batch axis
+        merged = input.at[:, : self.num_prognostic_channels].set(prognostic)
         return merged
 
     def values(self):

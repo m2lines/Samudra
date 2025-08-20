@@ -287,7 +287,6 @@ class Samudrax(eqx.Module):
                 if isinstance(layer, ConvNeXtBlock):
                     skips.append(x)
                     count += 1
-                    print(f"x.shape: {x.shape}, count: {count}")
             elif count >= self.block_depth:
                 if isinstance(layer, BilinearUpsample):
                     crop = np.array(x.shape[1:])
@@ -295,10 +294,6 @@ class Samudrax(eqx.Module):
                         skips[int(2 * self.block_depth - count - 1)].shape[1:]
                     )
                     pads = shape - crop
-                    print(
-                        f"x.shape: {x.shape}, count: {count}, index: {2 * self.block_depth - count - 1}"
-                    )
-                    print(f"crop: {crop}, shape: {shape}, pads: {pads}")
                     # PyTorch: pads = [pads[1]//2, pads[1]-pads[1]//2, pads[0]//2, pads[0]-pads[0]//2]
                     pad_lat_before = pads[0] // 2
                     pad_lat_after = pads[0] - pad_lat_before

@@ -45,7 +45,7 @@ envs:
   DATA_BUCKET: oa-fomo
   # We assume that data in this directory is named in the same pattern as
   # the $DATA_CONFIG yaml.
-  DATA_ROOT_PATH: null # path to copy from DATA_BUCKET into the local data root
+  DATA_ROOT_PATH: null # path to copy from DATA_BUCKET into the local data root eg data/om4_onedeg
   NAME: null # wandb train experiment name (and used for downstream tasks)
   ARGS: ""
 
@@ -62,7 +62,7 @@ workdir: .
 setup: |
   set -ex
 
-  mkdir ~/data/
+  mkdir -p ~/data/
   rclone config create s3-source s3 provider=AWS env_auth=true
   rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH} ~/data --ignore-existing --transfers=32
 

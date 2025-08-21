@@ -121,5 +121,6 @@ scripts/                  # Data download and preprocessing
 2. **Distributed Training**: Supports multi-GPU via PyTorch DDP
 3. **Performance Mindset**: We include profiling tools (memray, py-spy, scalene) and aim to keep the code performant core train and eval loops.
 4. **Testing Philosophy**: Tests marked as `manual` or `cuda` for selective execution
-5. **Pre-commit Hooks**: Enforces code quality (ruff, mypy, detect-secrets)
-6. **Cloud Training**: Supports SkyPilot for remote job execution
+5. **Cloud Training**: Supports SkyPilot for remote job execution
+6. **Noisy Failure**: Do not swallow errors. If something goes wrong, let it fail loudly.
+7. **Avoid Hacks**: Don't accomodate bad designs by adding more cruft -- refactor separately first then make the nice change.

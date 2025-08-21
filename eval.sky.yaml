@@ -23,7 +23,7 @@ resources:
   # Optional; if left out, automatically pick the cheapest cloud.
   cloud: lambda
   # 1x NVIDIA A100 GPU -- Evaluation only needs 1 GPU
-  accelerators: A100-80GB:1
+  accelerators: A100:1
   disk_tier: best
 #  disk_size: 1_000 # in GiBs
 

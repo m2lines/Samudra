@@ -6,7 +6,7 @@ disk_mode: true
 inference_time:
   start: "2014-10-10"
   end: "2022-12-24"
-num_model_steps_forward: -1
+num_model_steps_forward: 25
 
 experiment:
   name: local_om4_samudra

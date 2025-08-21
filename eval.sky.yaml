@@ -1,18 +1,16 @@
 # ~
-# Entrypoint to run a training job on a single-node, 8x A100 GPU cluster with skypilot.
+# Entrypoint to run a evaluation job on a single-node, A100 GPU cluster with skypilot.
 # ~
 #
 # First, make sure that all your credentials are set up:
 # ```
 # sky check -v
 # ```
-# You will generally need to create a dedicated IAM user for skypilot, and put
-# your lambda credentials in ~/.lambda_cloud/ -- the `sky check -v` command has more details.
 #
 # To create or re-use a cluster:
 # ```
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# uv run sky launch train.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
+# sky launch -c fomo-cluster eval.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
 # ```
 # As the job progresses, skypilot will provide commands to locally monitor each stage.
 #
@@ -24,8 +22,8 @@
 resources:
   # Optional; if left out, automatically pick the cheapest cloud.
   cloud: lambda
-  # 8x NVIDIA A100-80GB GPU
-  accelerators: A100-80GB:8
+  # 1x NVIDIA A100 GPU -- Evaluation only needs 1 GPU
+  accelerators: A100-80GB:1
   disk_tier: best
 #  disk_size: 1_000 # in GiBs
 
@@ -45,8 +43,9 @@ envs:
   DATA_BUCKET: oa-fomo
   # We assume that data in this directory is named in the same pattern as
   # the $DATA_CONFIG yaml.
-  DATA_ROOT_PATH: null # path to copy from DATA_BUCKET into the local data root
+  DATA_ROOT_PATH: null # path to copy from DATA_BUCKET into the local data root eg om4_onedeg
   NAME: null # wandb train experiment name (and used for downstream tasks)
+  TARGET_CHECKPOINT: null # checkpoint to use, relative to OUTPUTS_BUCKET eg $train_experiment/saved_nets/ckpt.pt
   ARGS: ""
 
 file_mounts:
@@ -69,27 +68,12 @@ setup: |
 run: |
   set -ex
 
-  MASTER_ADDR=$(echo "$SKYPILOT_NODE_IPS" | head -n1)
-  echo "Starting distributed training, head node: $MASTER_ADDR"
-
   DATA_ROOT=$(realpath ~/data)
 
-  # Explicit check for torchrun
-  if ! command -v torchrun >/dev/null 2>&1; then
-      echo "ERROR: torchrun command not found" >&2
-      exit 1
-  fi
-
-  uv run torchrun \
-    --standalone \
-    --nnodes=$SKYPILOT_NUM_NODES \
-    --nproc_per_node=$SKYPILOT_NUM_GPUS_PER_NODE \
-    --master_addr=$MASTER_ADDR \
-    --master_port=8008 \
-    --node_rank=${SKYPILOT_NODE_RANK} \
-    -m ocean_emulators.train "${CONFIG}" \
-    --experiment.name="${NAME}" \
+  uv run -m ocean_emulators.eval "${CONFIG}" \
+    --ckpt_path="/outputs/${TARGET_CHECKPOINT}" \
     --experiment.data_root="${DATA_ROOT}" \
-    --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \
+    --experiment.base_output_dir=/outputs/ \
+    --experiment.name="${NAME}" \
     ${ARGS}

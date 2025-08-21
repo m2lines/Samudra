@@ -34,12 +34,14 @@ class ValidateAggregator(TrainAggregator):
         self.num_prognostic_channels = num_prognostic_channels
         self.wet = wet
 
-    # TODO(jder): we could remove this by moving from inheritance
-    # to composition with the TrainAggregator functionality.
     def record_batch(self, batch):
-        raise NotImplementedError(
-            "Call record_validation_batch instead of record_batch"
-        )
+        """Override to handle both TrainBatchOutput and ValBatchOutput."""
+        if isinstance(batch, ValBatchOutput):
+            # If it's a ValBatchOutput, use the validation-specific method
+            self.record_validation_batch(batch)
+        else:
+            # For TrainBatchOutput, just record the losses
+            super().record_batch(batch)
 
     @torch.no_grad()
     def record_validation_batch(self, batch: ValBatchOutput):
@@ -91,8 +93,15 @@ class ValidateAggregator(TrainAggregator):
     @torch.no_grad()
     def get_logs(self, label: str = "train") -> Metrics:
         logs: MetricsDict = dict(super().get_logs(label))
-        for agg_label in self._aggregators:
-            for k, v in self._aggregators[agg_label].get_logs(label=agg_label).items():
-                logs[f"{label}/{k}"] = v
+        # Only get logs from sub-aggregators if they have been initialized with data
+        for agg_label, aggregator in self._aggregators.items():
+            # Check if the aggregator has been initialized with data
+            if hasattr(aggregator, "_gen_data") and aggregator._gen_data is not None:
+                for k, v in aggregator.get_logs(label=agg_label).items():
+                    logs[f"{label}/{k}"] = v
 
         return logs
+
+    def get_sub_aggregator(self, name: str) -> ValidateSubAggregator | None:
+        """Get a specific sub-aggregator by name. For testing purposes."""
+        return self._aggregators.get(name)

@@ -1,5 +1,5 @@
 # ~
-# Entrypoint to run a evaluation job on a single-node, A100 GPU cluster with skypilot.
+# Entrypoint to run a evaluation job on a single-node with an A100 GPU with skypilot.
 # ~
 #
 # First, make sure that all your credentials are set up:
@@ -25,7 +25,6 @@ resources:
   # 1x NVIDIA A100 GPU -- Evaluation only needs 1 GPU
   accelerators: A100:1
   disk_tier: best
-#  disk_size: 1_000 # in GiBs
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`
 # NOTE: All `null` values must be specified in order for this script to run!

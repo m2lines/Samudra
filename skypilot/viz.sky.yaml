@@ -1,5 +1,5 @@
 # ~
-# Entrypoint to run a viz job on a single-node, A100 GPU cluster with skypilot.
+# Entrypoint to run a viz job on a single-node with an A100 GPU with skypilot.
 # ~
 #
 # First, make sure that all your credentials are set up:
@@ -10,7 +10,7 @@
 # To create or re-use a cluster:
 # ```
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster eval.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
+# sky launch -c fomo-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
 # ```
 # As the job progresses, skypilot will provide commands to locally monitor each stage.
 #
@@ -22,10 +22,9 @@
 resources:
   # Optional; if left out, automatically pick the cheapest cloud.
   cloud: lambda
-  # 1x NVIDIA A100 GPU -- Evaluation only needs 1 GPU
+  # 1x NVIDIA A100 GPU -- Viz needs no GPUs but lambda only has GPU machines, we do this so you can share a cluster with eval.
   accelerators: A100:1
   disk_tier: best
-#  disk_size: 1_000 # in GiBs
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`
 # NOTE: All `null` values must be specified in order for this script to run!

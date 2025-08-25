@@ -23,7 +23,15 @@ from ocean_emulators.utils.train import pairwise
 
 
 class Samudra(BaseModel):
-    def __init__(self, config: SamudraConfig, hist, wet, area_weights, static_data):
+    def __init__(
+        self,
+        config: SamudraConfig,
+        hist,
+        wet,
+        area_weights,
+        static_data,
+        enable_channels_last,
+    ):
         super().__init__(
             ch_width=config.ch_width,
             n_out=config.n_out,
@@ -33,6 +41,7 @@ class Samudra(BaseModel):
             last_kernel_size=config.last_kernel_size,
             pad=config.pad,
             static_data=static_data,
+            enable_channels_last=enable_channels_last,
         )
 
         # Get activation class
@@ -156,6 +165,7 @@ class Samudra(BaseModel):
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
         count = 0
+        last_layer = self.layers[-1]
         for layer in self.layers:
             crop: torch.Size | np.ndarray = fts.shape[2:]
             if isinstance(layer, nn.Conv2d):
@@ -165,10 +175,19 @@ class Samudra(BaseModel):
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            if self.checkpoint_all:
-                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
+            # Run the final output conv in full precision
+            if layer is last_layer and isinstance(layer, nn.Conv2d):
+                from torch.cuda.amp import autocast as _autocast
+
+                with _autocast(enabled=False):
+                    fts = layer(fts.float())
             else:
-                fts = layer(fts)
+                if self.checkpoint_all:
+                    fts = torch.utils.checkpoint.checkpoint(
+                        layer, fts, use_reentrant=False
+                    )  # type: ignore
+                else:
+                    fts = layer(fts)
             if count < self.num_steps:
                 if isinstance(layer, CoreBlock):
                     skip_inputs[count] = fts
@@ -191,5 +210,10 @@ class Samudra(BaseModel):
                     fts = nn.functional.pad(fts, pads)
                     fts += skip_inputs[int(2 * self.num_steps - count - 1)]
                     count += 1
-        fts = self.corrector(fts_input, fts)
-        return torch.where(self.wet, fts, 0.0)
+        # Corrector and wet mask in higher precision for long-rollout stability
+        from torch.cuda.amp import autocast as _autocast
+
+        with _autocast(enabled=False):
+            fts = self.corrector(fts_input, fts)
+            fts = torch.where(self.wet, fts, 0.0)
+        return fts

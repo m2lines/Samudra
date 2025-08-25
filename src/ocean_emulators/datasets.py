@@ -338,6 +338,17 @@ class TrainData:
                 self.td_dict[step][1].to(device),
             )
 
+    def to_channels_last(self) -> None:
+        """Convert stored tensors to channels_last memory format (in-place)."""
+        for step in self.td_dict:
+            inp, lab = self.td_dict[step]
+            # Only convert 4D tensors (N,C,H,W). Labels typically are 4D post-collate.
+            if inp.dim() == 4:
+                inp = inp.contiguous(memory_format=torch.channels_last)
+            if lab.dim() == 4:
+                lab = lab.contiguous(memory_format=torch.channels_last)
+            self.td_dict[step] = (inp, lab)
+
     def __iter__(self):
         return iter(self.td_dict)
 

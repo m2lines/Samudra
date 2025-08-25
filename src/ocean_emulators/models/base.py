@@ -20,6 +20,7 @@ class BaseModel(torch.nn.Module):
         last_kernel_size,
         pad,
         static_data,
+        enable_channels_last,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -34,6 +35,7 @@ class BaseModel(torch.nn.Module):
         self.input_channels = ch_width[0]
         self.num_prognostic_channels = n_out
         self.static_data = static_data
+        self.enable_channels_last = enable_channels_last
 
     def forward_once(self, fts):
         raise NotImplementedError()
@@ -66,16 +68,22 @@ class BaseModel(torch.nn.Module):
                 pred = decodings  # Absolute prediction
 
             if loss_fn is not None:
-                if torch.isnan(loss).all():
-                    loss = loss_fn(
-                        pred,
-                        train_data.get_label(step),
-                    )
-                else:
-                    loss += loss_fn(
-                        pred,
-                        train_data.get_label(step),
-                    )
+                # Compute loss in full precision for numeric stability
+                from torch.cuda.amp import autocast as _autocast
+
+                with _autocast(enabled=False):
+                    pred_fp32 = pred.float()
+                    label_fp32 = train_data.get_label(step).float()
+                    if torch.isnan(loss).all():
+                        loss = loss_fn(
+                            pred_fp32,
+                            label_fp32,
+                        )
+                    else:
+                        loss += loss_fn(
+                            pred_fp32,
+                            label_fp32,
+                        )
 
             outputs.append(pred)
 
@@ -96,6 +104,11 @@ class BaseModel(torch.nn.Module):
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
         initial_prognostic = initial_prognostic.to(get_device())
+        # Ensure inference inputs hit NHWC kernels when enabled
+        if self.enable_channels_last and initial_prognostic.dim() == 4:
+            initial_prognostic = initial_prognostic.contiguous(
+                memory_format=torch.channels_last
+            )
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
@@ -112,6 +125,11 @@ class BaseModel(torch.nn.Module):
                 input_tensor = dataset.merge_prognostic_and_boundary(
                     prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
+                )
+
+            if enable_cl and input_tensor.dim() == 4:
+                input_tensor = input_tensor.contiguous(
+                    memory_format=torch.channels_last
                 )
 
             decodings = self.forward_once(input_tensor)

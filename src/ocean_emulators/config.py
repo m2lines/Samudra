@@ -323,6 +323,12 @@ class TrainConfig(TopLevelConfig):
     faster_decay_at_start: bool = True
     backend: TrainBackendConfig = "auto"
 
+    # Precision/performance toggles
+    amp_dtype: Literal["bf16", "fp16"] | None = "bf16"
+    enable_channels_last: bool = False
+    enable_tf32: bool = False
+    use_fused_adamw: bool = False
+
     # Profiling parameters
     profiler: ProfilerConfig = ProfilerConfig()
 
@@ -364,6 +370,11 @@ class EvalConfig(TopLevelConfig):
     ckpt_path: str | None = None
     num_model_steps_forward: int = 200
     backend: EvalBackendConfig = "auto"
+
+    # Precision/performance toggles (inference)
+    amp_dtype: Literal["bf16", "fp16"] | None = "bf16"
+    enable_channels_last: bool = False
+    enable_tf32: bool = False
 
     # Config components
     inference_time: TimeConfig = TimeConfig(

@@ -44,6 +44,15 @@ class Eval:
 
         self.device = init_eval_backend(cfg.backend)
 
+        # Precision flags
+        self._amp_dtype = cfg.amp_dtype
+        self._enable_channels_last = cfg.enable_channels_last
+
+        # TF32
+        if self.device.type == "cuda" and cfg.enable_tf32:
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
+
         # Adjust workers and memory pinning based on device
         if not using_gpu():
             cfg.data.num_workers = 0  # Disable multi-processing on CPU
@@ -138,9 +147,14 @@ class Eval:
                 wet=self.wet.to(self.device),
                 area_weights=self.area_weights,
                 static_data=self.static_data,
+                enable_channels_last=cfg.enable_channels_last,
             ).to(self.device)
         else:
             raise NotImplementedError
+
+        # Optional channels_last on model
+        if cfg.enable_channels_last:
+            model = model.to(memory_format=torch.channels_last)
 
         get_model_summary(model, None, cfg.debug)
 
@@ -235,17 +249,30 @@ class Eval:
             self.num_out,
             self.prognostic_var_names,
         )
-
-        Stepper.inference(
-            model=self.model,
-            dataset=self.inference_dataset,
-            inf_aggregator=inf_aggregator,
-            epoch=0,
-            output_dir=self.output_dir,
-            model_path=self.model_path,
-            num_model_steps_forward=self.num_model_steps_forward,
-            save_zarr=self.save_zarr,
-        )
+        if self.device.type == "cuda" and self._amp_dtype is not None:
+            amp_dtype = torch.bfloat16 if self._amp_dtype == "bf16" else torch.float16
+            with torch.autocast(device_type="cuda", dtype=amp_dtype):
+                Stepper.inference(
+                    model=self.model,
+                    dataset=self.inference_dataset,
+                    inf_aggregator=inf_aggregator,
+                    epoch=0,
+                    output_dir=self.output_dir,
+                    model_path=self.model_path,
+                    num_model_steps_forward=self.num_model_steps_forward,
+                    save_zarr=self.save_zarr,
+                )
+        else:
+            Stepper.inference(
+                model=self.model,
+                dataset=self.inference_dataset,
+                inf_aggregator=inf_aggregator,
+                epoch=0,
+                output_dir=self.output_dir,
+                model_path=self.model_path,
+                num_model_steps_forward=self.num_model_steps_forward,
+                save_zarr=self.save_zarr,
+            )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}
 

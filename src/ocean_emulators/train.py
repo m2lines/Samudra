@@ -103,8 +103,17 @@ class Trainer:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
+        # Store precision flags
+        self._amp_dtype = cfg.amp_dtype
+        self._enable_channels_last = cfg.enable_channels_last
+
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
+
+        # Precision/TF32 toggles
+        if self.device.type == "cuda" and cfg.enable_tf32:
+            torch.backends.cuda.matmul.allow_tf32 = True
+            torch.backends.cudnn.allow_tf32 = True
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
@@ -238,9 +247,14 @@ class Trainer:
                 wet=self.wet,
                 area_weights=self.area_weights,
                 static_data=self.data_container.static_data,
+                enable_channels_last=cfg.enable_channels_last,
             ).to(self.device)
         else:
             raise NotImplementedError
+
+        # Optional channels_last memory format (can improve conv perf)
+        if cfg.enable_channels_last:
+            model = model.to(memory_format=torch.channels_last)
 
         self.model = model
         self.nets_dir = cfg.experiment.nets_dir
@@ -301,7 +315,15 @@ class Trainer:
                 assert_never(cfg.loss)
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+        if self.device.type == "cuda" and cfg.use_fused_adamw:
+            self.optimizer = torch.optim.AdamW(
+                self.model.parameters(), lr=cfg.learning_rate, fused=True
+            )
+        else:
+            # Fallback to Adam (unchanged default)
+            self.optimizer = torch.optim.Adam(
+                self.model.parameters(), lr=cfg.learning_rate
+            )
 
         # Scheduler
         self.scheduler = None
@@ -542,11 +564,26 @@ class Trainer:
 
             self.optimizer.zero_grad()
             data.to(self.device)
+            # Optionally convert batch tensors to channels_last
+            if self._enable_channels_last:
+                data.to_channels_last()
 
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
+            # AMP autocast context (controlled by config via amp_dtype)
+            if self.device.type == "cuda" and self._amp_dtype is not None:
+                amp_dtype = (
+                    torch.bfloat16 if self._amp_dtype == "bf16" else torch.float16
+                )
+                with torch.autocast(device_type="cuda", dtype=amp_dtype):
+                    TO: TrainBatchOutput = Stepper.train_batch(
+                        self.model, data, self.loss_fn
+                    )
+            else:
+                TO: TrainBatchOutput = Stepper.train_batch(
+                    self.model, data, self.loss_fn
+                )
             TO.loss.backward()
             self._ema(model=self.model)
 
@@ -667,9 +704,19 @@ class Trainer:
                     break
 
                 data.to(self.device)
-                VO: ValBatchOutput = Stepper.validate_batch(
-                    self.model, data, self.loss_fn
-                )
+                if self._enable_channels_last:
+                    data.to_channels_last()
+
+                if self.device.type == "cuda" and self._amp_dtype is not None:
+                    amp_dtype = (
+                        torch.bfloat16 if self._amp_dtype == "bf16" else torch.float16
+                    )
+                    with torch.autocast(device_type="cuda", dtype=amp_dtype):
+                        VO: ValBatchOutput = Stepper.validate_batch(
+                            self.model, data, self.loss_fn
+                        )
+                else:
+                    VO = Stepper.validate_batch(self.model, data, self.loss_fn)
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
@@ -695,17 +742,38 @@ class Trainer:
 
                 # TODO(jder): we need the underlying model so we can use forward_once;
                 # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
-                Stepper.inference(
-                    model=self.model.module
-                    if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
-                    else self.model,
-                    dataset=inference_dataset,
-                    inf_aggregator=inf_aggregator,
-                    epoch=epoch,
-                    num_model_steps_forward=min(
-                        num_steps // 2, self.max_train_model_steps_forward
-                    ),
-                )
+                if self.device.type == "cuda" and self._amp_dtype is not None:
+                    amp_dtype = (
+                        torch.bfloat16 if self._amp_dtype == "bf16" else torch.float16
+                    )
+                    with torch.autocast(device_type="cuda", dtype=amp_dtype):
+                        Stepper.inference(
+                            model=self.model.module
+                            if isinstance(
+                                self.model, torch.nn.parallel.DistributedDataParallel
+                            )
+                            else self.model,
+                            dataset=inference_dataset,
+                            inf_aggregator=inf_aggregator,
+                            epoch=epoch,
+                            num_model_steps_forward=min(
+                                num_steps // 2, self.max_train_model_steps_forward
+                            ),
+                        )
+                else:
+                    Stepper.inference(
+                        model=self.model.module
+                        if isinstance(
+                            self.model, torch.nn.parallel.DistributedDataParallel
+                        )
+                        else self.model,
+                        dataset=inference_dataset,
+                        inf_aggregator=inf_aggregator,
+                        epoch=epoch,
+                        num_model_steps_forward=min(
+                            num_steps // 2, self.max_train_model_steps_forward
+                        ),
+                    )
 
         logger.info(f"Aggregating inference logs")
         logs = inf_aggregator.get_summary_logs()

@@ -83,10 +83,7 @@ def test_cosine_with_warmup():
             assert last_lr <= lr, "During warmup, LR should increase"
 
         if i > warmup_epochs:
-            # Monotonically decreasing, with error tolerance for equality.
-            assert last_lr > lr or abs(last_lr - lr) < 1e7, (
-                "During cosine annealing, LR should decrease"
-            )
+            assert last_lr > lr, "During cosine annealing, LR should decrease"
 
         last_lr = lr
 

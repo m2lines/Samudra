@@ -1,0 +1,85 @@
+# ~
+# Entrypoint to run a viz job on a single-node with an A100 GPU with skypilot.
+# ~
+#
+# First, make sure that all your credentials are set up:
+# ```
+# sky check -v
+# ```
+#
+# To create or re-use a cluster:
+# ```
+# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
+# sky launch -c fomo-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
+# ```
+# As the job progresses, skypilot will provide commands to locally monitor each stage.
+#
+#
+# To get debug traces when running `sky` commands, set this environment variable:
+# ```
+# export SKYPILOT_DEBUG=true
+# ```
+resources:
+  # Optional; if left out, automatically pick the cheapest cloud.
+  cloud: lambda
+  # 1x NVIDIA A100 GPU -- Viz needs no GPUs but lambda only has GPU machines, we do this so you can share a cluster with eval.
+  accelerators: A100:1
+  disk_tier: best
+
+# NOTE: Remember to pass environment variables with `--env` or `--env-file`
+# NOTE: All `null` values must be specified in order for this script to run!
+envs:
+  # Secrets
+  # As of v0.9.3, `sky` supports passing in secrets via a dotenv file! So, you can specify these with `--env-file`.
+  # To pass in secrets, we recommend setting environment variable and then ONLY passing in the name via `--env`
+  WANDB_API_KEY: null # e.g. `--env WANDB_API_KEY`
+  # Run `sky check aws -v` to verify that AWS storage is properly set up.
+  # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
+  # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
+
+  CONFIG: null
+  OUTPUTS_BUCKET: oa-fomo-outputs
+  DATA_BUCKET: oa-fomo
+  DATA_ROOT_PATH: null # path to copy from DATA_BUCKET into the local data root eg data/om4_onedeg
+  BASIN_PATH: null # relative to DATA_BUCKET/basins we should use for the basin zarr eg basin_masks_original.zarr
+  NAME: null # name used for output directory
+  RUNS: null # run JSON, for example '{"name": "my_run", "location": "/outputs/my_run/predictions.zarr"}'
+  ARGS: ""
+
+#### Shared setup, please ensure this is the same as in all *.sky.yaml files ####
+file_mounts:
+  # TODO(alxmrs): Consider adding a data/ COPY file_mount here once `mount_options` feature exists.
+  # The current method of copying (in the setup section, below) is faster.
+
+  /outputs:
+    source: s3://${OUTPUTS_BUCKET}
+    mode: MOUNT_CACHED
+
+workdir: .
+
+setup: |
+  set -ex
+
+  rclone config create s3-source s3 provider=AWS env_auth=true
+
+  mkdir -p ~/data/
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH} ~/data --ignore-existing --transfers=32
+
+  mkdir -p ~/basins/
+  rclone copy --progress s3-source:${DATA_BUCKET}/basins ~/basins
+
+#### End of shared setup ####
+
+run: |
+  set -ex
+
+  DATA_ROOT=$(realpath ~/data)
+  BASINS_ROOT=$(realpath ~/basins)
+
+  uv run -m ocean_emulators.viz "${CONFIG}" \
+    --data_root="${DATA_ROOT}" \
+    --base_output_dir=/outputs/ \
+    --name="${NAME}" \
+    --basins_location="{\"type\": \"local\", \"path\": \"${BASINS_ROOT}/${BASIN_PATH}\"}" \
+    --runs="${RUNS}"
+    ${ARGS}

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756239781474,
+  "lastUpdate": 1756239782899,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7266,6 +7266,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1444156743664937",
             "extra": "mean: 68.07086557559997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70b29b97f87db3a89dc0ec107edbfaec772474c4",
+          "message": "Eval + Viz Skypilot (#352)",
+          "timestamp": "2025-08-26T19:55:18Z",
+          "tree_id": "0ab45c6cbe943e2753d4f33103262119ce0c2f7e",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/70b29b97f87db3a89dc0ec107edbfaec772474c4"
+        },
+        "date": 1756239782271,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2905610779975523,
+            "unit": "iter/sec",
+            "range": "stddev: 0.030642796003654924",
+            "extra": "mean: 774.8567790000379 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06942793502438338,
+            "unit": "iter/sec",
+            "range": "stddev: 0.42194323869175515",
+            "extra": "mean: 14.40342420740003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18841184378582257,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12661527550668766",
+            "extra": "mean: 5.307521968399987 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013913667549041636,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5441723810107689",
+            "extra": "mean: 71.87177618519995 sec\nrounds: 5"
           }
         ]
       }

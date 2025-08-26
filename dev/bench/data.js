@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756239782899,
+  "lastUpdate": 1756252246988,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3632,6 +3632,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4740221263922304",
             "extra": "mean: 83.70886069920002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "41564666409ad63c3b60609a6ca4713390e9b0a8",
+          "message": "Implementing Warmup + Cosine Decay LR schedule from ConvNeXt paper. (#343)\n\nHere is a Warmup implementation. This was added to match the LR schedule\nof the original ConvNeXt paper. Following the citations, warmup is\ntheorhetical grounded and empirically verified to help the loss curves\nof networks with _large batch sizes_ -- see this paper:\nhttps://arxiv.org/pdf/1706.02677\n\nWe have very small batch sizes, though each sample is fairly large (~80\nMB). This technique is not likely to lead to a modeling improvement;\nhowever, I've queued up a few jobs to test if this improves anything.\nWhile this might not make it into the final baseline Samudra config, I\ncould see it being valuable for the next iteration of the model.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-08-26T23:23:38Z",
+          "tree_id": "38a4a731e25139e1ad166a25ede9cb543eee09bd",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/41564666409ad63c3b60609a6ca4713390e9b0a8"
+        },
+        "date": 1756252246085,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2847879720140074,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027197973823160578",
+            "extra": "mean: 778.3385443999919 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06757707540364018,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6411075744872337",
+            "extra": "mean: 14.797917696600006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18124901281297834,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11900070176557843",
+            "extra": "mean: 5.5172714294 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012187453112426576,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19901788418466237",
+            "extra": "mean: 82.051597719 sec\nrounds: 5"
           }
         ]
       }

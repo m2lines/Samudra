@@ -50,6 +50,9 @@ class CosineWithWarmupConfig(BaseModel):
     def build(
         self, optimizer: torch.optim.Optimizer, epochs: int
     ) -> torch.optim.lr_scheduler.LRScheduler:
+        assert len(optimizer.param_groups) == 1, (
+            "There can only be one parameter group for the optimizer."
+        )
         warmup = torch.optim.lr_scheduler.LinearLR(
             optimizer,
             start_factor=self.warmup_lr / optimizer.param_groups[0]["lr"],
@@ -57,6 +60,9 @@ class CosineWithWarmupConfig(BaseModel):
             total_iters=self.warmup_epochs,
         )
 
+        assert self.warmup_epochs <= epochs, (
+            "'warmup_epochs' is too big; it must be smaller than 'epochs'."
+        )
         cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=epochs - self.warmup_epochs
         )

@@ -40,7 +40,7 @@ class CosineWithTailSchedulerConfig(BaseModel):
 
 
 class CosineWithWarmupConfig(BaseModel):
-    """Cosine scheduler which goes to head_lr for the first head_epochs."""
+    """Cosine scheduler which goes from warmup_lr to the default lr for the first warmup_epochs."""
 
     type: Literal["cosine_with_warmup"] = "cosine_with_warmup"
 

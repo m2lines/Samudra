@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1755799806218,
+  "lastUpdate": 1756239781474,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3580,6 +3580,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1548767026505357",
             "extra": "mean: 79.02566602059997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "70b29b97f87db3a89dc0ec107edbfaec772474c4",
+          "message": "Eval + Viz Skypilot (#352)",
+          "timestamp": "2025-08-26T19:55:18Z",
+          "tree_id": "0ab45c6cbe943e2753d4f33103262119ce0c2f7e",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/70b29b97f87db3a89dc0ec107edbfaec772474c4"
+        },
+        "date": 1756239780482,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.246567026087767,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04583503363158478",
+            "extra": "mean: 802.2031539999944 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06720597251219441,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7473862934130544",
+            "extra": "mean: 14.879629929000009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.17702922583823927,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12672407689629178",
+            "extra": "mean: 5.648784799599992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.011946166650068344,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4740221263922304",
+            "extra": "mean: 83.70886069920002 sec\nrounds: 5"
           }
         ]
       }

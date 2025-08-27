@@ -54,12 +54,11 @@ experiment:
   network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
-data:
-  !include data/public.yaml
+data: !include data/public.yaml
 
 samudra:
   checkpointing: all
-  ch_width: [157, 280, 380, 480, 520]
+  ch_width: [157, 360, 460, 560, 660]
   n_out: 154
   dilation: [1, 2, 4, 8]
   n_layers: [1, 1, 1, 1]

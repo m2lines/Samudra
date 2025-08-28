@@ -63,9 +63,15 @@ class VizConfig(TopLevelConfig):
     groundtruth_time_range: TimeConfig = Field(
         description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
     )
-    steps: list[VizStep] | None = None  # None means all
-    not_steps: list[VizStep] = Field(default_factory=lambda: [])  # None means none
-    debug: bool = False
+    steps: list[VizStep] | None = Field(
+        default=None,
+        description=f"Which steps to run; leave empty to run all steps. Possible values are: {', '.join(sorted(_all_steps()))}",
+    )
+    not_steps: list[VizStep] = Field(
+        default_factory=lambda: [],
+        description="Steps to *not* run, takes precedence over `steps` (see that key for possible steps).",
+    )
+    debug: bool = Field(default=False, description="")
 
     @cached_property
     def output_path(self) -> Path:

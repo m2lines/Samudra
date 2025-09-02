@@ -18,7 +18,6 @@ class BaseModel(torch.nn.Module):
         hist,
         pred_residuals,
         last_kernel_size,
-        pad,
         static_data,
     ) -> None:
         super().__init__()
@@ -28,7 +27,6 @@ class BaseModel(torch.nn.Module):
         self.ch_width = ch_width
         self.wet = wet.bool()
         self.N_pad = int((last_kernel_size - 1) / 2)
-        self.pad = pad
         self.pred_residuals = pred_residuals
         self.hist = hist
         self.input_channels = ch_width[0]

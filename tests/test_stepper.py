@@ -160,7 +160,6 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
         hist=hist,
         pred_residuals=False,
         last_kernel_size=3,
-        pad="circular",
         static_data=None,
     )
 
@@ -214,7 +213,6 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
         hist=hist,
         pred_residuals=False,
         last_kernel_size=3,
-        pad="circular",
         static_data=None,
     )
 

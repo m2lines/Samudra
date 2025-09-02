@@ -3,7 +3,9 @@
 import logging
 
 import torch
+import xarray as xr
 
+from ocean_emulators.constants import Grid
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.output import ModelInferenceOutput
@@ -12,14 +14,14 @@ from ocean_emulators.utils.output import ModelInferenceOutput
 class BaseModel(torch.nn.Module):
     def __init__(
         self,
-        ch_width,
-        n_out,
-        wet,
-        hist,
-        pred_residuals,
-        last_kernel_size,
-        pad,
-        static_data,
+        ch_width: list[int],
+        n_out: int,
+        wet: Grid,
+        hist: int,
+        pred_residuals: bool,
+        last_kernel_size: int,
+        pad: str,
+        static_data: xr.Dataset | None,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"

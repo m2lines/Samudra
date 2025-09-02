@@ -11,6 +11,7 @@ from ocean_emulators.models.corrector import Correctors
 from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
+    GlobePaddedConv2d,
     TransposedConvUpsample,
 )
 from ocean_emulators.models.modules.factory import (
@@ -144,7 +145,7 @@ class Samudra(BaseModel):
         )
 
         # Final output conv
-        layers.append(nn.Conv2d(b, config.n_out, config.last_kernel_size))
+        layers.append(GlobePaddedConv2d(b, config.n_out, config.last_kernel_size))
 
         self.layers = nn.ModuleList(layers)
         self.corrector = Correctors(config.corrector, hist, area_weights, static_data)
@@ -158,13 +159,6 @@ class Samudra(BaseModel):
         count = 0
         for layer in self.layers:
             crop: torch.Size | np.ndarray = fts.shape[2:]
-            if isinstance(layer, nn.Conv2d):
-                fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                fts = torch.nn.functional.pad(
-                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
             if self.checkpoint_all:
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
             else:

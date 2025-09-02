@@ -69,14 +69,34 @@ class MaxPool(torch.nn.Module):
         return self.maxpool(x)
 
 
+class GlobePaddedConv2d(torch.nn.Module):
+    def __init__(
+        self,
+        in_channels: int = 3,
+        out_channels: int = 1,
+        kernel_size: int = 3,
+        dilation: int = 1,
+        **kwargs,
+    ):
+        super().__init__()
+        self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
+        self.conv2d = torch.nn.Conv2d(
+            in_channels, out_channels, kernel_size, dilation, **kwargs
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Circular wrap for longitude
+        x = torch.nn.functional.pad(x, (self.N_pad, self.N_pad, 0, 0), mode="circular")
+        # Reflect around the poles for latitude
+        x = torch.nn.functional.pad(x, (0, 0, self.N_pad, self.N_pad), mode="constant")
+        x = self.conv2d(x)
+        return x
+
+
 class CoreBlock(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, dilation, pad):
+    def __init__(self, in_channels, out_channels, kernel_size, dilation):
         super().__init__()
         assert kernel_size % 2 != 0, "Cannot use even kernel sizes!"
-
-        self.N_in = in_channels
-        self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
-        self.pad = pad
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError()
@@ -91,20 +111,19 @@ class ConvBlock(CoreBlock):
         dilation: int = 1,
         n_layers: int = 1,
         activation: Callable[[], torch.nn.Module] = CappedGELU,
-        pad="circular",
         checkpoint_simple: bool = False,
     ):
-        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        super().__init__(in_channels, out_channels, kernel_size, dilation)
 
         layers: list[torch.nn.Module] = []
         layers.append(
-            torch.nn.Conv2d(in_channels, out_channels, kernel_size, dilation=dilation)
+            GlobePaddedConv2d(in_channels, out_channels, kernel_size, dilation=dilation)
         )
         layers.append(torch.nn.BatchNorm2d(out_channels))
         layers.append(activation())
         for _ in range(n_layers - 1):
             layers.append(
-                torch.nn.Conv2d(
+                GlobePaddedConv2d(
                     out_channels, out_channels, kernel_size, dilation=dilation
                 )
             )
@@ -116,15 +135,8 @@ class ConvBlock(CoreBlock):
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
-            if isinstance(layer, nn.Conv2d):
-                fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                fts = torch.nn.functional.pad(
-                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
-                # conv2d layers are expensive so we save their activations,
-                # other (simple) layers are cheap, so we don't save their activations.
+            # conv2d layers are expensive so we save their activations,
+            # other (simple) layers are cheap, so we don't save their activations.
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
             else:
@@ -149,12 +161,11 @@ class ConvNeXtBlock(CoreBlock):
         dilation: int = 1,
         n_layers: int = 1,
         activation: Callable[[], torch.nn.Module] = CappedGELU,
-        pad="circular",
         upscale_factor: int = 4,
         norm="batch",
         checkpoint_simple: bool = False,
     ):
-        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        super().__init__(in_channels, out_channels, kernel_size, dilation)
         assert n_layers == 1, "Can only use a single layer here!"
 
         # Instantiate 1x1 conv to increase/decrease channel depth if necessary
@@ -171,7 +182,7 @@ class ConvNeXtBlock(CoreBlock):
         # Convolution block
         convblock: list[torch.nn.Module] = []
         convblock.append(
-            torch.nn.Conv2d(
+            GlobePaddedConv2d(
                 in_channels=in_channels,
                 out_channels=int(in_channels * upscale_factor),
                 kernel_size=kernel_size,
@@ -191,7 +202,7 @@ class ConvNeXtBlock(CoreBlock):
         if activation is not None:
             convblock.append(activation())
         convblock.append(
-            torch.nn.Conv2d(
+            GlobePaddedConv2d(
                 in_channels=int(in_channels * upscale_factor),
                 out_channels=int(in_channels * upscale_factor),
                 kernel_size=kernel_size,
@@ -226,13 +237,6 @@ class ConvNeXtBlock(CoreBlock):
         # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)
         for layer in self.convblock:
-            if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
-                x = torch.nn.functional.pad(
-                    x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                x = torch.nn.functional.pad(
-                    x, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
             else:

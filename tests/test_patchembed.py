@@ -111,11 +111,11 @@ def test_patch_embed__on_real_data(train_config: TrainConfig):
             patches = patch_embed(initial_input)
             assert patches.shape == (1, 4050, 1024)
 
-            prev_output = td.get_label(
+            prev_prediction = td.get_label(
                 max(0, len(td) - 2)
             )  # Let's assume our predictor does a perfect job.
             merged_input = td.merge_prognostic_and_boundary(
-                prognostic=prev_output, step=len(td) - 1
+                prognostic=prev_prediction, step=len(td) - 1
             )
             patches = patch_embed(merged_input)
             assert patches.shape == (1, 4050, 1024)

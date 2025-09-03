@@ -8,6 +8,7 @@ import traceback
 import warnings
 from collections import defaultdict, deque
 from collections.abc import Mapping
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -19,20 +20,20 @@ if TYPE_CHECKING:
     from ocean_emulators.datasets import TrainData
 
 
-def handle_logging(cfg):
+def handle_logging(debug: bool, output_dir: Path):
     # Set up logging
     logger = logging.getLogger()  # Use the root logger or specify a name if needed
-    logger.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
     fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(module)s - %(message)s")
 
     # STDOUT handler
     stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.DEBUG if cfg.debug else logging.INFO)
+    stdout_handler.setLevel(logging.DEBUG if debug else logging.INFO)
     stdout_handler.setFormatter(fmt)
     logger.addHandler(stdout_handler)
 
     # Add experiment log file handler
-    experiment_log_path = cfg.experiment.output_dir / "experiment.log"
+    experiment_log_path = output_dir / "experiment.log"
     experiment_handler = logging.FileHandler(experiment_log_path)
     experiment_handler = logging.FileHandler(experiment_log_path)
     experiment_handler.setLevel(logging.INFO)  # Capture info and above
@@ -40,7 +41,7 @@ def handle_logging(cfg):
     logger.addHandler(experiment_handler)
 
     # Add separate error log file handler
-    error_log_path = cfg.experiment.output_dir / "error.log"
+    error_log_path = output_dir / "error.log"
     error_handler = logging.FileHandler(error_log_path)
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
     error_handler.setFormatter(fmt)

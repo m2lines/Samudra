@@ -50,7 +50,7 @@ class PatchEmbed2d(nn.Module):
         )
 
         # While we could perform a patch embedding and linear projection in one step with a convolution, this
-        # implementation is much clearer. I don't expect that the additional computational cost to be that arduous.
+        # implementation is much clearer. I don't expect the additional computational cost to be arduous.
         self.patches = Rearrange(
             "b v (h ph) (w pw) -> b (h w) (ph pw v)",
             ph=self.patch_size[0],

@@ -45,9 +45,7 @@ class PatchEmbed2d(nn.Module):
         self.embed_dim: int = embed_dim
         self.n_channels = len(input_vars) * (1 + hist)
 
-        self.n_patches = patch_dim = (
-            self.n_channels * self.patch_size[0] * self.patch_size[1]
-        )
+        patch_dim = self.n_channels * self.patch_size[0] * self.patch_size[1]
 
         # While we could perform a patch embedding and linear projection in one step with a convolution, this
         # implementation is much clearer. I don't expect the additional computational cost to be arduous.

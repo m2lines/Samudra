@@ -58,7 +58,7 @@ class PatchEmbed2d(nn.Module):
         self.linear = nn.Linear(patch_dim, embed_dim)
         self.norm_embedding = norm(embed_dim) if norm is not None else nn.Identity()
 
-    def forward(self, x: Input) -> Float[Array, "*batch patch_dim {self.embed_dim}"]:
+    def forward(self, x: Input) -> Float[Array, "*batch {self.embed_dim} patch_dim"]:
         B, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).
@@ -77,6 +77,6 @@ class PatchEmbed2d(nn.Module):
         x = self.patches(x)
         x = self.norm_patches(x)
         x = self.linear(x)
-        x = self.norm_embedding(x)
-
+        x = self.norm_embedding(x)  # (batch, patch_dim, embed_dim)
+        x = x.transpose(1, 2)  # (batch, embed_dim, patch_dim)
         return x

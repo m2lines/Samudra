@@ -21,7 +21,7 @@ def test_makes_patches():
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 4050, 1024)
+    assert patches.shape == (1, 1024, 4050)
 
 
 def test_makes_patches__high_res():
@@ -37,7 +37,7 @@ def test_makes_patches__high_res():
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 16200, 1024)
+    assert patches.shape == (1, 1024, 16200)
 
 
 def test_makes_patches__more_variables():
@@ -53,7 +53,7 @@ def test_makes_patches__more_variables():
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 4050, 1024)
+    assert patches.shape == (1, 1024, 4050)
 
 
 def test_makes_patches__with_layer_norm():
@@ -69,7 +69,7 @@ def test_makes_patches__with_layer_norm():
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 4050, 1024)
+    assert patches.shape == (1, 1024, 4050)
 
 
 def test_makes_patches__with_history():
@@ -85,7 +85,7 @@ def test_makes_patches__with_history():
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 4050, 1024)
+    assert patches.shape == (1, 1024, 4050)
 
 
 def test_patch_embed__on_real_data(train_config: TrainConfig):
@@ -109,7 +109,7 @@ def test_patch_embed__on_real_data(train_config: TrainConfig):
             # merged input.
             initial_input = td.get_initial_input()
             patches = patch_embed(initial_input)
-            assert patches.shape == (1, 4050, 1024)
+            assert patches.shape == (1, 1024, 4050)
 
             prev_prediction = td.get_label(
                 max(0, len(td) - 2)
@@ -118,4 +118,4 @@ def test_patch_embed__on_real_data(train_config: TrainConfig):
                 prognostic=prev_prediction, step=len(td) - 1
             )
             patches = patch_embed(merged_input)
-            assert patches.shape == (1, 4050, 1024)
+            assert patches.shape == (1, 1024, 4050)

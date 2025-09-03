@@ -60,9 +60,9 @@ class Samudra(BaseModel):
         layers = []
 
         # Encode input.
-        self.encoder = torch.nn.Identity()
+        self.encoder: nn.Module = nn.Identity()
         if config.encoder is not None:
-            self.encoder = Encoder(config.encoder, hist, wet, area_weights, static_data)
+            self.encoder = Encoder(config.encoder)
 
         # going down
         for i, (a, b) in enumerate(pairwise(ch_width)):

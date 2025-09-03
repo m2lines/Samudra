@@ -8,6 +8,7 @@ import torch.utils.checkpoint
 from ocean_emulators.config import SamudraConfig
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.corrector import Correctors
+from ocean_emulators.models.encoder import Encoder
 from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
@@ -56,8 +57,14 @@ class Samudra(BaseModel):
             case _:
                 assert_never(config.checkpointing)
 
-        # going down
         layers = []
+
+        # Encode input.
+        self.encoder = torch.nn.Identity()
+        if config.encoder is not None:
+            self.encoder = Encoder(config.encoder, hist, wet, area_weights, static_data)
+
+        # going down
         for i, (a, b) in enumerate(pairwise(ch_width)):
             # Core block
             layers.append(

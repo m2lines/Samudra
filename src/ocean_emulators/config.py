@@ -198,6 +198,10 @@ class BlockConfig(BaseConfig):
     norm: NormType = "batch"
 
 
+class EncoderConfig(BaseConfig):
+    patch_size: int = 4
+
+
 class CorrectorConfig(BaseConfig):
     non_negative_corrector_names: list[str] | None = None
     ocean_heat_corrector: bool = False
@@ -219,6 +223,7 @@ class SamudraConfig(BaseConfig):
     wet: Any | None = None
 
     # Block configurations
+    encoder: EncoderConfig | None = None  # Turn off by setting to 'None'.
     core_block: BlockConfig = BlockConfig()
     corrector: CorrectorConfig = CorrectorConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"

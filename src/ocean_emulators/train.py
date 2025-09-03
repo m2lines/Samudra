@@ -220,7 +220,8 @@ class Trainer:
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
         if "Samudra" == cfg.experiment.network:
-            if cfg.samudra.ch_width[0] != self.num_in:
+            # Only change input channel if there is no encoder!
+            if cfg.samudra.encoder is None and cfg.samudra.ch_width[0] != self.num_in:
                 logger.info(
                     f"NOTE: Changing input channels to match data "
                     f"{cfg.samudra.ch_width[0]}->{self.num_in}"

@@ -27,7 +27,7 @@ class PatchEmbed2d(nn.Module):
               and boundary variable names.
             patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid. Further, the
               grid dimension divided by the patch size must be greater than 16 pixels.
-            embed_dim (int): the dimension of the embedding to use.
+            embed_dim (int): size of the latent dimension.
             hist (int): for the input channels, the number of additional time steps to include. With `hist=0`, it will
               only include the present timestep. With `hist=1`, it will include the present and previous time step.
             norm (type[nn.Module]): the normalization layer to use. This is applied both after creating patches and

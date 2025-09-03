@@ -64,6 +64,8 @@ class Samudra(BaseModel):
         if config.encoder is not None:
             self.encoder = Encoder(config.encoder)
 
+        layers.append(self.encoder)
+
         # going down
         for i, (a, b) in enumerate(pairwise(ch_width)):
             # Core block

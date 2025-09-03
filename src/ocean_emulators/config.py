@@ -200,6 +200,7 @@ class BlockConfig(BaseConfig):
 
 class EncoderConfig(BaseConfig):
     patch_size: int = 4
+    patch_embed_dim: int = 2048
 
 
 class CorrectorConfig(BaseConfig):

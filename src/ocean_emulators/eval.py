@@ -134,6 +134,7 @@ class Eval:
                 cfg.samudra.n_out = self.num_out
             model = Samudra(
                 cfg.samudra,
+                input_vars=self.prognostic_var_names + self.boundary_var_names,
                 hist=cfg.data.hist,
                 wet=self.wet.to(self.device),
                 area_weights=self.area_weights,

@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.utils.checkpoint
 
 from ocean_emulators.config import SamudraConfig
+from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.corrector import Correctors
 from ocean_emulators.models.encoder import Encoder
@@ -24,7 +25,15 @@ from ocean_emulators.utils.train import pairwise
 
 
 class Samudra(BaseModel):
-    def __init__(self, config: SamudraConfig, hist, wet, area_weights, static_data):
+    def __init__(
+        self,
+        config: SamudraConfig,
+        input_vars: list[str],
+        hist: int,
+        wet: Grid,
+        area_weights: Grid,
+        static_data,
+    ):
         super().__init__(
             ch_width=config.ch_width,
             n_out=config.n_out,
@@ -62,7 +71,7 @@ class Samudra(BaseModel):
         # Encode input.
         self.encoder: nn.Module = nn.Identity()
         if config.encoder is not None:
-            self.encoder = Encoder(config.encoder)
+            self.encoder = Encoder(config.encoder, input_vars)
 
         layers.append(self.encoder)
 

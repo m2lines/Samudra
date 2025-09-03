@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756252248198,
+  "lastUpdate": 1756924142812,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3684,6 +3684,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.19901788418466237",
             "extra": "mean: 82.051597719 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e2f01570c5a160c29282551f6e37fdb27401c72d",
+          "message": "First cut of viz bugs and allowing running a subset of images (#344)\n\n* adds a logger, reuses existing logging setup logic\n* creates a VizStep pydantic type which gives us autocomplete and\nvalidation of specifying a given step we want to run, rename all steps\nto make it easy to produce this list automatically\n* allow specifying an allow/block list of steps to run on the CLI (both\nis nice because \"everything but movies\" is what I often want to run)\n\nand then a couple actual bug fixes:\n* change hard-coded \"CM4\" to the dataset name\n* fix the blank OHC maps which were hard-coded to use the range +/- 0.05\nZJ when the actual values were ~1e-17 ZJ.",
+          "timestamp": "2025-09-03T18:01:50Z",
+          "tree_id": "b4601cc45705e4d862daf3e0a325d0392734ba72",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e2f01570c5a160c29282551f6e37fdb27401c72d"
+        },
+        "date": 1756924141828,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2394251235231,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04566501484787725",
+            "extra": "mean: 806.8256653999981 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06845590503576399,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3280544597067784",
+            "extra": "mean: 14.60794360220001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1837651975885303,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2227478549064906",
+            "extra": "mean: 5.441726796600006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012349199009431301,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2895574127262493",
+            "extra": "mean: 80.976911882 sec\nrounds: 5"
           }
         ]
       }

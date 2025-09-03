@@ -37,6 +37,9 @@ class PatchEmbed2d(nn.Module):
         if isinstance(patch_size, int):
             self.patch_size: tuple[int, int] = (patch_size, patch_size)
         else:
+            assert isinstance(patch_size, tuple) and len(patch_size) == 2, (
+                "We only ever consider patches for the spatial dimensions (lat and lon)!"
+            )
             self.patch_size = patch_size
 
         self.embed_dim: int = embed_dim

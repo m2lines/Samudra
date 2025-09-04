@@ -1,12 +1,12 @@
 # Sources inspired by the following implementations:
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
 # - https://github.com/lucidrains/vit-pytorch
-
+import torch
 from einops.layers.torch import Rearrange
 from jaxtyping import Float
 from torch import nn
 
-from ocean_emulators.constants import Array, Input
+from ocean_emulators.constants import Input
 
 
 class PatchEmbed2d(nn.Module):
@@ -56,7 +56,9 @@ class PatchEmbed2d(nn.Module):
         self.linear = nn.Linear(patch_dim, embed_dim)
         self.norm_embedding = norm(embed_dim) if norm is not None else nn.Identity()
 
-    def forward(self, x: Input) -> Float[Array, "*batch {self.embed_dim} patch_dim"]:
+    def forward(
+        self, x: Input
+    ) -> Float[torch.Tensor, "*batch {self.embed_dim} patch_dim"]:
         B, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).

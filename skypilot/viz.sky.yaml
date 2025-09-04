@@ -135,5 +135,5 @@ run: |
     --base_output_dir=/outputs/ \
     --name="${NAME}" \
     --basins_location="{\"type\": \"local\", \"path\": \"${BASINS_ROOT}/${BASIN_PATH}\"}" \
-    --runs="${RUNS}"
+    --runs="${RUNS}" \
     ${ARGS}

@@ -16,7 +16,12 @@ from ocean_emulators.viz.core import Viz, VizRun
 
 @functools.cache
 def _all_steps() -> set[str]:
-    return set(
+    return set(_ordered_steps())
+
+
+@functools.cache
+def _ordered_steps() -> list[str]:
+    return list(
         name.removeprefix("step_") for name in Viz.__dict__ if name.startswith("step_")
     )
 
@@ -24,7 +29,7 @@ def _all_steps() -> set[str]:
 def _check_step(v: str) -> str:
     if v not in _all_steps():
         raise ValueError(
-            f"Invalid step: '{v}', expected one of: {', '.join(_all_steps())}"
+            f"Invalid step: '{v}', expected one of: {', '.join(_ordered_steps())}"
         )
     return v
 
@@ -32,7 +37,7 @@ def _check_step(v: str) -> str:
 VizStep = Annotated[
     str,
     BeforeValidator(_check_step),
-    WithJsonSchema({"type": "string", "enum": list(_all_steps())}),
+    WithJsonSchema({"type": "string", "enum": _ordered_steps()}),
 ]
 
 
@@ -65,7 +70,7 @@ class VizConfig(TopLevelConfig):
     )
     steps: list[VizStep] | None = Field(
         default=None,
-        description=f"Which steps to run; leave empty to run all steps. Possible values are: {', '.join(sorted(_all_steps()))}",
+        description=f"Which steps to run; leave empty to run all steps. Possible values are: {', '.join(_ordered_steps())}",
     )
     not_steps: list[VizStep] = Field(
         default_factory=lambda: [],
@@ -110,7 +115,7 @@ def main(cfg: VizConfig):
 
     viz = cfg.build(LocalLocation(path=Path.cwd()))
 
-    steps = [s for s in cfg.steps or _all_steps() if s not in cfg.not_steps]
+    steps = [s for s in cfg.steps or _ordered_steps() if s not in cfg.not_steps]
     logger.info(f"Running steps: {', '.join(steps)}")
 
     # TODO(jder): could use a ProcessPoolExecutor here, but steps currently

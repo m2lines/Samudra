@@ -10,7 +10,19 @@ from ocean_emulators.constants import Input
 
 
 class PatchEmbed2d(nn.Module):
-    """A patch embedding for Samudra's flattened data (the channel dim is a cross of variable, level, and time)."""
+    """A patch embedding for Samudra's flattened data (the channel dim is a cross of variable, level, and time).
+
+    Arguments:
+        input_vars (list[str]): list of input variable names. For input, this is typically the target prognostic
+          and boundary variable names.
+        patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid. Further, the
+          grid dimension divided by the patch size must be greater than 16 pixels.
+        embed_dim (int): size of the latent dimension.
+        hist (int): for the input channels, the number of additional time steps to include. With `hist=0`, it will
+          only include the present timestep. With `hist=1`, it will include the present and previous time step.
+        norm (type[nn.Module]): the normalization layer to use. This is applied both after creating patches and
+          after performing the linear projection.
+    """
 
     def __init__(
         self,
@@ -20,19 +32,6 @@ class PatchEmbed2d(nn.Module):
         hist: int = 1,
         norm: type[nn.Module] | None = nn.LayerNorm,
     ) -> None:
-        """Embed TrainData arrays into patches.
-
-        Args:
-            input_vars (list[str]): list of input variable names. For input, this is typically the target prognostic
-              and boundary variable names.
-            patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid. Further, the
-              grid dimension divided by the patch size must be greater than 16 pixels.
-            embed_dim (int): size of the latent dimension.
-            hist (int): for the input channels, the number of additional time steps to include. With `hist=0`, it will
-              only include the present timestep. With `hist=1`, it will include the present and previous time step.
-            norm (type[nn.Module]): the normalization layer to use. This is applied both after creating patches and
-              after performing the linear projection.
-        """
         super().__init__()
         if isinstance(patch_size, int):
             self.patch_size: tuple[int, int] = (patch_size, patch_size)

@@ -12,7 +12,7 @@ from ocean_emulators.constants import Input
 class PatchEmbed2d(nn.Module):
     """A patch embedding for Samudra's flattened data (the channel dim is a cross of variable, level, and time).
 
-    Arguments:
+    Args:
         input_vars (list[str]): list of input variable names. For input, this is typically the target prognostic
           and boundary variable names.
         patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid.

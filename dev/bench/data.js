@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1756924144219,
+  "lastUpdate": 1757011165407,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3736,6 +3736,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2895574127262493",
             "extra": "mean: 80.976911882 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a7320265082ab43e4907612ab563c20dc77e4aec",
+          "message": "Added simple 2d patch embedding module for the FOMO encoder. (#364)\n\nSoon, we will add a Perceiver-based encoder module to the project.\nBefore applying the Perceiver module, the first step we take on is to\nbreak up the input into ViT-style patches. This PR introduces a simple\npatch embedding mechanism in prep for the rest of the encoder.\n\nFixes #362.",
+          "timestamp": "2025-09-04T11:12:43-07:00",
+          "tree_id": "b23d187a0522adee0239c4bad58c960bf0e43b85",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a7320265082ab43e4907612ab563c20dc77e4aec"
+        },
+        "date": 1757011164611,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2768545847302046,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017636401983743805",
+            "extra": "mean: 783.1745383999987 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07099883244926292,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3486144807397941",
+            "extra": "mean: 14.084738657000008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18349101211980978,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12817813071591314",
+            "extra": "mean: 5.449858216200004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01265785546126785,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7190156993847262",
+            "extra": "mean: 79.00232413460004 sec\nrounds: 5"
           }
         ]
       }

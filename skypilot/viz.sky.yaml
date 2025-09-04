@@ -10,8 +10,11 @@
 # To create or re-use a cluster:
 # ```
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
+# sky launch -c fomo-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY --env RUNS=[{"location": "/inputs/my_eval_job/predictions.zarr"}, …]
 # ```
+# Any location starting with /inputs will automatically be copied from the OUTPUTS_BUCKET
+# in order to access previous jobs' outputs.
+#
 # As the job progresses, skypilot will provide commands to locally monitor each stage.
 #
 #
@@ -21,6 +24,8 @@
 # ```
 resources:
   infra: aws/us-east-2
+  memory: 64GB
+  cpus: 16+
   disk_size: 1TB
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`

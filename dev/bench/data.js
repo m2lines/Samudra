@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757011165407,
+  "lastUpdate": 1757011166842,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7578,6 +7578,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.12378031115399572",
             "extra": "mean: 69.48898312879996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a7320265082ab43e4907612ab563c20dc77e4aec",
+          "message": "Added simple 2d patch embedding module for the FOMO encoder. (#364)\n\nSoon, we will add a Perceiver-based encoder module to the project.\nBefore applying the Perceiver module, the first step we take on is to\nbreak up the input into ViT-style patches. This PR introduces a simple\npatch embedding mechanism in prep for the rest of the encoder.\n\nFixes #362.",
+          "timestamp": "2025-09-04T11:12:43-07:00",
+          "tree_id": "b23d187a0522adee0239c4bad58c960bf0e43b85",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a7320265082ab43e4907612ab563c20dc77e4aec"
+        },
+        "date": 1757011166280,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.250857540710001,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0340460970171484",
+            "extra": "mean: 799.451550200024 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06924128221155842,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7584011126453166",
+            "extra": "mean: 14.442251328400015 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1973865050146582,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08758138825581578",
+            "extra": "mean: 5.066202473800013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.014974122497130055,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1916987840809992",
+            "extra": "mean: 66.7818765468 sec\nrounds: 5"
           }
         ]
       }

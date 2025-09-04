@@ -71,7 +71,7 @@ class Samudra(BaseModel):
         # Encode input.
         self.encoder: nn.Module = nn.Identity()
         if config.encoder is not None:
-            self.encoder = Encoder(config.encoder, input_vars)
+            self.encoder = Encoder(config.encoder, input_vars, self.static_data)
 
         layers.append(self.encoder)
 

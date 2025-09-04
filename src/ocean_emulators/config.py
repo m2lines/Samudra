@@ -201,6 +201,7 @@ class BlockConfig(BaseConfig):
 class EncoderConfig(BaseConfig):
     patch_size: int = 4
     patch_embed_dim: int = 2048
+    positional_dropout_rate: float = 0.0  # 0.15
 
 
 class CorrectorConfig(BaseConfig):

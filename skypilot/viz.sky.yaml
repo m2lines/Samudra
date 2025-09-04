@@ -20,11 +20,8 @@
 # export SKYPILOT_DEBUG=true
 # ```
 resources:
-  # Optional; if left out, automatically pick the cheapest cloud.
-  cloud: lambda
-  # 1x NVIDIA A100 GPU -- Viz needs no GPUs but lambda only has GPU machines, we do this so you can share a cluster with eval.
-  accelerators: A100:1
-  disk_tier: best
+  infra: aws/us-east-2
+  disk_size: 1TB
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`
 # NOTE: All `null` values must be specified in order for this script to run!
@@ -64,6 +61,58 @@ setup: |
 
   mkdir -p ~/data/
   rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH} ~/data --ignore-existing --transfers=32
+
+  sudo mkdir -p /inputs
+  sudo chown $USER /inputs
+
+  # Parse RUNS JSON and copy data from S3 based on the locations
+  python3 <<EOPYTHON
+  import json
+  import os
+  import subprocess
+
+  # This is of the form [{"location": "/inputs/foo/predictions.zarr"}, ...]
+  runs = json.loads(os.environ['RUNS'])
+  seen_dirs = set()  # Track directories we've already copied
+
+  for run in runs:
+      location = run['location']
+
+      # Only process locations under /inputs/
+      if not location.startswith('/inputs/'):
+          print(f'Skipping {location} - not under /inputs/')
+          continue
+
+      # Extract the path after /inputs/
+      path_after_inputs = location[8:]  # Remove '/inputs/' prefix
+
+      # Get just the top-level directory name
+      # Split by '/' and take the first component
+      path_parts = path_after_inputs.split('/')
+      if not path_parts or not path_parts[0]:
+          print(f'Skipping {location} - no valid directory after /inputs/')
+          continue
+
+      top_dir = path_parts[0]
+
+      # Skip if we've already copied this directory
+      if top_dir in seen_dirs:
+          print(f'Already copied {top_dir}, skipping')
+          continue
+
+      seen_dirs.add(top_dir)
+
+      # Construct the full S3 source path
+      s3_source = f's3-source:{os.environ["OUTPUTS_BUCKET"]}/{top_dir}'
+
+      # Construct the local destination path
+      local_dest = f'/inputs/{top_dir}'
+
+      # Execute rclone copy command
+      cmd = ['rclone', 'copy', '--progress', s3_source, local_dest, '--ignore-existing', '--transfers=32']
+      print(f'Copying {s3_source} to {local_dest}')
+      subprocess.run(cmd, check=True)
+  EOPYTHON
 
   mkdir -p ~/basins/
   rclone copy --progress s3-source:${DATA_BUCKET}/basins ~/basins

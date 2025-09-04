@@ -3,10 +3,10 @@
 # - https://github.com/lucidrains/vit-pytorch
 
 from einops.layers.torch import Rearrange
-from jaxtyping import Array, Float
+from jaxtyping import Float
 from torch import nn
 
-from ocean_emulators.constants import Input
+from ocean_emulators.constants import Array, Input
 
 
 class PatchEmbed2d(nn.Module):
@@ -15,8 +15,7 @@ class PatchEmbed2d(nn.Module):
     Arguments:
         input_vars (list[str]): list of input variable names. For input, this is typically the target prognostic
           and boundary variable names.
-        patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid. Further, the
-          grid dimension divided by the patch size must be greater than 16 pixels.
+        patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid.
         embed_dim (int): size of the latent dimension.
         hist (int): for the input channels, the number of additional time steps to include. With `hist=0`, it will
           only include the present timestep. With `hist=1`, it will include the present and previous time step.

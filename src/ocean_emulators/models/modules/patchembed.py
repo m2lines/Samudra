@@ -66,17 +66,12 @@ class PatchEmbed2d(nn.Module):
 
         # Ensure patch_size is appropriate for the data.
         assert H % self.patch_size[0] == 0, f"{H} %  {self.patch_size[0]} != 0."
-        assert (h := (H // self.patch_size[0]) ** 2) and h >= 16, (
-            f"{h=}: A picture is worth 16x16 words!"
-        )
         assert W % self.patch_size[1] == 0, f"{W} %  {self.patch_size[1]} != 0."
-        assert (w := (W // self.patch_size[1]) ** 2) and w >= 16, (
-            f"{w=}: A picture is worth 16x16 words!"
-        )
 
         x = self.patches(x)
         x = self.norm_patches(x)
         x = self.linear(x)
         x = self.norm_embedding(x)  # (batch, patch_dim, embed_dim)
         x = x.transpose(1, 2)  # (batch, embed_dim, patch_dim)
+
         return x

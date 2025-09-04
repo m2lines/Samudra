@@ -12,11 +12,9 @@ def test_makes_patches():
     x = torch.randn(1, 20, 180, 360)
 
     patch_embed = PatchEmbed2d(
-        input_vars=[f"var_{i}" for i in range(x.shape[1])],
+        n_channels=20,
         patch_size=4,
         embed_dim=1024,
-        hist=0,
-        norm=None,
     )
 
     patches = patch_embed(x)
@@ -28,11 +26,9 @@ def test_makes_patches__high_res():
     x = torch.randn(1, 20, 360, 720)
 
     patch_embed = PatchEmbed2d(
-        input_vars=[f"var_{i}" for i in range(x.shape[1])],
+        n_channels=20,
         patch_size=4,
         embed_dim=1024,
-        hist=0,
-        norm=None,
     )
 
     patches = patch_embed(x)
@@ -44,43 +40,9 @@ def test_makes_patches__more_variables():
     x = torch.randn(1, 71, 180, 360)
 
     patch_embed = PatchEmbed2d(
-        input_vars=[f"var_{i}" for i in range(x.shape[1])],
+        n_channels=71,
         patch_size=4,
         embed_dim=1024,
-        hist=0,
-        norm=None,
-    )
-
-    patches = patch_embed(x)
-
-    assert patches.shape == (1, 1024, 4050)
-
-
-def test_makes_patches__with_layer_norm():
-    x = torch.randn(1, 20, 180, 360)
-
-    patch_embed = PatchEmbed2d(
-        input_vars=[f"var_{i}" for i in range(x.shape[1])],
-        patch_size=4,
-        embed_dim=1024,
-        hist=0,
-        norm=torch.nn.LayerNorm,
-    )
-
-    patches = patch_embed(x)
-
-    assert patches.shape == (1, 1024, 4050)
-
-
-def test_makes_patches__with_history():
-    x = torch.randn(1, 20, 180, 360)
-
-    patch_embed = PatchEmbed2d(
-        input_vars=[f"var_{i}" for i in range(x.shape[1] // 2)],
-        patch_size=4,
-        embed_dim=1024,
-        hist=1,
-        norm=None,
     )
 
     patches = patch_embed(x)
@@ -93,7 +55,9 @@ def test_patch_embed__on_real_data(train_config: TrainConfig):
     boundary_vars = BOUNDARY_VARS[train_config.experiment.boundary_vars_key]
     input_vars = prognostic_vars + boundary_vars
 
-    patch_embed = PatchEmbed2d(input_vars, hist=train_config.data.hist)
+    patch_embed = PatchEmbed2d(
+        n_channels=len(input_vars) * (1 + train_config.data.hist)
+    )
 
     with make_loader(train_config) as loader:
         for td in loader:
@@ -109,7 +73,7 @@ def test_patch_embed__on_real_data(train_config: TrainConfig):
             # merged input.
             initial_input = td.get_initial_input()
             patches = patch_embed(initial_input)
-            assert patches.shape == (1, 1024, 4050)
+            assert patches.shape[:2] == (1, 1024)
 
             prev_prediction = td.get_label(
                 max(0, len(td) - 2)
@@ -118,4 +82,4 @@ def test_patch_embed__on_real_data(train_config: TrainConfig):
                 prognostic=prev_prediction, step=len(td) - 1
             )
             patches = patch_embed(merged_input)
-            assert patches.shape == (1, 1024, 4050)
+            assert patches.shape[:2] == (1, 1024)

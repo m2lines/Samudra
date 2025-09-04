@@ -19,17 +19,13 @@ class PatchEmbed2d(nn.Module):
         embed_dim (int): size of the latent dimension.
         hist (int): for the input channels, the number of additional time steps to include. With `hist=0`, it will
           only include the present timestep. With `hist=1`, it will include the present and previous time step.
-        norm (type[nn.Module]): the normalization layer to use. This is applied both after creating patches and
-          after performing the linear projection.
     """
 
     def __init__(
         self,
-        input_vars: list[str],
+        n_channels: int,
         patch_size: int | tuple[int, int] = 4,
         embed_dim: int = 1024,
-        hist: int = 1,
-        norm: type[nn.Module] | None = nn.LayerNorm,
     ) -> None:
         super().__init__()
         if isinstance(patch_size, int):
@@ -40,8 +36,8 @@ class PatchEmbed2d(nn.Module):
             )
             self.patch_size = patch_size
 
+        self.n_channels = n_channels
         self.embed_dim: int = embed_dim
-        self.n_channels = len(input_vars) * (1 + hist)
 
         patch_dim = self.n_channels * self.patch_size[0] * self.patch_size[1]
 
@@ -52,9 +48,9 @@ class PatchEmbed2d(nn.Module):
             ph=self.patch_size[0],
             pw=self.patch_size[1],
         )
-        self.norm_patches = norm(patch_dim) if norm is not None else nn.Identity()
+        self.norm_patches = nn.LayerNorm(patch_dim)
         self.linear = nn.Linear(patch_dim, embed_dim)
-        self.norm_embedding = norm(embed_dim) if norm is not None else nn.Identity()
+        self.norm_embedding = nn.LayerNorm(embed_dim)
 
     def forward(
         self, x: Input

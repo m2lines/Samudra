@@ -205,8 +205,6 @@ class EncoderConfig(BaseConfig):
         0.1  # adds some regularization; 0.0 - off; 0.15 - alt;
     )
     perceiver_depth: int = 6
-    num_freq_bands: int = 4
-    max_freq: float = 1.0
 
 
 class CorrectorConfig(BaseConfig):

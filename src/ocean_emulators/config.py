@@ -200,9 +200,13 @@ class BlockConfig(BaseConfig):
 
 class EncoderConfig(BaseConfig):
     patch_size: int = 4
-    embed_dim: int = 2048
-    positional_dropout_rate: float = 0.0  # 0.15
-    perceiver_depth: int = 2  # 6
+    embed_dim: int = 512
+    positional_dropout_rate: float = (
+        0.1  # adds some regularization; 0.0 - off; 0.15 - alt;
+    )
+    perceiver_depth: int = 6
+    num_freq_bands: int = 4
+    max_freq: float = 1.0
 
 
 class CorrectorConfig(BaseConfig):

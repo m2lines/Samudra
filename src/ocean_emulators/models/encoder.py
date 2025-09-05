@@ -18,6 +18,8 @@ class Encoder(torch.nn.Module):
             patch_size=config.patch_size,
             embed_dim=config.embed_dim,
             perceiver_depth=config.perceiver_depth,
+            num_freq_bands=config.num_freq_bands,
+            max_freq=config.max_freq,
         )
         self.dropout = nn.Dropout(p=config.positional_dropout_rate)
 

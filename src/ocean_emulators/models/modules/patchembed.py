@@ -30,6 +30,8 @@ class PerceiverPatchEmbed(nn.Module):
         patch_size: int | tuple[int, int],
         embed_dim: int,
         perceiver_depth: int,
+        num_freq_bands: int,
+        max_freq: float,
         **perceiver_kwargs: dict[str, Any],
     ) -> None:
         super().__init__()
@@ -45,8 +47,8 @@ class PerceiverPatchEmbed(nn.Module):
 
         self.norm_patches = nn.LayerNorm(self.n_channels)
         self.perceiver = Perceiver(
-            num_freq_bands=4,
-            max_freq=1,
+            num_freq_bands=num_freq_bands,
+            max_freq=max_freq,
             depth=perceiver_depth,
             input_axis=2,  # Number of positional dims before token dim
             input_channels=self.n_channels,  # input_dim

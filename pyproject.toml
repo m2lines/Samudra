@@ -115,5 +115,5 @@ addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = [ "cftime.*", "scipy.*", "fsspec.*" ]
+module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*" ]
 follow_untyped_imports = true

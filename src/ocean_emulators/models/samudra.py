@@ -28,7 +28,7 @@ class Samudra(BaseModel):
     def __init__(
         self,
         config: SamudraConfig,
-        input_vars: list[str],
+        n_channels: int,
         hist: int,
         wet: Grid,
         area_weights: Grid,
@@ -71,7 +71,7 @@ class Samudra(BaseModel):
         # Encode input.
         self.encoder: nn.Module = nn.Identity()
         if config.encoder is not None:
-            self.encoder = Encoder(config.encoder, input_vars, self.static_data)
+            self.encoder = Encoder(config.encoder, n_channels, self.static_data)
 
         layers.append(self.encoder)
 

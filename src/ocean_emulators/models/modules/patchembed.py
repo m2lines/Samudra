@@ -1,33 +1,39 @@
 # Sources inspired by the following implementations:
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
 # - https://github.com/lucidrains/vit-pytorch
+from typing import Any
+
 import torch
-from einops.layers.torch import Rearrange
+from einops import rearrange
 from jaxtyping import Float
+from perceiver_pytorch import Perceiver
 from torch import nn
 
 from ocean_emulators.constants import Input
 
 
-class PatchEmbed2d(nn.Module):
-    """A patch embedding for Samudra's flattened data (the channel dim is a cross of variable, level, and time).
+class PerceiverPatchEmbed(nn.Module):
+    """A perceiver-based patch embedding for Samudra's flattened data (a whole column of the ocean with history).
 
     Args:
-        input_vars (list[str]): list of input variable names. For input, this is typically the target prognostic
-          and boundary variable names.
+        n_channels (int): the number of input channels (typically: variables x time x (surface + depths)).
         patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid.
         embed_dim (int): size of the latent dimension.
-        hist (int): for the input channels, the number of additional time steps to include. With `hist=0`, it will
-          only include the present timestep. With `hist=1`, it will include the present and previous time step.
+        perceiver_depth (int): depth of the perceiver module.
+        perceiver_kwargs (dict): keyword arguments to pass to the perceiver module. The docs for this module
+          can be found here: https://github.com/lucidrains/perceiver-pytorch#usage.
     """
 
     def __init__(
         self,
         n_channels: int,
-        patch_size: int | tuple[int, int] = 4,
-        embed_dim: int = 1024,
+        patch_size: int | tuple[int, int],
+        embed_dim: int,
+        perceiver_depth: int,
+        **perceiver_kwargs: dict[str, Any],
     ) -> None:
         super().__init__()
+        self.n_channels = n_channels
         if isinstance(patch_size, int):
             self.patch_size: tuple[int, int] = (patch_size, patch_size)
         else:
@@ -35,39 +41,47 @@ class PatchEmbed2d(nn.Module):
                 "Patch sizes must only span spatial dimensions (lat and lon)!"
             )
             self.patch_size = patch_size
-
-        self.n_channels = n_channels
         self.embed_dim: int = embed_dim
 
-        patch_dim = self.n_channels * self.patch_size[0] * self.patch_size[1]
-
-        # While we could perform a patch embedding and linear projection in one step with a convolution, this
-        # implementation is much clearer. I don't expect the additional computational cost to be arduous.
-        self.patches = Rearrange(
-            "b v (h ph) (w pw) -> b (h w) (ph pw v)",
-            ph=self.patch_size[0],
-            pw=self.patch_size[1],
+        self.norm_patches = nn.LayerNorm(self.n_channels)
+        self.perceiver = Perceiver(
+            num_freq_bands=4,
+            max_freq=1,
+            depth=perceiver_depth,
+            input_axis=2,  # Number of positional dims before token dim
+            input_channels=self.n_channels,  # input_dim
+            num_classes=embed_dim,  # output_dim
+            **perceiver_kwargs,
         )
-        self.norm_patches = nn.LayerNorm(patch_dim)
-        self.linear = nn.Linear(patch_dim, embed_dim)
         self.norm_embedding = nn.LayerNorm(embed_dim)
 
-    def forward(
-        self, x: Input
-    ) -> Float[torch.Tensor, "*batch {self.embed_dim} patch_dim"]:
-        B, V, H, W = x.shape
+    def forward(self, x: Input) -> Float[torch.Tensor, "*batch x y {self.embed_dim}"]:
+        _, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).
         assert V == self.n_channels
-
         # Ensure patch_size is appropriate for the data.
         assert H % self.patch_size[0] == 0, f"{H} %  {self.patch_size[0]} != 0."
         assert W % self.patch_size[1] == 0, f"{W} %  {self.patch_size[1]} != 0."
 
-        x = self.patches(x)
+        # Perceiver experiment ideas:
+        # 1. leave it as it is: treating each pixel as a token -- i.e. all channels (includes depths) per pixel
+        # 2. change to original plan, where each float is its own token
+        # 3. Add a third dim -- ph pw d v -- so each spatial position is a token
+        x = rearrange(
+            x,
+            "b v (h ph) (w pw) -> (b h w) ph pw v",
+            pw=self.patch_size[0],
+            ph=self.patch_size[1],
+        )
         x = self.norm_patches(x)
-        x = self.linear(x)
-        x = self.norm_embedding(x)  # (batch, patch_dim, embed_dim)
-        x = x.transpose(1, 2)  # (batch, embed_dim, patch_dim)
+        x = self.perceiver(x)
+        x = rearrange(
+            x,
+            "(b h w) l -> b h w l",
+            h=(H // self.patch_size[0]),
+            w=(W // self.patch_size[1]),
+        )
+        x = self.norm_embedding(x)
 
         return x

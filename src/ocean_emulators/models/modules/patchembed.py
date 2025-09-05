@@ -13,13 +13,13 @@ from ocean_emulators.constants import Input
 
 
 class PerceiverPatchEmbed(nn.Module):
-    """A perceiver-based patch embedding for Samudra's flattened data (a whole column of the ocean with history).
+    """A perceiver-based patch embedding for Samudra's flattened data (a whole column of the ocean, with history).
 
     Args:
-        n_channels (int): the number of input channels (typically: variables x time x (surface + depths)).
+        n_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid.
         embed_dim (int): size of the latent dimension.
-        perceiver_depth (int): depth of the perceiver module.
+        perceiver_depth (int): depth of the perceiver module core.
         perceiver_kwargs (dict): keyword arguments to pass to the perceiver module. The docs for this module
           can be found here: https://github.com/lucidrains/perceiver-pytorch#usage.
     """
@@ -55,7 +55,7 @@ class PerceiverPatchEmbed(nn.Module):
         )
         self.norm_embedding = nn.LayerNorm(embed_dim)
 
-    def forward(self, x: Input) -> Float[torch.Tensor, "*batch x y {self.embed_dim}"]:
+    def forward(self, x: Input) -> Float[torch.Tensor, "*batch h w {self.embed_dim}"]:
         _, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).
@@ -74,6 +74,9 @@ class PerceiverPatchEmbed(nn.Module):
             pw=self.patch_size[0],
             ph=self.patch_size[1],
         )
+        # This is applying a layer norm across all our data channels. I am not sure if this will have a positive or
+        # negative effect. It may make it easier for the Perceiver to process data across scales, but it destroys the
+        # physical relationships in the data and aggregates across depth level and history. We should be cautious here.
         x = self.norm_patches(x)
         x = self.perceiver(x)
         x = rearrange(

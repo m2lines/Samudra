@@ -241,6 +241,8 @@ class Trainer:
                 area_weights=self.area_weights,
                 static_data=self.data_container.static_data,
             ).to(self.device)
+        elif "FOMO" == cfg.experiment.network:
+            pass
         else:
             raise NotImplementedError
 

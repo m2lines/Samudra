@@ -4,7 +4,7 @@ import torch
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import BOUNDARY_VARS, PROGNOSTIC_VARS
 from ocean_emulators.datasets import TrainData
-from ocean_emulators.models.modules.patchembed import PerceiverPatchEmbed
+from ocean_emulators.models.modules.encoder import PerceiverEncoder
 
 from .test_datasets import make_loader
 
@@ -12,7 +12,7 @@ from .test_datasets import make_loader
 def test_makes_patches():
     x = torch.randn(1, 10, 4, 8)
 
-    patch_embed = PerceiverPatchEmbed(
+    patch_embed = PerceiverEncoder(
         n_channels=10,
         patch_size=4,
         embed_dim=4,
@@ -27,7 +27,7 @@ def test_makes_patches():
 def test_makes_patches__high_res():
     x = torch.randn(1, 10, 8, 16)
 
-    patch_embed = PerceiverPatchEmbed(
+    patch_embed = PerceiverEncoder(
         n_channels=10,
         patch_size=4,
         embed_dim=4,
@@ -42,7 +42,7 @@ def test_makes_patches__high_res():
 def test_makes_patches__more_variables():
     x = torch.randn(1, 20, 4, 8)
 
-    patch_embed = PerceiverPatchEmbed(
+    patch_embed = PerceiverEncoder(
         n_channels=20,
         patch_size=4,
         embed_dim=4,
@@ -60,7 +60,7 @@ def test_patch_embed__on_real_data(train_config: TrainConfig):
     boundary_vars = BOUNDARY_VARS[train_config.experiment.boundary_vars_key]
     input_vars = prognostic_vars + boundary_vars
 
-    patch_embed = PerceiverPatchEmbed(
+    patch_embed = PerceiverEncoder(
         n_channels=len(input_vars) * (1 + train_config.data.hist),
         patch_size=4,
         embed_dim=4,

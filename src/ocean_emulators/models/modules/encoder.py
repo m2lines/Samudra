@@ -12,8 +12,8 @@ from torch import nn
 from ocean_emulators.constants import Input
 
 
-class PerceiverPatchEmbed(nn.Module):
-    """A perceiver-based patch embedding for Samudra's flattened data (a whole column of the ocean, with history).
+class PerceiverEncoder(nn.Module):
+    """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
 
     Args:
         n_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).

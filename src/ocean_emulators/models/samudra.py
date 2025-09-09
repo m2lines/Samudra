@@ -1,15 +1,18 @@
+from typing import TYPE_CHECKING
+
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 
-from ocean_emulators.config import SamudraConfig
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.models.corrector import Correctors
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+
+if TYPE_CHECKING:
+    from ocean_emulators.config import SamudraConfig
 
 
 class Samudra(BaseModel):
-    def __init__(self, config: SamudraConfig, hist, wet, area_weights, static_data):
+    def __init__(self, config: "SamudraConfig", hist, wet, area_weights, static_data):
         ch_width = config.ch_width.copy()
         if config.pos_channels > 0:
             ch_width[0] += config.pos_channels
@@ -39,7 +42,7 @@ class Samudra(BaseModel):
                 dilation=config.dilation,
                 n_layers=config.n_layers,
                 pad=self.pad,
-                core_block=config.core_block,
+                create_block=config.core_block.build(),
                 down_sampling_block=config.down_sampling_block,
                 up_sampling_block=config.up_sampling_block,
                 checkpointing=config.checkpointing,
@@ -47,6 +50,9 @@ class Samudra(BaseModel):
             # Samudra "decoder".
             nn.Conv2d(config.ch_width[1], config.n_out, config.last_kernel_size),
         ]
+
+        # Importing locally to prevent circular import. Corrector is set to "off" more often than not.
+        from ocean_emulators.models.corrector import Correctors
 
         self.layers = nn.ModuleList(layers)
         self.corrector = Correctors(config.corrector, hist, area_weights, static_data)

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
@@ -8,6 +9,10 @@ from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, LoaderVersion
+from ocean_emulators.models.modules import BLOCK_REGISTRY
+from ocean_emulators.models.modules.blocks import CoreBlock
+from ocean_emulators.models.modules.factory import ACTIVATION_REGISTRY
+from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
@@ -197,6 +202,21 @@ class BlockConfig(BaseConfig):
     upscale_factor: int = 4
     norm: NormType = "batch"
 
+    def build(self) -> Callable[..., CoreBlock]:
+        def create_block(*args, **kwargs) -> CoreBlock:
+            activation = ACTIVATION_REGISTRY[self.activation]
+            Block = BLOCK_REGISTRY[self.block_type]
+            return Block(
+                *args,
+                **kwargs,
+                kernel_size=self.kernel_size,
+                upscale_factor=self.upscale_factor,
+                norm=self.norm,
+                activation=activation,
+            )
+
+        return create_block
+
 
 class CorrectorConfig(BaseConfig):
     non_negative_corrector_names: list[str] | None = None
@@ -206,6 +226,28 @@ class CorrectorConfig(BaseConfig):
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
 Checkpointing = Literal["all", "simple"]
+
+
+class UNetBackboneConfig(BaseConfig):
+    ch_width: list[int] = [157, 200, 250, 300, 400]
+    dilation: list[int] = [1, 2, 4, 8]
+    n_layers: list[int] = [1, 1, 1, 1]
+    pad: str = "circular"
+    core_block: BlockConfig = BlockConfig()
+    down_sampling_block: DownSamplingBlocks = "avg_pool"
+    up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
+
+    def build(self, checkpointing: Checkpointing | None) -> UNetBackbone:
+        return UNetBackbone(
+            ch_width=self.ch_width,
+            dilation=self.dilation,
+            n_layers=self.n_layers,
+            pad=self.pad,
+            create_block=self.core_block.build(),
+            down_sampling_block=self.down_sampling_block,
+            up_sampling_block=self.up_sampling_block,
+            checkpointing=checkpointing,
+        )
 
 
 class SamudraConfig(BaseConfig):

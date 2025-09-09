@@ -1,22 +1,20 @@
-from typing import assert_never
+from collections.abc import Callable
+from typing import TYPE_CHECKING, assert_never
 
 import numpy as np
 import torch
 from torch import nn
 
-from ocean_emulators.config import BlockConfig, Checkpointing
 from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
     TransposedConvUpsample,
 )
-from ocean_emulators.models.modules.factory import (
-    create_block,
-    create_downsample,
-    create_upsample,
-    get_activation_cl,
-)
+from ocean_emulators.models.modules.factory import create_downsample, create_upsample
 from ocean_emulators.utils.train import pairwise
+
+if TYPE_CHECKING:
+    from ocean_emulators.config import Checkpointing  # noqa: F401
 
 
 class UNetBackbone(nn.Module):
@@ -26,15 +24,12 @@ class UNetBackbone(nn.Module):
         dilation: list[int],
         n_layers: list[int],
         pad: str,
-        core_block: BlockConfig,
+        create_block: Callable[..., CoreBlock],
         down_sampling_block: str,
         up_sampling_block: str,
-        checkpointing: Checkpointing | None,
+        checkpointing: "Checkpointing | None",
     ):
         super().__init__()
-
-        # Get activation class
-        activation = get_activation_cl(core_block.activation)
 
         # Create local copies of config lists that will be reversed
         ch_width = ch_width.copy()
@@ -55,21 +50,16 @@ class UNetBackbone(nn.Module):
                 assert_never(checkpointing)
 
         # going down
-        layers = []
+        layers: list[nn.Module] = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
             # Core block
             layers.append(
                 create_block(
-                    core_block.block_type,
                     in_channels=a,
                     out_channels=b,
-                    kernel_size=core_block.kernel_size,
                     dilation=dilation[i],
                     n_layers=n_layers[i],
-                    activation=activation,
                     pad=pad,
-                    upscale_factor=core_block.upscale_factor,
-                    norm=core_block.norm,
                     checkpoint_simple=checkpoint_simple,
                 )
             )
@@ -79,16 +69,11 @@ class UNetBackbone(nn.Module):
         # Middle block
         layers.append(
             create_block(
-                core_block.block_type,
                 in_channels=b,
                 out_channels=b,
-                kernel_size=core_block.kernel_size,
                 dilation=dilation[i],
                 n_layers=n_layers[i],
-                activation=activation,
                 pad=pad,
-                upscale_factor=core_block.upscale_factor,
-                norm=core_block.norm,
                 checkpoint_simple=checkpoint_simple,
             )
         )
@@ -105,16 +90,11 @@ class UNetBackbone(nn.Module):
         for i, (a, b) in enumerate(pairwise(ch_width[:-1])):
             layers.append(
                 create_block(
-                    core_block.block_type,
                     in_channels=a,
                     out_channels=b,
-                    kernel_size=core_block.kernel_size,
                     dilation=dilation[i],
                     n_layers=n_layers[i],
-                    activation=activation,
                     pad=pad,
-                    upscale_factor=core_block.upscale_factor,
-                    norm=core_block.norm,
                     checkpoint_simple=checkpoint_simple,
                 )
             )
@@ -125,16 +105,11 @@ class UNetBackbone(nn.Module):
         # Final conv block
         layers.append(
             create_block(
-                core_block.block_type,
                 in_channels=b,
                 out_channels=b,
-                kernel_size=core_block.kernel_size,
                 dilation=dilation[i],
                 n_layers=n_layers[i],
-                activation=activation,
                 pad=pad,
-                upscale_factor=core_block.upscale_factor,
-                norm=core_block.norm,
                 checkpoint_simple=checkpoint_simple,
             )
         )

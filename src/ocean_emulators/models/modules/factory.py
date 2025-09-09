@@ -31,12 +31,6 @@ ACTIVATION_REGISTRY = {
 }
 
 
-def create_block(block_type: str, **kwargs) -> nn.Module:
-    if block_type not in BLOCK_REGISTRY:
-        raise ValueError(f"Unknown block type: {block_type}")
-    return BLOCK_REGISTRY[block_type](**kwargs)
-
-
 def create_downsample(block_type: str, **kwargs) -> nn.Module:
     if block_type not in DOWNSAMPLE_REGISTRY:
         raise ValueError(f"Unknown downsample type: {block_type}")
@@ -47,9 +41,3 @@ def create_upsample(block_type: str, **kwargs) -> nn.Module:
     if block_type not in UPSAMPLE_REGISTRY:
         raise ValueError(f"Unknown upsample type: {block_type}")
     return UPSAMPLE_REGISTRY[block_type](**kwargs)
-
-
-def get_activation_cl(activation_type: str) -> type[nn.Module]:
-    if activation_type not in ACTIVATION_REGISTRY:
-        raise ValueError(f"Unknown activation type: {activation_type}")
-    return ACTIVATION_REGISTRY[activation_type]

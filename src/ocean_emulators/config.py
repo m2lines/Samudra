@@ -230,7 +230,7 @@ class CorrectorConfig(BaseConfig):
     def build(
         self, hist: int, area_weights: Grid, static_data: xr.Dataset | None
     ) -> nn.Module:
-        # This local import prevents a circular import bug.
+        # This prevents a circular import bug.
         from ocean_emulators.models.corrector import Correctors
 
         return Correctors(

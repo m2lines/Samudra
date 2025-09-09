@@ -3,32 +3,47 @@ from typing import TYPE_CHECKING
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
+import xarray as xr
 
+from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 if TYPE_CHECKING:
-    from ocean_emulators.config import SamudraConfig
+    pass
 
 
 class Samudra(BaseModel):
-    def __init__(self, config: "SamudraConfig", hist, wet, area_weights, static_data):
-        ch_width = config.ch_width.copy()
-        if config.pos_channels > 0:
-            ch_width[0] += config.pos_channels
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        pred_residuals,
+        last_kernel_size,
+        pad,
+        unet: UNetBackbone,
+        corrector: nn.Module,
+        hist: int,
+        wet: Grid,
+        static_data: xr.Dataset | None,
+        pos_channels: int = 0,
+    ):
+        if pos_channels > 0:
+            in_channels += pos_channels
         super().__init__(
-            in_channels=config.in_channels,
-            out_channels=config.out_channels,
+            in_channels=in_channels,
+            out_channels=out_channels,
             wet=wet,
             hist=hist,
-            pred_residuals=config.pred_residuals,
-            last_kernel_size=config.last_kernel_size,
-            pad=config.pad,
+            pred_residuals=pred_residuals,
+            last_kernel_size=last_kernel_size,
+            pad=pad,
             static_data=static_data,
         )
 
-        if config.pos_channels > 0:
+        if pos_channels > 0:
             self.positional_params = nn.Parameter(
-                torch.empty(config.pos_channels, *wet.shape[-2:])
+                torch.empty(pos_channels, *wet.shape[-2:])
             )
             nn.init.normal_(self.positional_params, mean=0.0, std=1e-5)
         else:
@@ -36,18 +51,13 @@ class Samudra(BaseModel):
 
         layers = [
             # Add UNet core.
-            config.unet.build(pad=self.pad, checkpointing=config.checkpointing),
+            unet,
             # Samudra "decoder".
-            nn.Conv2d(
-                config.unet.ch_width[1], config.out_channels, config.last_kernel_size
-            ),
+            nn.Conv2d(unet.layers[-1].out_channels, out_channels, last_kernel_size),
         ]
 
-        # Importing locally to prevent circular import. Corrector is set to "off" more often than not.
-        from ocean_emulators.models.corrector import Correctors
-
         self.layers = nn.ModuleList(layers)
-        self.corrector = Correctors(config.corrector, hist, area_weights, static_data)
+        self.corrector = corrector
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         fts_input = fts.clone().detach()

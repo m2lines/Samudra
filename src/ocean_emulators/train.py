@@ -233,8 +233,7 @@ class Trainer:
                     f"{cfg.model.out_channels}->{self.num_out}"
                 )
                 cfg.model.out_channels = self.num_out
-            model = Samudra(
-                cfg.model,
+            model = cfg.model.build(
                 hist=cfg.data.hist,
                 wet=self.wet,
                 area_weights=self.area_weights,

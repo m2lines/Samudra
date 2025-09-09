@@ -7,9 +7,11 @@ import cftime
 import torch
 import xarray as xr
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
+from torch import nn
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
+from ocean_emulators.models import Samudra
 from ocean_emulators.models.fomo import FOMOv0
 from ocean_emulators.models.modules import BLOCK_REGISTRY
 from ocean_emulators.models.modules.blocks import CoreBlock
@@ -225,6 +227,20 @@ class CorrectorConfig(BaseConfig):
     non_negative_corrector_names: list[str] | None = None
     ocean_heat_corrector: bool = False
 
+    def build(
+        self, hist: int, area_weights: Grid, static_data: xr.Dataset | None
+    ) -> nn.Module:
+        # This local import prevents a circular import bug.
+        from ocean_emulators.models.corrector import Correctors
+
+        return Correctors(
+            non_negative_corrector_names=self.non_negative_corrector_names,
+            ocean_heat_corrector=self.ocean_heat_corrector,
+            hist=hist,
+            area_weights=area_weights,
+            static_data=static_data,
+        )
+
 
 class EncoderConfig(BaseConfig):
     patch_size: int | tuple[int, int] = 4
@@ -289,6 +305,22 @@ class SamudraConfig(BaseModelConfig):
         default=0,
         description="""Number of channels used for a learned positional embedding""",
     )
+
+    def build(
+        self, hist, wet: Grid, area_weights: Grid, static_data: xr.Dataset | None
+    ) -> Samudra:
+        return Samudra(
+            in_channels=self.in_channels,
+            out_channels=self.out_channels,
+            pred_residuals=self.pred_residuals,
+            last_kernel_size=self.last_kernel_size,
+            pad=self.pad,
+            unet=self.unet.build(self.pad, self.checkpointing),
+            corrector=self.corrector.build(hist, area_weights, static_data),
+            hist=hist,
+            wet=wet,
+            static_data=static_data,
+        )
 
 
 class FOMOConfig(BaseModelConfig):

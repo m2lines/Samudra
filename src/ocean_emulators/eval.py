@@ -18,7 +18,6 @@ from ocean_emulators.constants import (
     construct_metadata,
 )
 from ocean_emulators.datasets import InferenceDataset
-from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
     Normalize,
@@ -133,8 +132,7 @@ class Eval:
                     f"{cfg.model.out_channels}->{self.num_out}"
                 )
                 cfg.model.out_channels = self.num_out
-            model = Samudra(
-                cfg.model,
+            model = cfg.model.build(
                 hist=cfg.data.hist,
                 wet=self.wet.to(self.device),
                 area_weights=self.area_weights,

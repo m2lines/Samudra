@@ -246,7 +246,8 @@ class Correctors(torch.nn.Module):
 
     def __init__(
         self,
-        config,
+        non_negative_corrector_names: list[str] | None,
+        ocean_heat_corrector: bool,
         hist: int,
         area_weights: torch.Tensor,
         static_data: xr.Dataset | None,
@@ -256,7 +257,8 @@ class Correctors(torch.nn.Module):
         on configuration.
 
         Args:
-            config: Configuration object containing corrector settings
+            non_negative_corrector_names (list[str]): list of names of non-negative correctors
+            ocean_heat_corrector (bool): whether to apply ocean heat corrections (turns this feature on or off)
             hist: History length for temporal data
             area_weights: Area weights for area weighting
             static_data: Static data for corrections
@@ -268,20 +270,17 @@ class Correctors(torch.nn.Module):
         correctors: list[BaseCorrector] = []
 
         # Initialize ReLU corrector if configured
-        if (
-            hasattr(config, "non_negative_corrector_names")
-            and config.non_negative_corrector_names
-        ):
+        if non_negative_corrector_names is not None:
             correctors.append(
                 ReLUCorrector(
-                    non_negative_corrector_names=config.non_negative_corrector_names,
+                    non_negative_corrector_names=non_negative_corrector_names,
                     hist=hist,
                     tensor_map=self.tensor_map,
                     normalize=self.normalize,
                 )
             )
 
-        if config.ocean_heat_corrector:
+        if ocean_heat_corrector:
             assert static_data is not None, (
                 "Static data is required for ocean heat corrector"
             )

@@ -271,15 +271,6 @@ class BaseModelConfig(BaseConfig):
     last_kernel_size: int = 3
     pad: str = "circular"
 
-
-class SamudraConfig(BaseModelConfig):
-    unet: UNetBackboneConfig = UNetBackboneConfig()
-    corrector: CorrectorConfig = CorrectorConfig()
-    pos_channels: int = Field(
-        default=0,
-        description="""Number of channels used for a learned positional embedding""",
-    )
-
     checkpointing: Checkpointing | None = Field(
         default=None,
         description="""Strategy for storing activations for the model for use in
@@ -291,12 +282,19 @@ class SamudraConfig(BaseModelConfig):
     )
 
 
+class SamudraConfig(BaseModelConfig):
+    unet: UNetBackboneConfig = UNetBackboneConfig()
+    corrector: CorrectorConfig = CorrectorConfig()
+    pos_channels: int = Field(
+        default=0,
+        description="""Number of channels used for a learned positional embedding""",
+    )
+
+
 class FOMOConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
     # decoder will go here.
-
-    checkpointing: Checkpointing = "all"
 
     def build(
         self,

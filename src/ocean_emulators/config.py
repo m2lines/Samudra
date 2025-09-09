@@ -1,17 +1,20 @@
 from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Literal, Self
 
 import cftime
 import torch
+import xarray as xr
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import BoundaryVarNames, LoaderVersion
+from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
+from ocean_emulators.models.fomo import FOMOv0
 from ocean_emulators.models.modules import BLOCK_REGISTRY
 from ocean_emulators.models.modules.blocks import CoreBlock
 from ocean_emulators.models.modules.factory import ACTIVATION_REGISTRY
+from ocean_emulators.models.modules.patchembed import PatchEmbed2d
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
@@ -223,6 +226,18 @@ class CorrectorConfig(BaseConfig):
     ocean_heat_corrector: bool = False
 
 
+class EncoderConfig(BaseConfig):
+    patch_size: int | tuple[int, int] = 4
+    embed_dim: int = 512
+
+    def build(self, n_channels: int) -> PatchEmbed2d:
+        return PatchEmbed2d(
+            n_channels=n_channels,
+            patch_size=self.patch_size,
+            embed_dim=self.embed_dim,
+        )
+
+
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
 Checkpointing = Literal["all", "simple"]
@@ -232,17 +247,16 @@ class UNetBackboneConfig(BaseConfig):
     ch_width: list[int] = [157, 200, 250, 300, 400]
     dilation: list[int] = [1, 2, 4, 8]
     n_layers: list[int] = [1, 1, 1, 1]
-    pad: str = "circular"
     core_block: BlockConfig = BlockConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
 
-    def build(self, checkpointing: Checkpointing | None) -> UNetBackbone:
+    def build(self, pad: str, checkpointing: Checkpointing | None) -> UNetBackbone:
         return UNetBackbone(
             ch_width=self.ch_width,
             dilation=self.dilation,
             n_layers=self.n_layers,
-            pad=self.pad,
+            pad=pad,
             create_block=self.core_block.build(),
             down_sampling_block=self.down_sampling_block,
             up_sampling_block=self.up_sampling_block,
@@ -250,25 +264,21 @@ class UNetBackboneConfig(BaseConfig):
         )
 
 
-class SamudraConfig(BaseConfig):
-    ch_width: list[int] = [157, 200, 250, 300, 400]
-    n_out: int = 77
-    dilation: list[int] = [1, 2, 4, 8]
-    n_layers: list[int] = [1, 1, 1, 1]
+class BaseModelConfig(BaseConfig):
+    in_channels: int = 157
+    out_channels: int = 77
     pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
-    wet: Any | None = None
+
+
+class SamudraConfig(BaseModelConfig):
+    unet: UNetBackboneConfig = UNetBackboneConfig()
+    corrector: CorrectorConfig = CorrectorConfig()
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
     )
-
-    # Block configurations
-    core_block: BlockConfig = BlockConfig()
-    corrector: CorrectorConfig = CorrectorConfig()
-    down_sampling_block: DownSamplingBlocks = "avg_pool"
-    up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
 
     checkpointing: Checkpointing | None = Field(
         default=None,
@@ -279,6 +289,35 @@ class SamudraConfig(BaseConfig):
         If set to 'simple', the model will recompute only cheap layers like scales
         and nonlinearities.""",
     )
+
+
+class FOMOConfig(BaseModelConfig):
+    encoder: EncoderConfig = EncoderConfig()
+    processor: UNetBackboneConfig = UNetBackboneConfig()
+    # decoder will go here.
+
+    checkpointing: Checkpointing = "all"
+
+    def build(
+        self,
+        n_channels: int,
+        hist: int,
+        wet: Grid,
+        static_data: xr.Dataset,
+    ) -> FOMOv0:
+        # Maybe consider adding area_weight
+        return FOMOv0(
+            in_channels=n_channels,
+            out_channels=n_channels,
+            pred_residuals=self.pred_residuals,
+            last_kernel_size=self.last_kernel_size,
+            pad=self.pad,
+            encoder=self.encoder.build(n_channels),
+            processor=self.processor.build(self.pad, self.checkpointing),
+            hist=hist,
+            wet=wet,
+            static_data=static_data,
+        )
 
 
 class DistributedConfig(BaseConfig):
@@ -389,7 +428,7 @@ class TrainConfig(TopLevelConfig):
     # Config components
     experiment: ExperimentConfig
     data: DataConfig
-    samudra: SamudraConfig
+    model: SamudraConfig | FOMOConfig
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
@@ -417,7 +456,7 @@ class EvalConfig(TopLevelConfig):
     )
     experiment: ExperimentConfig
     data: DataConfig
-    samudra: SamudraConfig = SamudraConfig()
+    model: SamudraConfig | FOMOConfig = SamudraConfig()
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

@@ -96,10 +96,10 @@ def inf_data_init(hist: int):
 
 class MockModel(BaseModel):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(-1, **kwargs)
 
     def forward_once(self, x):
-        return x[:, : self.num_prognostic_channels] * 10.0 + x[:, -1]
+        return x[:, : self.out_channels] * 10.0 + x[:, -1]
 
 
 # These tests will fail with OHC PR

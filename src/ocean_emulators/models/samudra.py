@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.utils.checkpoint
 
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 if TYPE_CHECKING:
     from ocean_emulators.config import SamudraConfig
@@ -17,8 +16,8 @@ class Samudra(BaseModel):
         if config.pos_channels > 0:
             ch_width[0] += config.pos_channels
         super().__init__(
-            ch_width=ch_width,
-            n_out=config.n_out,
+            in_channels=config.in_channels,
+            out_channels=config.out_channels,
             wet=wet,
             hist=hist,
             pred_residuals=config.pred_residuals,
@@ -37,18 +36,11 @@ class Samudra(BaseModel):
 
         layers = [
             # Add UNet core.
-            UNetBackbone(
-                ch_width=config.ch_width,
-                dilation=config.dilation,
-                n_layers=config.n_layers,
-                pad=self.pad,
-                create_block=config.core_block.build(),
-                down_sampling_block=config.down_sampling_block,
-                up_sampling_block=config.up_sampling_block,
-                checkpointing=config.checkpointing,
-            ),
+            config.unet.build(pad=self.pad, checkpointing=config.checkpointing),
             # Samudra "decoder".
-            nn.Conv2d(config.ch_width[1], config.n_out, config.last_kernel_size),
+            nn.Conv2d(
+                config.unet.ch_width[1], config.out_channels, config.last_kernel_size
+            ),
         ]
 
         # Importing locally to prevent circular import. Corrector is set to "off" more often than not.

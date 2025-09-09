@@ -7,7 +7,7 @@ import torch
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
-from ocean_emulators.config import EvalConfig
+from ocean_emulators.config import EvalConfig, SamudraConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -120,20 +120,21 @@ class Eval:
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
         if "Samudra" == cfg.experiment.network:
-            if cfg.samudra.ch_width[0] != self.num_in:
+            assert isinstance(cfg.model, SamudraConfig)
+            if cfg.model.in_channels != self.num_in:
                 logger.info(
                     f"NOTE: Changing input channels to match data "
-                    f"{cfg.samudra.ch_width[0]}->{self.num_in}"
+                    f"{cfg.model.in_channels}->{self.num_in}"
                 )
-                cfg.samudra.ch_width[0] = self.num_in
-            if cfg.samudra.n_out != self.num_out:
+                cfg.model.in_channels = self.num_in
+            if cfg.model.out_channels != self.num_out:
                 logger.info(
                     f"NOTE: Changing output channels to match data "
-                    f"{cfg.samudra.n_out}->{self.num_out}"
+                    f"{cfg.model.out_channels}->{self.num_out}"
                 )
-                cfg.samudra.n_out = self.num_out
+                cfg.model.out_channels = self.num_out
             model = Samudra(
-                cfg.samudra,
+                cfg.model,
                 hist=cfg.data.hist,
                 wet=self.wet.to(self.device),
                 area_weights=self.area_weights,

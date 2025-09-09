@@ -37,7 +37,7 @@ from ocean_emulators.aggregator.loss import (
     get_variable_loss_dict,
 )
 from ocean_emulators.backend import init_train_backend
-from ocean_emulators.config import TrainConfig
+from ocean_emulators.config import FOMOConfig, SamudraConfig, TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
@@ -220,27 +220,31 @@ class Trainer:
         # Model
         logger.info(f"Getting model {cfg.experiment.network}")
         if "Samudra" == cfg.experiment.network:
-            if cfg.samudra.ch_width[0] != self.num_in:
+            assert isinstance(cfg.model, SamudraConfig)
+            if cfg.model.in_channels != self.num_in:
                 logger.info(
                     f"NOTE: Changing input channels to match data "
-                    f"{cfg.samudra.ch_width[0]}->{self.num_in}"
+                    f"{cfg.model.in_channels}->{self.num_in}"
                 )
-                cfg.samudra.ch_width[0] = self.num_in
-            if cfg.samudra.n_out != self.num_out:
+                cfg.model.in_channels = self.num_in
+            if cfg.model.out_channels != self.num_out:
                 logger.info(
                     f"NOTE: Changing output channels to match data "
-                    f"{cfg.samudra.n_out}->{self.num_out}"
+                    f"{cfg.model.out_channels}->{self.num_out}"
                 )
-                cfg.samudra.n_out = self.num_out
+                cfg.model.out_channels = self.num_out
             model = Samudra(
-                cfg.samudra,
+                cfg.model,
                 hist=cfg.data.hist,
                 wet=self.wet,
                 area_weights=self.area_weights,
                 static_data=self.data_container.static_data,
             ).to(self.device)
+        elif "FOMOv0" == cfg.experiment.network:
+            assert isinstance(cfg.model, FOMOConfig)
+            pass
         else:
-            raise NotImplementedError
+            raise NotImplementedError("Model not implemented (or misconfigured).")
 
         self.model = model
         self.nets_dir = cfg.experiment.nets_dir
@@ -631,7 +635,7 @@ class Trainer:
             if update := getattr(self.loss_fn, "update", None):
                 with torch.no_grad():
                     # TODO(jder): could avoid a second forward pass here
-                    single_step_data = TrainData(data.num_prognostic_channels)
+                    single_step_data = TrainData(data.out_channels)
                     # Each entry in data is one step in a rollout.
                     input, label = data[0]
                     single_step_data.insert(input, label)

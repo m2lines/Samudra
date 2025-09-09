@@ -57,25 +57,28 @@ experiment:
 data:
   !include data/public.yaml
 
-samudra:
+model:
   checkpointing: all
-  ch_width: [157, 280, 380, 480, 520]
-  n_out: 154
-  dilation: [1, 2, 4, 8]
-  n_layers: [1, 1, 1, 1]
+  in_channels: 157
+  out_channels: 154
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
 
-  core_block:
-    block_type: "conv_next_block"
-    kernel_size: 3
-    activation: "capped_gelu"
-    upscale_factor: 2
-    norm: "batch"
+  unet:
+    ch_width: [157, 280, 380, 480, 520]
+    dilation: [1, 2, 4, 8]
+    n_layers: [1, 1, 1, 1]
 
-  down_sampling_block: "avg_pool"
-  up_sampling_block: "bilinear_upsample"
+    core_block:
+      block_type: "conv_next_block"
+      kernel_size: 3
+      activation: "capped_gelu"
+      upscale_factor: 2
+      norm: "batch"
+
+    down_sampling_block: "avg_pool"
+    up_sampling_block: "bilinear_upsample"
 
   corrector:
     non_negative_corrector_names: null

@@ -57,25 +57,28 @@ experiment:
 
 data: !include data/cm4.yaml
 
-samudra:
-  ch_width: [157, 200, 250, 300, 400]
-  n_out: 77
-  dilation: [1, 2, 4, 8]
-  n_layers: [1, 1, 1, 1]
+model:
+  in_channels: 157
+  out_channels: 77
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
 
-  core_block:
-    block_type: "conv_next_block"
-    kernel_size: 3
-    activation: "capped_gelu"
-    upscale_factor: 4
-    norm: "batch"
+  unet:
+    ch_width: [157, 200, 250, 300, 400]
+    dilation: [1, 2, 4, 8]
+    n_layers: [1, 1, 1, 1]
+
+    core_block:
+      block_type: "conv_next_block"
+      kernel_size: 3
+      activation: "capped_gelu"
+      upscale_factor: 4
+      norm: "batch"
+
+    down_sampling_block: "avg_pool"
+    up_sampling_block: "bilinear_upsample"
 
   corrector:
     non_negative_corrector_names:
       - "so"
-
-  down_sampling_block: "avg_pool"
-  up_sampling_block: "bilinear_upsample"

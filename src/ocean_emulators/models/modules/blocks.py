@@ -73,6 +73,8 @@ class CoreBlock(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, dilation, pad):
         super().__init__()
         assert kernel_size % 2 != 0, "Cannot use even kernel sizes!"
+        self.in_channels = in_channels
+        self.out_channels = out_channels
 
         self.N_in = in_channels
         self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)

@@ -11,11 +11,11 @@ from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 class Samudra(BaseModel):
     def __init__(
         self,
-        in_channels,
-        out_channels,
-        pred_residuals,
-        last_kernel_size,
-        pad,
+        in_channels: int,
+        out_channels: int,
+        pred_residuals: bool,
+        last_kernel_size: int,
+        pad: str,
         unet: UNetBackbone,
         corrector: nn.Module,
         hist: int,

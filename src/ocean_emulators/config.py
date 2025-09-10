@@ -317,6 +317,7 @@ class SamudraConfig(BaseModelConfig):
             pad=self.pad,
             unet=self.unet.build(self.pad, self.checkpointing),
             corrector=self.corrector.build(hist, area_weights, static_data),
+            pos_channels=self.pos_channels,
             hist=hist,
             wet=wet,
             static_data=static_data,

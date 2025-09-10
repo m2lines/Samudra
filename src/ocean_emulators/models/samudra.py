@@ -18,10 +18,10 @@ class Samudra(BaseModel):
         pad: str,
         unet: UNetBackbone,
         corrector: nn.Module,
+        pos_channels: int,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
-        pos_channels: int = 0,
     ):
         if pos_channels > 0:
             in_channels += pos_channels

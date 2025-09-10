@@ -16,7 +16,8 @@ class PerceiverEncoder(nn.Module):
 
     Args:
         n_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
-        patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid.
+        patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
+          If a tuple is supplied, then it represents the (height, width) of the patches to embed.
         embed_dim (int): size of the latent dimension.
         perceiver_depth (int): depth of the perceiver module core.
     """

@@ -331,7 +331,7 @@ class SamudraConfig(BaseModelConfig):
     )
 
     def build(
-        self, hist, wet: Grid, area_weights: Grid, static_data: xr.Dataset | None
+        self, hist: int, wet: Grid, area_weights: Grid, static_data: xr.Dataset | None
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:

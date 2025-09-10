@@ -15,8 +15,8 @@ from ocean_emulators.models import Samudra
 from ocean_emulators.models.fomo import FOMOv0
 from ocean_emulators.models.modules import BLOCK_REGISTRY
 from ocean_emulators.models.modules.blocks import CoreBlock
+from ocean_emulators.models.modules.encoder import PerceiverEncoder
 from ocean_emulators.models.modules.factory import ACTIVATION_REGISTRY
-from ocean_emulators.models.modules.patchembed import PatchEmbed2d
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
@@ -245,12 +245,14 @@ class CorrectorConfig(BaseConfig):
 class EncoderConfig(BaseConfig):
     patch_size: int | tuple[int, int] = 4
     embed_dim: int = 512
+    perceiver_depth: int = 6
 
-    def build(self, n_channels: int) -> PatchEmbed2d:
-        return PatchEmbed2d(
+    def build(self, n_channels: int) -> PerceiverEncoder:
+        return PerceiverEncoder(
             n_channels=n_channels,
             patch_size=self.patch_size,
             embed_dim=self.embed_dim,
+            perceiver_depth=self.perceiver_depth,
         )
 
 

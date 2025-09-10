@@ -17,6 +17,29 @@ if TYPE_CHECKING:
 
 
 class UNetBackbone(nn.Module):
+    """A configurable, convolutional or ConvNeXt[1] U-Net[2] implementation.
+
+    Args:
+        ch_width (list[int]): The widths of CNN input channels going down into the U-Net. This module first builds
+          downsampling CNN blocks before reversing the `ch_widths` to build upsampling CNN blocks. Typically, these
+          values should be set in monotonically non-decreasing sizes.
+        dilation (list[int]): List of dilation sizes for CNN blocks. See [3] for a general background. This list must
+          be one less than the length of `ch_widths`.
+        n_layers (list[int]): List of the number of CNN layers to be used in each block section of the U-Net. Typically,
+          this is set to all 1s. This value must match the length of `dilation`.
+        pad (str): The type of padding to use in all CNN blocks. Passed into `torch.functional.pad`'s `mode` argument.
+        create_block: A factory method that creates the CoreBlocks for all CNN layers.
+        downsampling_block (nn.Module): A block that downsamples during the descent of the U-Net.
+        create_upsampling_block: A factory method that creates upsampling blocks during the ascent of the U-Net.
+        checkpointing (Checkpointing | None): The current mode for checkpointing (typically "all" or "simple"). None
+          turns checkpointing off.
+
+    References:
+        [1]: https://arxiv.org/abs/2201.03545
+        [2]: https://arxiv.org/abs/1505.04597
+        [3]: https://github.com/vdumoulin/conv_arithmetic/#dilated-convolution-animations.
+    """
+
     def __init__(
         self,
         ch_width: list[int],

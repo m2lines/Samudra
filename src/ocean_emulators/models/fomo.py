@@ -8,6 +8,8 @@ from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
 class FOMOv0(BaseModel):
+    """An untested, placeholder FOMO model. It currently combines an encoder and processor."""
+
     def __init__(
         self,
         in_channels: int,

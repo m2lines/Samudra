@@ -67,8 +67,8 @@ class PerceiverEncoder(nn.Module):
         x = rearrange(
             x,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
-            pw=self.patch_size[0],
-            ph=self.patch_size[1],
+            ph=self.patch_size[0],
+            pw=self.patch_size[1],
         )
         # This is applying a layer norm across all our data channels. I am not sure if this will have a positive or
         # negative effect. It may make it easier for the Perceiver to process data across scales, but it destroys the

@@ -96,7 +96,7 @@ def inf_data_init(hist: int):
 
 class MockModel(BaseModel):
     def __init__(self, *args, **kwargs):
-        super().__init__(-1, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def forward_once(self, x):
         return x[:, : self.out_channels] * 10.0 + x[:, -1]

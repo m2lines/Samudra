@@ -1,0 +1,139 @@
+# ~
+# Entrypoint to run a viz job on a single-node with an A100 GPU with skypilot.
+# ~
+#
+# First, make sure that all your credentials are set up:
+# ```
+# sky check -v
+# ```
+#
+# To create or re-use a cluster:
+# ```
+# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
+# sky launch -c fomo-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY --env RUNS=[{"location": "/inputs/my_eval_job/predictions.zarr"}, …]
+# ```
+# Any location starting with /inputs will automatically be copied from the OUTPUTS_BUCKET
+# in order to access previous jobs' outputs.
+#
+# As the job progresses, skypilot will provide commands to locally monitor each stage.
+#
+#
+# To get debug traces when running `sky` commands, set this environment variable:
+# ```
+# export SKYPILOT_DEBUG=true
+# ```
+resources:
+  infra: aws/us-east-2
+  memory: 64GB
+  cpus: 16+
+  disk_size: 1TB
+
+# NOTE: Remember to pass environment variables with `--env` or `--env-file`
+# NOTE: All `null` values must be specified in order for this script to run!
+envs:
+  # Secrets
+  # As of v0.9.3, `sky` supports passing in secrets via a dotenv file! So, you can specify these with `--env-file`.
+  # To pass in secrets, we recommend setting environment variable and then ONLY passing in the name via `--env`
+  WANDB_API_KEY: null # e.g. `--env WANDB_API_KEY`
+  # Run `sky check aws -v` to verify that AWS storage is properly set up.
+  # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
+  # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
+
+  CONFIG: null
+  OUTPUTS_BUCKET: oa-fomo-outputs
+  DATA_BUCKET: oa-fomo
+  DATA_ROOT_PATH: null # path to copy from DATA_BUCKET into the local data root eg data/om4_onedeg
+  BASIN_PATH: null # relative to DATA_BUCKET/basins we should use for the basin zarr eg basin_masks_original.zarr
+  NAME: null # name used for output directory
+  RUNS: null # run JSON, for example '{"name": "my_run", "location": "/outputs/my_run/predictions.zarr"}'
+  ARGS: ""
+
+#### Shared setup, please ensure this is the same as in all *.sky.yaml files ####
+file_mounts:
+  # TODO(alxmrs): Consider adding a data/ COPY file_mount here once `mount_options` feature exists.
+  # The current method of copying (in the setup section, below) is faster.
+
+  /outputs:
+    source: s3://${OUTPUTS_BUCKET}
+    mode: MOUNT_CACHED
+
+workdir: .
+
+setup: |
+  set -ex
+
+  rclone config create s3-source s3 provider=AWS env_auth=true
+
+  mkdir -p ~/data/
+  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH} ~/data --ignore-existing --transfers=32
+
+  sudo mkdir -p /inputs
+  sudo chown $USER /inputs
+
+  # Parse RUNS JSON and copy data from S3 based on the locations
+  python3 <<EOPYTHON
+  import json
+  import os
+  import subprocess
+
+  # This is of the form [{"location": "/inputs/foo/predictions.zarr"}, ...]
+  runs = json.loads(os.environ['RUNS'])
+  seen_dirs = set()  # Track directories we've already copied
+
+  for run in runs:
+      location = run['location']
+
+      # Only process locations under /inputs/
+      if not location.startswith('/inputs/'):
+          print(f'Skipping {location} - not under /inputs/')
+          continue
+
+      # Extract the path after /inputs/
+      path_after_inputs = location.removeprefix('/inputs/')
+
+      # Get just the top-level directory name
+      # Split by '/' and take the first component
+      path_parts = path_after_inputs.split('/')
+      if not path_parts or not path_parts[0]:
+          print(f'Skipping {location} - no valid directory after /inputs/')
+          continue
+
+      top_dir = path_parts[0]
+
+      # Skip if we've already copied this directory
+      if top_dir in seen_dirs:
+          print(f'Already copied {top_dir}, skipping')
+          continue
+
+      seen_dirs.add(top_dir)
+
+      # Construct the full S3 source path
+      s3_source = f's3-source:{os.environ["OUTPUTS_BUCKET"]}/{top_dir}'
+
+      # Construct the local destination path
+      local_dest = f'/inputs/{top_dir}'
+
+      # Execute rclone copy command
+      cmd = ['rclone', 'copy', '--progress', s3_source, local_dest, '--ignore-existing', '--transfers=32']
+      print(f'Copying {s3_source} to {local_dest}')
+      subprocess.run(cmd, check=True)
+  EOPYTHON
+
+  mkdir -p ~/basins/
+  rclone copy --progress s3-source:${DATA_BUCKET}/basins ~/basins
+
+#### End of shared setup ####
+
+run: |
+  set -ex
+
+  DATA_ROOT=$(realpath ~/data)
+  BASINS_ROOT=$(realpath ~/basins)
+
+  uv run -m ocean_emulators.viz "${CONFIG}" \
+    --data_root="${DATA_ROOT}" \
+    --base_output_dir=/outputs/ \
+    --name="${NAME}" \
+    --basins_location="{\"type\": \"local\", \"path\": \"${BASINS_ROOT}/${BASIN_PATH}\"}" \
+    --runs="${RUNS}" \
+    ${ARGS}

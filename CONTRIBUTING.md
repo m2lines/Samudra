@@ -170,9 +170,10 @@ You can run `uv run -m ocean_emulators.train --help` to see all the options avai
 To learn more about other datasets used during training, please see the _Data Engineering_ section below.
 
 To run a remote training job with Skypilot, use the following command:
+
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env
+uv run sky launch train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env
 ```
 
 Please read the docstring in the `train.sky.yaml` for more information.

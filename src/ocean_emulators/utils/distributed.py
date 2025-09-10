@@ -25,19 +25,22 @@ def set_seed(seed):
     # torch.use_deterministic_algorithms(True)
 
 
+builtin_print = builtins.print
+
+
+def print(*args, **kwargs):
+    force = kwargs.pop("force", False)
+    force = force or (get_world_size() > 8)
+    if force:
+        now = datetime.datetime.now().time()
+        builtin_print(f"[{now}] ", end="")  # print with time stamp
+        builtin_print(*args, **kwargs)
+
+
 def suppress_prints(is_master):
     """This function disables printing when not in master process."""
-    builtin_print = builtins.print
-
-    def print(*args, **kwargs):
-        force = kwargs.pop("force", False)
-        force = force or (get_world_size() > 8)
-        if is_master or force:
-            now = datetime.datetime.now().time()
-            builtin_print(f"[{now}] ", end="")  # print with time stamp
-            builtin_print(*args, **kwargs)
-
-    builtins.print = print
+    if not is_master:
+        builtins.print = print
 
 
 def suppress_logging(is_master):

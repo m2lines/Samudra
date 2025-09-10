@@ -336,8 +336,9 @@ class SamudraConfig(BaseModelConfig):
         corrector = None
         if self.corrector is not None:
             corrector = self.corrector.build(hist, area_weights, static_data)
+        in_channels = self.in_channels + self.pos_channels
         return Samudra(
-            in_channels=self.in_channels + self.pos_channels,
+            in_channels=in_channels,
             out_channels=self.out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
@@ -345,7 +346,7 @@ class SamudraConfig(BaseModelConfig):
             unet=self.unet.build(
                 pad=self.pad,
                 checkpointing=self.checkpointing,
-                override_in_channels=self.in_channels + self.pos_channels,
+                override_in_channels=in_channels,
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,

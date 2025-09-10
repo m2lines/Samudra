@@ -50,7 +50,7 @@ class PerceiverEncoder(nn.Module):
         )
         self.norm_embedding = nn.LayerNorm(embed_dim)
 
-    def forward(self, x: Input) -> Float[torch.Tensor, "*batch h w {self.embed_dim}"]:
+    def forward(self, x: Input) -> Float[torch.Tensor, "batch h w {self.embed_dim}"]:
         _, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).

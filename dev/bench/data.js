@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757514370658,
+  "lastUpdate": 1757514865139,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3840,6 +3840,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.15812918452735555",
             "extra": "mean: 85.66938695640002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9b8715d3d3b2dfb87e7dcb5b4c1974f61e8e0b2d",
+          "message": "Add learnable positional channels (#347)\n\n## Summary\n- allow configuring extra learned positional channels\n- incorporate positional parameters into Samudra model forward pass\n- add unit test verifying positional parameters update via gradients\n\n## Testing\n- `uvx pre-commit run --all-files`\n- `uv run pytest -m \"not manual and not cuda\"` *(fails:\nFileNotFoundError for remote dataset)*\n- `uv run pytest tests/test_positional_channels.py -q`\n\n\n------\nhttps://chatgpt.com/codex/tasks/task_e_689dd13368e4832085aed233390cc422\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2025-09-10T14:08:56Z",
+          "tree_id": "48e8de7fd46ea1177426c7a51560b94ef5234998",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/9b8715d3d3b2dfb87e7dcb5b4c1974f61e8e0b2d"
+        },
+        "date": 1757514864047,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.3068861422885854,
+            "unit": "iter/sec",
+            "range": "stddev: 0.016709899735619926",
+            "extra": "mean: 765.1775986000018 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07050021404506536,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8649138545579251",
+            "extra": "mean: 14.184354098 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19244540315906666,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11631248467225362",
+            "extra": "mean: 5.196278963199996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01283646864738086,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12392325275132637",
+            "extra": "mean: 77.90304541459999 sec\nrounds: 5"
           }
         ]
       }

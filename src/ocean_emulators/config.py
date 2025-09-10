@@ -217,6 +217,10 @@ class SamudraConfig(BaseConfig):
     last_kernel_size: int = 3
     pad: str = "circular"
     wet: Any | None = None
+    pos_channels: int = Field(
+        default=0,
+        description="""Number of channels used for a learned positional embedding""",
+    )
 
     # Block configurations
     core_block: BlockConfig = BlockConfig()

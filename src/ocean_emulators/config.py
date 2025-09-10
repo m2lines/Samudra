@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal, Self
 
 import cftime
 import torch
+from torch.profiler import ProfilerActivity
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
@@ -281,6 +282,7 @@ class ProfilerConfig(BaseConfig):
     # How often (in batches processed) to take a snapshot of the CUDA memory
     # (None = no snapshots)
     cuda_snapshot_frequency: int | None = None
+    enable_tracing: bool = False # For now, traces first epoch TODO: make schedule configurable
 
     def build(self, output_dir: Path, device: torch.device) -> Profiler:
         if self.cuda_snapshot_frequency is not None and device.type != "cuda":
@@ -288,7 +290,15 @@ class ProfilerConfig(BaseConfig):
                 "cuda_snapshot_frequency is only supported on CUDA devices, got "
                 f"{device.type}"
             )
-        return Profiler(output_dir, self.cuda_snapshot_frequency)
+
+        if self.enable_tracing:
+            tracing_activities = [ProfilerActivity.CPU]
+            if device.type == 'cuda':
+                tracing_activities.append(ProfilerActivity.CUDA)
+        else:
+            tracing_activities = []
+
+        return Profiler(output_dir, self.cuda_snapshot_frequency, tracing_activities)
 
 
 # See backend.py for how these are turned into concrete devices

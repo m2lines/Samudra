@@ -488,61 +488,62 @@ class Trainer:
         self.profiler.start()
 
         start_time = time.perf_counter()
-        for epoch in range(self.start_epoch, self.epochs + 1):
-            # Iterative step training
-            if epoch == self.start_epoch or epoch in self.step_transition:
-                cur_step = self.get_current_step(epoch)
-                self.init_data_loaders(cur_step)
+        with torch.autograd.profiler.emit_nvtx():
+            for epoch in range(self.start_epoch, self.epochs + 1):
+                # Iterative step training
+                if epoch == self.start_epoch or epoch in self.step_transition:
+                    cur_step = self.get_current_step(epoch)
+                    self.init_data_loaders(cur_step)
 
-            if isinstance(self.train_sampler, DistributedSampler):
-                self.train_sampler.set_epoch(epoch)
-            if isinstance(self.val_sampler, DistributedSampler):
-                self.val_sampler.set_epoch(epoch)
+                if isinstance(self.train_sampler, DistributedSampler):
+                    self.train_sampler.set_epoch(epoch)
+                if isinstance(self.val_sampler, DistributedSampler):
+                    self.val_sampler.set_epoch(epoch)
 
-            start_epoch_train_time = time.perf_counter()
-            train_stats = self.train_one_epoch(epoch)
-            end_epoch_train_time = time.perf_counter()
-            val_stats = self.validate_one_epoch(epoch)
-            end_epoch_val_time = time.perf_counter()
+                start_epoch_train_time = time.perf_counter()
+                train_stats = self.train_one_epoch(epoch)
+                end_epoch_train_time = time.perf_counter()
+                val_stats = self.validate_one_epoch(epoch)
+                end_epoch_val_time = time.perf_counter()
 
-            if -1 in self.inference_epochs or epoch in self.inference_epochs:
-                inf_stats = self.inference_one_epoch(epoch)
-                end_epoch_inf_time = time.perf_counter()
-            else:
-                inf_stats = {}
-                end_epoch_inf_time = None
+                if -1 in self.inference_epochs or epoch in self.inference_epochs:
+                    inf_stats = self.inference_one_epoch(epoch)
+                    end_epoch_inf_time = time.perf_counter()
+                else:
+                    inf_stats = {}
+                    end_epoch_inf_time = None
 
-            train_loss = train_stats["train/mean/loss"]
-            v_loss = val_stats["val/mean/loss"]
-            inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
+                train_loss = train_stats["train/mean/loss"]
+                v_loss = val_stats["val/mean/loss"]
+                inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
 
-            logger.info(f"Achieved Train Loss = {train_loss:.3f}")
-            logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
-            if inf_loss is not None:
-                logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
+                logger.info(f"Achieved Train Loss = {train_loss:.3f}")
+                logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
+                if inf_loss is not None:
+                    logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
-            if is_main_process():
-                self.save_all_checkpoints(epoch, v_loss, inf_loss)
+                if is_main_process():
+                    self.save_all_checkpoints(epoch, v_loss, inf_loss)
 
-            time_elapsed = time.perf_counter() - start_epoch_train_time
+                time_elapsed = time.perf_counter() - start_epoch_train_time
 
-            log_stats = {
-                **train_stats,
-                **val_stats,
-                **inf_stats,
-                "epoch": epoch,
-                "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
-                "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
-                "epoch_total_seconds": time_elapsed,
-            }
+                log_stats = {
+                    **train_stats,
+                    **val_stats,
+                    **inf_stats,
+                    "epoch": epoch,
+                    "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
+                    "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
+                    "epoch_total_seconds": time_elapsed,
+                }
 
-            if end_epoch_inf_time is not None:
-                log_stats["epoch_inference_seconds"] = (
-                    end_epoch_inf_time - end_epoch_val_time
-                )
+                if end_epoch_inf_time is not None:
+                    log_stats["epoch_inference_seconds"] = (
+                        end_epoch_inf_time - end_epoch_val_time
+                    )
 
-            if is_main_process():
-                self.wandb_logger.log(log_stats, step=self.num_batches_seen)
+                if is_main_process():
+                    self.wandb_logger.log(log_stats, step=self.num_batches_seen)
 
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -679,6 +680,8 @@ class Trainer:
 
         if self.scheduler is not None:
             self.scheduler.step()
+
+        self.profiler.after_epoch(epoch)
 
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()

@@ -320,11 +320,9 @@ class SamudraConfig(BaseModelConfig):
     def build(
         self, hist, wet: Grid, area_weights: Grid, static_data: xr.Dataset | None
     ) -> Samudra:
+        corrector = None
         if self.corrector is not None:
             corrector = self.corrector.build(hist, area_weights, static_data)
-        else:
-            corrector = None
-
         return Samudra(
             in_channels=self.in_channels + self.pos_channels,
             out_channels=self.out_channels,

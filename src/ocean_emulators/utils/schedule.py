@@ -49,6 +49,7 @@ class CosineWithWarmupConfig(BaseModel):
     """Cosine scheduler which goes from warmup_lr to the default lr for the first warmup_epochs."""
 
     type: Literal["cosine_with_warmup"] = "cosine_with_warmup"
+    target_epochs: int | None = None
 
     warmup_lr: float = 1e-6
     warmup_epochs: int = 5
@@ -56,6 +57,7 @@ class CosineWithWarmupConfig(BaseModel):
     def build(
         self, optimizer: torch.optim.Optimizer, epochs: int
     ) -> torch.optim.lr_scheduler.LRScheduler:
+        max_epochs = self.target_epochs if self.target_epochs is not None else epochs
         assert len(optimizer.param_groups) == 1, (
             "There can only be one parameter group for the optimizer."
         )
@@ -70,7 +72,7 @@ class CosineWithWarmupConfig(BaseModel):
             "'warmup_epochs' is too big; it must be smaller than 'epochs'."
         )
         cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=epochs - self.warmup_epochs
+            optimizer, T_max=max_epochs - self.warmup_epochs
         )
         return torch.optim.lr_scheduler.SequentialLR(
             optimizer,

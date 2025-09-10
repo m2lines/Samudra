@@ -13,10 +13,13 @@ from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
 from ocean_emulators.models import Samudra
 from ocean_emulators.models.fomo import FOMOv0
-from ocean_emulators.models.modules import BLOCK_REGISTRY
+from ocean_emulators.models.modules import BLOCK_REGISTRY, UPSAMPLE_REGISTRY
 from ocean_emulators.models.modules.blocks import CoreBlock
 from ocean_emulators.models.modules.encoder import PerceiverEncoder
-from ocean_emulators.models.modules.factory import ACTIVATION_REGISTRY
+from ocean_emulators.models.modules.factory import (
+    ACTIVATION_REGISTRY,
+    DOWNSAMPLE_REGISTRY,
+)
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
@@ -282,14 +285,21 @@ class UNetBackboneConfig(BaseConfig):
         # This is needed for Samudra magic.
         if override_in_channels != 0:
             ch_width[0] = override_in_channels
+
+        DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]
+
+        def create_upsampling_block(in_channels, out_channels) -> nn.Module:
+            Block = UPSAMPLE_REGISTRY[self.up_sampling_block]
+            return Block(in_channels=in_channels, out_channels=out_channels)
+
         return UNetBackbone(
             ch_width=ch_width,
             dilation=self.dilation,
             n_layers=self.n_layers,
             pad=pad,
             create_block=self.core_block.build(),
-            down_sampling_block=self.down_sampling_block,
-            up_sampling_block=self.up_sampling_block,
+            downsampling_block=DownsamplingBlock(),
+            create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
         )
 

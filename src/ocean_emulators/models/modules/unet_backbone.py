@@ -10,7 +10,6 @@ from ocean_emulators.models.modules.blocks import (
     CoreBlock,
     TransposedConvUpsample,
 )
-from ocean_emulators.models.modules.factory import create_downsample, create_upsample
 from ocean_emulators.utils.train import pairwise
 
 if TYPE_CHECKING:
@@ -25,8 +24,8 @@ class UNetBackbone(nn.Module):
         n_layers: list[int],
         pad: str,
         create_block: Callable[..., CoreBlock],
-        down_sampling_block: str,
-        up_sampling_block: str,
+        downsampling_block: nn.Module,
+        create_upsampling_block: Callable[..., nn.Module],
         checkpointing: "Checkpointing | None",
     ):
         super().__init__()
@@ -64,7 +63,7 @@ class UNetBackbone(nn.Module):
                 )
             )
             # Down sampling block
-            layers.append(create_downsample(down_sampling_block))
+            layers.append(downsampling_block)
 
         # Middle block
         layers.append(
@@ -79,7 +78,7 @@ class UNetBackbone(nn.Module):
         )
 
         # First upsampling
-        layers.append(create_upsample(up_sampling_block, in_channels=b, out_channels=b))
+        layers.append(create_upsampling_block(in_channels=b, out_channels=b))
 
         # Reverse for upsampling path
         ch_width.reverse()
@@ -98,9 +97,7 @@ class UNetBackbone(nn.Module):
                     checkpoint_simple=checkpoint_simple,
                 )
             )
-            layers.append(
-                create_upsample(up_sampling_block, in_channels=b, out_channels=b)
-            )
+            layers.append(create_upsampling_block(in_channels=b, out_channels=b))
 
         # Final conv block
         layers.append(

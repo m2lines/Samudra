@@ -15,7 +15,7 @@ class PerceiverEncoder(nn.Module):
     """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
 
     Args:
-        n_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
+        in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
         embed_dim (int): size of the latent dimension.
@@ -25,13 +25,13 @@ class PerceiverEncoder(nn.Module):
     # TODO(alxmrs): Implement checkpointing
     def __init__(
         self,
-        n_channels: int,
+        in_channels: int,
         patch_size: int | tuple[int, int],
         embed_dim: int,
         perceiver_depth: int,
     ) -> None:
         super().__init__()
-        self.n_channels = n_channels
+        self.in_channels = in_channels
         if isinstance(patch_size, int):
             self.patch_size: tuple[int, int] = (patch_size, patch_size)
         else:
@@ -41,13 +41,13 @@ class PerceiverEncoder(nn.Module):
             self.patch_size = patch_size
         self.embed_dim: int = embed_dim
 
-        self.norm_patches = nn.LayerNorm(self.n_channels)
+        self.norm_patches = nn.LayerNorm(self.in_channels)
         self.perceiver = Perceiver(
             num_freq_bands=4,
             max_freq=1.0,
             depth=perceiver_depth,
             input_axis=2,  # Number of positional dims before token dim
-            input_channels=self.n_channels,  # input_dim
+            input_channels=self.in_channels,  # input_dim
             num_classes=embed_dim,  # output_dim
         )
         self.norm_embedding = nn.LayerNorm(embed_dim)
@@ -56,7 +56,7 @@ class PerceiverEncoder(nn.Module):
         _, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).
-        assert V == self.n_channels
+        assert V == self.in_channels
         # Ensure patch_size is appropriate for the data.
         assert H % self.patch_size[0] == 0, f"{H} % {self.patch_size[0]} != 0."
         assert W % self.patch_size[1] == 0, f"{W} % {self.patch_size[1]} != 0."

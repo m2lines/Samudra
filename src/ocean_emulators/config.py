@@ -253,9 +253,9 @@ class EncoderConfig(BaseConfig):
     embed_dim: int = 512
     perceiver_depth: int = 6
 
-    def build(self, n_channels: int) -> PerceiverEncoder:
+    def build(self, in_channels: int) -> PerceiverEncoder:
         return PerceiverEncoder(
-            n_channels=n_channels,
+            in_channels=in_channels,
             patch_size=self.patch_size,
             embed_dim=self.embed_dim,
             perceiver_depth=self.perceiver_depth,
@@ -362,19 +362,19 @@ class FOMOConfig(BaseModelConfig):
 
     def build(
         self,
-        n_channels: int,
+        in_channels: int,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
     ) -> FOMOv0:
         # Maybe consider adding area_weight
         return FOMOv0(
-            in_channels=n_channels,
-            out_channels=n_channels,
+            in_channels=in_channels,
+            out_channels=in_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(n_channels),
+            encoder=self.encoder.build(in_channels),
             processor=self.processor.build(self.pad, self.checkpointing),
             hist=hist,
             wet=wet,

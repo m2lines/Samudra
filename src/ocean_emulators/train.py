@@ -241,7 +241,7 @@ class Trainer:
         elif "FOMOv0" == cfg.experiment.network:
             assert isinstance(cfg.model, FOMOConfig)
             model = cfg.model.build(
-                n_channels=self.num_in,
+                in_channels=self.num_in,
                 hist=cfg.data.hist,
                 wet=self.wet,
                 static_data=self.data_container.static_data,

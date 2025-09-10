@@ -20,8 +20,6 @@ class PerceiverEncoder(nn.Module):
         patch_size (int): the size of the patches to embed. Patches must evenly divide the input grid.
         embed_dim (int): size of the latent dimension.
         perceiver_depth (int): depth of the perceiver module core.
-        perceiver_kwargs (dict): keyword arguments to pass to the perceiver module. The docs for this module
-          can be found here: https://github.com/lucidrains/perceiver-pytorch#usage.
     """
 
     def __init__(
@@ -51,7 +49,6 @@ class PerceiverEncoder(nn.Module):
             input_axis=2,  # Number of positional dims before token dim
             input_channels=self.n_channels,  # input_dim
             num_classes=embed_dim,  # output_dim
-            **perceiver_kwargs,
         )
         self.norm_embedding = nn.LayerNorm(embed_dim)
 

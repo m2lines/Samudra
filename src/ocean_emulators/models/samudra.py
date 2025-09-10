@@ -17,7 +17,7 @@ class Samudra(BaseModel):
         last_kernel_size: int,
         pad: str,
         unet: UNetBackbone,
-        corrector: nn.Module,
+        corrector: nn.Module | None,
         pos_channels: int,
         hist: int,
         wet: Grid,
@@ -74,5 +74,6 @@ class Samudra(BaseModel):
             # Apply layer
             fts = layer(fts)
 
-        fts = self.corrector(fts_input, fts)
+        if self.corrector is not None:
+            fts = self.corrector(fts_input, fts)
         return torch.where(self.wet, fts, 0.0)

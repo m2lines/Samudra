@@ -270,10 +270,15 @@ class UNetBackboneConfig(BaseConfig):
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
 
     def build(
-        self, pad: str, checkpointing: Checkpointing | None, extra_in_channels: int = 0
+        self,
+        pad: str,
+        checkpointing: Checkpointing | None,
+        override_in_channels: int = 0,
     ) -> UNetBackbone:
         ch_width = self.ch_width.copy()
-        ch_width[0] += extra_in_channels
+        # This is needed for Samudra magic.
+        if override_in_channels != 0:
+            ch_width[0] = override_in_channels
         return UNetBackbone(
             ch_width=ch_width,
             dilation=self.dilation,
@@ -306,7 +311,7 @@ class BaseModelConfig(BaseConfig):
 
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
-    corrector: CorrectorConfig = CorrectorConfig()
+    corrector: CorrectorConfig | None = None
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
@@ -315,6 +320,11 @@ class SamudraConfig(BaseModelConfig):
     def build(
         self, hist, wet: Grid, area_weights: Grid, static_data: xr.Dataset | None
     ) -> Samudra:
+        if self.corrector is not None:
+            corrector = self.corrector.build(hist, area_weights, static_data)
+        else:
+            corrector = None
+
         return Samudra(
             in_channels=self.in_channels + self.pos_channels,
             out_channels=self.out_channels,
@@ -322,9 +332,11 @@ class SamudraConfig(BaseModelConfig):
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
-                self.pad, self.checkpointing, extra_in_channels=self.pos_channels
+                pad=self.pad,
+                checkpointing=self.checkpointing,
+                override_in_channels=self.in_channels + self.pos_channels,
             ),
-            corrector=self.corrector.build(hist, area_weights, static_data),
+            corrector=corrector,
             pos_channels=self.pos_channels,
             hist=hist,
             wet=wet,
@@ -342,7 +354,7 @@ class FOMOConfig(BaseModelConfig):
         n_channels: int,
         hist: int,
         wet: Grid,
-        static_data: xr.Dataset,
+        static_data: xr.Dataset | None,
     ) -> FOMOv0:
         # Maybe consider adding area_weight
         return FOMOv0(

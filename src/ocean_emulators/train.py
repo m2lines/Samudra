@@ -55,7 +55,7 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
-from ocean_emulators.models.samudra import Samudra
+from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
@@ -74,7 +74,6 @@ from ocean_emulators.utils.ema import EMATracker
 from ocean_emulators.utils.logging import (
     MetricLogger,
     SmoothedValue,
-    get_model_summary,
     handle_logging,
     handle_warnings,
 )
@@ -97,7 +96,7 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer:
-    model: Samudra | nn.parallel.DistributedDataParallel
+    model: BaseModel | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
@@ -233,7 +232,7 @@ class Trainer:
                     f"{cfg.model.out_channels}->{self.num_out}"
                 )
                 cfg.model.out_channels = self.num_out
-            model = cfg.model.build(
+            model: BaseModel = cfg.model.build(
                 hist=cfg.data.hist,
                 wet=self.wet,
                 area_weights=self.area_weights,
@@ -241,7 +240,12 @@ class Trainer:
             ).to(self.device)
         elif "FOMOv0" == cfg.experiment.network:
             assert isinstance(cfg.model, FOMOConfig)
-            pass
+            model = cfg.model.build(
+                n_channels=self.num_in,
+                hist=cfg.data.hist,
+                wet=self.wet,
+                static_data=self.data_container.static_data,
+            ).to(self.device)
         else:
             raise NotImplementedError("Model not implemented (or misconfigured).")
 
@@ -546,8 +550,8 @@ class Trainer:
             self.optimizer.zero_grad()
             data.to(self.device)
 
-            if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+            # if self.num_batches_seen == 0:
+            #     get_model_summary(self.model, data, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()

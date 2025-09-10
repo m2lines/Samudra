@@ -1,7 +1,6 @@
 # Sources inspired by the following implementations:
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
 # - https://github.com/lucidrains/vit-pytorch
-from typing import Any
 
 import torch
 from einops import rearrange
@@ -28,7 +27,6 @@ class PerceiverEncoder(nn.Module):
         patch_size: int | tuple[int, int],
         embed_dim: int,
         perceiver_depth: int,
-        **perceiver_kwargs: dict[str, Any],
     ) -> None:
         super().__init__()
         self.n_channels = n_channels

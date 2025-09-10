@@ -7,7 +7,7 @@ on:
         description: "AWS AMI ID to use"
         required: false
         type: string
-        default: "ami-00096836009b16a22" # Deep Learning OSS Nvidia Driver AMI GPU PyTorch
+        default: "ami-0a5b61f85c0a3ce3f" # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04)
       aws_instance_type:
         description: "AWS instance type"
         required: false

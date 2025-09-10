@@ -154,8 +154,8 @@ def test_inference_dataset(inf_data_init, hist):
 def test_inference_rollout(inf_data_init, hist, num_steps):
     inference_dataset, wet = inf_data_init
     model = MockModel(
-        ch_width=[1],
-        n_out=inference_dataset.num_prognostic_channels,
+        in_channels=1,
+        out_channels=inference_dataset.num_prognostic_channels,
         wet=wet,
         hist=hist,
         pred_residuals=False,
@@ -208,8 +208,8 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
 def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     inference_dataset, wet = inf_data_init
     model = MockModel(
-        ch_width=[1],
-        n_out=inference_dataset.num_prognostic_channels,
+        in_channels=1,
+        out_channels=inference_dataset.num_prognostic_channels,
         wet=wet,
         hist=hist,
         pred_residuals=False,

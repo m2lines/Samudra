@@ -14,10 +14,9 @@ def test_positional_parameters_update():
     with MultitonScope():
         TensorMap.init_instance("thetao_1", "hfds")
         coords = {"lev": [0], "y": np.arange(h), "x": np.arange(w)}
-        zero = np.zeros((1, h, w))
         data = xr.Dataset(
             {
-                "thetao": (("lev", "y", "x"), zero),
+                "thetao": (("lev", "y", "x"), np.zeros((1, h, w))),
                 "hfds": (("y", "x"), np.zeros((h, w))),
             },
             coords=coords,

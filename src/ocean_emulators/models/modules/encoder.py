@@ -57,8 +57,8 @@ class PerceiverEncoder(nn.Module):
         # V is a cross product of variable, level (encoded in vars), and time (has history).
         assert V == self.n_channels
         # Ensure patch_size is appropriate for the data.
-        assert H % self.patch_size[0] == 0, f"{H} %  {self.patch_size[0]} != 0."
-        assert W % self.patch_size[1] == 0, f"{W} %  {self.patch_size[1]} != 0."
+        assert H % self.patch_size[0] == 0, f"{H} % {self.patch_size[0]} != 0."
+        assert W % self.patch_size[1] == 0, f"{W} % {self.patch_size[1]} != 0."
 
         # Perceiver experiment ideas:
         # 1. leave it as it is: treating each pixel as a token -- i.e. all channels (includes depths) per pixel

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757514866564,
+  "lastUpdate": 1757530191846,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3892,6 +3892,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.12392325275132637",
             "extra": "mean: 77.90304541459999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "69e1beb1b0b17064cd4ff1a6f2f6b8096c4c471f",
+          "message": "A simple kill switch implementation. (#340)\n\nAdding a `target_epochs` argument to all LR schedulers that allows us to\nsimulate long LR schedules (that actually stop short).\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-09-10T11:23:13-07:00",
+          "tree_id": "1d0a54ce71cd641f8e788abc868066c31b40d634",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/69e1beb1b0b17064cd4ff1a6f2f6b8096c4c471f"
+        },
+        "date": 1757530190883,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2966007626947422,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022498172943657732",
+            "extra": "mean: 771.2474254000028 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07190485357943724,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2801630098260613",
+            "extra": "mean: 13.9072670372 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18183334122416722,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10563126879124794",
+            "extra": "mean: 5.499541466199991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012704498566642599,
+            "unit": "iter/sec",
+            "range": "stddev: 0.25026398839988967",
+            "extra": "mean: 78.71227618740002 sec\nrounds: 5"
           }
         ]
       }

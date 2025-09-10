@@ -10,8 +10,10 @@ from ocean_emulators.utils.multiton import MultitonScope
 
 
 def test_positional_parameters_update():
+    """Verify that positional parameters can learn something in a tiny example."""
     h, w = 4, 5
     with MultitonScope():
+        # Create some tiny data
         TensorMap.init_instance("thetao_1", "hfds")
         coords = {"lev": [0], "y": np.arange(h), "x": np.arange(w)}
         data = xr.Dataset(
@@ -37,6 +39,7 @@ def test_positional_parameters_update():
             torch.ones(h, w),
         )
 
+        # Create the model itself with learned positional embeddings
         config = SamudraConfig(
             ch_width=[2, 2],
             n_out=1,
@@ -52,6 +55,7 @@ def test_positional_parameters_update():
             static_data=None,
         )
 
+        # Verify we have created the positional embeddings
         assert model.positional_params is not None
         assert model.positional_params.shape == (config.pos_channels, h, w)
         assert not torch.allclose(
@@ -59,6 +63,7 @@ def test_positional_parameters_update():
             torch.zeros_like(model.positional_params),
         )
 
+        # Run a step and confirm they have changed
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         x = torch.randn(1, config.ch_width[0], h, w)
         optimizer.zero_grad()

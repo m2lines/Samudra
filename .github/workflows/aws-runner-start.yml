@@ -18,6 +18,11 @@ on:
         required: false
         type: string
         default: "/home/ubuntu"
+      aws_root_device_size:
+        description: "Root device size in GB"
+        required: false
+        type: number
+        default: 200
     outputs:
       mapping:
         description: "Instance mapping for stopping later"
@@ -55,5 +60,6 @@ jobs:
           aws_image_id: ${{ inputs.aws_image_id }}
           aws_instance_type: ${{ inputs.aws_instance_type }}
           aws_home_dir: ${{ inputs.aws_home_dir }}
+          aws_root_device_size: ${{ inputs.aws_root_device_size }}
         env:
           GH_PAT: ${{ secrets.GH_SA_TOKEN }}

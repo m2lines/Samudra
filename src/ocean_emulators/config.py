@@ -267,9 +267,13 @@ class UNetBackboneConfig(BaseConfig):
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
 
-    def build(self, pad: str, checkpointing: Checkpointing | None) -> UNetBackbone:
+    def build(
+        self, pad: str, checkpointing: Checkpointing | None, extra_in_channels: int = 0
+    ) -> UNetBackbone:
+        ch_width = self.ch_width.copy()
+        ch_width[0] += extra_in_channels
         return UNetBackbone(
-            ch_width=self.ch_width,
+            ch_width=ch_width,
             dilation=self.dilation,
             n_layers=self.n_layers,
             pad=pad,
@@ -315,7 +319,9 @@ class SamudraConfig(BaseModelConfig):
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            unet=self.unet.build(self.pad, self.checkpointing),
+            unet=self.unet.build(
+                self.pad, self.checkpointing, extra_in_channels=self.pos_channels
+            ),
             corrector=self.corrector.build(hist, area_weights, static_data),
             pos_channels=self.pos_channels,
             hist=hist,

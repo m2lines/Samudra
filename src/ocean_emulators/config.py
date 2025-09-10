@@ -17,10 +17,10 @@ from ocean_emulators.models.modules import (
     BLOCK_REGISTRY,
     DOWNSAMPLE_REGISTRY,
     UPSAMPLE_REGISTRY,
+    CoreBlock,
+    PerceiverEncoder,
+    UNetBackbone,
 )
-from ocean_emulators.models.modules.blocks import CoreBlock
-from ocean_emulators.models.modules.encoder import PerceiverEncoder
-from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler

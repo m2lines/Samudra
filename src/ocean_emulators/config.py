@@ -374,6 +374,7 @@ class FOMOConfig(BaseModelConfig):
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
+            # TODO(alxmrs): Do both the encoder and processor need to take in both in_channels and out_channels?
             encoder=self.encoder.build(in_channels),
             processor=self.processor.build(self.pad, self.checkpointing),
             hist=hist,

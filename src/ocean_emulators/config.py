@@ -11,15 +11,15 @@ from torch import nn
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
-from ocean_emulators.models import Samudra
-from ocean_emulators.models.fomo import FOMOv0
-from ocean_emulators.models.modules import BLOCK_REGISTRY, UPSAMPLE_REGISTRY
+from ocean_emulators.models import FOMOv0, Samudra
+from ocean_emulators.models.modules import (
+    ACTIVATION_REGISTRY,
+    BLOCK_REGISTRY,
+    DOWNSAMPLE_REGISTRY,
+    UPSAMPLE_REGISTRY,
+)
 from ocean_emulators.models.modules.blocks import CoreBlock
 from ocean_emulators.models.modules.encoder import PerceiverEncoder
-from ocean_emulators.models.modules.factory import (
-    ACTIVATION_REGISTRY,
-    DOWNSAMPLE_REGISTRY,
-)
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation

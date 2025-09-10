@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757530191846,
+  "lastUpdate": 1757530193274,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7890,6 +7890,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3457982196348",
             "extra": "mean: 67.094648907 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "69e1beb1b0b17064cd4ff1a6f2f6b8096c4c471f",
+          "message": "A simple kill switch implementation. (#340)\n\nAdding a `target_epochs` argument to all LR schedulers that allows us to\nsimulate long LR schedules (that actually stop short).\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-09-10T11:23:13-07:00",
+          "tree_id": "1d0a54ce71cd641f8e788abc868066c31b40d634",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/69e1beb1b0b17064cd4ff1a6f2f6b8096c4c471f"
+        },
+        "date": 1757530192691,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2611079819252562,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027653735808317856",
+            "extra": "mean: 792.953509400013 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.0727738082994188,
+            "unit": "iter/sec",
+            "range": "stddev: 0.20314008344413279",
+            "extra": "mean: 13.741207494399964 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1942862422282716,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08572456775972627",
+            "extra": "mean: 5.147044837199928 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.014783291521700746,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1767848613643703",
+            "extra": "mean: 67.64393427079999 sec\nrounds: 5"
           }
         ]
       }

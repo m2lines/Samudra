@@ -107,13 +107,10 @@ def test_cosine_with_warmup():
     target_lr = 0.01
     total_epochs = 25
 
-    optimizer = torch.optim.SGD([torch.zeros(1)], lr=target_lr)
     scheduler_config = CosineWithWarmupConfig(
         warmup_lr=warmup_lr, warmup_epochs=warmup_epochs
     )
-    scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
-
-    lr_history = simulate_lr_history(optimizer, scheduler, total_epochs)
+    lr_history = simulate_lr_history(scheduler_config, target_lr, total_epochs)
 
     assert max(lr_history) == target_lr, "The peak LR should be the target LR"
     last_lr = -1

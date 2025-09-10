@@ -89,7 +89,7 @@ setup: |
           continue
 
       # Extract the path after /inputs/
-      path_after_inputs = location[8:]  # Remove '/inputs/' prefix
+      path_after_inputs = location.removeprefix('/inputs/')
 
       # Get just the top-level directory name
       # Split by '/' and take the first component

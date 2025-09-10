@@ -314,7 +314,7 @@ class SamudraConfig(BaseModelConfig):
         self, hist, wet: Grid, area_weights: Grid, static_data: xr.Dataset | None
     ) -> Samudra:
         return Samudra(
-            in_channels=self.in_channels,
+            in_channels=self.in_channels + self.pos_channels,
             out_channels=self.out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,

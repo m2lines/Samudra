@@ -23,8 +23,6 @@ class Samudra(BaseModel):
         wet: Grid,
         static_data: xr.Dataset | None,
     ):
-        if pos_channels > 0:
-            in_channels += pos_channels
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,

@@ -324,7 +324,7 @@ class BaseModelConfig(BaseConfig):
 
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
-    corrector: CorrectorConfig | None = None
+    corrector: CorrectorConfig | None = None  # None turns all correctors off.
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",

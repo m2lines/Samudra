@@ -257,7 +257,7 @@ class Correctors(torch.nn.Module):
         on configuration.
 
         Args:
-            non_negative_corrector_names (list[str]): list of names of non-negative correctors
+            non_negative_corrector_names (list[str]): list of names of non-negative correctors (None turns feature off).
             ocean_heat_corrector (bool): whether to apply ocean heat corrections (turns this feature on or off)
             hist: History length for temporal data
             area_weights: Area weights for area weighting

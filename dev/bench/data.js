@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757011166842,
+  "lastUpdate": 1757514369220,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3788,6 +3788,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7190156993847262",
             "extra": "mean: 79.00232413460004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "62c704a094bedcf4fc56285e8f404067b44c15cb",
+          "message": "Viz fixes (#366)\n\nA few things that let me run viz again on a larger set of runs:\n\n* Use AWS; it's faster/zero-cost to sync data and has large cheap\nnon-GPU machines.\n* Copy data down to the box first (MOUNT_COPY has a [10G fixed local\ncache](https://github.com/skypilot-org/skypilot/blob/eff22067df3d112890264d3f66167ec66771f778/sky/data/mounting_utils.py#L399)\nwhich is not nearly large enough for our predictions zarrs)\n* Fix ordering of steps (this is both because I like it to be in a\nconsistent order and also because there are currently inter-step\ndependencies)",
+          "timestamp": "2025-09-10T13:58:49Z",
+          "tree_id": "e13c26ee351ce67233ba2770211fe3629bdc39f5",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/62c704a094bedcf4fc56285e8f404067b44c15cb"
+        },
+        "date": 1757514368369,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2787543085081496,
+            "unit": "iter/sec",
+            "range": "stddev: 0.029606276320909772",
+            "extra": "mean: 782.0110504000127 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06671195450037784,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6437753139407463",
+            "extra": "mean: 14.989817154799988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1844751885715318,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13202787458963847",
+            "extra": "mean: 5.420783183600008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.011672781089339803,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15812918452735555",
+            "extra": "mean: 85.66938695640002 sec\nrounds: 5"
           }
         ]
       }

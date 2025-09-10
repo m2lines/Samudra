@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757530193274,
+  "lastUpdate": 1757536673184,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3944,6 +3944,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.25026398839988967",
             "extra": "mean: 78.71227618740002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "40ac6dcf3859a97e633ba92818efd00a39278148",
+          "message": "The linear patch embedder is now our encoder. (#378)\n\nThis creates a tested, isolated encoder module out of our linear patch\nembedder. Here, we make use of Perceiver transformers to encode the\ninput space into a latent representation. This embedding is created\nalong the input channels (a whole column of the ocean) -- it still keeps\nspatial representation together along spatial patches.\n\nFixes #360.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-09-10T13:11:37-07:00",
+          "tree_id": "7c7ad6681fdc44f17d6804994811f16c25e672bc",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/40ac6dcf3859a97e633ba92818efd00a39278148"
+        },
+        "date": 1757536672222,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.3073263694830877,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02053797061548361",
+            "extra": "mean: 764.9199338000017 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.07126447716948256,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5121655668154124",
+            "extra": "mean: 14.032236532400015 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18326045328085133,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09330784847328606",
+            "extra": "mean: 5.456714648999991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012819233199987283,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1327584988458292",
+            "extra": "mean: 78.0077859884 sec\nrounds: 5"
           }
         ]
       }

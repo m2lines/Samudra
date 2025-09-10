@@ -245,7 +245,7 @@ class CorrectorConfig(BaseConfig):
 class EncoderConfig(BaseConfig):
     patch_size: int | tuple[int, int] = Field(
         default=4,
-        description="Either a square patch (int) or a rectangular patch of (height: int, width: int).",
+        description="Either a square patch (int) or a rectangular patch of (height: int, width: int). It must evenly divide the grid size.",
     )
     embed_dim: int = 512
     perceiver_depth: int = 6

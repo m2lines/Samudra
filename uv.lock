@@ -2681,6 +2681,7 @@ dependencies = [
     { name = "jaxtyping" },
     { name = "matplotlib" },
     { name = "numpy" },
+    { name = "perceiver-pytorch" },
     { name = "pydantic-settings" },
     { name = "pytest-xdist", extra = ["psutil"] },
     { name = "pyyaml" },
@@ -2737,6 +2738,7 @@ requires-dist = [
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
+    { name = "perceiver-pytorch", specifier = ">=0.8.8" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },
@@ -2950,6 +2952,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/51/89/8de955c339c31aeae77fd86d3225509b998c81875e9dba28cb88b8cbf4b3/pendulum-3.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:8539db7ae2c8da430ac2515079e288948c8ebf7eb1edd3e8281b5cdf433040d6", size = 260501, upload-time = "2025-04-19T14:01:54.749Z" },
     { url = "https://files.pythonhosted.org/packages/15/c3/226a3837363e94f8722461848feec18bfdd7d5172564d53aa3c3397ff01e/pendulum-3.1.0-cp313-cp313-win_arm64.whl", hash = "sha256:1ce26a608e1f7387cd393fba2a129507c4900958d4f47b90757ec17656856571", size = 253087, upload-time = "2025-04-19T14:01:55.998Z" },
     { url = "https://files.pythonhosted.org/packages/6e/23/e98758924d1b3aac11a626268eabf7f3cf177e7837c28d47bf84c64532d0/pendulum-3.1.0-py3-none-any.whl", hash = "sha256:f9178c2a8e291758ade1e8dd6371b1d26d08371b4c7730a6e9a3ef8b16ebae0f", size = 111799, upload-time = "2025-04-19T14:02:34.739Z" },
+]
+
+[[package]]
+name = "perceiver-pytorch"
+version = "0.8.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "einops" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4b/09/ef394378b5744cb3fdfaa958d564b3b61fdddf9bf87bfd94a989156deeb0/perceiver-pytorch-0.8.8.tar.gz", hash = "sha256:b88af6b4446b8bab2fc2de1104c49c72c20d06015ddd29f24834c85f9efcf329", size = 9201, upload-time = "2023-08-22T18:46:35.649Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ef/52/a99e79b6fc97dc7f7bc48810a4b9b22ce07cd9958ba8ccfc6d416b6aa57c/perceiver_pytorch-0.8.8-py3-none-any.whl", hash = "sha256:4e7802ff652bee91cf5be49849deb625ad247db85c2014c79fbe89e50f31a5f2", size = 12506, upload-time = "2023-08-22T18:46:34.011Z" },
 ]
 
 [[package]]

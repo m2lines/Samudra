@@ -12,7 +12,7 @@ class ReLU(torch.nn.Module):
         :param kwargs: passed to torch.nn.ReLU
         """
         super().__init__()
-        self.add_module("relu", torch.nn.ReLU())
+        self.relu = torch.nn.ReLU(**kwargs)
 
     def forward(self, inputs):
         x = self.relu(inputs)
@@ -30,9 +30,8 @@ class CappedLeakyReLU(torch.nn.Module):
         :param kwargs: passed to torch.nn.LeadyReLU
         """
         super().__init__()
-        self.add_module("relu", torch.nn.LeakyReLU(**kwargs))
-        # self.cap = torch.tensor(cap_value, dtype=torch.float32)
-        self.register_buffer("cap", torch.tensor(cap_value, dtype=torch.float32))
+        self.relu = torch.nn.LeakyReLU(**kwargs)
+        self.cap = torch.nn.Buffer(torch.tensor(cap_value, dtype=torch.float32))
 
     def forward(self, inputs):
         x = self.relu(inputs)
@@ -51,9 +50,8 @@ class CappedGELU(torch.nn.Module):
         :param kwargs: passed to torch.nn.LeadyReLU
         """
         super().__init__()
-        self.add_module("gelu", torch.nn.GELU(**kwargs))
-        # self.cap = torch.tensor(cap_value, dtype=torch.float32)
-        self.register_buffer("cap", torch.tensor(cap_value, dtype=torch.float32))
+        self.gelu = torch.nn.GELU(**kwargs)
+        self.cap = torch.nn.Buffer(torch.tensor(cap_value, dtype=torch.float32))
 
     def forward(self, inputs):
         x = self.gelu(inputs)

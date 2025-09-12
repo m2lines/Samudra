@@ -1,21 +1,20 @@
 from .activations import CappedGELU, CappedLeakyReLU, ReLU
 from .blocks import (
+    AvgPool,
     BilinearUpsample,
     ConvBlock,
     ConvNeXtBlock,
     CoreBlock,
+    CoreBlockBuilder,
+    MaxPool,
     TransposedConvUpsample,
+    UpsamplingBlockBuilder,
 )
 from .encoder import PerceiverEncoder
-from .factory import (
-    ACTIVATION_REGISTRY,
-    BLOCK_REGISTRY,
-    DOWNSAMPLE_REGISTRY,
-    UPSAMPLE_REGISTRY,
-)
 from .unet_backbone import UNetBackbone
 
 __all__ = [
+    "AvgPool",
     "BilinearUpsample",
     "ConvBlock",
     "ConvNeXtBlock",
@@ -23,11 +22,8 @@ __all__ = [
     "TransposedConvUpsample",
     "CappedGELU",
     "CappedLeakyReLU",
+    "MaxPool",
     "PerceiverEncoder",
     "ReLU",
     "UNetBackbone",
-    "BLOCK_REGISTRY",
-    "DOWNSAMPLE_REGISTRY",
-    "UPSAMPLE_REGISTRY",
-    "ACTIVATION_REGISTRY",
 ]

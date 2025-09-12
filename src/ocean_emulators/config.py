@@ -14,15 +14,19 @@ from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
-    ACTIVATION_REGISTRY,
-    BLOCK_REGISTRY,
-    DOWNSAMPLE_REGISTRY,
-    UPSAMPLE_REGISTRY,
+    AvgPool,
+    BilinearUpsample,
+    CappedGELU,
+    ConvBlock,
+    ConvNeXtBlock,
     CoreBlock,
+    CoreBlockBuilder,
+    MaxPool,
     PerceiverEncoder,
+    ReLU,
+    TransposedConvUpsample,
     UNetBackbone,
 )
-from ocean_emulators.models.modules.factory import CoreBlockBuilder
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
@@ -213,6 +217,14 @@ class BlockConfig(BaseConfig):
     norm: NormType = "batch"
 
     def build(self) -> CoreBlockBuilder:
+        match self.activation:
+            case "relu":
+                activation: type[nn.Module] = ReLU
+            case "capped_gelu":
+                activation = CappedGELU
+            case _:
+                raise ValueError(f"Activation {self.activation!r} not supported.")
+
         def create_block(
             in_channels: int,
             out_channels: int,
@@ -221,20 +233,33 @@ class BlockConfig(BaseConfig):
             pad: str,
             checkpoint_simple: bool,
         ) -> CoreBlock:
-            activation = ACTIVATION_REGISTRY[self.activation]
-            Block = BLOCK_REGISTRY[self.block_type]
-            return Block(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                dilation=dilation,
-                n_layers=n_layers,
-                pad=pad,
-                checkpoint_simple=checkpoint_simple,
-                kernel_size=self.kernel_size,
-                upscale_factor=self.upscale_factor,
-                norm=self.norm,
-                activation=activation,
-            )
+            match self.block_type:
+                case "conv_block":
+                    return ConvBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        dilation=dilation,
+                        n_layers=n_layers,
+                        pad=pad,
+                        checkpoint_simple=checkpoint_simple,
+                        kernel_size=self.kernel_size,
+                        activation=activation,
+                    )
+                case "conv_next_block":
+                    return ConvNeXtBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        dilation=dilation,
+                        n_layers=n_layers,
+                        pad=pad,
+                        checkpoint_simple=checkpoint_simple,
+                        kernel_size=self.kernel_size,
+                        upscale_factor=self.upscale_factor,
+                        norm=self.norm,
+                        activation=activation,
+                    )
+                case _:
+                    raise ValueError(f"Block type {self.block_type!r} not supported.")
 
         return create_block
 
@@ -312,13 +337,32 @@ class UNetBackboneConfig(BaseConfig):
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
         )
 
+        def create_upsampling_block(in_channels: int, out_channels: int):
+            match self.up_sampling_block:
+                case "bilinear_upsample":
+                    return BilinearUpsample(
+                        in_channels=in_channels, out_channels=out_channels
+                    )
+                case "transposed_conv":
+                    return TransposedConvUpsample(
+                        in_channels=in_channels, out_channels=out_channels
+                    )
+                case _:
+                    raise ValueError(
+                        f"Unsupported `up_sampling_block`: {self.up_sampling_block!r}."
+                    )
+
         ch_width = [in_channels] + self.ch_width.copy()
 
-        DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]
-
-        def create_upsampling_block(in_channels: int, out_channels: int):
-            Block = UPSAMPLE_REGISTRY[self.up_sampling_block]
-            return Block(in_channels=in_channels, out_channels=out_channels)
+        match self.down_sampling_block:
+            case "avg_pool":
+                downsampling_block: nn.Module = AvgPool()
+            case "max_pool":
+                downsampling_block = MaxPool()
+            case _:
+                raise ValueError(
+                    f"Downsampling block type {self.down_sampling_block!r} not supported."
+                )
 
         return UNetBackbone(
             ch_width=ch_width,
@@ -326,7 +370,7 @@ class UNetBackboneConfig(BaseConfig):
             n_layers=self.n_layers,
             pad=pad,
             create_block=self.core_block.build(),
-            downsampling_block=DownsamplingBlock(),
+            downsampling_block=downsampling_block,
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
         )

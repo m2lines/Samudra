@@ -7,10 +7,8 @@ from torch import nn
 from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
-    TransposedConvUpsample,
-)
-from ocean_emulators.models.modules.factory import (
     CoreBlockBuilder,
+    TransposedConvUpsample,
     UpsamplingBlockBuilder,
 )
 from ocean_emulators.utils.train import pairwise

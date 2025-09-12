@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Protocol
 
 import torch
 import torch.nn as nn
@@ -77,6 +78,8 @@ class CoreBlock(torch.nn.Module):
         kernel_size: int,
         dilation: int,
         pad: str,
+        upscale_factor: int = 1,
+        norm: str = "batch",
     ):
         super().__init__()
         assert kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -86,6 +89,8 @@ class CoreBlock(torch.nn.Module):
         self.N_in = in_channels
         self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
         self.pad = pad
+        self.upscale_factor = upscale_factor
+        self.norm = norm
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError()
@@ -247,3 +252,21 @@ class ConvNeXtBlock(CoreBlock):
             else:
                 x = layer(x)
         return skip + x
+
+
+class CoreBlockBuilder(Protocol):
+    def __call__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        dilation: int,
+        n_layers: int,
+        pad: str,
+        checkpoint_simple: bool,
+    ) -> CoreBlock: ...
+
+
+class UpsamplingBlockBuilder(Protocol):
+    def __call__(
+        self, in_channels: int, out_channels: int
+    ) -> BilinearUpsample | TransposedConvUpsample: ...

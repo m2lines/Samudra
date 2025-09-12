@@ -4,6 +4,7 @@ from torch import nn
 
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.modules import PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
@@ -17,8 +18,8 @@ class FOMO(BaseModel):
         pred_residuals: bool,
         last_kernel_size: int,
         pad: str,
-        encoder: nn.Module,
-        processor: nn.Module,
+        encoder: PerceiverEncoder,
+        processor: UNetBackbone,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
@@ -35,7 +36,6 @@ class FOMO(BaseModel):
         )
         # TODO(alxmrs): Properly wire up the encoder with the processor.
         self.layers = [encoder, processor]
-        assert isinstance(processor, UNetBackbone)
         self.layers.append(
             # Placeholder decoder -- ignoring global padding for now.
             nn.Conv2d(processor.out_channels, out_channels, last_kernel_size),

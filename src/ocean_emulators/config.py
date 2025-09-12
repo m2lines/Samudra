@@ -308,7 +308,7 @@ class UNetBackboneConfig(BaseConfig):
         pad: str,
         checkpointing: Checkpointing | None,
     ) -> UNetBackbone:
-        ch_width = self.ch_width.copy()
+        ch_width = [in_channels] + self.ch_width.copy()
 
         DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]
 

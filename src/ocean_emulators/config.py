@@ -11,7 +11,7 @@ from torch import nn
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
-from ocean_emulators.models import FOMOv0, Samudra
+from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
     ACTIVATION_REGISTRY,
@@ -409,9 +409,9 @@ class FOMOConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
-    ) -> FOMOv0:
+    ) -> FOMO:
         # Maybe consider adding area_weight
-        return FOMOv0(
+        return FOMO(
             in_channels=in_channels,
             out_channels=in_channels,
             pred_residuals=self.pred_residuals,

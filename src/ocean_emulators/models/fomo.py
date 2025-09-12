@@ -7,7 +7,7 @@ from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
-class FOMOv0(BaseModel):
+class FOMO(BaseModel):
     """A placeholder FOMO model. It currently combines an encoder and processor."""
 
     def __init__(

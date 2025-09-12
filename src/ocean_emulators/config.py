@@ -288,7 +288,7 @@ class UNetBackboneConfig(BaseConfig):
 
         DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]
 
-        def create_upsampling_block(in_channels, out_channels) -> nn.Module:
+        def create_upsampling_block(in_channels: int, out_channels: int) -> nn.Module:
             Block = UPSAMPLE_REGISTRY[self.up_sampling_block]
             return Block(in_channels=in_channels, out_channels=out_channels)
 

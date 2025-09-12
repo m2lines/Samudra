@@ -1,3 +1,4 @@
+import abc
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -11,6 +12,7 @@ from torch import nn
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
 from ocean_emulators.models import FOMOv0, Samudra
+from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
     ACTIVATION_REGISTRY,
     BLOCK_REGISTRY,
@@ -326,9 +328,7 @@ class UNetBackboneConfig(BaseConfig):
         )
 
 
-class BaseModelConfig(BaseConfig):
-    in_channels: int = 157
-    out_channels: int = 77
+class BaseModelConfig(BaseConfig, abc.ABC):
     pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
@@ -343,6 +343,18 @@ class BaseModelConfig(BaseConfig):
         and nonlinearities.""",
     )
 
+    @abc.abstractmethod
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hist: int,
+        wet: Grid,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
+    ) -> BaseModel:
+        pass
+
 
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
@@ -353,20 +365,26 @@ class SamudraConfig(BaseModelConfig):
     )
 
     def build(
-        self, hist: int, wet: Grid, area_weights: Grid, static_data: xr.Dataset | None
+        self,
+        in_channels: int,
+        out_channels: int,
+        hist: int,
+        wet: Grid,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
             corrector = self.corrector.build(hist, area_weights, static_data)
-        in_channels = self.in_channels + self.pos_channels
+        total_in_channels = in_channels + self.pos_channels
         return Samudra(
-            in_channels=in_channels,
-            out_channels=self.out_channels,
+            in_channels=total_in_channels,
+            out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
-                in_channels=in_channels,
+                in_channels=total_in_channels,
                 pad=self.pad,
                 checkpointing=self.checkpointing,
             ),
@@ -386,8 +404,10 @@ class FOMOConfig(BaseModelConfig):
     def build(
         self,
         in_channels: int,
+        out_channels: int,
         hist: int,
         wet: Grid,
+        area_weights: Grid,
         static_data: xr.Dataset | None,
     ) -> FOMOv0:
         # Maybe consider adding area_weight
@@ -427,7 +447,6 @@ class ExperimentConfig(BaseConfig):
     wandb: WandBConfig
 
     # Model configuration
-    network: str = "Samudra"
     prognostic_vars_key: str = (
         "thermo_dynamic_all"  # all means all levels and _$num means $num levels
     )

@@ -17,15 +17,12 @@ experiment:
     project: ocean-emulator
     entity: ai2cm
     group: samudra-inference-2in2out
-  network: Samudra
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds
 
 data: !include data/cm4.yaml
 
 model:
-  in_channels: 157
-  out_channels: 77
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"

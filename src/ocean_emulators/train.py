@@ -37,7 +37,7 @@ from ocean_emulators.aggregator.loss import (
     get_variable_loss_dict,
 )
 from ocean_emulators.backend import init_train_backend
-from ocean_emulators.config import FOMOConfig, SamudraConfig, TrainConfig
+from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
@@ -217,42 +217,17 @@ class Trainer:
         )
         self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
-        # Model
-        logger.info(f"Getting model {cfg.experiment.network}")
-        if "Samudra" == cfg.experiment.network:
-            assert isinstance(cfg.model, SamudraConfig)
-            if cfg.model.in_channels != self.num_in:
-                logger.info(
-                    f"NOTE: Changing input channels to match data "
-                    f"{cfg.model.in_channels}->{self.num_in}"
-                )
-                cfg.model.in_channels = self.num_in
-            if cfg.model.out_channels != self.num_out:
-                logger.info(
-                    f"NOTE: Changing output channels to match data "
-                    f"{cfg.model.out_channels}->{self.num_out}"
-                )
-                cfg.model.out_channels = self.num_out
-            model: BaseModel = cfg.model.build(
-                hist=cfg.data.hist,
-                wet=self.wet,
-                area_weights=self.area_weights,
-                static_data=self.data_container.static_data,
-            ).to(self.device)
-        elif "FOMOv0" == cfg.experiment.network:
-            assert isinstance(cfg.model, FOMOConfig)
-            model = cfg.model.build(
-                in_channels=self.num_in,
-                hist=cfg.data.hist,
-                wet=self.wet,
-                static_data=self.data_container.static_data,
-            ).to(self.device)
-        else:
-            raise NotImplementedError("Model not implemented (or misconfigured).")
+        self.model = cfg.model.build(
+            in_channels=self.num_in,
+            out_channels=self.num_out,
+            hist=cfg.data.hist,
+            wet=self.wet.to(self.device),
+            area_weights=self.area_weights,
+            static_data=self.static_data,
+        ).to(self.device)
 
-        self.model = model
         self.nets_dir = cfg.experiment.nets_dir
-        self.network = cfg.experiment.network
+        self.network = self.model.__class__.__name__
 
         self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         # Loss function
@@ -376,7 +351,6 @@ class Trainer:
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
         self.output_dir = cfg.experiment.output_dir
-        self.network = cfg.experiment.network
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size

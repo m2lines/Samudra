@@ -39,7 +39,6 @@ experiment:
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
-  network: Samudra
   prognostic_vars_key: thermo_dynamic_5
   boundary_vars_key: tau_hfds
   data_root: .data_cache/
@@ -53,8 +52,6 @@ data:
 
 
 model:
-  in_channels: 2
-  out_channels: 4
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"

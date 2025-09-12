@@ -7,7 +7,7 @@ import torch
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
-from ocean_emulators.config import EvalConfig, SamudraConfig
+from ocean_emulators.config import EvalConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -117,40 +117,24 @@ class Eval:
         self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
         # Model
-        logger.info(f"Getting model {cfg.experiment.network}")
-        if "Samudra" == cfg.experiment.network:
-            assert isinstance(cfg.model, SamudraConfig)
-            if cfg.model.in_channels != self.num_in:
-                logger.info(
-                    f"NOTE: Changing input channels to match data "
-                    f"{cfg.model.in_channels}->{self.num_in}"
-                )
-                cfg.model.in_channels = self.num_in
-            if cfg.model.out_channels != self.num_out:
-                logger.info(
-                    f"NOTE: Changing output channels to match data "
-                    f"{cfg.model.out_channels}->{self.num_out}"
-                )
-                cfg.model.out_channels = self.num_out
-            model = cfg.model.build(
-                hist=cfg.data.hist,
-                wet=self.wet.to(self.device),
-                area_weights=self.area_weights,
-                static_data=self.static_data,
-            ).to(self.device)
-        else:
-            raise NotImplementedError
+        self.model = cfg.model.build(
+            in_channels=self.num_in,
+            out_channels=self.num_out,
+            hist=cfg.data.hist,
+            wet=self.wet.to(self.device),
+            area_weights=self.area_weights,
+            static_data=self.static_data,
+        ).to(self.device)
 
-        get_model_summary(model, None, cfg.debug)
+        get_model_summary(self.model, None, cfg.debug)
 
-        self.model = model
         if cfg.ckpt_path is None:
             raise ValueError(
                 "ckpt_path must be set; try --ckpt_path=path/to/checkpoint"
             )
         self.load_checkpoint(cfg.ckpt_path)
 
-        self.network = cfg.experiment.network
+        self.network = self.model.__class__.__name__
 
         # Initialize WandB
         self.wandb_logger = WandBLogger.init_instance()
@@ -166,7 +150,6 @@ class Eval:
         # Eval
         self.hist = cfg.data.hist
         self.output_dir = cfg.experiment.output_dir
-        self.network = cfg.experiment.network
         self.debug = cfg.debug
         self.num_workers = cfg.data.num_workers
         self.inference_time = cfg.inference_time

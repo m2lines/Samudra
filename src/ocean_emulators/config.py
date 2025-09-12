@@ -293,7 +293,7 @@ Checkpointing = Literal["all", "simple"]
 
 
 class UNetBackboneConfig(BaseConfig):
-    ch_width: list[int] = [157, 200, 250, 300, 400]
+    ch_width: list[int] = [200, 250, 300, 400]
     dilation: list[int] = [1, 2, 4, 8]
     n_layers: list[int] = [1, 1, 1, 1]
     core_block: BlockConfig = BlockConfig()
@@ -306,8 +306,7 @@ class UNetBackboneConfig(BaseConfig):
         pad: str,
         checkpointing: Checkpointing | None,
     ) -> UNetBackbone:
-        ch_width = self.ch_width.copy()
-        ch_width[0] = in_channels
+        ch_width = [in_channels] + self.ch_width.copy()
 
         DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]
 

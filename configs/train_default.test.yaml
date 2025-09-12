@@ -60,7 +60,7 @@ model:
   pad: "circular"
 
   unet:
-    ch_width: [2, 2, 2]
+    ch_width: [2, 2]
     dilation: [1, 2]
     n_layers: [1, 1]
 

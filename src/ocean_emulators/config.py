@@ -309,7 +309,7 @@ class UNetBackboneConfig(BaseConfig):
         checkpointing: Checkpointing | None,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
-            "`ch_width` and `dilation` must have the same length."
+            "`ch_width`, `dilation`, and `n_layers` must have the same length."
         )
 
         ch_width = [in_channels] + self.ch_width.copy()

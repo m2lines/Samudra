@@ -342,6 +342,14 @@ class TrainData:
                 ),
             )
 
+    def pin_memory(self):
+        for step in self.td_dict:
+            self.td_dict[step] = (
+                self.td_dict[step][0].pin_memory(),
+                self.td_dict[step][1].pin_memory(),
+            )
+        return self
+
     def __iter__(self):
         return iter(self.td_dict)
 

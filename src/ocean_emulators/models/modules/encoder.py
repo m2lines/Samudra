@@ -22,7 +22,7 @@ class PerceiverEncoder(nn.Module):
         perceiver_depth (int): depth of the perceiver module core.
     """
 
-    # TODO(alxmrs): Implement checkpointing
+    # TODO(alxmrs): Implement gradient checkpointing
     def __init__(
         self,
         in_channels: int,

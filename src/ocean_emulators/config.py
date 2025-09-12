@@ -308,6 +308,10 @@ class UNetBackboneConfig(BaseConfig):
         pad: str,
         checkpointing: Checkpointing | None,
     ) -> UNetBackbone:
+        assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
+            "`ch_width` and `dilation` must have the same length."
+        )
+
         ch_width = [in_channels] + self.ch_width.copy()
 
         DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]

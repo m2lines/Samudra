@@ -306,7 +306,7 @@ class UNetBackboneConfig(BaseConfig):
         pad: str,
         checkpointing: Checkpointing | None,
     ) -> UNetBackbone:
-        ch_width = [in_channels] + self.ch_width.copy()
+        ch_width = self.ch_width.copy()
 
         DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]
 
@@ -404,6 +404,9 @@ class FOMOConfig(BaseModelConfig):
             wet=wet,
             static_data=static_data,
         )
+
+
+AnyModelConfig = SamudraConfig | FOMOConfig
 
 
 class DistributedConfig(BaseConfig):
@@ -514,7 +517,7 @@ class TrainConfig(TopLevelConfig):
     # Config components
     experiment: ExperimentConfig
     data: DataConfig
-    model: SamudraConfig | FOMOConfig
+    model: AnyModelConfig
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
@@ -542,7 +545,7 @@ class EvalConfig(TopLevelConfig):
     )
     experiment: ExperimentConfig
     data: DataConfig
-    model: SamudraConfig | FOMOConfig = SamudraConfig()
+    model: AnyModelConfig = SamudraConfig()
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

@@ -257,17 +257,31 @@ class CorrectorConfig(BaseConfig):
 
 
 class EncoderConfig(BaseConfig):
-    patch_size: int | tuple[int, int] = Field(
+    patch_size: int | list[int] = Field(
         default=4,
-        description="Either a square patch (int) or a rectangular patch of (height: int, width: int). It must evenly divide the grid size.",
+        description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
     )
     embed_dim: int = 512
     perceiver_depth: int = 6
 
     def build(self, in_channels: int) -> PerceiverEncoder:
+        if (
+            isinstance(self.patch_size, list)
+            and len(self.patch_size) == 2
+            and isinstance(self.patch_size[0], int)
+            and isinstance(self.patch_size[1], int)
+        ):
+            patch_size: int | tuple[int, int] = self.patch_size[0], self.patch_size[1]
+        elif isinstance(self.patch_size, int):
+            patch_size = self.patch_size
+        else:
+            raise ValueError(
+                "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
+            )
+
         return PerceiverEncoder(
             in_channels=in_channels,
-            patch_size=self.patch_size,
+            patch_size=patch_size,
             embed_dim=self.embed_dim,
             perceiver_depth=self.perceiver_depth,
         )

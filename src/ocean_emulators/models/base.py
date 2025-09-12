@@ -34,18 +34,36 @@ class BaseModel(torch.nn.Module):
         self.input_channels = ch_width[0]
         self.num_prognostic_channels = n_out
         self.static_data = static_data
+        self.compiled_body = None
 
     def forward_once(self, fts):
         raise NotImplementedError()
 
-    @torch.compile(fullgraph=True, dynamic=False, mode="max-autotune-no-cudagraphs")
-    def forward(
+    def fast_forward(
         self,
         train_data: TrainData,
         loss_fn=None,
-    ) -> torch.Tensor | list[torch.Tensor]:
+    ):
+        self.loss_fn = loss_fn  # TODO(jder): eww
+
+        packed_data = []
+        for step in range(len(train_data)):
+            packed_data.append(train_data.td_dict[step])
+
+        args = (tuple(packed_data),)
+
+        if self.compiled_body is None:
+            self.compiled_body = torch.jit.trace(self, args, check_trace=False)
+        return self.compiled_body(*args)
+
+    def forward(self, data) -> torch.Tensor | tuple[torch.Tensor, ...]:
         outputs: list[torch.Tensor] = []
-        loss = torch.tensor(torch.nan)
+        loss = None
+        train_data = TrainData(num_prognostic_channels=self.num_prognostic_channels)
+
+        for input, label in data:
+            train_data.insert(input, label)
+
         for step in range(len(train_data)):
             if step == 0:
                 input_tensor = train_data.get_initial_input()
@@ -66,22 +84,22 @@ class BaseModel(torch.nn.Module):
             else:
                 pred = decodings  # Absolute prediction
 
-            if loss_fn is not None:
+            if self.loss_fn is not None:
                 if step == 0:
-                    loss = loss_fn(
+                    loss = self.loss_fn(
                         pred,
                         train_data.get_label(step),
                     )
                 else:
-                    loss += loss_fn(
+                    loss += self.loss_fn(
                         pred,
                         train_data.get_label(step),
                     )
 
             outputs.append(pred)
 
-        if loss_fn is None:
-            return outputs
+        if self.loss_fn is None:
+            return tuple(outputs)
         else:
             return loss
 

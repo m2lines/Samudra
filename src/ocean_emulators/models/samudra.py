@@ -163,11 +163,12 @@ class Samudra(BaseModel):
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         fts_input = fts.clone().detach()
         if self.positional_params is not None:
+            assert False
             pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)
             fts = torch.cat([fts, pos], dim=1)
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
-            skip_inputs.append(torch.zeros_like(fts))
+            skip_inputs.append(None)
         count = 0
         for layer in self.layers:
             crop: torch.Size | np.ndarray = fts.shape[2:]

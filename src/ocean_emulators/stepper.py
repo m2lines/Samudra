@@ -19,13 +19,13 @@ from ocean_emulators.utils.writer import ZarrWriter
 
 class Stepper:
     def __init__(self):
-        pass
+        self.compiled_model = None
 
     @staticmethod
     def train_batch(
-        model: torch.nn.Module, batch: TrainData, loss_fn: Callable
+        model: BaseModel, batch: TrainData, loss_fn: Callable
     ) -> TrainBatchOutput:
-        loss_per_channel = model(batch, loss_fn=loss_fn)
+        loss_per_channel = model.fast_forward(batch, loss_fn=loss_fn)
         loss = torch.mean(loss_per_channel)
         return TrainBatchOutput(loss, loss_per_channel)
 

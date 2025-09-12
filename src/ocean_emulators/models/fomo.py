@@ -38,9 +38,7 @@ class FOMOv0(BaseModel):
         assert isinstance(processor, UNetBackbone)
         self.layers.append(
             # Placeholder decoder -- ignoring global padding for now.
-            nn.Conv2d(
-                processor.layers[-1].out_channels, out_channels, last_kernel_size
-            ),
+            nn.Conv2d(processor.out_channels, out_channels, last_kernel_size),
         )
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:

@@ -46,7 +46,7 @@ class Samudra(BaseModel):
             # Add UNet core.
             unet,
             # Samudra "decoder".
-            nn.Conv2d(unet.layers[-1].out_channels, out_channels, last_kernel_size),
+            nn.Conv2d(unet.out_channels, out_channels, last_kernel_size),
         ]
 
         self.layers = nn.ModuleList(layers)

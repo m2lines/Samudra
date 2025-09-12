@@ -57,6 +57,9 @@ class UNetBackbone(nn.Module):
         ch_width = ch_width.copy()
         dilation = dilation.copy()
         n_layers = n_layers.copy()
+        self.pad = pad
+        self.in_channels = ch_width[0]
+        self.out_channels = ch_width[1]
 
         match checkpointing:
             case "all":
@@ -134,6 +137,9 @@ class UNetBackbone(nn.Module):
             )
         )
 
+        first_block = layers[0]
+        assert isinstance(first_block, CoreBlock)
+        self.N_pad = first_block.N_pad
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
 

@@ -70,7 +70,14 @@ class MaxPool(torch.nn.Module):
 
 
 class CoreBlock(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, dilation, pad):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dilation: int,
+        pad: str,
+    ):
         super().__init__()
         assert kernel_size % 2 != 0, "Cannot use even kernel sizes!"
         self.in_channels = in_channels

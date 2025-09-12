@@ -302,14 +302,12 @@ class UNetBackboneConfig(BaseConfig):
 
     def build(
         self,
+        in_channels: int,
         pad: str,
         checkpointing: Checkpointing | None,
-        override_in_channels: int = 0,
     ) -> UNetBackbone:
         ch_width = self.ch_width.copy()
-        # This is needed for Samudra magic.
-        if override_in_channels != 0:
-            ch_width[0] = override_in_channels
+        ch_width[0] = in_channels
 
         DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]
 
@@ -369,9 +367,9 @@ class SamudraConfig(BaseModelConfig):
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
+                in_channels=in_channels,
                 pad=self.pad,
                 checkpointing=self.checkpointing,
-                override_in_channels=in_channels,
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
@@ -400,9 +398,9 @@ class FOMOConfig(BaseModelConfig):
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            # TODO(alxmrs): Do both the encoder and processor need to take in both in_channels and out_channels?
+            # TODO(alxmrs): Do the encoder and processor need to take in both in_channels and out_channels?
             encoder=self.encoder.build(in_channels),
-            processor=self.processor.build(self.pad, self.checkpointing),
+            processor=self.processor.build(in_channels, self.pad, self.checkpointing),
             hist=hist,
             wet=wet,
             static_data=static_data,

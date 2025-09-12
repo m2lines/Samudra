@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self
@@ -21,6 +20,7 @@ from ocean_emulators.models.modules import (
     PerceiverEncoder,
     UNetBackbone,
 )
+from ocean_emulators.models.modules.factory import CoreBlockBuilder
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
@@ -210,13 +210,24 @@ class BlockConfig(BaseConfig):
     upscale_factor: int = 4
     norm: NormType = "batch"
 
-    def build(self) -> Callable[..., CoreBlock]:
-        def create_block(*args, **kwargs) -> CoreBlock:
+    def build(self) -> CoreBlockBuilder:
+        def create_block(
+            in_channels: int,
+            out_channels: int,
+            dilation: int,
+            n_layers: int,
+            pad: str,
+            checkpoint_simple: bool,
+        ) -> CoreBlock:
             activation = ACTIVATION_REGISTRY[self.activation]
             Block = BLOCK_REGISTRY[self.block_type]
             return Block(
-                *args,
-                **kwargs,
+                in_channels=in_channels,
+                out_channels=out_channels,
+                dilation=dilation,
+                n_layers=n_layers,
+                pad=pad,
+                checkpoint_simple=checkpoint_simple,
                 kernel_size=self.kernel_size,
                 upscale_factor=self.upscale_factor,
                 norm=self.norm,
@@ -288,7 +299,7 @@ class UNetBackboneConfig(BaseConfig):
 
         DownsamplingBlock = DOWNSAMPLE_REGISTRY[self.down_sampling_block]
 
-        def create_upsampling_block(in_channels: int, out_channels: int) -> nn.Module:
+        def create_upsampling_block(in_channels: int, out_channels: int):
             Block = UPSAMPLE_REGISTRY[self.up_sampling_block]
             return Block(in_channels=in_channels, out_channels=out_channels)
 

@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import TYPE_CHECKING, assert_never
 
 import numpy as np
@@ -9,6 +8,10 @@ from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
     TransposedConvUpsample,
+)
+from ocean_emulators.models.modules.factory import (
+    CoreBlockBuilder,
+    UpsamplingBlockBuilder,
 )
 from ocean_emulators.utils.train import pairwise
 
@@ -46,9 +49,9 @@ class UNetBackbone(nn.Module):
         dilation: list[int],
         n_layers: list[int],
         pad: str,
-        create_block: Callable[..., CoreBlock],
+        create_block: CoreBlockBuilder,
         downsampling_block: nn.Module,
-        create_upsampling_block: Callable[..., nn.Module],
+        create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
     ):
         super().__init__()

@@ -1,12 +1,34 @@
+from typing import Protocol
+
 from ocean_emulators.models.modules.activations import CappedGELU, ReLU
 from ocean_emulators.models.modules.blocks import (
     AvgPool,
     BilinearUpsample,
     ConvBlock,
     ConvNeXtBlock,
+    CoreBlock,
     MaxPool,
     TransposedConvUpsample,
 )
+
+
+class CoreBlockBuilder(Protocol):
+    def __call__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        dilation: int,
+        n_layers: int,
+        pad: str,
+        checkpoint_simple: bool,
+    ) -> CoreBlock: ...
+
+
+class UpsamplingBlockBuilder(Protocol):
+    def __call__(
+        self, in_channels: int, out_channels: int
+    ) -> BilinearUpsample | TransposedConvUpsample: ...
+
 
 BLOCK_REGISTRY = {
     "conv_block": ConvBlock,

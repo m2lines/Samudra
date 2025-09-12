@@ -190,16 +190,15 @@ class Samudra(BaseModel):
                 if isinstance(layer, BilinearUpsample) or isinstance(
                     layer, TransposedConvUpsample
                 ):
-                    crop = np.array(fts.shape[2:])
-                    shape = np.array(
-                        skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
-                    )
-                    pads = shape - crop
+                    crop = fts.shape[2:]
+                    shape = skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
+                    pad_0 = shape[0] - crop[0]
+                    pad_1 = shape[1] - crop[1]
                     pads = [
-                        pads[1] // 2,
-                        pads[1] - pads[1] // 2,
-                        pads[0] // 2,
-                        pads[0] - pads[0] // 2,
+                        pad_1 // 2,
+                        pad_1 - pad_1 // 2,
+                        pad_0 // 2,
+                        pad_0 - pad_0 // 2,
                     ]
                     fts = nn.functional.pad(fts, pads)
                     fts += skip_inputs[int(2 * self.num_steps - count - 1)]

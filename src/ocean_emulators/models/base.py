@@ -38,6 +38,7 @@ class BaseModel(torch.nn.Module):
     def forward_once(self, fts):
         raise NotImplementedError()
 
+    @torch.compile(fullgraph=True, dynamic=False, mode="max-autotune-no-cudagraphs")
     def forward(
         self,
         train_data: TrainData,

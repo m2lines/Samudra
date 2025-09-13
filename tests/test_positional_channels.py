@@ -41,7 +41,7 @@ def test_positional_parameters_update():
         # Create the model itself with learned positional embeddings
         config = SamudraConfig(
             unet=UNetBackboneConfig(
-                ch_width=[2, 2],
+                ch_width=[2],
                 dilation=[1],
                 n_layers=[1],
             ),
@@ -66,7 +66,7 @@ def test_positional_parameters_update():
 
         # Run a step and confirm they have changed
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-        x = torch.randn(1, model.in_channels, h, w)
+        x = torch.randn(1, 2, h, w)
         optimizer.zero_grad()
         out = model.forward_once(x)
         loss = out.sum()

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757612841235,
+  "lastUpdate": 1757955336820,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4048,6 +4048,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.072758160411517",
             "extra": "mean: 82.21663722960002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cb9e8ce93c02176dc3f8923aec2d01ef0db945b6",
+          "message": "Updated our configuration system to accommodate multiple models, including FOMO v0.  (#379)\n\nThis change makes space for us to develop and configure non-Samudra\nmodels. I've created a basic implementation of FOMOv0, but this is\nintentionally a placeholder. The focus of the PR is on the config system\nchanges. To that end, all models are constructed with our builder\npattern.\n\nFor the benefit of working with both FOMOv0 and Samudra, this PR factors\nout the UNet implementation into its own module. We've also updated all\nour config files to follow this new interface.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-09-15T16:28:58Z",
+          "tree_id": "5ba4ccfd4132c6096bd1864acb0e16f798336d36",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/cb9e8ce93c02176dc3f8923aec2d01ef0db945b6"
+        },
+        "date": 1757955335712,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.286900632159418,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04729364773798122",
+            "extra": "mean: 777.0607730000108 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06989952106098252,
+            "unit": "iter/sec",
+            "range": "stddev: 0.513364574930176",
+            "extra": "mean: 14.3062496684 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19029445819571508,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12116450671550716",
+            "extra": "mean: 5.255013779600006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012063362744488536,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2014815439732835",
+            "extra": "mean: 82.89562547200003 sec\nrounds: 5"
           }
         ]
       }

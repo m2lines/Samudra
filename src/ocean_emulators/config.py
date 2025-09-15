@@ -1,13 +1,14 @@
 import abc
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Self, assert_never
 
 import cftime
 import torch
 import xarray as xr
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 from torch import nn
+from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
@@ -222,8 +223,10 @@ class BlockConfig(BaseConfig):
                 activation: type[nn.Module] = ReLU
             case "capped_gelu":
                 activation = CappedGELU
+            case "gelu":
+                activation = GELU
             case _:
-                raise ValueError(f"Activation {self.activation!r} not supported.")
+                assert_never(self.activation)
 
         def create_block(
             in_channels: int,
@@ -259,7 +262,7 @@ class BlockConfig(BaseConfig):
                         activation=activation,
                     )
                 case _:
-                    raise ValueError(f"Block type {self.block_type!r} not supported.")
+                    assert_never(self.block_type)
 
         return create_block
 
@@ -348,9 +351,7 @@ class UNetBackboneConfig(BaseConfig):
                         in_channels=in_channels, out_channels=out_channels
                     )
                 case _:
-                    raise ValueError(
-                        f"Unsupported `up_sampling_block`: {self.up_sampling_block!r}."
-                    )
+                    assert_never(self.up_sampling_block)
 
         ch_width = [in_channels] + self.ch_width.copy()
 
@@ -360,9 +361,7 @@ class UNetBackboneConfig(BaseConfig):
             case "max_pool":
                 downsampling_block = MaxPool()
             case _:
-                raise ValueError(
-                    f"Downsampling block type {self.down_sampling_block!r} not supported."
-                )
+                assert_never(self.down_sampling_block)
 
         return UNetBackbone(
             ch_width=ch_width,

@@ -479,7 +479,7 @@ class FOMOConfig(BaseModelConfig):
                 self.pad,
                 self.checkpointing,
             ),
-            # decoder = self.decoder.build(self.embedding_out_dim, out_channels)  # will be something like this
+            # decoder = self.decoder.build(self.out_embedding, out_channels)  # will be something like this
             hist=hist,
             wet=wet,
             static_data=static_data,

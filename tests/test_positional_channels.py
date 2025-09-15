@@ -2,9 +2,8 @@ import numpy as np
 import torch
 import xarray as xr
 
-from ocean_emulators.config import SamudraConfig
+from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
 from ocean_emulators.constants import TensorMap
-from ocean_emulators.models.samudra import Samudra
 from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
@@ -41,14 +40,16 @@ def test_positional_parameters_update():
 
         # Create the model itself with learned positional embeddings
         config = SamudraConfig(
-            ch_width=[2, 2],
-            n_out=1,
-            dilation=[1],
-            n_layers=[1],
+            unet=UNetBackboneConfig(
+                ch_width=[2],
+                dilation=[1],
+                n_layers=[1],
+            ),
             pos_channels=1,
         )
-        model = Samudra(
-            config=config,
+        model = config.build(
+            in_channels=2,
+            out_channels=1,
             hist=0,
             wet=torch.ones(1, h, w, dtype=torch.bool),
             area_weights=torch.ones(h, w),
@@ -65,7 +66,7 @@ def test_positional_parameters_update():
 
         # Run a step and confirm they have changed
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-        x = torch.randn(1, config.ch_width[0], h, w)
+        x = torch.randn(1, 2, h, w)
         optimizer.zero_grad()
         out = model.forward_once(x)
         loss = out.sum()

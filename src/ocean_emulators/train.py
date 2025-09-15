@@ -55,7 +55,7 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataset,
 )
-from ocean_emulators.models.samudra import Samudra
+from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
@@ -97,7 +97,7 @@ logger = logging.getLogger(__name__)
 
 
 class Trainer:
-    model: Samudra | nn.parallel.DistributedDataParallel
+    model: BaseModel | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
@@ -217,34 +217,17 @@ class Trainer:
         )
         self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
-        # Model
-        logger.info(f"Getting model {cfg.experiment.network}")
-        if "Samudra" == cfg.experiment.network:
-            if cfg.samudra.ch_width[0] != self.num_in:
-                logger.info(
-                    f"NOTE: Changing input channels to match data "
-                    f"{cfg.samudra.ch_width[0]}->{self.num_in}"
-                )
-                cfg.samudra.ch_width[0] = self.num_in
-            if cfg.samudra.n_out != self.num_out:
-                logger.info(
-                    f"NOTE: Changing output channels to match data "
-                    f"{cfg.samudra.n_out}->{self.num_out}"
-                )
-                cfg.samudra.n_out = self.num_out
-            model = Samudra(
-                cfg.samudra,
-                hist=cfg.data.hist,
-                wet=self.wet,
-                area_weights=self.area_weights,
-                static_data=self.data_container.static_data,
-            ).to(self.device)
-        else:
-            raise NotImplementedError
+        self.model = cfg.model.build(
+            in_channels=self.num_in,
+            out_channels=self.num_out,
+            hist=cfg.data.hist,
+            wet=self.wet.to(self.device),
+            area_weights=self.area_weights,
+            static_data=self.static_data,
+        ).to(self.device)
 
-        self.model = model
         self.nets_dir = cfg.experiment.nets_dir
-        self.network = cfg.experiment.network
+        self.network = self.model.__class__.__name__
 
         self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         # Loss function
@@ -368,7 +351,6 @@ class Trainer:
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
         self.output_dir = cfg.experiment.output_dir
-        self.network = cfg.experiment.network
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
@@ -631,7 +613,7 @@ class Trainer:
             if update := getattr(self.loss_fn, "update", None):
                 with torch.no_grad():
                     # TODO(jder): could avoid a second forward pass here
-                    single_step_data = TrainData(data.num_prognostic_channels)
+                    single_step_data = TrainData(data.out_channels)
                     # Each entry in data is one step in a rollout.
                     input, label = data[0]
                     single_step_data.insert(input, label)

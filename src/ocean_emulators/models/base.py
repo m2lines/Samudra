@@ -12,8 +12,8 @@ from ocean_emulators.utils.output import ModelInferenceOutput
 class BaseModel(torch.nn.Module):
     def __init__(
         self,
-        ch_width,
-        n_out,
+        in_channels,
+        out_channels,
         wet,
         hist,
         pred_residuals,
@@ -23,16 +23,13 @@ class BaseModel(torch.nn.Module):
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
-        self.N_in = ch_width[0]
-        self.N_out = ch_width[-1]
-        self.ch_width = ch_width
+        self.in_channels = in_channels
+        self.out_channels = out_channels
         self.wet = wet.bool()
         self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad = pad
         self.pred_residuals = pred_residuals
         self.hist = hist
-        self.input_channels = ch_width[0]
-        self.num_prognostic_channels = n_out
         self.static_data = static_data
 
     def forward_once(self, fts):
@@ -58,7 +55,7 @@ class BaseModel(torch.nn.Module):
                 pred = (
                     input_tensor[
                         :,
-                        : self.num_prognostic_channels,
+                        : self.out_channels,
                     ]  # Residuals on last state in input
                     + decodings
                 )  # Residual prediction
@@ -119,7 +116,7 @@ class BaseModel(torch.nn.Module):
                 pred = (
                     input_tensor[
                         0,
-                        : self.num_prognostic_channels,
+                        : self.out_channels,
                     ].to(  # Residuals on last state in input
                         device=get_device()
                     )

@@ -1,13 +1,33 @@
+import abc
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any, Literal, Self
+from typing import Annotated, Literal, Self, assert_never
 
 import cftime
 import torch
+import xarray as xr
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
+from torch import nn
+from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import BoundaryVarNames, LoaderVersion
+from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
+from ocean_emulators.models import FOMO, Samudra
+from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.modules import (
+    AvgPool,
+    BilinearUpsample,
+    CappedGELU,
+    ConvBlock,
+    ConvNeXtBlock,
+    CoreBlock,
+    CoreBlockBuilder,
+    MaxPool,
+    PerceiverEncoder,
+    ReLU,
+    TransposedConvUpsample,
+    UNetBackbone,
+)
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
@@ -197,10 +217,104 @@ class BlockConfig(BaseConfig):
     upscale_factor: int = 4
     norm: NormType = "batch"
 
+    def build(self) -> CoreBlockBuilder:
+        match self.activation:
+            case "relu":
+                activation: type[nn.Module] = ReLU
+            case "capped_gelu":
+                activation = CappedGELU
+            case "gelu":
+                activation = GELU
+            case _:
+                assert_never(self.activation)
+
+        def create_block(
+            in_channels: int,
+            out_channels: int,
+            dilation: int,
+            n_layers: int,
+            pad: str,
+            checkpoint_simple: bool,
+        ) -> CoreBlock:
+            match self.block_type:
+                case "conv_block":
+                    return ConvBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        dilation=dilation,
+                        n_layers=n_layers,
+                        pad=pad,
+                        checkpoint_simple=checkpoint_simple,
+                        kernel_size=self.kernel_size,
+                        activation=activation,
+                    )
+                case "conv_next_block":
+                    return ConvNeXtBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        dilation=dilation,
+                        n_layers=n_layers,
+                        pad=pad,
+                        checkpoint_simple=checkpoint_simple,
+                        kernel_size=self.kernel_size,
+                        upscale_factor=self.upscale_factor,
+                        norm=self.norm,
+                        activation=activation,
+                    )
+                case _:
+                    assert_never(self.block_type)
+
+        return create_block
+
 
 class CorrectorConfig(BaseConfig):
     non_negative_corrector_names: list[str] | None = None
     ocean_heat_corrector: bool = False
+
+    def build(
+        self, hist: int, area_weights: Grid, static_data: xr.Dataset | None
+    ) -> nn.Module:
+        # This prevents a circular import bug.
+        from ocean_emulators.models.corrector import Correctors
+
+        return Correctors(
+            non_negative_corrector_names=self.non_negative_corrector_names,
+            ocean_heat_corrector=self.ocean_heat_corrector,
+            hist=hist,
+            area_weights=area_weights,
+            static_data=static_data,
+        )
+
+
+class EncoderConfig(BaseConfig):
+    patch_size: int | list[int] = Field(
+        default=4,
+        description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
+    )
+    embed_dim: int = 512
+    perceiver_depth: int = 6
+
+    def build(self, in_channels: int) -> PerceiverEncoder:
+        if (
+            isinstance(self.patch_size, list)
+            and len(self.patch_size) == 2
+            and isinstance(self.patch_size[0], int)
+            and isinstance(self.patch_size[1], int)
+        ):
+            patch_size: int | tuple[int, int] = self.patch_size[0], self.patch_size[1]
+        elif isinstance(self.patch_size, int):
+            patch_size = self.patch_size
+        else:
+            raise ValueError(
+                "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
+            )
+
+        return PerceiverEncoder(
+            in_channels=in_channels,
+            patch_size=patch_size,
+            embed_dim=self.embed_dim,
+            perceiver_depth=self.perceiver_depth,
+        )
 
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
@@ -208,25 +322,63 @@ UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
 Checkpointing = Literal["all", "simple"]
 
 
-class SamudraConfig(BaseConfig):
-    ch_width: list[int] = [157, 200, 250, 300, 400]
-    n_out: int = 77
+class UNetBackboneConfig(BaseConfig):
+    ch_width: list[int] = [200, 250, 300, 400]
     dilation: list[int] = [1, 2, 4, 8]
     n_layers: list[int] = [1, 1, 1, 1]
+    core_block: BlockConfig = BlockConfig()
+    down_sampling_block: DownSamplingBlocks = "avg_pool"
+    up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
+
+    def build(
+        self,
+        in_channels: int,
+        pad: str,
+        checkpointing: Checkpointing | None,
+    ) -> UNetBackbone:
+        assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
+            "`ch_width`, `dilation`, and `n_layers` must have the same length."
+        )
+
+        def create_upsampling_block(in_channels: int, out_channels: int):
+            match self.up_sampling_block:
+                case "bilinear_upsample":
+                    return BilinearUpsample(
+                        in_channels=in_channels, out_channels=out_channels
+                    )
+                case "transposed_conv":
+                    return TransposedConvUpsample(
+                        in_channels=in_channels, out_channels=out_channels
+                    )
+                case _:
+                    assert_never(self.up_sampling_block)
+
+        ch_width = [in_channels] + self.ch_width.copy()
+
+        match self.down_sampling_block:
+            case "avg_pool":
+                downsampling_block: nn.Module = AvgPool()
+            case "max_pool":
+                downsampling_block = MaxPool()
+            case _:
+                assert_never(self.down_sampling_block)
+
+        return UNetBackbone(
+            ch_width=ch_width,
+            dilation=self.dilation,
+            n_layers=self.n_layers,
+            pad=pad,
+            create_block=self.core_block.build(),
+            downsampling_block=downsampling_block,
+            create_upsampling_block=create_upsampling_block,
+            checkpointing=checkpointing,
+        )
+
+
+class BaseModelConfig(BaseConfig, abc.ABC):
     pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
-    wet: Any | None = None
-    pos_channels: int = Field(
-        default=0,
-        description="""Number of channels used for a learned positional embedding""",
-    )
-
-    # Block configurations
-    core_block: BlockConfig = BlockConfig()
-    corrector: CorrectorConfig = CorrectorConfig()
-    down_sampling_block: DownSamplingBlocks = "avg_pool"
-    up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
 
     checkpointing: Checkpointing | None = Field(
         default=None,
@@ -237,6 +389,91 @@ class SamudraConfig(BaseConfig):
         If set to 'simple', the model will recompute only cheap layers like scales
         and nonlinearities.""",
     )
+
+    @abc.abstractmethod
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hist: int,
+        wet: Grid,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
+    ) -> BaseModel:
+        pass
+
+
+class SamudraConfig(BaseModelConfig):
+    unet: UNetBackboneConfig = UNetBackboneConfig()
+    corrector: CorrectorConfig | None = None  # None turns all correctors off.
+    pos_channels: int = Field(
+        default=0,
+        description="""Number of channels used for a learned positional embedding""",
+    )
+
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hist: int,
+        wet: Grid,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
+    ) -> Samudra:
+        corrector = None
+        if self.corrector is not None:
+            corrector = self.corrector.build(hist, area_weights, static_data)
+        total_in_channels = in_channels + self.pos_channels
+        return Samudra(
+            in_channels=total_in_channels,
+            out_channels=out_channels,
+            pred_residuals=self.pred_residuals,
+            last_kernel_size=self.last_kernel_size,
+            pad=self.pad,
+            unet=self.unet.build(
+                in_channels=total_in_channels,
+                pad=self.pad,
+                checkpointing=self.checkpointing,
+            ),
+            corrector=corrector,
+            pos_channels=self.pos_channels,
+            hist=hist,
+            wet=wet,
+            static_data=static_data,
+        )
+
+
+class FOMOConfig(BaseModelConfig):
+    encoder: EncoderConfig = EncoderConfig()
+    processor: UNetBackboneConfig = UNetBackboneConfig()
+    # decoder will go here.
+
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hist: int,
+        wet: Grid,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
+    ) -> FOMO:
+        # Maybe consider adding area_weight
+        return FOMO(
+            in_channels=in_channels,
+            out_channels=in_channels,
+            pred_residuals=self.pred_residuals,
+            last_kernel_size=self.last_kernel_size,
+            pad=self.pad,
+            # TODO(alxmrs): Do the encoder and processor need to take in both in_channels and out_channels?
+            encoder=self.encoder.build(in_channels),
+            processor=self.processor.build(in_channels, self.pad, self.checkpointing),
+            hist=hist,
+            wet=wet,
+            static_data=static_data,
+        )
+
+
+AnyModelConfig = SamudraConfig | FOMOConfig
 
 
 class DistributedConfig(BaseConfig):
@@ -257,7 +494,6 @@ class ExperimentConfig(BaseConfig):
     wandb: WandBConfig
 
     # Model configuration
-    network: str = "Samudra"
     prognostic_vars_key: str = (
         "thermo_dynamic_all"  # all means all levels and _$num means $num levels
     )
@@ -347,7 +583,7 @@ class TrainConfig(TopLevelConfig):
     # Config components
     experiment: ExperimentConfig
     data: DataConfig
-    samudra: SamudraConfig
+    model: AnyModelConfig
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
@@ -375,7 +611,7 @@ class EvalConfig(TopLevelConfig):
     )
     experiment: ExperimentConfig
     data: DataConfig
-    samudra: SamudraConfig = SamudraConfig()
+    model: AnyModelConfig = SamudraConfig()
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

@@ -9,7 +9,10 @@ from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
 class FOMO(BaseModel):
-    """FOMO: A Foundation Model for the Oceans + Observations."""
+    """FOMO: A Foundation Model for the Oceans + Observations.
+
+    Currently, this model is used only as a physical ocean emulator.
+    """
 
     def __init__(
         self,

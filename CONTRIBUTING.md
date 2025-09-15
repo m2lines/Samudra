@@ -173,7 +173,7 @@ To run a remote training job with Skypilot, use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-uv run sky launch train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env
+uv run sky launch skypilot/train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env --env NAME <my-experiment-name>
 ```
 
 Please read the docstring in the `train.sky.yaml` for more information.
@@ -193,6 +193,15 @@ You can run `uv run -m ocean_emulators.eval --help` to see all the options avail
 
 To learn more about other datasets used during evaluation, please see the _Data Engineering_ section below.
 
+To run a remote training job with Skypilot, use the following command:
+
+```shell
+# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
+uv run sky launch skypilot/eval.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env --env NAME <my-experiment-name>
+```
+
+Please read the `eval.sky.yaml` docstring for more information.
+
 ### Visualizing outputs from the model
 
 ```bash
@@ -205,6 +214,19 @@ After making changes to the visualization code, you can run the following comman
 
 ```bash
 uv run -m ocean_emulators.utils.compare path/to/old/viz path/to/new/viz
+```
+
+To run a remote viz job with Skypilot, please use the following command:
+
+```shell
+# export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
+uv run sky launch skypilot/eval.sky.yaml \
+  --env WANDB_API_KEY \
+  --env-file <my-vars>.env \
+  --env NAME <my-experiment-name> \
+  --env BASIN_PATH basin_masks_original.zarr \
+  --env RUNS=[{"location": "/inputs/my_eval_job/predictions.zarr"}]
+
 ```
 
 ## Configuration

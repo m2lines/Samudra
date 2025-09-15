@@ -20,16 +20,10 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v2
 
-        # Invalidate the data cache every time the data source changes.
-        # If an exact cache isn't found, fall back to previous cache.
-      - name: Cache test data
-        uses: actions/cache@v3
-        with:
-          path: .data_cache/
-          key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/*.test.yaml') }}
-
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Set up Python
         uses: actions/setup-python@v2

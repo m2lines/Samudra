@@ -291,10 +291,9 @@ class EncoderConfig(BaseConfig):
         default=4,
         description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
     )
-    embed_dim: int = 512
     perceiver_depth: int = 6
 
-    def build(self, in_channels: int) -> PerceiverEncoder:
+    def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
         if (
             isinstance(self.patch_size, list)
             and len(self.patch_size) == 2
@@ -311,8 +310,8 @@ class EncoderConfig(BaseConfig):
 
         return PerceiverEncoder(
             in_channels=in_channels,
+            out_channels=out_channels,
             patch_size=patch_size,
-            embed_dim=self.embed_dim,
             perceiver_depth=self.perceiver_depth,
         )
 
@@ -333,12 +332,17 @@ class UNetBackboneConfig(BaseConfig):
     def build(
         self,
         in_channels: int,
+        out_channels: int | None,
         pad: str,
         checkpointing: Checkpointing | None,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
         )
+
+        # This replicates the default behavior of Samudra.
+        if out_channels is None:
+            out_channels = self.ch_width[1]
 
         def create_upsampling_block(in_channels: int, out_channels: int):
             match self.up_sampling_block:
@@ -353,8 +357,6 @@ class UNetBackboneConfig(BaseConfig):
                 case _:
                     assert_never(self.up_sampling_block)
 
-        ch_width = [in_channels] + self.ch_width.copy()
-
         match self.down_sampling_block:
             case "avg_pool":
                 downsampling_block: nn.Module = AvgPool()
@@ -364,7 +366,9 @@ class UNetBackboneConfig(BaseConfig):
                 assert_never(self.down_sampling_block)
 
         return UNetBackbone(
-            ch_width=ch_width,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            ch_width=self.ch_width,
             dilation=self.dilation,
             n_layers=self.n_layers,
             pad=pad,
@@ -432,6 +436,7 @@ class SamudraConfig(BaseModelConfig):
             pad=self.pad,
             unet=self.unet.build(
                 in_channels=total_in_channels,
+                out_channels=None,  # `out_channels` is set from the unet config (via `ch_width[1]`).
                 pad=self.pad,
                 checkpointing=self.checkpointing,
             ),
@@ -447,6 +452,8 @@ class FOMOConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
     # decoder will go here.
+    in_embedding: int = 512
+    out_embedding: int = 256
 
     def build(
         self,
@@ -457,16 +464,20 @@ class FOMOConfig(BaseModelConfig):
         area_weights: Grid,
         static_data: xr.Dataset | None,
     ) -> FOMO:
-        # Maybe consider adding area_weight
         return FOMO(
             in_channels=in_channels,
             out_channels=in_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            # TODO(alxmrs): Do the encoder and processor need to take in both in_channels and out_channels?
-            encoder=self.encoder.build(in_channels),
-            processor=self.processor.build(in_channels, self.pad, self.checkpointing),
+            encoder=self.encoder.build(in_channels, self.in_embedding),
+            processor=self.processor.build(
+                self.in_embedding,
+                self.out_embedding,
+                self.pad,
+                self.checkpointing,
+            ),
+            # decoder = self.decoder.build(self.embedding_out_dim, out_channels)  # will be something like this
             hist=hist,
             wet=wet,
             static_data=static_data,

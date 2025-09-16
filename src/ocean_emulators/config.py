@@ -332,17 +332,12 @@ class UNetBackboneConfig(BaseConfig):
     def build(
         self,
         in_channels: int,
-        out_channels: int | None,
         pad: str,
         checkpointing: Checkpointing | None,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
         )
-
-        # This replicates the default behavior of Samudra.
-        if out_channels is None:
-            out_channels = self.ch_width[0]
 
         def create_upsampling_block(in_channels: int, out_channels: int):
             match self.up_sampling_block:
@@ -367,7 +362,6 @@ class UNetBackboneConfig(BaseConfig):
 
         return UNetBackbone(
             in_channels=in_channels,
-            out_channels=out_channels,
             ch_width=self.ch_width,
             dilation=self.dilation,
             n_layers=self.n_layers,
@@ -436,7 +430,6 @@ class SamudraConfig(BaseModelConfig):
             pad=self.pad,
             unet=self.unet.build(
                 in_channels=total_in_channels,
-                out_channels=None,  # `out_channels` is set from the unet config (via `ch_width[1]`).
                 pad=self.pad,
                 checkpointing=self.checkpointing,
             ),
@@ -452,8 +445,7 @@ class FOMOConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
     # decoder will go here.
-    in_embedding: int = 512
-    out_embedding: int = 256
+    embedding_dim: int = 128
 
     def build(
         self,
@@ -470,14 +462,13 @@ class FOMOConfig(BaseModelConfig):
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.in_embedding),
+            encoder=self.encoder.build(in_channels, self.embedding_dim),
             processor=self.processor.build(
-                self.in_embedding,
-                self.out_embedding,
+                self.embedding_dim,
                 self.pad,
                 self.checkpointing,
             ),
-            # decoder = self.decoder.build(self.out_embedding, out_channels)  # will be something like this
+            # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
             hist=hist,
             wet=wet,
             static_data=static_data,

@@ -44,7 +44,6 @@ class UNetBackbone(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        out_channels: int,
         ch_width: list[int],
         dilation: list[int],
         n_layers: list[int],
@@ -55,14 +54,14 @@ class UNetBackbone(nn.Module):
         checkpointing: "Checkpointing | None",
     ):
         super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = ch_width[0]
 
         # Create local copies of config lists that will be reversed
         ch_width = [in_channels] + ch_width.copy()
         dilation = dilation.copy()
         n_layers = n_layers.copy()
         self.pad = pad
-        self.in_channels = in_channels
-        self.out_channels = out_channels
 
         match checkpointing:
             case "all":
@@ -132,7 +131,7 @@ class UNetBackbone(nn.Module):
         layers.append(
             create_block(
                 in_channels=b,
-                out_channels=self.out_channels,
+                out_channels=b,  # this is the same as self.out_channels
                 dilation=dilation[i],
                 n_layers=n_layers[i],
                 pad=pad,

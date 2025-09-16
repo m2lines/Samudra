@@ -56,7 +56,7 @@ model:
   embedding_dim: 64
 
   encoder:
-    perceiver_depth: 2
+    perceiver_depth: 3
     patch_size: [4, 8]
 
   processor:

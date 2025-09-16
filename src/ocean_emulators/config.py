@@ -342,9 +342,7 @@ class UNetBackboneConfig(BaseConfig):
 
         # This replicates the default behavior of Samudra.
         if out_channels is None:
-            out_channels = (
-                self.ch_width[1] if len(self.ch_width) > 1 else self.ch_width[0]
-            )
+            out_channels = self.ch_width[0]
 
         def create_upsampling_block(in_channels: int, out_channels: int):
             match self.up_sampling_block:

@@ -25,9 +25,6 @@ jobs:
     needs: start-aws-runner
     runs-on: ${{ fromJSON(needs.start-aws-runner.outputs.instances) }}
 
-    env:
-      # see note about machine image above
-      CUDA_VERSION: 12.1
     steps:
       - name: Check out code
         uses: actions/checkout@v2

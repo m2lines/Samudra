@@ -16,8 +16,8 @@ jobs:
   ec2:
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
-      ec2_instance_type: g4dn.xlarge
-      ec2_image_id: ami-00096836009b16a22  # Deep Learning OSS Nvidia Driver AMI GPU PyTorch
+      ec2_instance_type: g6.xlarge
+      ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
   run-tests:
@@ -36,7 +36,9 @@ jobs:
           key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/*.test.yaml') }}
 
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Set up Python
         uses: actions/setup-python@v2

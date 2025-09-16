@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,7 +8,6 @@ import torch
 import wandb
 from wandb.data_types import WBValue
 
-from ocean_emulators.config import AnyTopLevelConfig
 from ocean_emulators.utils.multiton import Multiton
 
 # Metrics supported by wandb -- probably there are more possible types too
@@ -15,6 +15,9 @@ Metrics = Mapping[str, float | torch.Tensor | WBValue]
 
 # Same as above but mutable when you're building something up
 MetricsDict = dict[str, float | torch.Tensor | WBValue]
+
+if TYPE_CHECKING:
+    from ocean_emulators.config import AnyTopLevelConfig
 
 
 class WandBLogger(Multiton):
@@ -30,7 +33,7 @@ class WandBLogger(Multiton):
     def setup_run(
         self,
         checkpoint_path: str | None,
-        cfg: AnyTopLevelConfig,
+        cfg: "AnyTopLevelConfig",
         finetune: bool = False,
     ):
         """Set up a wandb run, either resuming from checkpoint or creating new run.
@@ -75,7 +78,7 @@ class WandBLogger(Multiton):
 
         return wandb_id, wandb_name
 
-    def _init_new_run(self, cfg: AnyTopLevelConfig):
+    def _init_new_run(self, cfg: "AnyTopLevelConfig"):
         """Initialize a new wandb run.
 
         Args:

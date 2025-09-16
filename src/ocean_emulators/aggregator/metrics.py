@@ -104,7 +104,7 @@ def gradient_magnitude(
 ) -> torch.Tensor:
     """Compute the magnitude of gradient across the specified dimensions."""
     gradients = torch.gradient(tensor, dim=dim)
-    return torch.sqrt(sum([g**2 for g in gradients]))
+    return torch.sqrt(sum([g**2 for g in gradients]))  # type: ignore
 
 
 def weighted_mean_gradient_magnitude(

@@ -141,6 +141,8 @@ class TimeMeanAggregator:
         if self._n_timesteps == 0 or self._data is None:
             raise ValueError("No data recorded.")
 
+        assert self._n_samples is not None  # for type checker
+
         ret = {}
         names = sorted(list(self._data.keys()))  # sort for rank-consistent order
         for name in names:

@@ -32,7 +32,7 @@ from collections.abc import Iterable
 import torch
 from torch import nn
 
-from ocean_emulators.models.samudra import Samudra
+from ocean_emulators.models.base import BaseModel
 
 
 class EMATracker:
@@ -103,7 +103,7 @@ class EMATracker:
             )
         )
 
-    def __call__(self, model: Samudra | nn.parallel.DistributedDataParallel):
+    def __call__(self, model: BaseModel | nn.parallel.DistributedDataParallel):
         """
         Update the moving average of the parameters.
 
@@ -142,7 +142,7 @@ class EMATracker:
                         "but it does not"
                     )
 
-    def copy_to(self, model: Samudra | nn.parallel.DistributedDataParallel):
+    def copy_to(self, model: BaseModel | nn.parallel.DistributedDataParallel):
         """
         Copy the averaged parameters to the model, overwriting its values.
         """

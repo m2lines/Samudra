@@ -17,6 +17,7 @@ class ZarrWriter:
         coords: dict[str, xr.DataArray],
         hist: int,
         model_path: str | os.PathLike,
+        time_chunk_size: int,
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
         self.hist = hist
@@ -24,6 +25,7 @@ class ZarrWriter:
         self.time_buffer: xr.DataArray | None = None
         self.coords = coords
         self.model_path = model_path
+        self.time_chunk_size = time_chunk_size
 
         self.normalize = Normalize.get_instance()
         self.tensor_map = TensorMap.get_instance()
@@ -65,7 +67,7 @@ class ZarrWriter:
             coords=coords,
         )
         ds.attrs["model_path"] = str(self.model_path)
-        ds = ds.chunk({"time": 1})
+        ds = ds.chunk({"time": self.time_chunk_size})
         if os.path.exists(self.pred_path):
             ds.to_zarr(self.pred_path, mode="a", append_dim="time")
         else:

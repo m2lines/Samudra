@@ -31,6 +31,7 @@ dependencies = [
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
+  "perceiver-pytorch>=0.8.8",
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",
   "pyyaml>=6.0.2",
@@ -39,7 +40,7 @@ dependencies = [
   "scipy>=1.15.2",
   "skypilot[aws,lambda]>=0.10",
   "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
-  "torch~=2.2.1",
+  "torch~=2.8.0",
   "torchinfo>=1.8",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
@@ -114,5 +115,5 @@ addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = [ "cftime.*", "scipy.*", "fsspec.*" ]
+module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*" ]
 follow_untyped_imports = true

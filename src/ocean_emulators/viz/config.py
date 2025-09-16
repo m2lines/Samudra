@@ -1,12 +1,44 @@
+import functools
+import logging
+import time
 from functools import cached_property
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
 from ocean_emulators.config import TimeConfig
 from ocean_emulators.config_base import TopLevelConfig
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
+from ocean_emulators.utils.logging import handle_logging
 from ocean_emulators.viz.core import Viz, VizRun
+
+
+@functools.cache
+def _all_steps() -> set[str]:
+    return set(_ordered_steps())
+
+
+@functools.cache
+def _ordered_steps() -> list[str]:
+    return list(
+        name.removeprefix("step_") for name in Viz.__dict__ if name.startswith("step_")
+    )
+
+
+def _check_step(v: str) -> str:
+    if v not in _all_steps():
+        raise ValueError(
+            f"Invalid step: '{v}', expected one of: {', '.join(_ordered_steps())}"
+        )
+    return v
+
+
+VizStep = Annotated[
+    str,
+    BeforeValidator(_check_step),
+    WithJsonSchema({"type": "string", "enum": _ordered_steps()}),
+]
 
 
 class VizRunConfig(BaseModel):
@@ -36,6 +68,15 @@ class VizConfig(TopLevelConfig):
     groundtruth_time_range: TimeConfig = Field(
         description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
     )
+    steps: list[VizStep] | None = Field(
+        default=None,
+        description=f"Which steps to run; leave empty to run all steps. Possible values are: {', '.join(_ordered_steps())}",
+    )
+    not_steps: list[VizStep] = Field(
+        default_factory=lambda: [],
+        description="Steps to *not* run, takes precedence over `steps` (see that key for possible steps).",
+    )
+    debug: bool = Field(default=False, description="")
 
     @cached_property
     def output_path(self) -> Path:
@@ -62,15 +103,35 @@ class VizConfig(TopLevelConfig):
         )
 
 
-def main(cfg: VizConfig):
-    # TODO(jder): set up and use logging for all this, tee to file, maybe wandb?
+logger = logging.getLogger(__name__)
 
-    print(f"Writing results to {cfg.output_path}")
+
+def main(cfg: VizConfig):
     cfg.output_path.mkdir(parents=True, exist_ok=True)
+    handle_logging(cfg.debug, cfg.output_path)
     cfg.save_yaml(cfg.output_path / "config.yaml")
+
+    logger.info(f"Writing results to {cfg.output_path}")
 
     viz = cfg.build(LocalLocation(path=Path.cwd()))
 
-    # TODO(jder): would be nice to specify which plots to make,
-    # parallelize, re-run just needed plots on errors, etc.
-    viz.run()
+    steps = [s for s in cfg.steps or _ordered_steps() if s not in cfg.not_steps]
+    logger.info(f"Running steps: {', '.join(steps)}")
+
+    # TODO(jder): could use a ProcessPoolExecutor here, but steps currently
+    # are not exactly independent (some write to pred_dict which others read,
+    # there's some appending to a metrics file.)
+    for step in steps:
+        _run_step(viz, step)
+
+
+def _run_step(viz: Viz, step: VizStep):
+    logger.info(f"Running step {step}")
+    start = time.perf_counter()
+    try:
+        getattr(viz, f"step_{step}")()
+        end = time.perf_counter()
+        logger.info(f"Step {step} took {end - start:.2f} seconds")
+    except Exception as e:
+        logger.error(f"Step {step} failed: {e}")
+        raise

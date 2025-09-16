@@ -54,7 +54,7 @@ class Stepper:
     @staticmethod
     @torch.no_grad()
     def inference(
-        model: torch.nn.Module,
+        model: BaseModel,
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
@@ -69,11 +69,16 @@ class Stepper:
                     "output_dir and model_path must be provided if save_zarr is True"
                 )
             coords = dataset.get_coords_dict()
+            if num_model_steps_forward > 0:
+                chunk_size = num_model_steps_forward
+            else:
+                chunk_size = 20
             writer = ZarrWriter(
                 output_dir,
                 coords=coords,
                 hist=inf_aggregator.hist,
                 model_path=model_path,
+                time_chunk_size=chunk_size,
             )
         else:
             writer = None

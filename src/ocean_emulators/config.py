@@ -286,12 +286,16 @@ class CorrectorConfig(BaseConfig):
         )
 
 
+PerceiverImpl = Literal["standard", "flash"]
+
+
 class EncoderConfig(BaseConfig):
     patch_size: int | list[int] = Field(
         default=4,
         description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
     )
     perceiver_depth: int = 6
+    perceiver_impl: PerceiverImpl = "standard"
 
     def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
         if (
@@ -313,6 +317,7 @@ class EncoderConfig(BaseConfig):
             out_channels=out_channels,
             patch_size=patch_size,
             perceiver_depth=self.perceiver_depth,
+            perceiver_impl=self.perceiver_impl,
         )
 
 

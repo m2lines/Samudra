@@ -1,14 +1,26 @@
 # Sources inspired by the following implementations:
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
 # - https://github.com/lucidrains/vit-pytorch
+from typing import TYPE_CHECKING
 
 import torch
 from einops import rearrange
 from jaxtyping import Float
-from perceiver_pytorch import Perceiver
 from torch import nn
 
+try:
+    from flash_perceiver import Perceiver  # type: ignore
+
+    FLASH_ENABLED = True
+except ModuleNotFoundError:
+    from perceiver_pytorch import Perceiver
+
+    FLASH_ENABLED = False
+
 from ocean_emulators.constants import Input
+
+if TYPE_CHECKING:
+    from ocean_emulators.config import PerceiverImpl  # noqa: F401
 
 
 class PerceiverEncoder(nn.Module):
@@ -20,6 +32,7 @@ class PerceiverEncoder(nn.Module):
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
         perceiver_depth (int): depth of the perceiver module core.
+        perceiver_impl (PerceiverImpl): the perceiver module core implementation, either "standard" or "flash".
     """
 
     # TODO(alxmrs): Implement gradient checkpointing
@@ -29,6 +42,7 @@ class PerceiverEncoder(nn.Module):
         out_channels: int,
         patch_size: int | tuple[int, int],
         perceiver_depth: int,
+        perceiver_impl: "PerceiverImpl",
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -42,16 +56,31 @@ class PerceiverEncoder(nn.Module):
         self.out_channels: int = out_channels  # aka, `embed_dim`.
 
         self.norm_patches = nn.LayerNorm(self.in_channels)
-        self.perceiver = Perceiver(
-            num_freq_bands=4,
-            max_freq=1.0,
-            depth=perceiver_depth,
-            input_axis=2,  # Number of positional dims before token dim
-            input_channels=self.in_channels,
-            num_classes=out_channels,
-            weight_tie_layers=True,  # share weights of cross-attn blocks
-            self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
-        )
+        if FLASH_ENABLED and perceiver_impl == "flash":
+            self.perceiver = Perceiver(
+                latent_rotary_emb_dim=4,  # we can't set the maximum frequency of the rotary embedding.
+                depth=perceiver_depth,
+                output_mode="concat",
+                input_dim=self.in_channels,
+                latent_dim=out_channels,
+                use_flash_attn=True,
+                weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
+                self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
+            )
+        else:
+            assert perceiver_impl == "standard", (
+                'We only support "standard" as the non-"flash" perceiver implementation.'
+            )
+            self.perceiver = Perceiver(
+                num_freq_bands=4,
+                max_freq=1.0,
+                depth=perceiver_depth,
+                input_axis=2,  # Number of positional dims before token dim
+                input_channels=self.in_channels,
+                num_classes=out_channels,
+                weight_tie_layers=True,  # share weights of cross-attn blocks
+                self_per_cross_attn=2,  # ratio of self-attn (latent, small) per cross-attn (input, big) blocks
+            )
         self.norm_embedding = nn.LayerNorm(out_channels)
 
     def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:

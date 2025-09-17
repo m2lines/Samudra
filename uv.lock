@@ -907,28 +907,9 @@ wheels = [
 name = "einops"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform == 'linux'",
-    "python_full_version == '3.12.*' and sys_platform == 'linux'",
-    "python_full_version < '3.12' and sys_platform == 'linux'",
-]
 sdist = { url = "https://files.pythonhosted.org/packages/74/6b/84ea8ea496b32a9c9331e7ca0529c670e1de0af239f597bf4f783e4a5396/einops-0.7.0.tar.gz", hash = "sha256:b2b04ad6081a3b227080c9bf5e3ace7160357ff03043cd66cc5b2319eb7031d1", size = 58522 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/29/0b/2d1c0ebfd092e25935b86509a9a817159212d82aa43d7fb07eca4eeff2c2/einops-0.7.0-py3-none-any.whl", hash = "sha256:0f3096f26b914f465f6ff3c66f5478f9a5e380bb367ffc6493a68143fbbf1fd1", size = 44599 },
-]
-
-[[package]]
-name = "einops"
-version = "0.8.1"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.13' and sys_platform != 'linux'",
-    "python_full_version == '3.12.*' and sys_platform != 'linux'",
-    "python_full_version < '3.12' and sys_platform != 'linux'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/81/df4fbe24dff8ba3934af99044188e20a98ed441ad17a274539b74e82e126/einops-0.8.1.tar.gz", hash = "sha256:de5d960a7a761225532e0f1959e5315ebeafc0cd43394732f103ca44b9837e84", size = 54805 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/62/9773de14fe6c45c23649e98b83231fffd7b9892b6cf863251dc2afa73643/einops-0.8.1-py3-none-any.whl", hash = "sha256:919387eb55330f5757c6bea9165c5ff5cfe63a642682ea788a6d472576d81737", size = 64359 },
 ]
 
 [[package]]
@@ -1019,7 +1000,7 @@ name = "flash-attn"
 version = "2.2.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "einops", version = "0.7.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
+    { name = "einops", marker = "sys_platform == 'linux'" },
     { name = "ninja", marker = "sys_platform == 'linux'" },
     { name = "packaging", marker = "sys_platform == 'linux'" },
     { name = "torch", marker = "sys_platform == 'linux'" },
@@ -1031,7 +1012,7 @@ name = "flash-perceiver"
 version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "einops", version = "0.7.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
+    { name = "einops", marker = "sys_platform == 'linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d2/29/84bd431c43f70c70744d37c25ddd3f08e214d5d9d1f79f02869e32217ef1/flash_perceiver-0.2.0.tar.gz", hash = "sha256:aa77ff64c64b4379de013bf1aa055442ea9a4b55c4f483292721c10aecc0d43c", size = 17808 }
 wheels = [
@@ -2741,14 +2722,13 @@ dependencies = [
     { name = "cftime" },
     { name = "dacite" },
     { name = "dask" },
-    { name = "einops", version = "0.7.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
-    { name = "einops", version = "0.8.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
+    { name = "einops" },
     { name = "flash-attn", marker = "sys_platform == 'linux'" },
     { name = "flash-perceiver", marker = "sys_platform == 'linux'" },
     { name = "jaxtyping" },
     { name = "matplotlib" },
     { name = "numpy" },
-    { name = "perceiver-pytorch", marker = "sys_platform == 'darwin'" },
+    { name = "perceiver-pytorch" },
     { name = "pydantic-settings" },
     { name = "pytest-xdist", extra = ["psutil"] },
     { name = "pyyaml" },
@@ -2803,11 +2783,11 @@ requires-dist = [
     { name = "dask", specifier = ">=2025.2" },
     { name = "einops" },
     { name = "flash-attn", marker = "sys_platform == 'linux'", specifier = ">=2.2.5,<3" },
-    { name = "flash-perceiver", marker = "sys_platform == 'linux'", specifier = ">=0.2.0" },
+    { name = "flash-perceiver", marker = "sys_platform == 'linux'", specifier = ">=0.2" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
-    { name = "perceiver-pytorch", marker = "sys_platform == 'darwin'", specifier = ">=0.8.8" },
+    { name = "perceiver-pytorch", specifier = ">=0.8.8" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },
@@ -3028,8 +3008,8 @@ name = "perceiver-pytorch"
 version = "0.8.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "einops", version = "0.8.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
-    { name = "torch", marker = "sys_platform != 'linux'" },
+    { name = "einops" },
+    { name = "torch" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4b/09/ef394378b5744cb3fdfaa958d564b3b61fdddf9bf87bfd94a989156deeb0/perceiver-pytorch-0.8.8.tar.gz", hash = "sha256:b88af6b4446b8bab2fc2de1104c49c72c20d06015ddd29f24834c85f9efcf329", size = 9201 }
 wheels = [
@@ -5073,8 +5053,7 @@ wheels = [
 
 [package.optional-dependencies]
 einops = [
-    { name = "einops", version = "0.7.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
-    { name = "einops", version = "0.8.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux'" },
+    { name = "einops" },
 ]
 
 [[package]]

@@ -526,7 +526,8 @@ class Trainer:
             data.to(self.device)
 
             if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+                # We always want to print the detailed model summary for training.
+                get_model_summary(self.model, data, False)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()

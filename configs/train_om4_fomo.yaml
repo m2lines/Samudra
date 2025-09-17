@@ -60,7 +60,7 @@ model:
     patch_size: [4, 8]
 
   processor:
-    ch_width: [64, 50, 40, 25]
+    ch_width: [80, 120, 200, 270]
     dilation: [1, 2, 4, 8]
     n_layers: [1, 1, 1, 1]
 

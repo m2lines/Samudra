@@ -119,3 +119,6 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*" ]
 follow_untyped_imports = true
+
+[tool.uv]
+no-build-isolation-package = [ 'flash-attn' ]

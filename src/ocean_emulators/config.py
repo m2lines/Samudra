@@ -458,7 +458,7 @@ class FOMOConfig(BaseModelConfig):
     ) -> FOMO:
         return FOMO(
             in_channels=in_channels,
-            out_channels=in_channels,
+            out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,

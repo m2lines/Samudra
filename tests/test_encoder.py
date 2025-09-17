@@ -7,7 +7,11 @@ def test_makes_patches():
     x = torch.randn(1, 10, 4, 8)
 
     patch_embed = PerceiverEncoder(
-        in_channels=10, out_channels=4, patch_size=4, perceiver_depth=2
+        in_channels=10,
+        out_channels=4,
+        patch_size=4,
+        perceiver_depth=2,
+        perceiver_impl="standard",
     )
 
     patches = patch_embed(x)
@@ -19,7 +23,11 @@ def test_makes_rectangular_patches():
     x = torch.randn(1, 10, 4, 8)
 
     patch_embed = PerceiverEncoder(
-        in_channels=10, out_channels=4, patch_size=(4, 2), perceiver_depth=2
+        in_channels=10,
+        out_channels=4,
+        patch_size=(4, 2),
+        perceiver_depth=2,
+        perceiver_impl="standard",
     )
 
     patches = patch_embed(x)
@@ -36,7 +44,11 @@ def test_makes_patches__high_res():
     x = torch.randn(1, 10, 8, 16)
 
     patch_embed = PerceiverEncoder(
-        in_channels=10, out_channels=5, patch_size=4, perceiver_depth=2
+        in_channels=10,
+        out_channels=5,
+        patch_size=4,
+        perceiver_depth=2,
+        perceiver_impl="standard",
     )
 
     patches = patch_embed(x)
@@ -48,7 +60,11 @@ def test_makes_patches__more_variables():
     x = torch.randn(1, 20, 4, 8)
 
     patch_embed = PerceiverEncoder(
-        in_channels=20, out_channels=5, patch_size=4, perceiver_depth=2
+        in_channels=20,
+        out_channels=5,
+        patch_size=4,
+        perceiver_depth=2,
+        perceiver_impl="standard",
     )
 
     patches = patch_embed(x)

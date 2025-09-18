@@ -33,9 +33,7 @@ def test_makes_rectangular_patches():
     patches = patch_embed(x)
 
     assert patches.shape == (
-        1,
-        4,
-        1,
+        1, 4, 1,
         4,
     )
 

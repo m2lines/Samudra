@@ -57,7 +57,7 @@ model:
 
   encoder:
     perceiver_depth: 2
-    patch_size: [9, 18]
+    patch_size: [6, 12]
 
   processor:
     ch_width: [80, 120, 200, 270]

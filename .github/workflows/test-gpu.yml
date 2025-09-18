@@ -7,7 +7,12 @@ on:
     branches:
       - main
   workflow_dispatch:
-
+    inputs:
+      disk_size:
+        description: 'Root disk size in GB (0=AMI default, +N=AMI+N GB, e.g. +1 for AMI+1GB)'
+        required: false
+        type: string
+        default: '+1'
 permissions:
   id-token: write # Required for interacting with AWS via OIDC
   contents: read # Required for actions/checkout (normally set by default, but must explicitly specify when defining a custom `permissions` block.
@@ -19,6 +24,8 @@ jobs:
       action_ref: rw/dl
       ec2_instance_type: g6.xlarge
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
+      debug: 'true'
+      ec2_root_device_size: ${{ inputs.disk_size }}
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
   run-tests:

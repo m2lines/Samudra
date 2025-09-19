@@ -44,7 +44,12 @@ class FOMO(BaseModel):
         layers = [
             encoder,
             processor,
-            nn.Conv2d(processor.out_channels, out_channels, last_kernel_size),
+            nn.Conv2d(
+                processor.out_channels,
+                out_channels,
+                last_kernel_size,
+                padding=last_kernel_size // 2,
+            ),
         ]
         self.layers = nn.ModuleList(layers)
         self.unpatch = nn.Linear(

@@ -55,22 +55,18 @@ class FOMO(BaseModel):
         for layer in self.layers:
             fts = layer(fts)
 
-        # Get current patch-level dimensions
-        _, _, h_patches, w_patches = fts.shape
-
-        # project latent to output channels × patch area
+        # Unpatchify: project to patch area, then reshape back to original spatial dimensions
+        _, _, h, w = fts.shape
         fts = rearrange(fts, "b l h w -> b h w l")
         fts = self.unpatch(fts)  # (b, h, w, out_channels * ph * pw)
-
-        # Unpatchify: reshape back to original spatial dimensions
         fts = rearrange(
             fts,
             "b h w (c ph pw) -> b c (h ph) (w pw)",
             c=self.out_channels,
             ph=self.patch_size[0],
             pw=self.patch_size[1],
-            h=h_patches,
-            w=w_patches,
+            h=h,
+            w=w,
         )
 
         return torch.where(self.wet, fts, 0.0)

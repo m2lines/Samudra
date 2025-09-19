@@ -49,10 +49,12 @@ class PerceiverEncoder(nn.Module):
             input_axis=2,  # Number of positional dims before token dim
             input_channels=self.in_channels,
             num_classes=out_channels,
+            weight_tie_layers=True,  # share weights of cross-attn blocks
+            self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
         )
         self.norm_embedding = nn.LayerNorm(out_channels)
 
-    def forward(self, x: Input) -> Float[torch.Tensor, "batch h w {self.embed_dim}"]:
+    def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).
@@ -76,12 +78,12 @@ class PerceiverEncoder(nn.Module):
         # physical relationships in the data and aggregates across depth level and history. We should be cautious here.
         x = self.norm_patches(x)
         x = self.perceiver(x)
+        x = self.norm_embedding(x)
         x = rearrange(
             x,
-            "(b h w) l -> b h w l",
+            "(b h w) l -> b l h w",
             h=(H // self.patch_size[0]),
             w=(W // self.patch_size[1]),
         )
-        x = self.norm_embedding(x)
 
         return x

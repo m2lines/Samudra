@@ -52,8 +52,6 @@ class FOMO(BaseModel):
         )
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
-        _, _, H, W = fts.shape
-
         for layer in self.layers:
             fts = layer(fts)
 

@@ -56,7 +56,7 @@ class FOMO(BaseModel):
             fts = layer(fts)
 
         # Get current patch-level dimensions
-        _, _out_channels, h_patches, w_patches = fts.shape
+        _, _, h_patches, w_patches = fts.shape
 
         # project latent to output channels × patch area
         fts = rearrange(fts, "b l h w -> b h w l")

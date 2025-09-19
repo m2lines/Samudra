@@ -61,7 +61,7 @@ model:
 
   processor:
     ch_width: [80, 120, 200, 270]
-    dilation: [1, 2, 4, 8]
+    dilation: [1, 1, 1, 1]  # Given the large spatial patches, we turn off dilations to not cause errors in the model.
     n_layers: [1, 1, 1, 1]
 
     core_block:

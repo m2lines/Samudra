@@ -6,15 +6,14 @@ from typing import TYPE_CHECKING
 import torch
 from einops import rearrange
 from jaxtyping import Float
+from perceiver_pytorch import Perceiver as StandardPerceiver
 from torch import nn
 
 try:
-    from flash_perceiver import Perceiver  # type: ignore
+    from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
 
     FLASH_ENABLED = True
 except ModuleNotFoundError:
-    from perceiver_pytorch import Perceiver
-
     FLASH_ENABLED = False
 
 from ocean_emulators.constants import Input
@@ -57,7 +56,7 @@ class PerceiverEncoder(nn.Module):
 
         self.norm_patches = nn.LayerNorm(self.in_channels)
         if FLASH_ENABLED and perceiver_impl == "flash":
-            self.perceiver = Perceiver(
+            self.perceiver = FlashPerceiver(
                 latent_rotary_emb_dim=4,  # we can't set the maximum frequency of the rotary embedding.
                 depth=perceiver_depth,
                 output_mode="concat",
@@ -71,7 +70,7 @@ class PerceiverEncoder(nn.Module):
             assert perceiver_impl == "standard", (
                 'We only support "standard" as the non-"flash" perceiver implementation.'
             )
-            self.perceiver = Perceiver(
+            self.perceiver = StandardPerceiver(
                 num_freq_bands=4,
                 max_freq=1.0,
                 depth=perceiver_depth,

@@ -292,6 +292,10 @@ class EncoderConfig(BaseConfig):
         description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
     )
     perceiver_depth: int = 6
+    perceiver_latent_dim: int = Field(
+        default=128,
+        description="The small, latent dimension of the Perceiver. This is the `N` dimension for the Perceiver's `O(M*N)` complexity",
+    )
 
     def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
         if (
@@ -313,6 +317,7 @@ class EncoderConfig(BaseConfig):
             out_channels=out_channels,
             patch_size=patch_size,
             perceiver_depth=self.perceiver_depth,
+            perceiver_latent_dim=self.perceiver_latent_dim,
         )
 
 

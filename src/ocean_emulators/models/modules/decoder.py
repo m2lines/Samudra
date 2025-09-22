@@ -29,8 +29,8 @@ class PerceiverDecoder(nn.Module):
 
         self.norm_patches = nn.LayerNorm(self.in_channels)
         self.perceiver = Perceiver(
-            num_freq_bands=4,  # TODO(alxmrs): is this right?
-            max_freq=1.0,  # TODO(alxmrs): Is this right?
+            num_freq_bands=4,
+            max_freq=10.0,  # Depending on patch size and grid, consider values ranging from 3-10.
             depth=perceiver_depth,
             input_axis=2,  # Number of positional dims before token dim
             input_channels=self.in_channels,

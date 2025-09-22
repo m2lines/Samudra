@@ -10,6 +10,7 @@ from .blocks import (
     TransposedConvUpsample,
     UpsamplingBlockBuilder,
 )
+from .decoder import PerceiverDecoder
 from .encoder import PerceiverEncoder
 from .unet_backbone import UNetBackbone
 
@@ -23,6 +24,7 @@ __all__ = [
     "CappedGELU",
     "CappedLeakyReLU",
     "MaxPool",
+    "PerceiverDecoder",
     "PerceiverEncoder",
     "ReLU",
     "UNetBackbone",

@@ -43,6 +43,7 @@ envs:
   OUTPUTS_BUCKET: oa-fomo-outputs
   DATA_BUCKET: oa-fomo
   DATA_ROOT_PATH: null # path to copy from DATA_BUCKET into the local data root eg data/om4_onedeg
+  OSN_PATH: m2lines-pubs/Samudra
   NAME: null # wandb train experiment name (and used for downstream tasks)
   ARGS: ""
 
@@ -60,10 +61,11 @@ workdir: .
 setup: |
   set -ex
 
+  rclone config create nyu-osn-public s3 provider=Other endpoint=https://nyu1.osn.mghpcc.org/ anonymous=True
   rclone config create s3-source s3 provider=AWS env_auth=true
 
   mkdir -p ~/data/
-  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH} ~/data --ignore-existing --transfers=32
+  rclone copy --progress nyu-osn-public:${OSN_PATH} ~/data --ignore-existing --transfers=32
 
   mkdir -p ~/basins/
   rclone copy --progress s3-source:${DATA_BUCKET}/basins ~/basins
@@ -93,6 +95,7 @@ run: |
     --node_rank=${SKYPILOT_NODE_RANK} \
     -m ocean_emulators.train "${CONFIG}" \
     --experiment.name="${NAME}" \
+    --data="@configs/data/public_osn.yaml" \
     --experiment.data_root="${DATA_ROOT}" \
     --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \

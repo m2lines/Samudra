@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 2
+batch_size: 1
 learning_rate: 0.0002
 scheduler: {type: cosine}
 loss: mse
@@ -53,16 +53,17 @@ model:
   last_kernel_size: 3
   pad: "circular"
   checkpointing: "all"
-  embedding_dim: 64
+  embedding_dim: 80
 
   encoder:
-    perceiver_depth: 3
-    patch_size: [4, 8]
+    perceiver_depth: 2
+    patch_size: [12, 24]
+#    perceiver_latent_dim: 64
 
   processor:
-    ch_width: [80, 120, 200, 270]
-    dilation: [1, 2, 4, 8]
-    n_layers: [1, 1, 1, 1]
+    ch_width: [100, 200, 300]
+    dilation: [1, 1, 1]
+    n_layers: [1, 1, 1]
 
     core_block:
       block_type: "conv_next_block"

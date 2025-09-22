@@ -5,6 +5,18 @@ from torch import nn
 
 
 class PerceiverDecoder(nn.Module):
+    """A perceiver-based decoder that maps processed latent predictions into a whole column of the ocean.
+
+    Args:
+        in_channels (int): the number of input channels (typically, the output of our UNet backbone).
+        out_channels (int): size of our output channels (roughly: variables x depths).
+        patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
+          If a tuple is supplied, then it represents the (height, width) of the patches to embed.
+        perceiver_depth (int): depth of the perceiver module core.
+        perceiver_latent_dim (int): latent dimension of the perceiver module core. The `N` of the Perceiver's `O(M*N)`
+          complexity, where the `M` corresponds to the size of the input data.
+    """
+
     def __init__(
         self,
         in_channels: int,

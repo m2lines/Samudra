@@ -54,10 +54,10 @@ model:
   pad: "circular"
   checkpointing: "all"
   embedding_dim: 64
+  patch_size: [4, 8]
 
   encoder:
     perceiver_depth: 3
-    patch_size: [4, 8]
 
   processor:
     ch_width: [80, 120, 200, 270]

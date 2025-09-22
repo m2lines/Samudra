@@ -4,8 +4,7 @@ from torch import nn
 
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.models.modules import PerceiverEncoder
-from ocean_emulators.models.modules.decoder import PerceiverDecoder
+from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 

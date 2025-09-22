@@ -74,6 +74,7 @@ from ocean_emulators.utils.ema import EMATracker
 from ocean_emulators.utils.logging import (
     MetricLogger,
     SmoothedValue,
+    get_model_summary,
     handle_logging,
     handle_warnings,
 )
@@ -461,7 +462,6 @@ class Trainer:
             start_epoch_train_time = time.perf_counter()
             train_stats = self.train_one_epoch(epoch)
             end_epoch_train_time = time.perf_counter()
-            break
             val_stats = self.validate_one_epoch(epoch)
             end_epoch_val_time = time.perf_counter()
 
@@ -525,8 +525,8 @@ class Trainer:
             self.optimizer.zero_grad()
             data.to(self.device)
 
-            # if self.num_batches_seen == 0:
-            #     get_model_summary(self.model, data, self.debug)
+            if self.num_batches_seen == 0:
+                get_model_summary(self.model, data, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()

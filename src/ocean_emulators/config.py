@@ -28,6 +28,7 @@ from ocean_emulators.models.modules import (
     TransposedConvUpsample,
     UNetBackbone,
 )
+from ocean_emulators.models.modules.decoder import PerceiverDecoder
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
@@ -286,6 +287,23 @@ class CorrectorConfig(BaseConfig):
         )
 
 
+def _validate_patch_size(candidate: int | list[int]) -> int | tuple[int, int]:
+    if (
+        isinstance(candidate, list)
+        and len(candidate) == 2
+        and isinstance(candidate[0], int)
+        and isinstance(candidate[1], int)
+    ):
+        patch_size: int | tuple[int, int] = candidate[0], candidate[1]
+    elif isinstance(candidate, int):
+        patch_size = candidate
+    else:
+        raise ValueError(
+            "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
+        )
+    return patch_size
+
+
 class EncoderConfig(BaseConfig):
     patch_size: int | list[int] = Field(
         default=4,
@@ -298,21 +316,31 @@ class EncoderConfig(BaseConfig):
     )
 
     def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
-        if (
-            isinstance(self.patch_size, list)
-            and len(self.patch_size) == 2
-            and isinstance(self.patch_size[0], int)
-            and isinstance(self.patch_size[1], int)
-        ):
-            patch_size: int | tuple[int, int] = self.patch_size[0], self.patch_size[1]
-        elif isinstance(self.patch_size, int):
-            patch_size = self.patch_size
-        else:
-            raise ValueError(
-                "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
-            )
-
+        patch_size = _validate_patch_size(self.patch_size)
         return PerceiverEncoder(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            patch_size=patch_size,
+            perceiver_depth=self.perceiver_depth,
+            perceiver_latent_dim=self.perceiver_latent_dim,
+        )
+
+
+class DecoderConfig(BaseConfig):
+    patch_size: int | list[int] = Field(
+        default=4,
+        description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
+    )
+    perceiver_depth: int = 6
+    perceiver_latent_dim: int = Field(
+        default=128,
+        description="The small, latent dimension of the Perceiver. This is the `N` dimension for the Perceiver's `O(M*N)` complexity",
+    )
+
+    def build(self, in_channels: int, out_channels: int) -> PerceiverDecoder:
+        patch_size = _validate_patch_size(self.patch_size)
+
+        return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_size=patch_size,
@@ -449,7 +477,7 @@ class SamudraConfig(BaseModelConfig):
 class FOMOConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
-    # decoder will go here.
+    decoder: DecoderConfig = DecoderConfig()
     embedding_dim: int = 128
 
     def build(
@@ -461,6 +489,9 @@ class FOMOConfig(BaseModelConfig):
         area_weights: Grid,
         static_data: xr.Dataset | None,
     ) -> FOMO:
+        processor = self.processor.build(
+            self.embedding_dim, self.pad, self.checkpointing
+        )
         return FOMO(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -468,12 +499,8 @@ class FOMOConfig(BaseModelConfig):
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=self.encoder.build(in_channels, self.embedding_dim),
-            processor=self.processor.build(
-                self.embedding_dim,
-                self.pad,
-                self.checkpointing,
-            ),
-            # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
+            processor=processor,
+            decoder=self.decoder.build(processor.out_channels, out_channels),
             hist=hist,
             wet=wet,
             static_data=static_data,

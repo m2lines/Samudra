@@ -20,6 +20,8 @@ class PerceiverEncoder(nn.Module):
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
         perceiver_depth (int): depth of the perceiver module core.
+        perceiver_latent_dim (int): latent dimension of the perceiver module core. The `N` of the Perceiver's `O(M*N)`
+          complexity, where the `M` corresponds to the size of the input data.
     """
 
     # TODO(alxmrs): Implement gradient checkpointing
@@ -29,6 +31,7 @@ class PerceiverEncoder(nn.Module):
         out_channels: int,
         patch_size: int | tuple[int, int],
         perceiver_depth: int,
+        perceiver_latent_dim: int,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -48,6 +51,7 @@ class PerceiverEncoder(nn.Module):
             depth=perceiver_depth,
             input_axis=2,  # Number of positional dims before token dim
             input_channels=self.in_channels,
+            latent_dim=perceiver_latent_dim,
             num_classes=out_channels,
             weight_tie_layers=True,  # share weights of cross-attn blocks
             self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks

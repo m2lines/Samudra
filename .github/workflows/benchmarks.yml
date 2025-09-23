@@ -15,15 +15,18 @@ permissions:
   id-token: write # This is required for interacting with AWS via OIDC
 
 jobs:
-  start-aws-runner:
-    uses: ./.github/workflows/aws-runner-start.yml
+  ec2:
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    with:
+      ec2_instance_type: g6.xlarge
+      ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
+      ec2_root_device_size: 200 # AMI's reported VolumeSize (40GB) +20GB; leaves headroom for benchmarking I/O; instance runs out of disk otherwise
     secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
   test:
-    needs: start-aws-runner
-    runs-on: ${{ fromJSON(needs.start-aws-runner.outputs.instances) }}
+    needs: ec2
+    runs-on: ${{ needs.ec2.outputs.id }}
 
     steps:
       - name: Check out code
@@ -84,15 +87,3 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@alxmrs,@jder"
-
-  stop-aws-runner:
-    uses: ./.github/workflows/aws-runner-stop.yml
-    needs:
-      - start-aws-runner
-      - test
-    if: ${{ always() }}
-    with:
-      instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
-    secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
-      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

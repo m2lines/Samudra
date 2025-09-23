@@ -59,7 +59,7 @@ jobs:
         run: git stash
 
       # gh-pages branch is automatically updated with extracted benchmark data.
-      - name: Store benchmark result
+      - name: Store benchmark result (CPU)
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Python Benchmark with pytest-benchmark
@@ -74,7 +74,7 @@ jobs:
           alert-comment-cc-users: "@alxmrs,@jder"
 
       # gh-pages branch is automatically updated with extracted benchmark data.
-      - name: Store benchmark result
+      - name: Store benchmark result (GPU)
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Python Benchmark with pytest-benchmark (GPU)

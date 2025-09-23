@@ -54,19 +54,24 @@ class PerceiverDecoder(nn.Module):
         self.norm_embedding = nn.LayerNorm(out_channels * patch_area)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        _, _, h, w = x.shape
+        B, _, h, w = x.shape
+
         x = rearrange(x, "b l h w -> b h w l")
         x = self.norm_patches(x)
         x = self.perceiver(x)
         x = self.norm_embedding(x)
+
+        # Reshape from flattened output back to spatial patches, then unpatchify
+        # Perceiver outputs (B, out_channels * patch_area) for global pooling
         x = rearrange(
             x,
-            "b h w (c ph pw) -> b c (h ph) (w pw)",
+            "b (c ph pw) -> b c ph pw",
             c=self.out_channels,
             ph=self.patch_size[0],
             pw=self.patch_size[1],
-            h=h,
-            w=w,
         )
+
+        # Repeat the patch content across the spatial grid
+        x = x.repeat(1, 1, h, w)  # (B, C, ph, pw) -> (B, C, h*ph, w*pw)
 
         return x

@@ -1,5 +1,6 @@
 import torch
 import xarray as xr
+from einops import rearrange
 from torch import nn
 
 from ocean_emulators.constants import Grid
@@ -9,7 +10,10 @@ from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
 class FOMO(BaseModel):
-    """A placeholder FOMO model. It currently combines an encoder and processor."""
+    """FOMO: A Foundation Model for the Oceans + Observations.
+
+    Currently, this model is used only as a physical ocean emulator.
+    """
 
     def __init__(
         self,
@@ -34,14 +38,40 @@ class FOMO(BaseModel):
             pad=pad,
             static_data=static_data,
         )
-        # TODO(alxmrs): Properly wire up the encoder with the processor.
-        self.layers = [encoder, processor]
-        self.layers.append(
-            # Placeholder decoder -- ignoring global padding for now.
-            nn.Conv2d(processor.out_channels, out_channels, last_kernel_size),
+        self.patch_size = encoder.patch_size
+
+        # Placeholder decoder is a non-globe aware Conv2d.
+        layers = [
+            encoder,
+            processor,
+            nn.Conv2d(
+                processor.out_channels,
+                out_channels,
+                last_kernel_size,
+                padding=last_kernel_size // 2,
+            ),
+        ]
+        self.layers = nn.ModuleList(layers)
+        self.unpatch = nn.Linear(
+            out_channels, out_channels * self.patch_size[0] * self.patch_size[1]
         )
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
             fts = layer(fts)
-        return fts
+
+        # Unpatchify: project to patch area, then reshape back to original spatial dimensions
+        _, _, h, w = fts.shape
+        fts = rearrange(fts, "b l h w -> b h w l")
+        fts = self.unpatch(fts)  # (b, h, w, out_channels * ph * pw)
+        fts = rearrange(
+            fts,
+            "b h w (c ph pw) -> b c (h ph) (w pw)",
+            c=self.out_channels,
+            ph=self.patch_size[0],
+            pw=self.patch_size[1],
+            h=h,
+            w=w,
+        )
+
+        return torch.where(self.wet, fts, 0.0)

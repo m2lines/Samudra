@@ -63,7 +63,7 @@ class BaseModel(torch.nn.Module):
                 pred = decodings  # Absolute prediction
 
             if loss_fn is not None:
-                if torch.isnan(loss).all():
+                if step == 0:
                     loss = loss_fn(
                         pred,
                         train_data.get_label(step),

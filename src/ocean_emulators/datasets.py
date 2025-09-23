@@ -334,9 +334,17 @@ class TrainData:
     def to(self, device: torch.device) -> None:
         for step in self.td_dict:
             self.td_dict[step] = (
-                self.td_dict[step][0].to(device),
-                self.td_dict[step][1].to(device),
+                self.td_dict[step][0].to(device, non_blocking=True),
+                self.td_dict[step][1].to(device, non_blocking=True),
             )
+
+    def pin_memory(self):
+        for step in self.td_dict:
+            self.td_dict[step] = (
+                self.td_dict[step][0].pin_memory(),
+                self.td_dict[step][1].pin_memory(),
+            )
+        return self
 
     def __iter__(self):
         return iter(self.td_dict)

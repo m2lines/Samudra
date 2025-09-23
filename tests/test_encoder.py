@@ -8,14 +8,15 @@ def test_makes_patches():
 
     patch_embed = PerceiverEncoder(
         in_channels=10,
+        out_channels=4,
         patch_size=4,
-        embed_dim=4,
         perceiver_depth=2,
+        perceiver_latent_dim=3,
     )
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 1, 2, 4)
+    assert patches.shape == (1, 4, 1, 2)
 
 
 def test_makes_rectangular_patches():
@@ -23,14 +24,20 @@ def test_makes_rectangular_patches():
 
     patch_embed = PerceiverEncoder(
         in_channels=10,
+        out_channels=4,
         patch_size=(4, 2),
-        embed_dim=4,
         perceiver_depth=2,
+        perceiver_latent_dim=3,
     )
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 1, 4, 4)
+    assert patches.shape == (
+        1,
+        4,
+        1,
+        4,
+    )
 
 
 def test_makes_patches__high_res():
@@ -38,14 +45,15 @@ def test_makes_patches__high_res():
 
     patch_embed = PerceiverEncoder(
         in_channels=10,
+        out_channels=5,
         patch_size=4,
-        embed_dim=4,
         perceiver_depth=2,
+        perceiver_latent_dim=3,
     )
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 2, 4, 4)
+    assert patches.shape == (1, 5, 2, 4)
 
 
 def test_makes_patches__more_variables():
@@ -53,11 +61,12 @@ def test_makes_patches__more_variables():
 
     patch_embed = PerceiverEncoder(
         in_channels=20,
+        out_channels=5,
         patch_size=4,
-        embed_dim=4,
         perceiver_depth=2,
+        perceiver_latent_dim=3,
     )
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 1, 2, 4)
+    assert patches.shape == (1, 5, 1, 2)

@@ -23,12 +23,12 @@ from ocean_emulators.models.modules import (
     CoreBlock,
     CoreBlockBuilder,
     MaxPool,
+    PerceiverDecoder,
     PerceiverEncoder,
     ReLU,
     TransposedConvUpsample,
     UNetBackbone,
 )
-from ocean_emulators.models.modules.decoder import PerceiverDecoder
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler

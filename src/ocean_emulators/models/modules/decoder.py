@@ -10,8 +10,6 @@ class PerceiverDecoder(nn.Module):
     Args:
         in_channels (int): the number of input channels (typically, the output of our UNet backbone).
         out_channels (int): size of our output channels (roughly: variables x depths).
-        patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
-          If a tuple is supplied, then it represents the (height, width) of the patches to embed.
         grid_size (tuple[int, int]): size of the final output grid (lat / lng).
         perceiver_depth (int): depth of the perceiver module core.
         perceiver_latent_dim (int): latent dimension of the perceiver module core. The `N` of the Perceiver's `O(M*N)`
@@ -22,7 +20,6 @@ class PerceiverDecoder(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        patch_size: int | tuple[int, int],
         grid_size: tuple[int, int],
         perceiver_depth: int,
         perceiver_latent_dim: int,
@@ -30,14 +27,7 @@ class PerceiverDecoder(nn.Module):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
-
-        if isinstance(patch_size, int):
-            self.patch_size: tuple[int, int] = (patch_size, patch_size)
-        else:
-            assert isinstance(patch_size, tuple) and len(patch_size) == 2, (
-                "Patch sizes must only span spatial dimensions (lat and lon)!"
-            )
-            self.patch_size = patch_size
+        self.grid_size = grid_size
 
         grid_area = grid_size[0] * grid_size[1]
 
@@ -63,12 +53,10 @@ class PerceiverDecoder(nn.Module):
         x = self.norm_embedding(x)
         x = rearrange(
             x,
-            "b (h w c ph pw) -> b c (h ph) (w pw)",
+            "b (h w c) -> b c h w",
             c=self.out_channels,
-            ph=self.patch_size[0],
-            pw=self.patch_size[1],
-            h=h,
-            w=w,
+            h=self.grid_size[0],
+            w=self.grid_size[1],
         )
 
         return x

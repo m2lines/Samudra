@@ -16,19 +16,22 @@ class PerceiverEncoder(nn.Module):
 
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
+        out_channels (int): size of the latent dimension (aka, the embedding dimension).
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
-        embed_dim (int): size of the latent dimension.
         perceiver_depth (int): depth of the perceiver module core.
+        perceiver_latent_dim (int): latent dimension of the perceiver module core. The `N` of the Perceiver's `O(M*N)`
+          complexity, where the `M` corresponds to the size of the input data.
     """
 
     # TODO(alxmrs): Implement gradient checkpointing
     def __init__(
         self,
         in_channels: int,
+        out_channels: int,
         patch_size: int | tuple[int, int],
-        embed_dim: int,
         perceiver_depth: int,
+        perceiver_latent_dim: int,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -39,7 +42,7 @@ class PerceiverEncoder(nn.Module):
                 "Patch sizes must only span spatial dimensions (lat and lon)!"
             )
             self.patch_size = patch_size
-        self.embed_dim: int = embed_dim
+        self.out_channels: int = out_channels  # aka, `embed_dim`.
 
         self.norm_patches = nn.LayerNorm(self.in_channels)
         self.perceiver = Perceiver(
@@ -47,12 +50,15 @@ class PerceiverEncoder(nn.Module):
             max_freq=1.0,
             depth=perceiver_depth,
             input_axis=2,  # Number of positional dims before token dim
-            input_channels=self.in_channels,  # input_dim
-            num_classes=embed_dim,  # output_dim
+            input_channels=self.in_channels,
+            latent_dim=perceiver_latent_dim,
+            num_classes=out_channels,
+            weight_tie_layers=True,  # share weights of cross-attn blocks
+            self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
         )
-        self.norm_embedding = nn.LayerNorm(embed_dim)
+        self.norm_embedding = nn.LayerNorm(out_channels)
 
-    def forward(self, x: Input) -> Float[torch.Tensor, "batch h w {self.embed_dim}"]:
+    def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).
@@ -76,12 +82,12 @@ class PerceiverEncoder(nn.Module):
         # physical relationships in the data and aggregates across depth level and history. We should be cautious here.
         x = self.norm_patches(x)
         x = self.perceiver(x)
+        x = self.norm_embedding(x)
         x = rearrange(
             x,
-            "(b h w) l -> b h w l",
+            "(b h w) l -> b l h w",
             h=(H // self.patch_size[0]),
             w=(W // self.patch_size[1]),
         )
-        x = self.norm_embedding(x)
 
         return x

@@ -305,6 +305,10 @@ def _validate_patch_size(candidate: int | list[int]) -> int | tuple[int, int]:
 
 
 class EncoderConfig(BaseConfig):
+    patch_size: int | list[int] = Field(
+        default=4,
+        description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
+    )
     perceiver_depth: int = 6
     perceiver_latent_dim: int = Field(
         default=128,
@@ -312,8 +316,11 @@ class EncoderConfig(BaseConfig):
     )
 
     def build(
-        self, in_channels: int, out_channels: int, patch_size: int | tuple[int, int]
+        self,
+        in_channels: int,
+        out_channels: int,
     ) -> PerceiverEncoder:
+        patch_size = _validate_patch_size(self.patch_size)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -334,13 +341,11 @@ class DecoderConfig(BaseConfig):
         self,
         in_channels: int,
         out_channels: int,
-        patch_size: int | tuple[int, int],
         grid_size: tuple[int, int],
     ) -> PerceiverDecoder:
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
-            patch_size=patch_size,
             grid_size=grid_size,
             perceiver_depth=self.perceiver_depth,
             perceiver_latent_dim=self.perceiver_latent_dim,
@@ -477,10 +482,6 @@ class FOMOConfig(BaseModelConfig):
     processor: UNetBackboneConfig = UNetBackboneConfig()
     decoder: DecoderConfig = DecoderConfig()
     embedding_dim: int = 128
-    patch_size: int | list[int] = Field(
-        default=4,
-        description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
-    )
 
     def build(
         self,
@@ -494,17 +495,16 @@ class FOMOConfig(BaseModelConfig):
         processor = self.processor.build(
             self.embedding_dim, self.pad, self.checkpointing
         )
-        patch_size = _validate_patch_size(self.patch_size)
         return FOMO(
             in_channels=in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.embedding_dim, patch_size),
+            encoder=self.encoder.build(in_channels, self.embedding_dim),
             processor=processor,
             decoder=self.decoder.build(
-                processor.out_channels, out_channels, patch_size, wet.shape[-2:]
+                processor.out_channels, out_channels, wet.shape[-2:]
             ),
             hist=hist,
             wet=wet,

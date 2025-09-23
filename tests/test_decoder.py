@@ -11,7 +11,6 @@ def test_reconstructs_patches():
     decoder = PerceiverDecoder(
         in_channels=4,
         out_channels=10,
-        patch_size=4,
         grid_size=(4, 8),
         perceiver_depth=2,
         perceiver_latent_dim=3,
@@ -30,7 +29,6 @@ def test_reconstructs_rectangular_patches():
     decoder = PerceiverDecoder(
         in_channels=4,
         out_channels=10,
-        patch_size=(4, 2),
         grid_size=(4, 8),
         perceiver_depth=2,
         perceiver_latent_dim=3,
@@ -48,7 +46,6 @@ def test_reconstructs_patches__high_res():
     decoder = PerceiverDecoder(
         in_channels=5,
         out_channels=10,
-        patch_size=4,
         grid_size=(8, 16),
         perceiver_depth=2,
         perceiver_latent_dim=3,
@@ -66,7 +63,6 @@ def test_reconstructs_patches__more_output_channels():
     decoder = PerceiverDecoder(
         in_channels=4,
         out_channels=20,
-        patch_size=4,
         grid_size=(4, 8),
         perceiver_depth=2,
         perceiver_latent_dim=3,
@@ -87,7 +83,6 @@ def test_fomo_scale_patches():
     decoder = PerceiverDecoder(
         in_channels=80,
         out_channels=154,  # Ocean variables with history
-        patch_size=(4, 8),  # FOMO patch size
         grid_size=(180, 360),
         perceiver_depth=3,
         perceiver_latent_dim=128,
@@ -106,7 +101,6 @@ def test_larger_patch_sizes():
     decoder = PerceiverDecoder(
         in_channels=64,
         out_channels=154,
-        patch_size=(12, 24),  # Larger patches
         grid_size=(180, 360),
         perceiver_depth=2,
         perceiver_latent_dim=128,
@@ -122,7 +116,6 @@ def test_batch_size_independence():
     decoder = PerceiverDecoder(
         in_channels=4,
         out_channels=10,
-        patch_size=4,
         grid_size=(4, 8),
         perceiver_depth=2,
         perceiver_latent_dim=3,

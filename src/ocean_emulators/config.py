@@ -331,12 +331,17 @@ class DecoderConfig(BaseConfig):
     )
 
     def build(
-        self, in_channels: int, out_channels: int, patch_size: int | tuple[int, int]
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_size: int | tuple[int, int],
+        grid_size: tuple[int, int],
     ) -> PerceiverDecoder:
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_size=patch_size,
+            grid_size=grid_size,
             perceiver_depth=self.perceiver_depth,
             perceiver_latent_dim=self.perceiver_latent_dim,
         )
@@ -499,7 +504,7 @@ class FOMOConfig(BaseModelConfig):
             encoder=self.encoder.build(in_channels, self.embedding_dim, patch_size),
             processor=processor,
             decoder=self.decoder.build(
-                processor.out_channels, out_channels, patch_size
+                processor.out_channels, out_channels, patch_size, wet.shape[-2:]
             ),
             hist=hist,
             wet=wet,

@@ -12,6 +12,7 @@ class PerceiverDecoder(nn.Module):
         out_channels (int): size of our output channels (roughly: variables x depths).
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
+        grid_size (tuple[int, int]): size of the final output grid (lat / lng).
         perceiver_depth (int): depth of the perceiver module core.
         perceiver_latent_dim (int): latent dimension of the perceiver module core. The `N` of the Perceiver's `O(M*N)`
           complexity, where the `M` corresponds to the size of the input data.
@@ -22,6 +23,7 @@ class PerceiverDecoder(nn.Module):
         in_channels: int,
         out_channels: int,
         patch_size: int | tuple[int, int],
+        grid_size: tuple[int, int],
         perceiver_depth: int,
         perceiver_latent_dim: int,
     ) -> None:
@@ -37,7 +39,7 @@ class PerceiverDecoder(nn.Module):
             )
             self.patch_size = patch_size
 
-        patch_area = self.patch_size[0] * self.patch_size[1]
+        grid_area = grid_size[0] * grid_size[1]
 
         self.norm_patches = nn.LayerNorm(self.in_channels)
         self.perceiver = Perceiver(
@@ -47,31 +49,26 @@ class PerceiverDecoder(nn.Module):
             input_axis=2,  # Number of positional dims before token dim
             input_channels=self.in_channels,
             latent_dim=perceiver_latent_dim,
-            num_classes=out_channels * patch_area,
+            num_classes=out_channels * grid_area,
             weight_tie_layers=True,  # share weights of cross-attn blocks
             self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
         )
-        self.norm_embedding = nn.LayerNorm(out_channels * patch_area)
+        self.norm_embedding = nn.LayerNorm(out_channels * grid_area)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        B, _, h, w = x.shape
-
+        _, _, h, w = x.shape
         x = rearrange(x, "b l h w -> b h w l")
         x = self.norm_patches(x)
         x = self.perceiver(x)
         x = self.norm_embedding(x)
-
-        # Reshape from flattened output back to spatial patches, then unpatchify
-        # Perceiver outputs (B, out_channels * patch_area) for global pooling
         x = rearrange(
             x,
-            "b (c ph pw) -> b c ph pw",
+            "b (h w c ph pw) -> b c (h ph) (w pw)",
             c=self.out_channels,
             ph=self.patch_size[0],
             pw=self.patch_size[1],
+            h=h,
+            w=w,
         )
-
-        # Repeat the patch content across the spatial grid
-        x = x.repeat(1, 1, h, w)  # (B, C, ph, pw) -> (B, C, h*ph, w*pw)
 
         return x

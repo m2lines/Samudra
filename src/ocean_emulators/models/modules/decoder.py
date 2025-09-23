@@ -46,7 +46,6 @@ class PerceiverDecoder(nn.Module):
         self.norm_embedding = nn.LayerNorm(out_channels * grid_area)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        _, _, h, w = x.shape
         x = rearrange(x, "b l h w -> b h w l")
         x = self.norm_patches(x)
         x = self.perceiver(x)

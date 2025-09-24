@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758748099606,
+  "lastUpdate": 1758748101208,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8510,6 +8510,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.33092635706309526",
             "extra": "mean: 73.60761266480003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ryan.williams@openathena.ai",
+            "name": "Ryan Williams",
+            "username": "ryan-williams"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1f7cac16272ed0721935df70f8b238c6a2687dcd",
+          "message": "Fix `benchmarks.yml`: use ec2-gha, remove FOMO benchmark (#399)\n\n- In [#308] I neglected to update `benchmarks.yml` to use ec2-gha, which\nresulted in an invalid workflow file.\n- However, [`benchmarks.yml`] has been broken on `main` since [#384],\nwhich added a FOMO model benchmark that uses more memory (and GPU\nmemory)\n  - I've not yet found instances that can handle either\n- e.g. [benchmarks#175] uses an [m7i.8xlarge] for CPU benchmarks and a\n[g6.xlarge] for GPU, and both fail\n\nThis PR fixes the former by updating `benchmarks.yml` to use ec2-gha,\nand works around the latter by restoring the benchmarks configs to the\npre-[#384] state.\n\n[benchmarks#172] is a passing run from [`f313865`]\n\n[Open-Athena/Ocean_Emulator#399]:\nhttps://github.com/Open-Athena/Ocean_Emulator/pull/399\n\n[benchmarks#172]:\nhttps://github.com/Open-Athena/Ocean_Emulator/actions/runs/17985502557/job/51162739635\n[benchmarks#175]:\nhttps://github.com/Open-Athena/Ocean_Emulator/actions/runs/17986640677/job/51166555978\n[m7i.8xlarge]: https://instances.vantage.sh/aws/ec2/m7i.8xlarge\n[g6.xlarge]: https://instances.vantage.sh/aws/ec2/g6.xlarge\n\n[`benchmarks.yml`]:\nhttps://github.com/Open-Athena/Ocean_Emulator/actions/workflows/benchmarks.yml?query=branch%3Amain\n\n[#308]: https://github.com/Open-Athena/Ocean_Emulator/pull/308\n[#384]: https://github.com/Open-Athena/Ocean_Emulator/pull/384\n[`f313865`]:\nhttps://github.com/Open-Athena/Ocean_Emulator/pull/399/commits/f313865a76db1b401243a4189ae876954b94c4c9\n\n<!-- Synced with\nhttps://gist.github.com/81ed211c8bf19f9b97ab1d4c3cdb51bd/1135cb77d4fb2c35bdd774f1330751e4b233f35d\nvia\n[github-pr.py](https://github.com/ryan-williams/git-helpers/blob/main/github/github-pr.py)\n-->\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-09-24T16:38:59-04:00",
+          "tree_id": "6a15fe5d0a2fe7baa144054a3cd64e60b3d4112a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/1f7cac16272ed0721935df70f8b238c6a2687dcd"
+        },
+        "date": 1758748100632,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2994196648061762,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018328001151941213",
+            "extra": "mean: 769.5743161999644 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06823848101135423,
+            "unit": "iter/sec",
+            "range": "stddev: 0.30112535680076763",
+            "extra": "mean: 14.654487983599893 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18601336373502764,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1400341389526064",
+            "extra": "mean: 5.375957833999928 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012662053912947412,
+            "unit": "iter/sec",
+            "range": "stddev: 0.20694368847457328",
+            "extra": "mean: 78.97612874459992 sec\nrounds: 5"
           }
         ]
       }

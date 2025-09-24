@@ -15,33 +15,57 @@ permissions:
   id-token: write # This is required for interacting with AWS via OIDC
 
 jobs:
-  ec2:
+  # CPU benchmarks on compute-optimized instance
+  ec2-cpu:
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
-      ec2_instance_type: g6.xlarge
+      ec2_instance_type: m7i.2xlarge # 8 vCPUs, 32 GB memory, $0.168/hr
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
-      ec2_root_device_size: 200 # AMI's reported VolumeSize (40GB) +20GB; leaves headroom for benchmarking I/O; instance runs out of disk otherwise
+      ec2_root_device_size: 60 # Enough for code and Python environment
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
-  test:
-    needs: ec2
-    runs-on: ${{ needs.ec2.outputs.id }}
+  # GPU benchmarks on small GPU instance
+  ec2-gpu:
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    with:
+      ec2_instance_type: g6.xlarge # 4 vCPUs, 16 GB memory, 1x L4 GPU (24GB), $0.805/hr
+      ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
+      ec2_root_device_size: 60 # Enough for code and Python environment
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+
+  test-cpu:
+    name: CPU benchmarks
+    needs: ec2-cpu
+    runs-on: ${{ needs.ec2-cpu.outputs.id }}
 
     steps:
       - name: Check out code
         uses: actions/checkout@v4
 
-        # Invalidate the data cache every time the data source changes.
-        # If an exact cache isn't found, fall back to previous cache.
+      # Cache test data
       - name: Cache test data
         uses: actions/cache@v4
         with:
           path: .data_cache/
           key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/*.test.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-data-
 
-      - name: Install uv and set the python version
+      # Cache Python virtual environment
+      - name: Cache Python environment
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-
+
+      - name: Install uv with caching
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true # Cache uv packages
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -50,9 +74,6 @@ jobs:
 
       - name: Run CPU benchmarks
         run: uv run --locked pytest -m "not cuda" --benchmark-only --benchmark-json output-cpu.json
-
-      - name: Run GPU benchmarks
-        run: uv run --locked pytest -m "cuda" --benchmark-only --benchmark-json output-gpu.json
 
       # Avoid issues checking out the gh-pages branch (eg uv.lock updated)
       - name: Stash
@@ -72,6 +93,50 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@alxmrs,@jder"
+
+  test-gpu:
+    name: GPU benchmarks
+    needs: ec2-gpu
+    runs-on: ${{ needs.ec2-gpu.outputs.id }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Cache test data
+      - name: Cache test data
+        uses: actions/cache@v4
+        with:
+          path: .data_cache/
+          key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/*.test.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-test-data-
+
+      # Cache Python virtual environment
+      - name: Cache Python environment
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-
+
+      - name: Install uv with caching
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true # Cache uv packages
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run GPU benchmarks
+        run: uv run --locked pytest -m "cuda" --benchmark-only --benchmark-json output-gpu.json
+
+      # Avoid issues checking out the gh-pages branch (eg uv.lock updated)
+      - name: Stash
+        run: git stash
 
       # gh-pages branch is automatically updated with extracted benchmark data.
       - name: Store benchmark result (GPU)

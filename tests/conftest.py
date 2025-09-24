@@ -22,6 +22,7 @@ from ocean_emulators.utils.multiton import MultitonScope
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "train_default.test.yaml"
 FOMO_CONFIG = "train_fomo.test.yaml"
+FOMO_MINIMAL_CONFIG = "train_fomo_minimal.test.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "train_default_2step.test.yaml", FOMO_CONFIG]
 
 TrainPair = tuple[TrainConfig, Trainer]

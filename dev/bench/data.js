@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757960292970,
+  "lastUpdate": 1758739028763,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4152,6 +4152,56 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5695590219954398",
             "extra": "mean: 84.09361135839997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ryan Williams",
+            "username": "ryan-williams",
+            "email": "ryan.williams@openathena.ai"
+          },
+          "committer": {
+            "name": "Ryan Williams",
+            "username": "ryan-williams",
+            "email": "ryan.williams@openathena.ai"
+          },
+          "id": "f313865a76db1b401243a4189ae876954b94c4c9",
+          "message": "fix: Restore benchmarks to pre-#384 state to fix OOM issues\n\nThe addition of FOMO model testing in PR #384 caused benchmark failures\ndue to excessive memory usage. FOMO with Perceiver layers uses ~170GB RAM\nfor CPU benchmarks and exceeds 22GB GPU memory.\n\nThis commit removes FOMO from the benchmark suite, restoring it to the\nlast known working state. A separate commit will follow to add a\nlightweight FOMO configuration suitable for CI benchmarks.\n\nFixes benchmark OOM failures that started with #384.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-24T18:03:07Z",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/f313865a76db1b401243a4189ae876954b94c4c9"
+        },
+        "date": 1758739027789,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2745107905928446,
+            "unit": "iter/sec",
+            "range": "stddev: 0.019838343711848297",
+            "extra": "mean: 784.6147771999995 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06979722866698872,
+            "unit": "iter/sec",
+            "range": "stddev: 0.40086617467531394",
+            "extra": "mean: 14.327216410999995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1802438848058882,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1123080303610341",
+            "extra": "mean: 5.5480384318 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.011626767298463066,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4582813297161364",
+            "extra": "mean: 86.00842988680003 sec\nrounds: 5"
           }
         ]
       }

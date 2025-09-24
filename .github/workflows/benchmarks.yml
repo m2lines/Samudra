@@ -19,7 +19,7 @@ jobs:
   ec2-cpu:
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
-      ec2_instance_type: m7i.2xlarge # 8 vCPUs, 32 GB memory, $0.168/hr
+      ec2_instance_type: m7i.8xlarge # 32 vCPUs, 128 GB memory, $0.672/hr
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
       ec2_root_device_size: 60 # Enough for code and Python environment
     secrets:

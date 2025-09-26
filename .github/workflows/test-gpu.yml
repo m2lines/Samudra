@@ -9,21 +9,24 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write # This is required for interacting with AWS via OIDC
-  contents: read # This is required for actions/checkout
-jobs:
-  start-aws-runner:
-    uses: ./.github/workflows/aws-runner-start.yml
-    secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
-      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+  id-token: write # Required for interacting with AWS via OIDC
+  contents: read # Required for actions/checkout (normally set by default, but must explicitly specify when defining a custom `permissions` block.
 
+jobs:
+  ec2:
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    with:
+      ec2_instance_type: g6.xlarge
+      ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
+      ec2_root_device_size: '+1' # AMI's reported VolumeSize (40GB) +1GB; leaves headroom for test I/O; instance runs out of disk otherwise
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
   run-tests:
-    needs: start-aws-runner
-    runs-on: ${{ fromJSON(needs.start-aws-runner.outputs.instances) }}
+    needs: ec2
+    runs-on: ${{ needs.ec2.outputs.id }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
         # Invalidate the data cache every time the data source changes.
         # If an exact cache isn't found, fall back to previous cache.
@@ -39,7 +42,7 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -48,15 +51,3 @@ jobs:
 
       - name: Run pytest
         run: uv run --locked pytest -n 2 -v -m "not manual and cuda"
-
-  stop-aws-runner:
-    uses: ./.github/workflows/aws-runner-stop.yml
-    needs:
-      - start-aws-runner
-      - run-tests
-    if: ${{ always() }}
-    with:
-      instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
-    secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
-      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

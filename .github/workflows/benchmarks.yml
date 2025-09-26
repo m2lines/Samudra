@@ -15,24 +15,27 @@ permissions:
   id-token: write # This is required for interacting with AWS via OIDC
 
 jobs:
-  start-aws-runner:
-    uses: ./.github/workflows/aws-runner-start.yml
+  ec2:
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    with:
+      ec2_instance_type: g6.xlarge
+      ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
+      ec2_root_device_size: 200 # leaves headroom for benchmarking I/O; instance runs out of disk otherwise
     secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
   test:
-    needs: start-aws-runner
-    runs-on: ${{ fromJSON(needs.start-aws-runner.outputs.instances) }}
+    needs: ec2
+    runs-on: ${{ needs.ec2.outputs.id }}
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
         # Invalidate the data cache every time the data source changes.
         # If an exact cache isn't found, fall back to previous cache.
       - name: Cache test data
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: .data_cache/
           key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/*.test.yaml') }}
@@ -41,7 +44,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -56,7 +59,7 @@ jobs:
         run: git stash
 
       # gh-pages branch is automatically updated with extracted benchmark data.
-      - name: Store benchmark result
+      - name: Store benchmark result (CPU)
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Python Benchmark with pytest-benchmark
@@ -71,7 +74,7 @@ jobs:
           alert-comment-cc-users: "@alxmrs,@jder"
 
       # gh-pages branch is automatically updated with extracted benchmark data.
-      - name: Store benchmark result
+      - name: Store benchmark result (GPU)
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: Python Benchmark with pytest-benchmark (GPU)
@@ -84,15 +87,3 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@alxmrs,@jder"
-
-  stop-aws-runner:
-    uses: ./.github/workflows/aws-runner-stop.yml
-    needs:
-      - start-aws-runner
-      - test
-    if: ${{ always() }}
-    with:
-      instance_mapping: ${{ needs.start-aws-runner.outputs.mapping }}
-    secrets:
-      AWS_ROLE: ${{ secrets.AWS_ROLE }}
-      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

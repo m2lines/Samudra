@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758748101208,
+  "lastUpdate": 1758900984862,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4254,6 +4254,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1372647972586376",
             "extra": "mean: 91.72769848180005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "79916c152dc2f0245c2cff17cdf998781f34142a",
+          "message": "Initial config used to training FOMOv0. (#394)\n\nPerformed [this training\nrun](https://wandb.ai/m2lines/ocean-emulators/runs/0onsakhn) -- hey, at\nleast the loss went down!",
+          "timestamp": "2025-09-26T15:08:18Z",
+          "tree_id": "9391035b25eeed6517d2763e131a590923e86171",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/79916c152dc2f0245c2cff17cdf998781f34142a"
+        },
+        "date": 1758900983821,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2365811475520498,
+            "unit": "iter/sec",
+            "range": "stddev: 0.025624507316989346",
+            "extra": "mean: 808.6812595999959 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06908723971245065,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6180914070576927",
+            "extra": "mean: 14.474452940399988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18449209943774392,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11370788674456431",
+            "extra": "mean: 5.420286305199999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01151364955736451,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2295504657697572",
+            "extra": "mean: 86.8534338324 sec\nrounds: 5"
           }
         ]
       }

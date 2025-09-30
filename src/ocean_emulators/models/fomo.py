@@ -64,7 +64,13 @@ class FOMO(BaseModel):
         apply_activation_checkpointing(
             self,
             check_fn=lambda m: isinstance(
-                m, nn.LayerNorm | FeedForward | nn.Linear | Perceiver
+                m,
+                nn.LayerNorm
+                | FeedForward
+                | nn.Linear
+                | Perceiver
+                | PerceiverEncoder
+                | UNetBackbone,
             ),
         )
 

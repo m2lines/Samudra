@@ -81,12 +81,7 @@ class PerceiverEncoder(nn.Module):
             ph=self.patch_size[0],
             pw=self.patch_size[1],
         )
-        # This is applying a layer norm across all our data channels. I am not sure if this will have a positive or
-        # negative effect. It may make it easier for the Perceiver to process data across scales, but it destroys the
-        # physical relationships in the data and aggregates across depth level and history. We should be cautious here.
-        x = self.norm_patches(x)
         x = self.perceiver(x)
-        x = self.norm_embedding(x)
         x = rearrange(
             x,
             "(b h w) l -> b l h w",

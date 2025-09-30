@@ -23,6 +23,7 @@ class PerceiverDecoder(nn.Module):
         patch_size: tuple[int, int],
         perceiver_depth: int,
         perceiver_latent_dim: int,
+        perceiver_num_latents: int,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -37,6 +38,7 @@ class PerceiverDecoder(nn.Module):
             input_axis=1,  # Number of positional dims before token dim
             input_channels=1,
             latent_dim=perceiver_latent_dim,
+            num_latents=perceiver_num_latents,
             num_classes=out_channels * patch_size[0] * patch_size[1],
             weight_tie_layers=True,  # share weights of cross-attn blocks
             self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks

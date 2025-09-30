@@ -217,11 +217,6 @@ class Trainer:
         )
         self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
-        # Get output channel metadata for decoder
-        output_channel_metadata = self.tensor_map.get_output_channel_metadata(
-            cfg.data.hist
-        )
-
         self.model = cfg.model.build(
             in_channels=self.num_in,
             out_channels=self.num_out,
@@ -229,7 +224,6 @@ class Trainer:
             wet=self.wet.to(self.device),
             area_weights=self.area_weights,
             static_data=self.static_data,
-            output_channel_metadata=output_channel_metadata,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir

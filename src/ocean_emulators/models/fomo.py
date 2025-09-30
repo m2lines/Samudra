@@ -76,8 +76,9 @@ class FOMO(BaseModel):
 
         apply_activation_checkpointing(
             self,
-            # check_fn=lambda m: m.__class__.__name__
-            # in ["LayerNorm", "FeedForward", "Linear", "Perceiver"],
+            check_fn=lambda m: isinstance(
+                m, nn.LayerNorm | FeedForward | nn.Linear | Perceiver
+            ),
         )
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:

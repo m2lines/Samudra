@@ -35,16 +35,21 @@ class PerceiverDecoder(nn.Module):
         self.out_channels = out_channels
         self.patch_size = patch_size
         self.num_freq_bands = num_freq_bands
+        self.perceiver_latent_dim = perceiver_latent_dim
+
+        assert self.in_channels % perceiver_latent_dim == 0, (
+            "Input channels must be divisible by perceiver latent dimension"
+        )
 
         # Query dimension: (sin+cos for x, sin+cos for y) * num_freq_bands + depth + var_kind + time_delta
         self.queries_dim = 2 * num_freq_bands * 2 + 3
 
         self.norm_patches = nn.LayerNorm([self.in_channels, 1])
         self.perceiver = PerceiverIO(
-            dim=1,
+            dim=self.in_channels // perceiver_latent_dim,
             queries_dim=self.queries_dim,
             depth=perceiver_depth,
-            latent_dim=self.in_channels,
+            latent_dim=perceiver_latent_dim,
             num_latents=perceiver_num_latents,
             weight_tie_layers=False,  # share weights of cross-attn blocks
         )
@@ -115,8 +120,8 @@ class PerceiverDecoder(nn.Module):
 
             self.query_positions = queries
 
-        # Prepare input: (b h w) l 1
-        x = rearrange(x, "b l h w -> (b h w) l 1")
+        # Prepare input: (b h w) l d
+        x = rearrange(x, "b (l d) h w -> (b h w) l d", l=self.perciever_latent_dim)
 
         # Expand queries for each batch*patch: (b h w, num_queries, queries_dim)
         queries = self.query_positions.unsqueeze(0).expand(x.shape[0], -1, -1)

@@ -38,14 +38,14 @@ envs:
   # Run `sky check aws -v` to verify that AWS storage is properly set up.
   # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
+  OSN_KEY_ID: null
+  OSN_KEY_SECRET: null
 
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs
-  DATA_BUCKET: oa-fomo
-  DATA_ROOT_PATH: null # path to copy from DATA_BUCKET into the local data root eg data/om4_onedeg
   BASIN_PATH: null # relative to DATA_BUCKET/basins we should use for the basin zarr eg basin_masks_original.zarr
   NAME: null # name used for output directory
-  RUNS: null # run JSON, for example '{"name": "my_run", "location": "/outputs/my_run/predictions.zarr"}'
+  RUNS: null # run JSON, for example '[{"name": "my_run", "location": "/inputs/my_run/predictions.zarr"}]'
   ARGS: ""
 
 #### Shared setup, please ensure this is the same as in all *.sky.yaml files ####
@@ -63,9 +63,13 @@ setup: |
   set -ex
 
   rclone config create s3-source s3 provider=AWS env_auth=true
+  rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
 
   mkdir -p ~/data/
-  rclone copy --progress s3-source:${DATA_BUCKET}/${DATA_ROOT_PATH} ~/data --ignore-existing --transfers=32
+  rclone copy --progress nyu-osn:emulators/jr7309/data/om4_halfdeg/ ~/data --ignore-existing --transfers=32
+
+  mkdir -p ~/basins/
+  rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins
 
   sudo mkdir -p /inputs
   sudo chown $USER /inputs
@@ -118,9 +122,6 @@ setup: |
       print(f'Copying {s3_source} to {local_dest}')
       subprocess.run(cmd, check=True)
   EOPYTHON
-
-  mkdir -p ~/basins/
-  rclone copy --progress s3-source:${DATA_BUCKET}/basins ~/basins
 
 #### End of shared setup ####
 

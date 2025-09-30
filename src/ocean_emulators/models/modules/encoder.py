@@ -47,7 +47,9 @@ class PerceiverEncoder(nn.Module):
         self.norm_patches = nn.LayerNorm(self.in_channels)
         self.perceiver = Perceiver(
             num_freq_bands=4,
-            max_freq=1.0,
+            max_freq=max(
+                *self.patch_size
+            ),  # This is not actually a "frequency" but a maximum of the width appears to be reasonable from looking at the code
             depth=perceiver_depth,
             input_axis=2,  # Number of positional dims before token dim
             input_channels=self.in_channels,

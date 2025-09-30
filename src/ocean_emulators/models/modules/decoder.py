@@ -35,7 +35,7 @@ class PerceiverDecoder(nn.Module):
             max_freq=self.in_channels,
             depth=perceiver_depth,
             input_axis=1,  # Number of positional dims before token dim
-            input_channels=self.in_channels,
+            input_channels=1,
             latent_dim=perceiver_latent_dim,
             num_classes=out_channels * patch_size[0] * patch_size[1],
             weight_tie_layers=True,  # share weights of cross-attn blocks

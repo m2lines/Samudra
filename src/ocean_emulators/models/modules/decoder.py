@@ -49,7 +49,6 @@ class PerceiverDecoder(nn.Module):
         x = rearrange(
             x, "b l h w -> (b h w) l 1"
         )  # h/w here are in units of patches; each patch has l tokens with 1 element each (will get pos encoding internally)
-        x = self.norm_patches(x)
         x = self.perceiver(x)
         x = rearrange(
             x,

@@ -5,8 +5,8 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 1
-learning_rate: 0.0003
+batch_size: 4
+learning_rate: 0.0006
 scheduler: { type: cosine }
 loss: mse_dynamic_no_limit
 finetune: false
@@ -69,7 +69,7 @@ model:
       block_type: "conv_next_block"
       kernel_size: 3
       activation: "capped_gelu"
-      upscale_factor: 1
+      upscale_factor: 2
       norm: "batch"
 
     down_sampling_block: "avg_pool"

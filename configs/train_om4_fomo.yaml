@@ -62,7 +62,7 @@ model:
 
   processor:
     ch_width: [380, 480, 520]
-    dilation: [2, 4, 8]
+    dilation: [1, 1, 1]
     n_layers: [1, 1, 1]
 
     core_block:

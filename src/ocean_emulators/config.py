@@ -341,12 +341,12 @@ class DecoderConfig(BaseConfig):
         self,
         in_channels: int,
         out_channels: int,
-        grid_size: tuple[int, int],
+        patch_size: tuple[int, int],
     ) -> PerceiverDecoder:
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
-            grid_size=grid_size,
+            patch_size=patch_size,
             perceiver_depth=self.perceiver_depth,
             perceiver_latent_dim=self.perceiver_latent_dim,
         )
@@ -495,17 +495,19 @@ class FOMOConfig(BaseModelConfig):
         processor = self.processor.build(
             self.embedding_dim, self.pad, self.checkpointing
         )
+        encoder = self.encoder.build(in_channels, self.embedding_dim)
+        decoder = self.decoder.build(
+            processor.out_channels, out_channels, encoder.patch_size
+        )
         return FOMO(
             in_channels=in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.embedding_dim),
+            encoder=encoder,
             processor=processor,
-            decoder=self.decoder.build(
-                processor.out_channels, out_channels, wet.shape[-2:]
-            ),
+            decoder=decoder,
             hist=hist,
             wet=wet,
             static_data=static_data,

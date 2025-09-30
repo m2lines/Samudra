@@ -52,16 +52,17 @@ model:
   last_kernel_size: 3
   pad: "circular"
   checkpointing: "all"
-  embedding_dim: 80
+  embedding_dim: 280
 
   encoder:
     perceiver_depth: 5
-    patch_size: [12, 24]
+    patch_size: [12, 12]
     perceiver_latent_dim: 64
+    perceiver_num_latents: 512
 
   processor:
-    ch_width: [100, 200, 300]
-    dilation: [1, 1, 1]
+    ch_width: [380, 480, 520]
+    dilation: [2, 4, 8]
     n_layers: [1, 1, 1]
 
     core_block:

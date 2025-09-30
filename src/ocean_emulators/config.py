@@ -351,6 +351,7 @@ class DecoderConfig(BaseConfig):
         in_channels: int,
         out_channels: int,
         patch_size: tuple[int, int],
+        output_channel_metadata: torch.Tensor | None = None,
     ) -> PerceiverDecoder:
         return PerceiverDecoder(
             in_channels=in_channels,
@@ -359,6 +360,7 @@ class DecoderConfig(BaseConfig):
             perceiver_depth=self.perceiver_depth,
             perceiver_latent_dim=self.perceiver_latent_dim,
             perceiver_num_latents=self.perceiver_num_latents,
+            output_channel_metadata=output_channel_metadata,
         )
 
 
@@ -443,6 +445,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        output_channel_metadata: torch.Tensor | None = None,
     ) -> BaseModel:
         pass
 
@@ -463,6 +466,7 @@ class SamudraConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        output_channel_metadata: torch.Tensor | None = None,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
@@ -501,13 +505,17 @@ class FOMOConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        output_channel_metadata: torch.Tensor | None = None,
     ) -> FOMO:
         processor = self.processor.build(
             self.embedding_dim, self.pad, self.checkpointing
         )
         encoder = self.encoder.build(in_channels, self.embedding_dim)
         decoder = self.decoder.build(
-            processor.out_channels, out_channels, encoder.patch_size
+            processor.out_channels,
+            out_channels,
+            encoder.patch_size,
+            output_channel_metadata,
         )
         return FOMO(
             in_channels=in_channels,

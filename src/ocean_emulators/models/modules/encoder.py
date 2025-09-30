@@ -59,8 +59,9 @@ class PerceiverEncoder(nn.Module):
             num_classes=out_channels,
             weight_tie_layers=False,  # share weights of cross-attn blocks
             self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+            final_classifier_head=False,
         )
-        self.norm_embedding = nn.LayerNorm(out_channels)
+        self.project = nn.Linear(perceiver_latent_dim, out_channels)
 
     def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
@@ -81,7 +82,9 @@ class PerceiverEncoder(nn.Module):
             ph=self.patch_size[0],
             pw=self.patch_size[1],
         )
-        x = self.perceiver(x)
+        x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, num_latents, latent_dim)
+        x = x.mean(dim=1)  # (B_H_W, num_latents, latent_dim) -> (B_H_W, latent_dim)
+        x = self.project(x)  # (B_H_W, latent_dim) -> (B_H_W, out_channels)
         x = rearrange(
             x,
             "(b h w) l -> b l h w",

@@ -6,6 +6,9 @@ from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+    apply_activation_checkpointing,
+)
 
 
 class FOMO(BaseModel):
@@ -39,6 +42,11 @@ class FOMO(BaseModel):
             static_data=static_data,
         )
         self.layers = nn.ModuleList([encoder, processor, decoder])
+
+        apply_activation_checkpointing(
+            self,
+            lambda m: m.__class__.__name__ in ["LayerNorm", "FeedForward", "Linear"],
+        )
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:

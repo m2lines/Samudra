@@ -56,7 +56,7 @@ model:
 
   encoder:
     perceiver_depth: 5
-    patch_size: [6, 12]
+    patch_size: [12, 24]
     perceiver_latent_dim: 64
 
   decoder:

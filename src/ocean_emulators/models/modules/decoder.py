@@ -46,6 +46,7 @@ class PerceiverDecoder(nn.Module):
 
         self.norm_patches = nn.LayerNorm([self.in_channels, 1])
         self.perceiver = PerceiverIO(
+            # TODO: This seems arbitrary and weird
             dim=self.in_channels // perceiver_latent_dim,
             queries_dim=self.queries_dim,
             depth=perceiver_depth,
@@ -121,7 +122,7 @@ class PerceiverDecoder(nn.Module):
             self.query_positions = queries
 
         # Prepare input: (b h w) l d
-        x = rearrange(x, "b (l d) h w -> (b h w) l d", l=self.perciever_latent_dim)
+        x = rearrange(x, "b (l d) h w -> (b h w) l d", l=self.perceiver_latent_dim)
 
         # Expand queries for each batch*patch: (b h w, num_queries, queries_dim)
         queries = self.query_positions.unsqueeze(0).expand(x.shape[0], -1, -1)

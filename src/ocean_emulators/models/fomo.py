@@ -1,14 +1,14 @@
 import torch
 import xarray as xr
 from torch import nn
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+    apply_activation_checkpointing,
+)
 
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
-    apply_activation_checkpointing,
-)
 
 
 class FOMO(BaseModel):
@@ -46,7 +46,7 @@ class FOMO(BaseModel):
         apply_activation_checkpointing(
             self,
             check_fn=lambda m: m.__class__.__name__
-            in ["LayerNorm", "FeedForward", "Linear"],
+            in ["LayerNorm", "FeedForward", "Linear", "Perceiver"],
         )
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:

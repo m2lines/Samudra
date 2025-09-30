@@ -29,7 +29,7 @@ inference_times:
   - start: "2004-10-05"
     end: "2005-10-05" # "2014-10-05"
 data_stride: [1]
-steps: [4]
+steps: [1]
 step_transition: []
 
 backend: auto
@@ -55,8 +55,12 @@ model:
   embedding_dim: 80
 
   encoder:
-    perceiver_depth: 2
-    patch_size: [12, 24]
+    perceiver_depth: 5
+    patch_size: [6, 12]
+    perceiver_latent_dim: 64
+
+  decoder:
+    perceiver_depth: 5
     perceiver_latent_dim: 64
 
   processor:

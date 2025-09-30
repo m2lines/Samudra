@@ -8,6 +8,7 @@ from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
     CoreBlockBuilder,
+    PeriodicBilinearUpsample,
     TransposedConvUpsample,
     UpsamplingBlockBuilder,
 )
@@ -172,8 +173,10 @@ class UNetBackbone(nn.Module):
                     skip_inputs[count] = fts
                     count += 1
             elif count >= self.num_steps:
-                if isinstance(layer, BilinearUpsample) or isinstance(
-                    layer, TransposedConvUpsample
+                if (
+                    isinstance(layer, BilinearUpsample)
+                    or isinstance(layer, TransposedConvUpsample)
+                    or isinstance(layer, PeriodicBilinearUpsample)
                 ):
                     crop = np.array(fts.shape[2:])
                     shape = np.array(

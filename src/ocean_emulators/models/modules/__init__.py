@@ -7,6 +7,7 @@ from .blocks import (
     CoreBlock,
     CoreBlockBuilder,
     MaxPool,
+    PeriodicBilinearUpsample,
     TransposedConvUpsample,
     UpsamplingBlockBuilder,
 )
@@ -16,6 +17,7 @@ from .unet_backbone import UNetBackbone
 __all__ = [
     "AvgPool",
     "BilinearUpsample",
+    "PeriodicBilinearUpsample",
     "ConvBlock",
     "ConvNeXtBlock",
     "CoreBlock",

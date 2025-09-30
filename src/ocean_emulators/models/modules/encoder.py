@@ -57,7 +57,7 @@ class PerceiverEncoder(nn.Module):
             latent_dim=perceiver_latent_dim,
             num_latents=perceiver_num_latents,
             num_classes=out_channels,
-            weight_tie_layers=True,  # share weights of cross-attn blocks
+            weight_tie_layers=False,  # share weights of cross-attn blocks
             self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
         )
         self.norm_embedding = nn.LayerNorm(out_channels)

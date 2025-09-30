@@ -116,7 +116,7 @@ class PerceiverDecoder(nn.Module):
             self.query_positions = queries
 
         # Prepare input: (b h w) l 1
-        x = rearrange(x, "b l h w -> (b h w) l 1")
+        x = rearrange(x, "b l h w -> (b h w) l")
 
         # Expand queries for each batch*patch: (b h w, num_queries, queries_dim)
         queries = self.query_positions.unsqueeze(0).expand(x.shape[0], -1, -1)

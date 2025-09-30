@@ -1,7 +1,7 @@
-from perceiver_pytorch import Perceiver
-from perceiver_pytorch.perceiver_pytorch import FeedForward
 import torch
 import xarray as xr
+from perceiver_pytorch import Perceiver
+from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
 from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
@@ -54,7 +54,8 @@ class FOMO(BaseModel):
                 | nn.Linear
                 | Perceiver
                 | PerceiverEncoder
-                | UNetBackbone,
+                | UNetBackbone
+                | Attention,
             ),
         )
 

@@ -8,7 +8,7 @@ epochs: 70
 batch_size: 3
 learning_rate: 0.0006
 scheduler: { type: cosine }
-loss: mse
+loss: mse_dynamic_no_limit
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
@@ -53,8 +53,7 @@ experiment:
     entity: m2lines
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
-data:
-  !include data/public.yaml
+data: !include data/public.yaml
 
 model:
   checkpointing: all

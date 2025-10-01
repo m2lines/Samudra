@@ -8,9 +8,9 @@ from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
     CoreBlockBuilder,
-    PeriodicBilinearUpsample,
     TransposedConvUpsample,
     UpsamplingBlockBuilder,
+    ZonallyPeriodicBilinearUpsample,
 )
 from ocean_emulators.utils.train import pairwise
 
@@ -176,7 +176,7 @@ class UNetBackbone(nn.Module):
                 if (
                     isinstance(layer, BilinearUpsample)
                     or isinstance(layer, TransposedConvUpsample)
-                    or isinstance(layer, PeriodicBilinearUpsample)
+                    or isinstance(layer, ZonallyPeriodicBilinearUpsample)
                 ):
                     crop = np.array(fts.shape[2:])
                     shape = np.array(

@@ -5,7 +5,7 @@ import torch
 from ocean_emulators.models.modules.blocks import (
     AvgPool,
     BilinearUpsample,
-    PeriodicBilinearUpsample,
+    ZonallyPeriodicBilinearUpsample,
 )
 
 
@@ -28,12 +28,12 @@ def _pad_like_unet(feature: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
     "upsampler_cls",
     [
         pytest.param(BilinearUpsample, id="bilinear"),
-        pytest.param(PeriodicBilinearUpsample, id="periodic"),
+        pytest.param(ZonallyPeriodicBilinearUpsample, id="zonally_periodic"),
     ],
 )
 @pytest.mark.parametrize("width", [8, 10, 16])
 @pytest.mark.parametrize("num_blocks", [1, 2, 3])
-def test_downscale_then_upscale_rotation_invariance(
+def test_downscale_then_upscale_translation_invariance(
     upsampler_cls: type[torch.nn.Module],
     width: int,
     num_blocks: int,
@@ -44,8 +44,8 @@ def test_downscale_then_upscale_rotation_invariance(
 
     total_downscale = 2**num_blocks
     if width / total_downscale <= 1:
-        # if the final plane would be a width of 1, there's no shfit we can try
-        # below to confirm rotational invariance
+        # if the final plane would be a width of 1, there's no shift we can try
+        # below to confirm translation invariance
         pytest.skip("Width is too small for the given number of blocks")
     divisibility_condition = width % total_downscale == 0
     batch, channels, height = 1, 3, 8
@@ -82,7 +82,7 @@ def test_downscale_then_upscale_rotation_invariance(
     if upsampler_cls == BilinearUpsample:
         if is_close:
             raise ValueError(
-                "We expected outputs to be different after rotation when using bilinear upsamples"
+                "We expected outputs to be different after translation when using bilinear upsamples"
             )
         else:
             pytest.xfail(
@@ -91,14 +91,14 @@ def test_downscale_then_upscale_rotation_invariance(
     elif not divisibility_condition:
         if is_close:
             raise ValueError(
-                "We expected outputs to be different after rotation when size is not divisible by 2**num_downsamples"
+                "We expected outputs to be different after translation when size is not divisible by 2**num_downsamples"
             )
         else:
             pytest.xfail(
-                "outputs were not identical after rotation when size is not divisible by 2**num_downsamples, as expected"
+                "outputs were not identical after translation when size is not divisible by 2**num_downsamples, as expected"
             )
     else:
         assert is_close, (
-            "Downsample/upsample pipeline should be rotation-invariant along longitude; "
+            "Downsample/upsample pipeline should be translation-invariant along longitude; "
             f"max |delta|={delta.abs().max().item():.6e}, delta={delta}"
         )

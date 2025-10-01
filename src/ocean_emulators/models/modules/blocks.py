@@ -46,18 +46,22 @@ class BilinearUpsample(torch.nn.Module):
         return self.upsampler(x)
 
 
-class PeriodicBilinearUpsample(torch.nn.Module):
+class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
     """Bilinear upsampling that enforces periodicity along the x/longitude axis."""
 
     def __init__(self, upsampling: int | tuple[int, int] = 2):
         super().__init__()
         if isinstance(upsampling, tuple):
             if tuple(upsampling) != (2, 2):
-                raise ValueError("PeriodicBilinearUpsample only supports 2x upsampling")
+                raise ValueError(
+                    "ZonallyPeriodicBilinearUpsample only supports 2x upsampling"
+                )
             self.scale_h, self.scale_w = upsampling
         else:
             if upsampling != 2:
-                raise ValueError("PeriodicBilinearUpsample only supports 2x upsampling")
+                raise ValueError(
+                    "ZonallyPeriodicBilinearUpsample only supports 2x upsampling"
+                )
             self.scale_h = self.scale_w = upsampling
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

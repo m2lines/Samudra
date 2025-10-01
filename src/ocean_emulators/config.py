@@ -28,7 +28,7 @@ from ocean_emulators.models.modules import (
     TransposedConvUpsample,
     UNetBackbone,
 )
-from ocean_emulators.models.modules.blocks import PeriodicBilinearUpsample
+from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
@@ -323,7 +323,9 @@ class EncoderConfig(BaseConfig):
 
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
-UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv", "periodic_upsample"]
+UpSamplingBlocks = Literal[
+    "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
+]
 Checkpointing = Literal["all", "simple"]
 
 
@@ -355,8 +357,8 @@ class UNetBackboneConfig(BaseConfig):
                     return TransposedConvUpsample(
                         in_channels=in_channels, out_channels=out_channels
                     )
-                case "periodic_upsample":
-                    return PeriodicBilinearUpsample()
+                case "zonally_periodic_upsample":
+                    return ZonallyPeriodicBilinearUpsample()
                 case _:
                     assert_never(self.up_sampling_block)
 

@@ -3,8 +3,8 @@
 Everyone can contribute to Ocean Emulator, and we value everyone's contributions. There are several ways to help,
 including:
 
-* Reporting bugs or feature requests in our [issue tracker](https://github.com/suryadheeshjith/Ocean_Emulator/issues).
-* Contributing to our [code base](https://github.com/suryadheeshjith/Ocean_Emulator).
+* Reporting bugs or feature requests in our [issue tracker](https://github.com/Open-Athena/Ocean_Emulator/issues).
+* Contributing to our [code base](https://github.com/Open-Athena/Ocean_Emulator).
 * Writing or editing documentation. (Yes, typo fixes are welcome!)
 
 This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/pages/code-of-conduct/).
@@ -15,7 +15,7 @@ This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/p
 <summary><strong>TL;DR</strong></summary>
 
 ```shell
-git clone git@github.com:suryadheeshjith/Ocean_Emulator.git
+git clone git@github.com:Open-Athena/Ocean_Emulator.git
 cd Ocean_Emulator
 uv sync --dev
 source .venv/bin/activate
@@ -38,7 +38,7 @@ git push --force-with-lease
 </details>
 
 1. (If you're not a core maintainer), please fork the repository by clicking the **Fork**
-   button on [the repository page](https://github.com/suryadheeshjith/Ocean_Emulator).
+   button on [the repository page](https://github.com/Open-Athena/Ocean_Emulator).
 
 2. Clone the repository (via [`ssh` recommended](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)!) and change into the root directory.
    ```shell
@@ -161,7 +161,7 @@ git push --force-with-lease
 
 ```bash
 DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH --compact_variables
+uv run scripts/clone_data.py $DATA_PATH
 uv run -m ocean_emulators.train configs/train_om4.yaml --experiment.data_root $DATA_PATH
 ```
 
@@ -182,7 +182,7 @@ Please read the docstring in the `train.sky.yaml` for more information.
 
 ```bash
 DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH --compact_variables
+uv run scripts/clone_data.py $DATA_PATH
 # (then put a checkpoint of the model at path/to/checkpoint)
 uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH
 ```
@@ -444,17 +444,19 @@ Here are a few notes on how to replicate the core datasets used in this emulator
 
 ### Cloning Data
 
-We've provided a script to clone training and evaluation data locally (or on the target machine):
-```shell
-DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH --compact_variables
-```
-
-To use the legacy (flattened) skew of the dataset, you can omit the `--commpact_variables` flag:
+We've provided a script to clone training and evaluation data locally (or on the target machine).
+This will download the coarse 1-degree data.
 
 ```shell
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
+```
+
+To use the experimental (compact) view of the dataset, you can use the `--compact_variables` flag:
+
+```shell
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH --compact_variables
 ```
 
 To see all available options for this script (for example, to set a different chunking scheme), please run:
@@ -463,7 +465,24 @@ To see all available options for this script (for example, to set a different ch
 uv run scripts/clone_data.py -h
 ```
 
+If you would like to download the half-degree or other data, you will need an API key for the `emulators`
+bucket. We recommend using [rclone](https://rclone.org/) for this.
+
+```shell
+# This will prompt you for the API key.
+rclone config create nyu-osn s3 provider=Other endpoint=https://nyu1.osn.mghpcc.org/
+
+# This will show you some top-level user directories
+rclone lsf nyu-osn:emulators/
+
+# This will copy down the half-degree data
+rclone copy --progress --transfers=32 nyu-osn:emulators/jr7309/data/om4_halfdeg $DATA_PATH
+```
+
 ### Regridding & pre-processing OM4 data
+
+If you've downloaded the data as described above, the data was already preprocessed. If you'd like to run preprocessing
+yourself, please read on below:
 
 As of 2025-06-16, we perform these operations on top of Dask clusters inside notebooks, though this is likely to change
 in the near future.

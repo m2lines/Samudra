@@ -169,7 +169,7 @@ You can run `uv run -m ocean_emulators.train --help` to see all the options avai
 
 To learn more about other datasets used during training, please see the _Data Engineering_ section below.
 
-To run a remote training job with Skypilot, use the following command:
+To run a remote training job with SkyPilot, use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
@@ -193,7 +193,7 @@ You can run `uv run -m ocean_emulators.eval --help` to see all the options avail
 
 To learn more about other datasets used during evaluation, please see the _Data Engineering_ section below.
 
-To run a remote training job with Skypilot, use the following command:
+To run a remote training job with SkyPilot, use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
@@ -216,7 +216,7 @@ After making changes to the visualization code, you can run the following comman
 uv run -m ocean_emulators.utils.compare path/to/old/viz path/to/new/viz
 ```
 
-To run a remote viz job with Skypilot, please use the following command:
+To run a remote viz job with SkyPilot, please use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
@@ -228,6 +228,38 @@ uv run sky launch skypilot/eval.sky.yaml \
   --env RUNS=[{"location": "/inputs/my_eval_job/predictions.zarr"}]
 
 ```
+
+### Managing SkyPilot Clusters
+
+All of the `sky launch` commands above will create a 1-node cluster with the needed
+resources for that job. You can then run (or queue) additional jobs on that same cluster by passing
+its name to `sky exec` commands:
+
+```shell
+uv run sky exec -c my-cluster-name skypilot/eval.sky.yaml ...
+```
+
+SkyPilot will complain if you try to use a cluster with the wrong resources for your job.
+Note that we didn't use `sky launch` for this. The `launch` command sets up the cluster
+from scratch again, which can break running jobs. Even when using `sky exec`, your local directory
+is *immediately* copied up to the cluster which means other jobs running on it will
+immediately see that new code. So, we recommend you not change code versions or other local
+files before running another job.
+
+When you're done with the cluster you can shut it down:
+
+```shell
+uv run sky down my-cluster-name
+```
+
+If you like, you can also have it automatically take itself down after it becomes idle:
+
+```shell
+# shut down after 30 minutes of idleness
+uv run sky autostop --down my-cluster-name -i 30
+```
+
+See the [SkyPilot docs](https://docs.skypilot.co/) for more.
 
 ## Configuration
 

@@ -25,7 +25,7 @@ resources:
   # Optional; if left out, automatically pick the cheapest cloud.
   cloud: lambda
   # 8x NVIDIA A100-80GB GPU
-  accelerator: A100-80GB:8
+  accelerators: A100-80GB:8
   disk_tier: best
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`

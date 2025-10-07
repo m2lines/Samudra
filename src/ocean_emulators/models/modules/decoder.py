@@ -30,7 +30,6 @@ class PerceiverDecoder(nn.Module):
         self.out_channels = out_channels
         self.patch_size = patch_size
 
-        self.norm_patches = nn.LayerNorm([self.in_channels, 1])
         self.perceiver = Perceiver(
             num_freq_bands=4,
             max_freq=self.in_channels,

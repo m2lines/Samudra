@@ -244,7 +244,7 @@ Note that we didn't use `sky launch` for this. The `launch` command sets up the 
 from scratch again, which can break running jobs. Even when using `sky exec`, your local directory
 is *immediately* copied up to the cluster which means other jobs running on it will
 immediately see that new code. So, we recommend you not change code versions or other local
-files before running another job. 
+files before running another job.
 
 When you're done with the cluster you can shut it down:
 
@@ -256,7 +256,7 @@ If you like, you can also have it automatically take itself down after it become
 
 ```shell
 # shut down after 30 minutes of idleness
-uv run sky autostop --down my-cluster-name -i 30 
+uv run sky autostop --down my-cluster-name -i 30
 ```
 
 See the [SkyPilot docs](https://docs.skypilot.co/) for more.

@@ -59,10 +59,6 @@ model:
     patch_size: [12, 24]
     perceiver_latent_dim: 64
 
-  decoder:
-    perceiver_depth: 5
-    perceiver_latent_dim: 64
-
   processor:
     ch_width: [100, 200, 300]
     dilation: [1, 1, 1]

@@ -55,7 +55,7 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
             upsampling = (upsampling, upsampling)
         if tuple(upsampling) != (2, 2):
             raise ValueError(
-                    "ZonallyPeriodicBilinearUpsample only supports 2x upsampling"
+                "ZonallyPeriodicBilinearUpsample only supports 2x upsampling"
             )
         self.scale_h, self.scale_w = upsampling
 

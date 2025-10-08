@@ -4,12 +4,12 @@ Everyone can contribute to Ocean Emulator, and we value everyone's contributions
 including:
 
 * Reporting bugs or feature requests in our [issue tracker](https://github.com/Open-Athena/Ocean_Emulator/issues).
-* Contributing to our [code base](https://github.com/Open-Athena/Ocean_Emulator).
+* Contributing PRs to our [code base](https://github.com/Open-Athena/Ocean_Emulator).
 * Writing or editing documentation. (Yes, typo fixes are welcome!)
 
 This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/pages/code-of-conduct/).
 
-## Contribute code with pull requests
+## Contributing code with pull requests
 
 <details>
 <summary><strong>TL;DR</strong></summary>
@@ -43,11 +43,11 @@ git push --force-with-lease
 2. Clone the repository (via [`ssh` recommended](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)!) and change into the root directory.
    ```shell
    # if you're using a fork, make sure to clone your fork's repo
-   git clone https://github.com/suryadheeshjith/Ocean_Emulator.git
+   git clone https://github.com/Open-Athena/Ocean_Emulator.git
    # preferred method, but requires setting up an ssh key with Github.
-   git clone git@github.com:suryadheeshjith/Ocean_Emulator.git
+   git clone git@github.com:Open-Athena/Ocean_Emulator.git
    # or, using the Github CLI
-   gh repo clone suryadheeshjith/Ocean_Emulator
+   gh repo clone Open-Athena/Ocean_Emulator
 
    # then, change directory
    cd Ocean_Emulator
@@ -64,7 +64,10 @@ git push --force-with-lease
 
 4. (If forked) Add the original repository as an upstream remote, so you can sync your changes.
    ```shell
-   git remote add upstream git@github.com:suryadheeshjith/Ocean_Emulator.git
+   # via http
+   git remote add upstream https://github.com/Open-Athena/Ocean_Emulator.git
+   # via ssh
+   git remote add upstream git@github.com:Open-Athena/Ocean_Emulator.git
    ```
 
 5. Check out feature branches where you will develop from:
@@ -265,8 +268,8 @@ See the [SkyPilot docs](https://docs.skypilot.co/) for more.
 
 ### Configuration files
 
-Configuration is defined by config.py and values are stored in YAML files within the configs/
-directory. Configuration files can include other configuration files using the !include directive.
+Configuration is defined by config.py and values are stored in YAML files within the `configs/`
+directory. Configuration files can include other configuration files using the `!include` directive.
 
 Each configuration file is associated with a Pydantic model -- you can generate JSON schemas
 for them with `uv run src/ocean_emulators/config_schema.py` (which is run automatically in pre-commit).

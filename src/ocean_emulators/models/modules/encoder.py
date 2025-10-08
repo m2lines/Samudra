@@ -83,6 +83,7 @@ class PerceiverEncoder(nn.Module):
             pw=self.patch_size[1],
         )
         x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, num_latents, latent_dim)
+        # TODO(alxmrs,jder): Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
         x = x.mean(dim=1)  # (B_H_W, num_latents, latent_dim) -> (B_H_W, latent_dim)
         x = self.project(x)  # (B_H_W, latent_dim) -> (B_H_W, out_channels)
         x = rearrange(

@@ -3,8 +3,8 @@
 Everyone can contribute to Ocean Emulator, and we value everyone's contributions. There are several ways to help,
 including:
 
-* Reporting bugs or feature requests in our [issue tracker](https://github.com/suryadheeshjith/Ocean_Emulator/issues).
-* Contributing to our [code base](https://github.com/suryadheeshjith/Ocean_Emulator).
+* Reporting bugs or feature requests in our [issue tracker](https://github.com/Open-Athena/Ocean_Emulator/issues).
+* Contributing to our [code base](https://github.com/Open-Athena/Ocean_Emulator).
 * Writing or editing documentation. (Yes, typo fixes are welcome!)
 
 This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/pages/code-of-conduct/).
@@ -15,7 +15,7 @@ This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/p
 <summary><strong>TL;DR</strong></summary>
 
 ```shell
-git clone git@github.com:suryadheeshjith/Ocean_Emulator.git
+git clone git@github.com:Open-Athena/Ocean_Emulator.git
 cd Ocean_Emulator
 uv sync --dev
 source .venv/bin/activate
@@ -38,7 +38,7 @@ git push --force-with-lease
 </details>
 
 1. (If you're not a core maintainer), please fork the repository by clicking the **Fork**
-   button on [the repository page](https://github.com/suryadheeshjith/Ocean_Emulator).
+   button on [the repository page](https://github.com/Open-Athena/Ocean_Emulator).
 
 2. Clone the repository (via [`ssh` recommended](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)!) and change into the root directory.
    ```shell
@@ -161,7 +161,7 @@ git push --force-with-lease
 
 ```bash
 DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH --compact_variables
+uv run scripts/clone_data.py $DATA_PATH
 uv run -m ocean_emulators.train configs/train_om4.yaml --experiment.data_root $DATA_PATH
 ```
 
@@ -169,7 +169,7 @@ You can run `uv run -m ocean_emulators.train --help` to see all the options avai
 
 To learn more about other datasets used during training, please see the _Data Engineering_ section below.
 
-To run a remote training job with Skypilot, use the following command:
+To run a remote training job with SkyPilot, use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
@@ -182,7 +182,7 @@ Please read the docstring in the `train.sky.yaml` for more information.
 
 ```bash
 DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH --compact_variables
+uv run scripts/clone_data.py $DATA_PATH
 # (then put a checkpoint of the model at path/to/checkpoint)
 uv run -m ocean_emulators.eval configs/eval_om4.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH
 ```
@@ -193,7 +193,7 @@ You can run `uv run -m ocean_emulators.eval --help` to see all the options avail
 
 To learn more about other datasets used during evaluation, please see the _Data Engineering_ section below.
 
-To run a remote training job with Skypilot, use the following command:
+To run a remote training job with SkyPilot, use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
@@ -216,7 +216,7 @@ After making changes to the visualization code, you can run the following comman
 uv run -m ocean_emulators.utils.compare path/to/old/viz path/to/new/viz
 ```
 
-To run a remote viz job with Skypilot, please use the following command:
+To run a remote viz job with SkyPilot, please use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
@@ -228,6 +228,38 @@ uv run sky launch skypilot/eval.sky.yaml \
   --env RUNS=[{"location": "/inputs/my_eval_job/predictions.zarr"}]
 
 ```
+
+### Managing SkyPilot Clusters
+
+All of the `sky launch` commands above will create a 1-node cluster with the needed
+resources for that job. You can then run (or queue) additional jobs on that same cluster by passing
+its name to `sky exec` commands:
+
+```shell
+uv run sky exec -c my-cluster-name skypilot/eval.sky.yaml ...
+```
+
+SkyPilot will complain if you try to use a cluster with the wrong resources for your job.
+Note that we didn't use `sky launch` for this. The `launch` command sets up the cluster
+from scratch again, which can break running jobs. Even when using `sky exec`, your local directory
+is *immediately* copied up to the cluster which means other jobs running on it will
+immediately see that new code. So, we recommend you not change code versions or other local
+files before running another job.
+
+When you're done with the cluster you can shut it down:
+
+```shell
+uv run sky down my-cluster-name
+```
+
+If you like, you can also have it automatically take itself down after it becomes idle:
+
+```shell
+# shut down after 30 minutes of idleness
+uv run sky autostop --down my-cluster-name -i 30
+```
+
+See the [SkyPilot docs](https://docs.skypilot.co/) for more.
 
 ## Configuration
 
@@ -444,17 +476,19 @@ Here are a few notes on how to replicate the core datasets used in this emulator
 
 ### Cloning Data
 
-We've provided a script to clone training and evaluation data locally (or on the target machine):
-```shell
-DATA_PATH=path/to/save/data
-uv run scripts/clone_data.py $DATA_PATH --compact_variables
-```
-
-To use the legacy (flattened) skew of the dataset, you can omit the `--commpact_variables` flag:
+We've provided a script to clone training and evaluation data locally (or on the target machine).
+This will download the coarse 1-degree data.
 
 ```shell
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
+```
+
+To use the experimental (compact) view of the dataset, you can use the `--compact_variables` flag:
+
+```shell
+DATA_PATH=path/to/save/data
+uv run scripts/clone_data.py $DATA_PATH --compact_variables
 ```
 
 To see all available options for this script (for example, to set a different chunking scheme), please run:
@@ -463,7 +497,24 @@ To see all available options for this script (for example, to set a different ch
 uv run scripts/clone_data.py -h
 ```
 
+If you would like to download the half-degree or other data, you will need an API key for the `emulators`
+bucket. We recommend using [rclone](https://rclone.org/) for this.
+
+```shell
+# This will prompt you for the API key.
+rclone config create nyu-osn s3 provider=Other endpoint=https://nyu1.osn.mghpcc.org/
+
+# This will show you some top-level user directories
+rclone lsf nyu-osn:emulators/
+
+# This will copy down the half-degree data
+rclone copy --progress --transfers=32 nyu-osn:emulators/jr7309/data/om4_halfdeg $DATA_PATH
+```
+
 ### Regridding & pre-processing OM4 data
+
+If you've downloaded the data as described above, the data was already preprocessed. If you'd like to run preprocessing
+yourself, please read on below:
 
 As of 2025-06-16, we perform these operations on top of Dask clusters inside notebooks, though this is likely to change
 in the near future.

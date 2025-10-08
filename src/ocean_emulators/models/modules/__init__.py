@@ -9,6 +9,7 @@ from .blocks import (
     MaxPool,
     TransposedConvUpsample,
     UpsamplingBlockBuilder,
+    ZonallyPeriodicBilinearUpsample,
 )
 from .encoder import PerceiverEncoder
 from .unet_backbone import UNetBackbone
@@ -16,6 +17,7 @@ from .unet_backbone import UNetBackbone
 __all__ = [
     "AvgPool",
     "BilinearUpsample",
+    "ZonallyPeriodicBilinearUpsample",
     "ConvBlock",
     "ConvNeXtBlock",
     "CoreBlock",

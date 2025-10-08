@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759932940952,
+  "lastUpdate": 1759932942642,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9134,6 +9134,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.36292609780005664",
             "extra": "mean: 71.78965590820003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7721f5f8338e09ff19787e2407b53beee20b15cd",
+          "message": "More common config defaults, fix typo bug (#406)\n\nFixes #372, some minor tweaks to make running jobs we typically run\neasier.",
+          "timestamp": "2025-10-08T13:47:41Z",
+          "tree_id": "0854010c5f7c8875573a547d6a471f92ed733d0a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/7721f5f8338e09ff19787e2407b53beee20b15cd"
+        },
+        "date": 1759932942086,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.286984060959886,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0290995093460586",
+            "extra": "mean: 777.0103999999492 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.0681087049912837,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7015125484694809",
+            "extra": "mean: 14.682411009399994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19207404598420783,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10386398618163448",
+            "extra": "mean: 5.206325481799968 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013913608641474872,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04106274363817835",
+            "extra": "mean: 71.87208047660006 sec\nrounds: 5"
           }
         ]
       }

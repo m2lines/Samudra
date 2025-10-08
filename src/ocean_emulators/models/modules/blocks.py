@@ -51,18 +51,13 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
 
     def __init__(self, upsampling: int | tuple[int, int] = 2):
         super().__init__()
-        if isinstance(upsampling, tuple):
-            if tuple(upsampling) != (2, 2):
-                raise ValueError(
+        if isinstance(upsampling, int):
+            upsampling = (upsampling, upsampling)
+        if tuple(upsampling) != (2, 2):
+            raise ValueError(
                     "ZonallyPeriodicBilinearUpsample only supports 2x upsampling"
-                )
-            self.scale_h, self.scale_w = upsampling
-        else:
-            if upsampling != 2:
-                raise ValueError(
-                    "ZonallyPeriodicBilinearUpsample only supports 2x upsampling"
-                )
-            self.scale_h = self.scale_w = upsampling
+            )
+        self.scale_h, self.scale_w = upsampling
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # First upsample along latitude/height using standard "bilinear" interpolation.

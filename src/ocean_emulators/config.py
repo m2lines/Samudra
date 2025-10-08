@@ -287,23 +287,6 @@ class CorrectorConfig(BaseConfig):
         )
 
 
-def _validate_patch_size(candidate: int | list[int]) -> int | tuple[int, int]:
-    if (
-        isinstance(candidate, list)
-        and len(candidate) == 2
-        and isinstance(candidate[0], int)
-        and isinstance(candidate[1], int)
-    ):
-        patch_size: int | tuple[int, int] = candidate[0], candidate[1]
-    elif isinstance(candidate, int):
-        patch_size = candidate
-    else:
-        raise ValueError(
-            "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
-        )
-    return patch_size
-
-
 class EncoderConfig(BaseConfig):
     patch_size: int | list[int] = Field(
         default=4,
@@ -319,12 +302,21 @@ class EncoderConfig(BaseConfig):
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
 
-    def build(
-        self,
-        in_channels: int,
-        out_channels: int,
-    ) -> PerceiverEncoder:
-        patch_size = _validate_patch_size(self.patch_size)
+    def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
+        if (
+            isinstance(self.patch_size, list)
+            and len(self.patch_size) == 2
+            and isinstance(self.patch_size[0], int)
+            and isinstance(self.patch_size[1], int)
+        ):
+            patch_size: int | tuple[int, int] = self.patch_size[0], self.patch_size[1]
+        elif isinstance(self.patch_size, int):
+            patch_size = self.patch_size
+        else:
+            raise ValueError(
+                "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
+            )
+
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,

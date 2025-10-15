@@ -3071,7 +3071,7 @@ class Viz:
             mpath,
             gpath="movie.gif",
             gif_palette=False,
-            resolution=[480, 320],
+            resolution=(480, 320),
             verbose=False,
             remove_movie=True,
             gif_framerate=5,

@@ -108,10 +108,15 @@ class MeanAggregator(ValidateSubAggregator):
         gen_data,
         target_data_norm,
         gen_data_norm,
-        input_data: dict[str, torch.Tensor] = {},
-        input_data_norm: dict[str, torch.Tensor] = {},
+        input_data: dict[str, torch.Tensor] | None = None,
+        input_data_norm: dict[str, torch.Tensor] | None = None,
         i_time_start: int = 0,
     ):
+        if input_data is None:
+            input_data = {}
+        if input_data_norm is None:
+            input_data_norm = {}
+
         variable_metrics = self._get_variable_metrics(gen_data)
         time_dim = 1
         time_len = gen_data[list(gen_data.keys())[0]].shape[time_dim]

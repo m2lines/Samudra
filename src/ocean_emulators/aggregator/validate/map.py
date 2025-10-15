@@ -20,14 +20,19 @@ class MapAggregator(ValidateSubAggregator):
         ),
     }
 
-    def __init__(self, metadata: dict[str, dict[str, str]] = {}, hist: int = 0):
+    def __init__(
+        self, metadata: dict[str, dict[str, str]] | None = None, hist: int = 0
+    ):
         """
         Args:
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
             hist: Number of history steps to include in the snapshot.
         """
-        self._metadata: dict[str, dict[str, str]] = metadata
+        if metadata is None:
+            metadata = {}
+        else:
+            self._metadata = metadata
         self._n_batches = 0
         self._target_data: dict[str, torch.Tensor] = {}
         self._gen_data: dict[str, torch.Tensor] = {}

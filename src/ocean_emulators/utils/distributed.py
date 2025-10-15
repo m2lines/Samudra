@@ -4,6 +4,8 @@ import logging
 import os
 import random
 
+logger = logging.getLogger(__name__)
+
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
@@ -112,7 +114,7 @@ def init_distributed_mode() -> DistributedConfig:
         rank=cfg.rank,
     )
     torch.cuda.set_device(cfg.gpu)
-    logging.info(
+    logger.info(
         f"| distributed init (rank {cfg.rank}), gpu {cfg.gpu}, "
         f"world_size {cfg.world_size}, dist_url {cfg.dist_url}"
     )

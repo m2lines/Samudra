@@ -4,6 +4,8 @@ import logging
 
 import torch
 
+logger = logging.getLogger(__name__)
+
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.output import ModelInferenceOutput
@@ -96,7 +98,7 @@ class BaseModel(torch.nn.Module):
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
-            logging.info(
+            logger.info(
                 f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
                 f"of {steps_completed + num_steps - 1}."
             )

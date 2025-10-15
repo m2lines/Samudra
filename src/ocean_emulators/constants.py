@@ -2,6 +2,8 @@ import enum
 import logging
 from typing import TypeAlias, TypeVar
 
+logger = logging.getLogger(__name__)
+
 import torch
 import xarray as xr
 from jaxtyping import Bool, Float
@@ -224,7 +226,7 @@ def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
             elif (key := str(var).split("_")[0]) in DEFAULT_METADATA.keys():
                 metadata[str(var)] = DEFAULT_METADATA[key]
             else:
-                logging.info(f"{var} does not have any default metadata")
+                logger.info(f"{var} does not have any default metadata")
                 metadata[str(var)] = {
                     "long_name": "Unknown",
                     "units": "Unknown",

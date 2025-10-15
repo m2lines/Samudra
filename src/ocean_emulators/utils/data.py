@@ -507,7 +507,7 @@ def compute_anomalies(
         for var in anomalies_vars:
             base_var = var.replace("_anomalies", "")
             if var not in data.variables and base_var in data.variables:
-                logging.info(f"Computing anomalies for {base_var}")
+                logger.info(f"Computing anomalies for {base_var}")
                 climatology = (
                     data[base_var].groupby("time.dayofyear").mean("time").compute()
                 )

@@ -34,9 +34,10 @@ class SnapshotAggregator(ValidateSubAggregator):
                 used in generating logged image captions.
             hist: Number of history steps to include in the snapshot.
         """
-        self._metadata: dict[str, dict[str, str]] = (
-            {} if metadata is None else dict(metadata)
-        )
+        if metadata is None:
+            metadata = {}
+        else:
+            self._metadata = metadata
         self.hist = hist
 
     @torch.no_grad()

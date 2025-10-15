@@ -3071,14 +3071,11 @@ class Viz:
             mpath,
             gpath="movie.gif",
             gif_palette=False,
-            resolution=None,
+            resolution=(480, 320),
             verbose=False,
             remove_movie=True,
             gif_framerate=5,
         ):
-            if resolution is None:
-                resolution = [480, 320]
-
             if gif_palette:
                 palette_filter = (
                     '-filter_complex "[0:v] split [a][b];[a] palettegen [p];'

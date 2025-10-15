@@ -56,7 +56,7 @@ jobs:
   # and that skip will not block merging the PR.
   report-gpu-test-status:
     if: always()
-    needs: [ec2, run-tests]
+    needs: [ec2, test-gpu]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results

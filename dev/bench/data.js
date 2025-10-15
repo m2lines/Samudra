@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759932942642,
+  "lastUpdate": 1760545022418,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4566,6 +4566,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.34850860237194714",
             "extra": "mean: 83.88386831380002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "637113d8dc099fa28be93c5ae0cb4c1bd7e6e2b5",
+          "message": "Allow us to block ec2-related failures from merging (#423)\n\n#420 was merged without GPU tests passing. This was permitted by our\nbranch protection rules because the \"run-tests\" job in the GPU tests\nworkflow was *skipped* (because one of its dependencies, the ec2 job\nwhich spins up a GPU for us) failed. Perhaps surprisingly, this skipped\nstate [counts as\nsuccess](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks#handling-skipped-but-required-checks)\nfor the purpose of branch protection rules.\n\nSo this defines a new job which explicitly fails when either the\nec2-spin-up or GPU test themselves fail, which we'll add to our branch\nprotection rules.",
+          "timestamp": "2025-10-15T11:46:16-04:00",
+          "tree_id": "eb45c604f28e11e154fb4ac86b4e45d40ecfa6fe",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/637113d8dc099fa28be93c5ae0cb4c1bd7e6e2b5"
+        },
+        "date": 1760545021234,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2395858792387062,
+            "unit": "iter/sec",
+            "range": "stddev: 0.020891489681252467",
+            "extra": "mean: 806.7210322000051 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06418573017114027,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5822218991783091",
+            "extra": "mean: 15.57978692979999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.16885743887809887,
+            "unit": "iter/sec",
+            "range": "stddev: 0.36918525289301646",
+            "extra": "mean: 5.922155438599998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.010511883440304163,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6003742108283813",
+            "extra": "mean: 95.1304307814 sec\nrounds: 5"
           }
         ]
       }

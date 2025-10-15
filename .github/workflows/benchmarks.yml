@@ -24,7 +24,7 @@ jobs:
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
-  test:
+  benchmark:
     needs: ec2
     runs-on: ${{ needs.ec2.outputs.id }}
 

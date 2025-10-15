@@ -18,10 +18,10 @@ jobs:
     with:
       ec2_instance_type: g6.xlarge
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
-      ec2_root_device_size: '+1' # AMI's reported VolumeSize (40GB) +1GB; leaves headroom for test I/O; instance runs out of disk otherwise
+      ec2_root_device_size: "+1" # AMI's reported VolumeSize (40GB) +1GB; leaves headroom for test I/O; instance runs out of disk otherwise
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
-  run-tests:
+  test-gpu:
     needs: ec2
     runs-on: ${{ needs.ec2.outputs.id }}
     steps:
@@ -51,3 +51,14 @@ jobs:
 
       - name: Run pytest
         run: uv run --locked pytest -n 2 -v -m "not manual and cuda"
+
+  # This exists beacuse the run-tests job will be skipped if the ec2 job fails,
+  # and that skip will not block merging the PR.
+  report-gpu-test-status:
+    if: always()
+    needs: [ec2, test-gpu]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

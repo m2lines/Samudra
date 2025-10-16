@@ -16,6 +16,8 @@ import torch
 from torch.utils.data import DataLoader
 from torchinfo import summary
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from ocean_emulators.datasets import TrainData
 
@@ -50,20 +52,20 @@ def handle_logging(debug: bool, output_dir: Path):
 
 def handle_warnings():
     def warning_handler(message, category, filename, lineno, file=None, line=None):
-        logging.info("\n=== Warning Details ===")
-        logging.info(f"Message: {message}")
-        logging.info(f"Category: {category}")
-        logging.info(f"File: {filename}")
-        logging.info(f"Line: {lineno}")
-        logging.info("\nFull stack trace:")
+        logger.info("\n=== Warning Details ===")
+        logger.info(f"Message: {message}")
+        logger.info(f"Category: {category}")
+        logger.info(f"File: {filename}")
+        logger.info(f"Line: {lineno}")
+        logger.info("\nFull stack trace:")
         stack = traceback.extract_stack()[:-1]  # Remove current frame
         for frame in stack:
-            logging.info(
+            logger.info(
                 f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}'
             )
             if frame.line:
-                logging.info(f"    {frame.line}")
-        logging.info("=====================\n")
+                logger.info(f"    {frame.line}")
+        logger.info("=====================\n")
 
     warnings.showwarning = warning_handler
 
@@ -196,7 +198,7 @@ class MetricLogger:
                 if torch.cuda.is_available():
                     named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
 
-                logging.info(log_msg.format(i, len(data_loader), **named_metrics))
+                logger.info(log_msg.format(i, len(data_loader), **named_metrics))
 
                 if torch.cuda.is_available():
                     torch.cuda.reset_peak_memory_stats()
@@ -204,7 +206,7 @@ class MetricLogger:
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logging.info(
+        logger.info(
             f"{header} Total time: {total_time_str} "
             f"({total_time / len(data_loader):.4f} s / it)"
         )
@@ -213,13 +215,13 @@ class MetricLogger:
 def get_model_summary(model: torch.nn.Module, data: Mapping | None, debug: bool):
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
-    logging.info(f"Number of parameters: {params}")
+    logger.info(f"Number of parameters: {params}")
     depth = 10 if debug else 2
     # we pass verbose = 0 because we log the summary ourselves
     if data is not None:
-        logging.info(summary(model, input_data=[data], depth=depth, verbose=0))
+        logger.info(summary(model, input_data=[data], depth=depth, verbose=0))
     else:
-        logging.info(summary(model, depth=depth, verbose=0))
+        logger.info(summary(model, depth=depth, verbose=0))
 
 
 def elapsed(func=None, *, level: int = logging.INFO):
@@ -241,7 +243,7 @@ def elapsed(func=None, *, level: int = logging.INFO):
         start_time = time.perf_counter()
         result = func(*args, **kwargs)
         end_time = time.perf_counter()
-        logging.log(
+        logger.log(
             level,
             "%s took %.4f seconds",
             func.__qualname__,

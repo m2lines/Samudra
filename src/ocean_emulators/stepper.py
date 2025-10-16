@@ -2,6 +2,8 @@ import logging
 from collections.abc import Callable
 from os import PathLike
 
+logger = logging.getLogger(__name__)
+
 import torch
 
 from ocean_emulators.aggregator import InferenceEvaluatorAggregator
@@ -83,7 +85,7 @@ class Stepper:
         else:
             writer = None
         record_logs = get_record_to_wandb(label="inference")
-        logging.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
+        logger.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
         logs = inf_aggregator.record_initial_prognostic(
             initial_prognostic=dataset.initial_prognostic.to(get_device()),
         )
@@ -109,7 +111,7 @@ class Stepper:
         initial_prognostic = dataset.initial_prognostic
         step = 0
         for loop, num_steps in enumerate(num_steps_list):
-            logging.info(
+            logger.info(
                 f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
                 f"Stepping {num_steps} steps forward."
             )
@@ -123,12 +125,12 @@ class Stepper:
             # Setting initial prognostic for next loop
             initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
             if writer:
-                logging.info(f"Writing to zarr...")
+                logger.info(f"Writing to zarr...")
                 writer.record_batch(IO)
                 writer.write()
 
-            logging.info(f"Recording logs...")
+            logger.info(f"Recording logs...")
             logs = inf_aggregator.record_batch(IO)
-            logging.info(f"Logging to wandb...")
+            logger.info(f"Logging to wandb...")
             record_logs(logs)
             step += num_steps

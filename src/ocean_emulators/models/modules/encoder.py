@@ -45,7 +45,6 @@ class PerceiverEncoder(nn.Module):
             self.patch_size = patch_size
         self.out_channels: int = out_channels  # aka, `embed_dim`.
 
-        self.norm_patches = nn.LayerNorm(self.in_channels)
         self.perceiver = Perceiver(
             num_freq_bands=4,
             max_freq=max(

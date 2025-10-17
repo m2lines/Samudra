@@ -6,6 +6,7 @@ from typing import Annotated, Literal, Self, assert_never
 import cftime
 import torch
 import xarray as xr
+from perceiver_pytorch import Perceiver as NaivePerceiver
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 from torch import nn
 from torch.nn import GELU
@@ -33,6 +34,13 @@ from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
+
+try:
+    from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
+
+    FLASH_ENABLED = True
+except ModuleNotFoundError:
+    FLASH_ENABLED = False
 
 
 class WandBConfig(BaseConfig):
@@ -287,20 +295,67 @@ class CorrectorConfig(BaseConfig):
         )
 
 
+PerceiverImpl = Literal["naive", "flash"]
+
+
+class PerceiverConfig(BaseConfig):
+    implementation: PerceiverImpl = "naive"
+    depth: int = 6
+    latent_dim: int = Field(
+        default=128,
+        description="The small, latent dimension of the Perceiver. This is the `N` dimension for the Perceiver's `O(M*N)` complexity",
+    )
+    num_latents: int = Field(
+        default=512,
+        description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
+    )
+
+    def build(self, in_channels: int, out_channels: int) -> nn.Module:
+        match self.implementation:
+            case "flash":
+                if not FLASH_ENABLED:
+                    raise ValueError(
+                        'perceiver_impl="flash" does not work in this environment.'
+                    )
+                perceiver = FlashPerceiver(
+                    latent_rotary_emb_dim=4,  # we can't set the maximum frequency of the rotary embedding.
+                    depth=self.depth,
+                    output_mode="concat",
+                    input_dim=in_channels,
+                    output_dim=out_channels,
+                    latent_dim=self.latent_dim,
+                    num_latents=self.num_latents,
+                    use_flash_attn=True,
+                    weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
+                    self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
+                )
+            case "naive":
+                perceiver = NaivePerceiver(
+                    num_freq_bands=4,
+                    max_freq=1.0,
+                    depth=self.depth,
+                    input_axis=2,  # Number of positional dims before token dim
+                    input_channels=in_channels,
+                    latent_dim=self.latent_dim,
+                    num_latents=self.num_latents,
+                    num_classes=out_channels,
+                    weight_tie_layers=True,  # share weights of cross-attn blocks
+                    self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+                )
+            case _:
+                raise ValueError(
+                    f"Unknown perceiver implementation: {self.implementation}."
+                )
+
+        return perceiver
+
+
 class EncoderConfig(BaseConfig):
     patch_size: int | list[int] = Field(
         default=4,
         description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
     )
-    perceiver_depth: int = 6
-    perceiver_latent_dim: int = Field(
-        default=128,
-        description="The small, latent dimension of the Perceiver. This is the `N` dimension for the Perceiver's `O(M*N)` complexity",
-    )
-    perceiver_num_latents: int = Field(
-        default=512,
-        description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
-    )
+    perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
         if (
@@ -321,9 +376,7 @@ class EncoderConfig(BaseConfig):
             in_channels=in_channels,
             out_channels=out_channels,
             patch_size=patch_size,
-            perceiver_depth=self.perceiver_depth,
-            perceiver_latent_dim=self.perceiver_latent_dim,
-            perceiver_num_latents=self.perceiver_num_latents,
+            perceiver=self.perceiver.build(in_channels, out_channels),
         )
 
 

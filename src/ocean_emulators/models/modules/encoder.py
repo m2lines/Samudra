@@ -2,10 +2,10 @@
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
 # - https://github.com/lucidrains/vit-pytorch
 
+
 import torch
 from einops import rearrange
 from jaxtyping import Float
-from perceiver_pytorch import Perceiver
 from torch import nn
 
 from ocean_emulators.constants import Input
@@ -19,9 +19,7 @@ class PerceiverEncoder(nn.Module):
         out_channels (int): size of the latent dimension (aka, the embedding dimension).
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
-        perceiver_depth (int): depth of the perceiver module core.
-        perceiver_latent_dim (int): latent dimension of the perceiver module core. The `N` of the Perceiver's `O(M*N)`
-          complexity, where the `M` corresponds to the size of the input data.
+        perceiver (nn.Module): the perceiver module implementation to use.
     """
 
     # TODO(alxmrs): Implement gradient checkpointing
@@ -30,9 +28,7 @@ class PerceiverEncoder(nn.Module):
         in_channels: int,
         out_channels: int,
         patch_size: int | tuple[int, int],
-        perceiver_depth: int,
-        perceiver_latent_dim: int,
-        perceiver_num_latents: int,
+        perceiver: nn.Module,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -44,23 +40,8 @@ class PerceiverEncoder(nn.Module):
             )
             self.patch_size = patch_size
         self.out_channels: int = out_channels  # aka, `embed_dim`.
-
-        self.perceiver = Perceiver(
-            num_freq_bands=4,
-            max_freq=max(
-                *self.patch_size
-            ),  # This is not actually a "frequency" but a maximum of the width appears to be reasonable from looking at the code
-            depth=perceiver_depth,
-            input_axis=2,  # Number of positional dims before token dim
-            input_channels=self.in_channels,
-            latent_dim=perceiver_latent_dim,
-            num_latents=perceiver_num_latents,
-            num_classes=out_channels,
-            weight_tie_layers=True,  # share weights of cross-attn blocks
-            self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
-            final_classifier_head=False,
-        )
-        self.project = nn.Linear(perceiver_latent_dim, out_channels)
+        self.perceiver = perceiver
+        self.project = nn.Linear(perceiver.latent_dim, out_channels)
 
     def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape

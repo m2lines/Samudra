@@ -61,6 +61,9 @@ workdir: .
 setup: |
   set -ex
 
+  # Ensure CUDA dependencies are installed
+  uv sync --extra cuda
+
   rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
 
   mkdir -p ~/data/

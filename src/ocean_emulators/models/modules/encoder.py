@@ -2,7 +2,6 @@
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
 # - https://github.com/lucidrains/vit-pytorch
 
-
 import torch
 from einops import rearrange
 from jaxtyping import Float

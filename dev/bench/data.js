@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1760583179758,
+  "lastUpdate": 1761000255865,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4670,6 +4670,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18101028827489105",
             "extra": "mean: 82.8408660892 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "081385d3e336c75755ed1f5c915e891152160a12",
+          "message": "Improvements to our encoder (#419)\n\nPulling in improvements from #417, focusing just on the encoder. These\ninclude:\n- Activation checkpointing (nice, clean implementation, @jder!).\n- Training config wrangling\n- Adding an essential config option for the encoder\n(`perceiver_num_latents`)\n- Turning off the default linear projection scheme so that we can\nimplement our own.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-10-20T15:16:23-07:00",
+          "tree_id": "5fb7b26f55aa70a4dc9dd81c9b354fb507915349",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/081385d3e336c75755ed1f5c915e891152160a12"
+        },
+        "date": 1761000255011,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2336155798573698,
+            "unit": "iter/sec",
+            "range": "stddev: 0.029423458251726983",
+            "extra": "mean: 810.6253003999996 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06954771633526466,
+            "unit": "iter/sec",
+            "range": "stddev: 0.33405547439014843",
+            "extra": "mean: 14.378617339200009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1758456872288344,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4546556943269928",
+            "extra": "mean: 5.686804241599987 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.011873633131264459,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4976631017921864",
+            "extra": "mean: 84.22022046199999 sec\nrounds: 5"
           }
         ]
       }

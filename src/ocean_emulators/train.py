@@ -527,7 +527,7 @@ class Trainer:
 
             if self.num_batches_seen == 0:
                 # We always want to print the detailed model summary for training.
-                get_model_summary(self.model, data, False)
+                get_model_summary(self.model, data, True)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()

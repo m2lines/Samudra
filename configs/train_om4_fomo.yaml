@@ -5,10 +5,10 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 1
-learning_rate: 0.0002
-scheduler: {type: cosine}
-loss: mse
+batch_size: 4
+learning_rate: 0.0006
+scheduler: { type: cosine }
+loss: mse_dynamic_no_limit
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
@@ -45,23 +45,23 @@ experiment:
     group: samudra-train-om4
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
-data:
-  !include data/public.yaml
+data: !include data/public.yaml
 
 model:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
   checkpointing: "all"
-  embedding_dim: 80
+  embedding_dim: 280
 
   encoder:
-    perceiver_depth: 2
-    patch_size: [12, 24]
+    perceiver_depth: 3
+    patch_size: [12, 20]
     perceiver_latent_dim: 64
+    perceiver_num_latents: 256
 
   processor:
-    ch_width: [100, 200, 300]
+    ch_width: [380, 480, 520]
     dilation: [1, 1, 1]
     n_layers: [1, 1, 1]
 
@@ -69,7 +69,7 @@ model:
       block_type: "conv_next_block"
       kernel_size: 3
       activation: "capped_gelu"
-      upscale_factor: 1
+      upscale_factor: 2
       norm: "batch"
 
     down_sampling_block: "avg_pool"

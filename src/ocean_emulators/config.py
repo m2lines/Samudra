@@ -297,6 +297,10 @@ class EncoderConfig(BaseConfig):
         default=128,
         description="The small, latent dimension of the Perceiver. This is the `N` dimension for the Perceiver's `O(M*N)` complexity",
     )
+    perceiver_num_latents: int = Field(
+        default=512,
+        description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
+    )
 
     def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
         if (
@@ -319,6 +323,7 @@ class EncoderConfig(BaseConfig):
             patch_size=patch_size,
             perceiver_depth=self.perceiver_depth,
             perceiver_latent_dim=self.perceiver_latent_dim,
+            perceiver_num_latents=self.perceiver_num_latents,
         )
 
 
@@ -482,6 +487,7 @@ class FOMOConfig(BaseModelConfig):
             hist=hist,
             wet=wet,
             static_data=static_data,
+            checkpointing=self.checkpointing,
         )
 
 

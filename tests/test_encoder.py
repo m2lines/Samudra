@@ -12,6 +12,7 @@ def test_makes_patches():
         patch_size=4,
         perceiver_depth=2,
         perceiver_latent_dim=3,
+        perceiver_num_latents=2,
     )
 
     patches = patch_embed(x)
@@ -28,6 +29,7 @@ def test_makes_rectangular_patches():
         patch_size=(4, 2),
         perceiver_depth=2,
         perceiver_latent_dim=3,
+        perceiver_num_latents=2,
     )
 
     patches = patch_embed(x)
@@ -49,6 +51,7 @@ def test_makes_patches__high_res():
         patch_size=4,
         perceiver_depth=2,
         perceiver_latent_dim=3,
+        perceiver_num_latents=2,
     )
 
     patches = patch_embed(x)
@@ -65,6 +68,7 @@ def test_makes_patches__more_variables():
         patch_size=4,
         perceiver_depth=2,
         perceiver_latent_dim=3,
+        perceiver_num_latents=2,
     )
 
     patches = patch_embed(x)

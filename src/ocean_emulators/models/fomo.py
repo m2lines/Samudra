@@ -1,12 +1,22 @@
+from typing import TYPE_CHECKING
+
 import torch
 import xarray as xr
 from einops import rearrange
+from perceiver_pytorch import Perceiver
+from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
 from torch import nn
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+    apply_activation_checkpointing,
+)
 
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+
+if TYPE_CHECKING:
+    from ocean_emulators.config import Checkpointing
 
 
 class FOMO(BaseModel):
@@ -27,6 +37,7 @@ class FOMO(BaseModel):
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
+        checkpointing: "Checkpointing | None",
     ):
         super().__init__(
             in_channels=in_channels,
@@ -55,6 +66,21 @@ class FOMO(BaseModel):
         self.unpatch = nn.Linear(
             out_channels, out_channels * self.patch_size[0] * self.patch_size[1]
         )
+
+        if checkpointing == "all":
+            apply_activation_checkpointing(
+                self,
+                check_fn=lambda m: isinstance(
+                    m,
+                    nn.LayerNorm
+                    | FeedForward
+                    | nn.Linear
+                    | Perceiver
+                    | PerceiverEncoder
+                    | UNetBackbone
+                    | Attention,
+                ),
+            )
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:

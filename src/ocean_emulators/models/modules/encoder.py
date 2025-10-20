@@ -32,6 +32,7 @@ class PerceiverEncoder(nn.Module):
         patch_size: int | tuple[int, int],
         perceiver_depth: int,
         perceiver_latent_dim: int,
+        perceiver_num_latents: int,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -44,19 +45,22 @@ class PerceiverEncoder(nn.Module):
             self.patch_size = patch_size
         self.out_channels: int = out_channels  # aka, `embed_dim`.
 
-        self.norm_patches = nn.LayerNorm(self.in_channels)
         self.perceiver = Perceiver(
             num_freq_bands=4,
-            max_freq=1.0,
+            max_freq=max(
+                *self.patch_size
+            ),  # This is not actually a "frequency" but a maximum of the width appears to be reasonable from looking at the code
             depth=perceiver_depth,
             input_axis=2,  # Number of positional dims before token dim
             input_channels=self.in_channels,
             latent_dim=perceiver_latent_dim,
+            num_latents=perceiver_num_latents,
             num_classes=out_channels,
             weight_tie_layers=True,  # share weights of cross-attn blocks
             self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+            final_classifier_head=False,
         )
-        self.norm_embedding = nn.LayerNorm(out_channels)
+        self.project = nn.Linear(perceiver_latent_dim, out_channels)
 
     def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
@@ -77,12 +81,10 @@ class PerceiverEncoder(nn.Module):
             ph=self.patch_size[0],
             pw=self.patch_size[1],
         )
-        # This is applying a layer norm across all our data channels. I am not sure if this will have a positive or
-        # negative effect. It may make it easier for the Perceiver to process data across scales, but it destroys the
-        # physical relationships in the data and aggregates across depth level and history. We should be cautious here.
-        x = self.norm_patches(x)
-        x = self.perceiver(x)
-        x = self.norm_embedding(x)
+        x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, num_latents, latent_dim)
+        # TODO(alxmrs,jder): Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
+        x = x.mean(dim=1)  # (B_H_W, num_latents, latent_dim) -> (B_H_W, latent_dim)
+        x = self.project(x)  # (B_H_W, latent_dim) -> (B_H_W, out_channels)
         x = rearrange(
             x,
             "(b h w) l -> b l h w",

@@ -487,6 +487,7 @@ class FOMOConfig(BaseModelConfig):
             hist=hist,
             wet=wet,
             static_data=static_data,
+            checkpointing=self.checkpointing,
         )
 
 

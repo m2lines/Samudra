@@ -14,6 +14,7 @@ scheduler: null
 loss: mse
 finetune: false
 resume_ckpt_path: null
+gradient_detach_interval: 0  # 0 means no gradient detaching (default for tests)
 inference_epochs: [-1]
 data_percent: 1.0
 train_time:

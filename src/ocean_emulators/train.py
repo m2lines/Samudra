@@ -224,7 +224,6 @@ class Trainer:
             wet=self.wet.to(self.device),
             area_weights=self.area_weights,
             static_data=self.static_data,
-            gradient_detach_interval=cfg.gradient_detach_interval,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir

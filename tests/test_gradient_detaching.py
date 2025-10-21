@@ -56,6 +56,8 @@ def samudra_setup():
         )
 
         def create_samudra_model(gradient_detach_interval=0):
+            # Set the gradient_detach_interval on the config object
+            config.gradient_detach_interval = gradient_detach_interval
             return config.build(
                 in_channels=2,
                 out_channels=1,
@@ -63,7 +65,6 @@ def samudra_setup():
                 wet=torch.ones(1, h, w, dtype=torch.bool),
                 area_weights=torch.ones(h, w),
                 static_data=None,
-                gradient_detach_interval=gradient_detach_interval,
             )
 
         # Create TrainData compatible with model dimensions

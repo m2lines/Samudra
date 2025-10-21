@@ -124,7 +124,6 @@ class Eval:
             wet=self.wet.to(self.device),
             area_weights=self.area_weights,
             static_data=self.static_data,
-            gradient_detach_interval=0,  # No detaching needed during evaluation
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)

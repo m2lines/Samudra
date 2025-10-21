@@ -138,28 +138,24 @@ class TestSamudraGradientDetaching:
                 break
         assert has_grad, "Model should have gradients after backward pass"
 
+    def test_samudra_gradient_detaching_with_higher_interval(self, samudra_setup):
+        """Test Samudra with gradient detaching interval of 2."""
+        create_model, train_data = samudra_setup
+        model = create_model(gradient_detach_interval=2)
+        loss_fn = torch.nn.MSELoss()
 
-def _run_standalone_test():
-    create_model, train_data = samudra_setup()
-    model = create_model(gradient_detach_interval=2)
-    loss_fn = torch.nn.MSELoss()
+        # Test forward pass
+        loss = model(train_data, loss_fn=loss_fn)
+        assert not torch.isnan(loss)
+        assert loss.requires_grad
 
-    # Test forward pass
-    loss = model(train_data, loss_fn=loss_fn)
-    assert not torch.isnan(loss)
-    assert loss.requires_grad
+        # Test backward pass
+        loss.backward()
 
-    # Test backward pass
-    loss.backward()
-
-    # Check gradients exist
-    grad_count = sum(1 for p in model.parameters() if p.grad is not None)
-    total_params = sum(1 for _ in model.parameters())
-    assert grad_count > 0, "Model should have gradients after backward pass"
-    assert grad_count == total_params, (
-        f"Expected all {total_params} parameters to have gradients, got {grad_count}"
-    )
-
-
-if __name__ == "__main__":
-    _run_standalone_test()
+        # Check that all parameters have gradients
+        grad_count = sum(1 for p in model.parameters() if p.grad is not None)
+        total_params = sum(1 for _ in model.parameters())
+        assert grad_count > 0, "Model should have gradients after backward pass"
+        assert grad_count == total_params, (
+            f"Expected all {total_params} parameters to have gradients, got {grad_count}"
+        )

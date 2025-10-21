@@ -475,6 +475,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        gradient_detach_interval: int = 0,
     ) -> BaseModel:
         pass
 
@@ -495,6 +496,7 @@ class SamudraConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        gradient_detach_interval: int = 0,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
@@ -516,6 +518,7 @@ class SamudraConfig(BaseModelConfig):
             hist=hist,
             wet=wet,
             static_data=static_data,
+            gradient_detach_interval=gradient_detach_interval,
         )
 
 
@@ -533,6 +536,7 @@ class FOMOConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        gradient_detach_interval: int = 0,
     ) -> FOMO:
         return FOMO(
             in_channels=in_channels,
@@ -639,6 +643,7 @@ class TrainConfig(TopLevelConfig):
     finetune: bool = False
     resume_ckpt_path: str | None = None
     debug: bool = False
+    gradient_detach_interval: int = 0  # 0 means no detaching
     test_using_ema: bool = True
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True

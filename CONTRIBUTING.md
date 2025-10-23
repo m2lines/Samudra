@@ -156,7 +156,7 @@ git push --force-with-lease
    git rebase -i <starting-commit>
    ```
 
-10. Celebrating submitting your patch to Ocean Emulator — well done!
+10. Celebrate submitting your patch to Ocean Emulator — well done!
 
 ## Running Oceans Emulator
 

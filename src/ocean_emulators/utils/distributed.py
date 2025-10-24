@@ -95,12 +95,12 @@ def init_distributed_mode() -> DistributedConfig:
         if tasks_per_node < torch.cuda.device_count():
             raise RuntimeError(
                 f"SLURM_NTASKS_PER_NODE is {tasks_per_node}, but this node has {torch.cuda.device_count()} GPUs; the remainder will be idle. "
-                "You probably want to allocate the same number of GPUs and tasks per node, or else use `torchrun` on a single node. ",
+                "You probably want to allocate the same number of GPUs and tasks per node, or else use `torchrun` on a single node; please see CONTRIBUTING.md.",
             )
         elif tasks_per_node > torch.cuda.device_count():
             raise RuntimeError(
                 f"SLURM_NTASKS_PER_NODE is {tasks_per_node}, but this node has {torch.cuda.device_count()} GPUs, so there aren't enough "
-                "GPUs for all the tasks. You probably want to allocate the same number of GPUs and tasks per node"
+                "GPUs for all the tasks. You probably want to allocate the same number of GPUs and tasks per node; please see CONTRIBUTING.md."
             )
         n_nodes = int(os.environ["SLURM_NNODES"])
         cfg.world_size = tasks_per_node * n_nodes

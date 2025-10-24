@@ -2766,7 +2766,7 @@ requires-dist = [
     { name = "cftime", specifier = ">=1.6.4.post1" },
     { name = "dacite", specifier = ">=1.9.2" },
     { name = "dask", specifier = ">=2025.2" },
-    { name = "einops" },
+    { name = "einops", specifier = ">=0.7.0" },
     { name = "flash-attn", marker = "extra == 'cuda'", specifier = ">=2.2.5,<3" },
     { name = "flash-perceiver", marker = "extra == 'cuda'", specifier = ">=0.2" },
     { name = "jaxtyping", specifier = ">=0.3" },

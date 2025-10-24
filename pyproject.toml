@@ -27,7 +27,7 @@ dependencies = [
   "cftime>=1.6.4.post1",
   "dacite>=1.9.2",
   "dask>=2025.2",
-  "einops",
+  "einops>=0.7",
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
@@ -124,7 +124,7 @@ module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*" ]
 follow_untyped_imports = true
 
 [tool.uv.extra-build-dependencies]
-flash-attn = [{ requirement = "torch", match-runtime = true }]
+flash-attn = [ { requirement = "torch", match-runtime = true } ]
 
 [tool.uv.extra-build-variables]
 flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }

@@ -49,6 +49,11 @@ dependencies = [
   "zarr<3",
 ]
 
+optional-dependencies.cuda = [
+  "flash-attn>=2.2.5,<3",
+  "flash-perceiver>=0.2",
+]
+
 [dependency-groups]
 dev = [
   "beartype>=0.20",
@@ -76,10 +81,6 @@ dev = [
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
   "xarrayutils>=2.0.1",
-]
-cuda = [
-  "flash-attn>=2.2.5,<3",
-  "flash-perceiver>=0.2",
 ]
 
 [tool.ruff]

@@ -2725,11 +2725,13 @@ dependencies = [
     { name = "zarr" },
 ]
 
-[package.dev-dependencies]
+[package.optional-dependencies]
 cuda = [
     { name = "flash-attn" },
     { name = "flash-perceiver" },
 ]
+
+[package.dev-dependencies]
 dev = [
     { name = "beartype" },
     { name = "cartopy" },
@@ -2765,6 +2767,8 @@ requires-dist = [
     { name = "dacite", specifier = ">=1.9.2" },
     { name = "dask", specifier = ">=2025.2" },
     { name = "einops" },
+    { name = "flash-attn", marker = "extra == 'cuda'", specifier = ">=2.2.5,<3" },
+    { name = "flash-perceiver", marker = "extra == 'cuda'", specifier = ">=0.2" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
@@ -2787,10 +2791,6 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-cuda = [
-    { name = "flash-attn", specifier = ">=2.2.5,<3" },
-    { name = "flash-perceiver", specifier = ">=0.2" },
-]
 dev = [
     { name = "beartype", specifier = ">=0.20" },
     { name = "cartopy", specifier = ">=0.24.1" },

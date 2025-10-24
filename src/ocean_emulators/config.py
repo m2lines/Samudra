@@ -317,6 +317,7 @@ class PerceiverConfig(BaseConfig):
     ) -> nn.Module:
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*patch_size)
+        # TODO(alxmrs,jder): Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
         match self.implementation:
             case "flash":
                 if not FLASH_ENABLED:

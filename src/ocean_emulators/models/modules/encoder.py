@@ -60,7 +60,7 @@ class PerceiverEncoder(nn.Module):
             ph=self.patch_size[0],
             pw=self.patch_size[1],
         )
-        # NB(alxmrs): This is includes a LayerNorm before linear projection!
+        # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
         x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)
         x = rearrange(
             x,

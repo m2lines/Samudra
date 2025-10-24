@@ -162,6 +162,8 @@ git push --force-with-lease
 
 ### Training the model
 
+To train the model on a single GPU, you can run:
+
 ```bash
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
@@ -170,7 +172,9 @@ uv run -m ocean_emulators.train configs/train_om4.yaml --experiment.data_root $D
 
 You can run `uv run -m ocean_emulators.train --help` to see all the options available.
 
-To learn more about other datasets used during training, please see the _Data Engineering_ section below.
+To train on multiple GPUs, you can use skypilot, `torchrun`, or SLURM.
+
+#### SkyPilot
 
 To run a remote training job with SkyPilot, use the following command:
 
@@ -180,6 +184,30 @@ uv run sky launch skypilot/train.sky.yaml  --env WANDB_API_KEY --env-file <my-va
 ```
 
 Please read the docstring in the `train.sky.yaml` for more information.
+
+#### torchrun
+
+To use torchrun on a single host with 8 GPUs, use something like:
+
+```bash
+uv run torchrun --standalone --nnodes=1 --nproc_per_node=8 python -m ocean_emulators.train configs/train_om4.yaml --experiment.data_root $DATA_PATH
+```
+
+See the [torchrun docs](https://docs.pytorch.org/docs/stable/elastic/run.html) for other examples.
+
+#### SLURM
+
+For SLURM, you want to allocate the same number of tasks to a given node as you have allocated GPUs to that *node* (not task).
+You want to avoid using `--gpus-per-task` or `--gpu-bind` as it restricts the GPU's visibility to a given task, which
+prevents cross-GPU communication. So you want something like (for 2 nodes with 4 GPUs each):
+
+```bash
+srun --nodes=2 --ntasks-per-node=4 --gres=gpu:4 -- uv run python -m ocean_emulators.train configs/train_om4.yaml --experiment.data_root $DATA_PATH
+```
+
+Each task will see all GPUs on the node, but they know how to choose the correct one for their work.
+
+To learn more about other datasets used during training, please see the _Data Engineering_ section below.
 
 ### Evaluating the model
 

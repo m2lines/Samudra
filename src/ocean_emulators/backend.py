@@ -35,7 +35,7 @@ def init_train_backend(
                 logger.info("succeeded in initializing distributed mode")
             except RuntimeError as e:
                 logger.info(
-                    f"Failed to initialize distributed mode, running on single node.",
+                    f"Failed to initialize distributed mode, running on single GPU.",
                     exc_info=e,
                 )
                 dist_cfg = None

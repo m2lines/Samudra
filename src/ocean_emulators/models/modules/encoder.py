@@ -40,8 +40,6 @@ class PerceiverEncoder(nn.Module):
             self.patch_size = patch_size
         self.out_channels: int = out_channels  # aka, `embed_dim`.
         self.perceiver = perceiver
-        latent_dim: int = getattr(self.perceiver, "latent_dim")
-        self.project = nn.Linear(latent_dim, out_channels)
 
     def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
@@ -62,10 +60,8 @@ class PerceiverEncoder(nn.Module):
             ph=self.patch_size[0],
             pw=self.patch_size[1],
         )
-        x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, num_latents, latent_dim)
-        # TODO(alxmrs,jder): Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
-        x = x.mean(dim=1)  # (B_H_W, num_latents, latent_dim) -> (B_H_W, latent_dim)
-        x = self.project(x)  # (B_H_W, latent_dim) -> (B_H_W, out_channels)
+        # NB(alxmrs): This is includes a LayerNorm before linear projection!
+        x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)
         x = rearrange(
             x,
             "(b h w) l -> b l h w",

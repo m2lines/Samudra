@@ -91,7 +91,14 @@ def init_distributed_mode() -> DistributedConfig:
         cfg.dist_url = "env://"
     elif "SLURM_PROCID" in os.environ:
         cfg.rank = int(os.environ["SLURM_PROCID"])
-        tasks_per_node = int(os.environ["SLURM_NTASKS_PER_NODE"])
+        tasks_per_node = int(os.environ.get("SLURM_NTASKS_PER_NODE", 1))
+        if tasks_per_node < torch.cuda.device_count():
+            raise RuntimeError(
+                "There are only %d tasks per node, but this node has %d GPUs, the remainder will be idle. "
+                "You probably want to use 1 GPU per task and multiple tasks, or else use `torchrun` on a single node. ",
+                tasks_per_node,
+                torch.cuda.device_count(),
+            )
         n_nodes = int(os.environ["SLURM_NNODES"])
         cfg.world_size = tasks_per_node * n_nodes
         cfg.gpu = cfg.rank % torch.cuda.device_count()

@@ -347,7 +347,6 @@ class PerceiverConfig(BaseConfig):
                     input_channels=in_channels,
                     latent_dim=self.latent_dim,
                     num_latents=self.num_latents,
-                    num_classes=self.latent_dim,  # This is ignored!
                     weight_tie_layers=True,  # share weights of cross-attn blocks
                     self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
                     final_classifier_head=False,  # Turn off the built-in linear projection.

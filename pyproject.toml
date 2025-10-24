@@ -122,5 +122,8 @@ check_untyped_defs = true
 module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*" ]
 follow_untyped_imports = true
 
-[tool.uv]
-no-build-isolation-package = [ 'flash-attn' ]
+[tool.uv.extra-build-dependencies]
+flash-attn = [{ requirement = "torch", match-runtime = true }]
+
+[tool.uv.extra-build-variables]
+flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }

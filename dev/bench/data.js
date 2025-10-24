@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1761247167164,
+  "lastUpdate": 1761333249812,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4774,6 +4774,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3995830627239646",
             "extra": "mean: 84.59943039479998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2df8269c3f09e62e470bb4a85a92cc21e0084013",
+          "message": "Update SLURM error checking and docs (#432)\n\nI think I misunderstood how SLURM + GPU allocation works. Please see the\nupdated docs for an explanation of how things should work (AFAICT). I\nalso added some angry errors if it seems to be misconfigured, in part to\nhelp users and in part to help us verify my understanding is in fact\ncorrect :)",
+          "timestamp": "2025-10-24T14:45:49-04:00",
+          "tree_id": "d79994d965dc4e7a45d2e4aa8c6bceb24ebb7d18",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/2df8269c3f09e62e470bb4a85a92cc21e0084013"
+        },
+        "date": 1761333248893,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2892199582249095,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04696063907427075",
+            "extra": "mean: 775.6628290000037 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.0688542952448176,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5224942101967693",
+            "extra": "mean: 14.52342219819999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18468640685398185,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11639160110545999",
+            "extra": "mean: 5.414583655800004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.011551734506076414,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2839710598542817",
+            "extra": "mean: 86.56708648160001 sec\nrounds: 5"
           }
         ]
       }

@@ -117,6 +117,7 @@ def init_distributed_mode() -> DistributedConfig:
         init_method=cfg.dist_url,
         world_size=cfg.world_size,
         rank=cfg.rank,
+        device_id=cfg.gpu,
     )
     torch.cuda.set_device(cfg.gpu)
     logger.info(

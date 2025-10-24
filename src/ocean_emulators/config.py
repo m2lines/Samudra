@@ -322,7 +322,7 @@ class PerceiverConfig(BaseConfig):
             case "flash":
                 if not FLASH_ENABLED:
                     raise ValueError(
-                        'The "flash" perceiver implementation does not work in this environment.'
+                        'Configuration requested the flash perceiver, but the `flash_perceiver` package could not be imported'
                     )
                 perceiver = FlashPerceiver(
                     latent_rotary_emb_dim=max_freq,

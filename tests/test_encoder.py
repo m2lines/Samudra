@@ -5,7 +5,7 @@ from ocean_emulators.models.modules.encoder import PerceiverEncoder
 
 
 def make_perceiver(in_channels, out_channels):
-    return Perceiver(
+    p = Perceiver(
         num_freq_bands=4,
         max_freq=1.0,
         depth=2,
@@ -16,7 +16,10 @@ def make_perceiver(in_channels, out_channels):
         num_classes=out_channels,
         weight_tie_layers=True,
         self_per_cross_attn=2,
+        final_classifier_head=False,
     )
+    setattr(p, "latent_dim", 3)
+    return p
 
 
 def test_makes_patches():

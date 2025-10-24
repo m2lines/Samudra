@@ -299,6 +299,11 @@ PerceiverImpl = Literal["naive", "flash"]
 
 
 class PerceiverConfig(BaseConfig):
+    """A standard config interface to various perceiver implementations.
+
+    The returned `nn.Module` must have a `latent_dim` attribute set.
+    """
+
     implementation: PerceiverImpl = "naive"
     depth: int = 6
     latent_dim: int = Field(
@@ -310,7 +315,9 @@ class PerceiverConfig(BaseConfig):
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
 
-    def build(self, in_channels: int, out_channels: int) -> nn.Module:
+    def build(self, in_channels: int, patch_size: tuple[int, int]) -> nn.Module:
+        # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
+        max_freq = max(*patch_size)
         match self.implementation:
             case "flash":
                 if not FLASH_ENABLED:
@@ -318,34 +325,44 @@ class PerceiverConfig(BaseConfig):
                         'The "flash" perceiver implementation does not work in this environment.'
                     )
                 perceiver = FlashPerceiver(
-                    latent_rotary_emb_dim=4,  # we can't set the maximum frequency of the rotary embedding.
+                    latent_rotary_emb_dim=max_freq,
                     depth=self.depth,
-                    output_mode="concat",
                     input_dim=in_channels,
-                    output_dim=out_channels,
+                    output_dim=None,  # Turns off last linear projection layer; we do this ourselves in the encoder.
                     latent_dim=self.latent_dim,
                     num_latents=self.num_latents,
                     use_flash_attn=True,
                     weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
                     self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
                 )
+                setattr(
+                    perceiver, "latent_dim", self.latent_dim
+                )  # Adding property just-in-case.
             case "naive":
                 perceiver = NaivePerceiver(
                     num_freq_bands=4,
-                    max_freq=1.0,
+                    max_freq=max_freq,
                     depth=self.depth,
                     input_axis=2,  # Number of positional dims before token dim
                     input_channels=in_channels,
                     latent_dim=self.latent_dim,
                     num_latents=self.num_latents,
-                    num_classes=out_channels,
+                    num_classes=self.latent_dim,  # This is ignored!
                     weight_tie_layers=True,  # share weights of cross-attn blocks
                     self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+                    final_classifier_head=False,  # Turn off the built-in linear projection.
                 )
+                setattr(
+                    perceiver, "latent_dim", self.latent_dim
+                )  # This property is not included in this impl!
             case _:
                 raise ValueError(
                     f"Unknown perceiver implementation: {self.implementation}."
                 )
+
+        assert hasattr(perceiver, "latent_dim"), (
+            "If not automatically set, `latent_dim` needs to be manually added to the Perceiver implementation!"
+        )
 
         return perceiver
 
@@ -364,9 +381,9 @@ class EncoderConfig(BaseConfig):
             and isinstance(self.patch_size[0], int)
             and isinstance(self.patch_size[1], int)
         ):
-            patch_size: int | tuple[int, int] = self.patch_size[0], self.patch_size[1]
+            patch_size: tuple[int, int] = self.patch_size[0], self.patch_size[1]
         elif isinstance(self.patch_size, int):
-            patch_size = self.patch_size
+            patch_size = self.patch_size, self.patch_size
         else:
             raise ValueError(
                 "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
@@ -376,7 +393,7 @@ class EncoderConfig(BaseConfig):
             in_channels=in_channels,
             out_channels=out_channels,
             patch_size=patch_size,
-            perceiver=self.perceiver.build(in_channels, out_channels),
+            perceiver=self.perceiver.build(in_channels, patch_size),
         )
 
 

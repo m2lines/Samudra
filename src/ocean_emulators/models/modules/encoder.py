@@ -40,7 +40,8 @@ class PerceiverEncoder(nn.Module):
             self.patch_size = patch_size
         self.out_channels: int = out_channels  # aka, `embed_dim`.
         self.perceiver = perceiver
-        self.project = nn.Linear(perceiver.latent_dim, out_channels)
+        latent_dim: int = getattr(self.perceiver, "latent_dim")
+        self.project = nn.Linear(latent_dim, out_channels)
 
     def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape

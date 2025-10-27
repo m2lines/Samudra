@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1761590944145,
+  "lastUpdate": 1761590945302,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9758,6 +9758,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.33261991414073705",
             "extra": "mean: 75.01159116700005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "01799813877428cbc5633c47cf9ca8dee76c6e2a",
+          "message": "Multiple, configurable perceiver implementations, including with flash attention. (#426)\n\nThis PR extracts the Perceiver into its own config. This allows us to\nspecify which perceiver implementation to adopt in either the encoder or\ndecoder (just the encoder for now). We add a flash attention perceiver\nas the second option beyond a \"naive\" perceiver. Last, users can select\n\"auto\" as an implementation option, and the config will pick the best\nimplementation given the runtime environment.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-10-27T18:21:36Z",
+          "tree_id": "9aa27808c2a1edad6f2934de3e091f566721d59b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/01799813877428cbc5633c47cf9ca8dee76c6e2a"
+        },
+        "date": 1761590944868,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.220232206230511,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04141145228573452",
+            "extra": "mean: 819.5161501999337 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06981318161659004,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5050362110090428",
+            "extra": "mean: 14.323942511199993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19150014730822987,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10461288335948596",
+            "extra": "mean: 5.22192809800008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013810775001083441,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12268891799532179",
+            "extra": "mean: 72.40723275279997 sec\nrounds: 5"
           }
         ]
       }

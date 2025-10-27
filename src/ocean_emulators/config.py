@@ -295,13 +295,13 @@ class CorrectorConfig(BaseConfig):
         )
 
 
-PerceiverImpl = Literal["naive", "flash"]
+PerceiverImpl = Literal["auto", "naive", "flash"]
 
 
 class PerceiverConfig(BaseConfig):
     """A standard config interface to various perceiver implementations."""
 
-    implementation: PerceiverImpl = "naive"
+    implementation: PerceiverImpl = "auto"
     depth: int = 6
     latent_dim: int = Field(
         default=128,
@@ -317,43 +317,43 @@ class PerceiverConfig(BaseConfig):
     ) -> nn.Module:
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*patch_size)
+
         # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
         #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
-        match self.implementation:
-            case "flash":
-                if not FLASH_ENABLED:
-                    raise ValueError(
-                        "Configuration requested the flash perceiver, but the `flash_perceiver` package could not be imported"
-                    )
-                perceiver = FlashPerceiver(
-                    latent_rotary_emb_dim=max_freq,
-                    depth=self.depth,
-                    input_dim=in_channels,
-                    output_dim=out_channels,
-                    output_mode="average",
-                    latent_dim=self.latent_dim,
-                    num_latents=self.num_latents,
-                    use_flash_attn=True,
-                    weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
-                    self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
-                )
-            case "naive":
-                perceiver = NaivePerceiver(
-                    num_freq_bands=4,
-                    max_freq=max_freq,
-                    depth=self.depth,
-                    input_axis=2,  # Number of positional dims before token dim
-                    input_channels=in_channels,
-                    num_classes=out_channels,
-                    latent_dim=self.latent_dim,
-                    num_latents=self.num_latents,
-                    weight_tie_layers=True,  # share weights of cross-attn blocks
-                    self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
-                )
-            case _:
-                raise ValueError(
-                    f"Unknown perceiver implementation: {self.implementation}."
-                )
+        if (
+            self.implementation == "auto" and FLASH_ENABLED
+        ) or self.implementation == "flash":
+            perceiver = FlashPerceiver(
+                latent_rotary_emb_dim=max_freq,
+                depth=self.depth,
+                input_dim=in_channels,
+                output_dim=out_channels,
+                output_mode="average",
+                latent_dim=self.latent_dim,
+                num_latents=self.num_latents,
+                use_flash_attn=True,
+                weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
+                self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
+            )
+        elif (
+            self.implementation == "auto" and not FLASH_ENABLED
+        ) or self.implementation == "naive":
+            perceiver = NaivePerceiver(
+                num_freq_bands=4,
+                max_freq=max_freq,
+                depth=self.depth,
+                input_axis=2,  # Number of positional dims before token dim
+                input_channels=in_channels,
+                num_classes=out_channels,
+                latent_dim=self.latent_dim,
+                num_latents=self.num_latents,
+                weight_tie_layers=True,  # share weights of cross-attn blocks
+                self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+            )
+        else:
+            raise ValueError(
+                f"Unknown perceiver implementation: {self.implementation}."
+            )
 
         return perceiver
 

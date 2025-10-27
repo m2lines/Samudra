@@ -22,7 +22,7 @@ class Samudra(BaseModel):
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
-        gradient_detach_interval: int = 0,
+        gradient_detach_interval: int,
     ):
         super().__init__(
             in_channels=in_channels,

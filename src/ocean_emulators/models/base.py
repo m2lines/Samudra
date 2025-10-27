@@ -22,7 +22,7 @@ class BaseModel(torch.nn.Module):
         last_kernel_size,
         pad,
         static_data,
-        gradient_detach_interval: int = 0,
+        gradient_detach_interval: int,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"

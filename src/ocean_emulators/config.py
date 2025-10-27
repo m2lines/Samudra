@@ -488,7 +488,7 @@ class SamudraConfig(BaseModelConfig):
     )
     gradient_detach_interval: int = Field(
         default=0,
-        description="""Interval for detaching gradients in autoregressive training. 0 means no detaching.""",
+        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
     )
 
     def build(

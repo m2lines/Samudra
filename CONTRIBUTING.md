@@ -176,6 +176,13 @@ To train on multiple GPUs, you can use skypilot, `torchrun`, or SLURM.
 
 #### SkyPilot
 
+If you use a model that requires Flash Attention, make sure to install the `cuda` extra first, like so:
+
+```bash
+uv sync --extra cuda
+```
+Of course, this will only work on CUDA-enabled machines.
+
 To run a remote training job with SkyPilot, use the following command:
 
 ```shell
@@ -223,6 +230,13 @@ This produces a `predictions.zarr` file in the output directory with the rollout
 You can run `uv run -m ocean_emulators.eval --help` to see all the options available.
 
 To learn more about other datasets used during evaluation, please see the _Data Engineering_ section below.
+
+If you use a model that requires Flash Attention, make sure to install the `cuda` extra first, like so:
+
+```bash
+uv sync --extra cuda
+```
+Of course, this will only work on CUDA-enabled machines.
 
 To run a remote training job with SkyPilot, use the following command:
 

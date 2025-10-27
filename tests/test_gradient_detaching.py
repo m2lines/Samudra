@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 import torch
 import xarray as xr
@@ -16,20 +17,20 @@ def samudra_setup():
         h, w = 8, 8
         coords = {
             "lev": [0],
-            "lat": (["y"], torch.linspace(-90, 90, h).numpy()),
-            "lon": (["x"], torch.linspace(-180, 180, w).numpy()),
+            "lat": (["y"], np.linspace(-90, 90, h)),
+            "lon": (["x"], np.linspace(-180, 180, w)),
         }
         data = xr.Dataset(
             {
-                "thetao": (["lev", "y", "x"], torch.randn(1, h, w).numpy()),
-                "hfds": (["y", "x"], torch.randn(h, w).numpy()),
+                "thetao": (["lev", "y", "x"], np.random.randn(1, h, w)),
+                "hfds": (["y", "x"], np.random.randn(h, w)),
             },
             coords=coords,
         )
         ones = xr.Dataset(
             {
-                "thetao": (["lev", "y", "x"], torch.ones(1, h, w).numpy()),
-                "hfds": (["y", "x"], torch.ones(h, w).numpy()),
+                "thetao": (["lev", "y", "x"], np.ones((1, h, w))),
+                "hfds": (["y", "x"], np.ones((h, w))),
             },
             coords=coords,
         )

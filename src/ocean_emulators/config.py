@@ -299,7 +299,10 @@ PerceiverImpl = Literal["auto", "naive", "flash"]
 
 
 class PerceiverConfig(BaseConfig):
-    """A standard config interface to various perceiver implementations."""
+    """A standard config interface to various perceiver implementations.
+
+    The `implementation="auto"` option will guess what is the best implementation given the runtime environment.
+    """
 
     implementation: PerceiverImpl = "auto"
     depth: int = 6

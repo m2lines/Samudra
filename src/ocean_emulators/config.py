@@ -529,6 +529,10 @@ class FOMOConfig(BaseModelConfig):
     processor: UNetBackboneConfig = UNetBackboneConfig()
     # decoder will go here.
     embedding_dim: int = 128
+    gradient_detach_interval: int = Field(
+        default=0,
+        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
+    )
 
     def build(
         self,
@@ -556,6 +560,7 @@ class FOMOConfig(BaseModelConfig):
             wet=wet,
             static_data=static_data,
             checkpointing=self.checkpointing,
+            gradient_detach_interval=self.gradient_detach_interval,
         )
 
 

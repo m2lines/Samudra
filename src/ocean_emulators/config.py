@@ -324,8 +324,12 @@ class PerceiverConfig(BaseConfig):
         # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
         #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
         if (
-            self.implementation == "auto" and FLASH_ENABLED
+            self.implementation == "auto" and torch.cuda.is_available()
         ) or self.implementation == "flash":
+            if not FLASH_ENABLED:
+                raise ValueError(
+                    "`implementation==flash` but the flash attention dependencies were not installed! Please run `uv sync --extra cuda` and try again."
+                )
             perceiver = FlashPerceiver(
                 latent_rotary_emb_dim=max_freq,
                 depth=self.depth,
@@ -339,7 +343,7 @@ class PerceiverConfig(BaseConfig):
                 self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
             )
         elif (
-            self.implementation == "auto" and not FLASH_ENABLED
+            self.implementation == "auto" and not torch.cuda.is_available()
         ) or self.implementation == "naive":
             perceiver = NaivePerceiver(
                 num_freq_bands=4,

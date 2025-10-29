@@ -308,12 +308,7 @@ class PerceiverConfig(BaseConfig):
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
 
-    def build(
-        self, in_channels: int, out_channels: int, patch_size: tuple[int, int]
-    ) -> nn.Module:
-        # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
-        max_freq = max(*patch_size)
-
+    def build(self, in_channels: int, out_channels: int) -> nn.Module:
         # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
         #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
         if (
@@ -326,7 +321,6 @@ class PerceiverConfig(BaseConfig):
                     "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
                 ) from e
             perceiver = FlashPerceiver(
-                latent_rotary_emb_dim=max_freq,
                 depth=self.depth,
                 input_dim=in_channels,
                 output_dim=out_channels,
@@ -336,13 +330,15 @@ class PerceiverConfig(BaseConfig):
                 use_flash_attn=True,
                 weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
                 self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
+                cross_rotary_emb_dim=0,  # Turn off rotary embeddings
+                latent_rotary_emb_dim=0,  # Turn off rotary embeddings
             )
         elif (
             self.implementation == "auto" and not torch.cuda.is_available()
         ) or self.implementation == "naive":
             perceiver = NaivePerceiver(
-                num_freq_bands=4,
-                max_freq=max_freq,
+                num_freq_bands=4,  # This is a dummy value; we've turned off rotary embeddings
+                max_freq=10,  # This is a dummy value; we've turned off rotary embeddings
                 depth=self.depth,
                 input_axis=2,  # Number of positional dims before token dim
                 input_channels=in_channels,
@@ -351,6 +347,7 @@ class PerceiverConfig(BaseConfig):
                 num_latents=self.num_latents,
                 weight_tie_layers=True,  # share weights of cross-attn blocks
                 self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+                fourier_encode_data=False,  # Turn off rotary embeddings
             )
         else:
             raise ValueError(
@@ -388,7 +385,7 @@ class EncoderConfig(BaseConfig):
             in_channels=in_channels,
             out_channels=out_channels,
             patch_size=patch_size,
-            perceiver=self.perceiver.build(in_channels, out_channels, patch_size),
+            perceiver=self.perceiver.build(in_channels, out_channels),
             lat=lat,
             lon=lon,
         )

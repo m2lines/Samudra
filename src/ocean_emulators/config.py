@@ -328,7 +328,7 @@ class PerceiverConfig(BaseConfig):
         ) or self.implementation == "flash":
             if not FLASH_ENABLED:
                 raise ValueError(
-                    "`implementation==flash` but the flash attention dependencies were not installed! Please run `uv sync --extra cuda` and try again."
+                    "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
                 )
             perceiver = FlashPerceiver(
                 latent_rotary_emb_dim=max_freq,

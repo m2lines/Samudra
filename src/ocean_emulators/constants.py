@@ -1,6 +1,8 @@
 import enum
 import logging
-from typing import TypeAlias, TypeVar
+from typing import TypeAlias
+
+from numpy.typing import ArrayLike
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +16,7 @@ from ocean_emulators.utils.multiton import Multiton
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 
-# Our Arrays will be either `torch.Tensor`s or `xarray.DataArray`s.
-Array = TypeVar("Array", torch.Tensor, xr.DataArray)
-
-Grid = Float[Array, "lat lon"]
+Grid = Float[ArrayLike, "lat lon"]
 Prognostic = Float[
     Grid, "*batch prognostic_vars"
 ]  # equivalent to "*batch prognostic_vars lat lon"
@@ -30,7 +29,7 @@ Input: TypeAlias = Float[Grid, "*batch total_vars"]
 
 Example = tuple[Input, Prognostic] | tuple[xr.Dataset, xr.Dataset]
 
-GridMask = Bool[Array, "lat lon"]
+GridMask = Bool[ArrayLike, "lat lon"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
 SingleChannelVar = Float[torch.Tensor, "batch time lat lon"]

@@ -35,11 +35,6 @@ from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLoca
 from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
 
-try:
-    FLASH_ENABLED = True
-except ModuleNotFoundError:
-    FLASH_ENABLED = False
-
 
 class WandBConfig(BaseConfig):
     mode: Literal["online", "disabled"] = "disabled"

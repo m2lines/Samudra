@@ -36,8 +36,6 @@ from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
 
 try:
-    from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
-
     FLASH_ENABLED = True
 except ModuleNotFoundError:
     FLASH_ENABLED = False
@@ -326,10 +324,12 @@ class PerceiverConfig(BaseConfig):
         if (
             self.implementation == "auto" and torch.cuda.is_available()
         ) or self.implementation == "flash":
-            if not FLASH_ENABLED:
+            try:
+                from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
+            except ModuleNotFoundError as e:
                 raise ValueError(
                     "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
-                )
+                ) from e
             perceiver = FlashPerceiver(
                 latent_rotary_emb_dim=max_freq,
                 depth=self.depth,

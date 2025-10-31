@@ -35,13 +35,6 @@ from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLoca
 from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
 
-try:
-    from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
-
-    FLASH_ENABLED = True
-except ModuleNotFoundError:
-    FLASH_ENABLED = False
-
 
 class WandBConfig(BaseConfig):
     mode: Literal["online", "disabled"] = "disabled"
@@ -324,8 +317,14 @@ class PerceiverConfig(BaseConfig):
         # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
         #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
         if (
-            self.implementation == "auto" and FLASH_ENABLED
+            self.implementation == "auto" and torch.cuda.is_available()
         ) or self.implementation == "flash":
+            try:
+                from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
+            except ModuleNotFoundError as e:
+                raise ValueError(
+                    "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
+                ) from e
             perceiver = FlashPerceiver(
                 latent_rotary_emb_dim=max_freq,
                 depth=self.depth,
@@ -339,7 +338,7 @@ class PerceiverConfig(BaseConfig):
                 self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
             )
         elif (
-            self.implementation == "auto" and not FLASH_ENABLED
+            self.implementation == "auto" and not torch.cuda.is_available()
         ) or self.implementation == "naive":
             perceiver = NaivePerceiver(
                 num_freq_bands=4,

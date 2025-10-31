@@ -65,7 +65,9 @@ setup: |
   rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
 
   mkdir -p ~/data/
-  rclone copy --progress nyu-osn:emulators/jr7309/data/om4_halfdeg/ ~/data --ignore-existing --transfers=32
+  rclone copy --progress nyu-osn:emulators/sd5313/OM4_highres/om4_quarterdeg.zarr ~/data/OM4.zarr --ignore-existing --transfers=32
+  rclone copy --progress nyu-osn:emulators/sd5313/OM4_highres/om4_quarterdeg_means.zarr ~/data/OM4_means.zarr --ignore-existing --transfers=32
+  rclone copy --progress nyu-osn:emulators/sd5313/OM4_highres/om4_quarterdeg_stds.zarr ~/data/OM4_stds.zarr --ignore-existing --transfers=32
 
   mkdir -p ~/basins/
   rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins

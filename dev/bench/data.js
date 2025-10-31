@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1761590945302,
+  "lastUpdate": 1761870985914,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4878,6 +4878,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5103423902845032",
             "extra": "mean: 84.26640561360001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2451c7f3b5c953d62cf7ded2581c65a2c146faba",
+          "message": "Auto should always be `flash` if cuda is available. (#438)\n\nFixes #435.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-10-31T00:08:29Z",
+          "tree_id": "555511c0a01b1aff159df26735d11aed76f987e9",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/2451c7f3b5c953d62cf7ded2581c65a2c146faba"
+        },
+        "date": 1761870985076,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2180779807900846,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021918375483015104",
+            "extra": "mean: 820.9655011999871 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.06882808610473344,
+            "unit": "iter/sec",
+            "range": "stddev: 0.37954504129142447",
+            "extra": "mean: 14.528952591799992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.1785235952143603,
+            "unit": "iter/sec",
+            "range": "stddev: 0.21951343463301778",
+            "extra": "mean: 5.601500456000008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012061285620943666,
+            "unit": "iter/sec",
+            "range": "stddev: 0.16494650808433947",
+            "extra": "mean: 82.90990126820003 sec\nrounds: 5"
           }
         ]
       }

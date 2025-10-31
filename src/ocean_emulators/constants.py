@@ -236,7 +236,6 @@ def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
 
 
 class LoaderVersion(enum.Enum):
-    OM4_EAGER = "om4-eager"
     OM4_TORCH = "om4-torch"
 
 

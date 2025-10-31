@@ -162,6 +162,7 @@ class DataSource:
         data = self.data.sel(time=time.time_slice)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
 
+    # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
         norm = (self.data - self.means) / self.stds
@@ -169,6 +170,7 @@ class DataSource:
             norm = norm.fillna(fill_value)
         return norm
 
+    # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize_with(
         self,
         data: torch.Tensor,

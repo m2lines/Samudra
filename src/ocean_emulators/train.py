@@ -10,7 +10,7 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from multiprocessing.context import BaseContext
@@ -51,9 +51,10 @@ from ocean_emulators.constants import (
 from ocean_emulators.datasets import (
     InferenceDataset,
     InferenceDatasets,
+    RawTrainData,
     TorchTrainDataset,
     TrainData,
-    TrainDataset,
+    TrainDataLoader,
 )
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
@@ -89,7 +90,7 @@ from ocean_emulators.utils.loss import (
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
-    collate_train_data,
+    collate_raw_train_data,
 )
 from ocean_emulators.utils.wandb import WandBLogger
 
@@ -379,9 +380,9 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: DataLoader[TrainData]
-        self.val_loader: DataLoader[TrainData]
-        self.inference_loader: DataLoader
+        self.train_loader: TrainDataLoader
+        self.val_loader: TrainDataLoader
+        self.inference_loader: DataLoader[TrainData]
 
     def init_inference_stores(self):
         # Determine number of processes based on device
@@ -523,7 +524,6 @@ class Trainer:
                 break
 
             self.optimizer.zero_grad()
-            data.to(self.device)
 
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
@@ -648,7 +648,6 @@ class Trainer:
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
 
-                data.to(self.device)
                 VO: ValBatchOutput = Stepper.validate_batch(
                     self.model, data, self.loss_fn
                 )
@@ -732,78 +731,53 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
+        all_datasets: dict[TorchTrainDataset.Id, TorchTrainDataset] = {}
+
+        def register_dataset(dataset: TorchTrainDataset) -> TorchTrainDataset:
+            assert dataset.id not in all_datasets
+            all_datasets[dataset.id] = dataset
+            return dataset
+
         # Create datasets
         match self.loader_version:
-            case TrainDataset.FLAG:
-                train_data: ConcatDataset = ConcatDataset(
-                    [
-                        TrainDataset(
-                            src=self.src.slice(self.train_time),
-                            prognostic_var_names=self.prognostic_var_names,
-                            boundary_var_names=self.boundary_var_names,
-                            wet=self.wet_without_hist_cpu,
-                            wet_surface=self.wet_surface,
-                            hist=self.hist,
-                            steps=cur_step,
-                            normalize_before_mask=self.normalize_before_mask,
-                            masked_fill_value=self.normalize_fill_value,
-                            stride=stride,
-                        )
-                        for stride in self.data_stride
-                    ]
-                )
-
-                val_data: ConcatDataset = ConcatDataset(
-                    [
-                        TrainDataset(
-                            src=self.src.slice(self.val_time),
-                            prognostic_var_names=self.prognostic_var_names,
-                            boundary_var_names=self.boundary_var_names,
-                            wet=self.wet_without_hist_cpu,
-                            wet_surface=self.wet_surface,
-                            hist=self.hist,
-                            steps=1,  # current_step set to 1 for validation
-                            normalize_before_mask=self.normalize_before_mask,
-                            masked_fill_value=self.normalize_fill_value,
-                            stride=stride,
-                        )
-                        for stride in self.data_stride
-                    ]
-                )
             case TorchTrainDataset.FLAG:
-                train_data = ConcatDataset(
+                train_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
                     [
-                        TorchTrainDataset(
-                            src=self.src.slice(self.train_time),
-                            prognostic_var_names=self.prognostic_var_names,
-                            boundary_var_names=self.boundary_var_names,
-                            wet=self.wet_without_hist_cpu,
-                            wet_surface=self.wet_surface,
-                            hist=self.hist,
-                            steps=cur_step,
-                            normalize_before_mask=self.normalize_before_mask,
-                            masked_fill_value=self.normalize_fill_value,
-                            stride=stride,
-                            executor=self.executor,
+                        register_dataset(
+                            TorchTrainDataset(
+                                src=self.src.slice(self.train_time),
+                                prognostic_var_names=self.prognostic_var_names,
+                                boundary_var_names=self.boundary_var_names,
+                                wet=self.wet_without_hist_cpu,
+                                wet_surface=self.wet_surface,
+                                hist=self.hist,
+                                steps=cur_step,
+                                normalize_before_mask=self.normalize_before_mask,
+                                masked_fill_value=self.normalize_fill_value,
+                                stride=stride,
+                                executor=self.executor,
+                            )
                         )
                         for stride in self.data_stride
                     ]
                 )
 
-                val_data = ConcatDataset(
+                val_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
                     [
-                        TorchTrainDataset(
-                            src=self.src.slice(self.val_time),
-                            prognostic_var_names=self.prognostic_var_names,
-                            boundary_var_names=self.boundary_var_names,
-                            wet=self.wet_without_hist_cpu,
-                            wet_surface=self.wet_surface,
-                            hist=self.hist,
-                            steps=1,  # current_step set to 1 for validation
-                            normalize_before_mask=self.normalize_before_mask,
-                            masked_fill_value=self.normalize_fill_value,
-                            stride=stride,
-                            executor=self.executor,
+                        register_dataset(
+                            TorchTrainDataset(
+                                src=self.src.slice(self.val_time),
+                                prognostic_var_names=self.prognostic_var_names,
+                                boundary_var_names=self.boundary_var_names,
+                                wet=self.wet_without_hist_cpu,
+                                wet_surface=self.wet_surface,
+                                hist=self.hist,
+                                steps=1,  # current_step set to 1 for validation
+                                normalize_before_mask=self.normalize_before_mask,
+                                masked_fill_value=self.normalize_fill_value,
+                                stride=stride,
+                                executor=self.executor,
+                            )
                         )
                         for stride in self.data_stride
                     ]
@@ -820,14 +794,12 @@ class Trainer:
             self.train_sampler = DistributedSampler(train_data, shuffle=True)
             self.val_sampler = DistributedSampler(val_data, shuffle=False)
         else:
-            self.train_sampler = RandomSampler(train_data)
-            self.val_sampler = RandomSampler(val_data)
+            self.train_sampler = RandomSampler(train_data)  # type: ignore
+            self.val_sampler = RandomSampler(val_data)  # type: ignore
 
         match self.loader_version:
-            case TrainDataset.FLAG:
-                collate_fn: Callable[[Sequence[Any]], TrainData] = collate_train_data
             case TorchTrainDataset.FLAG:
-                collate_fn = collate_train_data
+                collate_fn = collate_raw_train_data
             case _:
                 raise NotImplementedError(
                     f"Collate function not defined for loader version "
@@ -835,7 +807,7 @@ class Trainer:
                 )
 
         # Create data loaders
-        self.train_loader = DataLoader(
+        train_dataloader = DataLoader(
             train_data,
             batch_size=self.batch_size,
             sampler=self.train_sampler,
@@ -846,7 +818,7 @@ class Trainer:
             multiprocessing_context=self.mp_context,
         )
 
-        self.val_loader = DataLoader(
+        val_dataloader = DataLoader(
             val_data,
             batch_size=self.batch_size,
             sampler=self.val_sampler,
@@ -856,6 +828,10 @@ class Trainer:
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
         )
+
+        # Wrap dataloaders to handle GPU post-processing
+        self.train_loader = TrainDataLoader(train_dataloader, all_datasets, self.device)
+        self.val_loader = TrainDataLoader(val_dataloader, all_datasets, self.device)
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

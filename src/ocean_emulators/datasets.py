@@ -2,7 +2,7 @@ import logging
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Any
+from typing import TypeAlias, final
 
 import numpy as np
 import torch
@@ -13,7 +13,6 @@ from torch.utils.data import Dataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
-    Boundary,
     BoundaryVarNames,
     Example,
     GridMask,
@@ -295,12 +294,38 @@ class InferenceDatasets(Dataset):
         return (self.datasets[idx], self.lengths[idx])
 
 
+class RawTrainData:
+    def __init__(self, dataset_id: "TorchTrainDataset.Id"):
+        self.dataset_id: TorchTrainDataset.Id = dataset_id
+        self.raw_data: list[tuple[torch.Tensor, torch.Tensor]] = []
+        self.load_stats: LoadStats | None = None
+
+    def insert(self, all_prognostic: torch.Tensor, all_boundary: torch.Tensor):
+        self.raw_data.append((all_prognostic, all_boundary))
+
+    def to(self, device: torch.device):
+        self.raw_data = [
+            (
+                all_prognostic.to(device, non_blocking=True),
+                all_boundary.to(device, non_blocking=True),
+            )
+            for all_prognostic, all_boundary in self.raw_data
+        ]
+
+    def pin_memory(self):
+        self.raw_data = [
+            (all_prognostic.pin_memory(), all_boundary.pin_memory())
+            for all_prognostic, all_boundary in self.raw_data
+        ]
+        return self
+
+
 class TrainData:
     def __init__(self, num_prognostic_channels: int):
         self.td_dict: dict[int, Example] = {}
-        self.load_stats: LoadStats | None = None
         self.num_prognostic_channels = num_prognostic_channels
         self.steps = 0
+        self.load_stats: LoadStats | None = None
 
     def insert(self, input_: Input, label: Prognostic):
         self.td_dict[self.steps] = (input_, label)
@@ -350,7 +375,8 @@ class TrainData:
         return iter(self.td_dict)
 
 
-class TrainDataset(Dataset):
+@final
+class TorchTrainDataset(Dataset[RawTrainData]):
     """
     This class is used for training and validation.
 
@@ -370,221 +396,7 @@ class TrainDataset(Dataset):
             step=3->[[9, 10, 11], [12, 13, 14]]
     """
 
-    FLAG = LoaderVersion.OM4_EAGER
-
-    @elapsed
-    def __init__(
-        self,
-        src: DataSource,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-        wet: PrognosticMask,
-        wet_surface: GridMask,
-        hist: int,
-        steps: int,
-        normalize_before_mask: bool,
-        masked_fill_value: float,
-        stride: int = 1,
-    ):
-        super().__init__()
-        self.device = get_device()
-
-        self.hist: int = hist
-        self.steps: int = steps
-        self.stride: int = stride
-        self.normalize_before_mask: bool = normalize_before_mask
-        self.masked_fill_value: float = masked_fill_value
-        data = src.data
-        self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
-        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
-
-        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-
-        # This class will be used only for training
-        total_steps: int = 2 * self.hist + 2
-
-        # Calculate the number of windows
-        num_windows = data.time.size - (total_steps - 1) * self.stride
-
-        # Create base indices
-        indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["window_dim"])
-
-        # Create window dimension
-        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
-
-        # Construct rolling indices
-        self.rolling_indices: Float[xr.DataArray, "window_dim time"] = (
-            indices_da + stride * window_dim
-        )
-
-        self.wet = wet.bool()
-        self.wet_surface = wet_surface.bool()
-
-        self.size: int = (
-            data.time.size
-            - self.steps * (self.hist + 1) * self.stride
-            - self.hist * self.stride
-        )
-
-        if using_gpu():
-            self.wet = self.wet.pin_memory()
-            self.wet_surface = self.wet_surface.pin_memory()
-
-    def __len__(self) -> int:
-        return self.size
-
-    @elapsed(level=logging.DEBUG)
-    def __getitem__(self, idx: int):
-        start_time = time.perf_counter()
-        TD = TrainData(self.num_prognostic_channels)
-        prev_rolling_idx = None
-        for step in range(self.steps):
-            x_index = self._get_x_index(idx, step, prev_rolling_idx)
-
-            data_in: Prognostic = self._get_input(x_index)
-            data_in_boundary: Boundary = self._get_boundary(x_index)
-
-            data_combined: Input = torch.cat(
-                (data_in, data_in_boundary), dim=1
-            ).squeeze()
-
-            label: Prognostic = self._get_label(x_index)
-
-            TD.insert(
-                input_=data_combined,
-                label=label,
-            )
-
-        TD.load_stats = LoadStats(time.perf_counter() - start_time)
-
-        return TD
-
-    def _get_x_index(
-        self, idx: int, step: int, prev_rolling_idx: int | None
-    ) -> xr.Variable:
-        assert isinstance(idx, int)
-        if idx < 0:
-            raise IndexError("Sorry, negative indexing is not supported!")
-        if idx >= len(self):
-            raise IndexError("Index out of range")
-
-        start = idx + step * (self.hist + 1) * self.stride
-        end = start + 1
-        # Create a slice for similar indexing as in InferenceDataset
-        idx_slice = slice(start, end)
-        rolling_idx = self.rolling_indices.isel(window_dim=idx_slice)
-
-        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
-        return x_index
-
-    def _get_input(self, x_index) -> Prognostic:
-        # TODO(jder): nicer typing
-        data_in_src: Any = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
-        )
-        if self.normalize_before_mask:
-            data_in = data_in_src.normalize()
-        else:
-            data_in = data_in_src.data
-
-        data_in = (
-            data_in.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-        data_in = torch.from_numpy(data_in).float()
-        data_in = torch.where(self.wet, data_in, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
-
-        data_in = rearrange(
-            data_in,
-            "window_dim time variable lat lon -> \
-                window_dim (time variable) lat lon",
-        )
-        return data_in
-
-    def _get_boundary(self, x_index) -> Boundary:
-        """
-        This function returns the boundary condition for the current time step.
-
-        With hist > 0, the boundary condition considered is always the last step of
-        the input.
-        """
-        # TODO(jder): nicer typing
-        data_in_boundary_src: Any = self._boundary_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
-        )
-        if self.normalize_before_mask:
-            data_in_boundary = data_in_boundary_src.normalize()
-        else:
-            data_in_boundary = data_in_boundary_src.data
-        data_in_boundary = (
-            data_in_boundary.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-        data_in_boundary = torch.from_numpy(data_in_boundary).float()
-        data_in_boundary = torch.where(
-            self.wet_surface, data_in_boundary, self.masked_fill_value
-        )
-        if not self.normalize_before_mask:
-            data_in_boundary = self._boundary_src.normalize_with(
-                data_in_boundary, variable_axis=2
-            )
-        data_in_boundary = rearrange(
-            data_in_boundary,
-            "window_dim time variable lat lon -> \
-                window_dim (time variable) lat lon",
-        )
-        return data_in_boundary
-
-    def _get_label(self, x_index) -> Prognostic:
-        # TODO(jder): nicer typing
-        label_src: Any = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
-        )
-        if self.normalize_before_mask:
-            label = label_src.normalize()
-        else:
-            label = label_src.data
-        label = (
-            label.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-        label = torch.from_numpy(label).float()
-        label = torch.where(self.wet, label, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            label = label_src.normalize_with(label, variable_axis=2)
-        label = rearrange(
-            label,
-            "window_dim time variable lat lon ->\
-                window_dim (time variable) lat lon",
-        ).squeeze()
-        return label
-
-
-class TorchTrainDataset(Dataset):
-    """
-    This class is used for training and validation.
-
-    It creates rolling indices to keep track of histories/past states. But different
-    from InferenceDataset, as it creates rolling indices based on stride. By default,
-    the sliding window / stride is 1.
-
-    We make use of TrainData class to store a single sample.
-
-    For example,
-    Hist=0 ; TD: step=0->[0, 1]; step=1->[1, 2]; step=2->[2, 3]; step=3->[3, 4]
-    Hist=1 ; TD: step=0->[[0, 1], [2, 3]]; step=1->[[2, 3], [4, 5]];
-            step=2->[[4, 5], [6, 7]]; step=3->[[6, 7], [8, 9]]
-    Hist=2 ; TD: step=0->[[0, 1, 2], [3, 4, 5]];
-            step=1->[[3, 4, 5], [6, 7, 8]];
-            step=2->[[6, 7, 8], [9, 10, 11]];
-            step=3->[[9, 10, 11], [12, 13, 14]]
-    """
+    Id: TypeAlias = str
 
     FLAG = LoaderVersion.OM4_TORCH
 
@@ -604,6 +416,7 @@ class TorchTrainDataset(Dataset):
         executor: ThreadPoolExecutor | None = None,
     ):
         super().__init__()
+        self.id = self.__class__.__name__ + "_" + str(id(self))
         self.device = get_device()
 
         self.hist: int = hist
@@ -636,8 +449,25 @@ class TorchTrainDataset(Dataset):
             indices_da + stride * window_dim
         )
 
-        self.wet = wet.bool()
-        self.wet_surface = wet_surface.bool()
+        self.wet = wet.bool().to(self.device)
+        self.wet_surface = wet_surface.bool().to(self.device)
+
+        def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
+            if "lev" in means_or_stds.dims:
+                array = conditional_rearrange(
+                    means_or_stds,
+                    "(variable lev)=var",
+                    concat_dim="var",
+                ).rename({"var": "variable"})
+            else:
+                array = means_or_stds.to_dataarray()
+            return torch.from_numpy(array.to_numpy().flatten()).to(self.device)
+
+        self.prognostic_means = flatten_to_device(self._prognostic_src.means)
+        self.prognostic_stds = flatten_to_device(self._prognostic_src.stds)
+
+        self.boundary_means = flatten_to_device(self._boundary_src.means)
+        self.boundary_stds = flatten_to_device(self._boundary_src.stds)
 
         self.size: int = (
             data.time.size
@@ -645,17 +475,13 @@ class TorchTrainDataset(Dataset):
             - self.hist * self.stride
         )
 
-        if using_gpu():
-            self.wet = self.wet.pin_memory()
-            self.wet_surface = self.wet_surface.pin_memory()
-
     def __len__(self) -> int:
         return self.size
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = TrainData(self.num_prognostic_channels)
+        TD = RawTrainData(self.id)
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
@@ -689,63 +515,97 @@ class TorchTrainDataset(Dataset):
                 .to_numpy()
             )
 
-            input_, label = self._get_input_and_label(prognostic_all, boundary)
-            TD.insert(input_=input_, label=label)
-
+            TD.insert(prognostic_all, boundary)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
+
         return TD
+
+    def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
+        train_data = TrainData(self.num_prognostic_channels)
+        for prognostic_all, boundary_all in raw_train_data.raw_data:
+            input, label = self._get_input_and_label(
+                prognostic_all.to(self.device, non_blocking=True),
+                boundary_all.to(self.device, non_blocking=True),
+            )
+            train_data.insert(input, label)
+        train_data.load_stats = raw_train_data.load_stats
+        return train_data
 
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        prognostic_all: Float[torch.Tensor, "time variable lat lon"],
-        boundary_all: Float[torch.Tensor, "time variable lat lon"],
+        prognostic_all: Float[torch.Tensor, "batch time variable lat lon"],
+        boundary_all: Float[torch.Tensor, "batch time variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
-            prognostic_all[: self.hist + 1, :, :, :],
-            boundary_all[: self.hist + 1, :, :, :],
+            prognostic_all[:, : self.hist + 1, :, :, :],
+            boundary_all[:, : self.hist + 1, :, :, :],
         )
         # grab future steps, repeat as we do for input
-        label = self._prep_tensor_steps(prognostic_all[self.hist + 1 :, :, :, :])
+        label = self._prep_tensor_steps(prognostic_all[:, self.hist + 1 :, :, :, :])
         return total_input, label
 
     def _prep_tensor_steps(
         self,
-        prognostic_steps: Float[torch.Tensor, "time variable lat lon"],
-        boundary_steps: Float[torch.Tensor, "time variable lat lon"] | None = None,
+        prognostic_steps: Float[torch.Tensor, "batch time variable lat lon"],
+        boundary_steps: Float[torch.Tensor, "batch time variable lat lon"]
+        | None = None,
     ) -> Input:
         """Prepare tensor steps by normalizing, masking and flattening dimensions."""
+
+        def normalize(
+            data: Float[torch.Tensor, "batch time var lat lon"],
+            means: Float[torch.Tensor, " var"],
+            stds: Float[torch.Tensor, " var"],
+            fill_nan: bool = True,
+            fill_value: float = 0.0,
+        ) -> Float[torch.Tensor, "batch time var lat lon"]:
+            """Normalize input data treated as torch Tensors."""
+            norm = (data - means.view(1, 1, -1, 1, 1)) / stds.view(1, 1, -1, 1, 1)
+            if fill_nan:
+                norm = norm.nan_to_num(nan=fill_value)
+            norm = norm.to(data.dtype)
+            return norm
 
         # Normalize and mask tensors
         def normalize_and_mask(
             tensor: torch.Tensor,
-            src: DataSource,
+            means: torch.Tensor,
+            stds: torch.Tensor,
             mask: torch.Tensor,
         ) -> torch.Tensor:
             if self.normalize_before_mask:
-                tensor = src.normalize_with(tensor, variable_axis=1).float()
+                tensor = normalize(tensor, means, stds)
             tensor = torch.where(mask, tensor, self.masked_fill_value)
             if not self.normalize_before_mask:
-                tensor = src.normalize_with(tensor, variable_axis=1).float()
+                tensor = normalize(tensor, means, stds)
             return tensor
 
         prognostic_steps = normalize_and_mask(
-            prognostic_steps, self._prognostic_src, self.wet
+            prognostic_steps,
+            self.prognostic_means,
+            self.prognostic_stds,
+            self.wet,
         )
         if boundary_steps is not None:
             boundary_steps = normalize_and_mask(
-                boundary_steps, self._boundary_src, self.wet_surface
+                boundary_steps,
+                self.boundary_means,
+                self.boundary_stds,
+                self.wet_surface,
             )
 
         # Flatten time and variable dimensions
         def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:
-            return rearrange(tensor, "time variable lat lon -> (time variable) lat lon")
+            return rearrange(
+                tensor, "batch time variable lat lon -> batch (time variable) lat lon"
+            )
 
         prognostic_steps = flatten_dims(prognostic_steps)
         if boundary_steps is not None:
             boundary_steps = flatten_dims(boundary_steps)
-            return torch.cat((prognostic_steps, boundary_steps), dim=0)
+            return torch.cat((prognostic_steps, boundary_steps), dim=1)
 
         return prognostic_steps
 
@@ -773,3 +633,65 @@ def concurrent_compute(
             futures.append(executor.submit(load_variable_data, var))
 
     wait(futures)
+
+
+class TrainDataLoader:
+    """Wrapper around a torch DataLoader that handles GPU post-processing.
+
+    This class wraps a DataLoader[RawTrainData] and converts the raw data
+    to TrainData by applying GPU-based normalization and masking. This allows
+    the data loading process to handle I/O while the main process handles
+    GPU operations.
+
+    Since the data samples flow from one process to the other, we want to tie
+    them back to the dataset they came from which knows how to do that second
+    half once they're in the main process which has GPU access set up. To do that,
+    each data sample (which could come from a different dataset) has a dataset ID
+    -- `datasets` maps from those IDs to the original datasets.
+    """
+
+    def __init__(
+        self,
+        dataloader: torch.utils.data.DataLoader[RawTrainData],
+        datasets: dict[TorchTrainDataset.Id, TorchTrainDataset],
+        device: torch.device,
+    ):
+        self._dataloader = dataloader
+        self._datasets = datasets
+        self._device = device
+
+    def __iter__(self):
+        """Iterate over the dataloader, converting RawTrainData to TrainData."""
+        for raw_train_data in self._dataloader:
+            dataset = self._datasets[raw_train_data.dataset_id]
+            train_data = dataset.to_train_data(raw_train_data)
+            yield train_data
+
+    def __len__(self) -> int:
+        return len(self._dataloader)
+
+    def __getitem__(self, index: int) -> TrainData:
+        """Access a single item by index, converting RawTrainData to TrainData.
+
+        Note: This bypasses the DataLoader's sampling/batching and directly accesses
+        the underlying dataset for test purposes.
+        """
+        # Access the underlying dataset directly
+        raw_train_data = self._dataloader.dataset[index]
+        # Apply collate function to add batch dimension (expects a list)
+        collate_fn = self._dataloader.collate_fn
+        if collate_fn is not None:
+            raw_train_data = collate_fn([raw_train_data])
+        # Get the dataset that created this raw data
+        dataset = self._datasets[raw_train_data.dataset_id]
+        # Convert to TrainData
+        train_data = dataset.to_train_data(raw_train_data)
+        return train_data
+
+    @property
+    def dataset(self):
+        return self._dataloader.dataset
+
+    @property
+    def sampler(self):
+        return self._dataloader.sampler

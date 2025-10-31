@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1761870987293,
+  "lastUpdate": 1761936817970,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -4930,6 +4930,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.16494650808433947",
             "extra": "mean: 82.90990126820003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8004d763874c580ce57391805eab2a131f085fd4",
+          "message": "Quiet many pyright warnings about generic types (#436)",
+          "timestamp": "2025-10-31T18:25:51Z",
+          "tree_id": "511c259547850c842680bf4c6f5718d47507fb8b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/8004d763874c580ce57391805eab2a131f085fd4"
+        },
+        "date": 1761936817154,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.2650999409736432,
+            "unit": "iter/sec",
+            "range": "stddev: 0.015074255240165655",
+            "extra": "mean: 790.4513846000043 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_EAGER-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.0685353159931674,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8512016468224999",
+            "extra": "mean: 14.591017572600009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18110858118847717,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18622215016430865",
+            "extra": "mean: 5.521549522600003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.012050872210011731,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1550071192363817",
+            "extra": "mean: 82.9815454494 sec\nrounds: 5"
           }
         ]
       }

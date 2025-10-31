@@ -55,10 +55,11 @@ model:
   embedding_dim: 280
 
   encoder:
-    perceiver_depth: 3
     patch_size: [12, 20]
-    perceiver_latent_dim: 64
-    perceiver_num_latents: 256
+    perceiver:
+      depth: 3
+      latent_dim: 64
+      num_latents: 256
 
   processor:
     ch_width: [380, 480, 520]

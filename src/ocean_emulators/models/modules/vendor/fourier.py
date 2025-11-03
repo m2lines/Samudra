@@ -1,7 +1,8 @@
 """Fourier positional encodings.
 
 Sources taken from MSFT's Auroral model:
-  https://github.com/microsoft/aurora/blob/main/aurora/model/fourier.py
+ - https://github.com/microsoft/aurora/blob/main/aurora/model/fourier.py
+ - https://github.com/microsoft/aurora/blob/main/aurora/area.py
 
 Copyright (c) Microsoft Corporation. Licensed under the MIT license.
 

@@ -204,6 +204,5 @@ def pos_scale_enc(
         scale_expansion=scale_expansion,
     )
 
-    return pos_encoding.squeeze(0), scale_encoding.squeeze(
-        0
-    )  # Return without batch dimension.
+    # Return without batch dimension.
+    return pos_encoding.squeeze(0), scale_encoding.squeeze(0)

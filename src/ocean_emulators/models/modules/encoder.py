@@ -15,7 +15,7 @@ from ocean_emulators.models.modules.vendor.posencoding import pos_scale_enc
 class PerceiverEncoder(nn.Module):
     """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
 
-    We adopt Microsoft Aurora's encoding scheme [1], which uses log-spaced fourier features with geometry-informed
+    We adopt MSFT Aurora's positional encoding scheme [1], which uses log-spaced fourier features with geometry-informed
     wavelengths. These encode 2d positions (the average latitude and longitude of each patch) as well as grid cell area
     (measured in km^2) for each token before it enters the processor.
 

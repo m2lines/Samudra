@@ -8,6 +8,8 @@ from jaxtyping import Float
 from torch import nn
 
 from ocean_emulators.constants import Input
+from ocean_emulators.models.modules.vendor.fourier import pos_expansion, scale_expansion
+from ocean_emulators.models.modules.vendor.posencoding import pos_scale_enc
 
 
 class PerceiverEncoder(nn.Module):
@@ -28,6 +30,8 @@ class PerceiverEncoder(nn.Module):
         out_channels: int,
         patch_size: int | tuple[int, int],
         perceiver: nn.Module,
+        lat: torch.Tensor,
+        lon: torch.Tensor,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -40,6 +44,9 @@ class PerceiverEncoder(nn.Module):
             self.patch_size = patch_size
         self.out_channels: int = out_channels  # aka, `embed_dim`.
         self.perceiver = perceiver
+        self.lat, self.lon = lat, lon
+        self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
+        self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
 
     def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
@@ -62,6 +69,19 @@ class PerceiverEncoder(nn.Module):
         )
         # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
         x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)
+
+        pos_encode, scale_encode = pos_scale_enc(
+            self.out_channels,  # aka "embed_dim"
+            self.lat,
+            self.lon,
+            self.patch_size,
+            pos_expansion=pos_expansion,
+            scale_expansion=scale_expansion,
+        )
+        pos_encoding = self.pos_embed(pos_encode[None, None, :].to(dtype=x.dtype))
+        scale_encoding = self.scale_embed(scale_encode[None, None, :].to(dtype=x.dtype))
+        x = x + pos_encoding.squeeze() + scale_encoding.squeeze()
+
         x = rearrange(
             x,
             "(b h w) l -> b l h w",

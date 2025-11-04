@@ -27,6 +27,8 @@ def test_makes_patches():
         out_channels=4,
         patch_size=4,
         perceiver=make_perceiver(10, 4),
+        lat=torch.linspace(start=-90, end=90, steps=x.shape[-2]),
+        lon=torch.linspace(start=0, end=360, steps=x.shape[-1]),
     )
 
     patches = patch_embed(x)
@@ -42,6 +44,8 @@ def test_makes_rectangular_patches():
         out_channels=4,
         patch_size=(4, 2),
         perceiver=make_perceiver(10, 4),
+        lat=torch.linspace(start=-90, end=90, steps=x.shape[-2]),
+        lon=torch.linspace(start=0, end=360, steps=x.shape[-1]),
     )
 
     patches = patch_embed(x)
@@ -55,15 +59,20 @@ def test_makes_rectangular_patches():
 
 
 def test_makes_patches__high_res():
-    x = torch.randn(1, 10, 8, 16)
+    x = torch.randn(1, 10, 14, 21)
 
     patch_embed = PerceiverEncoder(
-        in_channels=10, out_channels=5, patch_size=4, perceiver=make_perceiver(10, 5)
+        in_channels=10,
+        out_channels=4,
+        patch_size=7,
+        perceiver=make_perceiver(10, 4),
+        lat=torch.linspace(start=-90, end=90, steps=x.shape[-2]),
+        lon=torch.linspace(start=0, end=360, steps=x.shape[-1]),
     )
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 5, 2, 4)
+    assert patches.shape == (1, 4, 2, 3)
 
 
 def test_makes_patches__more_variables():
@@ -71,11 +80,13 @@ def test_makes_patches__more_variables():
 
     patch_embed = PerceiverEncoder(
         in_channels=20,
-        out_channels=5,
+        out_channels=4,
         patch_size=4,
-        perceiver=make_perceiver(20, 5),
+        perceiver=make_perceiver(20, 4),
+        lat=torch.linspace(start=-90, end=90, steps=x.shape[-2]),
+        lon=torch.linspace(start=0, end=360, steps=x.shape[-1]),
     )
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 5, 1, 2)
+    assert patches.shape == (1, 4, 1, 2)

@@ -364,7 +364,9 @@ class EncoderConfig(BaseConfig):
     )
     perceiver: PerceiverConfig = PerceiverConfig()
 
-    def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
+    def build(
+        self, in_channels: int, out_channels: int, lat: torch.Tensor, lon: torch.Tensor
+    ) -> PerceiverEncoder:
         if (
             isinstance(self.patch_size, list)
             and len(self.patch_size) == 2
@@ -384,6 +386,8 @@ class EncoderConfig(BaseConfig):
             out_channels=out_channels,
             patch_size=patch_size,
             perceiver=self.perceiver.build(in_channels, out_channels),
+            lat=lat,
+            lon=lon,
         )
 
 
@@ -477,6 +481,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: torch.Tensor,
+        lon: torch.Tensor,
     ) -> BaseModel:
         pass
 
@@ -497,6 +503,8 @@ class SamudraConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: torch.Tensor,
+        lon: torch.Tensor,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
@@ -536,6 +544,8 @@ class FOMOConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: torch.Tensor,
+        lon: torch.Tensor,
     ) -> FOMO:
         return FOMO(
             in_channels=in_channels,
@@ -543,7 +553,7 @@ class FOMOConfig(BaseModelConfig):
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.embedding_dim),
+            encoder=self.encoder.build(in_channels, self.embedding_dim, lat, lon),
             processor=self.processor.build(
                 self.embedding_dim,
                 self.pad,

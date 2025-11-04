@@ -54,8 +54,8 @@ def test_positional_parameters_update():
             wet=torch.ones(1, h, w, dtype=torch.bool),
             area_weights=torch.ones(h, w),
             static_data=None,
-            lat=torch.from_numpy(src.data.lat.values),
-            lon=torch.from_numpy(src.data.lon.values),
+            lat=torch.from_numpy(src.data.y.values),
+            lon=torch.from_numpy(src.data.x.values),
         )
 
         # Verify we have created the positional embeddings

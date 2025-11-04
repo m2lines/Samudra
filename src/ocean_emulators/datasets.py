@@ -416,7 +416,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         executor: ThreadPoolExecutor | None = None,
     ):
         super().__init__()
-        self.id = self.__class__.__name__ + "_" + str(id(self))
+        self.id = f"{self.__class__.__name__}_{str(id(self))}"
         self.device = get_device()
 
         self.hist: int = hist

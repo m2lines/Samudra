@@ -11,6 +11,8 @@ from jaxtyping import Float
 from torch import nn
 
 from ocean_emulators.constants import Input, Lat, Lon
+from ocean_emulators.models.modules.vendor.fourier import pos_expansion, scale_expansion
+from ocean_emulators.models.modules.vendor.posencoding import pos_scale_enc
 
 
 class PerceiverEncoder(nn.Module):
@@ -79,7 +81,18 @@ class PerceiverEncoder(nn.Module):
         # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
         x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)
 
-        # Make `x` amenable to adding position + scale encoding
+        pos_encode, scale_encode = pos_scale_enc(
+            self.out_channels,  # aka "embed_dim"
+            self.lat,
+            self.lon,
+            self.patch_size,
+            pos_expansion=pos_expansion,
+            scale_expansion=scale_expansion,
+        )
+        pos_encoding = self.pos_embed(pos_encode[None, None, :].to(dtype=x.dtype))
+        scale_encoding = self.scale_embed(scale_encode[None, None, :].to(dtype=x.dtype))
+        x = x + pos_encoding.squeeze() + scale_encoding.squeeze()
+
         x = rearrange(
             x,
             "(b h w) l -> b (h w) l ",

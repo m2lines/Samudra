@@ -635,6 +635,7 @@ def concurrent_compute(
     wait(futures)
 
 
+@final
 class TrainDataLoader:
     """Wrapper around a torch DataLoader that handles GPU post-processing.
 
@@ -653,11 +654,11 @@ class TrainDataLoader:
     def __init__(
         self,
         dataloader: torch.utils.data.DataLoader[RawTrainData],
-        datasets: dict[TorchTrainDataset.Id, TorchTrainDataset],
+        datasets: list[TorchTrainDataset],
         device: torch.device,
     ):
         self._dataloader = dataloader
-        self._datasets = datasets
+        self._datasets = {dataset.id: dataset for dataset in datasets}
         self._device = device
 
     def __iter__(self):

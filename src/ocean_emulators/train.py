@@ -731,56 +731,49 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        all_datasets: dict[TorchTrainDataset.Id, TorchTrainDataset] = {}
+        train_datasets = [
+            TorchTrainDataset(
+                src=self.src.slice(self.train_time),
+                prognostic_var_names=self.prognostic_var_names,
+                boundary_var_names=self.boundary_var_names,
+                wet=self.wet_without_hist_cpu,
+                wet_surface=self.wet_surface,
+                hist=self.hist,
+                steps=cur_step,
+                normalize_before_mask=self.normalize_before_mask,
+                masked_fill_value=self.normalize_fill_value,
+                stride=stride,
+                executor=self.executor,
+            )
+            for stride in self.data_stride
+        ]
 
-        def register_dataset(dataset: TorchTrainDataset) -> TorchTrainDataset:
-            assert dataset.id not in all_datasets
-            all_datasets[dataset.id] = dataset
-            return dataset
+        val_datasets = [
+            TorchTrainDataset(
+                src=self.src.slice(self.val_time),
+                prognostic_var_names=self.prognostic_var_names,
+                boundary_var_names=self.boundary_var_names,
+                wet=self.wet_without_hist_cpu,
+                wet_surface=self.wet_surface,
+                hist=self.hist,
+                steps=1,  # current_step set to 1 for validation
+                normalize_before_mask=self.normalize_before_mask,
+                masked_fill_value=self.normalize_fill_value,
+                stride=stride,
+                executor=self.executor,
+            )
+            for stride in self.data_stride
+        ]
 
         # Create datasets
         match self.loader_version:
             case TorchTrainDataset.FLAG:
                 train_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
-                    [
-                        register_dataset(
-                            TorchTrainDataset(
-                                src=self.src.slice(self.train_time),
-                                prognostic_var_names=self.prognostic_var_names,
-                                boundary_var_names=self.boundary_var_names,
-                                wet=self.wet_without_hist_cpu,
-                                wet_surface=self.wet_surface,
-                                hist=self.hist,
-                                steps=cur_step,
-                                normalize_before_mask=self.normalize_before_mask,
-                                masked_fill_value=self.normalize_fill_value,
-                                stride=stride,
-                                executor=self.executor,
-                            )
-                        )
-                        for stride in self.data_stride
-                    ]
+                    train_datasets
                 )
 
                 val_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
-                    [
-                        register_dataset(
-                            TorchTrainDataset(
-                                src=self.src.slice(self.val_time),
-                                prognostic_var_names=self.prognostic_var_names,
-                                boundary_var_names=self.boundary_var_names,
-                                wet=self.wet_without_hist_cpu,
-                                wet_surface=self.wet_surface,
-                                hist=self.hist,
-                                steps=1,  # current_step set to 1 for validation
-                                normalize_before_mask=self.normalize_before_mask,
-                                masked_fill_value=self.normalize_fill_value,
-                                stride=stride,
-                                executor=self.executor,
-                            )
-                        )
-                        for stride in self.data_stride
-                    ]
+                    val_datasets
                 )
 
             case _:
@@ -830,8 +823,10 @@ class Trainer:
         )
 
         # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = TrainDataLoader(train_dataloader, all_datasets, self.device)
-        self.val_loader = TrainDataLoader(val_dataloader, all_datasets, self.device)
+        self.train_loader = TrainDataLoader(
+            train_dataloader, train_datasets, self.device
+        )
+        self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

@@ -77,10 +77,8 @@ def make_loader(
 
         match version:
             case LoaderVersion.OM4_TORCH:
-                datasets: dict[str, TorchTrainDataset] = {}
-                dataset_list = []
-                for stride in cfg.data_stride:
-                    dataset = TorchTrainDataset(
+                dataset_list = [
+                    TorchTrainDataset(
                         src=src.slice(time_config),
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
@@ -92,8 +90,8 @@ def make_loader(
                         masked_fill_value=masked_fill_value,
                         stride=stride,
                     )
-                    datasets[dataset.id] = dataset
-                    dataset_list.append(dataset)
+                    for stride in cfg.data_stride
+                ]
 
                 data: ConcatDataset = ConcatDataset(dataset_list)
                 collate_fn = collate_raw_train_data
@@ -105,7 +103,7 @@ def make_loader(
                     collate_fn=collate_fn,
                 )
 
-                loader = TrainDataLoader(raw_loader, datasets, torch.device("cpu"))
+                loader = TrainDataLoader(raw_loader, dataset_list, torch.device("cpu"))
                 yield loader
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
@@ -480,13 +478,14 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         )
 
         # Create a TrainDataLoader wrapper
-        datasets = {torch_train_dataset.id: torch_train_dataset}
         raw_loader = DataLoader(
             torch_train_dataset,
             batch_size=1,
             collate_fn=collate_raw_train_data,
         )
-        train_loader = TrainDataLoader(raw_loader, datasets, torch.device("cpu"))
+        train_loader = TrainDataLoader(
+            raw_loader, [torch_train_dataset], torch.device("cpu")
+        )
 
         yield train_loader, inference_dataset
 

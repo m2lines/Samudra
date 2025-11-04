@@ -1,4 +1,4 @@
-"""Fourier positional encodings.
+"""Positional embedding encodings.
 
 Sources taken from MSFT's Auroral model:
  - https://github.com/microsoft/aurora/blob/main/aurora/model/posencoding.py

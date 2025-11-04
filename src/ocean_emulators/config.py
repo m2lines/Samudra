@@ -466,6 +466,11 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         and nonlinearities.""",
     )
 
+    gradient_detach_interval: int = Field(
+        default=0,
+        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
+    )
+
     @abc.abstractmethod
     def build(
         self,
@@ -485,10 +490,6 @@ class SamudraConfig(BaseModelConfig):
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
-    )
-    gradient_detach_interval: int = Field(
-        default=0,
-        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
     )
 
     def build(
@@ -529,10 +530,6 @@ class FOMOConfig(BaseModelConfig):
     processor: UNetBackboneConfig = UNetBackboneConfig()
     # decoder will go here.
     embedding_dim: int = 128
-    gradient_detach_interval: int = Field(
-        default=0,
-        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
-    )
 
     def build(
         self,

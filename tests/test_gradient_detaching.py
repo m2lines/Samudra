@@ -13,7 +13,7 @@ from ocean_emulators.utils.multiton import MultitonScope
 @pytest.fixture(params=[0, 1, 2])
 def gradient_detach_interval(request):
     """Parametrized fixture for gradient detach intervals. `0` means no detaching."""
-    return request.param
+    return (i := request.param), "no detaching!" if i == 0 else f"detaching every {i}"
 
 
 @pytest.fixture
@@ -85,52 +85,41 @@ def create_samudra_model():
     return _create_model_helper
 
 
-@pytest.fixture
-def samudra_setup(gradient_detach_interval, create_samudra_model):
-    """Parametrized fixture that uses the factory to create models."""
-    model, train_data = create_samudra_model(gradient_detach_interval)
-    return model, train_data, gradient_detach_interval
+def test_samudra_forward_pass(create_samudra_model, gradient_detach_interval):
+    """Test Samudra forward pass with various gradient detaching intervals."""
+    interval, interval_desc = gradient_detach_interval
+    model, train_data = create_samudra_model(interval)
+    loss_fn = torch.nn.MSELoss()
+
+    loss = model(train_data, loss_fn=loss_fn)
+    assert not torch.isnan(loss), (
+        f"Loss is NaN for interval={interval} ({interval_desc})"
+    )
+    assert loss.requires_grad, (
+        f"Loss should require grad for interval={interval} ({interval_desc})"
+    )
 
 
-class TestSamudraGradientDetaching:
-    def test_samudra_forward_pass(self, samudra_setup):
-        """Test Samudra forward pass with various gradient detaching intervals."""
-        model, train_data, interval = samudra_setup
-        loss_fn = torch.nn.MSELoss()
-        interval_desc = (
-            "no detaching" if interval == 0 else f"detach every {interval} steps"
-        )
+def test_samudra_backward_pass(create_samudra_model, gradient_detach_interval):
+    """Test Samudra backward pass with various gradient detaching intervals."""
+    interval, interval_desc = gradient_detach_interval
+    model, train_data = create_samudra_model(interval)
+    loss_fn = torch.nn.MSELoss()
 
-        loss = model(train_data, loss_fn=loss_fn)
-        assert not torch.isnan(loss), (
-            f"Loss is NaN for interval={interval} ({interval_desc})"
-        )
-        assert loss.requires_grad, (
-            f"Loss should require grad for interval={interval} ({interval_desc})"
-        )
+    # Forward pass
+    loss = model(train_data, loss_fn=loss_fn)
 
-    def test_samudra_backward_pass(self, samudra_setup):
-        """Test Samudra backward pass with various gradient detaching intervals."""
-        model, train_data, interval = samudra_setup
-        loss_fn = torch.nn.MSELoss()
-        interval_desc = (
-            "no detaching" if interval == 0 else f"detach every {interval} steps"
-        )
+    # Backward pass
+    loss.backward()
 
-        # Forward pass
-        loss = model(train_data, loss_fn=loss_fn)
+    # Check that gradients exist for model parameters
+    grad_count = sum(1 for p in model.parameters() if p.grad is not None)
+    total_params = sum(1 for _ in model.parameters())
 
-        # Backward pass
-        loss.backward()
-
-        # Check that gradients exist for model parameters
-        grad_count = sum(1 for p in model.parameters() if p.grad is not None)
-        total_params = sum(1 for _ in model.parameters())
-
-        assert grad_count > 0, (
-            f"Model should have gradients after backward pass for interval={interval} ({interval_desc})"
-        )
-        assert grad_count == total_params, (
-            f"Expected all {total_params} parameters to have gradients for interval={interval} ({interval_desc}), "
-            f"got {grad_count}"
-        )
+    assert grad_count > 0, (
+        f"Model should have gradients after backward pass for interval={interval} ({interval_desc})"
+    )
+    assert grad_count == total_params, (
+        f"Expected all {total_params} parameters to have gradients for interval={interval} ({interval_desc}), "
+        f"got {grad_count}"
+    )

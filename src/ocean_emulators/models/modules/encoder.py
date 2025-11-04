@@ -15,12 +15,19 @@ from ocean_emulators.models.modules.vendor.posencoding import pos_scale_enc
 class PerceiverEncoder(nn.Module):
     """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
 
+    We adopt Microsoft Aurora's encoding scheme [1], which uses log-spaced fourier features with geometry-informed
+    wavelengths. These encode 2d positions (the average latitude and longitude of each patch) as well as grid cell area
+    (measured in km^2) for each token before it enters the processor.
+
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         out_channels (int): size of the latent dimension (aka, the embedding dimension).
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
         perceiver (nn.Module): the perceiver module implementation to use.
+
+    References:
+        [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
     """
 
     # TODO(alxmrs): Implement gradient checkpointing

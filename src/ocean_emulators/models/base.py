@@ -22,6 +22,7 @@ class BaseModel(torch.nn.Module):
         last_kernel_size,
         pad,
         static_data,
+        gradient_detach_interval: int,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -33,6 +34,7 @@ class BaseModel(torch.nn.Module):
         self.pred_residuals = pred_residuals
         self.hist = hist
         self.static_data = static_data
+        self.gradient_detach_interval = gradient_detach_interval
 
     def forward_once(self, fts):
         raise NotImplementedError()
@@ -48,8 +50,14 @@ class BaseModel(torch.nn.Module):
             if step == 0:
                 input_tensor = train_data.get_initial_input()
             else:
+                prev_output = outputs[-1]
+                if (
+                    self.gradient_detach_interval > 0
+                    and step % self.gradient_detach_interval == 0
+                ):
+                    prev_output = prev_output.detach()
                 input_tensor = train_data.merge_prognostic_and_boundary(
-                    prognostic=outputs[-1], step=step
+                    prognostic=prev_output, step=step
                 )
 
             decodings = self.forward_once(input_tensor)

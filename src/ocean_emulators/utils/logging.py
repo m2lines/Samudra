@@ -7,19 +7,17 @@ import time
 import traceback
 import warnings
 from collections import defaultdict, deque
-from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 from torchinfo import summary
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ocean_emulators.datasets import TrainData
+    from ocean_emulators.datasets import TrainDataLoader
 
 
 def handle_logging(debug: bool, output_dir: Path):
@@ -152,7 +150,12 @@ class MetricLogger:
     def add_meter(self, name, meter):
         self.meters[name] = meter
 
-    def log_every(self, data_loader: DataLoader["TrainData"], print_freq, header=None):
+    def log_every(
+        self,
+        data_loader: "TrainDataLoader",
+        print_freq,
+        header=None,
+    ):
         i = 0
         if not header:
             header = ""
@@ -212,7 +215,7 @@ class MetricLogger:
         )
 
 
-def get_model_summary(model: torch.nn.Module, data: Mapping | None, debug: bool):
+def get_model_summary(model: torch.nn.Module, data: Any, debug: bool):
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     logger.info(f"Number of parameters: {params}")

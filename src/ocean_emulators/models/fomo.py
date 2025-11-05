@@ -38,6 +38,7 @@ class FOMO(BaseModel):
         wet: Grid,
         static_data: xr.Dataset | None,
         checkpointing: "Checkpointing | None",
+        gradient_detach_interval: int,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -48,6 +49,7 @@ class FOMO(BaseModel):
             last_kernel_size=last_kernel_size,
             pad=pad,
             static_data=static_data,
+            gradient_detach_interval=gradient_detach_interval,
         )
         self.patch_size = encoder.patch_size
 

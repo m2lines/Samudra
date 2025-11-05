@@ -466,6 +466,11 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         and nonlinearities.""",
     )
 
+    gradient_detach_interval: int = Field(
+        default=0,
+        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
+    )
+
     @abc.abstractmethod
     def build(
         self,
@@ -516,6 +521,7 @@ class SamudraConfig(BaseModelConfig):
             hist=hist,
             wet=wet,
             static_data=static_data,
+            gradient_detach_interval=self.gradient_detach_interval,
         )
 
 
@@ -551,6 +557,7 @@ class FOMOConfig(BaseModelConfig):
             wet=wet,
             static_data=static_data,
             checkpointing=self.checkpointing,
+            gradient_detach_interval=self.gradient_detach_interval,
         )
 
 

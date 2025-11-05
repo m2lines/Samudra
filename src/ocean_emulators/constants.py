@@ -1,12 +1,13 @@
 import enum
 import logging
-from typing import TypeAlias, TypeVar
+from typing import TypeAlias
 
 logger = logging.getLogger(__name__)
 
 import torch
 import xarray as xr
 from jaxtyping import Bool, Float
+from torch import Tensor
 
 from ocean_emulators.utils.multiton import Multiton
 
@@ -14,10 +15,7 @@ from ocean_emulators.utils.multiton import Multiton
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 
-# Our Arrays will be either `torch.Tensor`s or `xarray.DataArray`s.
-Array = TypeVar("Array", torch.Tensor, xr.DataArray)
-
-Grid = Float[Array, "lat lon"]
+Grid = Float[Tensor, "lat lon"]
 Prognostic = Float[
     Grid, "*batch prognostic_vars"
 ]  # equivalent to "*batch prognostic_vars lat lon"
@@ -28,21 +26,19 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 # So, we'll leave this default and use symbolic axes locally.
 Input: TypeAlias = Float[Grid, "*batch total_vars"]
 
-Example = tuple[Input, Prognostic] | tuple[xr.Dataset, xr.Dataset]
+Example = tuple[Input, Prognostic]
 
-GridMask = Bool[Array, "lat lon"]
+GridMask = Bool[Tensor, "lat lon"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
 
-SingleChannelVar = Float[torch.Tensor, "batch time lat lon"]
+SingleChannelVar = Float[Tensor, "batch time lat lon"]
 DictSingleChannelVar = dict[str, SingleChannelVar]
 SinglePrognosticTimeSeries = Float[Grid, "*batch time"]
 
-SingleTimeSeriesOutput = Float[torch.Tensor, "batch=1 time prognostic_vars lat lon"]
-BatchTimeSeriesOutput = Float[
-    torch.Tensor, "batch time=(hist+1) prognostic_vars lat lon"
-]
-HistBatched = Float[torch.Tensor, "batch_hist prognostic_vars lat lon"]
-HistChanneled = Float[torch.Tensor, "batch hist_prognostic_vars lat lon"]
+SingleTimeSeriesOutput = Float[Tensor, "batch=1 time prognostic_vars lat lon"]
+BatchTimeSeriesOutput = Float[Tensor, "batch time=(hist+1) prognostic_vars lat lon"]
+HistBatched = Float[Tensor, "batch_hist prognostic_vars lat lon"]
+HistChanneled = Float[Tensor, "batch hist_prognostic_vars lat lon"]
 
 
 MAX_TRAIN_MODEL_STEPS_FORWARD = 200

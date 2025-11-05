@@ -524,8 +524,12 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         train_data = TrainData(self.num_prognostic_channels)
         for prognostic_all, boundary_all in raw_train_data.raw_data:
             input, label = self._get_input_and_label(
-                prognostic_all.to(self.device, non_blocking=True),
-                boundary_all.to(self.device, non_blocking=True),
+                prognostic_all.to(
+                    dtype=torch.float32, device=self.device, non_blocking=True
+                ),
+                boundary_all.to(
+                    dtype=torch.float32, device=self.device, non_blocking=True
+                ),
             )
             train_data.insert(input, label)
         train_data.load_stats = raw_train_data.load_stats

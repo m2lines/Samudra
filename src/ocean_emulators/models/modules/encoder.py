@@ -83,7 +83,7 @@ class PerceiverEncoder(nn.Module):
             self.lat,
             self.lon,
             self.patch_size,
-            # TODO(alxmrs): Pos and scale wavelengths range all the way to the whole Earth by default; we could probably
+            # TODO(#452): Pos and scale wavelengths range all the way to the whole Earth by default; we could probably
             #  better tune these for our Oceans modeling use case.
             pos_expansion=pos_expansion,
             scale_expansion=scale_expansion,

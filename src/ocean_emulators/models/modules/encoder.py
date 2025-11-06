@@ -10,7 +10,7 @@ from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
-from ocean_emulators.constants import Input
+from ocean_emulators.constants import Input, Lat, Lon
 
 
 class PerceiverEncoder(nn.Module):
@@ -38,8 +38,8 @@ class PerceiverEncoder(nn.Module):
         out_channels: int,
         patch_size: int | tuple[int, int],
         perceiver: nn.Module,
-        lat: torch.Tensor,
-        lon: torch.Tensor,
+        lat: Lat,
+        lon: Lon,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels

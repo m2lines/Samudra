@@ -15,6 +15,8 @@ from ocean_emulators.utils.multiton import Multiton
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 
+Lat = Float[Tensor, "lat"]
+Lon = Float[Tensor, "lon"]
 Grid = Float[Tensor, "lat lon"]
 Prognostic = Float[
     Grid, "*batch prognostic_vars"

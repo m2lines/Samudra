@@ -12,7 +12,7 @@ from torch import nn
 from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
+from ocean_emulators.constants import BoundaryVarNames, Grid, Lat, LoaderVersion, Lon
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
@@ -368,7 +368,7 @@ class EncoderConfig(BaseConfig):
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(
-        self, in_channels: int, out_channels: int, lat: torch.Tensor, lon: torch.Tensor
+        self, in_channels: int, out_channels: int, lat: Lat, lon: Lon
     ) -> PerceiverEncoder:
         if (
             isinstance(self.patch_size, list)
@@ -484,8 +484,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
-        lat: torch.Tensor,
-        lon: torch.Tensor,
+        lat: Lat,
+        lon: Lon,
     ) -> BaseModel:
         pass
 
@@ -506,8 +506,8 @@ class SamudraConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
-        lat: torch.Tensor,
-        lon: torch.Tensor,
+        lat: Lat,
+        lon: Lon,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
@@ -547,8 +547,8 @@ class FOMOConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
-        lat: torch.Tensor,
-        lon: torch.Tensor,
+        lat: Lat,
+        lon: Lon,
     ) -> FOMO:
         return FOMO(
             in_channels=in_channels,

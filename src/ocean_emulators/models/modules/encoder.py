@@ -84,6 +84,8 @@ class PerceiverEncoder(nn.Module):
             self.lat,
             self.lon,
             self.patch_size,
+            # TODO(alxmrs): Pos wavelengths all the way to the whole Earth by default; we could probably better tune
+            #  these for our Oceans use case.
             pos_expansion=pos_expansion,
             scale_expansion=scale_expansion,
         )

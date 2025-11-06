@@ -1,15 +1,16 @@
 # Sources inspired by the following implementations:
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
+# - https://github.com/microsoft/aurora/blob/main/aurora/model/encoder.py
 # - https://github.com/lucidrains/vit-pytorch
 
 import torch
+from aurora.model.fourier import pos_expansion, scale_expansion
+from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
 from ocean_emulators.constants import Input
-from ocean_emulators.models.modules.vendor.fourier import pos_expansion, scale_expansion
-from ocean_emulators.models.modules.vendor.posencoding import pos_scale_enc
 
 
 class PerceiverEncoder(nn.Module):

@@ -30,6 +30,7 @@ dependencies = [
   "einops>=0.7",
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
+  "microsoft-aurora>=1.8",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
   "perceiver-pytorch>=0.8.8",
   "pydantic-settings>=2.8.1",
@@ -121,7 +122,7 @@ addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*" ]
+module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*", "aurora.*" ]
 follow_untyped_imports = true
 
 [tool.uv.extra-build-dependencies]

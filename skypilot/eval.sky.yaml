@@ -38,6 +38,7 @@ envs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
   OSN_KEY_ID: null
   OSN_KEY_SECRET: null
+  OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg
 
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs
@@ -65,7 +66,7 @@ setup: |
   rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
 
   mkdir -p ~/data/
-  rclone copy --progress nyu-osn:emulators/jr7309/data/om4_halfdeg/ ~/data --ignore-existing --transfers=32
+  rclone copy --progress nyu-osn:${OSN_DATA_PATH} ~/data --ignore-existing --transfers=32
 
   mkdir -p ~/basins/
   rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins

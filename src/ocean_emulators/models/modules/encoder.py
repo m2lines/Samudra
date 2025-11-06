@@ -11,8 +11,6 @@ from jaxtyping import Float
 from torch import nn
 
 from ocean_emulators.constants import Input, Lat, Lon
-from ocean_emulators.models.modules.vendor.fourier import pos_expansion, scale_expansion
-from ocean_emulators.models.modules.vendor.posencoding import pos_scale_enc
 
 
 class PerceiverEncoder(nn.Module):

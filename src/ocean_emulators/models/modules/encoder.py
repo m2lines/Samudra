@@ -89,9 +89,9 @@ class PerceiverEncoder(nn.Module):
             pos_expansion=pos_expansion,
             scale_expansion=scale_expansion,
         )
-        pos_encoding = self.pos_embed(pos_encode[None, None, :].to(dtype=x.dtype))
-        scale_encoding = self.scale_embed(scale_encode[None, None, :].to(dtype=x.dtype))
-        x = x + pos_encoding.squeeze() + scale_encoding.squeeze()
+        pos_encoding = self.pos_embed(pos_encode.to(dtype=x.dtype))
+        scale_encoding = self.scale_embed(scale_encode.to(dtype=x.dtype))
+        x = x + pos_encoding + scale_encoding
 
         x = rearrange(
             x,

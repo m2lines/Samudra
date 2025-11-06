@@ -502,17 +502,20 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     )
                     .rename({"var": "variable"})
                     .to_numpy()
+                    .astype(np.float32)
                 )
             else:
                 prognostic_all = torch.from_numpy(
                     prognostic_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
+                    .astype(np.float32)
                 )
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
+                .astype(np.float32)
             )
 
             TD.insert(prognostic_all, boundary)
@@ -524,8 +527,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         train_data = TrainData(self.num_prognostic_channels)
         for prognostic_all, boundary_all in raw_train_data.raw_data:
             input, label = self._get_input_and_label(
-                prognostic_all.to(self.device, non_blocking=True),
-                boundary_all.to(self.device, non_blocking=True),
+                prognostic_all.to(device=self.device, non_blocking=True),
+                boundary_all.to(device=self.device, non_blocking=True),
             )
             train_data.insert(input, label)
         train_data.load_stats = raw_train_data.load_stats

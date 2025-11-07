@@ -60,6 +60,7 @@ model:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
+  position_and_scale_encoding: true  # Add Aurora positional encoding.
 
   unet:
     ch_width: [280, 380, 480, 520]

@@ -1,10 +1,12 @@
 # ocean_emulators
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/m2lines/ocean_emulators/main.svg)](https://results.pre-commit.ci/latest/github/m2lines/ocean_emulators/main)
+[![Run Unit Tests](https://github.com/m2lines/ocean_emulators/actions/workflows/tests.yaml/badge.svg)](https://github.com/m2lines/ocean_emulators/actions/workflows/tests.yaml)
+[![Run Unit Tests requiring xESMF](https://github.com/m2lines/ocean_emulators/actions/workflows/tests_xesmf.yaml/badge.svg)](https://github.com/m2lines/ocean_emulators/actions/workflows/tests_xesmf.yaml)
 
 
 ## Preprocessing
 
-This repository is currently being used to preprocess ocean datasets. 
+This repository is currently being used to preprocess ocean datasets.
 
 ### Preprocessing steps
 
@@ -128,7 +130,7 @@ prediction_data_test(ds_prediction, ds_truth)
 | `'OM4_5daily_v0.0'` | `"https://nyu1.osn.mghpcc.org/emulators/sd5313/input_OM4v0.0"` |
 | `'OM4_5daily_v0.2.1'` | `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/OM4_5daily_v0.2.1.zarr"`|
 | `"CMIP_CM4_v0.1"` | `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CMIP6_GFDL-CM4.piControl.r1i1p1f1_v0.1.zarr"` |
-| `"CM4_5daily_v0.4.0"`| `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CM4_5daily_v0.4.0.zarr"`| 
+| `"CM4_5daily_v0.4.0"`| `"https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean-emulators/CM4_5daily_v0.4.0.zarr"`|
 
 
 ## Developing this package

@@ -41,6 +41,12 @@ def processed_data():
             ),
             dims=["lev"],
         ).astype("float64"),
+        "ilev": xr.DataArray(
+            np.random.rand(
+                20,
+            ),
+            dims=["ilev"],
+        ),
         "x": xr.DataArray(np.random.rand(1440), dims=["x"]).astype("float64"),
         "y": xr.DataArray(np.random.rand(1080), dims=["y"]).astype("float64"),
         "time": xr.DataArray(range(10), dims=["time"]),
@@ -177,6 +183,7 @@ def input_data():
     ds_masked = ds_masked.assign_coords({"lon_b": lon_b, "lat_b": lat_b})
     return ds_masked
 
+
 @pytest.fixture
 def raw_prediction_data(input_data):
     coords = {co: input_data.coords[co] for co in ["time", "y", "x"]}
@@ -185,6 +192,7 @@ def raw_prediction_data(input_data):
         dims=["time", "y", "x", "var"],
         coords=coords,
     ).to_dataset(name="__xarray_dataarray_variable__")
+
 
 @pytest.fixture
 def prediction_data(input_data):

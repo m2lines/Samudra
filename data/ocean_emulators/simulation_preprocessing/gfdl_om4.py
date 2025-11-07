@@ -29,9 +29,13 @@ def convert_super_grid(ds_super_grid: xr.Dataset):
     return angle_h, lon_h, lat_h, lon_b, lat_b
 
 
-def om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None):
+def om4_preprocessing(
+    zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None
+):
     """OM4 specific preprocessing"""
-    ds = xr.open_dataset(zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs)
+    ds = xr.open_dataset(
+        zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
+    )
 
     if "z_i" in ds.coords:
         ds = ds.rename({"z_i": "ilev", "z_l": "lev"})

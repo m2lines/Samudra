@@ -6,3 +6,4 @@ dependencies:
   - pip
   - pip:
     - jupyter-book
+    - myst

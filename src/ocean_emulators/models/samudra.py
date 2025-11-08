@@ -107,6 +107,7 @@ class Samudra(BaseModel):
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
 
+            # TODO(alxmrs): Find a clean way to checkpoint the decoder Conv block.
             # Apply layer with conditioning if it's the UNet
             if isinstance(layer, UNetBackbone) and cond is not None:
                 fts = layer(fts, cond)

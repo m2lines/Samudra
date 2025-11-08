@@ -73,6 +73,53 @@ def decomposed_mse_mae(
     return combined.mean(dim=(0, 2, 3))
 
 
+def crps_ensemble(
+    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+) -> torch.Tensor:
+    """CRPS = E|X - Y| - 0.5 * E|X - X'|
+    where X are ensemble predictions and Y is ground truth.
+
+    Args:
+        pred: Ensemble predictions (ensemble_size, batch, channels, lat, lon)
+        target: Ground truth (batch, channels, lat, lon)
+        wet: Ocean mask
+
+    Returns:
+        CRPS per channel (channels,)
+
+    References:
+        GraphCast implementation - https://github.com/google-deepmind/graphcast/blob/main/gencast_mini_demo.ipynb
+    """
+    if pred.shape[0] < 2:
+        raise ValueError("CRPS requires at least 2 ensemble members (dim 0)")
+
+    # Apply wet mask
+    pred = pred * wet.unsqueeze(0).unsqueeze(0)
+    target = target * wet
+
+    ensemble_size = pred.shape[0]
+
+    # Skill: E|X - Y| = mean over ensemble of |pred - target|
+    mean_abs_err = torch.abs(target.unsqueeze(0) - pred).mean(dim=0)
+
+    # Spread: E|X - X'| = mean over all pairs of |pred_i - pred_j|
+    # Rename ensemble dim for pairwise computation
+    pred_i = pred.unsqueeze(1)  # (ensemble, 1, batch, channels, lat, lon)
+    pred_j = pred.unsqueeze(0)  # (1, ensemble, batch, channels, lat, lon)
+
+    # Fair CRPS: exclude diagonal (i == j) for unbiased estimate
+    # Sum all pairs, then normalize by ensemble_size * (ensemble_size - 1)
+    pairwise_diff = torch.abs(pred_i - pred_j).sum(dim=(0, 1))
+    mean_abs_diff = pairwise_diff / (ensemble_size * (ensemble_size - 1))
+
+    # CRPS = skill - 0.5 * spread
+    crps = mean_abs_err - 0.5 * mean_abs_diff
+
+    # Average over spatial dims and batch, return per-channel
+    num_wet_points = wet.sum()
+    return crps.sum(dim=(0, 2, 3)) / (crps.shape[0] * num_wet_points)
+
+
 class MseDynamic:
     """A loss function that scales each channel to contribute equally to the loss.
 

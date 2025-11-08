@@ -5,6 +5,7 @@ import xarray as xr
 
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.modules.noise_conditioning import NoiseMLP
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
@@ -24,6 +25,8 @@ class Samudra(BaseModel):
         wet: Grid,
         static_data: xr.Dataset | None,
         gradient_detach_interval: int,
+        noise_channels: int | None = None,
+        noise_embed_dim: int | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -37,6 +40,9 @@ class Samudra(BaseModel):
             gradient_detach_interval=gradient_detach_interval,
         )
 
+        self.noise_channels = noise_channels
+        self.noise_embed_dim = noise_embed_dim
+
         if pos_channels > 0:
             self.positional_params = nn.Parameter(
                 torch.empty(pos_channels, *wet.shape[-2:])
@@ -44,6 +50,21 @@ class Samudra(BaseModel):
             nn.init.normal_(self.positional_params, mean=0.0, std=1e-5)
         else:
             self.register_parameter("positional_params", None)
+
+        # Initialize noise MLP if noise conditioning is enabled
+        if noise_channels is not None and noise_embed_dim is not None:
+            noise_shape = (
+                wet.shape[-2],
+                wet.shape[-1],
+            )  # Use grid shape for noise by default
+            self.noise_mlp: NoiseMLP | None = NoiseMLP(
+                noise_channels=noise_channels,
+                hidden_dim=noise_embed_dim * 2,  # Hidden dim is 2x output
+                output_dim=noise_embed_dim,
+                noise_shape=noise_shape,  # Noise resolution (can be changed for ablations)
+            )
+        else:
+            self.noise_mlp = None
 
         layers = [
             # Add UNet core.
@@ -62,6 +83,16 @@ class Samudra(BaseModel):
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         fts_input = fts.clone().detach()
 
+        # Generate and process noise if noise conditioning is enabled
+        cond = None
+        if self.noise_mlp is not None:
+            noise = self.noise_mlp.generate_noise(
+                batch_size=fts.shape[0],
+                device=fts.device,
+                dtype=fts.dtype,
+            )
+            cond = self.noise_mlp(noise)  # (B, noise_embed_dim)
+
         if self.positional_params is not None:
             pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)
             fts = torch.cat([fts, pos], dim=1)
@@ -76,10 +107,11 @@ class Samudra(BaseModel):
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
 
-            # TODO(alxmrs): Find a clean way to checkpoint the decoder Conv block.
-
-            # Apply layer
-            fts = layer(fts)
+            # Apply layer with conditioning if it's the UNet
+            if isinstance(layer, UNetBackbone) and cond is not None:
+                fts = layer(fts, cond)
+            else:
+                fts = layer(fts)
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)

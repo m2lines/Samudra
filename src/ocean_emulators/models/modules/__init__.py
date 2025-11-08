@@ -12,6 +12,7 @@ from .blocks import (
     ZonallyPeriodicBilinearUpsample,
 )
 from .encoder import PerceiverEncoder
+from .noise_conditioning import ConditionalBatchNorm2d, NoiseMLP
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -28,4 +29,6 @@ __all__ = [
     "PerceiverEncoder",
     "ReLU",
     "UNetBackbone",
+    "NoiseMLP",
+    "ConditionalBatchNorm2d",
 ]

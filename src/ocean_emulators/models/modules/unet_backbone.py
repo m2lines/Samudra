@@ -6,6 +6,7 @@ from torch import nn
 
 from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
+    ConvNeXtBlock,
     CoreBlock,
     CoreBlockBuilder,
     TransposedConvUpsample,
@@ -146,7 +147,9 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, fts: torch.Tensor, cond: torch.Tensor | None = None
+    ) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
@@ -161,11 +164,29 @@ class UNetBackbone(nn.Module):
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
 
+            # Apply layer with conditioning if available and needed
+            # not sure if this is a good idea
             # (Maybe) apply checkpointing
-            if self.checkpoint_all:
-                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
+            if (
+                cond is not None
+                and isinstance(layer, ConvNeXtBlock)
+                and layer.use_conditional_norm
+            ):
+                # ConvNeXt block with conditional norms - pass conditioning
+                if self.checkpoint_all:
+                    fts = torch.utils.checkpoint.checkpoint(
+                        layer, fts, cond, use_reentrant=False
+                    )
+                else:
+                    fts = layer(fts, cond)
             else:
-                fts = layer(fts)
+                # Regular layer or no conditioning available
+                if self.checkpoint_all:
+                    fts = torch.utils.checkpoint.checkpoint(
+                        layer, fts, use_reentrant=False
+                    )  # type: ignore
+                else:
+                    fts = layer(fts)
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:

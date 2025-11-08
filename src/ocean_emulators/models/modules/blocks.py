@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.utils.checkpoint
 
 from ocean_emulators.models.modules.activations import CappedGELU
+from ocean_emulators.models.modules.noise_conditioning import ConditionalBatchNorm2d
 
 
 class TransposedConvUpsample(torch.nn.Module):
@@ -191,6 +192,8 @@ class ConvNeXtBlock(CoreBlock):
     This is a modified version of the actual ConvNextblock which is used in the HealPix
     paper. Use of dilations here.
 
+    Supports optional conditional normalization via noise embeddings (cond_dim parameter).
+
     """
 
     def __init__(
@@ -204,10 +207,13 @@ class ConvNeXtBlock(CoreBlock):
         pad="circular",
         upscale_factor: int = 4,
         norm="batch",
+        cond_dim: int | None = None,
         checkpoint_simple: bool = False,
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
         assert n_layers == 1, "Can only use a single layer here!"
+
+        self.use_conditional_norm = cond_dim is not None
 
         # Instantiate 1x1 conv to increase/decrease channel depth if necessary
         if in_channels == out_channels:
@@ -232,7 +238,13 @@ class ConvNeXtBlock(CoreBlock):
         )
         # BatchNorm
         if norm == "batch":
-            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
+            if self.use_conditional_norm:
+                assert cond_dim is not None, "cond_dim must be set for conditional norm"
+                convblock.append(
+                    ConditionalBatchNorm2d(in_channels * upscale_factor, cond_dim)
+                )
+            else:
+                convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
         # Instance Norm
         elif norm == "instance":
             convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
@@ -240,8 +252,10 @@ class ConvNeXtBlock(CoreBlock):
             pass
         else:
             raise NotImplementedError
+
         if activation is not None:
             convblock.append(activation())
+
         convblock.append(
             torch.nn.Conv2d(
                 in_channels=int(in_channels * upscale_factor),
@@ -252,7 +266,13 @@ class ConvNeXtBlock(CoreBlock):
         )
         # BatchNorm
         if norm == "batch":
-            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
+            if self.use_conditional_norm:
+                assert cond_dim is not None, "cond_dim must be set for conditional norm"
+                convblock.append(
+                    ConditionalBatchNorm2d(in_channels * upscale_factor, cond_dim)
+                )
+            else:
+                convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
         # Instance Norm
         elif norm == "instance":
             convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
@@ -260,8 +280,10 @@ class ConvNeXtBlock(CoreBlock):
             pass
         else:
             raise NotImplementedError
+
         if activation is not None:
             convblock.append(activation())
+
         # Linear postprocessing
         convblock.append(
             torch.nn.Conv2d(
@@ -271,12 +293,42 @@ class ConvNeXtBlock(CoreBlock):
                 padding="same",
             )
         )
-        self.convblock = torch.nn.Sequential(*convblock)
+
+        # Use ModuleList if conditional, Sequential otherwise for backward compatibility
+        if self.use_conditional_norm:
+            self.convblock: nn.ModuleList | nn.Sequential = torch.nn.ModuleList(
+                convblock
+            )
+        else:
+            self.convblock = torch.nn.Sequential(*convblock)
+
         self.checkpoint_simple = checkpoint_simple
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # return self.skip_module(x) + self.convblock(x)
+    def forward(
+        self, x: torch.Tensor, cond: torch.Tensor | None = None
+    ) -> torch.Tensor:
         skip = self.skip_module(x)
+
+        # non conditional path using nn.sequential
+        if not self.use_conditional_norm:
+            for layer in self.convblock:
+                if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
+                    x = torch.nn.functional.pad(
+                        x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                    )
+                    x = torch.nn.functional.pad(
+                        x, (0, 0, self.N_pad, self.N_pad), mode="constant"
+                    )
+                if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
+                    x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
+                else:
+                    x = layer(x)
+            return skip + x
+
+        # Conditional path
+        if cond is None:
+            raise ValueError("Conditioning vector required when cond_dim is set")
+
         for layer in self.convblock:
             if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
                 x = torch.nn.functional.pad(
@@ -285,10 +337,23 @@ class ConvNeXtBlock(CoreBlock):
                 x = torch.nn.functional.pad(
                     x, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
-            if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
-                x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
+
+            # Apply layer with conditioning for conditional norms
+            if hasattr(layer, "noise_projection"):  # Check if it's a conditional norm
+                # checkpointing for conditional norm layers
+                if self.checkpoint_simple:
+                    x = torch.utils.checkpoint.checkpoint(
+                        layer, x, cond, use_reentrant=False
+                    )
+                else:
+                    x = layer(x, cond)
             else:
-                x = layer(x)
+                # Regular layer (Conv2d, activation)
+                if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
+                    x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
+                else:
+                    x = layer(x)
+
         return skip + x
 
 

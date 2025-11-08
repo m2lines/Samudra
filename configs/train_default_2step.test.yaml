@@ -7,7 +7,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 1
-batch_size: 1
+batch_size: 2
 preemptible: false
 learning_rate: 0.0001
 scheduler: null
@@ -55,6 +55,8 @@ model:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
+  add_2d_coordinates: true
+
   unet:
     ch_width: [2, 2]
     dilation: [1, 2]

@@ -497,9 +497,9 @@ class SamudraConfig(BaseModelConfig):
         default=0,
         description="""Number of channels used for a learned positional embedding""",
     )
-    position_and_scale_encoding: bool = Field(
+    add_2d_coordinates: bool = Field(
         default=False,
-        description="Add semi-learned positional encodings for the position and scale of each grid point on Earth.",
+        description="Add 2d coordinates representing position on the Earth to the input channels.",
     )
 
     def build(
@@ -516,7 +516,9 @@ class SamudraConfig(BaseModelConfig):
         corrector = None
         if self.corrector is not None:
             corrector = self.corrector.build(hist, area_weights, static_data)
-        total_in_channels = in_channels + self.pos_channels
+        total_in_channels = (
+            in_channels + self.pos_channels + (2 if self.add_2d_coordinates else 0)
+        )
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -530,7 +532,7 @@ class SamudraConfig(BaseModelConfig):
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
-            pos_and_scale_encoding=self.position_and_scale_encoding,
+            add_2d_coordinates=self.add_2d_coordinates,
             lat=lat,
             lon=lon,
             hist=hist,

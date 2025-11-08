@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 import xarray as xr
-from aurora.model.fourier import pos_expansion, scale_expansion
-from aurora.model.posencoding import pos_scale_enc
+from aurora.model.posencoding import lat_lon_meshgrid
 
 from ocean_emulators.constants import Grid, Lat, Lon
 from ocean_emulators.models.base import BaseModel
@@ -21,7 +20,7 @@ class Samudra(BaseModel):
         unet: UNetBackbone,
         corrector: nn.Module | None,
         pos_channels: int,
-        pos_and_scale_encoding: bool,
+        add_2d_coordinates: bool,
         lat: Lat,
         lon: Lon,
         hist: int,
@@ -49,11 +48,8 @@ class Samudra(BaseModel):
         else:
             self.register_parameter("positional_params", None)
 
-        self.pos_and_scale_encoding = pos_and_scale_encoding
-        if self.pos_and_scale_encoding:
-            self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
-            self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
-            self.lat, self.lon = lat, lon
+        self.lat, self.lon = lat, lon
+        self.add_2d_coordinates = add_2d_coordinates
 
         layers = [
             # Add UNet core.
@@ -72,18 +68,15 @@ class Samudra(BaseModel):
             pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)
             fts = torch.cat([fts, pos], dim=1)
 
-        if self.pos_and_scale_encoding:
-            pos_encode, scale_encode = pos_scale_enc(
-                self.out_channels,
-                self.lat,
-                self.lon,
-                patch_dims=(1, 1),  # this means "no patches"
-                pos_expansion=pos_expansion,
-                scale_expansion=scale_expansion,
+        if self.add_2d_coordinates:
+            grid = (
+                lat_lon_meshgrid(self.lat, self.lon)
+                .unsqueeze(0)
+                .float()
+                .to(fts.device)
+                .repeat(fts.shape[0], 1, 1, 1)
             )
-            pos_encoding = self.pos_embed(pos_encode.to(dtype=fts.dtype))
-            scale_encoding = self.scale_embed(scale_encode.to(dtype=fts.dtype))
-            fts = fts + pos_encoding + scale_encoding
+            fts = torch.cat((fts, grid), dim=1)
 
         for layer in self.layers:
             # Circular/Globe padding

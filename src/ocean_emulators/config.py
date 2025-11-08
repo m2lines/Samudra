@@ -46,18 +46,6 @@ class WandBConfig(BaseConfig):
     notes: str | None = None
 
 
-class CRPSConfig(BaseConfig):
-    """Configuration for CRPS (Continuous Ranked Probability Score) loss."""
-
-    type: Literal["afcrps", "fair", "plain"] = "afcrps"
-    alpha: float = Field(
-        default=0.95,
-        ge=0.0,
-        le=1.0,
-        description="Threshold parameter for almost-fair CRPS (afcrps)",
-    )
-
-
 class JulianDate:
     """Represents a Julian date as a cftime.datetime at noon on the relevant day.
 
@@ -721,15 +709,11 @@ class TrainConfig(TopLevelConfig):
     ensemble_size_train: int = Field(
         default=1,
         ge=1,
-        description="Number of ensemble members to generate per sample during training",
+        description="Number of ensemble members to generate per sample during training. If > 1, uses CRPS loss.",
     )
     seed_per_member: bool = Field(
         default=False,
         description="Whether to fix the random seed per ensemble member across rollout steps",
-    )
-    crps: CRPSConfig | None = Field(
-        default=None,
-        description="CRPS loss configuration. If None, uses standard loss specified in 'loss' field",
     )
 
     # Profiling parameters

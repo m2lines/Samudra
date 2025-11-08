@@ -483,6 +483,22 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
     )
 
+    # Noise conditioning for ensemble generation (shared by Samudra and FOMO)
+    noise_mode: Literal["conditional_norm"] | None = Field(
+        default=None,
+        description="How to condition on noise: 'conditional_norm' uses noise embeddings in conditional layer norms (AIFS approach), None for deterministic",
+    )
+    noise_channels: int = Field(
+        default=4,
+        ge=1,
+        description="Number of noise channels to use for conditioning",
+    )
+    noise_embed_dim: int = Field(
+        default=128,
+        ge=1,
+        description="Dimension of the noise conditioning embeddings",
+    )
+
     @abc.abstractmethod
     def build(
         self,
@@ -504,22 +520,6 @@ class SamudraConfig(BaseModelConfig):
         description="""Number of channels used for a learned positional embedding""",
     )
 
-    # Noise conditioning for ensemble generation
-    noise_mode: Literal["film", "concat"] | None = Field(
-        default=None,
-        description="How to condition on noise: 'film' for FiLM modulation, 'concat' for channel concatenation, None for deterministic",
-    )
-    noise_channels: int = Field(
-        default=4,
-        ge=1,
-        description="Number of noise channels to use for conditioning",
-    )
-    film_cond_dim: int = Field(
-        default=128,
-        ge=1,
-        description="Dimension of the conditioning vector for FiLM layers",
-    )
-
     def build(
         self,
         in_channels: int,
@@ -533,6 +533,15 @@ class SamudraConfig(BaseModelConfig):
         if self.corrector is not None:
             corrector = self.corrector.build(hist, area_weights, static_data)
         total_in_channels = in_channels + self.pos_channels
+
+        # Pass noise parameters if noise conditioning is enabled
+        noise_channels = (
+            self.noise_channels if self.noise_mode == "conditional_norm" else None
+        )
+        noise_embed_dim = (
+            self.noise_embed_dim if self.noise_mode == "conditional_norm" else None
+        )
+
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -550,6 +559,8 @@ class SamudraConfig(BaseModelConfig):
             wet=wet,
             static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
+            noise_channels=noise_channels,
+            noise_embed_dim=noise_embed_dim,
         )
 
 

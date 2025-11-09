@@ -73,7 +73,10 @@ class Samudra(BaseModel):
             # Normalize the grid
             grid = (grid - grid.mean()) / grid.std()
             grid = (
-                grid.float().to(fts.device).unsqueeze(0).repeat(fts.shape[0], 1, 1, 1)
+                grid.float()
+                .to(fts.device)
+                .unsqueeze(0)
+                .expand(fts.shape[0], -1, -1, -1)
             )
             fts = torch.cat((fts, grid), dim=1)
 

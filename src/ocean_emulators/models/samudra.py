@@ -69,15 +69,12 @@ class Samudra(BaseModel):
             fts = torch.cat([fts, pos], dim=1)
 
         if self.add_2d_coordinates:
-            grid = (
-                lat_lon_meshgrid(self.lat, self.lon)
-                .float()
-                .to(fts.device)
-                .unsqueeze(0)
-                .repeat(fts.shape[0], 1, 1, 1)
-            )
+            grid = lat_lon_meshgrid(self.lat, self.lon)
             # Normalize the grid
             grid = (grid - grid.mean()) / grid.std()
+            grid = (
+                grid.float().to(fts.device).unsqueeze(0).repeat(fts.shape[0], 1, 1, 1)
+            )
             fts = torch.cat((fts, grid), dim=1)
 
         for layer in self.layers:

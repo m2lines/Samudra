@@ -76,6 +76,8 @@ class Samudra(BaseModel):
                 .unsqueeze(0)
                 .repeat(fts.shape[0], 1, 1, 1)
             )
+            # Normalize the grid
+            grid = (grid - grid.mean()) / grid.std()
             fts = torch.cat((fts, grid), dim=1)
 
         for layer in self.layers:

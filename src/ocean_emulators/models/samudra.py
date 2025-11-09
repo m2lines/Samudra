@@ -20,7 +20,7 @@ class Samudra(BaseModel):
         unet: UNetBackbone,
         corrector: nn.Module | None,
         pos_channels: int,
-        add_2d_coordinates: bool,
+        add_3d_coordinates: bool,
         lat: Lat,
         lon: Lon,
         hist: int,
@@ -49,7 +49,7 @@ class Samudra(BaseModel):
             self.register_parameter("positional_params", None)
 
         self.lat, self.lon = lat, lon
-        self.add_2d_coordinates = add_2d_coordinates
+        self.add_3d_coordinates = add_3d_coordinates
 
         layers = [
             # Add UNet core.
@@ -68,10 +68,19 @@ class Samudra(BaseModel):
             pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)
             fts = torch.cat([fts, pos], dim=1)
 
-        if self.add_2d_coordinates:
-            grid = lat_lon_meshgrid(self.lat, self.lon)
-            # Normalize the grid
-            grid = (grid - grid.mean()) / grid.std()
+        if self.add_3d_coordinates:
+            # Convert lat/lon to 3D Cartesian coordinates on unit sphere
+            # This provides better pole handling than raw lat/lon coordinates
+            lat_lon_grid = lat_lon_meshgrid(self.lat, self.lon)  # [2, H, W]
+            lat_rad = torch.deg2rad(lat_lon_grid[0])  # [H, W]
+            lon_rad = torch.deg2rad(lat_lon_grid[1])  # [H, W]
+
+            # Compute Cartesian coordinates (naturally bounded in [-1, 1])
+            x = torch.cos(lat_rad) * torch.cos(lon_rad)
+            y = torch.cos(lat_rad) * torch.sin(lon_rad)
+            z = torch.sin(lat_rad)
+
+            grid = torch.stack([x, y, z], dim=0)  # [3, H, W]
             grid = (
                 grid.float()
                 .to(fts.device)

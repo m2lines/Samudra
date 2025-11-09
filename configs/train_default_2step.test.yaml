@@ -55,7 +55,7 @@ model:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
-  add_2d_coordinates: true
+  add_3d_coordinates: true
 
   unet:
     ch_width: [2, 2]

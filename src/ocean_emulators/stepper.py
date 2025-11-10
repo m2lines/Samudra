@@ -42,11 +42,12 @@ class Stepper:
         loss_fn: Callable,
         ensemble_size: int,
         distributed: bool,
+        global_step: int = 0,
     ) -> TrainBatchOutput:
         """Training step with ensemble generation."""
-        # Generate ensemble predictions (split across GPUs if distributed)
+        # Generate ensemble predictions (sharded across GPUs if distributed)
         ensemble_preds, targets = generate_ensemble_predictions(
-            model, batch, ensemble_size, distributed
+            model, batch, ensemble_size, distributed, global_step
         )
 
         # Compute CRPS loss (returns per-channel)

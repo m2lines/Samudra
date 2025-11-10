@@ -395,8 +395,14 @@ class Trainer:
             self.init_inference_stores()
 
         # Add type annotations for samplers
-        self.train_sampler: DistributedSampler | RandomSampler
-        self.val_sampler: DistributedSampler | RandomSampler
+        from ocean_emulators.utils.sampler import ReplicatedDistributedSampler
+
+        self.train_sampler: (
+            DistributedSampler | RandomSampler | ReplicatedDistributedSampler
+        )
+        self.val_sampler: (
+            DistributedSampler | RandomSampler | ReplicatedDistributedSampler
+        )
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
@@ -557,6 +563,7 @@ class Trainer:
                     self.loss_fn,
                     self.ensemble_size,
                     distributed=(self.distributed is not None),
+                    global_step=self.num_batches_seen,
                 )
             else:
                 TO = Stepper.train_batch(self.model, data, self.loss_fn)
@@ -833,8 +840,24 @@ class Trainer:
         logger.info("Instantiating torch loaders")
 
         if self.distributed is not None:
-            self.train_sampler = DistributedSampler(train_data, shuffle=True)
-            self.val_sampler = DistributedSampler(val_data, shuffle=False)
+            # For ensemble training with CRPS, all GPUs must see the same samples
+            # so we can shard ensemble members across ranks while processing identical inputs.
+            if self.use_ensemble:
+                from ocean_emulators.utils.sampler import ReplicatedDistributedSampler
+
+                logger.info(
+                    "Using ReplicatedDistributedSampler for ensemble training - "
+                    "all ranks will process identical samples with sharded ensemble members"
+                )
+                self.train_sampler = ReplicatedDistributedSampler(
+                    train_data, shuffle=True, seed=42, drop_last=True
+                )
+                self.val_sampler = ReplicatedDistributedSampler(
+                    val_data, shuffle=False, seed=42, drop_last=False
+                )
+            else:
+                self.train_sampler = DistributedSampler(train_data, shuffle=True)
+                self.val_sampler = DistributedSampler(val_data, shuffle=False)
         else:
             self.train_sampler = RandomSampler(train_data)  # type: ignore
             self.val_sampler = RandomSampler(val_data)  # type: ignore

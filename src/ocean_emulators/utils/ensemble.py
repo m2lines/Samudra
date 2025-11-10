@@ -1,13 +1,6 @@
-from collections.abc import Callable, Sequence
-
 import torch
 import torch.distributed as dist
-
-differentiable_all_gather: Callable[[torch.Tensor], Sequence[torch.Tensor]] | None
-try:
-    from torch.distributed.nn.functional import all_gather as differentiable_all_gather
-except ImportError:  # older torch
-    differentiable_all_gather = None
+from torch.distributed.nn.functional import all_gather as differentiable_all_gather
 
 
 def generate_ensemble_predictions(
@@ -39,6 +32,15 @@ def generate_ensemble_predictions(
 
     # Generate predictions for local ensemble members (subset on this GPU)
     for local_idx in range(members_per_gpu):
+        if dist.is_initialized() and dist.get_rank() == 0:
+            import pdb
+
+            print(f"\n[rank0] entering pdb before forward, member={local_idx}\n")
+            pdb.set_trace()
+        else:
+            # Prevent other ranks from running ahead
+            if dist.is_initialized():
+                dist.barrier()
         outputs = model(train_data)  # Returns list[Tensor], one per step
 
         # Stack all rollout steps for this member

@@ -54,6 +54,7 @@ class UNetBackbone(nn.Module):
         downsampling_block: nn.Module,
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
+        cond_dim: int | None = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -64,6 +65,7 @@ class UNetBackbone(nn.Module):
         dilation = dilation.copy()
         n_layers = n_layers.copy()
         self.pad = pad
+        self.cond_dim = cond_dim
 
         match checkpointing:
             case "all":
@@ -90,6 +92,7 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
+                    cond_dim=self.cond_dim,
                 )
             )
             # Down sampling block
@@ -104,6 +107,7 @@ class UNetBackbone(nn.Module):
                 n_layers=n_layers[i],
                 pad=pad,
                 checkpoint_simple=checkpoint_simple,
+                cond_dim=self.cond_dim,
             )
         )
 
@@ -125,6 +129,7 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
+                    cond_dim=self.cond_dim,
                 )
             )
             layers.append(create_upsampling_block(in_channels=b, out_channels=b))
@@ -138,6 +143,7 @@ class UNetBackbone(nn.Module):
                 n_layers=n_layers[i],
                 pad=pad,
                 checkpoint_simple=checkpoint_simple,
+                cond_dim=self.cond_dim,
             )
         )
 

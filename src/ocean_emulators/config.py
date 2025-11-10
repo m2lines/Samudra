@@ -238,6 +238,7 @@ class BlockConfig(BaseConfig):
             n_layers: int,
             pad: str,
             checkpoint_simple: bool,
+            cond_dim: int | None = None,
         ) -> CoreBlock:
             match self.block_type:
                 case "conv_block":
@@ -263,6 +264,7 @@ class BlockConfig(BaseConfig):
                         upscale_factor=self.upscale_factor,
                         norm=self.norm,
                         activation=activation,
+                        cond_dim=cond_dim,
                     )
                 case _:
                     assert_never(self.block_type)
@@ -415,6 +417,7 @@ class UNetBackboneConfig(BaseConfig):
         in_channels: int,
         pad: str,
         checkpointing: Checkpointing | None,
+        cond_dim: int | None = None,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
@@ -453,6 +456,7 @@ class UNetBackboneConfig(BaseConfig):
             downsampling_block=downsampling_block,
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
+            cond_dim=cond_dim,
         )
 
 
@@ -566,6 +570,7 @@ class SamudraConfig(BaseModelConfig):
                 in_channels=total_in_channels,
                 pad=self.pad,
                 checkpointing=self.checkpointing,
+                cond_dim=noise_embed_dim,
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,

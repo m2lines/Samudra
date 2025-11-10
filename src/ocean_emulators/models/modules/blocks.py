@@ -375,6 +375,7 @@ class CoreBlockBuilder(Protocol):
         n_layers: int,
         pad: str,
         checkpoint_simple: bool,
+        cond_dim: int | None = None,
     ) -> CoreBlock: ...
 
 

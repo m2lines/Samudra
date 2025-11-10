@@ -20,7 +20,7 @@ def make_perceiver(in_channels, out_channels):
 
 
 def test_makes_patches():
-    x = torch.randn(1, 10, 4, 8)
+    x = torch.randn(3, 10, 4, 8)
 
     patch_embed = PerceiverEncoder(
         in_channels=10,
@@ -33,7 +33,7 @@ def test_makes_patches():
 
     patches = patch_embed(x)
 
-    assert patches.shape == (1, 4, 1, 2)
+    assert patches.shape == (3, 4, 1, 2)
 
 
 def test_makes_rectangular_patches():

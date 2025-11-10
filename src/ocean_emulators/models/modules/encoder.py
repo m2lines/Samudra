@@ -78,6 +78,15 @@ class PerceiverEncoder(nn.Module):
         # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
         x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)
 
+        # Make `x` amenable to adding pos encoding
+        x = rearrange(
+            x,
+            "(b h w) l -> b (h w) l ",
+            h=(H // self.patch_size[0]),
+            w=(W // self.patch_size[1]),
+        )
+
+        # Calculate and add positional encoding
         pos_encode, scale_encode = pos_scale_enc(
             self.out_channels,  # aka "embed_dim"
             self.lat,
@@ -88,13 +97,14 @@ class PerceiverEncoder(nn.Module):
             pos_expansion=pos_expansion,
             scale_expansion=scale_expansion,
         )
-        pos_encoding = self.pos_embed(pos_encode.to(dtype=x.dtype))
-        scale_encoding = self.scale_embed(scale_encode.to(dtype=x.dtype))
+        pos_encoding = self.pos_embed(pos_encode.to(dtype=x.dtype)).unsqueeze(0)
+        scale_encoding = self.scale_embed(scale_encode.to(dtype=x.dtype)).unsqueeze(0)
         x = x + pos_encoding + scale_encoding
 
+        # Unpack spatial channels, move channel dimension to correct location.
         x = rearrange(
             x,
-            "(b h w) l -> b l h w",
+            "b (h w) l -> b l h w",
             h=(H // self.patch_size[0]),
             w=(W // self.patch_size[1]),
         )

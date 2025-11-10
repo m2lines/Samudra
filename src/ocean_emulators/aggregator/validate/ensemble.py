@@ -222,21 +222,26 @@ class EnsembleAggregator(ValidateSubAggregator):
         nb = float(self._n_batches)
         logs: dict[str, float] = {}
 
+        # Use the same device as area_weights for all_reduce operations
+        device = self._area_weights.device
+
         # Reduce means across ranks (scalar all-reduce)
         mean_spread = self._spread_sum / nb
-        mean_spread = all_reduce_mean(torch.tensor(mean_spread)).cpu().item()
+        mean_spread = (
+            all_reduce_mean(torch.tensor(mean_spread, device=device)).cpu().item()
+        )
         logs[f"{label}/ensemble_spread"] = mean_spread
 
         mean_rmse = self._rmse_sum / nb
-        mean_rmse = all_reduce_mean(torch.tensor(mean_rmse)).cpu().item()
+        mean_rmse = all_reduce_mean(torch.tensor(mean_rmse, device=device)).cpu().item()
         logs[f"{label}/ensemble_mean_rmse"] = mean_rmse
 
         mean_mae = self._mae_sum / nb
-        mean_mae = all_reduce_mean(torch.tensor(mean_mae)).cpu().item()
+        mean_mae = all_reduce_mean(torch.tensor(mean_mae, device=device)).cpu().item()
         logs[f"{label}/ensemble_mean_mae"] = mean_mae
 
         mean_ss = self._spread_skill_sum / nb
-        mean_ss = all_reduce_mean(torch.tensor(mean_ss)).cpu().item()
+        mean_ss = all_reduce_mean(torch.tensor(mean_ss, device=device)).cpu().item()
         logs[f"{label}/spread_skill_ratio"] = mean_ss
 
         # Per-member RMSE (averaged over variables and batches)

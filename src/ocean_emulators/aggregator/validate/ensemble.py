@@ -32,12 +32,22 @@ class EnsembleAggregator(ValidateSubAggregator):
 
     @staticmethod
     def _ensure_bc_hw(t: torch.Tensor) -> torch.Tensor:
-        """Ensure tensor has shape (B, H, W). Accepts (B,1,H,W) or (B,H,W)."""
-        if t.ndim == 4 and t.shape[1] == 1:
-            return t.squeeze(1)
+        """Ensure tensor has shape (B, H, W). Accepts (B,T,H,W), (B,1,H,W) or (B,H,W).
+
+        For tensors with time dimension (T>1), takes the last time step as the prediction.
+        """
+        if t.ndim == 4:
+            # (B, T, H, W) - take last time step or squeeze if T=1
+            if t.shape[1] == 1:
+                return t.squeeze(1)
+            else:
+                # Take last time step (the prediction)
+                return t[:, -1, :, :]
         if t.ndim == 3:
             return t
-        raise ValueError(f"Expected (B,1,H,W) or (B,H,W), got {tuple(t.shape)}")
+        raise ValueError(
+            f"Expected (B,T,H,W), (B,1,H,W) or (B,H,W), got {tuple(t.shape)}"
+        )
 
     @staticmethod
     def _safe_scalar(x: torch.Tensor) -> float:

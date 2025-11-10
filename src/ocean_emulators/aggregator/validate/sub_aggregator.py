@@ -20,4 +20,5 @@ class ValidateSubAggregator(ABC):
         target_data_norm,
         gen_data_norm,
         input_data_norm,
+        ensemble_data: torch.Tensor | None = None,
     ): ...

@@ -276,6 +276,9 @@ class TensorMap(Multiton):
         self.prognostic_var_names = PROGNOSTIC_VARS[prognostic_vars_key]
         self.boundary_var_names = BOUNDARY_VARS[boundary_vars_key]
         self.dz = torch.tensor(DEPTH_THICKNESS[:levels])
+        self._prognostic_var_to_channel = {
+            var: idx for idx, var in enumerate(self.prognostic_var_names)
+        }
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()
@@ -320,3 +323,8 @@ class TensorMap(Multiton):
         """
         for i, k in enumerate(self.boundary_var_names):
             self.INPT_BOUNDARY_IDX[k] = torch.tensor([i])
+
+    @property
+    def prognostic_var_to_channel(self) -> dict[str, int]:
+        """Mapping of prognostic variable names to their channel indices."""
+        return dict(self._prognostic_var_to_channel)

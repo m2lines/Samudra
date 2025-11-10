@@ -10,6 +10,10 @@ from ocean_emulators.aggregator import InferenceEvaluatorAggregator
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.utils.device import get_device
+from ocean_emulators.utils.ensemble import (
+    compute_crps_loss_for_ensemble,
+    generate_ensemble_predictions,
+)
 from ocean_emulators.utils.output import (
     ModelInferenceOutput,
     TrainBatchOutput,
@@ -32,11 +36,36 @@ class Stepper:
         return TrainBatchOutput(loss, loss_per_channel)
 
     @staticmethod
+    def train_batch_ensemble(
+        model: torch.nn.Module,
+        batch: TrainData,
+        loss_fn: Callable,
+        ensemble_size: int,
+        distributed: bool,
+    ) -> TrainBatchOutput:
+        """Training step with ensemble generation."""
+        # Generate ensemble predictions (split across GPUs if distributed)
+        ensemble_preds, targets = generate_ensemble_predictions(
+            model, batch, ensemble_size, distributed
+        )
+
+        # Compute CRPS loss (returns per-channel)
+        loss_per_channel = compute_crps_loss_for_ensemble(
+            ensemble_preds, targets, loss_fn
+        )
+
+        # Compute scalar loss for backprop
+        loss = torch.mean(loss_per_channel)
+
+        return TrainBatchOutput(loss, loss_per_channel)
+
+    @staticmethod
     @torch.no_grad()
     def validate_batch(
         model: BaseModel | torch.nn.parallel.DistributedDataParallel,
         batch: TrainData,
         loss_fn: Callable,
+        ensemble_size: int,
     ) -> ValBatchOutput:
         assert len(batch) == 1  # Assert we are using one step of input and output
         input = batch.get_input(0)
@@ -48,10 +77,35 @@ class Stepper:
             if isinstance(model, torch.nn.parallel.DistributedDataParallel)
             else model
         )
-        outs = model.forward_once(input)
-        loss_per_channel = loss_fn(outs, label)
-        loss = torch.mean(loss_per_channel)
-        return ValBatchOutput(loss, loss_per_channel, input, label, outs)
+
+        if ensemble_size > 1:
+            # Generate ensemble predictions
+            ensemble_outs_list: list[torch.Tensor] = []
+            for member_idx in range(ensemble_size):
+                outs = model.forward_once(input)
+                ensemble_outs_list.append(outs)
+
+            # Stack: (ensemble_size, batch, channels, lat, lon)
+            ensemble_outs = torch.stack(ensemble_outs_list, dim=0)
+
+            # Compute ensemble mean as the prediction
+            outs = ensemble_outs.mean(dim=0)
+
+            # Compute loss on ensemble mean (standard practice)
+            loss_per_channel = loss_fn(outs, label)
+            loss = torch.mean(loss_per_channel)
+
+            # Return with ensemble data for computing statistics
+            return ValBatchOutput(
+                loss, loss_per_channel, input, label, outs, ensemble_data=ensemble_outs
+            )
+        else:
+            # Deterministic validation
+            outs = model.forward_once(input)
+            loss_per_channel = loss_fn(outs, label)
+            loss = torch.mean(loss_per_channel)
+
+            return ValBatchOutput(loss, loss_per_channel, input, label, outs)
 
     @staticmethod
     @torch.no_grad()

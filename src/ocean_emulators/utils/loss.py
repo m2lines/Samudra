@@ -74,7 +74,9 @@ def decomposed_mse_mae(
 
 
 def crps_ensemble(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
 ) -> torch.Tensor:
     """CRPS = E|X - Y| - 0.5 * E|X - X'|
     where X are ensemble predictions and Y is ground truth.
@@ -93,9 +95,14 @@ def crps_ensemble(
     if pred.shape[0] < 2:
         raise ValueError("CRPS requires at least 2 ensemble members (dim 0)")
 
-    # Apply wet mask
-    pred = pred * wet.unsqueeze(0).unsqueeze(0)
-    target = target * wet
+    wet_float = wet.to(device=pred.device, dtype=pred.dtype)
+    if wet_float.ndim == 2:
+        wet_float = wet_float.unsqueeze(0)
+    elif wet_float.ndim != 3:
+        raise ValueError("wet mask must have shape (C,H,W) or (H,W)")
+
+    pred = pred * wet_float.unsqueeze(0).unsqueeze(0)
+    target = target * wet_float.unsqueeze(0)
 
     ensemble_size = pred.shape[0]
 
@@ -115,9 +122,7 @@ def crps_ensemble(
     # CRPS = skill - 0.5 * spread
     crps = mean_abs_err - 0.5 * mean_abs_diff
 
-    # Average over spatial dims and batch, return per-channel
-    num_wet_points = wet.sum()
-    return crps.sum(dim=(0, 2, 3)) / (crps.shape[0] * num_wet_points)
+    return (crps * wet_float.unsqueeze(0)).mean(dim=(0, 2, 3))
 
 
 class MseDynamic:

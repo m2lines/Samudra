@@ -178,7 +178,12 @@ class ConvBlock(CoreBlock):
                 )
                 # conv2d layers are expensive so we save their activations,
                 # other (simple) layers are cheap, so we don't save their activations.
-            if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
+            is_norm = isinstance(layer, (nn.BatchNorm2d, nn.InstanceNorm2d))
+            if (
+                self.checkpoint_simple
+                and not isinstance(layer, nn.Conv2d)
+                and not is_norm
+            ):
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
             else:
                 fts = layer(fts)
@@ -319,7 +324,12 @@ class ConvNeXtBlock(CoreBlock):
                     x = torch.nn.functional.pad(
                         x, (0, 0, self.N_pad, self.N_pad), mode="constant"
                     )
-                if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
+                is_norm = isinstance(layer, (nn.BatchNorm2d, nn.InstanceNorm2d))
+                if (
+                    self.checkpoint_simple
+                    and not isinstance(layer, nn.Conv2d)
+                    and not is_norm
+                ):
                     x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
                 else:
                     x = layer(x)
@@ -339,17 +349,16 @@ class ConvNeXtBlock(CoreBlock):
                 )
 
             # Apply layer with conditioning for conditional norms
-            if hasattr(layer, "noise_projection"):  # Check if it's a conditional norm
-                # checkpointing for conditional norm layers
-                if self.checkpoint_simple:
-                    x = torch.utils.checkpoint.checkpoint(
-                        layer, x, cond, use_reentrant=False
-                    )
-                else:
-                    x = layer(x, cond)
+            if isinstance(layer, ConditionalBatchNorm2d):
+                x = layer(x, cond)
             else:
                 # Regular layer (Conv2d, activation)
-                if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
+                is_norm = isinstance(layer, (nn.BatchNorm2d, nn.InstanceNorm2d))
+                if (
+                    self.checkpoint_simple
+                    and not isinstance(layer, nn.Conv2d)
+                    and not is_norm
+                ):
                     x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
                 else:
                     x = layer(x)

@@ -81,6 +81,7 @@ from ocean_emulators.utils.logging import (
 )
 from ocean_emulators.utils.loss import (
     MseDynamic,
+    crps_ensemble,
     decomposed_mse,
     decomposed_mse_cos_weighted,
     decomposed_mse_diff_weighted,
@@ -161,6 +162,9 @@ class Trainer:
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
+
+        # Create var_to_channel mapping for ensemble metrics
+        self.var_to_channel = self.tensor_map.prognostic_var_to_channel
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -283,8 +287,22 @@ class Trainer:
                     ).to(device=self.device),
                     should_limit=should_limit,
                 )
+            case "crps":
+                logger.info("Using CRPS loss")
+                self.loss_fn = partial(crps_ensemble, wet=self.wet)
             case _:
                 assert_never(cfg.loss)
+
+        # Ensemble training setup
+        self.use_ensemble = cfg.ensemble_size_train > 1
+        self.ensemble_size = cfg.ensemble_size_train
+
+        if self.use_ensemble:
+            logger.info(
+                f"Enabling ensemble training: "
+                f"ensemble_size={cfg.ensemble_size_train}, "
+                f"loss={cfg.loss}"
+            )
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
@@ -530,7 +548,19 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
+            # Training step
+            TO: TrainBatchOutput
+            if self.use_ensemble:
+                TO = Stepper.train_batch_ensemble(
+                    self.model,
+                    data,
+                    self.loss_fn,
+                    self.ensemble_size,
+                    distributed=(self.distributed is not None),
+                )
+            else:
+                TO = Stepper.train_batch(self.model, data, self.loss_fn)
+
             TO.loss.backward()
             self._ema(model=self.model)
 
@@ -642,6 +672,7 @@ class Trainer:
             self.area_weights,
             self.wet_without_hist,
             self.num_out,
+            self.var_to_channel,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -653,9 +684,22 @@ class Trainer:
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
 
-                VO: ValBatchOutput = Stepper.validate_batch(
-                    self.model, data, self.loss_fn
-                )
+                # Use ensemble validation if ensemble training is enabled
+                VO: ValBatchOutput
+                if self.use_ensemble:
+                    VO = Stepper.validate_batch(
+                        self.model,
+                        data,
+                        self.loss_fn,
+                        ensemble_size=self.ensemble_size,
+                    )
+                else:
+                    VO = Stepper.validate_batch(
+                        self.model,
+                        data,
+                        self.loss_fn,
+                        ensemble_size=1,
+                    )
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 

@@ -491,6 +491,10 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         ge=1,
         description="Dimension of the noise conditioning embeddings",
     )
+    noise_resolution: tuple[int, int] | None = Field(
+        default=None,
+        description="Optional unless noise conditioning is enabled; specifies the (height, width) used to generate noise inputs for conditioning.",
+    )
 
     add_3d_coordinates: bool = Field(
         default=False,
@@ -548,6 +552,9 @@ class SamudraConfig(BaseModelConfig):
         noise_embed_dim = (
             self.noise_embed_dim if self.noise_mode == "conditional_norm" else None
         )
+        noise_resolution = (
+            self.noise_resolution if self.noise_mode == "conditional_norm" else None
+        )
 
         return Samudra(
             in_channels=total_in_channels,
@@ -569,6 +576,7 @@ class SamudraConfig(BaseModelConfig):
             gradient_detach_interval=self.gradient_detach_interval,
             noise_channels=noise_channels,
             noise_embed_dim=noise_embed_dim,
+            noise_shape=noise_resolution,
         )
 
 
@@ -683,6 +691,7 @@ LossType = Literal[
     "mse_mae",
     "mse_dynamic",
     "mse_dynamic_no_limit",
+    "crps",
 ]
 
 
@@ -709,11 +718,8 @@ class TrainConfig(TopLevelConfig):
     ensemble_size_train: int = Field(
         default=1,
         ge=1,
-        description="Number of ensemble members to generate per sample during training. If > 1, uses CRPS loss.",
-    )
-    seed_per_member: bool = Field(
-        default=False,
-        description="Whether to fix the random seed per ensemble member across rollout steps",
+        description="Number of ensemble members to generate per sample during training. "
+        "If > 1, uses ensemble training mode with the loss function specified in 'loss'.",
     )
 
     # Profiling parameters

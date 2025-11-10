@@ -16,12 +16,15 @@ class ValBatchOutput(TrainBatchOutput):
         input_data: torch.Tensor,
         target_data: torch.Tensor,
         gen_data: torch.Tensor,
+        ensemble_data: torch.Tensor | None = None,
     ):
         super().__init__(loss, loss_per_channel)
         assert target_data.shape == gen_data.shape
         self.input_data = input_data
         self.target_data = target_data
         self.gen_data = gen_data
+        # ensemble_data: (ensemble_size, batch, channels, lat, lon) if provided
+        self.ensemble_data = ensemble_data
 
 
 class ModelInferenceOutput:

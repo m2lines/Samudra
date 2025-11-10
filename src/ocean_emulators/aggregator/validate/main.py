@@ -1,6 +1,7 @@
 import torch
 
 from ocean_emulators.aggregator.train import TrainAggregator
+from ocean_emulators.aggregator.validate.ensemble import EnsembleAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
@@ -20,6 +21,7 @@ class ValidateAggregator(TrainAggregator):
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        var_to_channel: dict[str, int],
     ):
         super().__init__()
 
@@ -27,6 +29,7 @@ class ValidateAggregator(TrainAggregator):
             "snapshot": SnapshotAggregator(metadata, hist),
             "mean_map": MapAggregator(metadata, hist),
             "reduced": MeanAggregator(area_weights, hist),
+            "ensemble": EnsembleAggregator(area_weights, var_to_channel),
         }
         self._aggregators = val_aggregators
         self.normalize = Normalize.get_instance()
@@ -86,6 +89,7 @@ class ValidateAggregator(TrainAggregator):
                 target_data_norm=target_data_dict,
                 gen_data_norm=gen_data_dict,
                 input_data_norm=input_data_dict,
+                ensemble_data=batch.ensemble_data,  # Pass ensemble data if present
             )
 
     @torch.no_grad()

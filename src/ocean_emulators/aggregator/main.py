@@ -23,6 +23,7 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        var_to_channel: dict[str, int],
     ) -> ValidateAggregator:
         return ValidateAggregator(
             metadata=metadata,
@@ -30,6 +31,7 @@ class Aggregator:
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
+            var_to_channel=var_to_channel,
         )
 
     @staticmethod

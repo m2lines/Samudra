@@ -27,6 +27,7 @@ class Samudra(BaseModel):
         gradient_detach_interval: int,
         noise_channels: int | None = None,
         noise_embed_dim: int | None = None,
+        noise_shape: tuple[int, int] | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -53,15 +54,16 @@ class Samudra(BaseModel):
 
         # Initialize noise MLP if noise conditioning is enabled
         if noise_channels is not None and noise_embed_dim is not None:
-            noise_shape = (
-                wet.shape[-2],
-                wet.shape[-1],
-            )  # Use grid shape for noise by default
+            if noise_shape is None:
+                raise ValueError(
+                    "Noise conditioning enabled but no noise_shape was provided. "
+                    "Set `model.noise_resolution` in the configuration to supply a noise shape."
+                )
             self.noise_mlp: NoiseMLP | None = NoiseMLP(
                 noise_channels=noise_channels,
                 hidden_dim=noise_embed_dim * 2,  # Hidden dim is 2x output
                 output_dim=noise_embed_dim,
-                noise_shape=noise_shape,  # Noise resolution (can be changed for ablations)
+                noise_shape=noise_shape,
             )
         else:
             self.noise_mlp = None

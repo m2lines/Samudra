@@ -60,7 +60,7 @@ class NoiseMLP(nn.Module):
             dtype: Data type for the noise tensor
 
         Returns:
-            Noise tensor of shape (batch_size, noise_channels, height, width)
+            Noise tensor
         """
         return torch.randn(
             batch_size,
@@ -72,15 +72,6 @@ class NoiseMLP(nn.Module):
         )
 
     def forward(self, noise: torch.Tensor) -> torch.Tensor:
-        """Process noise into conditioning embeddings.
-
-        Args:
-            noise: Tensor of shape (batch, noise_channels, height, width)
-                   where (height, width) must match noise_shape from __init__
-
-        Returns:
-            conditioning: Tensor of shape (batch, output_dim)
-        """
         batch_size = noise.shape[0]
 
         # Validate noise shape matches expected
@@ -90,6 +81,7 @@ class NoiseMLP(nn.Module):
             self.noise_shape[0],
             self.noise_shape[1],
         )
+
         if noise.shape != expected_shape:
             raise ValueError(
                 f"Noise shape {noise.shape} doesn't match expected {expected_shape}. "
@@ -97,7 +89,6 @@ class NoiseMLP(nn.Module):
                 f"noise with spatial dims {noise.shape[2:]}."
             )
 
-        # Flatten spatial dimensions: (B, C, H, W) -> (B, C*H*W)
         noise_flat = noise.reshape(batch_size, -1)
 
         # Apply MLP

@@ -50,6 +50,7 @@ class SnapshotAggregator(ValidateSubAggregator):
         target_data_norm,
         gen_data_norm,
         input_data_norm,
+        ensemble_data: torch.Tensor | None = None,
     ):
         self._loss = loss
         self._target_data = target_data

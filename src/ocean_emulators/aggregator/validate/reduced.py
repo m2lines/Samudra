@@ -111,6 +111,7 @@ class MeanAggregator(ValidateSubAggregator):
         input_data: dict[str, torch.Tensor] | None = None,
         input_data_norm: dict[str, torch.Tensor] | None = None,
         i_time_start: int = 0,
+        ensemble_data: torch.Tensor | None = None,
     ):
         if input_data is None:
             input_data = {}

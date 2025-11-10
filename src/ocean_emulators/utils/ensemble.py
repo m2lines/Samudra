@@ -105,17 +105,3 @@ def compute_crps_loss_for_ensemble(
 
     # Average over steps and return per-channel losses
     return torch.stack(per_step_losses, dim=0).mean(dim=0)
-
-
-def forward_ensemble_training(
-    model: torch.nn.Module,
-    train_data,
-    ensemble_size: int,
-    loss_fn,
-    distributed: bool,
-) -> torch.Tensor:
-    ensemble_preds, targets = generate_ensemble_predictions(
-        model, train_data, ensemble_size, distributed
-    )
-
-    return compute_crps_loss_for_ensemble(ensemble_preds, targets, loss_fn)

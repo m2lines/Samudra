@@ -718,6 +718,11 @@ class TrainConfig(TopLevelConfig):
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True
     backend: TrainBackendConfig = "auto"
+    val_freq_steps: int | None = Field(
+        default=None,
+        ge=1,
+        description="Run validation every N training steps. If None, only validate at end of each epoch.",
+    )
 
     # Ensemble training parameters
     ensemble_size_train: int = Field(

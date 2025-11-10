@@ -371,6 +371,7 @@ class Trainer:
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
+        self.val_freq_steps = cfg.val_freq_steps
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
@@ -649,6 +650,21 @@ class Trainer:
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
+            # Run validation at specified step intervals
+            if (
+                self.val_freq_steps is not None
+                and self.num_batches_seen > 0
+                and self.num_batches_seen % self.val_freq_steps == 0
+            ):
+                logger.info(
+                    f"Running validation at step {self.num_batches_seen} "
+                    f"(every {self.val_freq_steps} steps)"
+                )
+                val_stats = self.validate_one_epoch(epoch, step=self.num_batches_seen)
+                self.wandb_logger.log(val_stats, step=self.num_batches_seen)
+                # Return to training mode
+                self.model.train(True)
+
             self._call_loss_update(data)
 
             self.profiler.after_batch(self.num_batches_seen)
@@ -670,7 +686,13 @@ class Trainer:
                 pred = self.model(single_step_data)
                 update(pred[0], label)
 
-    def validate_one_epoch(self, epoch):
+    def validate_one_epoch(self, epoch, step: int | None = None):
+        """Run validation on the validation set.
+
+        Args:
+            epoch: Current training epoch
+            step: Optional training step (for mid-epoch validation)
+        """
         self.model.eval()
 
         val_aggregator = Aggregator.get_validation_aggregator(

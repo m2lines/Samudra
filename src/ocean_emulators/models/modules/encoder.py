@@ -53,6 +53,7 @@ class PerceiverEncoder(nn.Module):
         self.out_channels: int = out_channels  # aka, `embed_dim`.
         self.perceiver = perceiver
         self.lat, self.lon = lat, lon
+        # TODO(alxmrs): The input to these position and scale linear units could be a hparam.
         self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
         self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
 

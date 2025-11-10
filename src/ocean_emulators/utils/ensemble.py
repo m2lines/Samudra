@@ -75,10 +75,9 @@ def compute_crps_loss_for_ensemble(
     loss_fn,
 ) -> torch.Tensor:
     num_steps = targets.shape[0]
-    num_channels = targets.shape[2]
 
     # Accumulate per-channel losses
-    total_loss_per_channel = torch.zeros(num_channels, device=targets.device)
+    per_step_losses: list[torch.Tensor] = []
 
     for step in range(num_steps):
         # Get predictions and target for this step
@@ -90,10 +89,10 @@ def compute_crps_loss_for_ensemble(
         # Compute CRPS for this step (returns per-channel)
         step_loss = loss_fn(step_predictions, step_target)  # (channels,)
 
-        total_loss_per_channel += step_loss
+        per_step_losses.append(step_loss)
 
     # Average over steps and return per-channel losses
-    return total_loss_per_channel / num_steps
+    return torch.stack(per_step_losses, dim=0).mean(dim=0)
 
 
 def forward_ensemble_training(

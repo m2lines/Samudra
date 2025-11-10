@@ -32,7 +32,7 @@ def generate_ensemble_predictions(
 
     # Generate predictions for local ensemble members (subset on this GPU)
     for local_idx in range(members_per_gpu):
-        if dist.is_initialized() and dist.get_rank() == 1:
+        if dist.is_initialized() and dist.get_rank() == 0:
             import pdb
 
             print(f"\n[rank0] entering pdb before forward, member={local_idx}\n")

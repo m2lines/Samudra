@@ -293,6 +293,9 @@ class Trainer:
             case _:
                 assert_never(cfg.loss)
 
+        # Store whether CRPS loss is being used
+        self.is_crps = cfg.loss == "crps"
+
         # Ensemble training setup
         self.use_ensemble = cfg.ensemble_size_train > 1
         self.ensemble_size = cfg.ensemble_size_train
@@ -721,6 +724,7 @@ class Trainer:
                         data,
                         self.loss_fn,
                         ensemble_size=self.ensemble_size,
+                        is_crps=self.is_crps,
                     )
                 else:
                     VO = Stepper.validate_batch(
@@ -728,6 +732,7 @@ class Trainer:
                         data,
                         self.loss_fn,
                         ensemble_size=1,
+                        is_crps=False,
                     )
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)

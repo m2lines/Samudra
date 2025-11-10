@@ -67,6 +67,7 @@ class Stepper:
         batch: TrainData,
         loss_fn: Callable,
         ensemble_size: int,
+        is_crps: bool = False,
     ) -> ValBatchOutput:
         assert len(batch) == 1  # Assert we are using one step of input and output
         input = batch.get_input(0)
@@ -92,8 +93,14 @@ class Stepper:
             # Compute ensemble mean as the prediction
             outs = ensemble_outs.mean(dim=0)
 
-            # Compute loss on ensemble mean (standard practice)
-            loss_per_channel = loss_fn(outs, label)
+            # Compute loss based on loss function type
+            if is_crps:
+                # CRPS loss expects (ensemble_size, batch, ...) and computes internally
+                loss_per_channel = loss_fn(ensemble_outs, label)
+            else:
+                # Standard losses expect (batch, ...) and work on ensemble mean
+                loss_per_channel = loss_fn(outs, label)
+
             loss = torch.mean(loss_per_channel)
 
             # Return with ensemble data for computing statistics

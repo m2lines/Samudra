@@ -1,5 +1,13 @@
+from collections.abc import Callable, Sequence
+
 import torch
 import torch.distributed as dist
+
+differentiable_all_gather: Callable[[torch.Tensor], Sequence[torch.Tensor]] | None
+try:
+    from torch.distributed.nn.functional import all_gather as differentiable_all_gather
+except ImportError:  # older torch
+    differentiable_all_gather = None
 
 
 def generate_ensemble_predictions(
@@ -45,17 +53,17 @@ def generate_ensemble_predictions(
 
     # Gather ensemble members from all GPUs if distributed
     if distributed:
-        # Prepare list for gathering
-        gathered_tensors = [
-            torch.zeros_like(local_ensemble_predictions) for _ in range(world_size)
-        ]
+        if differentiable_all_gather is None:
+            raise RuntimeError(
+                "Differentiable all_gather is not available in this PyTorch version; "
+                "upgrade torch.distributed.nn.functional or disable distributed ensemble training."
+            )
 
-        # All-gather operation
-        dist.all_gather(gathered_tensors, local_ensemble_predictions)
+        gathered = differentiable_all_gather(local_ensemble_predictions)
 
         # Concatenate along ensemble dimension
         # (ensemble_size, steps, batch, channels, lat, lon)
-        ensemble_predictions = torch.cat(gathered_tensors, dim=0)
+        ensemble_predictions = torch.cat(list(gathered), dim=0)
     else:
         # Single GPU: just use local predictions
         ensemble_predictions = local_ensemble_predictions

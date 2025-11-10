@@ -36,11 +36,11 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: local_om4_samudra
+  name: local_om4_samudra_crps
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
-    mode: disabled
+    mode: online
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4

@@ -11,7 +11,7 @@ num_model_steps_forward: 25
 experiment:
   name: local_om4_samudra_crps
   rand_seed: 15
-  base_output_dir: .LOCAL
+  base_output_dir: /scratch/ag11542/eval_outputs
   wandb:
     mode: online
     project: ocean-emulators

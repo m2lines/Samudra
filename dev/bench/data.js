@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1762392717243,
+  "lastUpdate": 1762990998024,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5079,6 +5079,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.638452374095736",
             "extra": "mean: 89.38351052239999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "36bcbb9daa5933fc53d7f4141951e3d3afb6b737",
+          "message": "Position and scale encoding via Aurora implementation (#437)\n\nThis PR adds MSFT Aurora as a dependency. It makes use of that model's\nformulation for position and scale encodings. These geometry-informed\nencodings are added right before passing the embeddings to the\nprocessor. Ideally, these help the processor better make sense of\nspatial relationships.",
+          "timestamp": "2025-11-12T23:17:37Z",
+          "tree_id": "8ba065e4b1756758842a69f044c78300788eb59a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/36bcbb9daa5933fc53d7f4141951e3d3afb6b737"
+        },
+        "date": 1762990997301,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.5283338162292819,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027333584768589297",
+            "extra": "mean: 654.3073177999872 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18607375048477584,
+            "unit": "iter/sec",
+            "range": "stddev: 0.030645689186431697",
+            "extra": "mean: 5.374213167600004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.011102525425020474,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6596690112748762",
+            "extra": "mean: 90.06959783639999 sec\nrounds: 5"
           }
         ]
       }

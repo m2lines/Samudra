@@ -1,5 +1,6 @@
 import torch
 from aurora.model.posencoding import lat_lon_meshgrid
+from jaxtyping import Float
 from torch import nn
 
 from ocean_emulators.constants import Lat, Lon
@@ -15,7 +16,9 @@ class Add3dCoordinates(nn.Module):
         super().__init__()
         self.lat, self.lon = lat, lon
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, fts: Float[torch.Tensor, "batch channel height width"]
+    ) -> Float[torch.Tensor, "batch channel+3 height width"]:
         lat_lon_grid = lat_lon_meshgrid(self.lat, self.lon)  # [2, H, W]
         lat_rad = torch.deg2rad(lat_lon_grid[0])  # [H, W]
         lon_rad = torch.deg2rad(lat_lon_grid[1])  # [H, W]

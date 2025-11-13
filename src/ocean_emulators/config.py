@@ -475,6 +475,11 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
     )
 
+    add_3d_coordinates: bool = Field(
+        default=False,
+        description="Add 3d coordinates representing position on the Earth (cartesian coordinates on a unit sphere) to the input channels.",
+    )
+
     @abc.abstractmethod
     def build(
         self,
@@ -496,10 +501,6 @@ class SamudraConfig(BaseModelConfig):
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
-    )
-    add_3d_coordinates: bool = Field(
-        default=False,
-        description="Add 3d coordinates representing position on the Earth (cartesian coordinates on a unit sphere) to the input channels.",
     )
 
     def build(
@@ -559,8 +560,9 @@ class FOMOConfig(BaseModelConfig):
         lat: Lat,
         lon: Lon,
     ) -> FOMO:
+        all_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         return FOMO(
-            in_channels=in_channels,
+            in_channels=all_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
@@ -572,6 +574,9 @@ class FOMOConfig(BaseModelConfig):
                 self.checkpointing,
             ),
             # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
+            add_3d_coordinates=self.add_3d_coordinates,
+            lat=lat,
+            lon=lon,
             hist=hist,
             wet=wet,
             static_data=static_data,

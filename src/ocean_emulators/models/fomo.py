@@ -10,9 +10,10 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
-from ocean_emulators.constants import Grid
+from ocean_emulators.constants import Grid, Lat, Lon
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
+from ocean_emulators.models.modules.augment_input import Add3dCoordinates
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 if TYPE_CHECKING:
@@ -34,6 +35,9 @@ class FOMO(BaseModel):
         pad: str,
         encoder: PerceiverEncoder,
         processor: UNetBackbone,
+        add_3d_coordinates: bool,
+        lat: Lat,
+        lon: Lon,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
@@ -55,6 +59,7 @@ class FOMO(BaseModel):
 
         # Placeholder decoder is a non-globe aware Conv2d.
         layers = [
+            Add3dCoordinates(lat, lon) if add_3d_coordinates else nn.Identity(),
             encoder,
             processor,
             nn.Conv2d(

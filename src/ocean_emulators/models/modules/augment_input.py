@@ -10,6 +10,7 @@ class Concat3dCoordinates(nn.Module):
     """Add 3d Cartesian Coordinates on a unit sphere to the channel dimension.
 
     3D coordinates are structured like so:
+     x  y  z
     (0, 0, 0) is earth center.
     (1, 0, 0) is at lat, lon = (0, 0)
     (0, 1, 0) is at lat, lon = (0, 90)

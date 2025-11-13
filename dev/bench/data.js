@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763060800857,
+  "lastUpdate": 1763061383145,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5169,6 +5169,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5458923278939933",
             "extra": "mean: 88.42238781539996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "596f3f858c398b72302900e2abba67b59d5af7be",
+          "message": "Relax formatting checks for notebooks (#461)\n\nIf we're treating this directory as \"these are things we ran\" repository\nthen it seems unnecessary to require formatting checks pass, so disabled\nthem here. See https://github.com/Open-Athena/Ocean_Emulator/pull/440\nfor an example where this is happening.",
+          "timestamp": "2025-11-13T18:50:05Z",
+          "tree_id": "0b859a6a77da4cb42e9f318fa6006edd9610d73f",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/596f3f858c398b72302900e2abba67b59d5af7be"
+        },
+        "date": 1763061382374,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.5236936460080324,
+            "unit": "iter/sec",
+            "range": "stddev: 0.049899570901605045",
+            "extra": "mean: 656.2999082000033 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18387078053846745,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03725173818364394",
+            "extra": "mean: 5.438602028399998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.010911969764862974,
+            "unit": "iter/sec",
+            "range": "stddev: 3.146206020286329",
+            "extra": "mean: 91.64248266339999 sec\nrounds: 5"
           }
         ]
       }

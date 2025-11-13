@@ -2510,7 +2510,7 @@ class Viz:
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
         sst_bias = sst_data - gt_sst_data
         if range is None:
-            bias_max = sst_bias.abs().max().compute().item()
+            bias_max = np.abs(sst_bias).max().compute().item()
             range = (-bias_max, bias_max)
 
         im = ax.pcolormesh(

@@ -16,7 +16,7 @@ class Concat3dCoordinates(nn.Module):
     (0, 1, 0) is at lat, lon = (0, 90)
     (0, 0, 1) is at the North Pole
 
-    This provides better pole handling than raw lat/lon coordinates.
+    This is known to provide better pole handling than raw lat/lon coordinates, see [1].
 
     > Note: This module assumes that the data at each lat/lon is located at the center of each
     > grid point! Please ensure this is the case during pre-processing.
@@ -24,6 +24,9 @@ class Concat3dCoordinates(nn.Module):
     Args:
         lat: A vector of latitudes representing the center of the grid point.
         lon: A vector of longitudes representing the center of the grid point.
+
+    References:
+        [1]: https://ar5iv.labs.arxiv.org/html/2410.07472v1#S4.SS9
     """
 
     def __init__(self, lat: Lat, lon: Lon):

@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 import xarray as xr
-from aurora.model.posencoding import lat_lon_meshgrid
 
 from ocean_emulators.constants import Grid, Lat, Lon
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.modules.augment_input import Add3dCoordinates
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
@@ -48,10 +48,8 @@ class Samudra(BaseModel):
         else:
             self.register_parameter("positional_params", None)
 
-        self.lat, self.lon = lat, lon
-        self.add_3d_coordinates = add_3d_coordinates
-
         layers = [
+            Add3dCoordinates(lat, lon) if add_3d_coordinates else nn.Identity(),
             # Add UNet core.
             unet,
             # Samudra "decoder".
@@ -67,27 +65,6 @@ class Samudra(BaseModel):
         if self.positional_params is not None:
             pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)
             fts = torch.cat([fts, pos], dim=1)
-
-        if self.add_3d_coordinates:
-            # Convert lat/lon to 3D Cartesian coordinates on unit sphere
-            # This provides better pole handling than raw lat/lon coordinates
-            lat_lon_grid = lat_lon_meshgrid(self.lat, self.lon)  # [2, H, W]
-            lat_rad = torch.deg2rad(lat_lon_grid[0])  # [H, W]
-            lon_rad = torch.deg2rad(lat_lon_grid[1])  # [H, W]
-
-            # Compute Cartesian coordinates (naturally bounded in [-1, 1])
-            x = torch.cos(lat_rad) * torch.cos(lon_rad)
-            y = torch.cos(lat_rad) * torch.sin(lon_rad)
-            z = torch.sin(lat_rad)
-
-            grid = torch.stack([x, y, z], dim=0)  # [3, H, W]
-            grid = (
-                grid.float()
-                .to(fts.device)
-                .unsqueeze(0)
-                .expand(fts.shape[0], -1, -1, -1)
-            )
-            fts = torch.cat((fts, grid), dim=1)
 
         for layer in self.layers:
             # Circular/Globe padding

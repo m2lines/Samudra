@@ -562,12 +562,12 @@ class FOMOConfig(BaseModelConfig):
         lat: Lat,
         lon: Lon,
     ) -> FOMO:
-        all_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = (
             Add3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
         )
         return FOMO(
-            in_channels=all_in_channels,
+            in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,

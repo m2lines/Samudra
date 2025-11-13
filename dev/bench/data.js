@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763060799694,
+  "lastUpdate": 1763060800857,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10347,6 +10347,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.46481344399068714",
             "extra": "mean: 76.17095507560002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e2a3072591b421391318a171d8e13e9c3bdd924d",
+          "message": "Created a module to add 3d Cartesian coordinates to the input data. (#460)\n\nExtracted a re-usable component from a recent experiment. Now, the\nconfig system includes a flag to append 3d cartesian coordinates to the\ninput data before feeding it to each of our ML models. With #437, let's\nsay this closes #367 for now (time encoding can come later).\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-11-13T18:41:26Z",
+          "tree_id": "ea4cf3a36279eabcdf0a95f60a7fb0294422b612",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e2a3072591b421391318a171d8e13e9c3bdd924d"
+        },
+        "date": 1763060800545,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.5533786605042117,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027787931966646414",
+            "extra": "mean: 643.7580388000242 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18934763431521245,
+            "unit": "iter/sec",
+            "range": "stddev: 0.029344382297707958",
+            "extra": "mean: 5.281291227199972 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.013448771392534458,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0718180181190385",
+            "extra": "mean: 74.35623454460008 sec\nrounds: 5"
           }
         ]
       }

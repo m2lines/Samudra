@@ -2507,6 +2507,16 @@ class Viz:
         colormap = cm.cm.balance
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
         sst_bias = sst_data - gt_sst_data
+        if vmin is None:
+            vmin = sst_bias.min().compute().item()
+        if vmax is None:
+            vmax = sst_bias.max().compute().item()
+
+        # ensure symmetric colorbar
+        larger = max(abs(vmin), abs(vmax))
+        vmin = -larger
+        vmax = larger
+
         im = ax.pcolormesh(
             sst_bias["x"],
             sst_bias["y"],

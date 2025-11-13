@@ -19,6 +19,7 @@ class Samudra(BaseModel):
         unet: UNetBackbone,
         corrector: nn.Module | None,
         pos_channels: int,
+        add_3d_coordinates: nn.Module,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
@@ -45,6 +46,7 @@ class Samudra(BaseModel):
             self.register_parameter("positional_params", None)
 
         layers = [
+            add_3d_coordinates,
             # Add UNet core.
             unet,
             # Samudra "decoder".

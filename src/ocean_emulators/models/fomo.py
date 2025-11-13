@@ -32,6 +32,7 @@ class FOMO(BaseModel):
         pred_residuals: bool,
         last_kernel_size: int,
         pad: str,
+        add_3d_coordinates: nn.Module,
         encoder: PerceiverEncoder,
         processor: UNetBackbone,
         hist: int,
@@ -55,6 +56,7 @@ class FOMO(BaseModel):
 
         # Placeholder decoder is a non-globe aware Conv2d.
         layers = [
+            add_3d_coordinates,
             encoder,
             processor,
             nn.Conv2d(

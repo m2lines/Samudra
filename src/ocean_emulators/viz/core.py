@@ -2503,19 +2503,15 @@ class Viz:
             gl.left_labels = False
         return im
 
-    def plot_bias(self, ax, sst_data, gt_sst_data, title, vmin, vmax):
+    def plot_bias(
+        self, ax, sst_data, gt_sst_data, title, range: tuple[float, float] | None
+    ):
         colormap = cm.cm.balance
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
         sst_bias = sst_data - gt_sst_data
-        if vmin is None:
-            vmin = sst_bias.min().compute().item()
-        if vmax is None:
-            vmax = sst_bias.max().compute().item()
-
-        # ensure symmetric colorbar
-        larger = max(abs(vmin), abs(vmax))
-        vmin = -larger
-        vmax = larger
+        if range is None:
+            bias_max = sst_bias.abs().max().compute().item()
+            range = (-bias_max, bias_max)
 
         im = ax.pcolormesh(
             sst_bias["x"],
@@ -2524,8 +2520,8 @@ class Viz:
             shading="auto",
             cmap=colormap,
             transform=ccrs.PlateCarree(),
-            vmin=vmin,
-            vmax=vmax,
+            vmin=range[0],
+            vmax=range[1],
         )
         ax.add_feature(cfeature.COASTLINE, edgecolor="black")
         ax.set_title(title, fontsize=14)
@@ -2582,7 +2578,7 @@ class Viz:
         cbar.set_label(r"$\theta_O$ [$\degree C$]", fontsize=14)
 
         # Plot biases for SST
-        im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], -1.0, 1.0)
+        im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], (-1.0, 1.0))
 
         # Add colorbar for bias plots
         cbar = fig.colorbar(
@@ -2655,7 +2651,7 @@ class Viz:
             cbar.set_label(r"$\theta_O$ [$\degree C$]", fontsize=14)
 
             # Plot biases for SST
-            im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], None, None)
+            im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], None)
 
             # Add colorbar for bias plots
             cbar = fig.colorbar(
@@ -2723,7 +2719,7 @@ class Viz:
         cbar.set_label(r"$so$ [$psu$]", fontsize=14)
 
         # Plot biases for SSS
-        im = self.plot_bias(axs[3], pred1_sss, gt_sss, bias_titles[0], -0.5, 0.5)
+        im = self.plot_bias(axs[3], pred1_sss, gt_sss, bias_titles[0], (-0.5, 0.5))
 
         # Add colorbar for bias plots
         cbar = fig.colorbar(

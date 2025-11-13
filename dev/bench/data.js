@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763061383145,
+  "lastUpdate": 1763061384342,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10437,6 +10437,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0718180181190385",
             "extra": "mean: 74.35623454460008 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "596f3f858c398b72302900e2abba67b59d5af7be",
+          "message": "Relax formatting checks for notebooks (#461)\n\nIf we're treating this directory as \"these are things we ran\" repository\nthen it seems unnecessary to require formatting checks pass, so disabled\nthem here. See https://github.com/Open-Athena/Ocean_Emulator/pull/440\nfor an example where this is happening.",
+          "timestamp": "2025-11-13T18:50:05Z",
+          "tree_id": "0b859a6a77da4cb42e9f318fa6006edd9610d73f",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/596f3f858c398b72302900e2abba67b59d5af7be"
+        },
+        "date": 1763061384045,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.5544897724956652,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021132857351469612",
+            "extra": "mean: 643.2978960000128 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18471289452967243,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08355168868794911",
+            "extra": "mean: 5.413807209000015 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01213582934263327,
+            "unit": "iter/sec",
+            "range": "stddev: 0.38285713936082405",
+            "extra": "mean: 82.40063136739998 sec\nrounds: 5"
           }
         ]
       }

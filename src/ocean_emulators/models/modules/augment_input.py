@@ -23,7 +23,10 @@ class Add3dCoordinates(nn.Module):
         lat_rad = torch.deg2rad(lat_lon_grid[0])  # [H, W]
         lon_rad = torch.deg2rad(lat_lon_grid[1])  # [H, W]
 
-        # Compute Cartesian coordinates (naturally bounded in [-1, 1])
+        # Compute 3D coordinates; earth center is (0, 0, 0)
+        # (1, 0, 0) is at lat, lon = (0, 0)
+        # (0, 1, 0) is at lat, lon = (0, 90)
+        # (0, 0, 1) is at the north pole
         x = torch.cos(lat_rad) * torch.cos(lon_rad)
         y = torch.cos(lat_rad) * torch.sin(lon_rad)
         z = torch.sin(lat_rad)

@@ -29,7 +29,7 @@ from ocean_emulators.models.modules import (
     TransposedConvUpsample,
     UNetBackbone,
 )
-from ocean_emulators.models.modules.augment_input import Add3dCoordinates
+from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
@@ -522,7 +522,7 @@ class SamudraConfig(BaseModelConfig):
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
         add_3d_coordinates = (
-            Add3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
         )
         return Samudra(
             in_channels=total_in_channels,
@@ -564,7 +564,7 @@ class FOMOConfig(BaseModelConfig):
     ) -> FOMO:
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = (
-            Add3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
         )
         return FOMO(
             in_channels=total_in_channels,

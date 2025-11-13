@@ -17,6 +17,13 @@ class Concat3dCoordinates(nn.Module):
     (0, 0, 1) is at the North Pole
 
     This provides better pole handling than raw lat/lon coordinates.
+
+    > Note: This module assumes that the data at each lat/lon is located at the center of each
+    > grid point! Please ensure this is the case during pre-processing.
+
+    Args:
+        lat: A vector of latitudes representing the center of the grid point.
+        lon: A vector of longitudes representing the center of the grid point.
     """
 
     def __init__(self, lat: Lat, lon: Lon):
@@ -36,6 +43,4 @@ class Concat3dCoordinates(nn.Module):
         self, fts: Float[torch.Tensor, "batch channel height width"]
     ) -> Float[torch.Tensor, "batch channel+3 height width"]:
         grid = self.grid.to(fts.device).expand(fts.shape[0], -1, -1, -1)
-        fts = torch.cat((fts, grid), dim=1)
-
-        return fts
+        return torch.cat((fts, grid), dim=1)

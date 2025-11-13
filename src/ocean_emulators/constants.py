@@ -15,11 +15,8 @@ from ocean_emulators.utils.multiton import Multiton
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 
-# During our pre-processing step, we adjust the location of variables from their traditional formulation for Oceans
-# data to the center of each grid point.
-Lat = Float[Tensor, "lat"]  # Lat center
-Lon = Float[Tensor, "lon"]  # Lon center
-
+Lat = Float[Tensor, "lat"]
+Lon = Float[Tensor, "lon"]
 Grid = Float[Tensor, "lat lon"]
 Prognostic = Float[
     Grid, "*batch prognostic_vars"

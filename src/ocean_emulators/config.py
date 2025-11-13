@@ -497,6 +497,10 @@ class SamudraConfig(BaseModelConfig):
         default=0,
         description="""Number of channels used for a learned positional embedding""",
     )
+    add_3d_coordinates: bool = Field(
+        default=False,
+        description="Add 3d coordinates representing position on the Earth (cartesian coordinates on a unit sphere) to the input channels.",
+    )
 
     def build(
         self,
@@ -512,7 +516,9 @@ class SamudraConfig(BaseModelConfig):
         corrector = None
         if self.corrector is not None:
             corrector = self.corrector.build(hist, area_weights, static_data)
-        total_in_channels = in_channels + self.pos_channels
+        total_in_channels = (
+            in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
+        )
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -526,6 +532,9 @@ class SamudraConfig(BaseModelConfig):
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
+            add_3d_coordinates=self.add_3d_coordinates,
+            lat=lat,
+            lon=lon,
             hist=hist,
             wet=wet,
             static_data=static_data,

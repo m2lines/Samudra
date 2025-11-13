@@ -20,12 +20,17 @@ class PerceiverEncoder(nn.Module):
     wavelengths. These encode 2d positions (the average latitude and longitude of each patch) as well as grid cell area
     (measured in km^2) for each token before it enters the processor.
 
+    > Note: We assume that data along the lat/lon coordinates are positioned at the center of each grid point! Please
+    > ensure this is the case at the data processing time.
+
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         out_channels (int): size of the latent dimension (aka, the embedding dimension).
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
         perceiver (nn.Module): the perceiver module implementation to use.
+        lat (torch.Tensor): A vector of latitudes representing the center of the grid point.
+        lon (torch.Tensor): A vector of longitudes representing the center of the grid point.
 
     References:
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4

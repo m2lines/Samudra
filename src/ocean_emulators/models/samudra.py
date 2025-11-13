@@ -3,9 +3,8 @@ import torch.nn as nn
 import torch.utils.checkpoint
 import xarray as xr
 
-from ocean_emulators.constants import Grid, Lat, Lon
+from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.models.modules.augment_input import Add3dCoordinates
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
@@ -20,9 +19,7 @@ class Samudra(BaseModel):
         unet: UNetBackbone,
         corrector: nn.Module | None,
         pos_channels: int,
-        add_3d_coordinates: bool,
-        lat: Lat,
-        lon: Lon,
+        add_3d_coordinates: nn.Module,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
@@ -49,7 +46,7 @@ class Samudra(BaseModel):
             self.register_parameter("positional_params", None)
 
         layers = [
-            Add3dCoordinates(lat, lon) if add_3d_coordinates else nn.Identity(),
+            add_3d_coordinates,
             # Add UNet core.
             unet,
             # Samudra "decoder".

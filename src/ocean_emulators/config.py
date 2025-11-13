@@ -521,6 +521,9 @@ class SamudraConfig(BaseModelConfig):
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
+        add_3d_coordinates = (
+            Add3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+        )
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -534,9 +537,7 @@ class SamudraConfig(BaseModelConfig):
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
-            add_3d_coordinates=Add3dCoordinates(lat, lon)
-            if self.add_3d_coordinates
-            else nn.Identity(),
+            add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             wet=wet,
             static_data=static_data,
@@ -562,6 +563,9 @@ class FOMOConfig(BaseModelConfig):
         lon: Lon,
     ) -> FOMO:
         all_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        add_3d_coordinates = (
+            Add3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+        )
         return FOMO(
             in_channels=all_in_channels,
             out_channels=out_channels,
@@ -575,9 +579,7 @@ class FOMOConfig(BaseModelConfig):
                 self.checkpointing,
             ),
             # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
-            add_3d_coordinates=Add3dCoordinates(lat, lon)
-            if self.add_3d_coordinates
-            else nn.Identity(),
+            add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             wet=wet,
             static_data=static_data,

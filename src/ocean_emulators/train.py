@@ -612,15 +612,7 @@ class Trainer:
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
-            if update := getattr(self.loss_fn, "update", None):
-                with torch.no_grad():
-                    # TODO(jder): could avoid a second forward pass here
-                    single_step_data = TrainData(data.num_prognostic_channels)
-                    # Each entry in data is one step in a rollout.
-                    input, label = data[0]
-                    single_step_data.insert(input, label)
-                    pred = self.model(single_step_data)
-                    update(pred[0], label)
+            self._call_loss_update(data)
 
             self.profiler.after_batch(self.num_batches_seen)
 
@@ -629,6 +621,17 @@ class Trainer:
 
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
+
+    def _call_loss_update(self, data: TrainData):
+        # This is a separate function to ensure locals are dropped immediately after use
+        if update := getattr(self.loss_fn, "update", None):
+            with torch.no_grad():
+                single_step_data = TrainData(data.num_prognostic_channels)
+                # Each entry in data is one step in a rollout.
+                input, label = data[0]
+                single_step_data.insert(input, label)
+                pred = self.model(single_step_data)
+                update(pred[0], label)
 
     def validate_one_epoch(self, epoch):
         self.model.eval()

@@ -656,7 +656,10 @@ LossType = Literal[
     "mse_mae",
     "mse_dynamic",
     "mse_dynamic_no_limit",
+    "mae_dynamic",
+    "mae_dynamic_no_limit",
 ]
+LossExtensionType = Literal["off", "dynamic_no_limit", "dynamic"]
 
 
 class TrainConfig(TopLevelConfig):
@@ -670,6 +673,7 @@ class TrainConfig(TopLevelConfig):
     learning_rate: float = 2e-4
     scheduler: SchedulerConfig | None = None
     loss: LossType = "mse"
+    loss_extension: LossExtensionType = "off"
     finetune: bool = False
     resume_ckpt_path: str | None = None
     debug: bool = False

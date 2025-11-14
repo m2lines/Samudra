@@ -80,7 +80,8 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import (
-    MseDynamic,
+    DynamicLoss,
+    decomposed_mae,
     decomposed_mse,
     decomposed_mse_cos_weighted,
     decomposed_mse_diff_weighted,
@@ -273,18 +274,35 @@ class Trainer:
             case "mse_mae":
                 logger.info("Using decomposed mse loss with mae")
                 self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
+            # The following two cases are here for backwards compatability.
             case "mse_dynamic" | "mse_dynamic_no_limit":
                 should_limit = cfg.loss == "mse_dynamic"
-                logger.info(f"Using dynamic MSE loss (limit = {should_limit})")
-                self.loss_fn = MseDynamic(
-                    wet=self.wet,
+                cfg.loss_extension = "dynamic" if should_limit else "dynamic_no_limit"
+                self.loss_fn = partial(decomposed_mse, wet=self.wet)
+            case "mae_dynamic" | "mae_dynamic_no_limit":
+                should_limit = cfg.loss == "mae_dynamic"
+                cfg.loss_extension = "dynamic" if should_limit else "dynamic_no_limit"
+                self.loss_fn = partial(decomposed_mae, wet=self.wet)
+            case _:
+                assert_never(cfg.loss)
+
+        # (Maybe) Extend the loss function.
+        match cfg.loss_extension:
+            case "off":
+                pass
+            case "dynamic_no_limit" | "dynamic":
+                should_limit = "no_limit" not in cfg.loss_extension
+                logger.info(f"Using dynamic loss (limit = {should_limit})")
+                self.loss_fn = DynamicLoss(
                     stds=torch.from_numpy(
                         self.src.stds[self.prognostic_var_names].to_array().to_numpy()
                     ).to(device=self.device),
+                    device=self.wet.device,
                     should_limit=should_limit,
+                    loss_fn=self.loss_fn,
                 )
             case _:
-                assert_never(cfg.loss)
+                assert_never(cfg.loss_extension)
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)

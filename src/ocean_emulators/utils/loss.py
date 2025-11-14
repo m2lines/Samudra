@@ -1,18 +1,30 @@
+from collections.abc import Callable
+
 import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
-from ocean_emulators.constants import Grid
 from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
+
+LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
 
 def decomposed_mse(
     pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
 ) -> torch.Tensor:
-    """Standard MSE loss computed per channel."""
+    """Standard MSE loss (l2) computed per channel."""
     pred = pred * wet
     target = target * wet
     return F.mse_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
+
+
+def decomposed_mae(
+    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+) -> torch.Tensor:
+    """Standard MAE loss (l1) computed per channel."""
+    pred = pred * wet
+    target = target * wet
+    return F.l1_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
 
 
 def decomposed_mse_diff_weighted(
@@ -73,7 +85,7 @@ def decomposed_mse_mae(
     return combined.mean(dim=(0, 2, 3))
 
 
-class MseDynamic:
+class DynamicLoss:
     """A loss function that scales each channel to contribute equally to the loss.
 
     This uses a rolling estimate of the loss of each channel to scale each
@@ -87,28 +99,30 @@ class MseDynamic:
 
     def __init__(
         self,
-        wet: Grid,
         stds: Float[torch.Tensor, " var"],
         *,
+        device: torch.device,
         should_limit: bool,
+        loss_fn: LossFn,
     ):
-        self._wet: Grid = wet
+        self._device = device
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
-            stds.shape[0], device=wet.device
+            stds.shape[0], device=self._device
         )
         if should_limit:
             vars: Float[torch.Tensor, " var"] = stds.pow(2)
             self._limits: Float[torch.Tensor, " var"] | None = 1.0 / vars
         else:
             self._limits = None
+        self.loss_fn = loss_fn
 
     def __call__(
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
     ) -> Float[torch.Tensor, " hist*var"]:
-        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = decomposed_mse(
-            pred, target, self._wet
+        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
+            pred, target
         )
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
             loss_with_history_channels.reshape(self._per_channel_scale.shape[0], -1)
@@ -122,11 +136,9 @@ class MseDynamic:
         target: Float[torch.Tensor, "batch hist*var lat lon"],
     ) -> None:
         """Given the prediction & target for this step, update the per-channel scale."""
-        mse_loss = decomposed_mse(pred, target, self._wet)
-        mse_loss = torch.where(mse_loss == 0, 1e-8, mse_loss)
-        new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = (
-            1.0 / mse_loss
-        )
+        loss = self.loss_fn(pred, target)
+        loss = torch.where(loss == 0, 1e-8, loss)
+        new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels
         # by averaging along the `hist` dimension
         new_target_weights: Float[torch.Tensor, " var"] = (
@@ -141,8 +153,8 @@ class MseDynamic:
             all_reduce_mean(new_target_weights)
 
         self._per_channel_scale = (
-            self._per_channel_scale * (MseDynamic.N_WINDOW - 1) + new_target_weights
-        ) / MseDynamic.N_WINDOW
+            self._per_channel_scale * (DynamicLoss.N_WINDOW - 1) + new_target_weights
+        ) / DynamicLoss.N_WINDOW
 
     def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
         return self._per_channel_scale
@@ -155,4 +167,4 @@ class MseDynamic:
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Load state from ``state_dict``."""
         if "per_channel_scale" in state:
-            self._per_channel_scale = state["per_channel_scale"].to(self._wet.device)
+            self._per_channel_scale = state["per_channel_scale"].to(self._device)

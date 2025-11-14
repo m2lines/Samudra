@@ -4,6 +4,8 @@ import logging
 
 import torch
 
+logger = logging.getLogger(__name__)
+
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.output import ModelInferenceOutput
@@ -20,6 +22,7 @@ class BaseModel(torch.nn.Module):
         last_kernel_size,
         pad,
         static_data,
+        gradient_detach_interval: int,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -31,6 +34,7 @@ class BaseModel(torch.nn.Module):
         self.pred_residuals = pred_residuals
         self.hist = hist
         self.static_data = static_data
+        self.gradient_detach_interval = gradient_detach_interval
 
     def forward_once(self, fts):
         raise NotImplementedError()
@@ -46,8 +50,14 @@ class BaseModel(torch.nn.Module):
             if step == 0:
                 input_tensor = train_data.get_initial_input()
             else:
+                prev_output = outputs[-1]
+                if (
+                    self.gradient_detach_interval > 0
+                    and step % self.gradient_detach_interval == 0
+                ):
+                    prev_output = prev_output.detach()
                 input_tensor = train_data.merge_prognostic_and_boundary(
-                    prognostic=outputs[-1], step=step
+                    prognostic=prev_output, step=step
                 )
 
             decodings = self.forward_once(input_tensor)
@@ -63,7 +73,7 @@ class BaseModel(torch.nn.Module):
                 pred = decodings  # Absolute prediction
 
             if loss_fn is not None:
-                if torch.isnan(loss).all():
+                if step == 0:
                     loss = loss_fn(
                         pred,
                         train_data.get_label(step),
@@ -96,7 +106,7 @@ class BaseModel(torch.nn.Module):
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
-            logging.info(
+            logger.info(
                 f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
                 f"of {steps_completed + num_steps - 1}."
             )

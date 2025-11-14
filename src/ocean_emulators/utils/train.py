@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 from xarray_einstats.einops import rearrange  # noqa: F401
 
-from ocean_emulators.datasets import InferenceDataset, TrainData
+from ocean_emulators.datasets import InferenceDataset, RawTrainData
 from ocean_emulators.utils.data import LoadStats
 
 
@@ -16,21 +16,22 @@ def pairwise(iterable):
     return zip(a, b)
 
 
-def collate_train_data(data: Sequence[TrainData]) -> TrainData:
-    num_prognostic_channels = data[0].num_prognostic_channels
-    steps = len(data[0])
+def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
+    batched_data = RawTrainData(data[0].dataset_id)
+    assert all(d.dataset_id == batched_data.dataset_id for d in data), (
+        "we don't support heterogenous batches yet"
+    )
 
-    batched_data = TrainData(num_prognostic_channels)
+    steps = len(data[0].raw_data)
+    for step in range(steps):
+        all_prognostic = torch.stack([d.raw_data[step][0] for d in data])
+        all_boundary = torch.stack([d.raw_data[step][1] for d in data])
+        batched_data.insert(all_prognostic, all_boundary)
 
     stats = LoadStats.accumulated(
         [d.load_stats for d in data if d.load_stats is not None]
     )
     batched_data.load_stats = stats
-
-    for step in range(steps):
-        input = torch.stack([d.get_input(step) for d in data])
-        label = torch.stack([d.get_label(step) for d in data])
-        batched_data.insert(input, label)
 
     return batched_data
 

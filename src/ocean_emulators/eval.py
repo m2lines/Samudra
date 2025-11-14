@@ -124,6 +124,8 @@ class Eval:
             wet=self.wet.to(self.device),
             area_weights=self.area_weights,
             static_data=self.static_data,
+            lat=torch.from_numpy(self.data.lat.values),
+            lon=torch.from_numpy(self.data.lon.values),
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)

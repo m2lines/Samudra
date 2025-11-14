@@ -6,12 +6,13 @@ from typing import Annotated, Literal, Self, assert_never
 import cftime
 import torch
 import xarray as xr
+from perceiver_pytorch import Perceiver as NaivePerceiver
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 from torch import nn
 from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
+from ocean_emulators.constants import BoundaryVarNames, Grid, Lat, LoaderVersion, Lon
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
@@ -28,6 +29,8 @@ from ocean_emulators.models.modules import (
     TransposedConvUpsample,
     UNetBackbone,
 )
+from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
+from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.profiler import Profiler
@@ -286,23 +289,97 @@ class CorrectorConfig(BaseConfig):
         )
 
 
+PerceiverImpl = Literal["auto", "naive", "flash"]
+
+
+class PerceiverConfig(BaseConfig):
+    """A standard config interface to various perceiver implementations.
+
+    The `implementation="auto"` option will guess what is the best implementation given the runtime environment.
+    """
+
+    implementation: PerceiverImpl = "auto"
+    depth: int = 6
+    latent_dim: int = Field(
+        default=128,
+        description="The small, latent dimension of the Perceiver. This is the `N` dimension for the Perceiver's `O(M*N)` complexity",
+    )
+    num_latents: int = Field(
+        default=512,
+        description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
+    )
+
+    def build(
+        self, in_channels: int, out_channels: int, patch_size: tuple[int, int]
+    ) -> nn.Module:
+        # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
+        max_freq = max(*patch_size)
+
+        # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
+        #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
+        if (
+            self.implementation == "auto" and torch.cuda.is_available()
+        ) or self.implementation == "flash":
+            try:
+                from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
+            except ModuleNotFoundError as e:
+                raise ValueError(
+                    "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
+                ) from e
+            perceiver = FlashPerceiver(
+                latent_rotary_emb_dim=max_freq,
+                depth=self.depth,
+                input_dim=in_channels,
+                output_dim=out_channels,
+                output_mode="average",
+                latent_dim=self.latent_dim,
+                num_latents=self.num_latents,
+                use_flash_attn=True,
+                weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
+                self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
+            )
+        elif (
+            self.implementation == "auto" and not torch.cuda.is_available()
+        ) or self.implementation == "naive":
+            perceiver = NaivePerceiver(
+                num_freq_bands=4,
+                max_freq=max_freq,
+                depth=self.depth,
+                input_axis=2,  # Number of positional dims before token dim
+                input_channels=in_channels,
+                num_classes=out_channels,
+                latent_dim=self.latent_dim,
+                num_latents=self.num_latents,
+                weight_tie_layers=True,  # share weights of cross-attn blocks
+                self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+            )
+        else:
+            raise ValueError(
+                f"Unknown perceiver implementation: {self.implementation}."
+            )
+
+        return perceiver
+
+
 class EncoderConfig(BaseConfig):
     patch_size: int | list[int] = Field(
         default=4,
         description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
     )
-    perceiver_depth: int = 6
+    perceiver: PerceiverConfig = PerceiverConfig()
 
-    def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
+    def build(
+        self, in_channels: int, out_channels: int, lat: Lat, lon: Lon
+    ) -> PerceiverEncoder:
         if (
             isinstance(self.patch_size, list)
             and len(self.patch_size) == 2
             and isinstance(self.patch_size[0], int)
             and isinstance(self.patch_size[1], int)
         ):
-            patch_size: int | tuple[int, int] = self.patch_size[0], self.patch_size[1]
+            patch_size: tuple[int, int] = self.patch_size[0], self.patch_size[1]
         elif isinstance(self.patch_size, int):
-            patch_size = self.patch_size
+            patch_size = self.patch_size, self.patch_size
         else:
             raise ValueError(
                 "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
@@ -312,12 +389,16 @@ class EncoderConfig(BaseConfig):
             in_channels=in_channels,
             out_channels=out_channels,
             patch_size=patch_size,
-            perceiver_depth=self.perceiver_depth,
+            perceiver=self.perceiver.build(in_channels, out_channels, patch_size),
+            lat=lat,
+            lon=lon,
         )
 
 
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
-UpSamplingBlocks = Literal["bilinear_upsample", "transposed_conv"]
+UpSamplingBlocks = Literal[
+    "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
+]
 Checkpointing = Literal["all", "simple"]
 
 
@@ -349,6 +430,8 @@ class UNetBackboneConfig(BaseConfig):
                     return TransposedConvUpsample(
                         in_channels=in_channels, out_channels=out_channels
                     )
+                case "zonally_periodic_upsample":
+                    return ZonallyPeriodicBilinearUpsample()
                 case _:
                     assert_never(self.up_sampling_block)
 
@@ -388,6 +471,16 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         and nonlinearities.""",
     )
 
+    gradient_detach_interval: int = Field(
+        default=0,
+        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
+    )
+
+    add_3d_coordinates: bool = Field(
+        default=False,
+        description="Add 3d coordinates representing position on the Earth (cartesian coordinates on a unit sphere) to the input channels.",
+    )
+
     @abc.abstractmethod
     def build(
         self,
@@ -397,6 +490,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: Lat,
+        lon: Lon,
     ) -> BaseModel:
         pass
 
@@ -417,11 +512,18 @@ class SamudraConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: Lat,
+        lon: Lon,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
             corrector = self.corrector.build(hist, area_weights, static_data)
-        total_in_channels = in_channels + self.pos_channels
+        total_in_channels = (
+            in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
+        )
+        add_3d_coordinates = (
+            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+        )
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -435,9 +537,11 @@ class SamudraConfig(BaseModelConfig):
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
+            add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             wet=wet,
             static_data=static_data,
+            gradient_detach_interval=self.gradient_detach_interval,
         )
 
 
@@ -455,23 +559,32 @@ class FOMOConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: Lat,
+        lon: Lon,
     ) -> FOMO:
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        add_3d_coordinates = (
+            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+        )
         return FOMO(
-            in_channels=in_channels,
+            in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.embedding_dim),
+            encoder=self.encoder.build(in_channels, self.embedding_dim, lat, lon),
             processor=self.processor.build(
                 self.embedding_dim,
                 self.pad,
                 self.checkpointing,
             ),
             # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
+            add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             wet=wet,
             static_data=static_data,
+            checkpointing=self.checkpointing,
+            gradient_detach_interval=self.gradient_detach_interval,
         )
 
 

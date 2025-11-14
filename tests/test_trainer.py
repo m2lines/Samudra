@@ -8,14 +8,12 @@ import torch
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
-from tests.conftest import DEFAULT_CONFIG, FOMO_CONFIG, TrainPair
+from tests.conftest import DEFAULT_CONFIG, TrainPair
 
 
 @pytest.mark.manual
 @pytest.mark.parametrize(
-    "data_source,config_name",
-    [("mock", DEFAULT_CONFIG), ("mock", FOMO_CONFIG)],
-    indirect=True,
+    "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
 )
 def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
     caplog.set_level(logging.INFO)

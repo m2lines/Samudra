@@ -2,6 +2,8 @@ import logging
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
+logger = logging.getLogger(__name__)
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -123,7 +125,7 @@ class WandBLogger(Multiton):
                 self.run = wandb.init(**kwargs)
                 self._initialized = True
             except Exception as e:
-                logging.error(f"Failed to initialize wandb: {e}")
+                logger.error(f"Failed to initialize wandb: {e}")
                 self._enabled = False
 
     def watch(self, model, **kwargs):

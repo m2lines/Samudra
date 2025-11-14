@@ -19,9 +19,11 @@ class Samudra(BaseModel):
         unet: UNetBackbone,
         corrector: nn.Module | None,
         pos_channels: int,
+        add_3d_coordinates: nn.Module,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
+        gradient_detach_interval: int,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -32,6 +34,7 @@ class Samudra(BaseModel):
             last_kernel_size=last_kernel_size,
             pad=pad,
             static_data=static_data,
+            gradient_detach_interval=gradient_detach_interval,
         )
 
         if pos_channels > 0:
@@ -43,6 +46,7 @@ class Samudra(BaseModel):
             self.register_parameter("positional_params", None)
 
         layers = [
+            add_3d_coordinates,
             # Add UNet core.
             unet,
             # Samudra "decoder".

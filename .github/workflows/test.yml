@@ -14,11 +14,11 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  test:
+  test-cpu:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
         # Invalidate the data cache every time the data source changes.
         # If an exact cache isn't found, fall back to previous cache.
@@ -34,12 +34,12 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: uv sync --locked --dev --all-extras
+        run: uv sync --locked --dev
 
       - name: Run pytest
         run: uv run --locked pytest -n 2 -v -m "not manual and not cuda"

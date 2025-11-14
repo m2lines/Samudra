@@ -162,6 +162,7 @@ class DataSource:
         data = self.data.sel(time=time.time_slice)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
 
+    # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
         norm = (self.data - self.means) / self.stds
@@ -169,6 +170,7 @@ class DataSource:
             norm = norm.fillna(fill_value)
         return norm
 
+    # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize_with(
         self,
         data: torch.Tensor,
@@ -507,7 +509,7 @@ def compute_anomalies(
         for var in anomalies_vars:
             base_var = var.replace("_anomalies", "")
             if var not in data.variables and base_var in data.variables:
-                logging.info(f"Computing anomalies for {base_var}")
+                logger.info(f"Computing anomalies for {base_var}")
                 climatology = (
                     data[base_var].groupby("time.dayofyear").mean("time").compute()
                 )

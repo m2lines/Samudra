@@ -2,6 +2,8 @@ import logging
 
 import torch
 
+logger = logging.getLogger(__name__)
+
 from ocean_emulators.config import (
     DistributedConfig,
     EvalBackendConfig,
@@ -26,19 +28,19 @@ def init_train_backend(
             device = torch.device("cuda")
             dist_cfg = init_distributed_mode()
         case "auto" if torch.cuda.is_available():
-            logging.info("auto backend detected CUDA")
+            logger.info("auto backend detected CUDA")
             device = torch.device("cuda")
             try:
                 dist_cfg = init_distributed_mode()
-                logging.info("succeeded in initializing distributed mode")
+                logger.info("succeeded in initializing distributed mode")
             except RuntimeError as e:
-                logging.info(
-                    f"Failed to initialize distributed mode, running on single node.",
+                logger.info(
+                    f"Failed to initialize distributed mode, running on single GPU.",
                     exc_info=e,
                 )
                 dist_cfg = None
         case "auto":
-            logging.info("auto backend: cuda not found, using CPU")
+            logger.info("auto backend: cuda not found, using CPU")
             device = torch.device("cpu")
             dist_cfg = None
         case _:
@@ -59,10 +61,10 @@ def init_eval_backend(backend: EvalBackendConfig) -> torch.device:
         case "cuda":
             device = torch.device("cuda")
         case "auto" if torch.cuda.is_available():
-            logging.info("auto backend detected CUDA")
+            logger.info("auto backend detected CUDA")
             device = torch.device("cuda")
         case "auto":
-            logging.info("auto backend: cuda not found, using CPU")
+            logger.info("auto backend: cuda not found, using CPU")
             device = torch.device("cpu")
         case _:
             raise ValueError(f"Invalid backend: {backend}")

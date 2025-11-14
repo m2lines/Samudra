@@ -27,9 +27,10 @@ dependencies = [
   "cftime>=1.6.4.post1",
   "dacite>=1.9.2",
   "dask>=2025.2",
-  "einops>=0.8.1",
+  "einops>=0.7",
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
+  "microsoft-aurora>=1.8",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
   "perceiver-pytorch>=0.8.8",
   "pydantic-settings>=2.8.1",
@@ -47,6 +48,12 @@ dependencies = [
   "xarray-einstats[einops]>=0.8",
   "xesmf>=0.8.10",
   "zarr<3",
+]
+
+optional-dependencies.cuda = [
+  "flash-attn>=2.2.5,<3",
+  "flash-perceiver>=0.2",
+  "torchvision>=0.23",
 ]
 
 [dependency-groups]
@@ -79,7 +86,7 @@ dev = [
 ]
 
 [tool.ruff]
-lint.select = [ "D", "E", "F", "I", "UP", "W" ]
+lint.select = [ "B006", "D", "E", "F", "I", "UP", "W" ]
 # F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 lint.ignore = [
   "D1",
@@ -115,5 +122,11 @@ addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*" ]
+module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*", "aurora.*" ]
 follow_untyped_imports = true
+
+[tool.uv.extra-build-dependencies]
+flash-attn = [ { requirement = "torch", match-runtime = true } ]
+
+[tool.uv.extra-build-variables]
+flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }

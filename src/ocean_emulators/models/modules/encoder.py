@@ -1,25 +1,39 @@
 # Sources inspired by the following implementations:
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
+# - https://github.com/microsoft/aurora/blob/main/aurora/model/encoder.py
 # - https://github.com/lucidrains/vit-pytorch
 
 import torch
+from aurora.model.fourier import pos_expansion, scale_expansion
+from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange
 from jaxtyping import Float
-from perceiver_pytorch import Perceiver
 from torch import nn
 
-from ocean_emulators.constants import Input
+from ocean_emulators.constants import Input, Lat, Lon
 
 
 class PerceiverEncoder(nn.Module):
     """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
+
+    We adopt some of Aurora's positional encodings[1], which uses log-spaced fourier features with geometry-informed
+    wavelengths. These encode 2d positions (the average latitude and longitude of each patch) as well as grid cell area
+    (measured in km^2) for each token before it enters the processor.
+
+    > Note: We assume that data along the lat/lon coordinates are positioned at the center of each grid point! Please
+    > ensure this is the case at the data processing time.
 
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         out_channels (int): size of the latent dimension (aka, the embedding dimension).
         patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
           If a tuple is supplied, then it represents the (height, width) of the patches to embed.
-        perceiver_depth (int): depth of the perceiver module core.
+        perceiver (nn.Module): the perceiver module implementation to use.
+        lat (torch.Tensor): A vector of latitudes representing the center of the grid point.
+        lon (torch.Tensor): A vector of longitudes representing the center of the grid point.
+
+    References:
+        [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
     """
 
     # TODO(alxmrs): Implement gradient checkpointing
@@ -28,7 +42,9 @@ class PerceiverEncoder(nn.Module):
         in_channels: int,
         out_channels: int,
         patch_size: int | tuple[int, int],
-        perceiver_depth: int,
+        perceiver: nn.Module,
+        lat: Lat,
+        lon: Lon,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -40,19 +56,13 @@ class PerceiverEncoder(nn.Module):
             )
             self.patch_size = patch_size
         self.out_channels: int = out_channels  # aka, `embed_dim`.
+        self.perceiver = perceiver
+        self.lat, self.lon = lat, lon
+        # TODO(#451): The input to these position and scale linear units could be a hparam.
+        self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
+        self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
 
-        self.norm_patches = nn.LayerNorm(self.in_channels)
-        self.perceiver = Perceiver(
-            num_freq_bands=4,
-            max_freq=1.0,
-            depth=perceiver_depth,
-            input_axis=2,  # Number of positional dims before token dim
-            input_channels=self.in_channels,
-            num_classes=out_channels,
-        )
-        self.norm_embedding = nn.LayerNorm(out_channels)
-
-    def forward(self, x: Input) -> Float[torch.Tensor, "batch h w {self.embed_dim}"]:
+    def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
 
         # V is a cross product of variable, level (encoded in vars), and time (has history).
@@ -71,17 +81,38 @@ class PerceiverEncoder(nn.Module):
             ph=self.patch_size[0],
             pw=self.patch_size[1],
         )
-        # This is applying a layer norm across all our data channels. I am not sure if this will have a positive or
-        # negative effect. It may make it easier for the Perceiver to process data across scales, but it destroys the
-        # physical relationships in the data and aggregates across depth level and history. We should be cautious here.
-        x = self.norm_patches(x)
-        x = self.perceiver(x)
+        # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
+        x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)
+
+        # Make `x` amenable to adding position + scale encoding
         x = rearrange(
             x,
-            "(b h w) l -> b h w l",
+            "(b h w) l -> b (h w) l ",
             h=(H // self.patch_size[0]),
             w=(W // self.patch_size[1]),
         )
-        x = self.norm_embedding(x)
+
+        # Calculate and add positional + scale encoding
+        pos_encode, scale_encode = pos_scale_enc(
+            self.out_channels,  # aka "embed_dim"
+            self.lat,
+            self.lon,
+            self.patch_size,
+            # TODO(#452): Pos and scale wavelengths range all the way to the whole Earth by default; we could probably
+            #  better tune these for our Oceans modeling use case.
+            pos_expansion=pos_expansion,
+            scale_expansion=scale_expansion,
+        )
+        pos_encoding = self.pos_embed(pos_encode.to(dtype=x.dtype)).unsqueeze(0)
+        scale_encoding = self.scale_embed(scale_encode.to(dtype=x.dtype)).unsqueeze(0)
+        x = x + pos_encoding + scale_encoding
+
+        # Unpack spatial channels, move channel dimension to correct location.
+        x = rearrange(
+            x,
+            "b (h w) l -> b l h w",
+            h=(H // self.patch_size[0]),
+            w=(W // self.patch_size[1]),
+        )
 
         return x

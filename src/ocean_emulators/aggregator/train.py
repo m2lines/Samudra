@@ -20,13 +20,11 @@ class TrainAggregator:
 
     @torch.no_grad()
     def record_batch(self, batch: TrainBatchOutput):
-        if torch.isnan(self._loss):
+        if self._n_batches == 0:
             self._loss = batch.loss
-        else:
-            self._loss += batch.loss
-        if torch.isnan(self._loss_per_channel).all():
             self._loss_per_channel = batch.loss_per_channel
         else:
+            self._loss += batch.loss
             self._loss_per_channel += batch.loss_per_channel
         self._n_batches += 1
 

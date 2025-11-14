@@ -59,7 +59,8 @@ model:
   embedding_dim: 2
 
   encoder:
-    perceiver_depth: 2
+    perceiver:
+      depth: 2
 
   processor:
     ch_width: [2, 2]

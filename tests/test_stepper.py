@@ -162,6 +162,7 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
         last_kernel_size=3,
         pad="circular",
         static_data=None,
+        gradient_detach_interval=0,
     )
 
     model.eval()
@@ -216,6 +217,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
         last_kernel_size=3,
         pad="circular",
         static_data=None,
+        gradient_detach_interval=0,
     )
 
     model.eval()

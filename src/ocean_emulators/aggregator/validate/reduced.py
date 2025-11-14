@@ -25,7 +25,7 @@ class AreaWeightedReducedMetric:
         compute_metric: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     ):
         self._compute_metric = compute_metric
-        self._total = torch.tensor(torch.nan)
+        self._total: torch.Tensor | None = None
         self._device = device
 
     def record(self, target: torch.Tensor, gen: torch.Tensor):
@@ -36,12 +36,13 @@ class AreaWeightedReducedMetric:
             gen: Generated data. Should have shape [batch, time, height, width].
         """
         new_value = self._compute_metric(target, gen).mean(dim=0)
-        if torch.isnan(self._total).all():
+        if self._total is None:
             self._total = torch.zeros_like(new_value, device=self._device)
         self._total += new_value
 
     def get(self) -> torch.Tensor:
         """Returns the metric."""
+        assert self._total is not None
         return self._total
 
 
@@ -107,10 +108,15 @@ class MeanAggregator(ValidateSubAggregator):
         gen_data,
         target_data_norm,
         gen_data_norm,
-        input_data: dict[str, torch.Tensor] = {},
-        input_data_norm: dict[str, torch.Tensor] = {},
+        input_data: dict[str, torch.Tensor] | None = None,
+        input_data_norm: dict[str, torch.Tensor] | None = None,
         i_time_start: int = 0,
     ):
+        if input_data is None:
+            input_data = {}
+        if input_data_norm is None:
+            input_data_norm = {}
+
         variable_metrics = self._get_variable_metrics(gen_data)
         time_dim = 1
         time_len = gen_data[list(gen_data.keys())[0]].shape[time_dim]

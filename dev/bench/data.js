@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763130598901,
+  "lastUpdate": 1763147445696,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5259,6 +5259,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5468311086815899",
             "extra": "mean: 87.606462417 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3be11c5090059290924458876bad540a68186cac",
+          "message": "Fix space leak due to local vars existing beyond a single loop iteration (#463)\n\nPreviously `single_step_data`, `input` and `label` all continued to\nexist throughout the next train step and kept that GPU-side data alive.",
+          "timestamp": "2025-11-14T13:45:36-05:00",
+          "tree_id": "136af1c771ecb1f67a936aee612e6d3952f33c93",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/3be11c5090059290924458876bad540a68186cac"
+        },
+        "date": 1763147444906,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.581774233411737,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02212584036820577",
+            "extra": "mean: 632.2014728000056 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19188257976588552,
+            "unit": "iter/sec",
+            "range": "stddev: 0.025154564189581043",
+            "extra": "mean: 5.211520510200001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01139744845148868,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7065519363283873",
+            "extra": "mean: 87.73893597819999 sec\nrounds: 5"
           }
         ]
       }

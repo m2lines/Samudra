@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763147447008,
+  "lastUpdate": 1763149117216,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5304,6 +5304,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7065519363283873",
             "extra": "mean: 87.73893597819999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8a0a5c21d350c7cdd93d7d6e4841042ae72e3a1a",
+          "message": "Ensure zero bias is white-colored (#462)\n\nPreviously this plot would produce images like this:\n<img width=\"7159\" height=\"3188\" alt=\"SST_map_snapshot_t_597 (2)\"\nsrc=\"https://github.com/user-attachments/assets/c70b162a-860c-4073-8180-c32cf8961b5f\"\n/>\n\nWhere zero bias was quite red-colored. We now ensure the colorbar is\ncentered at zero:\n\n<img width=\"7159\" height=\"3188\" alt=\"SST_map_snapshot_t_597 (3)\"\nsrc=\"https://github.com/user-attachments/assets/a00e9bfa-29ac-48a2-b7ed-e99ed1753262\"\n/>\n\nThe OHC plots look like they have a similar bug but I can't actually\nmake it happen so I'm guessing it's not actually a problem due to the\nway the data is processed before plotting.",
+          "timestamp": "2025-11-14T19:12:35Z",
+          "tree_id": "386c2f9fd66e6bb25e0f1da8f536895c1d5fce12",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/8a0a5c21d350c7cdd93d7d6e4841042ae72e3a1a"
+        },
+        "date": 1763149116461,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.5957093856267608,
+            "unit": "iter/sec",
+            "range": "stddev: 0.016965221596756386",
+            "extra": "mean: 626.6805278000049 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18585881714114794,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0381952321215011",
+            "extra": "mean: 5.380428087199993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.010715409617091524,
+            "unit": "iter/sec",
+            "range": "stddev: 1.260694645331255",
+            "extra": "mean: 93.32354391799996 sec\nrounds: 5"
           }
         ]
       }

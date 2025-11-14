@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763061384342,
+  "lastUpdate": 1763130597510,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5214,6 +5214,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 3.146206020286329",
             "extra": "mean: 91.64248266339999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "94416916+GHOpenonic@users.noreply.github.com",
+            "name": "Cody Cruz",
+            "username": "GHOpenonic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "45dc242c7667b44ebb9f952c7c43fd21daa0f0f6",
+          "message": "add LLC_mean_std calculation file (#440)\n\nThis adds the mean and std calculation file for LLC data\n\n---------\n\nCo-authored-by: codycruz <codycruz@node2905.inband>\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-11-14T14:04:56Z",
+          "tree_id": "cac4f05620281b7d19f03fcf9211350a5a679a4a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/45dc242c7667b44ebb9f952c7c43fd21daa0f0f6"
+        },
+        "date": 1763130596712,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.535697159773145,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04035659252839431",
+            "extra": "mean: 651.1700523999934 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18953640476283212,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010205107244584295",
+            "extra": "mean: 5.276031278800002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.011414683031487759,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5468311086815899",
+            "extra": "mean: 87.606462417 sec\nrounds: 5"
           }
         ]
       }

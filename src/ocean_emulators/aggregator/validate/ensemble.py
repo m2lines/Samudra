@@ -54,6 +54,10 @@ class EnsembleAggregator(ValidateSubAggregator):
         """Return a Python float from a 0-D tensor, with NaN/Inf guarded to 0.0."""
         v = x.detach()
         if not torch.isfinite(v):
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"_safe_scalar: non-finite value {v.item()}, returning 0.0")
             return 0.0
         return float(v.item())
 
@@ -93,6 +97,23 @@ class EnsembleAggregator(ValidateSubAggregator):
 
         E, B, C, H, W = ensemble_data.shape
 
+        # Debug logging
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.debug(
+            f"EnsembleAggregator.record_batch: E={E}, B={B}, C={C}, H={H}, W={W}"
+        )
+        logger.debug(
+            f"EnsembleAggregator.record_batch: ensemble_data min/max = {ensemble_data.min():.4f}/{ensemble_data.max():.4f}"
+        )
+        logger.debug(
+            f"EnsembleAggregator.record_batch: target_data keys = {list(target_data.keys())}"
+        )
+        logger.debug(
+            f"EnsembleAggregator.record_batch: var_to_channel = {self._var_to_channel}"
+        )
+
         # Initialize member accumulator length once
         if self._ensemble_size is None:
             self._ensemble_size = E
@@ -120,11 +141,21 @@ class EnsembleAggregator(ValidateSubAggregator):
         per_var_rmse = []
         per_var_mae = []
 
+        logger.debug(
+            f"  Starting per-variable metrics, looping over {len(self._var_to_channel)} vars"
+        )
+
         for var, ch in self._var_to_channel.items():
             if var not in target_data or var not in gen_data:
                 # Skip if either is missing
+                logger.debug(
+                    f"    Skipping var '{var}' (ch={ch}): not in target_data={var not in target_data} or gen_data={var not in gen_data}"
+                )
                 continue
             if ch < 0 or ch >= C:
+                logger.debug(
+                    f"    Skipping var '{var}': channel {ch} out of range [0, {C})"
+                )
                 continue
 
             # Targets and predictions for this variable
@@ -200,12 +231,23 @@ class EnsembleAggregator(ValidateSubAggregator):
                     rmse_member = torch.sqrt(mse_per_sample.mean())
                     member_rmse_vals.append(rmse_member)
 
+                    # Debug first iteration
+                    if e == 0 and len(member_rmse_vals) == 1:
+                        logger.debug(
+                            f"  First member, first var '{var}': RMSE = {rmse_member.item():.6f}"
+                        )
+
                 if member_rmse_vals:
                     member_rmse_mean = torch.stack(member_rmse_vals).mean()
                     self._member_rmse_sum[e] += self._safe_scalar(member_rmse_mean)
+                    logger.debug(
+                        f"  Member {e}: computed {len(member_rmse_vals)} vars, mean RMSE = {member_rmse_mean.item():.6f}"
+                    )
                 else:
                     # No variables, keep as 0 increment
-                    pass
+                    logger.warning(
+                        f"  Member {e}: NO variables matched for per-member RMSE!"
+                    )
 
         self._n_batches += 1
 

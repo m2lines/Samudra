@@ -726,6 +726,16 @@ class Trainer:
                         ensemble_size=self.ensemble_size,
                         is_crps=self.is_crps,
                     )
+                    # Debug: check if ensemble_data is set
+                    if data_iter_step == 0:
+                        if VO.ensemble_data is None:
+                            logger.warning(
+                                f"First validation batch: VO.ensemble_data is None!"
+                            )
+                        else:
+                            logger.info(
+                                f"First validation batch: VO.ensemble_data.shape = {VO.ensemble_data.shape}"
+                            )
                 else:
                     VO = Stepper.validate_batch(
                         self.model,

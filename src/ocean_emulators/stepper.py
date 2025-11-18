@@ -88,7 +88,27 @@ class Stepper:
                 ensemble_outs_list.append(outs)
 
             # Stack: (ensemble_size, batch, channels, lat, lon)
+            # Note: forward_once may return (B,T,C,H,W) or (B,C,H,W)
+            # Ensure we have (E,B,C,H,W) for ensemble_data
             ensemble_outs = torch.stack(ensemble_outs_list, dim=0)
+
+            # Debug: log shape before processing
+            logger.debug(
+                f"validate_batch: ensemble_outs.shape before = {ensemble_outs.shape}"
+            )
+
+            # Remove time dimension if present (take last time step)
+            if ensemble_outs.ndim == 6:  # (E, B, T, C, H, W)
+                ensemble_outs = ensemble_outs[:, :, -1, :, :, :]  # (E, B, C, H, W)
+                logger.debug(
+                    f"validate_batch: removed time dim, new shape = {ensemble_outs.shape}"
+                )
+
+            # Verify final shape
+            if ensemble_outs.ndim != 5:
+                raise ValueError(
+                    f"Expected ensemble_outs to be 5D (E,B,C,H,W), got {ensemble_outs.ndim}D: {ensemble_outs.shape}"
+                )
 
             # Compute ensemble mean as the prediction
             outs = ensemble_outs.mean(dim=0)

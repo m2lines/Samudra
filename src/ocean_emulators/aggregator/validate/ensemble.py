@@ -250,6 +250,11 @@ class EnsembleAggregator(ValidateSubAggregator):
                         )
                         logger.debug(f"    mse_per_sample: {mse_per_sample}")
 
+                        # Drop into debugger for interactive inspection
+                        import pdb
+
+                        pdb.set_trace()
+
                 if member_rmse_vals:
                     member_rmse_mean = torch.stack(member_rmse_vals).mean()
                     self._member_rmse_sum[e] += self._safe_scalar(member_rmse_mean)

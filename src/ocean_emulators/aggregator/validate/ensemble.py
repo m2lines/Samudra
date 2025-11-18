@@ -68,9 +68,30 @@ class EnsembleAggregator(ValidateSubAggregator):
         """
         Area-weighted spatial mean of x over (H,W) per sample (B,).
         x_bhw: (B, H, W), w_hw: (H, W) normalized to sum=1.
+
+        NaN values in x_bhw are masked out and their corresponding weights
+        are renormalized so the weighted mean is computed only over valid values.
         """
         B, H, W = x_bhw.shape
-        return (x_bhw * w_hw).view(B, H * W).sum(dim=1)
+
+        # Create mask for finite (valid) values
+        valid_mask = torch.isfinite(x_bhw)  # (B, H, W)
+
+        # Set NaN values to zero for computation
+        x_masked = torch.where(valid_mask, x_bhw, torch.zeros_like(x_bhw))
+
+        # Expand weights and mask them
+        w_expanded = w_hw.unsqueeze(0).expand(B, H, W)  # (B, H, W)
+        w_masked = torch.where(valid_mask, w_expanded, torch.zeros_like(w_expanded))
+
+        # Compute weighted sum and weight sum per batch
+        weighted_sum = (x_masked * w_masked).view(B, H * W).sum(dim=1)  # (B,)
+        weight_sum = w_masked.view(B, H * W).sum(dim=1)  # (B,)
+
+        # Avoid division by zero (if all values in a batch are NaN)
+        weight_sum = weight_sum.clamp_min(1e-12)
+
+        return weighted_sum / weight_sum  # (B,)
 
     @torch.no_grad()
     def record_batch(

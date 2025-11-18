@@ -143,11 +143,11 @@ class AreaWeightedReducedMetric:
         # Note(mkeutgen):  this prevents a dimension mismatch error
         target = target.squeeze()
         gen = gen.squeeze()
-        
+
         new_value = (
             self._compute_metric(target=target, gen=gen).mean(dim=0).to(self._device)
         )
-        
+
         if self._total is None:
             self._total = torch.zeros(
                 [self._n_timesteps], dtype=new_value.dtype, device=self._device

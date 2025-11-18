@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=schemas/TrainConfig.json
 
-debug: true  # Enable debug mode for early exit
+debug: false  # Enable debug mode for early exit
 disk_mode: true
 pin_mem: true
 save_freq: 5

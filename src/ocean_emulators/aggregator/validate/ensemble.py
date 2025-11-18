@@ -236,6 +236,19 @@ class EnsembleAggregator(ValidateSubAggregator):
                         logger.debug(
                             f"  First member, first var '{var}': RMSE = {rmse_member.item():.6f}"
                         )
+                        logger.debug(
+                            f"    tgt_bhw: shape={tgt_bhw.shape}, finite={torch.isfinite(tgt_bhw).all().item()}"
+                        )
+                        logger.debug(
+                            f"    member_ch_bhw: shape={member_ch_bhw.shape}, finite={torch.isfinite(member_ch_bhw).all().item()}"
+                        )
+                        logger.debug(
+                            f"    diff2: finite_count={torch.isfinite(diff2).sum().item()}/{diff2.numel()}"
+                        )
+                        logger.debug(
+                            f"    w_hw: sum={w_hw.sum().item()}, nonzero_count={(w_hw > 0).sum().item()}"
+                        )
+                        logger.debug(f"    mse_per_sample: {mse_per_sample}")
 
                 if member_rmse_vals:
                     member_rmse_mean = torch.stack(member_rmse_vals).mean()

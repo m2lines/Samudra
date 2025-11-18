@@ -233,7 +233,13 @@ class EnsembleAggregator(ValidateSubAggregator):
 
                     # Debug first iteration - ONLY ON RANK 0 to avoid multiple outputs
                     if e == 0 and len(member_rmse_vals) == 1:
+                        import torch.distributed as dist
+
                         from ocean_emulators.utils.distributed import is_main_process
+
+                        # Synchronize all processes before debugging
+                        if dist.is_available() and dist.is_initialized():
+                            dist.barrier()
 
                         if is_main_process():
                             import pdb
@@ -258,6 +264,10 @@ class EnsembleAggregator(ValidateSubAggregator):
                             logger.info(
                                 f"  member_ch_bhw all finite? {torch.isfinite(member_ch_bhw).all().item()}"
                             )
+
+                        # Wait for rank 0 to finish debugging before continuing
+                        if dist.is_available() and dist.is_initialized():
+                            dist.barrier()
                             logger.info(
                                 f"  member_ch_bhw finite count: {torch.isfinite(member_ch_bhw).sum().item()}/{member_ch_bhw.numel()}"
                             )

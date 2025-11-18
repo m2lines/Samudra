@@ -231,29 +231,56 @@ class EnsembleAggregator(ValidateSubAggregator):
                     rmse_member = torch.sqrt(mse_per_sample.mean())
                     member_rmse_vals.append(rmse_member)
 
-                    # Debug first iteration
+                    # Debug first iteration - ONLY ON RANK 0 to avoid multiple outputs
                     if e == 0 and len(member_rmse_vals) == 1:
-                        logger.debug(
-                            f"  First member, first var '{var}': RMSE = {rmse_member.item():.6f}"
-                        )
-                        logger.debug(
-                            f"    tgt_bhw: shape={tgt_bhw.shape}, finite={torch.isfinite(tgt_bhw).all().item()}"
-                        )
-                        logger.debug(
-                            f"    member_ch_bhw: shape={member_ch_bhw.shape}, finite={torch.isfinite(member_ch_bhw).all().item()}"
-                        )
-                        logger.debug(
-                            f"    diff2: finite_count={torch.isfinite(diff2).sum().item()}/{diff2.numel()}"
-                        )
-                        logger.debug(
-                            f"    w_hw: sum={w_hw.sum().item()}, nonzero_count={(w_hw > 0).sum().item()}"
-                        )
-                        logger.debug(f"    mse_per_sample: {mse_per_sample}")
+                        from ocean_emulators.utils.distributed import is_main_process
 
-                        # Drop into debugger for interactive inspection
-                        import pdb
+                        if is_main_process():
+                            import pdb
 
-                        pdb.set_trace()
+                            pdb.set_trace()
+                            logger.info(
+                                f"=== DETAILED DEBUG FOR FIRST VAR '{var}' (ch={ch}) ==="
+                            )
+                            logger.info(f"  tgt_bhw.shape: {tgt_bhw.shape}")
+                            logger.info(
+                                f"  tgt_bhw all finite? {torch.isfinite(tgt_bhw).all().item()}"
+                            )
+                            logger.info(
+                                f"  tgt_bhw finite count: {torch.isfinite(tgt_bhw).sum().item()}/{tgt_bhw.numel()}"
+                            )
+                            if torch.isfinite(tgt_bhw).any():
+                                logger.info(
+                                    f"  tgt_bhw[finite] min/max: {tgt_bhw[torch.isfinite(tgt_bhw)].min().item():.6f} / {tgt_bhw[torch.isfinite(tgt_bhw)].max().item():.6f}"
+                                )
+
+                            logger.info(f"  member_ch_bhw.shape: {member_ch_bhw.shape}")
+                            logger.info(
+                                f"  member_ch_bhw all finite? {torch.isfinite(member_ch_bhw).all().item()}"
+                            )
+                            logger.info(
+                                f"  member_ch_bhw finite count: {torch.isfinite(member_ch_bhw).sum().item()}/{member_ch_bhw.numel()}"
+                            )
+                            if torch.isfinite(member_ch_bhw).any():
+                                logger.info(
+                                    f"  member_ch_bhw[finite] min/max: {member_ch_bhw[torch.isfinite(member_ch_bhw)].min().item():.6f} / {member_ch_bhw[torch.isfinite(member_ch_bhw)].max().item():.6f}"
+                                )
+
+                            logger.info(
+                                f"  diff2 finite count: {torch.isfinite(diff2).sum().item()}/{diff2.numel()}"
+                            )
+                            if torch.isfinite(diff2).any():
+                                logger.info(
+                                    f"  diff2[finite] min/max: {diff2[torch.isfinite(diff2)].min().item():.6f} / {diff2[torch.isfinite(diff2)].max().item():.6f}"
+                                )
+
+                            logger.info(f"  w_hw.sum(): {w_hw.sum().item()}")
+                            logger.info(
+                                f"  w_hw nonzero count: {(w_hw > 0).sum().item()}/{w_hw.numel()}"
+                            )
+                            logger.info(f"  mse_per_sample: {mse_per_sample}")
+                            logger.info(f"  rmse_member: {rmse_member.item():.6f}")
+                            logger.info(f"=== END DEBUG ===")
 
                 if member_rmse_vals:
                     member_rmse_mean = torch.stack(member_rmse_vals).mean()

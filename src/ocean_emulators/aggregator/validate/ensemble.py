@@ -118,23 +118,6 @@ class EnsembleAggregator(ValidateSubAggregator):
 
         E, B, C, H, W = ensemble_data.shape
 
-        # Debug logging
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.debug(
-            f"EnsembleAggregator.record_batch: E={E}, B={B}, C={C}, H={H}, W={W}"
-        )
-        logger.debug(
-            f"EnsembleAggregator.record_batch: ensemble_data min/max = {ensemble_data.min():.4f}/{ensemble_data.max():.4f}"
-        )
-        logger.debug(
-            f"EnsembleAggregator.record_batch: target_data keys = {list(target_data.keys())}"
-        )
-        logger.debug(
-            f"EnsembleAggregator.record_batch: var_to_channel = {self._var_to_channel}"
-        )
-
         # Initialize member accumulator length once
         if self._ensemble_size is None:
             self._ensemble_size = E
@@ -162,21 +145,10 @@ class EnsembleAggregator(ValidateSubAggregator):
         per_var_rmse = []
         per_var_mae = []
 
-        logger.debug(
-            f"  Starting per-variable metrics, looping over {len(self._var_to_channel)} vars"
-        )
-
         for var, ch in self._var_to_channel.items():
             if var not in target_data or var not in gen_data:
-                # Skip if either is missing
-                logger.debug(
-                    f"    Skipping var '{var}' (ch={ch}): not in target_data={var not in target_data} or gen_data={var not in gen_data}"
-                )
                 continue
             if ch < 0 or ch >= C:
-                logger.debug(
-                    f"    Skipping var '{var}': channel {ch} out of range [0, {C})"
-                )
                 continue
 
             # Targets and predictions for this variable
@@ -252,78 +224,9 @@ class EnsembleAggregator(ValidateSubAggregator):
                     rmse_member = torch.sqrt(mse_per_sample.mean())
                     member_rmse_vals.append(rmse_member)
 
-                    # Debug first iteration - ONLY ON RANK 0 to avoid multiple outputs
-                    if e == 0 and len(member_rmse_vals) == 1:
-                        import torch.distributed as dist
-
-                        from ocean_emulators.utils.distributed import is_main_process
-
-                        # Synchronize all processes before debugging
-                        if dist.is_available() and dist.is_initialized():
-                            dist.barrier()
-
-                        if is_main_process():
-                            import pdb
-
-                            pdb.set_trace()
-                            logger.info(
-                                f"=== DETAILED DEBUG FOR FIRST VAR '{var}' (ch={ch}) ==="
-                            )
-                            logger.info(f"  tgt_bhw.shape: {tgt_bhw.shape}")
-                            logger.info(
-                                f"  tgt_bhw all finite? {torch.isfinite(tgt_bhw).all().item()}"
-                            )
-                            logger.info(
-                                f"  tgt_bhw finite count: {torch.isfinite(tgt_bhw).sum().item()}/{tgt_bhw.numel()}"
-                            )
-                            if torch.isfinite(tgt_bhw).any():
-                                logger.info(
-                                    f"  tgt_bhw[finite] min/max: {tgt_bhw[torch.isfinite(tgt_bhw)].min().item():.6f} / {tgt_bhw[torch.isfinite(tgt_bhw)].max().item():.6f}"
-                                )
-
-                            logger.info(f"  member_ch_bhw.shape: {member_ch_bhw.shape}")
-                            logger.info(
-                                f"  member_ch_bhw all finite? {torch.isfinite(member_ch_bhw).all().item()}"
-                            )
-
-                        # Wait for rank 0 to finish debugging before continuing
-                        if dist.is_available() and dist.is_initialized():
-                            dist.barrier()
-                            logger.info(
-                                f"  member_ch_bhw finite count: {torch.isfinite(member_ch_bhw).sum().item()}/{member_ch_bhw.numel()}"
-                            )
-                            if torch.isfinite(member_ch_bhw).any():
-                                logger.info(
-                                    f"  member_ch_bhw[finite] min/max: {member_ch_bhw[torch.isfinite(member_ch_bhw)].min().item():.6f} / {member_ch_bhw[torch.isfinite(member_ch_bhw)].max().item():.6f}"
-                                )
-
-                            logger.info(
-                                f"  diff2 finite count: {torch.isfinite(diff2).sum().item()}/{diff2.numel()}"
-                            )
-                            if torch.isfinite(diff2).any():
-                                logger.info(
-                                    f"  diff2[finite] min/max: {diff2[torch.isfinite(diff2)].min().item():.6f} / {diff2[torch.isfinite(diff2)].max().item():.6f}"
-                                )
-
-                            logger.info(f"  w_hw.sum(): {w_hw.sum().item()}")
-                            logger.info(
-                                f"  w_hw nonzero count: {(w_hw > 0).sum().item()}/{w_hw.numel()}"
-                            )
-                            logger.info(f"  mse_per_sample: {mse_per_sample}")
-                            logger.info(f"  rmse_member: {rmse_member.item():.6f}")
-                            logger.info(f"=== END DEBUG ===")
-
                 if member_rmse_vals:
                     member_rmse_mean = torch.stack(member_rmse_vals).mean()
                     self._member_rmse_sum[e] += self._safe_scalar(member_rmse_mean)
-                    logger.debug(
-                        f"  Member {e}: computed {len(member_rmse_vals)} vars, mean RMSE = {member_rmse_mean.item():.6f}"
-                    )
-                else:
-                    # No variables, keep as 0 increment
-                    logger.warning(
-                        f"  Member {e}: NO variables matched for per-member RMSE!"
-                    )
 
         self._n_batches += 1
 

@@ -522,7 +522,7 @@ class SamudraConfig(BaseModelConfig):
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
         add_3d_coordinates = (
-            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else None
         )
         return Samudra(
             in_channels=total_in_channels,

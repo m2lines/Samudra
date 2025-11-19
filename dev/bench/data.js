@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763578579390,
+  "lastUpdate": 1763578580589,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10887,6 +10887,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.987834290689783",
             "extra": "mean: 78.33949752460003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "78c07ebb5685163061e79a6528d0f0ced60d6d80",
+          "message": "Updated `add_3d_coordinates` feature to preserve backwards compatibility with previous checkpoints. (#469)\n\nWhen the `nn.Module` is `nn.Identity`, we now omit adding it to the\nmodules list. This allows for backwards compatibility in the Samudra\nmodel. Since we have so few checkpoints in FOMO, I'm not applying this\npattern there.",
+          "timestamp": "2025-11-19T18:30:31Z",
+          "tree_id": "78907e64ab352e5a6d49f5fc1ef4a43e343ed27d",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/78c07ebb5685163061e79a6528d0f0ced60d6d80"
+        },
+        "date": 1763578580270,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.6044262294718679,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028647496705860826",
+            "extra": "mean: 623.2757740000125 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.19014502844744507,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06423608121231307",
+            "extra": "mean: 5.259143550399972 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.01312857834345534,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5490111756181556",
+            "extra": "mean: 76.16970960900002 sec\nrounds: 5"
           }
         ]
       }

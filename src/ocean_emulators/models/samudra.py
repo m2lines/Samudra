@@ -46,12 +46,15 @@ class Samudra(BaseModel):
             self.register_parameter("positional_params", None)
 
         layers = [
-            add_3d_coordinates,
             # Add UNet core.
             unet,
             # Samudra "decoder".
             nn.Conv2d(unet.out_channels, out_channels, last_kernel_size),
         ]
+
+        # This preserves backwards compatibility with previous checkpoints.
+        if not isinstance(add_3d_coordinates, nn.Identity):
+            layers.insert(0, add_3d_coordinates)
 
         self.layers = nn.ModuleList(layers)
         self.corrector = corrector

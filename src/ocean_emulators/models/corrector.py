@@ -9,7 +9,7 @@ from torch import Tensor
 
 from ocean_emulators.aggregator.metrics import area_weighted_sum
 from ocean_emulators.constants import (
-    SECONDS_PER_5DAY,
+    SECONDS_PER_TIME_STEP,
     Boundary,
     HistBatched,
     HistChanneled,
@@ -148,7 +148,7 @@ def compute_expected_heat_content_change(
     # Expected change in heat content from surface flux
     dHC_expected = (
         area_weighted_func(surface_heat_flux * sea_surface_fraction_tensor)
-        * SECONDS_PER_5DAY
+        * SECONDS_PER_TIME_STEP
     )  # [J]
 
     # Apply geothermal heat flux
@@ -197,7 +197,7 @@ class OceanHeatCorrector(BaseCorrector):
             self.area_weighted_func(
                 self.hfgeou_tensor * self.sea_surface_fraction_tensor
             )
-            * SECONDS_PER_5DAY
+            * SECONDS_PER_TIME_STEP
         )
 
     def forward(self, fts_input: Input, fts: Prognostic) -> Prognostic:

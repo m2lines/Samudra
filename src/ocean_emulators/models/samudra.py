@@ -19,7 +19,7 @@ class Samudra(BaseModel):
         unet: UNetBackbone,
         corrector: nn.Module | None,
         pos_channels: int,
-        add_3d_coordinates: nn.Module,
+        add_3d_coordinates: nn.Module | None,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
@@ -53,7 +53,7 @@ class Samudra(BaseModel):
         ]
 
         # This preserves backwards compatibility with previous checkpoints.
-        if not isinstance(add_3d_coordinates, nn.Identity):
+        if add_3d_coordinates is not None:
             layers.insert(0, add_3d_coordinates)
 
         self.layers = nn.ModuleList(layers)

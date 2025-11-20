@@ -485,6 +485,7 @@ class Trainer:
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
         # iters = len(self.train_loader)
+
         # Ensure gradients are zeroed at the start of the epoch so we don't
         # accidentally accumulate leftovers from checkpoint/loading.
         self.optimizer.zero_grad()
@@ -510,13 +511,9 @@ class Trainer:
 
             # Only step optimizer and clip gradients after accumulating enough batches
             if (data_iter_step + 1) % self.gradient_accumulation_steps == 0:
-                # Gradient clipping
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-
-                # Update EMA after optimizer step
                 self._ema(model=self.model)
 
             lr = (
@@ -602,8 +599,6 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
             self.optimizer.step()
             self._ema(model=self.model)
-            # Clear gradients after the final step as well so subsequent epochs
-            # start with a clean state.
             self.optimizer.zero_grad()
 
         if self.scheduler is not None:

@@ -270,7 +270,7 @@ class Trainer:
             f"(batch_size={cfg.batch_size} × "
             f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
         )
-        if is_main_process():
+        if self.is_wandb_enabled():
             self.wandb_logger.log(
                 {
                     "config/effective_batch_size": effective_batch_size,
@@ -593,10 +593,10 @@ class Trainer:
             self.profiler.after_batch(self.num_batches_seen)
 
         # Handle any remaining accumulated gradients at the end of the epoch
-        # This happens when total batches don't divide evenly by accumulation steps
-        if data_iter_step % self.gradient_accumulation_steps != 0:
+        if (data_iter_step + 1) % self.gradient_accumulation_steps != 0:
+            num_accumulated = (data_iter_step + 1) % self.gradient_accumulation_steps
             logger.info(
-                f"Performing final optimizer step with {data_iter_step % self.gradient_accumulation_steps} "
+                f"Performing final optimizer step with {num_accumulated} "
                 f"accumulated gradients"
             )
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)

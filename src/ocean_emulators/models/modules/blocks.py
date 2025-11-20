@@ -274,6 +274,7 @@ class ConvNeXtBlock(CoreBlock):
         self.convblock = torch.nn.Sequential(*convblock)
         self.checkpoint_simple = checkpoint_simple
 
+    @torch.compile(fullgraph=True, options={"trace.graph_diagram": True})
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)

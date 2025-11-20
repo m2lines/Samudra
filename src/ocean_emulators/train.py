@@ -527,8 +527,8 @@ class Trainer:
 
             self.optimizer.zero_grad()
 
-            if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+            # if self.num_batches_seen == 0:
+            #     get_model_summary(self.model, data, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
             TO.loss.backward()

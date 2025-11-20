@@ -12,7 +12,7 @@ loss: crps
 ensemble_size_train: 2
 val_freq_steps: 500
 finetune: false
-resume_ckpt_path: /scratch/ag11542/models/local_om4_samudra_crps/saved_nets/best_validation_ckpt.pt
+resume_ckpt_path: /scratch/ag11542/models/local_om4_samudra_crps_retrained/saved_nets/best_validation_ckpt.pt
 inference_epochs: []
 data_percent: 1.0
 train_time:

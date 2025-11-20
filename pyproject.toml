@@ -125,6 +125,9 @@ check_untyped_defs = true
 module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*", "aurora.*" ]
 follow_untyped_imports = true
 
+[tool.uv]
+python-preference = "only-managed"
+
 [tool.uv.extra-build-dependencies]
 flash-attn = [ { requirement = "torch", match-runtime = true } ]
 

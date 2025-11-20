@@ -146,6 +146,7 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
 
+    # @torch.compile(fullgraph=True, dynamic=False, options={"trace.graph_diagram": True})
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
@@ -178,11 +179,10 @@ class UNetBackbone(nn.Module):
                     or isinstance(layer, TransposedConvUpsample)
                     or isinstance(layer, ZonallyPeriodicBilinearUpsample)
                 ):
-                    crop = np.array(fts.shape[2:])
-                    shape = np.array(
-                        skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
-                    )
-                    pads = shape - crop
+                    crop = fts.shape[2:]
+                    shape = skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
+                    
+                    pads = (shape[0] - crop[0], shape[1] - crop[1])
                     pads = [
                         pads[1] // 2,
                         pads[1] - pads[1] // 2,

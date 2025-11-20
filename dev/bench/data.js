@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1763653517583,
+  "lastUpdate": 1763653518874,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10977,6 +10977,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5490111756181556",
             "extra": "mean: 76.16970960900002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f4a48d01ec1b8a4b541df981a2b65b06ff2f0a5",
+          "message": "Remove TIME_DELTA constant and compute inference steps from data directly (#471)\n\nThe underlying bug in #468 was that the TIME_DELTA was set to 5 but the\nactual time between individual steps in @mkeutgen's dataset was 1 day.\nThis lead to a mismatch between the size of the array the inference\naggregators were accumulating into and the actual produced data's shape.\n\nThis is the only place that constant was still used and it seems like we\ncan compute the steps more directly from the data so this kind of error\ncan't happen again.\n\n@mkeutgen if you wouldn't mind trying out this change with your data\nthat would be a great sanity check!\n\nCloses #468",
+          "timestamp": "2025-11-20T10:17:44-05:00",
+          "tree_id": "b44119a14d960fb2134264bb52afc55b8490aa0f",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/5f4a48d01ec1b8a4b541df981a2b65b06ff2f0a5"
+        },
+        "date": 1763653518514,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 1.5783694861483786,
+            "unit": "iter/sec",
+            "range": "stddev: 0.029476281723530652",
+            "extra": "mean: 633.5652132000178 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.18537580261907227,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021739838099081706",
+            "extra": "mean: 5.39444731120002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.test.yaml]",
+            "value": 0.011974544932334925,
+            "unit": "iter/sec",
+            "range": "stddev: 0.44976988671674994",
+            "extra": "mean: 83.51048041079999 sec\nrounds: 5"
           }
         ]
       }

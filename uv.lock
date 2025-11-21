@@ -2443,6 +2443,12 @@ wheels = [
 ]
 
 [[package]]
+name = "natten"
+version = "0.21.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5a/ca/002c2a2bb8503af754831b60b89f86ab5b289605bbcfba65daf9923eaccd/natten-0.21.1.tar.gz", hash = "sha256:69263d3e0586e2058c20c0610c6c31ad016834b31860cb096d50614c6039742e", size = 2713938, upload-time = "2025-10-26T20:16:46.303Z" }
+
+[[package]]
 name = "nbclient"
 version = "0.10.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2816,6 +2822,7 @@ dependencies = [
     { name = "jaxtyping" },
     { name = "matplotlib" },
     { name = "microsoft-aurora" },
+    { name = "natten" },
     { name = "numpy" },
     { name = "perceiver-pytorch" },
     { name = "pydantic-settings" },
@@ -2826,6 +2833,7 @@ dependencies = [
     { name = "scipy" },
     { name = "skypilot", extra = ["aws"] },
     { name = "sqlalchemy" },
+    { name = "timm" },
     { name = "torch" },
     { name = "torchinfo" },
     { name = "wandb" },
@@ -2882,7 +2890,8 @@ requires-dist = [
     { name = "flash-perceiver", marker = "extra == 'cuda'", specifier = ">=0.2" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.1" },
-    { name = "microsoft-aurora", specifier = ">=1.8.0" },
+    { name = "microsoft-aurora", specifier = ">=1.8" },
+    { name = "natten", specifier = ">=0.21.1" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
     { name = "perceiver-pytorch", specifier = ">=0.8.8" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
@@ -2893,6 +2902,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "skypilot", extras = ["aws", "lambda"], specifier = ">=0.10" },
     { name = "sqlalchemy", specifier = ">=2" },
+    { name = "timm", specifier = ">=1.0.22" },
     { name = "torch", specifier = "~=2.8.0" },
     { name = "torchinfo", specifier = ">=1.8" },
     { name = "torchvision", marker = "extra == 'cuda'", specifier = ">=0.23" },

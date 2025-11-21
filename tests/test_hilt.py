@@ -23,7 +23,6 @@ def create_hilt_model():
         depths: list[int] | None = None,
         num_heads: list[int] | None = None,
         kernel_sizes: list[int] | None = None,
-        decoder_depths: list[int] | None = None,
         stem_downsample: int = 2,
     ):
         """Create a minimal HilT model for testing.
@@ -35,14 +34,12 @@ def create_hilt_model():
             depths: Encoder stage depths (default: [1, 1])
             num_heads: Attention heads per stage (default: [2, 4])
             kernel_sizes: NAT kernel sizes (default: [7, 5])
-            decoder_depths: Decoder stage depths (default: [1])
             stem_downsample: Stem downsampling factor
         """
         # Use minimal defaults for fast testing
         depths = depths or [1, 1]
         num_heads = num_heads or [2, 4]
         kernel_sizes = kernel_sizes or [7, 5]
-        decoder_depths = decoder_depths or [1]
 
         with MultitonScope():
             # Set up minimal data structures needed by HilT
@@ -83,7 +80,6 @@ def create_hilt_model():
                 depths=depths,
                 num_heads=num_heads,
                 kernel_sizes=kernel_sizes,
-                decoder_depths=decoder_depths,
                 stem_downsample=stem_downsample,
             ).build(
                 in_channels=2,
@@ -204,7 +200,6 @@ def test_hilt_larger_architecture(create_hilt_model):
         depths=[1, 2, 2],  # 3 encoder stages
         num_heads=[2, 4, 8],
         kernel_sizes=[9, 7, 5],
-        decoder_depths=[1, 1],  # 2 decoder stages
         stem_downsample=2,
     )
     loss_fn = torch.nn.MSELoss()

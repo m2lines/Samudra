@@ -1,7 +1,7 @@
 """Hilbert Transformer Ocean Emulator.
 
-This module implements HilT, a U-Net architecture with Hilbert curve-based
-local attention for efficient ocean emulation.
+This module implements HilT, a simple encoder-decoder architecture with
+Hilbert curve-based local attention for efficient ocean emulation.
 
 See https://openreview.net/forum?id=ltYXDRLDGW
 """
@@ -83,16 +83,15 @@ class OceanStem(nn.Module):
         return x
 
 
-class OceanUpsampler(nn.Module):
-    """Upsampling block for HilT decoder using existing ocean components.
+class SimpleUpsampler(nn.Module):
+    """Simple upsampling block for encoder-decoder architecture.
 
-    Combines existing upsampling strategies with format conversions for transformers.
+    Just upsamples without skip connections or attention.
 
     Args:
-        in_dim: Input dimension (after skip concat)
+        in_dim: Input dimension
         out_dim: Output dimension
         upsample_type: Type of upsampling ('bilinear', 'transposed_conv')
-        norm_layer: Normalization layer (default: LayerNorm)
     """
 
     def __init__(
@@ -100,27 +99,20 @@ class OceanUpsampler(nn.Module):
         in_dim: int,
         out_dim: int,
         upsample_type: str = "bilinear",
-        norm_layer=nn.LayerNorm,
     ):
         super().__init__()
-        self.upsample_type = upsample_type
-
         if upsample_type == "bilinear":
-            self.upsample: nn.Module = BilinearUpsample(upsampling=2)
-            # Need conv to change channels after upsampling
-            self.proj: nn.Module = nn.Conv2d(in_dim, out_dim, kernel_size=3, padding=1)
-        elif upsample_type == "transposed_conv":
+            self.upsample: nn.Module = nn.Sequential(
+                BilinearUpsample(upsampling=2),
+                nn.Conv2d(in_dim, out_dim, kernel_size=3, padding=1),
+            )
+        else:
             self.upsample = TransposedConvUpsample(
                 in_channels=in_dim,
                 out_channels=out_dim,
                 upsampling=2,
-                activation=lambda: nn.Identity(),  # No activation, will use LayerNorm
+                activation=lambda: nn.Identity(),
             )
-            self.proj = nn.Identity()
-        else:
-            raise ValueError(f"Unknown upsample_type: {upsample_type}")
-
-        self.norm = norm_layer(out_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass.
@@ -129,80 +121,73 @@ class OceanUpsampler(nn.Module):
             x: Input tensor (B, H, W, C) in transformer format
 
         Returns:
-            Output tensor (B, 2H, 2W, out_dim) in transformer format
+            Output tensor (B, 2H, 2W, C') in transformer format
         """
         # Convert to conv format
         x = x.permute(0, 3, 1, 2)  # (B, C, H, W)
 
         # Upsample
-        x = self.upsample(x)  # (B, in_dim, 2H, 2W)
-        x = self.proj(x)  # (B, out_dim, 2H, 2W)
+        x = self.upsample(x)  # (B, C', 2H, 2W)
 
         # Convert back to transformer format
-        x = x.permute(0, 2, 3, 1)  # (B, 2H, 2W, out_dim)
-        x = self.norm(x)
+        x = x.permute(0, 2, 3, 1)  # (B, 2H, 2W, C')
         return x
 
 
 class HilT(BaseModel):
-    """Hilbert Transformer Ocean Emulator.
-
-    U-Net architecture with Hilbert curve-based local attention for efficient
-    processing of large ocean grids. Uses space-filling curves to convert 2D
-    neighborhood attention into efficient 1D sparse attention.
+    """Hilbert Transformer ocean emulator with simple encoder-decoder architecture.
 
     Architecture:
-        - Stem: Downsampling with circular padding
-        - Encoder: 4 stages with Hilbert-ordered neighborhood attention
-        - Decoder: 4 stages with skip connections and upsampling
-        - Output: Projection to prognostic variables
+    - Stem: Downsamples input (e.g., 360×720 → 180×360)
+    - Encoder: 4 stages with Hilbert attention, progressive downsampling
+    - Decoder: Progressive upsampling back to stem resolution
+    - Final upsample: Back to original resolution
+    - Output: Projection to prognostic variables
 
     Args:
         in_channels: Number of input channels
-        out_channels: Number of output channels (prognostic variables)
-        pred_residuals: Whether to predict residuals or absolute values
-        last_kernel_size: Kernel size for final output projection
-        pad: Padding mode for convolutions (default: 'circular')
+        out_channels: Number of output channels
+        wet: Boolean mask for ocean vs land (1=ocean, 0=land)
         hist: History length
-        wet: Ocean/land mask
-        static_data: Static features (e.g., bathymetry)
-        checkpointing: Activation checkpointing strategy
-        gradient_detach_interval: Interval for gradient detaching in autoregressive mode
-        embed_dim: Base embedding dimension (default: 96)
-        depths: Number of blocks per encoder stage (default: [2, 2, 6, 2])
-        num_heads: Number of attention heads per stage (default: [3, 6, 12, 24])
-        kernel_sizes: Attention kernel sizes per stage (default: [11, 11, 9, 7])
-        decoder_depths: Number of blocks per decoder stage (default: [2, 2, 2])
-        mlp_ratio: MLP expansion ratio (default: 4.0)
-        drop_rate: Dropout rate (default: 0.0)
-        attn_drop_rate: Attention dropout rate (default: 0.0)
-        drop_path_rate: Stochastic depth rate (default: 0.1)
-        qkv_bias: Whether to use bias in attention QKV projection (default: True)
-        qk_scale: Scale factor for attention scores (default: None = auto)
-        norm_layer: Normalization layer (default: LayerNorm)
-        add_3d_coordinates: Module to add 3D Earth coordinates (default: None)
-        upsample_type: Type of upsampling in decoder (default: 'bilinear')
-        stem_downsample: Stem downsampling factor (default: 2)
+        pred_residuals: Whether to predict residuals
+        last_kernel_size: Kernel size for final output layer
+        pad: Padding type ('circular' for ocean)
+        static_data: Static data (not used)
+        checkpointing: Checkpointing strategy
+        gradient_detach_interval: Gradient detaching interval
+        embed_dim: Base embedding dimension
+        depths: Number of attention blocks per encoder stage
+        num_heads: Number of attention heads per stage
+        kernel_sizes: Local attention kernel sizes per stage
+        mlp_ratio: MLP expansion ratio
+        drop_rate: Dropout rate
+        attn_drop_rate: Attention dropout rate
+        drop_path_rate: Stochastic depth rate
+        qkv_bias: Whether to use bias in attention QKV projection
+        qk_scale: Scale factor for attention scores
+        norm_layer: Normalization layer
+        add_3d_coordinates: Module to add 3D coordinates
+        upsample_type: Type of upsampling ('bilinear' or 'transposed_conv')
+        stem_downsample: Stem downsampling factor
     """
 
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
-        pred_residuals: bool,
-        last_kernel_size: int,
-        pad: str,
-        hist: int,
         wet: Grid,
-        static_data: xr.Dataset | None,
-        checkpointing: "Checkpointing | None",
-        gradient_detach_interval: int,
+        hist: int,
+        pred_residuals: bool = False,
+        last_kernel_size: int = 3,
+        pad: str = "circular",
+        static_data: xr.Dataset | None = None,
+        checkpointing: "Checkpointing | None" = None,
+        gradient_detach_interval: int = 0,
         # HilT-specific params
         embed_dim: int = 96,
         depths: list[int] | None = None,
         num_heads: list[int] | None = None,
         kernel_sizes: list[int] | None = None,
-        decoder_depths: list[int] | None = None,
         mlp_ratio: float = 4.0,
         drop_rate: float = 0.0,
         attn_drop_rate: float = 0.0,
@@ -230,7 +215,6 @@ class HilT(BaseModel):
         depths = depths or [2, 2, 6, 2]
         num_heads = num_heads or [3, 6, 12, 24]
         kernel_sizes = kernel_sizes or [11, 11, 9, 7]
-        decoder_depths = decoder_depths or [2, 2, 2]
 
         self.num_levels = len(depths)
         self.embed_dim = embed_dim
@@ -285,51 +269,18 @@ class HilT(BaseModel):
                     ConvDownsampler(dim=int(embed_dim * 2**i), norm_layer=norm_layer)
                 )
 
-        # Decoder stages with upsampling and skip connections
-        self.decoder_stages = nn.ModuleList()
+        # Simple decoder: just upsample back (no attention, no skip connections)
         self.upsamplers = nn.ModuleList()
 
         # Build decoder in reverse (from bottleneck up)
         for i in range(self.num_levels - 2, -1, -1):
-            # Upsampler
             upsample_in_dim = int(embed_dim * 2 ** (i + 1))
             upsample_out_dim = int(embed_dim * 2**i)
             self.upsamplers.append(
-                OceanUpsampler(
+                SimpleUpsampler(
                     in_dim=upsample_in_dim,
                     out_dim=upsample_out_dim,
                     upsample_type=upsample_type,
-                    norm_layer=norm_layer,
-                )
-            )
-
-            # Decoder block (after skip connection concat)
-            # Input will be: upsampled features + skip connection
-            # So input dim is: upsample_out_dim + upsample_out_dim = 2 * upsample_out_dim
-            decoder_depth = decoder_depths[min(i, len(decoder_depths) - 1)]
-            decoder_stage = NATBlock(
-                dim=upsample_out_dim * 2,  # After concat with skip
-                depth=decoder_depth,
-                num_heads=num_heads[i],
-                kernel_size=kernel_sizes[i],
-                mlp_ratio=mlp_ratio,
-                qkv_bias=qkv_bias,
-                qk_scale=qk_scale,
-                drop=drop_rate,
-                attn_drop=attn_drop_rate,
-                drop_path=0.0,  # No drop path in decoder
-                norm_layer=norm_layer,
-                downsample=False,
-                sequence_order="gilbert",
-            )
-            self.decoder_stages.append(decoder_stage)
-
-            # Projection to reduce channels after skip concat
-            self.decoder_stages.append(
-                nn.Conv2d(
-                    upsample_out_dim * 2,
-                    upsample_out_dim,
-                    kernel_size=1,
                 )
             )
 
@@ -387,37 +338,17 @@ class HilT(BaseModel):
         # 3. Stem: (B, C, 360, 720) → (B, 180, 360, embed_dim)
         x = self.stem(fts)
 
-        # 4. Encoder path with skip connections
-        encoder_features = []
+        # 4. Encoder path (with Hilbert attention)
         for i, stage in enumerate(self.encoder_stages[:-1]):
             x = stage(x)  # (B, H, W, C) - Hilbert attention applied
-            encoder_features.append(x)
             x = self.downsamplers[i](x)  # (B, H/2, W/2, 2C)
 
         # Bottleneck (no downsampling)
         x = self.encoder_stages[-1](x)
 
-        # 5. Decoder path with skip connections
-        for i, (upsampler, skip) in enumerate(
-            zip(self.upsamplers, reversed(encoder_features))
-        ):
-            # Upsample
-            x = upsampler(x)  # (B, 2H, 2W, C)
-
-            # Concatenate skip connection
-            x = torch.cat([x, skip], dim=-1)  # (B, H, W, 2C)
-
-            # Get decoder stage and projection
-            decoder_stage = self.decoder_stages[i * 2]
-            proj = self.decoder_stages[i * 2 + 1]
-
-            # Refine with attention (in transformer format)
-            x = decoder_stage(x)  # (B, H, W, 2C)
-
-            # Project to reduce channels (need conv format)
-            x = x.permute(0, 3, 1, 2)  # (B, 2C, H, W)
-            x = proj(x)  # (B, C, H, W)
-            x = x.permute(0, 2, 3, 1)  # (B, H, W, C)
+        # 5. Decoder path (simple upsampling, no attention, no skip connections)
+        for upsampler in self.upsamplers:
+            x = upsampler(x)  # (B, 2H, 2W, C/2)
 
         # 6. Final upsample to original resolution
         # x is (B, H_stem, W_stem, embed_dim) → need (B, 360, 720, embed_dim)

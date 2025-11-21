@@ -58,7 +58,6 @@ model:
   depths: [2, 2, 6, 2]          # Encoder stage depths
   num_heads: [3, 6, 12, 24]     # Attention heads per stage
   kernel_sizes: [11, 11, 9, 7]  # NAT kernel sizes (decreasing with resolution)
-  decoder_depths: [2, 2, 2]     # Decoder stage depths
 
   # Transformer hyperparameters
   mlp_ratio: 4.0

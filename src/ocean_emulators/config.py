@@ -591,8 +591,8 @@ class FOMOConfig(BaseModelConfig):
 class HilTConfig(BaseModelConfig):
     """Configuration for Hilbert Transformer ocean emulator.
 
-    HilT uses Hilbert curve-based local attention in a U-Net architecture
-    for efficient ocean emulation on large grids.
+    HilT uses Hilbert curve-based local attention in a simple encoder-decoder
+    architecture for efficient ocean emulation on large grids.
     """
 
     # Architecture
@@ -607,9 +607,6 @@ class HilTConfig(BaseModelConfig):
     )
     kernel_sizes: list[int] = Field(
         default=[11, 11, 9, 7], description="Local attention kernel sizes per stage"
-    )
-    decoder_depths: list[int] = Field(
-        default=[2, 2, 2], description="Number of attention blocks per decoder stage"
     )
 
     # Transformer hyperparameters
@@ -667,7 +664,6 @@ class HilTConfig(BaseModelConfig):
             depths=self.depths,
             num_heads=self.num_heads,
             kernel_sizes=self.kernel_sizes,
-            decoder_depths=self.decoder_depths,
             mlp_ratio=self.mlp_ratio,
             drop_rate=self.drop_rate,
             attn_drop_rate=self.attn_drop_rate,

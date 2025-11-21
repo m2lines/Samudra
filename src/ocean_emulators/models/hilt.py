@@ -11,6 +11,11 @@ if TYPE_CHECKING:
 
 
 class HilT(BaseModel):
+    """Hilbert Transformer Ocean Emulator.
+
+    See https://openreview.net/forum?id=ltYXDRLDGW.
+    """
+
     def __init__(
         self,
         in_channels: int,

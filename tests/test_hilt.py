@@ -173,7 +173,7 @@ def test_hilt_stem_downsampling(create_hilt_model, stem_downsample):
     assert not torch.isnan(loss), f"Loss is NaN with stem_downsample={stem_downsample}"
 
 
-@pytest.mark.skip(reason="NATTEN requires CUDA or Flex Attention support")
+@pytest.mark.cuda
 @pytest.mark.parametrize("batch_size", [1, 2, 4])
 def test_hilt_different_batch_sizes(create_hilt_model, batch_size):
     """Test HilT with different batch sizes."""
@@ -193,7 +193,7 @@ def test_hilt_different_batch_sizes(create_hilt_model, batch_size):
     )
 
 
-@pytest.mark.skip(reason="NATTEN requires CUDA or Flex Attention support")
+@pytest.mark.cuda
 def test_hilt_larger_architecture(create_hilt_model):
     """Test HilT with a larger architecture closer to production config."""
     h, w = 32, 64  # Larger grid

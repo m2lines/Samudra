@@ -166,7 +166,7 @@ class UNetBackbone(nn.Module):
 
             # (Maybe) apply checkpointing
             if self.checkpoint_all and not layer == self.layers[-1]:
-                fts = torch.utils.checkpoint.checkpoint(compute, fts, layer, use_reentrant=False)  # type: ignore
+                fts = torch.utils.checkpoint.checkpoint(compute, fts, layer, use_reentrant=False, debug=True)  # type: ignore
             else:
                 fts = compute(fts, layer)
 

@@ -71,7 +71,7 @@ class Samudra(BaseModel):
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
                 return fts
-            fts = torch.utils.checkpoint.checkpoint(do_padding, fts, use_reentrant=False)
+            fts = torch.utils.checkpoint.checkpoint(do_padding, fts, use_reentrant=False, debug=True)
             fts = self.decoder(fts)
         return fts
 

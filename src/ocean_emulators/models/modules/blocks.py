@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Protocol
+from typing import Protocol, Sequence
 
 import torch
 import torch.nn as nn
@@ -178,7 +178,7 @@ class ConvBlock(CoreBlock):
                 # conv2d layers are expensive so we save their activations,
                 # other (simple) layers are cheap, so we don't save their activations.
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
-                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)
+                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False, debug=True)
             else:
                 fts = layer(fts)
         return fts
@@ -273,27 +273,76 @@ class ConvNeXtBlock(CoreBlock):
         )
         self.convblock = torch.nn.Sequential(*convblock)
         self.checkpoint_simple = checkpoint_simple
+        self.pad_layer = PadLayer(self.N_pad, self.pad)
+
+    def padded_layers(self) -> Sequence[nn.Module]:
+        result = []
+        for layer in self.convblock:
+            if isinstance(layer, nn.Conv2d):
+                if layer.kernel_size[0] != 1:
+                    result.append(self.pad_layer)
+            
+            result.append(layer)
+        return result
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)
-        for layer in self.convblock:
-            def pad_x(x: torch.Tensor) -> torch.Tensor:
-                if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
-                    x = torch.nn.functional.pad(
-                        x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                    )
-                    x = torch.nn.functional.pad(
-                        x, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                    )
-                return x
 
-            x = torch.utils.checkpoint.checkpoint(pad_x, x, use_reentrant=False)
-            if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
-                x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
-            else:
-                x = layer(x)
+        x = checkpoint_sequence(
+            self.padded_layers(), 
+            x, 
+            is_simple=lambda layer: self.checkpoint_simple and not isinstance(layer, nn.Conv2d), 
+        )
+
         return skip + x
+
+class PadLayer(nn.Module):
+    def __init__(self, N_pad: int, pad: str):
+        super().__init__()
+        self.N_pad = N_pad
+        self.pad = pad
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = torch.nn.functional.pad(
+            x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+        )
+        x = torch.nn.functional.pad(
+            x, (0, 0, self.N_pad, self.N_pad), mode="constant"
+        )
+        return x
+
+def checkpoint_sequence(
+    layers: Sequence[nn.Module], 
+    x: torch.Tensor, 
+    is_simple: Callable[[nn.Module], bool],
+) -> torch.Tensor:
+    index = 0
+
+    def should_checkpoint(layer: nn.Module) -> bool:
+        return index < len(layers) - 1 and is_simple(layer)
+
+    while index < len(layers):
+        layer = layers[index]
+        if not should_checkpoint(layer):
+            x = layer(x)
+        else:
+            # we don't want to run checkpoint() on each simple layer, because
+            # checkpoint() *always* saves the x you pass it, so the previous layer,
+            # if simple, would have its activations saved. 
+            # So we collect all the layers up to and including the next non-checkpointed layer.
+            # (We assume the last layer should always be not-checkpointed.)
+            run_group = []
+            while should_checkpoint(layers[index]):
+                run_group.append(layers[index])
+                index += 1
+            run_group.append(layers[index])
+            def compute(run_group: list[nn.Module], x: torch.Tensor) -> torch.Tensor:
+                for layer in run_group:
+                    x = layer(x)
+                return x
+            x = torch.utils.checkpoint.checkpoint(compute, run_group, x, use_reentrant=False, debug=True)
+        index += 1
+    return x
 
 
 class CoreBlockBuilder(Protocol):

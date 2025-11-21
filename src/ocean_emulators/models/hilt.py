@@ -393,7 +393,16 @@ class HilT(BaseModel):
             zip(self.upsamplers, reversed(encoder_features))
         ):
             # Upsample
-            x = upsampler(x)  # (B, 2H, 2W, C)
+            x = upsampler(x)  # (B, ~2H, ~2W, C)
+
+            # Match skip connection size (handle odd dimensions)
+            if x.shape[1:3] != skip.shape[1:3]:
+                # Convert to conv format for interpolation
+                x = x.permute(0, 3, 1, 2)  # (B, C, H, W)
+                x = torch.nn.functional.interpolate(
+                    x, size=skip.shape[1:3], mode="bilinear", align_corners=False
+                )
+                x = x.permute(0, 2, 3, 1)  # (B, H, W, C)
 
             # Concatenate skip connection
             x = torch.cat([x, skip], dim=-1)  # (B, H, W, 2C)

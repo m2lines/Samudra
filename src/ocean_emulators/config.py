@@ -588,7 +588,99 @@ class FOMOConfig(BaseModelConfig):
         )
 
 
-AnyModelConfig = SamudraConfig | FOMOConfig
+class HilTConfig(BaseModelConfig):
+    """Configuration for Hilbert Transformer ocean emulator.
+
+    HilT uses Hilbert curve-based local attention in a U-Net architecture
+    for efficient ocean emulation on large grids.
+    """
+
+    # Architecture
+    embed_dim: int = Field(
+        default=96, description="Base embedding dimension for transformer blocks"
+    )
+    depths: list[int] = Field(
+        default=[2, 2, 6, 2], description="Number of attention blocks per encoder stage"
+    )
+    num_heads: list[int] = Field(
+        default=[3, 6, 12, 24], description="Number of attention heads per stage"
+    )
+    kernel_sizes: list[int] = Field(
+        default=[11, 11, 9, 7], description="Local attention kernel sizes per stage"
+    )
+    decoder_depths: list[int] = Field(
+        default=[2, 2, 2], description="Number of attention blocks per decoder stage"
+    )
+
+    # Transformer hyperparameters
+    mlp_ratio: float = Field(default=4.0, description="MLP expansion ratio")
+    drop_rate: float = Field(default=0.0, description="Dropout rate")
+    attn_drop_rate: float = Field(default=0.0, description="Attention dropout rate")
+    drop_path_rate: float = Field(default=0.1, description="Stochastic depth rate")
+    qkv_bias: bool = Field(
+        default=True, description="Whether to use bias in attention QKV projection"
+    )
+    qk_scale: float | None = Field(
+        default=None, description="Scale factor for attention scores (None = auto)"
+    )
+
+    # Ocean-specific
+    upsample_type: str = Field(
+        default="bilinear",
+        description="Type of upsampling in decoder ('bilinear' or 'transposed_conv')",
+    )
+    stem_downsample: int = Field(
+        default=2,
+        description="Stem downsampling factor (1=no downsample, 2=half resolution)",
+    )
+
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hist: int,
+        wet: Grid,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
+        lat: Lat,
+        lon: Lon,
+    ):
+        from ocean_emulators.models import HilT
+
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        add_3d_coords = (
+            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else None
+        )
+
+        return HilT(
+            in_channels=total_in_channels,
+            out_channels=out_channels,
+            pred_residuals=self.pred_residuals,
+            last_kernel_size=self.last_kernel_size,
+            pad=self.pad,
+            hist=hist,
+            wet=wet,
+            static_data=static_data,
+            checkpointing=self.checkpointing,
+            gradient_detach_interval=self.gradient_detach_interval,
+            embed_dim=self.embed_dim,
+            depths=self.depths,
+            num_heads=self.num_heads,
+            kernel_sizes=self.kernel_sizes,
+            decoder_depths=self.decoder_depths,
+            mlp_ratio=self.mlp_ratio,
+            drop_rate=self.drop_rate,
+            attn_drop_rate=self.attn_drop_rate,
+            drop_path_rate=self.drop_path_rate,
+            qkv_bias=self.qkv_bias,
+            qk_scale=self.qk_scale,
+            add_3d_coordinates=add_3d_coords,
+            upsample_type=self.upsample_type,
+            stem_downsample=self.stem_downsample,
+        )
+
+
+AnyModelConfig = SamudraConfig | FOMOConfig | HilTConfig
 
 
 class DistributedConfig(BaseConfig):

@@ -674,6 +674,7 @@ class HilTConfig(BaseModelConfig):
             drop_path_rate=self.drop_path_rate,
             qkv_bias=self.qkv_bias,
             qk_scale=self.qk_scale,
+            norm_layer=nn.LayerNorm,
             add_3d_coordinates=add_3d_coords,
             upsample_type=self.upsample_type,
             stem_downsample=self.stem_downsample,

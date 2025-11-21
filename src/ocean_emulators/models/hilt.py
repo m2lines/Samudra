@@ -198,21 +198,21 @@ class HilT(BaseModel):
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         # HilT-specific params
-        embed_dim: int = 96,
-        depths: list[int] | None = None,
-        num_heads: list[int] | None = None,
-        kernel_sizes: list[int] | None = None,
-        decoder_depths: list[int] | None = None,
-        mlp_ratio: float = 4.0,
-        drop_rate: float = 0.0,
-        attn_drop_rate: float = 0.0,
-        drop_path_rate: float = 0.1,
-        qkv_bias: bool = True,
-        qk_scale: float | None = None,
-        norm_layer=nn.LayerNorm,
-        add_3d_coordinates: nn.Module | None = None,
-        upsample_type: str = "bilinear",
-        stem_downsample: int = 2,
+        embed_dim: int,
+        depths: list[int],
+        num_heads: list[int],
+        kernel_sizes: list[int],
+        decoder_depths: list[int],
+        mlp_ratio: float,
+        drop_rate: float,
+        attn_drop_rate: float,
+        drop_path_rate: float,
+        qkv_bias: bool,
+        qk_scale: float | None,
+        norm_layer,
+        add_3d_coordinates: nn.Module | None,
+        upsample_type: str,
+        stem_downsample: int,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -225,12 +225,6 @@ class HilT(BaseModel):
             static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
         )
-
-        # Default configurations
-        depths = depths or [2, 2, 6, 2]
-        num_heads = num_heads or [3, 6, 12, 24]
-        kernel_sizes = kernel_sizes or [11, 11, 9, 7]
-        decoder_depths = decoder_depths or [2, 2, 2]
 
         self.num_levels = len(depths)
         self.embed_dim = embed_dim

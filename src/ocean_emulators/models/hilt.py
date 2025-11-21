@@ -375,10 +375,7 @@ class HilT(BaseModel):
         if self.add_3d_coordinates_module is not None:
             fts = self.add_3d_coordinates_module(fts)
 
-        # 2. Apply wet mask to input
-        fts = torch.where(self.wet, fts, 0.0)
-
-        # 3. Stem: (B, C, 360, 720) → (B, 180, 360, embed_dim)
+        # 2. Stem: (B, C, 360, 720) → (B, 180, 360, embed_dim)
         x = self.stem(fts)
 
         # 4. Encoder path with skip connections

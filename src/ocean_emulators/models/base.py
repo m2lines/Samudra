@@ -60,31 +60,32 @@ class BaseModel(torch.nn.Module):
                     prognostic=prev_output, step=step
                 )
 
-            decodings = self.forward_once(input_tensor)
-            if self.pred_residuals:
-                pred = (
-                    input_tensor[
-                        :,
-                        : self.out_channels,
-                    ]  # Residuals on last state in input
-                    + decodings
-                )  # Residual prediction
-            else:
-                pred = decodings  # Absolute prediction
-
-            if loss_fn is not None:
-                if step == 0:
-                    loss = loss_fn(
-                        pred,
-                        train_data.get_label(step),
-                    )
+            with torch.autocast("cuda"):
+                decodings = self.forward_once(input_tensor)
+                if self.pred_residuals:
+                    pred = (
+                        input_tensor[
+                            :,
+                            : self.out_channels,
+                        ]  # Residuals on last state in input
+                        + decodings
+                    )  # Residual prediction
                 else:
-                    loss += loss_fn(
-                        pred,
-                        train_data.get_label(step),
-                    )
+                    pred = decodings  # Absolute prediction
 
-            outputs.append(pred)
+                if loss_fn is not None:
+                    if step == 0:
+                        loss = loss_fn(
+                            pred,
+                            train_data.get_label(step),
+                        )
+                    else:
+                        loss += loss_fn(
+                            pred,
+                            train_data.get_label(step),
+                        )
+
+            outputs.append(pred.to(input_tensor.dtype))
 
         if loss_fn is None:
             return outputs

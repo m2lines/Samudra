@@ -278,13 +278,17 @@ class ConvNeXtBlock(CoreBlock):
         # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)
         for layer in self.convblock:
-            if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
-                x = torch.nn.functional.pad(
-                    x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                x = torch.nn.functional.pad(
-                    x, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
+            def pad_x(x: torch.Tensor) -> torch.Tensor:
+                if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
+                    x = torch.nn.functional.pad(
+                        x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                    )
+                    x = torch.nn.functional.pad(
+                        x, (0, 0, self.N_pad, self.N_pad), mode="constant"
+                    )
+                return x
+
+            x = torch.utils.checkpoint.checkpoint(pad_x, x, use_reentrant=False)
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
             else:

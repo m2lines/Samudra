@@ -136,7 +136,7 @@ class UNetBackbone(nn.Module):
                 dilation=dilation[i],
                 n_layers=n_layers[i],
                 pad=pad,
-                checkpoint_simple=checkpoint_simple,
+                checkpoint_simple=True, # last layer is not checkpointed because we need activations immediately
             )
         )
 
@@ -146,27 +146,29 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
 
-    # @torch.compile(fullgraph=True, dynamic=False, options={"trace.graph_diagram": True})
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
         count = 0
         for layer in self.layers:
-            # Circular/Globe padding
-            if isinstance(layer, nn.Conv2d):
-                fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                fts = torch.nn.functional.pad(
-                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
+            def compute(fts: torch.Tensor, layer: nn.Module) -> torch.Tensor:
+                # Circular/Globe padding
+                if isinstance(layer, nn.Conv2d):
+                    fts = torch.nn.functional.pad(
+                        fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                    )
+                    fts = torch.nn.functional.pad(
+                        fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
+                    )
+
+                return layer(fts)
 
             # (Maybe) apply checkpointing
-            if self.checkpoint_all:
-                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
+            if self.checkpoint_all and not layer == self.layers[-1]:
+                fts = torch.utils.checkpoint.checkpoint(compute, fts, layer, use_reentrant=False)  # type: ignore
             else:
-                fts = layer(fts)
+                fts = compute(fts, layer)
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:

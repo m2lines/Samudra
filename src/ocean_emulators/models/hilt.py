@@ -371,6 +371,9 @@ class HilT(BaseModel):
         Returns:
             Output tensor (B, out_channels, H, W)
         """
+        # Store original size for final upsample (to handle odd dimensions)
+        original_size = fts.shape[2:4]
+
         # 1. Add 3D coordinates if enabled
         if self.add_3d_coordinates_module is not None:
             fts = self.add_3d_coordinates_module(fts)
@@ -420,12 +423,18 @@ class HilT(BaseModel):
             x = x.permute(0, 2, 3, 1)  # (B, H, W, C)
 
         # 6. Final upsample to original resolution
-        # x is (B, H_stem, W_stem, embed_dim) → need (B, 360, 720, embed_dim)
+        # x is (B, H_stem, W_stem, embed_dim) → need (B, H_orig, W_orig, embed_dim)
         x = x.permute(0, 3, 1, 2)  # (B, embed_dim, H_stem, W_stem)
-        x = self.final_upsample(x)  # (B, embed_dim, 360, 720)
+        x = self.final_upsample(x)  # (B, embed_dim, ~H_orig, ~W_orig)
+
+        # Match original size exactly (handle odd dimensions)
+        if x.shape[2:4] != original_size:
+            x = torch.nn.functional.interpolate(
+                x, size=original_size, mode="bilinear", align_corners=False
+            )
 
         # 7. Output projection
-        x = self.output_proj(x)  # (B, out_channels, 360, 720)
+        x = self.output_proj(x)  # (B, out_channels, H_orig, W_orig)
 
         # 8. Apply wet mask to output
         x = torch.where(self.wet, x, 0.0)

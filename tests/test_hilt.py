@@ -173,6 +173,37 @@ def test_hilt_stem_downsampling(create_hilt_model, stem_downsample):
     assert not torch.isnan(loss), f"Loss is NaN with stem_downsample={stem_downsample}"
 
 
+def test_hilt_odd_dimensions(create_hilt_model):
+    """Test HilT with odd dimensions that require interpolation in skip connections.
+
+    This tests the fix for dimension mismatches when downsampling odd-sized dimensions
+    (e.g., 45 -> 22 -> 44 instead of 45), which require interpolation to match skip
+    connection sizes during decoder upsampling.
+    """
+    # Use odd dimensions that will cause mismatches through downsample/upsample
+    h, w = 45, 90
+    model, train_data = create_hilt_model(
+        h=h,
+        w=w,
+        embed_dim=32,
+        depths=[1, 1],  # 2 encoder stages
+        num_heads=[2, 4],
+        kernel_sizes=[7, 5],
+        stem_downsample=2,
+    )
+    loss_fn = torch.nn.MSELoss()
+
+    # Forward pass should handle odd dimensions correctly
+    loss = model(train_data, loss_fn=loss_fn)
+    assert not torch.isnan(loss), "Loss is NaN with odd dimensions"
+    assert not torch.isinf(loss), "Loss is infinite with odd dimensions"
+
+    # Test backward pass as well
+    loss.backward()
+    grad_count = sum(1 for p in model.parameters() if p.grad is not None)
+    assert grad_count > 0, "Model should have gradients after backward pass"
+
+
 @pytest.mark.cuda
 @pytest.mark.parametrize("batch_size", [1, 2, 4])
 def test_hilt_different_batch_sizes(create_hilt_model, batch_size):

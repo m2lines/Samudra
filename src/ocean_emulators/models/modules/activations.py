@@ -54,6 +54,33 @@ class CappedGELU(torch.nn.Module):
         self.cap = torch.nn.Buffer(torch.tensor(cap_value, dtype=torch.float32))
 
     def forward(self, inputs):
-        x = self.gelu(inputs)
-        x = torch.clamp(x, max=self.cap)
-        return x
+        return CappedGELUFunction.apply(inputs, self.cap)
+
+
+# TODO: write a test 
+class CappedGELUFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, x, cap):
+        ctx.save_for_backward(x)
+        ctx.cap = cap
+        result = torch.nn.functional.gelu(x)
+        result.clamp_(max=cap)
+        return result
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        (x,) = ctx.saved_tensors
+        cap = ctx.cap
+
+        # recompute gelu for clamp mask
+        g = torch.nn.functional.gelu(x)
+        mask = (g < cap).to(grad_output.dtype)
+        del g
+
+        # gelu backward gives grad_output * gelu'(x)
+        grad_x = torch.ops.aten.gelu_backward(
+            grad_output, x, approximate="none"
+        )
+
+        grad_x.mul_(mask)
+        return grad_x, None

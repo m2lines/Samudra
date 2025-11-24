@@ -225,7 +225,7 @@ class BlockConfig(BaseConfig):
             case "relu":
                 activation: type[nn.Module] = ReLU
             case "capped_gelu":
-                activation = lambda: torch.jit.script(CappedGELU())
+                activation = CappedGELU
             case "gelu":
                 activation = GELU
             case _:

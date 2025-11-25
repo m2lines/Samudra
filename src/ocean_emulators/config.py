@@ -669,10 +669,10 @@ TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 LossMetric = Literal[
     "mse",
     "mae",
+    "mse_mae",
     "mse_diff_weighted",
     "mse_cos_weighted",
     "mse_residual_scaled",
-    "mse_mae",
 ]
 LossType = Literal["standard", "dynamic"]
 

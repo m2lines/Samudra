@@ -12,13 +12,11 @@ import warnings
 from collections import OrderedDict
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from multiprocessing.context import BaseContext
 from pathlib import Path
-from typing import Any, assert_never
+from typing import Any
 
 import dask
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import (
@@ -78,15 +76,6 @@ from ocean_emulators.utils.logging import (
     get_model_summary,
     handle_logging,
     handle_warnings,
-)
-from ocean_emulators.utils.loss import (
-    DynamicLoss,
-    decomposed_mae,
-    decomposed_mse,
-    decomposed_mse_cos_weighted,
-    decomposed_mse_diff_weighted,
-    decomposed_mse_mae,
-    decomposed_mse_scaled,
 )
 from ocean_emulators.utils.train import (
     CheckpointPaths,
@@ -233,76 +222,23 @@ class Trainer:
         self.nets_dir = cfg.experiment.nets_dir
         self.network = self.model.__class__.__name__
 
-        self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         # Loss function
-        match cfg.loss:
-            case "mse":
-                logger.info("Using decomposed mse loss")
-                self.loss_fn = partial(decomposed_mse, wet=self.wet)
-            case "mse_diff_weighted":
-                assert cfg.data.hist == 1  # TEMP
-                logger.info("Using decomposed mse loss with weighted diff")
-                self.loss_fn = partial(decomposed_mse_diff_weighted, wet=self.wet)
-            case "mse_cos_weighted":
-                logger.info("Using decomposed mse loss with weighted cos")
-                area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
-                area_weights = torch.from_numpy(area_weights).to(device=self.device)
-                self.loss_fn = partial(
-                    decomposed_mse_cos_weighted, wet=self.wet, cos=area_weights
-                )
-            case "mse_residual_scaled":
-                logger.info("Using decomposed mse loss with scaled residuals")
-                assert self.data_container.scaling_residuals is not None, (
-                    "With loss of 'mse_residual_scaled' you"
-                    " must supply a scaling_residuals_file"
-                )
-                scale = torch.from_numpy(
-                    (
-                        self.src.stds[self.prognostic_var_names]
-                        / self.data_container.scaling_residuals[
-                            self.prognostic_var_names
-                        ]
-                    )
-                    .compute()
-                    .to_array()
-                    .to_numpy()
-                ).to(device=self.device)
-                scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
-                self.loss_fn = partial(
-                    decomposed_mse_scaled, wet=self.wet, scaling=scale
-                )
-            case "mse_mae":
-                logger.info("Using decomposed mse loss with mae")
-                self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
-            # The following two cases are here for backwards compatability.
-            case "mse_dynamic" | "mse_dynamic_no_limit":
-                should_limit = cfg.loss == "mse_dynamic"
-                cfg.loss_extension = "dynamic" if should_limit else "dynamic_no_limit"
-                self.loss_fn = partial(decomposed_mse, wet=self.wet)
-            case "mae_dynamic" | "mae_dynamic_no_limit":
-                should_limit = cfg.loss == "mae_dynamic"
-                cfg.loss_extension = "dynamic" if should_limit else "dynamic_no_limit"
-                self.loss_fn = partial(decomposed_mae, wet=self.wet)
-            case _:
-                assert_never(cfg.loss)
-
-        # (Maybe) Extend the loss function.
-        match cfg.loss_extension:
-            case "off":
-                pass
-            case "dynamic_no_limit" | "dynamic":
-                should_limit = "no_limit" not in cfg.loss_extension
-                logger.info(f"Using dynamic loss (limit = {should_limit})")
-                self.loss_fn = DynamicLoss(
-                    stds=torch.from_numpy(
-                        self.src.stds[self.prognostic_var_names].to_array().to_numpy()
-                    ).to(device=self.device),
-                    device=self.wet.device,
-                    should_limit=should_limit,
-                    loss_fn=self.loss_fn,
-                )
-            case _:
-                assert_never(cfg.loss_extension)
+        stds = self.src.stds[self.prognostic_var_names]
+        if self.data_container.scaling_residuals is not None:
+            scaling_residuals = self.data_container.scaling_residuals[
+                self.prognostic_var_names
+            ]
+        else:
+            scaling_residuals = None
+        self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+        self.loss_fn = cfg.loss.build(
+            hist=cfg.data.hist,
+            wet=self.wet,
+            y_coord=self.data.y,
+            device=self.device,
+            stds=stds,
+            scaling_residuals=scaling_residuals,
+        )
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)

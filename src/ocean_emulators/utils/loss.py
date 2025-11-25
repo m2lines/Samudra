@@ -103,16 +103,16 @@ class DynamicLoss:
         should_limit: bool,
         device: torch.device,
     ):
+        self.loss_fn = loss_fn
         self._device = device
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
             stds.shape[0], device=self._device
         )
         if should_limit:
-            vars: Float[torch.Tensor, " var"] = stds.pow(2)
-            self._limits: Float[torch.Tensor, " var"] | None = 1.0 / vars
+            variances: Float[torch.Tensor, " var"] = stds.pow(2)
+            self._limits: Float[torch.Tensor, " var"] | None = 1.0 / variances
         else:
             self._limits = None
-        self.loss_fn = loss_fn
 
     def __call__(
         self,

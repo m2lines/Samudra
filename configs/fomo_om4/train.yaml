@@ -8,7 +8,9 @@ epochs: 70
 batch_size: 4
 learning_rate: 0.0006
 scheduler: { type: cosine }
-loss: mse_dynamic_no_limit
+loss:
+  metric: mse
+  type: dynamic
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []

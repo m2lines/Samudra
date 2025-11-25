@@ -26,9 +26,9 @@ if __name__ == "__main__":
     print(f"Reading Zarr dataset at {src=}.")
     ds = xr.open_zarr(src, chunks={})
 
-    print("Computing mean and std across time.")
-    ds_means = ds.mean("time")
-    ds_stds = ds.std("time")
+    print("Computing mean and std across space and time.")
+    ds_means = ds.mean()
+    ds_stds = ds.std()
 
     mean_path = os.path.join(path, f"{ds_name}_means{ds_ext}")
     print(f"Writing mean Zarr to {mean_path!r}.")

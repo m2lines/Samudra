@@ -5,8 +5,10 @@ import os
 import fsspec
 import xarray as xr
 import sys
+from dask.distributed import LocalCluster
 
 if __name__ == "__main__":
+    client = LocalCluster().get_client()
     # This could be the OSN pod, it just has to be set via environment variable like so:
     # ```
     # export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/

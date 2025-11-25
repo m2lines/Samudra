@@ -10,7 +10,6 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.context import BaseContext
 from pathlib import Path
@@ -77,6 +76,7 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
+from ocean_emulators.utils.loss import LossFn
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -224,20 +224,18 @@ class Trainer:
 
         # Loss function
         stds = self.src.stds[self.prognostic_var_names]
+        scaling_residuals = None
         if self.data_container.scaling_residuals is not None:
             scaling_residuals = self.data_container.scaling_residuals[
                 self.prognostic_var_names
             ]
-        else:
-            scaling_residuals = None
-        self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-        self.loss_fn = cfg.loss.build(
+        self.loss_fn: LossFn = cfg.loss.build(
             hist=cfg.data.hist,
             wet=self.wet,
             y_coord=self.data.y,
-            device=self.device,
             stds=stds,
             scaling_residuals=scaling_residuals,
+            device=self.device,
         )
 
         # Optimizer

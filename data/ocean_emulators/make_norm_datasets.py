@@ -24,7 +24,7 @@ if __name__ == "__main__":
     print(f"Reading Zarr dataset at {src=}.")
     ds = xr.open_zarr(src, chunks={})
 
-    print(f"Computing mean and std across time.")
+    print("Computing mean and std across time.")
     ds_means = ds.mean("time")
     ds_stds = ds.std("time")
 

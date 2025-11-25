@@ -727,10 +727,10 @@ class LossConfig(pydantic.BaseModel):
                 pass
             case "dynamic":
                 loss_fn = DynamicLoss(
-                    stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
-                    device=device,
-                    should_limit=self.limit,
                     loss_fn=loss_fn,
+                    stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
+                    should_limit=self.limit,
+                    device=device,
                 )
             case _:
                 assert_never(self.type)

@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=../schemas/DataConfig.json
-
-data_location: cm4_piControl_ocean_200yr_full_chunked.zarr
-data_means_location: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/centering.nc
-data_stds_location: 2024-11-12-cm4-piControl-ocean-200yr-dataset-stats/scaling-full-field.nc
-static_data_vars:
-    - sea_surface_fraction
-    - hfgeou

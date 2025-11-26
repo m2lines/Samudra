@@ -26,7 +26,7 @@ def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("remote-om4", "train_default_2step.test.yaml")],
+    [("remote-om4", "test/train_default_2step.yaml")],
     indirect=True,
 )
 def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
@@ -38,7 +38,7 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("remote-om4", "train_default_2step.test.yaml")],
+    [("remote-om4", "test/train_default_2step.yaml")],
     indirect=True,
 )
 def test_checkpoint_ema(train_config, caplog):
@@ -61,7 +61,7 @@ def test_checkpoint_ema(train_config, caplog):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("remote-om4", "train_default_2step.test.yaml")],
+    [("remote-om4", "test/train_default_2step.yaml")],
     indirect=True,
 )
 def test_checkpoint_inference(trainer_pair: TrainPair, caplog):

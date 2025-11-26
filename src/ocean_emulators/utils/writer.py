@@ -20,6 +20,12 @@ class ZarrWriter:
         time_chunk_size: int,
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
+
+        if os.path.exists(self.pred_path):
+            raise FileExistsError(
+                f"Predictions already exist at {self.pred_path}. Please choose a unique experiment name, output directory, or delete the existing predictions."
+            )
+
         self.hist = hist
         self.buffer: torch.Tensor | None = None
         self.time_buffer: xr.DataArray | None = None

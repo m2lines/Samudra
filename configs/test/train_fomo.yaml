@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=schemas/TrainConfig.json
+# yaml-language-server: $schema=../schemas/TrainConfig.json
 
 # A config file to test training.
 # Used in automated tests.

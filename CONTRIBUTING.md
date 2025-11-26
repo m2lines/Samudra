@@ -265,7 +265,7 @@ To run a remote viz job with SkyPilot, please use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-uv run sky launch skypilot/eval.sky.yaml \
+uv run sky launch skypilot/viz.sky.yaml \
   --env WANDB_API_KEY \
   --env-file <my-vars>.env \
   --env NAME <my-experiment-name> \

@@ -22,6 +22,6 @@ class Profiler:
                 torch.cuda.memory._dump_snapshot(
                     str(
                         self.output_dir
-                        / f"cuda_memory_snapshot_{num_batches_seen}.json"
+                        / f"cuda_memory_snapshot_{num_batches_seen}.pickle"
                     )
                 )

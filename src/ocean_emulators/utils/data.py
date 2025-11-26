@@ -219,17 +219,6 @@ class DataSource:
         return norm
 
     @classmethod
-    def from_dataset(cls, dataset: xr.Dataset, *, name: str = "dataset") -> Self:
-        """Create a DataSource from the data, computing means and stds."""
-        # TODO(alxmrs): Support compact data
-        assert "lev" not in dataset.dims, "We currently only support non-compact data"
-
-        means = dataset.mean()
-        stds = dataset.std()
-
-        return cls(name=name, data=dataset, means=means, stds=stds)
-
-    @classmethod
     def from_locations(
         cls,
         data_location: ResolvedLocation,

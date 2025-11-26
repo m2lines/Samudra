@@ -45,18 +45,10 @@ class Samudra(BaseModel):
         else:
             self.register_parameter("positional_params", None)
 
-        layers = [
-            # Add UNet core.
-            unet,
-            # Samudra "decoder".
-            nn.Conv2d(unet.out_channels, out_channels, last_kernel_size),
-        ]
+        self.add_3d_coordinates = add_3d_coordinates
+        self.unet = unet
+        self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
-        # This preserves backwards compatibility with previous checkpoints.
-        if add_3d_coordinates is not None:
-            layers.insert(0, add_3d_coordinates)
-
-        self.layers = nn.ModuleList(layers)
         self.corrector = corrector
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
@@ -66,20 +58,17 @@ class Samudra(BaseModel):
             pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)
             fts = torch.cat([fts, pos], dim=1)
 
-        for layer in self.layers:
-            # Circular/Globe padding
-            if isinstance(layer, nn.Conv2d):
-                fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                fts = torch.nn.functional.pad(
-                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
+        if self.add_3d_coordinates is not None:
+            fts = self.add_3d_coordinates(fts)
 
-            # TODO(alxmrs): Find a clean way to checkpoint the decoder Conv block.
-
-            # Apply layer
-            fts = layer(fts)
+        fts = self.unet(fts)
+        fts = torch.nn.functional.pad(
+                fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+        )
+        fts = torch.nn.functional.pad(
+            fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
+        )
+        fts = self.decoder(fts)
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)

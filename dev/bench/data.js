@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764189371266,
+  "lastUpdate": 1764189372325,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11157,6 +11157,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.07972740224826382",
             "extra": "mean: 75.09103497439999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c4a7aea48e85d34cd14794921275c2c62b38cb2",
+          "message": "Memory snapshots are Pickle files, not JSON (#480)\n\nI don't know how I managed to get this wrong and it doesn't seem to\nconfuse the profiling tool, but this makes me feel better.",
+          "timestamp": "2025-11-26T20:11:05Z",
+          "tree_id": "0ca2a31ce63e4c9a61b94162bd8274a1e9154972",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/4c4a7aea48e85d34cd14794921275c2c62b38cb2"
+        },
+        "date": 1764189372008,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5156696178748457,
+            "unit": "iter/sec",
+            "range": "stddev: 0.030563685339046867",
+            "extra": "mean: 659.7743916000127 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18845435597967328,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05850164465784809",
+            "extra": "mean: 5.306324679000045 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013110101984671963,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2476069071177153",
+            "extra": "mean: 76.27705727759994 sec\nrounds: 5"
           }
         ]
       }

@@ -48,17 +48,19 @@ if __name__ == "__main__":
         # Extract depth level from variable name if it exists (e.g., "so_0" -> 0)
         if "_" in var:
             parts = var.rsplit("_", 1)
-            if parts[1].isdigit():
-                level = int(parts[1])
-                mask_name = f"mask_{level}"
+            assert parts[
+                1
+            ].isdigit(), f"{var=} is unexpected; must be follow format `[var]_[digit]`."
+            level = int(parts[1])
+            mask_name = f"mask_{level}"
 
-                if mask_name in ds:
-                    # Apply the mask: set land values to NaN
-                    ds_masked[var] = ds[var].where(ds[mask_name] > 0)
-                    continue
+            if mask_name in ds:
+                # Apply the mask: set land values to NaN
+                ds_masked[var] = ds[var].where(ds[mask_name] > 0)
+                continue
 
         # For 2D ocean variables without depth index, use surface mask (mask_0)
-        if "mask_0" in ds and set(ds[var].dims) == {"time", "y", "x"}:
+        if set(ds[var].dims) == {"time", "y", "x"}:
             ds_masked[var] = ds[var].where(ds["mask_0"] > 0)
 
     ds = ds_masked

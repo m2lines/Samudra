@@ -46,5 +46,5 @@ experiment:
     group: fomo-om4
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
-data: !include ../common/data.yaml
+data: !include ../data/om4.yaml
 model: !include model.yaml

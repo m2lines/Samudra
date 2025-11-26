@@ -53,7 +53,7 @@ if __name__ == "__main__":
                 mask_name = f"mask_{level}"
 
                 if mask_name in ds:
-                    # Apply the mask: set land values to 0
+                    # Apply the mask: set land values to NaN
                     ds_masked[var] = ds[var].where(ds[mask_name] > 0)
                     continue
 

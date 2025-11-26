@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764189372325,
+  "lastUpdate": 1764190706169,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5574,6 +5574,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7742570740245222",
             "extra": "mean: 90.5822691156 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e4df3132f4147b9bb7b723ca64047dde397326c6",
+          "message": "Log data attributes with wandb run (#484)\n\nLogging the original S3 path is a bit tricky since we copy the data down\n(this will also probably get better when/if we stop using skypilot) but\nlogging these attributes seems like a reasonable proxy.\n\nCloses #473",
+          "timestamp": "2025-11-26T20:33:47Z",
+          "tree_id": "e9b6fabf51dd4848c57bf0b33d134ec47c7d8f75",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e4df3132f4147b9bb7b723ca64047dde397326c6"
+        },
+        "date": 1764190705542,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.6460812898282131,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02022880241576271",
+            "extra": "mean: 607.5034119999998 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18900019593007664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04699178858973828",
+            "extra": "mean: 5.290999806000014 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011381158579945892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3733849125404739",
+            "extra": "mean: 87.86451686579997 sec\nrounds: 5"
           }
         ]
       }

@@ -63,7 +63,7 @@ class Samudra(BaseModel):
 
         fts = self.unet(fts)
         fts = torch.nn.functional.pad(
-                fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+            fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
         )
         fts = torch.nn.functional.pad(
             fts, (0, 0, self.N_pad, self.N_pad), mode="constant"

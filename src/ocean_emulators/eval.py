@@ -146,7 +146,7 @@ class Eval:
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
-            None, cfg, finetune=False
+            None, cfg, data_container=self.data_container, finetune=False
         )
 
         # Eval

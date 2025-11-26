@@ -60,7 +60,7 @@ class BaseModel(torch.nn.Module):
                     prognostic=prev_output, step=step
                 )
 
-            with torch.autocast("cuda"):
+            with torch.autocast("cuda", dtype=torch.bfloat16):
                 decodings = self.forward_once(input_tensor)
                 if self.pred_residuals:
                     pred = (

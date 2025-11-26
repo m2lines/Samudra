@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=schemas/TrainConfig.json
+# yaml-language-server: $schema=../schemas/TrainConfig.json
 
 debug: false
 disk_mode: true
@@ -6,7 +6,7 @@ pin_mem: true
 save_freq: 5
 epochs: 70
 batch_size: 4
-learning_rate: 0.0006
+learning_rate: 0.0002
 scheduler: { type: cosine }
 loss: mse_dynamic_no_limit
 finetune: false
@@ -31,47 +31,21 @@ inference_times:
 data_stride: [1]
 steps: [4]
 step_transition: []
+preemptible: false
 
 backend: auto
 
 experiment:
-  name: local_om4_fomo
+  name: samudra_om4_vnext
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
     mode: disabled
     project: ocean-emulators
     entity: m2lines
-    group: samudra-train-om4
+    group: samudra-om4-vnext
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
-data: !include data/public.yaml
 
-model:
-  pred_residuals: false
-  last_kernel_size: 3
-  pad: "circular"
-  checkpointing: "all"
-  embedding_dim: 280
-
-  encoder:
-    patch_size: [12, 20]
-    perceiver:
-      depth: 3
-      latent_dim: 64
-      num_latents: 256
-
-  processor:
-    ch_width: [380, 480, 520]
-    dilation: [1, 1, 1]
-    n_layers: [1, 1, 1]
-
-    core_block:
-      block_type: "conv_next_block"
-      kernel_size: 3
-      activation: "capped_gelu"
-      upscale_factor: 2
-      norm: "batch"
-
-    down_sampling_block: "avg_pool"
-    up_sampling_block: "bilinear_upsample"
+data: !include ../common/data.yaml
+model: !include ../common/model/samudra_wide.yaml

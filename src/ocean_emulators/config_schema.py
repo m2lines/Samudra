@@ -3,6 +3,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from types import UnionType
 
 import pydantic
 import yaml
@@ -37,6 +38,10 @@ def get_pydantic_models(
         field_type = field.annotation
         if isinstance(field_type, type) and issubclass(field_type, pydantic.BaseModel):
             get_pydantic_models(field_type, seen)
+        elif isinstance(field_type, UnionType):
+            for type_ in field_type.__args__:
+                if isinstance(type_, type) and issubclass(type_, pydantic.BaseModel):
+                    get_pydantic_models(type_, seen)
 
     return seen
 

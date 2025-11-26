@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764194958034,
+  "lastUpdate": 1764194959292,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11427,6 +11427,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.22357352929265267",
             "extra": "mean: 78.57305584879998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2177653ccb7acca9b84a5372e075ccc7b192b0ac",
+          "message": "Remove unused method with a bad bug (#485)\n\nAs per\nhttps://openathena.slack.com/archives/C08CYM42DT3/p1764188280159869, we\nshould be masking out land somehow before computing these statistics.\nBut this method is unused (and already kinda unlikely to be what we want\nin the future) so I figured it makes sense to delete it rather than fix.",
+          "timestamp": "2025-11-26T21:44:39Z",
+          "tree_id": "2226a9fe82b0026c347c57d62f5e8363f82acc3b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/2177653ccb7acca9b84a5372e075ccc7b192b0ac"
+        },
+        "date": 1764194958974,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5811674571866994,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02666884197853568",
+            "extra": "mean: 632.44408139999 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19324928101874495,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03285054786540093",
+            "extra": "mean: 5.174663495400023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013444997934781384,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1526332652028275",
+            "extra": "mean: 74.37710328040002 sec\nrounds: 5"
           }
         ]
       }

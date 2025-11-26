@@ -12,7 +12,7 @@ from torch import nn
 from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import BoundaryVarNames, Grid, LoaderVersion
+from ocean_emulators.constants import BoundaryVarNames, Grid, Lat, LoaderVersion, Lon
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
@@ -29,6 +29,7 @@ from ocean_emulators.models.modules import (
     TransposedConvUpsample,
     UNetBackbone,
 )
+from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
@@ -367,7 +368,9 @@ class EncoderConfig(BaseConfig):
     )
     perceiver: PerceiverConfig = PerceiverConfig()
 
-    def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
+    def build(
+        self, in_channels: int, out_channels: int, lat: Lat, lon: Lon
+    ) -> PerceiverEncoder:
         if (
             isinstance(self.patch_size, list)
             and len(self.patch_size) == 2
@@ -387,6 +390,8 @@ class EncoderConfig(BaseConfig):
             out_channels=out_channels,
             patch_size=patch_size,
             perceiver=self.perceiver.build(in_channels, out_channels, patch_size),
+            lat=lat,
+            lon=lon,
         )
 
 
@@ -471,6 +476,11 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
     )
 
+    add_3d_coordinates: bool = Field(
+        default=False,
+        description="Add 3d coordinates representing position on the Earth (cartesian coordinates on a unit sphere) to the input channels.",
+    )
+
     @abc.abstractmethod
     def build(
         self,
@@ -480,6 +490,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: Lat,
+        lon: Lon,
     ) -> BaseModel:
         pass
 
@@ -500,11 +512,18 @@ class SamudraConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: Lat,
+        lon: Lon,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
             corrector = self.corrector.build(hist, area_weights, static_data)
-        total_in_channels = in_channels + self.pos_channels
+        total_in_channels = (
+            in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
+        )
+        add_3d_coordinates = (
+            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else None
+        )
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -518,6 +537,7 @@ class SamudraConfig(BaseModelConfig):
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
+            add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             wet=wet,
             static_data=static_data,
@@ -539,20 +559,27 @@ class FOMOConfig(BaseModelConfig):
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
+        lat: Lat,
+        lon: Lon,
     ) -> FOMO:
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        add_3d_coordinates = (
+            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+        )
         return FOMO(
-            in_channels=in_channels,
+            in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.embedding_dim),
+            encoder=self.encoder.build(in_channels, self.embedding_dim, lat, lon),
             processor=self.processor.build(
                 self.embedding_dim,
                 self.pad,
                 self.checkpointing,
             ),
             # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
+            add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             wet=wet,
             static_data=static_data,

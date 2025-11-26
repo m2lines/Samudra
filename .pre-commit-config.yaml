@@ -6,6 +6,7 @@ repos:
       args: ["--fix", "--config", "pyproject.toml"]
       exclude: ^notebooks/
     - id: ruff-format
+      exclude: ^notebooks/
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v5.0.0
   hooks:
@@ -13,8 +14,10 @@ repos:
     args: [--maxkb=250]
     exclude: ^notebooks/
   - id: trailing-whitespace
+    exclude: ^notebooks/
   - id: check-yaml
     args: [--unsafe]
+    exclude: ^notebooks/
 # We define our own mypy checker here rather than using https://github.com/pre-commit/mirrors-mypy
 # so it can run within our uv environment & access the correct installed libraries. See:
 # https://whynothugo.nl/journal/2023/01/12/notes-on-pre-commit/#using-the-system-plugin-language
@@ -41,8 +44,8 @@ repos:
     entry: uv run src/ocean_emulators/config_schema.py
     pass_filenames: false
     args: []
--   repo: https://github.com/Yelp/detect-secrets
-    rev: v1.5.0
-    hooks:
-    -   id: detect-secrets
-        args: ['--baseline', '.secrets.baseline']
+- repo: https://github.com/Yelp/detect-secrets
+  rev: v1.5.0
+  hooks:
+  - id: detect-secrets
+    args: ['--baseline', '.secrets.baseline']

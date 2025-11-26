@@ -19,6 +19,7 @@ class Samudra(BaseModel):
         unet: UNetBackbone,
         corrector: nn.Module | None,
         pos_channels: int,
+        add_3d_coordinates: nn.Module | None,
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
@@ -50,6 +51,10 @@ class Samudra(BaseModel):
             # Samudra "decoder".
             nn.Conv2d(unet.out_channels, out_channels, last_kernel_size),
         ]
+
+        # This preserves backwards compatibility with previous checkpoints.
+        if add_3d_coordinates is not None:
+            layers.insert(0, add_3d_coordinates)
 
         self.layers = nn.ModuleList(layers)
         self.corrector = corrector

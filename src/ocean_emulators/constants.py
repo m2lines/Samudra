@@ -15,6 +15,8 @@ from ocean_emulators.utils.multiton import Multiton
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
 
+Lat = Float[Tensor, "lat"]
+Lon = Float[Tensor, "lon"]
 Grid = Float[Tensor, "lat lon"]
 Prognostic = Float[
     Grid, "*batch prognostic_vars"
@@ -139,8 +141,7 @@ MASK_VARS = [
 
 RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
 CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
-SECONDS_PER_5DAY = 5 * 24 * 60 * 60  # 5 day average
-TIME_DELTA = 5  # Time delta in days
+SECONDS_PER_TIME_STEP = 5 * 24 * 60 * 60  # 5 day average
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {

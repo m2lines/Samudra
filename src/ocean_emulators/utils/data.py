@@ -17,7 +17,6 @@ from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
     MASK_VARS,
-    TIME_DELTA,
     BatchTimeSeriesOutput,
     BoundaryVarNames,
     DictSingleChannelVar,
@@ -431,15 +430,12 @@ def get_inference_steps(data_source: DataSource, hist: int = 1):
 
     Args:
         data_source: The data source sliced to the inference time range
-        hist: Number of rollout steps
+        hist: How many additional history samples we get per step
 
     Returns:
         num_steps: Total number of rolled-out inferences which fit into the time range
     """
-    start_time = data_source.data.time.min().item()
-    end_time = data_source.data.time.max().item()
-
-    num_steps = (end_time - start_time).days // TIME_DELTA + 1
+    num_steps = data_source.data.time.size
 
     # Might have extra remaining days, so we remove them
     mod = num_steps % (hist + 1)

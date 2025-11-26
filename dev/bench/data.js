@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764194073340,
+  "lastUpdate": 1764194958034,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5664,6 +5664,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6373566253865673",
             "extra": "mean: 92.807290139 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2177653ccb7acca9b84a5372e075ccc7b192b0ac",
+          "message": "Remove unused method with a bad bug (#485)\n\nAs per\nhttps://openathena.slack.com/archives/C08CYM42DT3/p1764188280159869, we\nshould be masking out land somehow before computing these statistics.\nBut this method is unused (and already kinda unlikely to be what we want\nin the future) so I figured it makes sense to delete it rather than fix.",
+          "timestamp": "2025-11-26T21:44:39Z",
+          "tree_id": "2226a9fe82b0026c347c57d62f5e8363f82acc3b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/2177653ccb7acca9b84a5372e075ccc7b192b0ac"
+        },
+        "date": 1764194957319,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5185056668538783,
+            "unit": "iter/sec",
+            "range": "stddev: 0.035480819932581606",
+            "extra": "mean: 658.5421588000088 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19123602240804569,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03182920150485683",
+            "extra": "mean: 5.229140344000001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011368374886689347,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0018979821767615",
+            "extra": "mean: 87.96332017259996 sec\nrounds: 5"
           }
         ]
       }

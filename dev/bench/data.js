@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764184259931,
+  "lastUpdate": 1764189371266,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5529,6 +5529,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9900286107219621",
             "extra": "mean: 87.96401627879997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c4a7aea48e85d34cd14794921275c2c62b38cb2",
+          "message": "Memory snapshots are Pickle files, not JSON (#480)\n\nI don't know how I managed to get this wrong and it doesn't seem to\nconfuse the profiling tool, but this makes me feel better.",
+          "timestamp": "2025-11-26T20:11:05Z",
+          "tree_id": "0ca2a31ce63e4c9a61b94162bd8274a1e9154972",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/4c4a7aea48e85d34cd14794921275c2c62b38cb2"
+        },
+        "date": 1764189370693,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.4631669513860397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013868089186334424",
+            "extra": "mean: 683.4490069999958 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18655634900635684,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021838873516137638",
+            "extra": "mean: 5.360310733599988 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011039688117371094,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7742570740245222",
+            "extra": "mean: 90.5822691156 sec\nrounds: 5"
           }
         ]
       }

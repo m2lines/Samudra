@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764184258588,
+  "lastUpdate": 1764184259931,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11067,6 +11067,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.44976988671674994",
             "extra": "mean: 83.51048041079999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "514d8b48e35a3c2cb797da4ae483ac94227261a3",
+          "message": "Clean up our config a bit (#483)\n\nThere are a number of small changes in here to clear up what folks\nshould try to run and how.\n\n* I deleted all configs that (AFAIK) no one has used in > 6 months.\n* I grouped train, eval, viz, and model configs for various efforts into\nfolders (samudra_om4_v0, samudra_om4_vnext, fomo_om4, and test for our\ntest configs). Note these are not named after resolutions anymore since\nthey are effectively independent of resolution.\n* If we end up wanting per-resolution stuff here like batch size or\ncheckpointing strategy differences, we can make eg\n`samudra_om4_highres_vnext/*.yaml`.\n* I made all the naming of wandb groups, experiments, etc, consistent\nacross these various configs.\n* I pulled out common model definitions from the above.\n* I fixed a small bug which prevented all YAML schemas from being\nwritten out.\n* I added an error if you try to eval to the same output zarr file more\nthan once.\n* Updated various docs to reflect all of the above and added more hints\nabout experiment names and file locations.",
+          "timestamp": "2025-11-26T18:46:01Z",
+          "tree_id": "dfe9de50bcef36ca7b960ba66e3ae8d5a921b819",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/514d8b48e35a3c2cb797da4ae483ac94227261a3"
+        },
+        "date": 1764184259604,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.55052169851597,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03772362755317228",
+            "extra": "mean: 644.9442152000302 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1916027631917385,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04239632036562968",
+            "extra": "mean: 5.219131412000001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01331716895819747,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07972740224826382",
+            "extra": "mean: 75.09103497439999 sec\nrounds: 5"
           }
         ]
       }

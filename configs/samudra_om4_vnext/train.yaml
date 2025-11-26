@@ -48,4 +48,4 @@ experiment:
   boundary_vars_key: tau_hfds_hfds_anom
 
 data: !include ../common/data.yaml
-model: !include ../common/model/samudra_wide.yaml
+model: !include model.yaml

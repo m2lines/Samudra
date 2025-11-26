@@ -47,4 +47,4 @@ experiment:
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 data: !include ../common/data.yaml
-model: !include ../common/model/fomo.yaml
+model: !include model.yaml

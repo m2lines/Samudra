@@ -9,7 +9,7 @@ inference_time:
 num_model_steps_forward: 25
 
 experiment:
-  name: samudra_om4_v0_eval
+  name: samudra_om4_v1_eval
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

@@ -167,7 +167,7 @@ To train the model on a single GPU, you can run:
 ```bash
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
-uv run -m ocean_emulators.train configs/samudra_om4_vnext/train.yaml --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>
+uv run -m ocean_emulators.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>
 ```
 
 Unless you override `--experiment.output_dir`, this will write to a `.LOCAL` directory.
@@ -188,7 +188,7 @@ To run a remote training job with SkyPilot, use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-uv run sky launch skypilot/train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env --env NAME <my-experiment-name> --env CONFIG configs/samudra_om4_vnext/train.yaml
+uv run sky launch skypilot/train.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env --env NAME <my-experiment-name> --env CONFIG configs/samudra_om4/train.yaml
 ```
 
 Please read the docstring in the `train.sky.yaml` for more information.
@@ -198,7 +198,7 @@ Please read the docstring in the `train.sky.yaml` for more information.
 To use torchrun on a single host with 8 GPUs, use something like:
 
 ```bash
-uv run torchrun --standalone --nnodes=1 --nproc_per_node=8 python -m ocean_emulators.train configs/samudra_om4_vnext/train.yaml --experiment.data_root $DATA_PATH
+uv run torchrun --standalone --nnodes=1 --nproc_per_node=8 python -m ocean_emulators.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH
 ```
 
 See the [torchrun docs](https://docs.pytorch.org/docs/stable/elastic/run.html) for other examples.
@@ -210,7 +210,7 @@ You want to avoid using `--gpus-per-task` or `--gpu-bind` as it restricts the GP
 prevents cross-GPU communication. So you want something like (for 2 nodes with 4 GPUs each):
 
 ```bash
-srun --nodes=2 --ntasks-per-node=4 --gres=gpu:4 -- uv run python -m ocean_emulators.train configs/samudra_om4_vnext/train.yaml --experiment.data_root $DATA_PATH
+srun --nodes=2 --ntasks-per-node=4 --gres=gpu:4 -- uv run python -m ocean_emulators.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH
 ```
 
 Each task will see all GPUs on the node, but they know how to choose the correct one for their work.
@@ -223,7 +223,7 @@ To learn more about other datasets used during training, please see the _Data En
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
 # (then put a checkpoint of the model at path/to/checkpoint)
-uv run -m ocean_emulators.eval configs/samudra_om4_vnext/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
+uv run -m ocean_emulators.eval configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
 ```
 
 This produces a `predictions.zarr` file in the output directory (by default `.LOCAL`) with the rollout of the model.
@@ -236,7 +236,7 @@ To run a remote training job with SkyPilot, use the following command:
 
 ```shell
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-uv run sky launch skypilot/eval.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env --env NAME <my-experiment-name>-eval --env CONFIG configs/samudra_om4_vnext/eval.yaml
+uv run sky launch skypilot/eval.sky.yaml  --env WANDB_API_KEY --env-file <my-vars>.env --env NAME <my-experiment-name>-eval --env CONFIG configs/samudra_om4/eval.yaml
 ```
 
 Please read the `eval.sky.yaml` docstring for more information.

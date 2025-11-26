@@ -5,10 +5,10 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
-learning_rate: 0.0002
+batch_size: 3
+learning_rate: 0.0006
 scheduler: { type: cosine }
-loss: mse_dynamic_no_limit
+loss: mse
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
@@ -21,13 +21,21 @@ val_time:
   end: "2014-10-05"
 inference_times:
   - start: "1975-01-03"
-    end: "1976-01-03" # "1985-01-03"
+    end: "1980-01-03"
+  - start: "1980-01-03"
+    end: "1985-01-03"
   - start: "1985-01-03"
-    end: "1986-01-03" # "1995-01-03"
+    end: "1990-01-03"
+  - start: "1990-01-03"
+    end: "1995-01-03"
   - start: "1995-01-03"
-    end: "1996-01-03" # "2005-01-03"
-  - start: "2004-10-05"
-    end: "2005-10-05" # "2014-10-05"
+    end: "2000-01-03"
+  - start: "2000-01-03"
+    end: "2005-01-03"
+  - start: "2005-01-03"
+    end: "2010-01-03"
+  - start: "2010-01-03"
+    end: "2014-10-05"
 data_stride: [1]
 steps: [4]
 step_transition: []
@@ -36,14 +44,14 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: samudra_om4_vnext
+  name: samudra_om4_v1
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
     mode: disabled
     project: ocean-emulators
     entity: m2lines
-    group: samudra-om4-vnext
+    group: samudra-om4-v0
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 

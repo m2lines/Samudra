@@ -54,18 +54,18 @@ if __name__ == "__main__":
 
                 if mask_name in ds:
                     # Apply the mask: set land values to 0
-                    ds_masked[var] = ds[var].where(ds[mask_name] > 0, 0)
+                    ds_masked[var] = ds[var].where(ds[mask_name] > 0)
                     continue
 
         # For 2D ocean variables without depth index, use surface mask (mask_0)
         if "mask_0" in ds and set(ds[var].dims) == {"time", "y", "x"}:
-            ds_masked[var] = ds[var].where(ds["mask_0"] > 0, 0)
+            ds_masked[var] = ds[var].where(ds["mask_0"] > 0)
 
     ds = ds_masked
 
     print("Computing mean and std across space and time.")
-    ds_means = ds.mean()
-    ds_stds = ds.std()
+    ds_means = ds.mean(skipna=True)
+    ds_stds = ds.std(skipna=True)
 
     mean_path = os.path.join(path, f"{ds_name}_means{ds_ext}")
     print(f"Writing mean Zarr to {mean_path!r}.")

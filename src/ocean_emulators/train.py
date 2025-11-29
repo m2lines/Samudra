@@ -86,6 +86,7 @@ from ocean_emulators.utils.loss import (
     decomposed_mse_diff_weighted,
     decomposed_mse_mae,
     decomposed_mse_scaled,
+    decomposed_mae_gradient_weighted,
 )
 from ocean_emulators.utils.train import (
     CheckpointPaths,
@@ -283,6 +284,13 @@ class Trainer:
                     ).to(device=self.device),
                     should_limit=should_limit,
                 )
+            case "mae_gradient_weighted":
+                logger.info(f"Using MAE loss with weighted gradient penalty (α={cfg.gradient_weight})")
+                self.loss_fn = partial(
+                    decomposed_mae_gradient_weighted,
+                    wet=self.wet,
+                    gradient_weight=cfg.gradient_weight
+                )    
             case _:
                 assert_never(cfg.loss)
 

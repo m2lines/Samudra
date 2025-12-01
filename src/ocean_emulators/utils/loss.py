@@ -72,6 +72,64 @@ def decomposed_mse_mae(
     combined = (mse + mae) / 2
     return combined.mean(dim=(0, 2, 3))
 
+def decomposed_mae_gradient_weighted(
+    pred: torch.Tensor, 
+    target: torch.Tensor, 
+    wet: torch.Tensor,
+    gradient_weight: float
+) -> torch.Tensor:
+    """MAE loss with WEIGHTED spatial gradient matching penalty.
+    
+    By controlling gradient_weight, we can balance accuracy (MAE term) vs sharpness (gradient term).
+    
+    Loss = MAE(pred, target) + α * gradient_penalty(pred, target).
+    
+    where α = gradient_weight is a tunable hyperparameter.
+    
+    Recommended starting values:
+    - α = 0.05: Very conservative, prioritize accuracy
+    - α = 0.1:  Conservative, good balance 
+    - α = 0.25: Moderate, more sharpness 
+    - α = 0.5:  Aggressive sharpening
+    - α = 1.0:  Equal weighting 
+    
+    Args:
+        pred: Predicted tensor [batch, channels, height, width].
+        target: Target tensor [batch, channels, height, width]
+        wet: Wet mask [batch, channels, height, width]
+        gradient_weight: Scaling factor α for gradient penalty
+    
+    Returns:
+        Loss per channel [channels]
+    """
+    pred = pred * wet
+    target = target * wet
+
+    # MAE term (main accuracy objective)
+    mae_loss = F.l1_loss(pred, target, reduction="none")
+    mae_per_channel = mae_loss.mean(dim=(0, 2, 3))
+
+    # Gradient penalty: Match spatial gradients
+    pred_grad_y = pred[:, :, 1:, :] - pred[:, :, :-1, :]
+    pred_grad_x = pred[:, :, :, 1:] - pred[:, :, :, :-1]
+
+    target_grad_y = target[:, :, 1:, :] - target[:, :, :-1, :]
+    target_grad_x = target[:, :, :, 1:] - target[:, :, :, :-1]
+
+    grad_loss_y = F.l1_loss(pred_grad_y, target_grad_y, reduction="none")
+    grad_loss_x = F.l1_loss(pred_grad_x, target_grad_x, reduction="none")
+
+    # Average gradient losses
+    grad_loss = (
+        F.pad(grad_loss_y, (0, 0, 0, 1), value=0).mean(dim=(0, 2, 3)) +
+        F.pad(grad_loss_x, (0, 1, 0, 0), value=0).mean(dim=(0, 2, 3))
+    ) / 2
+
+    # Weighted combination
+    total_loss = mae_per_channel + gradient_weight * grad_loss
+
+    return total_loss
+
 
 class MseDynamic:
     """A loss function that scales each channel to contribute equally to the loss.

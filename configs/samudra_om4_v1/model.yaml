@@ -3,6 +3,7 @@
 pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
+checkpointing: "all"
 
 unet:
   ch_width: [200, 250, 300, 400]

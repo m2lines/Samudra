@@ -6,7 +6,7 @@ pin_mem: true
 save_freq: 5
 epochs: 70
 batch_size: 4
-learning_rate: 0.0002
+learning_rate: 0.0006
 scheduler: { type: cosine }
 loss: mse_dynamic_no_limit
 finetune: false

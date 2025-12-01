@@ -20,6 +20,7 @@ MetricsDict = dict[str, float | torch.Tensor | WBValue]
 
 if TYPE_CHECKING:
     from ocean_emulators.config import AnyTopLevelConfig
+    from ocean_emulators.utils.data import DataContainer
 
 
 class WandBLogger(Multiton):
@@ -32,10 +33,17 @@ class WandBLogger(Multiton):
     def enabled(self):
         return self._enabled
 
+    def _make_config(self, cfg: "AnyTopLevelConfig", data_container: "DataContainer"):
+        return {
+            "config": cfg.model_dump(),
+            "data/attrs": data_container.source.data.attrs,
+        }
+
     def setup_run(
         self,
         checkpoint_path: str | None,
         cfg: "AnyTopLevelConfig",
+        data_container: "DataContainer",
         finetune: bool = False,
     ):
         """Set up a wandb run, either resuming from checkpoint or creating new run.
@@ -43,16 +51,17 @@ class WandBLogger(Multiton):
         Args:
             checkpoint_path: Path to checkpoint file, if resuming
             cfg: Configuration object
+            data_container: Data container to log attributes of
             finetune: Whether this is a finetuning run
 
         Returns:
             tuple: (wandb_id, wandb_name)
         """
         if not checkpoint_path:
-            return self._init_new_run(cfg)
+            return self._init_new_run(cfg, data_container)
 
         if finetune:
-            return self._init_new_run(cfg)
+            return self._init_new_run(cfg, data_container)
 
         # Load checkpoint and try to resume
         checkpoint = torch.load(checkpoint_path)
@@ -62,7 +71,7 @@ class WandBLogger(Multiton):
         if self._enabled:
             try:
                 self.init(
-                    config=cfg.model_dump(),
+                    config=self._make_config(cfg, data_container),
                     name=wandb_name,
                     dir=cfg.experiment.output_dir,
                     resume="must",
@@ -72,7 +81,7 @@ class WandBLogger(Multiton):
             except Exception:
                 # If resume fails, start new run
                 self.init(
-                    config=cfg.model_dump(),
+                    config=self._make_config(cfg, data_container),
                     name=wandb_name,
                     dir=cfg.experiment.output_dir,
                     **cfg.experiment.wandb.model_dump(),
@@ -80,23 +89,19 @@ class WandBLogger(Multiton):
 
         return wandb_id, wandb_name
 
-    def _init_new_run(self, cfg: "AnyTopLevelConfig"):
+    def _init_new_run(self, cfg: "AnyTopLevelConfig", data_container: "DataContainer"):
         """Initialize a new wandb run.
 
         Args:
             cfg: Configuration object
+            data_container: Data container to log attributes of
         Returns:
             tuple: (None, generated_name) for new run
         """
-        wandb_name = (
-            cfg.experiment.name
-            if hasattr(cfg.experiment, "name")
-            else ".LOCAL" + "//" + cfg.experiment.name
-        )
-
+        wandb_name = cfg.experiment.name
         if self._enabled:
             self.init(
-                config=cfg.model_dump(),
+                config=self._make_config(cfg, data_container),
                 name=wandb_name,
                 dir=cfg.experiment.output_dir,
                 **cfg.experiment.wandb.model_dump(),

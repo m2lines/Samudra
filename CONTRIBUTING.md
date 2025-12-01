@@ -81,7 +81,7 @@ git push --force-with-lease
    uvx pytest -m "not manual and not cuda"
    ```
 
-   For more details on how to run specific tests, please see the next section.
+   For more details on how to run specific tests, please see the section below.
 
    **Recommended**: For convenience, we've collected lint checks as a [pre-commit](https://pre-commit.com/)
    hook.

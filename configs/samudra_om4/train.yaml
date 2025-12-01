@@ -10,7 +10,7 @@ learning_rate: 0.0006
 scheduler: { type: cosine }
 loss:
   metric: mse
-  limit: false
+  type: dynamic
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []

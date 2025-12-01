@@ -9,7 +9,7 @@ batch_size: 4
 learning_rate: 0.0002
 scheduler: { type: cosine }
 loss:
-  metric: mse
+  metric: mae
   type: dynamic
 finetune: false
 resume_ckpt_path: null

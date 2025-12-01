@@ -683,7 +683,6 @@ Loss = LossMetric | DynamicLossConfig
 
 def build_loss_fn(
     loss_cfg: Loss,
-    hist: int,
     wet: Grid,
     y_coord: xr.DataArray,
     stds: xr.Dataset,
@@ -704,7 +703,6 @@ def build_loss_fn(
         case "mse_mae":
             loss_fn = partial(decomposed_mse_mae, wet=wet)
         case "mse_diff_weighted":
-            assert hist == 1  # TEMP
             loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
         case "mse_cos_weighted":
             area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()

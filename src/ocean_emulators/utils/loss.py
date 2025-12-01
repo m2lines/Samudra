@@ -25,6 +25,7 @@ def decomposed_mae(
     return F.l1_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
 
 
+# TODO(alxmrs): This used to assume that hist=1; it may need to be fixed in the future.
 def decomposed_mse_diff_weighted(
     pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
 ) -> torch.Tensor:

@@ -226,7 +226,7 @@ class Trainer:
         self.loss_fn: LossFn = build_loss_fn(
             cfg.loss,
             wet=self.wet,
-            y_coord=self.data.y,
+            y_coord=self.data.lat,
             stds=self.src.stds[self.prognostic_var_names],
             device=self.device,
         )

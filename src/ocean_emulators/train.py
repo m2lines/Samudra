@@ -34,7 +34,7 @@ from ocean_emulators.aggregator.loss import (
     get_variable_loss_dict,
 )
 from ocean_emulators.backend import init_train_backend
-from ocean_emulators.config import TrainConfig
+from ocean_emulators.config import TrainConfig, build_loss_fn
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
@@ -223,18 +223,12 @@ class Trainer:
         self.network = self.model.__class__.__name__
 
         # Loss function
-        stds = self.src.stds[self.prognostic_var_names]
-        scaling_residuals = None
-        if self.data_container.scaling_residuals is not None:
-            scaling_residuals = self.data_container.scaling_residuals[
-                self.prognostic_var_names
-            ]
-        self.loss_fn: LossFn = cfg.loss.build(
+        self.loss_fn: LossFn = build_loss_fn(
+            cfg.loss,
             hist=cfg.data.hist,
             wet=self.wet,
             y_coord=self.data.y,
-            stds=stds,
-            scaling_residuals=scaling_residuals,
+            stds=self.src.stds[self.prognostic_var_names],
             device=self.device,
         )
 

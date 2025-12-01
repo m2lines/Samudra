@@ -1,7 +1,7 @@
 import abc
 from functools import cached_property, partial
 from pathlib import Path
-from typing import Annotated, Any, Literal, Self, assert_never, get_args
+from typing import Annotated, Literal, Self, assert_never
 
 import cftime
 import numpy as np
@@ -9,13 +9,7 @@ import pydantic
 import torch
 import xarray as xr
 from perceiver_pytorch import Perceiver as NaivePerceiver
-from pydantic import (
-    BeforeValidator,
-    Field,
-    PlainSerializer,
-    PlainValidator,
-    WithJsonSchema,
-)
+from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 from torch import nn
 from torch.nn import GELU
 
@@ -49,7 +43,6 @@ from ocean_emulators.utils.loss import (
     decomposed_mse_cos_weighted,
     decomposed_mse_diff_weighted,
     decomposed_mse_mae,
-    decomposed_mse_scaled,
 )
 from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
@@ -666,111 +659,69 @@ class ProfilerConfig(BaseConfig):
 
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
+
 LossMetric = Literal[
     "mse",
     "mae",
     "mse_mae",
     "mse_diff_weighted",
     "mse_cos_weighted",
-    "mse_residual_scaled",
 ]
-LossType = Literal["standard", "dynamic"]
 
 
-class LossConfig(pydantic.BaseModel):
+class DynamicLossConfig(pydantic.BaseModel):
+    type: Literal["dynamic"] = "dynamic"
     metric: LossMetric = "mse"
-    type: LossType = "standard"
     limit: bool = Field(
         description="For dynamic loss, should we limit the range of weighted loss by the variance. Default: off.",
         default=False,
     )
 
-    def build(
-        self,
-        hist: int,
-        wet: Grid,
-        y_coord: xr.DataArray,
-        stds: xr.Dataset,
-        scaling_residuals: xr.Dataset | None,
-        device: torch.device,
-    ) -> LossFn:
-        match self.metric:
-            case "mse":
-                loss_fn: LossFn = partial(decomposed_mse, wet=wet)
-            case "mae":
-                loss_fn = partial(decomposed_mae, wet=wet)
-            case "mse_mae":
-                loss_fn = partial(decomposed_mse_mae, wet=wet)
-            case "mse_diff_weighted":
-                assert hist == 1  # TEMP
-                loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
-            case "mse_cos_weighted":
-                area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
-                area_weights = torch.from_numpy(area_weights).to(device=device)
-                loss_fn = partial(
-                    decomposed_mse_cos_weighted, wet=wet, cos=area_weights
-                )
-            case "mse_residual_scaled":
-                assert scaling_residuals is not None, (
-                    "With loss of 'mse_residual_scaled' you must supply a scaling_residuals_file"
-                )
-                scale = torch.from_numpy(
-                    (stds / scaling_residuals).compute().to_array().to_numpy()
-                ).to(device=device)
-                scale = torch.concat([scale] * (hist + 1), dim=0)
-                loss_fn = partial(decomposed_mse_scaled, wet=wet, scaling=scale)
-            case _:
-                assert_never(self.metric)
 
-        match self.type:
-            case "standard":
-                pass
-            case "dynamic":
-                loss_fn = DynamicLoss(
-                    loss_fn=loss_fn,
-                    stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
-                    should_limit=self.limit,
-                    device=device,
-                )
-            case _:
-                assert_never(self.type)
-
-        return loss_fn
+Loss = LossMetric | DynamicLossConfig
 
 
-def parse_loss(candidate: Any) -> Any:
-    """Parse loss configuration, accepting only metric-only strings.
+def build_loss_fn(
+    loss_cfg: Loss,
+    hist: int,
+    wet: Grid,
+    y_coord: xr.DataArray,
+    stds: xr.Dataset,
+    device: torch.device,
+) -> LossFn:
+    if isinstance(loss_cfg, str):
+        metric = loss_cfg
+    elif hasattr(loss_cfg, "metric"):
+        metric = loss_cfg.metric
+    else:
+        raise ValueError(f"Could not parse property `metric` from {loss_cfg=}.")
 
-    Args:
-        candidate: Either a metric string (e.g., "mse"), a dict, or a LossConfig
+    match metric:
+        case "mse":
+            loss_fn: LossFn = partial(decomposed_mse, wet=wet)
+        case "mae":
+            loss_fn = partial(decomposed_mae, wet=wet)
+        case "mse_mae":
+            loss_fn = partial(decomposed_mse_mae, wet=wet)
+        case "mse_diff_weighted":
+            assert hist == 1  # TEMP
+            loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
+        case "mse_cos_weighted":
+            area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
+            area_weights = torch.from_numpy(area_weights).to(device=device)
+            loss_fn = partial(decomposed_mse_cos_weighted, wet=wet, cos=area_weights)
+        case _:
+            assert_never(metric)
 
-    Returns:
-        LossConfig object or dict to be validated by Pydantic
-
-    Raises:
-        ValueError: If candidate is a string but not a valid LossMetric
-    """
-    if isinstance(candidate, str):
-        if candidate in get_args(LossMetric):
-            return LossConfig(metric=candidate, type="standard", limit=False)  # type: ignore[arg-type]
-        # String that's not a valid metric - reject it
-        valid_metrics = ", ".join(f"'{m}'" for m in get_args(LossMetric))
-        raise ValueError(
-            f"Invalid loss string: '{candidate}'. "
-            f"Valid metric-only losses are: {valid_metrics}. "
-            f"For dynamic losses or custom limits, use the full LossConfig format:\n"
-            f"  loss:\n"
-            f"    metric: mse\n"
-            f"    type: dynamic\n"
-            f"    limit: false"
+    if isinstance(loss_cfg, DynamicLossConfig):
+        loss_fn = DynamicLoss(
+            loss_fn=loss_fn,
+            stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
+            should_limit=loss_cfg.limit,
+            device=device,
         )
-    return candidate
 
-
-Loss = Annotated[
-    Annotated[LossConfig, WithJsonSchema({"type": "string"})],
-    BeforeValidator(parse_loss),
-]
+    return loss_fn
 
 
 class TrainConfig(TopLevelConfig):
@@ -783,7 +734,7 @@ class TrainConfig(TopLevelConfig):
     batch_size: int = 2
     learning_rate: float = 2e-4
     scheduler: SchedulerConfig | None = None
-    loss: Loss = LossConfig()
+    loss: Loss = "mse"
     finetune: bool = False
     resume_ckpt_path: str | None = None
     debug: bool = False

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764269447058,
+  "lastUpdate": 1764624266441,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5754,6 +5754,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5603978132089846",
             "extra": "mean: 91.97561905999997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aada9dd85a3f6cd48ebe6fbc8daaeb92771e861b",
+          "message": "Minor doc fixes needed from running one degree eval and viz (#454)\n\nThese were changes needed to work with 1-degree data. If we're going to\nbe hopping around between datasets a bunch we should probably make this\nbetter.",
+          "timestamp": "2025-12-01T20:59:11Z",
+          "tree_id": "9b316d12e03a4a636c65e172a990cbd4c893c02c",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/aada9dd85a3f6cd48ebe6fbc8daaeb92771e861b"
+        },
+        "date": 1764624265693,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.539864748979427,
+            "unit": "iter/sec",
+            "range": "stddev: 0.024197866808200994",
+            "extra": "mean: 649.4076838000012 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18598199444289387,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03830163284401266",
+            "extra": "mean: 5.376864588399991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011222141041071384,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4187917174472457",
+            "extra": "mean: 89.1095555064 sec\nrounds: 5"
           }
         ]
       }

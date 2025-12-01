@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764624267503,
+  "lastUpdate": 1764627614469,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5799,6 +5799,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4187917174472457",
             "extra": "mean: 89.1095555064 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a50300e9c7d07c0d2d93dc182e85fec49d900a6b",
+          "message": "Readmes for the various model configs, add checkpointing for v1 (#493)\n\nHopefully this (a) clarifies what is what and (b) means we can train\nboth samudra models on 1/2- and 1-degree datasets the same way.",
+          "timestamp": "2025-12-01T21:54:55Z",
+          "tree_id": "928679539bde42232b9f8c94bc8c6a3c8ab27ce0",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a50300e9c7d07c0d2d93dc182e85fec49d900a6b"
+        },
+        "date": 1764627613699,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5760705764202525,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02082561575723685",
+            "extra": "mean: 634.4893527999943 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1858974371839416,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021478446281380962",
+            "extra": "mean: 5.379310307599996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011386448519467709,
+            "unit": "iter/sec",
+            "range": "stddev: 0.17583408738614062",
+            "extra": "mean: 87.82369658899998 sec\nrounds: 5"
           }
         ]
       }

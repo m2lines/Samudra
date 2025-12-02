@@ -449,7 +449,7 @@ class Trainer:
 
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
-        self.wandb_logger.watch(self.model, log="all")
+        self.wandb_logger.watch(self.model, log="all", log_freq=1)
 
         self.profiler.start()
 

@@ -246,7 +246,6 @@ class DataContainer:
     source_using_dask: DataSource
     loader_version: LoaderVersion
     supports_fork: bool
-    scaling_residuals: xr.Dataset | None = None
     static_data: xr.Dataset | None = None
 
 

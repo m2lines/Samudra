@@ -1,10 +1,9 @@
 import abc
-from functools import cached_property, partial
+from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
 
 import cftime
-import numpy as np
 import pydantic
 import torch
 import xarray as xr
@@ -38,11 +37,8 @@ from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLoca
 from ocean_emulators.utils.loss import (
     DynamicLoss,
     LossFn,
-    decomposed_mae,
-    decomposed_mse,
-    decomposed_mse_cos_weighted,
-    decomposed_mse_diff_weighted,
-    decomposed_mse_mae,
+    LossMetric,
+    loss_fn_from_metric,
 )
 from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
@@ -660,14 +656,6 @@ class ProfilerConfig(BaseConfig):
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 
-LossMetric = Literal[
-    "mse",
-    "mae",
-    "mse_mae",
-    "mse_diff_weighted",
-    "mse_cos_weighted",
-]
-
 
 class DynamicLossConfig(pydantic.BaseModel):
     type: Literal["dynamic"] = "dynamic"
@@ -688,38 +676,23 @@ def build_loss_fn(
     stds: xr.Dataset,
     device: torch.device,
 ) -> LossFn:
-    if isinstance(loss_cfg, str):
-        metric = loss_cfg
-    elif hasattr(loss_cfg, "metric"):
-        metric = loss_cfg.metric
-    else:
-        raise ValueError(f"Could not parse property `metric` from {loss_cfg=}.")
-
-    match metric:
-        case "mse":
-            loss_fn: LossFn = partial(decomposed_mse, wet=wet)
-        case "mae":
-            loss_fn = partial(decomposed_mae, wet=wet)
-        case "mse_mae":
-            loss_fn = partial(decomposed_mse_mae, wet=wet)
-        case "mse_diff_weighted":
-            loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
-        case "mse_cos_weighted":
-            area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
-            area_weights = torch.from_numpy(area_weights).to(device=device)
-            loss_fn = partial(decomposed_mse_cos_weighted, wet=wet, cos=area_weights)
+    match loss_cfg:
+        case str():
+            return loss_fn_from_metric(
+                loss_cfg, wet=wet, y_coord=y_coord, device=device
+            )
+        case DynamicLossConfig(metric=metric, limit=limit):
+            loss_fn = loss_fn_from_metric(
+                metric, wet=wet, y_coord=y_coord, device=device
+            )
+            return DynamicLoss(
+                loss_fn=loss_fn,
+                stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
+                should_limit=limit,
+                device=device,
+            )
         case _:
-            assert_never(metric)
-
-    if isinstance(loss_cfg, DynamicLossConfig):
-        loss_fn = DynamicLoss(
-            loss_fn=loss_fn,
-            stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
-            should_limit=loss_cfg.limit,
-            device=device,
-        )
-
-    return loss_fn
+            assert_never(loss_cfg)
 
 
 class TrainConfig(TopLevelConfig):

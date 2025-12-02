@@ -1,10 +1,44 @@
 from collections.abc import Callable
+from functools import partial
+from typing import Literal, assert_never
 
+import numpy as np
 import torch
 import torch.nn.functional as F
+import xarray as xr
 from jaxtyping import Float
 
+from ocean_emulators.constants import Grid
+
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+LossMetric = Literal[
+    "mse",
+    "mae",
+    "mse_mae",
+    "mse_diff_weighted",
+    "mse_cos_weighted",
+]
+
+
+def loss_fn_from_metric(
+    metric: LossMetric, *, wet: Grid, y_coord: xr.DataArray, device: torch.device
+) -> LossFn:
+    match metric:
+        case "mse":
+            loss_fn: LossFn = partial(decomposed_mse, wet=wet)
+        case "mae":
+            loss_fn = partial(decomposed_mae, wet=wet)
+        case "mse_mae":
+            loss_fn = partial(decomposed_mse_mae, wet=wet)
+        case "mse_diff_weighted":
+            loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
+        case "mse_cos_weighted":
+            area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
+            area_weights = torch.from_numpy(area_weights).to(device=device)
+            loss_fn = partial(decomposed_mse_cos_weighted, wet=wet, cos=area_weights)
+        case _:
+            assert_never(metric)
+    return loss_fn
 
 
 def decomposed_mse(

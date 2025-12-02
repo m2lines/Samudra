@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764627615744,
+  "lastUpdate": 1764709301086,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5844,6 +5844,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.17583408738614062",
             "extra": "mean: 87.82369658899998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c3e628067bff5fca92ccb694eafd7c5a99427884",
+          "message": "Refactoring dynamic loss to compose any loss method, not just MSE. (#464)\n\nWe now use a builder function to create the loss function. Loss can be\ndefined as a simple metric, or a more sophisticated loss mixed in with a\nmetric, such as dynamic loss. This should allow us to combine MAE with\ndynamic loss, for example.\n\nMy hope with this change is to follow up with experimenting with this\nidea from the Cambdige/NVIDIA paper:\nhttps://ar5iv.labs.arxiv.org/html/2410.07472v1#S4.SS10.\n\n(TL;DR: I have reason to believe that dynamic MAE will perform better\nthan dynamic MSE).",
+          "timestamp": "2025-12-02T20:36:54Z",
+          "tree_id": "039974c4d1d4b5147302b1227dac45841ec6634b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/c3e628067bff5fca92ccb694eafd7c5a99427884"
+        },
+        "date": 1764709300154,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5849723295768487,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017216598427948968",
+            "extra": "mean: 630.9258409999984 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1895878773651506,
+            "unit": "iter/sec",
+            "range": "stddev: 0.007402720423191817",
+            "extra": "mean: 5.274598850400002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01149107613563589,
+            "unit": "iter/sec",
+            "range": "stddev: 0.307935832950335",
+            "extra": "mean: 87.0240513766 sec\nrounds: 5"
           }
         ]
       }

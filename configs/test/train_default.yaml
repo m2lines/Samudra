@@ -46,7 +46,6 @@ data:
   data_location: data.zarr
   data_means_location: means.nc
   data_stds_location: stds.nc
-  scaling_residuals_file: null
   num_workers: 4
   hist: 0
 

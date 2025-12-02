@@ -136,10 +136,6 @@ class DataConfig(BaseConfig):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
-    scaling_residuals_file: Location | None = Field(
-        description="Location of the scaling residuals file; " + LOCATION_DOCS,
-        default=None,
-    )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
     hist: int = 1
@@ -183,13 +179,6 @@ class DataConfig(BaseConfig):
                 source_using_dask, boundary_var_names, self.static_data_vars
             )
 
-        if self.scaling_residuals_file is not None:
-            scaling_residuals_location = data_root.resolve(self.scaling_residuals_file)
-            scaling_residuals = scaling_residuals_location.open()
-        else:
-            scaling_residuals_location = None
-            scaling_residuals = None
-
         static_data = (
             source.data[self.static_data_vars]
             if self.static_data_vars is not None
@@ -202,7 +191,6 @@ class DataConfig(BaseConfig):
                 data_location,
                 means_location,
                 stds_location,
-                scaling_residuals_location,
             ]
         )
         return DataContainer(
@@ -210,7 +198,6 @@ class DataConfig(BaseConfig):
             source_using_dask,
             loader_version,
             supports_fork,
-            scaling_residuals,
             static_data,
         )
 

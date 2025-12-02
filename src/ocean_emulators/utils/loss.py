@@ -127,8 +127,8 @@ class DynamicLoss:
     See: https://openathena.slack.com/archives/C08CYM42DT3/p1752275713570969
     """
 
-    """Rolling window size to average over. (~number of steps)"""
     N_WINDOW = 25
+    """Rolling window size to average over. (~number of steps)"""
 
     def __init__(
         self,

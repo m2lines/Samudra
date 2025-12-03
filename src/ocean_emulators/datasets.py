@@ -363,7 +363,7 @@ class TrainData:
         return len(self.example_by_step)
 
     def __iter__(self):
-        return range(len(self))
+        return iter(range(len(self)))
 
     def to(self, device: torch.device) -> None:
         for step in self:

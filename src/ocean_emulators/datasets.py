@@ -644,6 +644,25 @@ def concurrent_compute(
 
 
 @final
+class MulitscaleTorchTrainDataset(Dataset[RawTrainData]):
+    def __init__(
+        self,
+        srcs: list[DataSource],
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
+        wet: PrognosticMask,
+        wet_surface: GridMask,
+        hist: int,
+        steps: int,
+        normalize_before_mask: bool,
+        masked_fill_value: float,
+        stride: int = 1,
+        executor: ThreadPoolExecutor | None = None,
+    ):
+        pass
+
+
+@final
 class TrainDataLoader:
     """Wrapper around a torch DataLoader that handles GPU post-processing.
 

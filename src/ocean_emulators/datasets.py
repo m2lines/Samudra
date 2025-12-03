@@ -323,20 +323,19 @@ class RawTrainData:
 class TrainData:
     """A single batch of training data.
 
-    For the Input (i.e. Example[0]), the top `num_prognostic_channels` must be prognostic
-    variables (at all depth levels). Thus, the remaining channels in the tensor are boundary
-    forcings.
+    Constraint: The `Input` tensor is a combination of (flattened) prognostic variables (at all depth levels) and
+    boundary forcings. The top `num_prognostic_channels` number of channels must be prognostic variables whereas the
+    remaining bottom channels are boundary forcings.
     """
 
     def __init__(self, num_prognostic_channels: int):
         self.num_prognostic_channels = num_prognostic_channels
-        self.example_by_step: dict[int, Example] = {}
-        self.steps = 0
+        self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
 
     def append(self, input_: Input, label: Prognostic):
-        self.example_by_step[self.steps] = (input_, label)
-        self.steps += 1
+        """Add another Example as a new step."""
+        self.example_by_step.append((input_, label))
 
     def get_initial_input(self) -> Input:
         return self.get_input(0)
@@ -354,17 +353,17 @@ class TrainData:
         return merged
 
     def values(self):
-        return self.example_by_step.values()
+        return self.example_by_step
 
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
         return self.example_by_step[step]
 
     def __len__(self) -> int:
-        return self.steps
+        return len(self.example_by_step)
 
     def __iter__(self):
-        return iter(self.example_by_step)
+        return range(len(self))
 
     def to(self, device: torch.device) -> None:
         for step in self:

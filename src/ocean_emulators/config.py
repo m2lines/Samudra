@@ -36,6 +36,7 @@ from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
+    GradientLoss,
     LossFn,
     LossMetric,
     loss_fn_from_metric,
@@ -653,7 +654,21 @@ class DynamicLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig
+class GradientLossConfig(pydantic.BaseModel):
+    type: Literal["gradient"] = "gradient"
+    # at the moment this metric is only used for the non-gradient loss
+    # (and would take a bit of refactoring to make it work for the gradient loss too)
+    # so we fix it to MAE for now until it's clear we what flexibility is needed here.
+    # TODO(#497): support other metrics for the gradient loss
+    metric: Literal["mae"] = "mae"
+    alpha: float = Field(
+        description="Scaling factor for the gradient penalty term (alpha in the gradient-weighted loss).",
+        default=0.1,
+        ge=0.0,
+    )
+
+
+Loss = LossMetric | DynamicLossConfig | GradientLossConfig
 
 
 def build_loss_fn(
@@ -662,6 +677,7 @@ def build_loss_fn(
     y_coord: xr.DataArray,
     stds: xr.Dataset,
     device: torch.device,
+    pad_mode: str,
 ) -> LossFn:
     match loss_cfg:
         case str():
@@ -677,6 +693,16 @@ def build_loss_fn(
                 stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
                 should_limit=limit,
                 device=device,
+            )
+        case GradientLossConfig(metric=metric, alpha=alpha):
+            loss_fn = loss_fn_from_metric(
+                metric, wet=wet, y_coord=y_coord, device=device
+            )
+            return GradientLoss(
+                loss_fn=loss_fn,
+                wet=wet,
+                gradient_weight=alpha,
+                pad_mode=pad_mode,
             )
         case _:
             assert_never(loss_cfg)

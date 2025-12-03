@@ -118,6 +118,49 @@ def decomposed_mse_mae(
     return combined.mean(dim=(0, 2, 3))
 
 
+def _spatial_gradients(
+    tensor: torch.Tensor, *, pad_mode: str
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Compute forward differences along y and x axes with configurable x padding."""
+    grad_y = tensor[:, :, 1:, :] - tensor[:, :, :-1, :]
+    grad_y = F.pad(grad_y, (0, 0, 0, 1), mode="constant")
+
+    padded_x = F.pad(tensor, (0, 1, 0, 0), mode=pad_mode)
+    grad_x = padded_x[:, :, :, 1:] - padded_x[:, :, :, :-1]
+
+    return grad_y, grad_x
+
+
+def gradient_l1_loss(
+    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor, pad_mode: str
+) -> torch.Tensor:
+    """L1 loss on spatial gradients, averaged per channel."""
+    pred = pred * wet
+    target = target * wet
+
+    pred_grad_y, pred_grad_x = _spatial_gradients(pred, pad_mode=pad_mode)
+    target_grad_y, target_grad_x = _spatial_gradients(target, pad_mode=pad_mode)
+
+    grad_loss_y = F.l1_loss(pred_grad_y, target_grad_y, reduction="none")
+    grad_loss_x = F.l1_loss(pred_grad_x, target_grad_x, reduction="none")
+
+    grad_loss = (grad_loss_y.mean(dim=(0, 2, 3)) + grad_loss_x.mean(dim=(0, 2, 3))) / 2
+    return grad_loss
+
+
+def decomposed_mae_gradient_weighted(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    gradient_weight: float,
+    pad_mode: str = "constant",
+) -> torch.Tensor:
+    """MAE loss with spatial gradient matching penalty."""
+    mae_per_channel = decomposed_mae(pred, target, wet)
+    grad_loss = gradient_l1_loss(pred, target, wet, pad_mode)
+    return mae_per_channel + gradient_weight * grad_loss
+
+
 class DynamicLoss:
     """A loss function that scales each channel to contribute equally to the loss.
 
@@ -204,3 +247,35 @@ class DynamicLoss:
         """Load state from ``state_dict``."""
         if "per_channel_scale" in state:
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
+
+
+class GradientLoss:
+    """Combine a base loss with a gradient matching penalty.
+
+    Applies the provided per-channel loss metric then adds an L1 penalty on
+    spatial gradients, scaled by ``gradient_weight``.
+    """
+
+    def __init__(
+        self,
+        loss_fn: LossFn,
+        *,
+        wet: Grid,
+        gradient_weight: float,
+        pad_mode: str,
+    ):
+        self.loss_fn = loss_fn
+        self._wet = wet
+        self._gradient_weight = gradient_weight
+        self._pad_mode = pad_mode
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+    ) -> Float[torch.Tensor, " hist*var"]:
+        base_loss = self.loss_fn(pred, target)
+        grad_loss = gradient_l1_loss(
+            pred=pred, target=target, wet=self._wet, pad_mode=self._pad_mode
+        )
+        return base_loss + self._gradient_weight * grad_loss

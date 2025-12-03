@@ -229,6 +229,7 @@ class Trainer:
             y_coord=self.data.lat,
             stds=self.src.filter(self.prognostic_var_names, prefix="prog_stds").stds,
             device=self.device,
+            pad_mode=cfg.model.pad,
         )
 
         # Optimizer

@@ -10,15 +10,12 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from functools import partial
 from multiprocessing.context import BaseContext
 from pathlib import Path
-from typing import Any, assert_never
+from typing import Any
 
 import dask
-import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import (
@@ -37,7 +34,7 @@ from ocean_emulators.aggregator.loss import (
     get_variable_loss_dict,
 )
 from ocean_emulators.backend import init_train_backend
-from ocean_emulators.config import TrainConfig
+from ocean_emulators.config import TrainConfig, build_loss_fn
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
@@ -79,15 +76,7 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
-from ocean_emulators.utils.loss import (
-    MseDynamic,
-    decomposed_mse,
-    decomposed_mse_cos_weighted,
-    decomposed_mse_diff_weighted,
-    decomposed_mse_mae,
-    decomposed_mse_scaled,
-    decomposed_mae_gradient_weighted,
-)
+from ocean_emulators.utils.loss import LossFn
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -233,66 +222,15 @@ class Trainer:
         self.nets_dir = cfg.experiment.nets_dir
         self.network = self.model.__class__.__name__
 
-        self.loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         # Loss function
-        match cfg.loss:
-            case "mse":
-                logger.info("Using decomposed mse loss")
-                self.loss_fn = partial(decomposed_mse, wet=self.wet)
-            case "mse_diff_weighted":
-                assert cfg.data.hist == 1  # TEMP
-                logger.info("Using decomposed mse loss with weighted diff")
-                self.loss_fn = partial(decomposed_mse_diff_weighted, wet=self.wet)
-            case "mse_cos_weighted":
-                logger.info("Using decomposed mse loss with weighted cos")
-                area_weights = np.sqrt(np.cos(np.deg2rad(self.data.y))).to_numpy()
-                area_weights = torch.from_numpy(area_weights).to(device=self.device)
-                self.loss_fn = partial(
-                    decomposed_mse_cos_weighted, wet=self.wet, cos=area_weights
-                )
-            case "mse_residual_scaled":
-                logger.info("Using decomposed mse loss with scaled residuals")
-                assert self.data_container.scaling_residuals is not None, (
-                    "With loss of 'mse_residual_scaled' you"
-                    " must supply a scaling_residuals_file"
-                )
-                scale = torch.from_numpy(
-                    (
-                        self.src.stds[self.prognostic_var_names]
-                        / self.data_container.scaling_residuals[
-                            self.prognostic_var_names
-                        ]
-                    )
-                    .compute()
-                    .to_array()
-                    .to_numpy()
-                ).to(device=self.device)
-                scale = torch.concat([scale] * (cfg.data.hist + 1), dim=0)
-                self.loss_fn = partial(
-                    decomposed_mse_scaled, wet=self.wet, scaling=scale
-                )
-            case "mse_mae":
-                logger.info("Using decomposed mse loss with mae")
-                self.loss_fn = partial(decomposed_mse_mae, wet=self.wet)
-            case "mse_dynamic" | "mse_dynamic_no_limit":
-                should_limit = cfg.loss == "mse_dynamic"
-                logger.info(f"Using dynamic MSE loss (limit = {should_limit})")
-                self.loss_fn = MseDynamic(
-                    wet=self.wet,
-                    stds=torch.from_numpy(
-                        self.src.stds[self.prognostic_var_names].to_array().to_numpy()
-                    ).to(device=self.device),
-                    should_limit=should_limit,
-                )
-            case "mae_gradient_weighted":
-                logger.info(f"Using MAE loss with weighted gradient penalty (α={cfg.gradient_weight})")
-                self.loss_fn = partial(
-                    decomposed_mae_gradient_weighted,
-                    wet=self.wet,
-                    gradient_weight=cfg.gradient_weight
-                )                    
-            case _:
-                assert_never(cfg.loss)
+        self.loss_fn: LossFn = build_loss_fn(
+            cfg.loss,
+            wet=self.wet,
+            y_coord=self.data.lat,
+            stds=self.src.filter(self.prognostic_var_names, prefix="prog_stds").stds,
+            device=self.device,
+            pad_mode=cfg.model.pad,
+        )
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
 
 import cftime
+import pydantic
 import torch
 import xarray as xr
 from perceiver_pytorch import Perceiver as NaivePerceiver
@@ -33,6 +34,13 @@ from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
+from ocean_emulators.utils.loss import (
+    DynamicLoss,
+    GradientLoss,
+    LossFn,
+    LossMetric,
+    loss_fn_from_metric,
+)
 from ocean_emulators.utils.profiler import Profiler
 from ocean_emulators.utils.schedule import SchedulerConfig
 
@@ -129,10 +137,6 @@ class DataConfig(BaseConfig):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
-    scaling_residuals_file: Location | None = Field(
-        description="Location of the scaling residuals file; " + LOCATION_DOCS,
-        default=None,
-    )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
     hist: int = 1
@@ -176,13 +180,6 @@ class DataConfig(BaseConfig):
                 source_using_dask, boundary_var_names, self.static_data_vars
             )
 
-        if self.scaling_residuals_file is not None:
-            scaling_residuals_location = data_root.resolve(self.scaling_residuals_file)
-            scaling_residuals = scaling_residuals_location.open()
-        else:
-            scaling_residuals_location = None
-            scaling_residuals = None
-
         static_data = (
             source.data[self.static_data_vars]
             if self.static_data_vars is not None
@@ -195,7 +192,6 @@ class DataConfig(BaseConfig):
                 data_location,
                 means_location,
                 stds_location,
-                scaling_residuals_location,
             ]
         )
         return DataContainer(
@@ -203,7 +199,6 @@ class DataConfig(BaseConfig):
             source_using_dask,
             loader_version,
             supports_fork,
-            scaling_residuals,
             static_data,
         )
 
@@ -648,15 +643,65 @@ class ProfilerConfig(BaseConfig):
 
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
-LossType = Literal[
-    "mse",
-    "mse_diff_weighted",
-    "mse_cos_weighted",
-    "mse_residual_scaled",
-    "mse_mae",
-    "mse_dynamic",
-    "mse_dynamic_no_limit",
-]
+
+
+class DynamicLossConfig(pydantic.BaseModel):
+    type: Literal["dynamic"] = "dynamic"
+    metric: LossMetric = "mse"
+    limit: bool = Field(
+        description="For dynamic loss, should we limit the range of weighted loss by the variance. Default: off.",
+        default=False,
+    )
+
+
+class GradientLossConfig(pydantic.BaseModel):
+    type: Literal["gradient"] = "gradient"
+    metric: LossMetric = "mae"
+    alpha: float = Field(
+        description="Scaling factor for the gradient penalty term (alpha in the gradient-weighted loss).",
+        default=0.1,
+        ge=0.0,
+    )
+
+
+Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+
+
+def build_loss_fn(
+    loss_cfg: Loss,
+    wet: Grid,
+    y_coord: xr.DataArray,
+    stds: xr.Dataset,
+    device: torch.device,
+    pad_mode: str,
+) -> LossFn:
+    match loss_cfg:
+        case str():
+            return loss_fn_from_metric(
+                loss_cfg, wet=wet, y_coord=y_coord, device=device
+            )
+        case DynamicLossConfig(metric=metric, limit=limit):
+            loss_fn = loss_fn_from_metric(
+                metric, wet=wet, y_coord=y_coord, device=device
+            )
+            return DynamicLoss(
+                loss_fn=loss_fn,
+                stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
+                should_limit=limit,
+                device=device,
+            )
+        case GradientLossConfig(metric=metric, alpha=alpha):
+            loss_fn = loss_fn_from_metric(
+                metric, wet=wet, y_coord=y_coord, device=device
+            )
+            return GradientLoss(
+                loss_fn=loss_fn,
+                wet=wet,
+                gradient_weight=alpha,
+                pad_mode=pad_mode,
+            )
+        case _:
+            assert_never(loss_cfg)
 
 
 class TrainConfig(TopLevelConfig):
@@ -669,7 +714,7 @@ class TrainConfig(TopLevelConfig):
     batch_size: int = 2
     learning_rate: float = 2e-4
     scheduler: SchedulerConfig | None = None
-    loss: LossType = "mse"
+    loss: Loss = "mse"
     finetune: bool = False
     resume_ckpt_path: str | None = None
     debug: bool = False

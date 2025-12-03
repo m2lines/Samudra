@@ -1,20 +1,65 @@
+from collections.abc import Callable
+from functools import partial
+from typing import Literal, assert_never
+
+import numpy as np
 import torch
 import torch.nn.functional as F
+import xarray as xr
 from jaxtyping import Float
 
 from ocean_emulators.constants import Grid
-from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
+
+LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+LossMetric = Literal[
+    "mse",
+    "mae",
+    "mse_mae",
+    "mse_diff_weighted",
+    "mse_cos_weighted",
+]
+
+
+def loss_fn_from_metric(
+    metric: LossMetric, *, wet: Grid, y_coord: xr.DataArray, device: torch.device
+) -> LossFn:
+    match metric:
+        case "mse":
+            loss_fn: LossFn = partial(decomposed_mse, wet=wet)
+        case "mae":
+            loss_fn = partial(decomposed_mae, wet=wet)
+        case "mse_mae":
+            loss_fn = partial(decomposed_mse_mae, wet=wet)
+        case "mse_diff_weighted":
+            loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
+        case "mse_cos_weighted":
+            area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
+            area_weights = torch.from_numpy(area_weights).to(device=device)
+            loss_fn = partial(decomposed_mse_cos_weighted, wet=wet, cos=area_weights)
+        case _:
+            assert_never(metric)
+    return loss_fn
 
 
 def decomposed_mse(
     pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
 ) -> torch.Tensor:
-    """Standard MSE loss computed per channel."""
+    """Standard MSE loss (l2) computed per channel."""
     pred = pred * wet
     target = target * wet
     return F.mse_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
 
 
+def decomposed_mae(
+    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+) -> torch.Tensor:
+    """Standard MAE loss (l1) computed per channel."""
+    pred = pred * wet
+    target = target * wet
+    return F.l1_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
+
+
+# TODO(alxmrs): This used to assume that hist=1; it may need to be fixed in the future.
 def decomposed_mse_diff_weighted(
     pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
 ) -> torch.Tensor:
@@ -72,66 +117,51 @@ def decomposed_mse_mae(
     combined = (mse + mae) / 2
     return combined.mean(dim=(0, 2, 3))
 
-def decomposed_mae_gradient_weighted(
-    pred: torch.Tensor, 
-    target: torch.Tensor, 
-    wet: torch.Tensor,
-    gradient_weight: float
+
+def _spatial_gradients(
+    tensor: torch.Tensor, *, pad_mode: str
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Compute forward differences along y and x axes with configurable x padding."""
+    grad_y = tensor[:, :, 1:, :] - tensor[:, :, :-1, :]
+    grad_y = F.pad(grad_y, (0, 0, 0, 1), mode="constant")
+
+    padded_x = F.pad(tensor, (0, 1, 0, 0), mode=pad_mode)
+    grad_x = padded_x[:, :, :, 1:] - padded_x[:, :, :, :-1]
+
+    return grad_y, grad_x
+
+
+def gradient_l1_loss(
+    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor, pad_mode: str
 ) -> torch.Tensor:
-    """MAE loss with WEIGHTED spatial gradient matching penalty.
-    
-    By controlling gradient_weight, we can balance accuracy (MAE term) vs sharpness (gradient term).
-    
-    Loss = MAE(pred, target) + α * gradient_penalty(pred, target).
-    
-    where α = gradient_weight is a tunable hyperparameter.
-    
-    Recommended starting values:
-    - α = 0.05: Very conservative, prioritize accuracy
-    - α = 0.1:  Conservative, good balance 
-    - α = 0.25: Moderate, more sharpness 
-    - α = 0.5:  Aggressive sharpening
-    - α = 1.0:  Equal weighting 
-    
-    Args:
-        pred: Predicted tensor [batch, channels, height, width].
-        target: Target tensor [batch, channels, height, width]
-        wet: Wet mask [batch, channels, height, width]
-        gradient_weight: Scaling factor α for gradient penalty
-    
-    Returns:
-        Loss per channel [channels]
-    """
+    """L1 loss on spatial gradients, averaged per channel."""
     pred = pred * wet
     target = target * wet
 
-    # MAE term (main accuracy objective)
-    mae_loss = F.l1_loss(pred, target, reduction="none")
-    mae_per_channel = mae_loss.mean(dim=(0, 2, 3))
-
-    # Gradient penalty: Match spatial gradients
-    pred_grad_y = pred[:, :, 1:, :] - pred[:, :, :-1, :]
-    pred_grad_x = pred[:, :, :, 1:] - pred[:, :, :, :-1]
-
-    target_grad_y = target[:, :, 1:, :] - target[:, :, :-1, :]
-    target_grad_x = target[:, :, :, 1:] - target[:, :, :, :-1]
+    pred_grad_y, pred_grad_x = _spatial_gradients(pred, pad_mode=pad_mode)
+    target_grad_y, target_grad_x = _spatial_gradients(target, pad_mode=pad_mode)
 
     grad_loss_y = F.l1_loss(pred_grad_y, target_grad_y, reduction="none")
     grad_loss_x = F.l1_loss(pred_grad_x, target_grad_x, reduction="none")
 
-    # Average gradient losses
-    grad_loss = (
-        F.pad(grad_loss_y, (0, 0, 0, 1), value=0).mean(dim=(0, 2, 3)) +
-        F.pad(grad_loss_x, (0, 1, 0, 0), value=0).mean(dim=(0, 2, 3))
-    ) / 2
-
-    # Weighted combination
-    total_loss = mae_per_channel + gradient_weight * grad_loss
-
-    return total_loss
+    grad_loss = (grad_loss_y.mean(dim=(0, 2, 3)) + grad_loss_x.mean(dim=(0, 2, 3))) / 2
+    return grad_loss
 
 
-class MseDynamic:
+def decomposed_mae_gradient_weighted(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    gradient_weight: float,
+    pad_mode: str = "constant",
+) -> torch.Tensor:
+    """MAE loss with spatial gradient matching penalty."""
+    mae_per_channel = decomposed_mae(pred, target, wet)
+    grad_loss = gradient_l1_loss(pred, target, wet, pad_mode)
+    return mae_per_channel + gradient_weight * grad_loss
+
+
+class DynamicLoss:
     """A loss function that scales each channel to contribute equally to the loss.
 
     This uses a rolling estimate of the loss of each channel to scale each
@@ -145,18 +175,20 @@ class MseDynamic:
 
     def __init__(
         self,
-        wet: Grid,
+        loss_fn: LossFn,
         stds: Float[torch.Tensor, " var"],
         *,
         should_limit: bool,
+        device: torch.device,
     ):
-        self._wet: Grid = wet
+        self.loss_fn = loss_fn
+        self._device = device
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
-            stds.shape[0], device=wet.device
+            stds.shape[0], device=self._device
         )
         if should_limit:
-            vars: Float[torch.Tensor, " var"] = stds.pow(2)
-            self._limits: Float[torch.Tensor, " var"] | None = 1.0 / vars
+            variances: Float[torch.Tensor, " var"] = stds.pow(2)
+            self._limits: Float[torch.Tensor, " var"] | None = 1.0 / variances
         else:
             self._limits = None
 
@@ -165,8 +197,8 @@ class MseDynamic:
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
     ) -> Float[torch.Tensor, " hist*var"]:
-        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = decomposed_mse(
-            pred, target, self._wet
+        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
+            pred, target
         )
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
             loss_with_history_channels.reshape(self._per_channel_scale.shape[0], -1)
@@ -180,11 +212,12 @@ class MseDynamic:
         target: Float[torch.Tensor, "batch hist*var lat lon"],
     ) -> None:
         """Given the prediction & target for this step, update the per-channel scale."""
-        mse_loss = decomposed_mse(pred, target, self._wet)
-        mse_loss = torch.where(mse_loss == 0, 1e-8, mse_loss)
-        new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = (
-            1.0 / mse_loss
-        )
+        # Local import is needed to prevent a circular import error.
+        from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
+
+        loss = self.loss_fn(pred, target)
+        loss = torch.where(loss == 0, 1e-8, loss)
+        new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels
         # by averaging along the `hist` dimension
         new_target_weights: Float[torch.Tensor, " var"] = (
@@ -199,8 +232,8 @@ class MseDynamic:
             all_reduce_mean(new_target_weights)
 
         self._per_channel_scale = (
-            self._per_channel_scale * (MseDynamic.N_WINDOW - 1) + new_target_weights
-        ) / MseDynamic.N_WINDOW
+            self._per_channel_scale * (DynamicLoss.N_WINDOW - 1) + new_target_weights
+        ) / DynamicLoss.N_WINDOW
 
     def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
         return self._per_channel_scale
@@ -213,4 +246,36 @@ class MseDynamic:
     def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
         """Load state from ``state_dict``."""
         if "per_channel_scale" in state:
-            self._per_channel_scale = state["per_channel_scale"].to(self._wet.device)
+            self._per_channel_scale = state["per_channel_scale"].to(self._device)
+
+
+class GradientLoss:
+    """Combine a base loss with a gradient matching penalty.
+
+    Applies the provided per-channel loss metric then adds an L1 penalty on
+    spatial gradients, scaled by ``gradient_weight``.
+    """
+
+    def __init__(
+        self,
+        loss_fn: LossFn,
+        *,
+        wet: Grid,
+        gradient_weight: float,
+        pad_mode: str,
+    ):
+        self.loss_fn = loss_fn
+        self._wet = wet
+        self._gradient_weight = gradient_weight
+        self._pad_mode = pad_mode
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+    ) -> Float[torch.Tensor, " hist*var"]:
+        base_loss = self.loss_fn(pred, target)
+        grad_loss = gradient_l1_loss(
+            pred=pred, target=target, wet=self._wet, pad_mode=self._pad_mode
+        )
+        return base_loss + self._gradient_weight * grad_loss

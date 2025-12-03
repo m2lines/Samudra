@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764709302620,
+  "lastUpdate": 1764797431975,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5889,6 +5889,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.307935832950335",
             "extra": "mean: 87.0240513766 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "66516108+mkeutgen@users.noreply.github.com",
+            "name": "maxime keutgen",
+            "username": "mkeutgen"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "de18cc69a00a850a0adf8c3ac6427a4922a916c0",
+          "message": "Spatial grad loss (#491)\n\n**Summary**\nImplements decomposed_mae_gradient_weighted() - a configurable loss\nfunction that combines standard MAE with spatial gradient penalties to\npreserve mesoscale ocean features (eddies, fronts) during training.\n\n**Problem**\nPure MAE loss produces smooth predictions that lose sharp oceanographic\nfeatures. Models achieve good R² scores but generate unrealistic,\noverly-diffused fields that lack physical structure\n\n**Solution**\nAdd tunable gradient penalty term:\nLoss = MAE(pred, target) + α × gradient_penalty(pred, target) \nWhere α (gradient_weight) controls the accuracy vs. sharpness tradeoff:\n\nα = 0.1: Conservative balance (recommended starting point)\nα = 0.25: More aggressive feature preservation\nα = 0.5: Better sharpness\n\n**Implementation Details**\n\nPer-channel loss computation for multi-variable training\nSpatial gradients computed via finite differences (∂/∂x, ∂/∂y)\nGradient penalties averaged and weighted before combination\n\n**Benefits**\n\nPreserves mesoscale eddy coherence during autoregressive rollouts\nMaintains fronts and boundaries\nTunable via a single hyperparameter\nComputationally efficient (simple finite differences)\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2025-12-03T21:04:29Z",
+          "tree_id": "f323cef9aa657deb790c7b63a584f4490bd97059",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/de18cc69a00a850a0adf8c3ac6427a4922a916c0"
+        },
+        "date": 1764797431203,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5138896537185373,
+            "unit": "iter/sec",
+            "range": "stddev: 0.030065282647550966",
+            "extra": "mean: 660.5501250000088 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18911950488542703,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04557927766202542",
+            "extra": "mean: 5.287661897199991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011437387526974499,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6246470873275175",
+            "extra": "mean: 87.43255377520003 sec\nrounds: 5"
           }
         ]
       }

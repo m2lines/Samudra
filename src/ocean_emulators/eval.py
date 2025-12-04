@@ -92,7 +92,6 @@ class Eval:
             cfg.experiment.resolved_data_root,
             self.boundary_var_names,
             self.prognostic_var_names,
-            cfg.data.hist,
         )
 
         self.src = self.data_container.source_using_dask

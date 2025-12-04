@@ -157,7 +157,6 @@ class DataConfig(BaseConfig):
         data_root: ResolvedLocation,
         boundary_var_names: BoundaryVarNames,
         prognostic_var_names: PrognosticVarNames,
-        hist: int,
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
@@ -173,7 +172,7 @@ class DataConfig(BaseConfig):
             use_dask=use_dask,
         )
         source = validate_data(source, boundary_var_names, self.static_data_vars)
-        source = source.mask(prognostic_var_names, hist)
+        source = source.mask(prognostic_var_names, self.hist)
 
         if use_dask:
             # If we're already using dask, we don't need a second source
@@ -189,7 +188,7 @@ class DataConfig(BaseConfig):
             source_using_dask = validate_data(
                 source_using_dask, boundary_var_names, self.static_data_vars
             )
-            source_using_dask = source_using_dask.mask(prognostic_var_names, hist)
+            source_using_dask = source_using_dask.mask(prognostic_var_names, self.hist)
 
         static_data = (
             source.data[self.static_data_vars]

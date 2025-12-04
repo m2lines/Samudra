@@ -133,7 +133,6 @@ class Trainer:
             data_root=cfg.experiment.resolved_data_root,
             boundary_var_names=self.boundary_var_names,
             prognostic_var_names=self.prognostic_var_names,
-            hist=cfg.data.hist,
         )
 
         self.mp_context: BaseContext | None = None

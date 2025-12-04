@@ -121,6 +121,9 @@ class DataSource:
 
         return dataclasses.replace(self, name=name, data=data, means=means, stds=stds)
 
+    def pipe(self, func: Callable[..., Self], *args, **kwargs) -> Self:
+        return func(self, *args, **kwargs)
+
     def map(
         self,
         func: Callable[

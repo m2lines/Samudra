@@ -165,30 +165,32 @@ class DataConfig(BaseConfig):
         means_location = data_root.resolve(self.data_means_location)
         stds_location = data_root.resolve(self.data_stds_location)
 
-        source = DataSource.from_locations(
-            data_location=data_location,
-            means_location=means_location,
-            stds_location=stds_location,
-            use_dask=use_dask,
+        source = (
+            DataSource.from_locations(
+                data_location=data_location,
+                means_location=means_location,
+                stds_location=stds_location,
+                use_dask=use_dask,
+            )
+            .pipe(validate_data, boundary_var_names, self.static_data_vars)
+            .mask(prognostic_var_names, self.hist)
         )
-        source = validate_data(source, boundary_var_names, self.static_data_vars)
-        source = source.mask(prognostic_var_names, self.hist)
 
         if use_dask:
             # If we're already using dask, we don't need a second source
             source_using_dask = source
         else:
             # If we're not using dask for the main source, create a separate one
-            source_using_dask = DataSource.from_locations(
-                data_location=data_location,
-                means_location=means_location,
-                stds_location=stds_location,
-                use_dask=True,
+            source_using_dask = (
+                DataSource.from_locations(
+                    data_location=data_location,
+                    means_location=means_location,
+                    stds_location=stds_location,
+                    use_dask=True,
+                )
+                .pipe(validate_data, boundary_var_names, self.static_data_vars)
+                .mask(prognostic_var_names, self.hist)
             )
-            source_using_dask = validate_data(
-                source_using_dask, boundary_var_names, self.static_data_vars
-            )
-            source_using_dask = source_using_dask.mask(prognostic_var_names, self.hist)
 
         static_data = (
             source.data[self.static_data_vars]

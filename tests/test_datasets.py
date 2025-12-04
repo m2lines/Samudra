@@ -29,7 +29,7 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataLoader,
 )
-from ocean_emulators.utils.data import DataSource, Normalize, extract_wet_mask
+from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_raw_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
@@ -72,10 +72,6 @@ def make_loader(
         TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
-        wet, wet_surface = extract_wet_mask(src.data, prognostic, cfg.data.hist)
-        wet_without_hist, _ = extract_wet_mask(src.data, prognostic, 0)
-        normalize_before_mask = cfg.data.normalize_before_mask
-        masked_fill_value = cfg.data.masked_fill_value
 
         match version:
             case LoaderVersion.OM4_TORCH:
@@ -84,12 +80,10 @@ def make_loader(
                         src=src.slice(time_config),
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
-                        wet=wet_without_hist,
-                        wet_surface=wet_surface,
                         hist=cfg.data.hist,
                         steps=cfg.steps[0],
-                        normalize_before_mask=normalize_before_mask,
-                        masked_fill_value=masked_fill_value,
+                        normalize_before_mask=cfg.data.normalize_before_mask,
+                        masked_fill_value=cfg.data.masked_fill_value,
                         stride=stride,
                     )
                     for stride in cfg.data_stride
@@ -440,11 +434,16 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         coords={"lat": [0], "lon": [0]},
     )
 
-    test = DataSource("test", data, data_mean, data_std)
     wet_surface = torch.ones(2, 2)
     wet_surface[0, 0] = 0.0
     wet_surface[1, 1] = 0.0
     wet = wet_surface.expand(2, 2, 2)
+    masks = Masks(
+        wet=wet,
+        wet_surface=wet_surface,
+        wet_without_hist_cpu=wet,
+    )
+    test = DataSource("test", data, data_mean, data_std, masks=masks)
 
     # Initialize and yield within the MultitonScope
     with MultitonScope():
@@ -452,15 +451,11 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             test,
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],
-            wet_mask=wet,
-            wet_mask_surface=wet_surface,
         )
         torch_train_dataset = TorchTrainDataset(
             src=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
-            wet=wet,
-            wet_surface=wet_surface,
             hist=1,
             steps=2,
             normalize_before_mask=normalize_before_mask,
@@ -471,8 +466,6 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             src=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
-            wet=wet,
-            wet_surface=wet_surface,
             hist=1,
             normalize_before_mask=normalize_before_mask,
             masked_fill_value=masked_fill_value,

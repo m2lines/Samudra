@@ -1,0 +1,77 @@
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/scratch/ag11542/Ocean_Emulator/src/ocean_emulators/eval.py", line 256, in <module>
+    main()
+  File "/scratch/ag11542/Ocean_Emulator/src/ocean_emulators/eval.py", line 239, in main
+    cfg = EvalConfig.from_yaml_and_cli()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/scratch/ag11542/Ocean_Emulator/src/ocean_emulators/config_base.py", line 110, in from_yaml_and_cli
+    return cls(
+           ^^^^
+  File "/scratch/ag11542/Ocean_Emulator/src/ocean_emulators/config_base.py", line 56, in __init__
+    super().__init__(*args, **kwargs)
+  File "/scratch/ag11542/Ocean_Emulator/.venv/lib/python3.11/site-packages/pydantic_settings/main.py", line 176, in __init__
+    super().__init__(
+  File "/scratch/ag11542/Ocean_Emulator/.venv/lib/python3.11/site-packages/pydantic/main.py", line 214, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 19 validation errors for EvalConfig
+pin_mem
+  Extra inputs are not permitted [type=extra_forbidden, input_value=True, input_type=bool]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+save_freq
+  Extra inputs are not permitted [type=extra_forbidden, input_value=5, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+epochs
+  Extra inputs are not permitted [type=extra_forbidden, input_value=70, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+batch_size
+  Extra inputs are not permitted [type=extra_forbidden, input_value=1, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+learning_rate
+  Extra inputs are not permitted [type=extra_forbidden, input_value=0.0002, input_type=float]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+scheduler
+  Extra inputs are not permitted [type=extra_forbidden, input_value={'type': 'cosine'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+loss
+  Extra inputs are not permitted [type=extra_forbidden, input_value='crps', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+ensemble_size_train
+  Extra inputs are not permitted [type=extra_forbidden, input_value=2, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+val_freq_steps
+  Extra inputs are not permitted [type=extra_forbidden, input_value=500, input_type=int]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+finetune
+  Extra inputs are not permitted [type=extra_forbidden, input_value=False, input_type=bool]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+resume_ckpt_path
+  Extra inputs are not permitted [type=extra_forbidden, input_value=None, input_type=NoneType]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+inference_epochs
+  Extra inputs are not permitted [type=extra_forbidden, input_value=[], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+data_percent
+  Extra inputs are not permitted [type=extra_forbidden, input_value=1.0, input_type=float]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+train_time
+  Extra inputs are not permitted [type=extra_forbidden, input_value={'start': '1975-01-03', 'end': '2013-10-05'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+val_time
+  Extra inputs are not permitted [type=extra_forbidden, input_value={'start': '2013-10-05', 'end': '2014-10-05'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+inference_times
+  Extra inputs are not permitted [type=extra_forbidden, input_value=[{'start': '1975-01-03', ...', 'end': '2005-10-05'}], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+data_stride
+  Extra inputs are not permitted [type=extra_forbidden, input_value=[1], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+steps
+  Extra inputs are not permitted [type=extra_forbidden, input_value=[4], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden
+step_transition
+  Extra inputs are not permitted [type=extra_forbidden, input_value=[], input_type=list]
+    For further information visit https://errors.pydantic.dev/2.10/v/extra_forbidden

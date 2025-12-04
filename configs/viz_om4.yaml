@@ -13,5 +13,5 @@ groundtruth_time_range:
   start: "2014-10-20"
   end: "2022-12-24"
 runs:
-  - name: "local_om4_samudra"
-    location: ".LOCAL/local_om4_samudra/predictions.zarr"
+  - name: "local_om4_samudra_retrained"
+    location: "/scratch/ag11542/eval_outputs/local_om4_samudra_crps_retrained/predictions.zarr"

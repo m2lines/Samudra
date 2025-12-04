@@ -620,7 +620,7 @@ class Trainer:
             self.metadata,
             self.hist,
             self.area_weights,
-            self.wet_without_hist,
+            self.wet_without_hist.to(self.device),
             self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
@@ -654,7 +654,7 @@ class Trainer:
                     self.metadata,
                     self.hist,
                     self.area_weights,
-                    self.wet_without_hist,
+                    self.wet_without_hist.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,
                 )

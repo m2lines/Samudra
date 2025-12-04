@@ -1,5 +1,6 @@
 import logging
 import time
+from collections.abc import Callable
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import TypeAlias, final
@@ -293,7 +294,7 @@ class InferenceDatasets(Dataset):
 
 
 class RawTrainData:
-    def __init__(self, dataset_id: "TorchTrainDataset.Id"):
+    def __init__(self, dataset_id: "TorchTrainDataset.Id | MultiscaleTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
@@ -421,7 +422,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         executor: ThreadPoolExecutor | None = None,
     ):
         super().__init__()
-        self.id = f"{self.__class__.__name__}_{str(id(self))}"
+        self.id = f"{self.__class__.__name__}({str(id(self))})"
         self.device = get_device()
 
         self.hist: int = hist
@@ -644,22 +645,28 @@ def concurrent_compute(
 
 
 @final
-class MulitscaleTorchTrainDataset(Dataset[RawTrainData]):
+class MultiscaleTrainDataset(Dataset[RawTrainData]):
+    Id: TypeAlias = str
+    FLAG = LoaderVersion.OM4_MULTISCALE_TORCH
+
     def __init__(
         self,
-        srcs: list[DataSource],
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-        wet: PrognosticMask,
-        wet_surface: GridMask,
-        hist: int,
-        steps: int,
-        normalize_before_mask: bool,
-        masked_fill_value: float,
-        stride: int = 1,
-        executor: ThreadPoolExecutor | None = None,
+        srcs: list[MaskedDataSource],
+        make_dataset: Callable[[MaskedDataSource], TorchTrainDataset],
     ):
-        pass
+        self.datasets = [make_dataset(src) for src in srcs]
+        self.id = f"{self.__class__.__name__}({str(id(self))}, {', '.join([ds.id for ds in self.datasets])})"
+
+    def merge(self, tds: list[RawTrainData]) -> RawTrainData:
+        TD = RawTrainData(self.id)
+        for _step, examples_per_step in enumerate(zip(*(td.raw_data for td in tds))):
+            pass
+        return TD
+
+    @elapsed(level=logging.DEBUG)
+    def __getitem__(self, idx: int) -> RawTrainData:
+        raw_tds = [ds[idx] for ds in self.datasets]
+        return self.merge(raw_tds)
 
 
 @final

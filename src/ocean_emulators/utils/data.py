@@ -59,7 +59,6 @@ class DataSource:
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
-    masks: Masks | None = None
 
     @cached_property
     def is_compact(self) -> bool:
@@ -252,7 +251,9 @@ class DataSource:
             stds=stds,
         )
 
-    def mask(self, prognostic_var_names: PrognosticVarNames, hist: int) -> Self:
+    def mask(
+        self, prognostic_var_names: PrognosticVarNames, hist: int
+    ) -> "MaskedDataSource":
         wet, wet_surface = extract_wet_mask(self.data, prognostic_var_names, hist)
         wet_no_hist, _ = extract_wet_mask(self.data, prognostic_var_names, 0)
 
@@ -260,17 +261,24 @@ class DataSource:
             wet=wet, wet_surface=wet_surface, wet_without_hist_cpu=wet_no_hist
         )
 
-        return dataclasses.replace(
-            self,
+        return MaskedDataSource(
             name=f"{self.name}_with_wetmasks",
+            data=self.data,
+            means=self.means,
+            stds=self.stds,
             masks=masks,
         )
 
 
 @dataclasses.dataclass
+class MaskedDataSource(DataSource):
+    masks: Masks
+
+
+@dataclasses.dataclass
 class DataContainer:
-    source: DataSource
-    source_using_dask: DataSource
+    source: MaskedDataSource
+    source_using_dask: MaskedDataSource
     loader_version: LoaderVersion
     supports_fork: bool
     static_data: xr.Dataset | None = None
@@ -621,7 +629,7 @@ def validate_data(
 class Normalize(Multiton):
     def _initialize(
         self,
-        src: DataSource,
+        src: MaskedDataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> None:
@@ -632,7 +640,6 @@ class Normalize(Multiton):
         self.prognostic_std = prognostic_src.stds
         self.boundary_mean = boundary_src.means
         self.boundary_std = boundary_src.stds
-        assert src.masks is not None
         self.wet_mask = src.masks.wet_without_hist_cpu
         self.wet_mask_surface = src.masks.wet_surface
 

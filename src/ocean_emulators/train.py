@@ -185,7 +185,6 @@ class Trainer:
         self.loader_version = self.data_container.loader_version
 
         self.metadata = construct_metadata(self.data)
-        assert self.src.masks is not None
         self.wet = self.src.masks.wet.to(self.device)
         self.wet_without_hist = self.src.masks.wet_without_hist_cpu
         self.area_weights: Grid = spherical_area_weights(self.data)

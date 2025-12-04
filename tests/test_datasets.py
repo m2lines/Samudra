@@ -29,7 +29,7 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataLoader,
 )
-from ocean_emulators.utils.data import DataSource, Masks, Normalize
+from ocean_emulators.utils.data import DataSource, MaskedDataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_raw_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
@@ -443,7 +443,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         wet_surface=wet_surface,
         wet_without_hist_cpu=wet,
     )
-    test = DataSource("test", data, data_mean, data_std, masks=masks)
+    test = MaskedDataSource("test", data, data_mean, data_std, masks=masks)
 
     # Initialize and yield within the MultitonScope
     with MultitonScope():

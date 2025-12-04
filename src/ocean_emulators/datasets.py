@@ -15,11 +15,9 @@ from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 from ocean_emulators.constants import (
     BoundaryVarNames,
     Example,
-    GridMask,
     Input,
     LoaderVersion,
     Prognostic,
-    PrognosticMask,
     PrognosticVarNames,
 )
 from ocean_emulators.utils.data import DataSource, LoadStats, conditional_rearrange
@@ -49,8 +47,6 @@ class InferenceDataset(Dataset):
         src: DataSource,
         prognostic_var_names,
         boundary_var_names,
-        wet,
-        wet_surface,
         hist,
         normalize_before_mask,
         masked_fill_value,
@@ -93,8 +89,9 @@ class InferenceDataset(Dataset):
                 f" output at {data.time.values[self.hist + 1]}"
             )
 
-        self.wet: torch.Tensor = wet.bool()
-        self.wet_surface: torch.Tensor = wet_surface.bool()
+        assert src.masks is not None
+        self.wet: torch.Tensor = src.masks.wet_without_hist_cpu.bool()
+        self.wet_surface: torch.Tensor = src.masks.wet_surface.bool()
         self.size = len(self.rolling_indices)
 
         if using_gpu():
@@ -415,8 +412,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        wet: PrognosticMask,
-        wet_surface: GridMask,
         hist: int,
         steps: int,
         normalize_before_mask: bool,
@@ -458,8 +453,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
-        self.wet = wet.bool().to(self.device)
-        self.wet_surface = wet_surface.bool().to(self.device)
+        assert src.masks is not None
+        self.wet = src.masks.wet_without_hist_cpu.bool().to(self.device)
+        self.wet_surface = src.masks.wet_surface.bool().to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
             if "lev" in means_or_stds.dims:

@@ -45,6 +45,13 @@ def _var_name_encode_level(var_name: str) -> bool:
 
 
 @dataclasses.dataclass
+class Masks:
+    wet: PrognosticMask
+    wet_surface: PrognosticMask
+    wet_without_hist_cpu: PrognosticMask
+
+
+@dataclasses.dataclass
 class DataSource:
     """Data source for the model."""
 
@@ -52,9 +59,7 @@ class DataSource:
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
-    wet: PrognosticMask | None = None
-    wet_surface: GridMask | None = None
-    wet_without_hist_cpu: PrognosticMask | None = None
+    masks: Masks | None = None
 
     @cached_property
     def is_compact(self) -> bool:
@@ -247,12 +252,14 @@ class DataSource:
         wet, wet_surface = extract_wet_mask(self.data, prognostic_var_names, hist)
         wet_no_hist, _ = extract_wet_mask(self.data, prognostic_var_names, 0)
 
+        masks = Masks(
+            wet=wet, wet_surface=wet_surface, wet_without_hist_cpu=wet_no_hist
+        )
+
         return dataclasses.replace(
             self,
             name=f"{self.name}_with_wetmasks",
-            wet=wet,
-            wet_surface=wet_surface,
-            wet_without_hist_cpu=wet_no_hist,
+            masks=masks,
         )
 
 
@@ -613,8 +620,6 @@ class Normalize(Multiton):
         src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        wet_mask: torch.Tensor,
-        wet_mask_surface: torch.Tensor,
     ) -> None:
         """Store normalization parameters and pre-compute numpy arrays."""
         prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
@@ -623,8 +628,9 @@ class Normalize(Multiton):
         self.prognostic_std = prognostic_src.stds
         self.boundary_mean = boundary_src.means
         self.boundary_std = boundary_src.stds
-        self.wet_mask = wet_mask
-        self.wet_mask_surface = wet_mask_surface
+        assert src.masks is not None
+        self.wet_mask = src.masks.wet_without_hist_cpu
+        self.wet_mask_surface = src.masks.wet_surface
 
         # Pre-compute numpy arrays for faster access
         self._prognostic_mean_np = (

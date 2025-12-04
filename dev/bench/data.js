@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764797433309,
+  "lastUpdate": 1764879279010,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5934,6 +5934,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6246470873275175",
             "extra": "mean: 87.43255377520003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34085119+amogh-gulati@users.noreply.github.com",
+            "name": "Amogh Gulati",
+            "username": "amogh-gulati"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94bbb34c70dd8f15b1c3b091913c8da0081cc1e8",
+          "message": "Gradient accumulation  (#476)\n\nAdded gradient accumulation support with configurable\ngradient_accumulation_steps and effective batch size logging.\nbased on this\n[writeup](https://www.kozodoi.me/blog/gradient-accumulation-in-pytorch)",
+          "timestamp": "2025-12-04T14:48:41-05:00",
+          "tree_id": "7249b7a633633c2881013f945bdebb5b2c9bc134",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/94bbb34c70dd8f15b1c3b091913c8da0081cc1e8"
+        },
+        "date": 1764879278228,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5472901240581842,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03102304562802635",
+            "extra": "mean: 646.2912058000029 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18779038734626177,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01851754105678606",
+            "extra": "mean: 5.325086199199996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010995729185873725,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7785070174757546",
+            "extra": "mean: 90.9444006028 sec\nrounds: 5"
           }
         ]
       }

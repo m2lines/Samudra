@@ -73,8 +73,6 @@ def inf_data_init(hist: int):
             val,
             tensor_map.prognostic_var_names,
             tensor_map.boundary_var_names,
-            val.masks.wet_without_hist_cpu,
-            val.masks.wet_surface,
             hist,
             normalize_before_mask=True,
             masked_fill_value=0.0,

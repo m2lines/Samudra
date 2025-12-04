@@ -37,8 +37,6 @@ def test_positional_parameters_update():
             src,
             TensorMap.get_instance().prognostic_var_names,
             TensorMap.get_instance().boundary_var_names,
-            torch.ones(h, w),
-            torch.ones(h, w),
         )
 
         # Create the model itself with learned positional embeddings

@@ -9,9 +9,10 @@ from scipy.stats import pearsonr
 from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
 from ocean_emulators.utils.data import (
     DataSource,
+    MaskedDataSource,
+    Masks,
     Normalize,
     compute_anomalies,
-    extract_wet_mask,
     flatten_masks,
     get_aggregator_dicts,
     unflatten_masks,
@@ -153,20 +154,20 @@ def normalize_input():
         coords={"lat": [0], "lon": [0]},
     )
 
-    # Warning: the 'data' field is not used because this test tries to test
-    # normalization which only needs mean and std. Thus, we set it to `data_mean`.
-    test = DataSource("test", data_mean, data_mean, data_std)
-
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+    masks = Masks(wet=wet_mask, wet_surface=wet_mask, wet_without_hist_cpu=wet_mask)
+
+    # Warning: the 'data' field is not used because this test tries to test
+    # normalization which only needs mean and std. Thus, we set it to `data_mean`.
+    test = MaskedDataSource("test", data_mean, data_mean, data_std, masks=masks)
+
     # Initialize Normalize instance
     with MultitonScope():
         normalize = Normalize.init_instance(
             test,
             prognostic_var_names=["var_0", "var_1"],
             boundary_var_names=["var_2"],
-            wet_mask=wet_mask,
-            wet_mask_surface=wet_mask,
         )
         yield normalize, wet_mask
 
@@ -241,20 +242,18 @@ def data_init(hist: int):
         )
         data_mean = data.mean() * 0.0
         data_std = data.std() * 0.0 + 1.0
-        src = DataSource("test", data, data_mean, data_std)
-        val = validate_data(src, tensor_map.boundary_var_names)
-        (wet_without_hist, wet_mask_surface) = extract_wet_mask(
-            val.data, tensor_map.prognostic_var_names, 0
+        val = (
+            DataSource("test", data, data_mean, data_std)
+            .pipe(validate_data, tensor_map.boundary_var_names)
+            .mask(tensor_map.boundary_var_names, 0)
         )
 
         normalize = Normalize.init_instance(
             val,
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
-            wet_mask=wet_without_hist,
-            wet_mask_surface=wet_mask_surface,
         )
-        yield normalize, wet_without_hist
+        yield normalize, val.masks.wet_without_hist_cpu
 
 
 @pytest.mark.parametrize("input_type", ["input", "target"])

@@ -274,7 +274,6 @@ class Trainer:
             self.wandb_logger.log(
                 {
                     "config/effective_batch_size": effective_batch_size,
-                    "config/gradient_accumulation_steps": cfg.gradient_accumulation_steps,
                 },
                 step=0,
             )
@@ -484,11 +483,20 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
-        # iters = len(self.train_loader)
+
+        total_batches = len(self.train_loader)
 
         # Ensure gradients are zeroed at the start of the epoch so we don't
         # accidentally accumulate leftovers from checkpoint/loading.
         self.optimizer.zero_grad()
+
+        # Calculate how many batches will be in the final incomplete accumulation cycle (if any)
+        remaining_batches = total_batches % self.gradient_accumulation_steps
+        final_cycle_start = (
+            total_batches - remaining_batches
+            if remaining_batches > 0
+            else total_batches
+        )
 
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
@@ -496,21 +504,33 @@ class Trainer:
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
+            in_final_cycle = (
+                data_iter_step + 1 > final_cycle_start
+            ) and remaining_batches > 0
+
+            # Determine the actual number of microbatches in this accumulation cycle
+            if in_final_cycle:
+                r = remaining_batches
+            else:
+                r = self.gradient_accumulation_steps
+
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
 
-            # Scale loss by accumulation steps to maintain same average gradient magnitude
-            scaled_loss = TO.loss / self.gradient_accumulation_steps
+            # Scale loss by the actual number of microbatches that will be accumulated
+            scaled_loss = TO.loss / r
             scaled_loss.backward()
 
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
 
-            # Only step optimizer and clip gradients after accumulating enough batches
-            if (data_iter_step + 1) % self.gradient_accumulation_steps == 0:
+            is_last = data_iter_step + 1 == total_batches
+            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
+            # Step optimizer after accumulating enough batches or at the end
+            if should_step or is_last:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -588,18 +608,6 @@ class Trainer:
             self._call_loss_update(data)
 
             self.profiler.after_batch(self.num_batches_seen)
-
-        # Handle any remaining accumulated gradients at the end of the epoch
-        if (data_iter_step + 1) % self.gradient_accumulation_steps != 0:
-            num_accumulated = (data_iter_step + 1) % self.gradient_accumulation_steps
-            logger.info(
-                f"Performing final optimizer step with {num_accumulated} "
-                f"accumulated gradients"
-            )
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-            self.optimizer.step()
-            self._ema(model=self.model)
-            self.optimizer.zero_grad()
 
         if self.scheduler is not None:
             self.scheduler.step()

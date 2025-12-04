@@ -133,7 +133,21 @@ class Trainer:
         self.data_container = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
             boundary_var_names=self.boundary_var_names,
+            prognostic_var_names=self.prognostic_var_names,
+            hist=cfg.data.hist,
         )
+
+        self.src = self.data_container.source
+        self.data = self.data_container.source.data
+        self.static_data = self.data_container.static_data
+
+        self.wet, self.wet_surface = extract_wet_mask(
+            self.data, self.prognostic_var_names, cfg.data.hist
+        )
+        self.wet_without_hist_cpu, _ = extract_wet_mask(
+            self.data, self.prognostic_var_names, 0
+        )
+        self.wet = self.wet.to(self.device)
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -173,10 +187,6 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
 
-        self.src = self.data_container.source
-        self.data = self.data_container.source.data
-        self.static_data = self.data_container.static_data
-
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
@@ -185,13 +195,6 @@ class Trainer:
         self.loader_version = self.data_container.loader_version
 
         self.metadata = construct_metadata(self.data)
-        self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.prognostic_var_names, cfg.data.hist
-        )
-        self.wet_without_hist_cpu, _ = extract_wet_mask(
-            self.data, self.prognostic_var_names, 0
-        )
-        self.wet = self.wet.to(self.device)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)

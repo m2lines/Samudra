@@ -13,6 +13,7 @@ from einops import rearrange
 
 if TYPE_CHECKING:
     from ocean_emulators.config import TimeConfig
+
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
@@ -51,6 +52,9 @@ class DataSource:
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
+    wet: PrognosticMask | None = None
+    wet_surface: GridMask | None = None
+    wet_without_hist_cpu: PrognosticMask | None = None
 
     @cached_property
     def is_compact(self) -> bool:
@@ -237,6 +241,18 @@ class DataSource:
             data=data,
             means=means,
             stds=stds,
+        )
+
+    def mask(self, prognostic_var_names: PrognosticVarNames, hist: int) -> Self:
+        wet, wet_surface = extract_wet_mask(self.data, prognostic_var_names, hist)
+        wet_no_hist, _ = extract_wet_mask(self.data, prognostic_var_names, 0)
+
+        return dataclasses.replace(
+            self,
+            name=f"{self.name}_with_wetmasks",
+            wet=wet,
+            wet_surface=wet_surface,
+            wet_without_hist_cpu=wet_no_hist,
         )
 
 

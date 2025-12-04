@@ -260,6 +260,21 @@ class Trainer:
             finetune=cfg.finetune,
         )
 
+        # Log effective batch size
+        effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
+        logger.info(
+            f"Effective batch size: {effective_batch_size} "
+            f"(batch_size={cfg.batch_size} × "
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+        )
+        if self.is_wandb_enabled():
+            self.wandb_logger.log(
+                {
+                    "config/effective_batch_size": effective_batch_size,
+                },
+                step=0,
+            )
+
         self.num_batches_seen = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -303,6 +318,7 @@ class Trainer:
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
+        self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.num_workers: int = cfg.data.num_workers
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
@@ -464,30 +480,58 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
-        # iters = len(self.train_loader)
+
+        total_batches = len(self.train_loader)
+
+        # Ensure gradients are zeroed at the start of the epoch so we don't
+        # accidentally accumulate leftovers from checkpoint/loading.
+        self.optimizer.zero_grad()
+
+        # Calculate how many batches will be in the final incomplete accumulation cycle (if any)
+        remaining_batches = total_batches % self.gradient_accumulation_steps
+        final_cycle_start = (
+            total_batches - remaining_batches
+            if remaining_batches > 0
+            else total_batches
+        )
+
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
-            self.optimizer.zero_grad()
+            in_final_cycle = (
+                data_iter_step + 1 > final_cycle_start
+            ) and remaining_batches > 0
+
+            # Determine the actual number of microbatches in this accumulation cycle
+            if in_final_cycle:
+                r = remaining_batches
+            else:
+                r = self.gradient_accumulation_steps
 
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
-            TO.loss.backward()
-            self._ema(model=self.model)
+
+            # Scale loss by the actual number of microbatches that will be accumulated
+            scaled_loss = TO.loss / r
+            scaled_loss.backward()
 
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
 
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-
-            self.optimizer.step()
+            is_last = data_iter_step + 1 == total_batches
+            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
+            # Step optimizer after accumulating enough batches or at the end
+            if should_step or is_last:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                self._ema(model=self.model)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]

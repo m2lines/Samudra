@@ -717,6 +717,7 @@ class TrainConfig(TopLevelConfig):
     preemptible: bool = True
     batch_size: int = 2
     learning_rate: float = 2e-4
+    gradient_accumulation_steps: int = 1
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
     finetune: bool = False

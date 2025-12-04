@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764879279010,
+  "lastUpdate": 1764879280264,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11967,6 +11967,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.2746272036965853",
             "extra": "mean: 79.49755533100002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34085119+amogh-gulati@users.noreply.github.com",
+            "name": "Amogh Gulati",
+            "username": "amogh-gulati"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94bbb34c70dd8f15b1c3b091913c8da0081cc1e8",
+          "message": "Gradient accumulation  (#476)\n\nAdded gradient accumulation support with configurable\ngradient_accumulation_steps and effective batch size logging.\nbased on this\n[writeup](https://www.kozodoi.me/blog/gradient-accumulation-in-pytorch)",
+          "timestamp": "2025-12-04T14:48:41-05:00",
+          "tree_id": "7249b7a633633c2881013f945bdebb5b2c9bc134",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/94bbb34c70dd8f15b1c3b091913c8da0081cc1e8"
+        },
+        "date": 1764879279956,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5417946556150246,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04599330825812068",
+            "extra": "mean: 648.5948023999981 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.187240166911657,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06113377771537535",
+            "extra": "mean: 5.340734397399979 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012874016868567381,
+            "unit": "iter/sec",
+            "range": "stddev: 1.2651954741180338",
+            "extra": "mean: 77.67583421779996 sec\nrounds: 5"
           }
         ]
       }

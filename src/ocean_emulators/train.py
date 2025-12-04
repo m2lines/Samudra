@@ -186,7 +186,7 @@ class Trainer:
 
         self.metadata = construct_metadata(self.data)
         self.wet = self.src.masks.wet.to(self.device)
-        self.wet_without_hist = self.src.masks.wet_without_hist_cpu
+        self.wet_without_hist = self.src.masks.wet_without_hist_cpu.to(self.device)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -620,7 +620,7 @@ class Trainer:
             self.metadata,
             self.hist,
             self.area_weights,
-            self.wet_without_hist.to(self.device),
+            self.wet_without_hist,
             self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
@@ -654,7 +654,7 @@ class Trainer:
                     self.metadata,
                     self.hist,
                     self.area_weights,
-                    self.wet_without_hist.to(self.device),
+                    self.wet_without_hist,
                     self.num_out,
                     self.prognostic_var_names,
                 )

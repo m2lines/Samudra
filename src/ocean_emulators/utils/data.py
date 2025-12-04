@@ -45,13 +45,6 @@ def _var_name_encode_level(var_name: str) -> bool:
 
 
 @dataclasses.dataclass
-class Masks:
-    wet: PrognosticMask
-    wet_surface: GridMask
-    wet_without_hist_cpu: PrognosticMask
-
-
-@dataclasses.dataclass
 class DataSource:
     """Data source for the model."""
 
@@ -271,7 +264,18 @@ class DataSource:
 
 
 @dataclasses.dataclass
+class Masks:
+    """A collection of masks to expose the ocean and mask land."""
+
+    wet: PrognosticMask
+    wet_surface: GridMask
+    wet_without_hist_cpu: PrognosticMask
+
+
+@dataclasses.dataclass
 class MaskedDataSource(DataSource):
+    """A `DataSource` with a `masks` field; created via `DataSource.mask`."""
+
     masks: Masks
 
 

@@ -57,7 +57,7 @@ class CappedGELU(torch.nn.Module):
         return CappedGELUFunction.apply(inputs, self.cap)
 
 
-# TODO: write a test 
+# TODO: write a test
 class CappedGELUFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, cap):
@@ -77,10 +77,8 @@ class CappedGELUFunction(torch.autograd.Function):
         mask = (g < cap).to(grad_output.dtype)
         del g
 
-        # gelu backward gives grad_output * gelu'(x)
-        grad_x = torch.ops.aten.gelu_backward(
-            grad_output, x, approximate="none"
-        )
+        grad_output.mul_(mask)
+        del mask
 
-        grad_x.mul_(mask)
-        return grad_x, None
+        # gelu backward gives grad_output * gelu'(x)
+        return torch.ops.aten.gelu_backward(grad_output, x, approximate="none"), None

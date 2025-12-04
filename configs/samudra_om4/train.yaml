@@ -7,6 +7,7 @@ save_freq: 5
 epochs: 70
 batch_size: 4
 learning_rate: 0.0006
+gradient_accumulation_steps: 1
 scheduler: { type: cosine }
 loss:
   type: dynamic

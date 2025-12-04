@@ -263,6 +263,22 @@ class Trainer:
             finetune=cfg.finetune,
         )
 
+        # Log effective batch size
+        effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
+        logger.info(
+            f"Effective batch size: {effective_batch_size} "
+            f"(batch_size={cfg.batch_size} × "
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+        )
+        if is_main_process():
+            self.wandb_logger.log(
+                {
+                    "config/effective_batch_size": effective_batch_size,
+                    "config/gradient_accumulation_steps": cfg.gradient_accumulation_steps,
+                },
+                step=0,
+            )
+
         self.num_batches_seen = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -306,6 +322,7 @@ class Trainer:
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
+        self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.num_workers: int = cfg.data.num_workers
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
@@ -468,29 +485,39 @@ class Trainer:
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
         # iters = len(self.train_loader)
+        # Ensure gradients are zeroed at the start of the epoch so we don't
+        # accidentally accumulate leftovers from checkpoint/loading.
+        self.optimizer.zero_grad()
+
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
-            self.optimizer.zero_grad()
-
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
-            TO.loss.backward()
-            self._ema(model=self.model)
+
+            # Scale loss by accumulation steps to maintain same average gradient magnitude
+            scaled_loss = TO.loss / self.gradient_accumulation_steps
+            scaled_loss.backward()
 
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
 
-            # Gradient clipping
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            # Only step optimizer and clip gradients after accumulating enough batches
+            if (data_iter_step + 1) % self.gradient_accumulation_steps == 0:
+                # Gradient clipping
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
-            self.optimizer.step()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+
+                # Update EMA after optimizer step
+                self._ema(model=self.model)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -564,6 +591,20 @@ class Trainer:
             self._call_loss_update(data)
 
             self.profiler.after_batch(self.num_batches_seen)
+
+        # Handle any remaining accumulated gradients at the end of the epoch
+        # This happens when total batches don't divide evenly by accumulation steps
+        if data_iter_step % self.gradient_accumulation_steps != 0:
+            logger.info(
+                f"Performing final optimizer step with {data_iter_step % self.gradient_accumulation_steps} "
+                f"accumulated gradients"
+            )
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            self.optimizer.step()
+            self._ema(model=self.model)
+            # Clear gradients after the final step as well so subsequent epochs
+            # start with a clean state.
+            self.optimizer.zero_grad()
 
         if self.scheduler is not None:
             self.scheduler.step()

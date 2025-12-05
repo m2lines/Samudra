@@ -619,7 +619,7 @@ class Trainer:
                 single_step_data = TrainData(data.num_prognostic_channels)
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]
-                single_step_data.insert(input, label)
+                single_step_data.append(input, label)
                 pred = self.model(single_step_data)
                 update(pred[0], label)
 

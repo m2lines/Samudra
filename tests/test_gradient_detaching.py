@@ -80,7 +80,7 @@ def create_samudra_model():
             for step in range(4):
                 input_tensor = torch.randn(1, 2, h, w, requires_grad=True)
                 label_tensor = torch.randn(1, 1, h, w)
-                train_data.insert(input_tensor, label_tensor)
+                train_data.append(input_tensor, label_tensor)
 
             return model, train_data
 

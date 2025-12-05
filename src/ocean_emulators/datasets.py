@@ -323,6 +323,9 @@ class RawTrainData:
 class TrainData:
     """A single batch of training data.
 
+    A single batch contains multiple steps worth of `Example`s (i.e., input/output pairs). These steps are used during
+    autoregressive rollout in the training and inference process.
+
     Constraint: The `Input` tensor is a combination of (flattened) prognostic variables (at all depth levels) and
     boundary forcings. The top `num_prognostic_channels` number of channels must be prognostic variables whereas the
     remaining bottom channels are boundary forcings.

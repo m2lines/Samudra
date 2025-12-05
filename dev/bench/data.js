@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764964606806,
+  "lastUpdate": 1764964608020,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12237,6 +12237,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2908736046233142",
             "extra": "mean: 76.65060532020001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e10f05c58e60f113d129b2c1d4dbf645789da45d",
+          "message": "Add tags for tracking cost to Skypilot & CI (#505)",
+          "timestamp": "2025-12-05T19:31:40Z",
+          "tree_id": "c62c4d955458f70db6b5dc5ccb14751330b078ba",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e10f05c58e60f113d129b2c1d4dbf645789da45d"
+        },
+        "date": 1764964607733,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5949641215293828,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02788373962608904",
+            "extra": "mean: 626.9733509999696 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19139959533752415,
+            "unit": "iter/sec",
+            "range": "stddev: 0.025747197029674304",
+            "extra": "mean: 5.224671443200009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013487430017715523,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13014172373255456",
+            "extra": "mean: 74.1431094498 sec\nrounds: 5"
           }
         ]
       }

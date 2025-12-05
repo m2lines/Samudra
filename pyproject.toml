@@ -48,13 +48,13 @@ dependencies = [
   "xarray-einstats[einops]>=0.8",
   "xesmf>=0.8.10",
   "zarr<3",
-  "nvidia-physicsnemo>=1.0.1",
 ]
 
 optional-dependencies.cuda = [
   "flash-attn>=2.2.5,<3",
   "flash-perceiver>=0.2",
   "torchvision>=0.23",
+  "nvidia-physicsnemo>=1.0.1",
 ]
 
 [dependency-groups]

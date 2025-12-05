@@ -3046,7 +3046,6 @@ dependencies = [
     { name = "matplotlib" },
     { name = "microsoft-aurora" },
     { name = "numpy" },
-    { name = "nvidia-physicsnemo" },
     { name = "perceiver-pytorch" },
     { name = "pydantic-settings" },
     { name = "pytest-xdist", extra = ["psutil"] },
@@ -3071,6 +3070,7 @@ dependencies = [
 cuda = [
     { name = "flash-attn" },
     { name = "flash-perceiver" },
+    { name = "nvidia-physicsnemo" },
     { name = "torchvision" },
 ]
 
@@ -3116,7 +3116,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "microsoft-aurora", specifier = ">=1.8" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
-    { name = "nvidia-physicsnemo", specifier = ">=1.0.1" },
+    { name = "nvidia-physicsnemo", marker = "extra == 'cuda'", specifier = ">=1.0.1" },
     { name = "perceiver-pytorch", specifier = ">=0.8.8" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },

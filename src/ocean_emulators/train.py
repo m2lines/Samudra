@@ -1,6 +1,3 @@
-# TODO:
-# - better stepper module and a cleaner model module
-# - cleaner dataset modules
 import contextlib
 import datetime
 import logging

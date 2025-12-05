@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764963143544,
+  "lastUpdate": 1764964606806,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6069,6 +6069,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.34242719533599514",
             "extra": "mean: 90.0025327724 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e10f05c58e60f113d129b2c1d4dbf645789da45d",
+          "message": "Add tags for tracking cost to Skypilot & CI (#505)",
+          "timestamp": "2025-12-05T19:31:40Z",
+          "tree_id": "c62c4d955458f70db6b5dc5ccb14751330b078ba",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e10f05c58e60f113d129b2c1d4dbf645789da45d"
+        },
+        "date": 1764964606047,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.583328883941687,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018439152111723558",
+            "extra": "mean: 631.5807221999933 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1881616853159377,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010415912434561723",
+            "extra": "mean: 5.3145782485999975 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011444063647911507,
+            "unit": "iter/sec",
+            "range": "stddev: 0.35241481696603344",
+            "extra": "mean: 87.3815482652 sec\nrounds: 5"
           }
         ]
       }

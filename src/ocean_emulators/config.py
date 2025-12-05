@@ -395,6 +395,26 @@ UpSamplingBlocks = Literal[
     "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
 ]
 Checkpointing = Literal["all", "simple"]
+ActivationLayout = Literal["lon", "data_lon"]
+
+
+class ShardingConfig(BaseConfig):
+    enable_sharding: bool = Field(
+        default=False,
+        description="Enable sharded activations using Physics NeMo ShardTensor.",
+    )
+    mesh_shape: dict[str, int] = Field(
+        default_factory=lambda: {"lon": 1},
+        description="Mapping of mesh axis name to size. Product must match world size when sharding is enabled.",
+    )
+    activation_layout: ActivationLayout = Field(
+        default="lon",
+        description="How to shard activations. 'lon' shards width only, 'data_lon' shards batch and width.",
+    )
+    shard_inference: bool = Field(
+        default=False,
+        description="Shard activations during inference. Defaults to False to keep inference replicated.",
+    )
 
 
 class UNetBackboneConfig(BaseConfig):
@@ -498,6 +518,7 @@ class SamudraConfig(BaseModelConfig):
         default=0,
         description="""Number of channels used for a learned positional embedding""",
     )
+    sharding: ShardingConfig = ShardingConfig()
 
     def build(
         self,
@@ -537,6 +558,7 @@ class SamudraConfig(BaseModelConfig):
             wet=wet,
             static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
+            sharding=self.sharding,
         )
 
 

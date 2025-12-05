@@ -13,6 +13,12 @@ from ocean_emulators.models.modules.blocks import (
     ZonallyPeriodicBilinearUpsample,
 )
 from ocean_emulators.utils.train import pairwise
+from ocean_emulators.utils.sharding import shard_pad
+
+try:
+    from physicsnemo.distributed.shard_tensor import ShardTensor
+except Exception:  # pragma: no cover
+    ShardTensor = tuple()  # type: ignore
 
 if TYPE_CHECKING:
     from ocean_emulators.config import Checkpointing  # noqa: F401
@@ -154,12 +160,15 @@ class UNetBackbone(nn.Module):
         for layer in self.layers:
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
-                fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                fts = torch.nn.functional.pad(
-                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
+                if isinstance(fts, ShardTensor):
+                    fts = shard_pad(fts, self.N_pad, lon_mode=self.pad)
+                else:
+                    fts = torch.nn.functional.pad(
+                        fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                    )
+                    fts = torch.nn.functional.pad(
+                        fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
+                    )
 
             # (Maybe) apply checkpointing
             if self.checkpoint_all:

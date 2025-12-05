@@ -6,6 +6,18 @@ import xarray as xr
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+from ocean_emulators.utils.sharding import (
+    ActivationLayout,
+    ShardingConfig,
+    create_device_mesh,
+    shard_activations,
+    to_replicated,
+)
+
+try:
+    from physicsnemo.distributed.shard_tensor import DeviceMesh
+except Exception:  # pragma: no cover
+    DeviceMesh = None
 
 
 class Samudra(BaseModel):
@@ -24,6 +36,7 @@ class Samudra(BaseModel):
         wet: Grid,
         static_data: xr.Dataset | None,
         gradient_detach_interval: int,
+        sharding: ShardingConfig,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -50,6 +63,13 @@ class Samudra(BaseModel):
         self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
         self.corrector = corrector
+        self.sharding_cfg = sharding
+        self.device_mesh: DeviceMesh | None = None
+        if sharding.enable_sharding:
+            self.device_mesh = create_device_mesh(sharding.mesh_shape)
+            self.activation_layout: ActivationLayout = sharding.activation_layout
+        else:
+            self.activation_layout = "lon"
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         fts_input = fts.clone().detach()
@@ -61,15 +81,29 @@ class Samudra(BaseModel):
         if self.add_3d_coordinates is not None:
             fts = self.add_3d_coordinates(fts)
 
+        using_sharding = (
+            self.sharding_cfg.enable_sharding
+            and self.device_mesh is not None
+            and (self.training or self.sharding_cfg.shard_inference)
+        )
+        if using_sharding:
+            fts = shard_activations(fts, self.device_mesh, self.activation_layout)
+
         fts = self.unet(fts)
-        fts = torch.nn.functional.pad(
-            fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-        )
-        fts = torch.nn.functional.pad(
-            fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-        )
+        if using_sharding:
+            fts = shard_pad(fts, self.N_pad, lon_mode=self.pad)
+        else:
+            fts = torch.nn.functional.pad(
+                fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+            )
+            fts = torch.nn.functional.pad(
+                fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
+            )
         fts = self.decoder(fts)
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)
+        if using_sharding:
+            fts = to_replicated(fts)
+
         return torch.where(self.wet, fts, 0.0)

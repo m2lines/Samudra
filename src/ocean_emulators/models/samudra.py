@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
@@ -8,11 +12,14 @@ from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.sharding import (
     ActivationLayout,
-    ShardingConfig,
     create_device_mesh,
     shard_activations,
+    shard_pad,
     to_replicated,
 )
+
+if TYPE_CHECKING:
+    from ocean_emulators.config import ShardingConfig
 
 try:
     from physicsnemo.distributed.shard_tensor import DeviceMesh

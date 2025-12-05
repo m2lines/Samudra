@@ -1,22 +1,41 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Iterable
+from collections.abc import Iterable
+from typing import Literal
 
 import torch
-from physicsnemo.distributed.manager import DistributedManager
-from physicsnemo.distributed.shard_tensor import (
-    DeviceMesh,
-    Replicate,
-    Shard,
-    ShardTensor,
-)
 
-from ocean_emulators.config import ActivationLayout, ShardingConfig
+ActivationLayout = Literal["lon", "data_lon"]
+
+try:
+    from physicsnemo.distributed.manager import DistributedManager
+    from physicsnemo.distributed.shard_tensor import (
+        DeviceMesh,
+        Replicate,
+        Shard,
+        ShardTensor,
+    )
+except Exception:  # pragma: no cover - optional dependency may be missing locally
+    DistributedManager = None
+    DeviceMesh = None
+    Replicate = None
+    Shard = None
+    ShardTensor = None
+
+
+def _require_physicsnemo() -> None:
+    """Fail with a clear error when the optional physicsnemo dependency is absent."""
+    if DistributedManager is None or DeviceMesh is None:
+        raise ImportError(
+            "physicsnemo is required for model sharding. "
+            "Install the physicsnemo extra to enable distributed sharding."
+        )
 
 
 def create_device_mesh(mesh_shape: dict[str, int]) -> DeviceMesh:
     """Create (or reuse) a global DeviceMesh from the PhysicsNeMo DistributedManager."""
+    _require_physicsnemo()
     if not DistributedManager.is_initialized():
         DistributedManager.initialize()
     manager = DistributedManager()
@@ -36,6 +55,7 @@ def create_device_mesh(mesh_shape: dict[str, int]) -> DeviceMesh:
 def make_activation_placements(
     mesh: DeviceMesh, layout: ActivationLayout
 ) -> tuple[Shard | Replicate, ...]:
+    _require_physicsnemo()
     placements: list[Shard | Replicate] = [Replicate() for _ in range(mesh.ndim)]
     axis_names: Iterable[str] = getattr(mesh, "axis_names", range(mesh.ndim))
     for axis_idx, axis_name in enumerate(axis_names):
@@ -49,12 +69,13 @@ def make_activation_placements(
 def shard_activations(
     tensor: torch.Tensor, mesh: DeviceMesh, layout: ActivationLayout
 ) -> ShardTensor:
+    _require_physicsnemo()
     placements = make_activation_placements(mesh, layout)
     return ShardTensor.from_local(tensor, device_mesh=mesh, placements=placements)
 
 
 def to_replicated(tensor: torch.Tensor) -> torch.Tensor:
-    if isinstance(tensor, ShardTensor):
+    if ShardTensor is not None and isinstance(tensor, ShardTensor):
         return tensor.full_tensor()
     return tensor
 

@@ -321,58 +321,67 @@ class RawTrainData:
 
 
 class TrainData:
+    """A single batch of training data.
+
+    A single batch contains multiple steps worth of `Example`s (i.e., input/output pairs). These steps are used during
+    autoregressive rollout in the training and inference process.
+
+    Constraint: The `Input` tensor is a combination of (flattened) prognostic variables (at all depth levels) and
+    boundary forcings. The top `num_prognostic_channels` number of channels must be prognostic variables whereas the
+    remaining bottom channels are boundary forcings.
+    """
+
     def __init__(self, num_prognostic_channels: int):
-        self.td_dict: dict[int, Example] = {}
         self.num_prognostic_channels = num_prognostic_channels
-        self.steps = 0
+        self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
 
-    def insert(self, input_: Input, label: Prognostic):
-        self.td_dict[self.steps] = (input_, label)
-        self.steps += 1
+    def append(self, input_: Input, label: Prognostic):
+        """Add another Example as a new step."""
+        self.example_by_step.append((input_, label))
 
     def get_initial_input(self) -> Input:
-        return self.td_dict[0][0]
+        return self.get_input(0)
 
     def get_input(self, step: int) -> Input:
-        return self.td_dict[step][0]
+        return self[step][0]
 
     def get_label(self, step: int) -> Prognostic:
-        return self.td_dict[step][1]
+        return self[step][1]
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
-        input, _ = self.td_dict[step]
-        merged = input.clone()
+        input_ = self.get_input(step)
+        merged = input_.clone()
         merged[:, : self.num_prognostic_channels] = prognostic
         return merged
 
     def values(self):
-        return self.td_dict.values()
+        return self.example_by_step
 
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
-        return self.td_dict[step]
+        return self.example_by_step[step]
 
     def __len__(self) -> int:
-        return self.steps
+        return len(self.example_by_step)
+
+    def __iter__(self):
+        return iter(range(len(self)))
 
     def to(self, device: torch.device) -> None:
-        for step in self.td_dict:
-            self.td_dict[step] = (
-                self.td_dict[step][0].to(device, non_blocking=True),
-                self.td_dict[step][1].to(device, non_blocking=True),
+        for step in self:
+            self.example_by_step[step] = (
+                self[step][0].to(device, non_blocking=True),
+                self[step][1].to(device, non_blocking=True),
             )
 
     def pin_memory(self):
-        for step in self.td_dict:
-            self.td_dict[step] = (
-                self.td_dict[step][0].pin_memory(),
-                self.td_dict[step][1].pin_memory(),
+        for step in self:
+            self.example_by_step[step] = (
+                self[step][0].pin_memory(),
+                self[step][1].pin_memory(),
             )
         return self
-
-    def __iter__(self):
-        return iter(self.td_dict)
 
 
 @final
@@ -530,7 +539,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 prognostic_all.to(device=self.device, non_blocking=True),
                 boundary_all.to(device=self.device, non_blocking=True),
             )
-            train_data.insert(input, label)
+            train_data.append(input, label)
         train_data.load_stats = raw_train_data.load_stats
         return train_data
 

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1764953778439,
+  "lastUpdate": 1764963142579,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6024,6 +6024,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6289906563192439",
             "extra": "mean: 87.421940659 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d4aa1327bacf397bfd883e1eec0bcdf9892b02b5",
+          "message": "Clean up the TrainData internals. (#498)\n\nA small refactoring PR. Made this along the way of thinking about how we\nmight load multiple datasets.",
+          "timestamp": "2025-12-05T19:06:46Z",
+          "tree_id": "ac298443bcce2ecf2c711dad96d04180cfbb0e36",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/d4aa1327bacf397bfd883e1eec0bcdf9892b02b5"
+        },
+        "date": 1764963141792,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5856392157322372,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0336732236021471",
+            "extra": "mean: 630.6604870000058 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18863980716292397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.009312109906325304",
+            "extra": "mean: 5.301108048399999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011110798431959884,
+            "unit": "iter/sec",
+            "range": "stddev: 0.34242719533599514",
+            "extra": "mean: 90.0025327724 sec\nrounds: 5"
           }
         ]
       }

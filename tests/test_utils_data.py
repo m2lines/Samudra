@@ -236,9 +236,12 @@ def data_init(hist: int):
         )
         data_mean = data.mean() * 0.0
         data_std = data.std() * 0.0 + 1.0
-        prog_vars = [str(v) for v in data.data_vars.keys() if "_" in v]
         val = DataSource.from_datasets(
-            data, data_mean, data_std, name="test", prognostic_var_names=prog_vars
+            data,
+            data_mean,
+            data_std,
+            name="test",
+            prognostic_var_names=tensor_map.prognostic_var_names,
         )
 
         normalize = Normalize.init_instance(

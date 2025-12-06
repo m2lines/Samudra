@@ -58,9 +58,12 @@ def inf_data_init(hist: int):
         )
         data_mean: xr.Dataset = data.mean() * 0.0
         data_std: xr.Dataset = data.std() * 0.0 + 1.0
-        prog_vars = [str(v) for v in data.data_vars.keys() if "_" in v]
         val = DataSource.from_datasets(
-            data, data_mean, data_std, name="test-data", prognostic_var_names=prog_vars
+            data,
+            data_mean,
+            data_std,
+            name="test-data",
+            prognostic_var_names=tensor_map.prognostic_var_names,
         )
 
         _ = Normalize.init_instance(

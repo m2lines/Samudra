@@ -8,7 +8,7 @@ import xarray as xr
 from ocean_emulators.aggregator.metrics import area_weighted_sum
 from ocean_emulators.derived_variables import compute_global_ocean_heat_content
 from ocean_emulators.models.corrector import OceanHeatCorrector, ReLUCorrector
-from ocean_emulators.utils.data import MaskedDataSource, Masks, Normalize
+from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.multiton import MultitonScope
 
@@ -43,7 +43,7 @@ def corrector_init():
 
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
-    masks = Masks(wet=wet_mask, wet_surface=wet_mask, wet_without_hist_cpu=wet_mask)
+    masks = Masks(wet=wet_mask, wet_surface=wet_mask)
 
     class MockTensorMap:
         def __init__(self):
@@ -63,7 +63,7 @@ def corrector_init():
             self.dz = torch.tensor([1.0, 1.0])
 
     tensor_map = MockTensorMap()
-    test = MaskedDataSource("test", data, data_mean, data_std, masks)
+    test = DataSource("test", data, data_mean, data_std, masks)
     with MultitonScope():
         normalize = Normalize.init_instance(
             test,
@@ -160,8 +160,8 @@ def ocean_heat_init():
     )
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [1.0, 1.0]])
-    masks = Masks(wet=wet_mask, wet_surface=wet_mask, wet_without_hist_cpu=wet_mask)
-    test = MaskedDataSource("test", data, data_mean, data_std, masks)
+    masks = Masks(wet=wet_mask, wet_surface=wet_mask)
+    test = DataSource("test", data, data_mean, data_std, masks)
 
     class MockTensorMap:
         def __init__(self):

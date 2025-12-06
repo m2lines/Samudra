@@ -29,7 +29,7 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataLoader,
 )
-from ocean_emulators.utils.data import DataSource, MaskedDataSource, Masks, Normalize
+from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_raw_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
@@ -60,9 +60,7 @@ def make_loader(
         else cfg.data.model_copy(update={"loader_version": str(version.value)})
     )
 
-    container = data_config.build(
-        cfg.experiment.resolved_data_root, boundary, prognostic
-    )
+    container = data_config.build(cfg.experiment.resolved_data_root, prognostic)
     version = container.loader_version
     src = container.source
     if src.is_compact and version != LoaderVersion.OM4_TORCH:
@@ -441,9 +439,8 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     masks = Masks(
         wet=wet,
         wet_surface=wet_surface,
-        wet_without_hist_cpu=wet,
     )
-    test = MaskedDataSource("test", data, data_mean, data_std, masks=masks)
+    test = DataSource("test", data, data_mean, data_std, masks=masks)
 
     # Initialize and yield within the MultitonScope
     with MultitonScope():

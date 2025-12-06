@@ -6,7 +6,7 @@ import xarray as xr
 from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.utils.data import DataSource, Normalize, validate_data
+from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
 
@@ -58,10 +58,9 @@ def inf_data_init(hist: int):
         )
         data_mean: xr.Dataset = data.mean() * 0.0
         data_std: xr.Dataset = data.std() * 0.0 + 1.0
-        val = (
-            DataSource("test-data", data, data_mean, data_std)
-            .pipe(validate_data, tensor_map.boundary_var_names)
-            .mask(tensor_map.prognostic_var_names, hist)
+        prog_vars = [str(v) for v in data.data_vars.keys() if "_" in v]
+        val = DataSource.from_datasets(
+            data, data_mean, data_std, name="test-data", prognostic_var_names=prog_vars
         )
 
         _ = Normalize.init_instance(
@@ -79,7 +78,7 @@ def inf_data_init(hist: int):
             long_rollout=True,
         )
 
-        yield inference_dataset, val.masks.wet
+        yield inference_dataset, val.masks.repeat_prognostic(hist)
 
 
 class MockModel(BaseModel):

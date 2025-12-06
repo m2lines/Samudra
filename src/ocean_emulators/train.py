@@ -131,7 +131,6 @@ class Trainer:
 
         self.data_container = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
-            boundary_var_names=self.boundary_var_names,
             prognostic_var_names=self.prognostic_var_names,
         )
 
@@ -185,8 +184,8 @@ class Trainer:
         self.loader_version = self.data_container.loader_version
 
         self.metadata = construct_metadata(self.data)
-        self.wet = self.src.masks.wet.to(self.device)
-        self.wet_without_hist = self.src.masks.wet_without_hist_cpu.to(self.device)
+        self.wet = self.src.masks.repeat_prognostic(cfg.data.hist).to(self.device)
+        self.wet_without_hist = self.src.masks.wet.to(self.device)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)

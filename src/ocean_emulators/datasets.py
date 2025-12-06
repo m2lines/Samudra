@@ -22,11 +22,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import (
-    LoadStats,
-    MaskedDataSource,
-    conditional_rearrange,
-)
+from ocean_emulators.utils.data import DataSource, LoadStats, conditional_rearrange
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
 
@@ -50,7 +46,7 @@ class InferenceDataset(Dataset):
     @elapsed
     def __init__(
         self,
-        src: MaskedDataSource,
+        src: DataSource,
         prognostic_var_names,
         boundary_var_names,
         hist,
@@ -95,7 +91,7 @@ class InferenceDataset(Dataset):
                 f" output at {data.time.values[self.hist + 1]}"
             )
 
-        self.wet: PrognosticMask = src.masks.wet_without_hist_cpu.bool()
+        self.wet: PrognosticMask = src.masks.wet.bool()
         self.wet_surface: GridMask = src.masks.wet_surface.bool()
         self.size = len(self.rolling_indices)
 
@@ -414,7 +410,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed
     def __init__(
         self,
-        src: MaskedDataSource,
+        src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         hist: int,
@@ -458,7 +454,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
-        self.wet: PrognosticMask = src.masks.wet_without_hist_cpu.bool().to(self.device)
+        self.wet: PrognosticMask = src.masks.wet.bool().to(self.device)
         self.wet_surface: GridMask = src.masks.wet_surface.bool().to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:

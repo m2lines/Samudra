@@ -9,14 +9,12 @@ from scipy.stats import pearsonr
 from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
 from ocean_emulators.utils.data import (
     DataSource,
-    MaskedDataSource,
     Masks,
     Normalize,
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
     unflatten_masks,
-    validate_data,
     with_level_index_vars,
 )
 from ocean_emulators.utils.multiton import MultitonScope
@@ -119,11 +117,7 @@ def test_compute_anomalies():
     ds_std = ds.std().compute()
 
     # compute anomalies
-
-    anom = compute_anomalies(
-        DataSource("test", ds, ds_mean, ds_std), ("thetao_0_anomalies",)
-    )
-    anomalies = anom.data
+    anomalies, _, _ = compute_anomalies(ds, ds_mean, ds_std, ("thetao_0_anomalies",))
     anomalies_np = anomalies["thetao_0_anomalies"].to_numpy()
     anomalies_np_flat = anomalies_np[0][0]
 
@@ -156,11 +150,11 @@ def normalize_input():
 
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
-    masks = Masks(wet=wet_mask, wet_surface=wet_mask, wet_without_hist_cpu=wet_mask)
+    masks = Masks(wet=wet_mask, wet_surface=wet_mask)
 
     # Warning: the 'data' field is not used because this test tries to test
     # normalization which only needs mean and std. Thus, we set it to `data_mean`.
-    test = MaskedDataSource("test", data_mean, data_mean, data_std, masks=masks)
+    test = DataSource("test", data_mean, data_mean, data_std, masks=masks)
 
     # Initialize Normalize instance
     with MultitonScope():
@@ -242,10 +236,9 @@ def data_init(hist: int):
         )
         data_mean = data.mean() * 0.0
         data_std = data.std() * 0.0 + 1.0
-        val = (
-            DataSource("test", data, data_mean, data_std)
-            .pipe(validate_data, tensor_map.boundary_var_names)
-            .mask(tensor_map.boundary_var_names, 0)
+        prog_vars = [str(v) for v in data.data_vars.keys() if "_" in v]
+        val = DataSource.from_datasets(
+            data, data_mean, data_std, name="test", prognostic_var_names=prog_vars
         )
 
         normalize = Normalize.init_instance(
@@ -253,7 +246,7 @@ def data_init(hist: int):
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
         )
-        yield normalize, val.masks.wet_without_hist_cpu
+        yield normalize, val.masks.wet
 
 
 @pytest.mark.parametrize("input_type", ["input", "target"])

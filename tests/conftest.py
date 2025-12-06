@@ -15,6 +15,7 @@ from numpy.typing import ArrayLike, NDArray
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import JulianDate, TrainBackendConfig, TrainConfig
+from ocean_emulators.constants import BOUNDARY_VARS
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.data import DataSource, compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
@@ -346,7 +347,14 @@ def _uncached_data_source(name: str) -> DataSource:
             }
             ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
-            return DataSource(name=name, data=ds, means=ds.mean(), stds=ds.std())
+            return DataSource.from_datasets(
+                ds,
+                ds.means(),
+                ds.std(),
+                name=name,
+                prognostic_var_names=[str(var) for var in ds if "_" in str(var)],
+            )
+
         case "remote-om4" | "compact":
             # The chunk-size should be about the same as the size of the time slice
             # for optimal download time. In local experiments, this time range (which
@@ -373,11 +381,14 @@ def _uncached_data_source(name: str) -> DataSource:
                 means = compact_dataset(means)
                 stds = compact_dataset(stds)
 
-            return DataSource(
-                name=name,
+            return DataSource.from_datasets(
                 data=data,
                 means=means,
                 stds=stds,
+                name=name,
+                prognostic_var_names=[
+                    str(v) for v in data if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+                ],
             )
         case _:
             raise ValueError(f"Unknown data source: {name}.")
@@ -393,7 +404,15 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         data = xr.open_zarr(cache / "data.zarr")
         means = xr.open_dataset(cache / "means.nc")
         stds = xr.open_dataset(cache / "stds.nc")
-        return DataSource(name=cache_name, data=data, means=means, stds=stds)
+        return DataSource.from_datasets(
+            name=cache_name,
+            data=data,
+            means=means,
+            stds=stds,
+            prognostic_var_names=[
+                str(v) for v in data if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+            ],
+        )
     except (FileNotFoundError, PermissionError):
         return None
 

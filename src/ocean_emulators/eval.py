@@ -21,7 +21,6 @@ from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
     Normalize,
-    extract_wet_mask,
     get_inference_steps,
     spherical_area_weights,
 )
@@ -90,21 +89,18 @@ class Eval:
         logger.info(f"Loading data")
         self.data_container = cfg.data.build(
             cfg.experiment.resolved_data_root,
-            self.boundary_var_names,
             self.prognostic_var_names,
         )
 
         self.src = self.data_container.source_using_dask
         self.data = self.src.data
         self.static_data = self.data_container.static_data
-
         self.metadata = construct_metadata(self.data)
-        self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.prognostic_var_names, cfg.data.hist
+        self.wet, self.wet_surface = (
+            self.src.masks.repeat_prognostic(cfg.data.hist),
+            self.src.masks.wet_surface,
         )
-        self.wet_without_hist_cpu, _ = extract_wet_mask(
-            self.data, self.prognostic_var_names, 0
-        )
+        self.wet_without_hist_cpu = self.src.masks.wet
         self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 

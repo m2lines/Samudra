@@ -44,6 +44,25 @@ def _var_name_encode_level(var_name: str) -> bool:
     return bool(var_name_encodes_level.search(var_name))
 
 
+def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
+    return all(
+        not _var_name_encode_level(str(v))
+        for d in [data, means, stds]
+        for v in d.keys()
+    )
+
+
+@dataclasses.dataclass
+class Masks:
+    """A collection of masks to expose the ocean and mask land."""
+
+    wet: PrognosticMask
+    wet_surface: GridMask
+
+    def repeat_prognostic(self, hist: int):
+        return torch.concat([self.wet] * (hist + 1), dim=0)
+
+
 @dataclasses.dataclass
 class DataSource:
     """Data source for the model."""
@@ -52,15 +71,12 @@ class DataSource:
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
+    masks: Masks
 
     @cached_property
     def is_compact(self) -> bool:
         """Check if the data source is compact."""
-        return all(
-            not _var_name_encode_level(str(v))
-            for d in [self.data, self.means, self.stds]
-            for v in d.keys()
-        )
+        return _is_compact(self.data, self.means, self.stds)
 
     def filter(
         self,
@@ -230,6 +246,8 @@ class DataSource:
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
         *,
+        prognostic_var_names: PrognosticVarNames,
+        static_data_vars: list[str] | None,
         use_dask: bool,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
@@ -237,52 +255,46 @@ class DataSource:
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
 
-        return cls(
+        return cls.from_datasets(
+            data,
+            means,
+            stds,
+            prognostic_var_names=prognostic_var_names,
+            static_data_vars=static_data_vars,
             name=f"{data_location}-{use_dask}",
+        )
+
+    @classmethod
+    def from_datasets(
+        cls,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+        *,
+        prognostic_var_names: PrognosticVarNames,
+        static_data_vars: list[str] | None = None,
+        name: str = "DataSource",
+    ) -> Self:
+        data, means, stds = validate_data(
+            data, means, stds, static_data_vars=static_data_vars
+        )
+        wet, wet_surface = extract_wet_mask(data, prognostic_var_names)
+
+        masks = Masks(wet=wet, wet_surface=wet_surface)
+
+        return cls(
+            name=name,
             data=data,
             means=means,
             stds=stds,
-        )
-
-    def mask(
-        self, prognostic_var_names: PrognosticVarNames, hist: int
-    ) -> "MaskedDataSource":
-        wet, wet_surface = extract_wet_mask(self.data, prognostic_var_names, hist)
-        wet_no_hist, _ = extract_wet_mask(self.data, prognostic_var_names, 0)
-
-        masks = Masks(
-            wet=wet, wet_surface=wet_surface, wet_without_hist_cpu=wet_no_hist
-        )
-
-        return MaskedDataSource(
-            name=f"{self.name}_with_wetmasks",
-            data=self.data,
-            means=self.means,
-            stds=self.stds,
             masks=masks,
         )
 
 
 @dataclasses.dataclass
-class Masks:
-    """A collection of masks to expose the ocean and mask land."""
-
-    wet: PrognosticMask
-    wet_surface: GridMask
-    wet_without_hist_cpu: PrognosticMask
-
-
-@dataclasses.dataclass
-class MaskedDataSource(DataSource):
-    """A `DataSource` with a `masks` field; created via `DataSource.mask`."""
-
-    masks: Masks
-
-
-@dataclasses.dataclass
 class DataContainer:
-    source: MaskedDataSource
-    source_using_dask: MaskedDataSource
+    source: DataSource
+    source_using_dask: DataSource
     loader_version: LoaderVersion
     supports_fork: bool
     static_data: xr.Dataset | None = None
@@ -376,7 +388,7 @@ def conditional_rearrange(
 
 
 def extract_wet_mask(
-    data: xr.Dataset, prognostic_var_names: PrognosticVarNames, hist: int
+    data: xr.Dataset, prognostic_var_names: PrognosticVarNames
 ) -> tuple[PrognosticMask, GridMask]:
     """A mask for where the oceans are. Water is wet."""
     data_ = flatten_masks(data)
@@ -392,7 +404,6 @@ def extract_wet_mask(
 
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)
-    wet_inp = torch.concat([wet_inp] * (hist + 1), dim=0)
     return wet_inp.bool(), wet_surface.bool()
 
 
@@ -524,29 +535,28 @@ def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:
 
 
 def compute_anomalies(
-    data_src: DataSource, anomalies_vars: tuple[str, ...]
-) -> DataSource:
+    data: xr.Dataset,
+    means: xr.Dataset,
+    stds: xr.Dataset,
+    anomalies_vars: tuple[str, ...],
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """Compute anomalies for the given variables."""
-
-    def _anom(data, means, stds):
-        for var in anomalies_vars:
-            base_var = var.replace("_anomalies", "")
-            if var not in data.variables and base_var in data.variables:
-                logger.info(f"Computing anomalies for {base_var}")
-                climatology = (
-                    data[base_var].groupby("time.dayofyear").mean("time").compute()
-                )
-                # Remove the seasonal cycle (climatology) from the detrended data
-                day_of_year = data[base_var]["time"].dt.dayofyear
-                data[var] = (
-                    data[base_var] - climatology.sel(dayofyear=day_of_year)
-                ).compute()
-                data = data.drop_vars(["dayofyear"])
-                means[var] = data[var].mean().compute()
-                stds[var] = data[var].std().compute()
-        return data, means, stds
-
-    return data_src.map(_anom, suffix="anomalies")
+    for var in anomalies_vars:
+        base_var = var.replace("_anomalies", "")
+        if var not in data.variables and base_var in data.variables:
+            logger.info(f"Computing anomalies for {base_var}")
+            climatology = (
+                data[base_var].groupby("time.dayofyear").mean("time").compute()
+            )
+            # Remove the seasonal cycle (climatology) from the detrended data
+            day_of_year = data[base_var]["time"].dt.dayofyear
+            data[var] = (
+                data[base_var] - climatology.sel(dayofyear=day_of_year)
+            ).compute()
+            data = data.drop_vars(["dayofyear"])
+            means[var] = data[var].mean().compute()
+            stds[var] = data[var].std().compute()
+    return data, means, stds
 
 
 def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
@@ -584,47 +594,44 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
 
 
 def validate_data(
-    src: DataSource,
-    boundary_vars: BoundaryVarNames,
+    data: xr.Dataset,
+    means: xr.Dataset,
+    stds: xr.Dataset,
     static_data_vars: list[str] | None = None,
-) -> DataSource:
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """Validate the data such that we have the correct format for training."""
+    is_compact = _is_compact(data, means, stds)
     if static_data_vars is not None:
-
-        def _static_data_checks(data):
-            for var in static_data_vars:
-                assert var in data.variables, (
-                    f"Static data variable {var} not found in data"
-                )
-                if "time" in data[var].dims:
-                    data[var] = data[var].isel(time=0)
-
-            return data
-
-        src = src.map_data(_static_data_checks, suffix="static_data_checked")
-
-    if src.is_compact:
-        src_ = src.map_data(with_lat_lon_coords)
-    else:
-
-        def validated(data, means, stds):
-            data = (
-                data.pipe(flatten_masks)
-                .pipe(with_level_index_vars)
-                .pipe(with_lat_lon_coords)
+        for var in static_data_vars:
+            assert var in data.variables, (
+                f"Static data variable {var} not found in data"
             )
+            if "time" in data[var].dims:
+                data[var] = data[var].isel(time=0)
 
-            # Check if data variables are in the right format
-            # This check is to ensure we convert data to the correct format
-            means = with_level_index_vars(means)
-            stds = with_level_index_vars(stds)
-            return data, means, stds
+    if is_compact:
+        data = with_lat_lon_coords(data)
+        boundary_vars = [str(var) for var, da in data.items() if "lev" not in da.dims]
+    else:
+        data = (
+            data.pipe(flatten_masks)
+            .pipe(with_level_index_vars)
+            .pipe(with_lat_lon_coords)
+        )
 
-        src_ = src.map(validated, suffix="validated")
+        # Check if data variables are in the right format
+        # This check is to ensure we convert data to the correct format
+        means = with_level_index_vars(means)
+        stds = with_level_index_vars(stds)
+        boundary_vars = [str(var) for var in data.data_vars.keys() if "_" not in var]
 
     # Check if any anomalies are needed to be computed
     anomalies_vars = get_anomalies_vars(boundary_vars)
-    out = compute_anomalies(src_, anomalies_vars) if anomalies_vars else src_
+    out = (
+        compute_anomalies(data, means, stds, anomalies_vars)
+        if anomalies_vars
+        else (data, means, stds)
+    )
 
     return out
 
@@ -633,7 +640,7 @@ def validate_data(
 class Normalize(Multiton):
     def _initialize(
         self,
-        src: MaskedDataSource,
+        src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> None:
@@ -644,7 +651,7 @@ class Normalize(Multiton):
         self.prognostic_std = prognostic_src.stds
         self.boundary_mean = boundary_src.means
         self.boundary_std = boundary_src.stds
-        self.wet_mask = src.masks.wet_without_hist_cpu
+        self.wet_mask = src.masks.wet
         self.wet_mask_surface = src.masks.wet_surface
 
         # Pre-compute numpy arrays for faster access

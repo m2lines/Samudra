@@ -6,7 +6,7 @@ import xarray as xr
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.datasets import TrainData
-from ocean_emulators.utils.data import MaskedDataSource, Masks, Normalize
+from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
 
@@ -43,8 +43,8 @@ def create_samudra_model():
                 },
                 coords=coords,
             )
-            masks = Masks(torch.ones(h, w), torch.ones(h, w), torch.ones(h, w))
-            src = MaskedDataSource(
+            masks = Masks(torch.ones(h, w), torch.ones(h, w))
+            src = DataSource(
                 name="dummy", data=data, means=data, stds=ones, masks=masks
             )
 

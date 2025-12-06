@@ -349,7 +349,7 @@ def _uncached_data_source(name: str) -> DataSource:
 
             return DataSource.from_datasets(
                 ds,
-                ds.means(),
+                ds.mean(),
                 ds.std(),
                 name=name,
                 prognostic_var_names=[str(var) for var in ds if "_" in str(var)],

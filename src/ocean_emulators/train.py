@@ -132,6 +132,7 @@ class Trainer:
         self.data_container = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
             prognostic_var_names=self.prognostic_var_names,
+            boundary_var_names=self.boundary_var_names,
         )
 
         self.mp_context: BaseContext | None = None

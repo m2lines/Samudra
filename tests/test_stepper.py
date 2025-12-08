@@ -64,6 +64,7 @@ def inf_data_init(hist: int):
             data_std,
             name="test-data",
             prognostic_var_names=tensor_map.prognostic_var_names,
+            boundary_var_names=tensor_map.boundary_var_names,
         )
 
         _ = Normalize.init_instance(

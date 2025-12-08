@@ -353,6 +353,7 @@ def _uncached_data_source(name: str) -> DataSource:
                 ds.std(),
                 name=name,
                 prognostic_var_names=[str(var) for var in ds if "_" in str(var)],
+                boundary_var_names=[str(var) for var in ds if "_" not in str(var)],
             )
 
         case "remote-om4" | "compact":
@@ -389,6 +390,11 @@ def _uncached_data_source(name: str) -> DataSource:
                 prognostic_var_names=[
                     str(v) for v in data if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
                 ],
+                boundary_var_names=[
+                    str(var)
+                    for var in data
+                    if var in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+                ],
             )
         case _:
             raise ValueError(f"Unknown data source: {name}.")
@@ -411,6 +417,9 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
             stds=stds,
             prognostic_var_names=[
                 str(v) for v in data if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+            ],
+            boundary_var_names=[
+                str(v) for v in data if v in BOUNDARY_VARS["tau_hfds_hfds_anom"]
             ],
         )
     except (FileNotFoundError, PermissionError):

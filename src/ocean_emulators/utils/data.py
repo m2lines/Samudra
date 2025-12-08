@@ -243,6 +243,7 @@ class DataSource:
         stds_location: ResolvedLocation,
         *,
         prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None,
         use_dask: bool,
     ) -> Self:
@@ -256,6 +257,7 @@ class DataSource:
             means,
             stds,
             prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
             name=f"{data_location}-{use_dask}",
         )
@@ -268,11 +270,16 @@ class DataSource:
         stds: xr.Dataset,
         *,
         prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
     ) -> Self:
         data, means, stds = validate_data(
-            data, means, stds, static_data_vars=static_data_vars
+            data,
+            means,
+            stds,
+            boundary_var_names=boundary_var_names,
+            static_data_vars=static_data_vars,
         )
         masks = extract_wet_mask(data, prognostic_var_names)
 
@@ -591,6 +598,7 @@ def validate_data(
     data: xr.Dataset,
     means: xr.Dataset,
     stds: xr.Dataset,
+    boundary_var_names: BoundaryVarNames,
     static_data_vars: list[str] | None = None,
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """Validate the data such that we have the correct format for training."""
@@ -605,7 +613,6 @@ def validate_data(
 
     if is_compact:
         data = with_lat_lon_coords(data)
-        boundary_vars = [str(var) for var, da in data.items() if "lev" not in da.dims]
     else:
         data = (
             data.pipe(flatten_masks)
@@ -617,10 +624,9 @@ def validate_data(
         # This check is to ensure we convert data to the correct format
         means = with_level_index_vars(means)
         stds = with_level_index_vars(stds)
-        boundary_vars = [str(var) for var in data.data_vars.keys() if "_" not in var]
 
     # Check if any anomalies are needed to be computed
-    anomalies_vars = get_anomalies_vars(boundary_vars)
+    anomalies_vars = get_anomalies_vars(boundary_var_names)
     out = (
         compute_anomalies(data, means, stds, anomalies_vars)
         if anomalies_vars

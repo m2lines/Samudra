@@ -60,7 +60,9 @@ def make_loader(
         else cfg.data.model_copy(update={"loader_version": str(version.value)})
     )
 
-    container = data_config.build(cfg.experiment.resolved_data_root, prognostic)
+    container = data_config.build(
+        cfg.experiment.resolved_data_root, boundary, prognostic
+    )
     version = container.loader_version
     src = container.source
     if src.is_compact and version != LoaderVersion.OM4_TORCH:

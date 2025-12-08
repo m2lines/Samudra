@@ -13,7 +13,14 @@ from torch import nn
 from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import Grid, Lat, LoaderVersion, Lon, PrognosticVarNames
+from ocean_emulators.constants import (
+    BoundaryVarNames,
+    Grid,
+    Lat,
+    LoaderVersion,
+    Lon,
+    PrognosticVarNames,
+)
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
@@ -149,6 +156,7 @@ class DataConfig(BaseConfig):
         self,
         data_root: ResolvedLocation,
         prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
@@ -162,6 +170,7 @@ class DataConfig(BaseConfig):
             means_location=means_location,
             stds_location=stds_location,
             prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
             static_data_vars=self.static_data_vars,
             use_dask=use_dask,
         )
@@ -176,6 +185,7 @@ class DataConfig(BaseConfig):
                 means_location=means_location,
                 stds_location=stds_location,
                 prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
                 static_data_vars=self.static_data_vars,
                 use_dask=True,
             )

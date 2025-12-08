@@ -90,6 +90,7 @@ class Eval:
         self.data_container = cfg.data.build(
             cfg.experiment.resolved_data_root,
             self.prognostic_var_names,
+            self.boundary_var_names,
         )
 
         self.src = self.data_container.source_using_dask

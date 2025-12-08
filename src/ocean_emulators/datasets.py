@@ -801,7 +801,7 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
                 combined_input = torch.cat((dst_input, src_input_stride), dim=1)
                 combined_label = torch.cat((dst_label, src_label_stride), dim=1)
                 combined_input_mask = torch.cat(
-                    (torch.ones_like(dst_input), src_label_mask), dim=1
+                    (torch.ones_like(dst_input), src_input_mask), dim=1
                 )
                 combined_label_mask = torch.cat(
                     (torch.ones_like(dst_label), src_label_mask), dim=1

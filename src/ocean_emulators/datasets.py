@@ -388,10 +388,10 @@ class HasDatasetId(Protocol):
     dataset_id: str
 
 
-BoundToDataset = TypeVar("BoundToDataset", bound=HasDatasetId)
+DataBoundToDataset = TypeVar("DataBoundToDataset", bound=HasDatasetId)
 
 
-class GpuResolvedDataset(Dataset[BoundToDataset]):
+class GpuResolvedDataset(Dataset[DataBoundToDataset]):
     """A `torch.utils.data.Dataset` of bound data used to perform normalization
     and other final processing operations on GPU.
 
@@ -401,7 +401,7 @@ class GpuResolvedDataset(Dataset[BoundToDataset]):
 
     id: str
 
-    def to_train_data(self, raw_train_data: BoundToDataset) -> TrainData:
+    def to_train_data(self, raw_train_data: DataBoundToDataset) -> TrainData:
         raise NotImplementedError()
 
 
@@ -680,8 +680,8 @@ class MultiscaleTrainDataset(GpuResolvedDataset[MultiRawTrainData]):
 
     def __init__(
         self,
-        srcs: list[MaskedDataSource],
-        make_dataset: Callable[[MaskedDataSource], TorchTrainDataset],
+        srcs: list[DataSource],
+        make_dataset: Callable[[DataSource], TorchTrainDataset],
     ):
         self.datasets = [make_dataset(src) for src in srcs]
         self.id = f"{self.__class__.__name__}({str(id(self))}, {', '.join([ds.id for ds in self.datasets])})"
@@ -707,7 +707,7 @@ class MultiscaleTrainDataset(GpuResolvedDataset[MultiRawTrainData]):
 
 
 @final
-class TrainDataLoader(Generic[BoundToDataset]):
+class TrainDataLoader(Generic[DataBoundToDataset]):
     """Wrapper around a torch DataLoader that handles GPU post-processing.
 
     This class wraps a DataLoader[RawTrainData] and converts the raw data
@@ -724,8 +724,8 @@ class TrainDataLoader(Generic[BoundToDataset]):
 
     def __init__(
         self,
-        dataloader: torch.utils.data.DataLoader[BoundToDataset],
-        datasets: list[GpuResolvedDataset[BoundToDataset]],
+        dataloader: torch.utils.data.DataLoader[DataBoundToDataset],
+        datasets: list[GpuResolvedDataset[DataBoundToDataset]],
         device: torch.device,
     ):
         self._dataloader = dataloader

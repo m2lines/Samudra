@@ -375,7 +375,6 @@ class TrainData:
         input_mask: InputMask,
         label_mask: PrognosticMask,
     ):
-        # TODO(alxmrs): check for off-by-one error.
         if step == len(self.example_by_step):
             self.example_by_step.append((input_, label))
             self.nodata_masks.append((input_mask, label_mask))

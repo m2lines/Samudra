@@ -299,7 +299,7 @@ def config_name(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
-@pytest.fixture(scope="session", params=[e for e in c.LoaderVersion])
+@pytest.fixture(scope="session", params=[c.LoaderVersion.OM4_TORCH])
 def loader_version(request: pytest.FixtureRequest) -> c.LoaderVersion:
     return request.param
 

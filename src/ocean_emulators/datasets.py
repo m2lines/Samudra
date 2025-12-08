@@ -776,8 +776,8 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             ):
                 lat, lon = dst_input.shape[-3:-1]
                 lat_p, lon_p = src_input.shape[-3:-1]
-                assert (lat / lat_p) % 2 == 0 and (lon / lon_p) % 2 == 0, (
-                    "Multi-scale datasets are not downscaled by factors of 2!"
+                assert lat % lat_p == 0 and lon % lon_p == 0, (
+                    f"The smaller datasets spatial dimensions are not an even factor of the largest multi-scale dataset! {lat=} vs {lat_p=}; {lon=} vs {lon_p=}."
                 )
 
                 lat_stride = lat // lat_p

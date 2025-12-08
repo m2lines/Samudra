@@ -4,7 +4,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Generic, Protocol, TypeAlias, TypeVar, final
+from typing import Generic, Protocol, Self, TypeAlias, TypeVar, final
 
 import numpy as np
 import torch
@@ -294,9 +294,16 @@ class InferenceDatasets(Dataset):
         return (self.datasets[idx], self.lengths[idx])
 
 
+class HasDatasetId(Protocol):
+    dataset_id: str
+
+
+DataBoundToDataset = TypeVar("DataBoundToDataset", bound=HasDatasetId)
+
+
 class RawTrainData:
     def __init__(self, dataset_id: "TorchTrainDataset.Id | MultiscaleTrainDataset.Id"):
-        self.dataset_id: TorchTrainDataset.Id = dataset_id
+        self.dataset_id = dataset_id
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
@@ -317,6 +324,23 @@ class RawTrainData:
             (all_prognostic.pin_memory(), all_boundary.pin_memory())
             for all_prognostic, all_boundary in self.raw_data
         ]
+        return self
+
+
+@dataclasses.dataclass
+class RawMultiscaleTrainData:
+    """A collection of `RawTrainData` stores of `Example`s at multiple scales."""
+
+    dataset_id: str
+    datasets: list[RawTrainData]
+
+    def to(self, device: torch.device) -> None:
+        for dataset in self.datasets:
+            dataset.to(device=device)
+
+    def pin_memory(self) -> Self:
+        for dataset in self.datasets:
+            dataset.pin_memory()
         return self
 
 
@@ -382,13 +406,6 @@ class TrainData:
                 self[step][1].pin_memory(),
             )
         return self
-
-
-class HasDatasetId(Protocol):
-    dataset_id: str
-
-
-DataBoundToDataset = TypeVar("DataBoundToDataset", bound=HasDatasetId)
 
 
 class GpuResolvedDataset(Dataset[DataBoundToDataset]):
@@ -666,15 +683,9 @@ def concurrent_compute(
     wait(futures)
 
 
-@dataclasses.dataclass
-class MultiRawTrainData:
-    dataset_id: str
-    datasets: list[RawTrainData]
-
-
 # TODO(alxmrs): Need to fix the collate_fn!
 @final
-class MultiscaleTrainDataset(GpuResolvedDataset[MultiRawTrainData]):
+class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
     Id: TypeAlias = str
     FLAG = LoaderVersion.OM4_MULTISCALE_TORCH
 
@@ -687,9 +698,9 @@ class MultiscaleTrainDataset(GpuResolvedDataset[MultiRawTrainData]):
         self.id = f"{self.__class__.__name__}({str(id(self))}, {', '.join([ds.id for ds in self.datasets])})"
 
     @elapsed(level=logging.DEBUG)
-    def __getitem__(self, idx: int) -> MultiRawTrainData:
+    def __getitem__(self, idx: int) -> RawMultiscaleTrainData:
         tds = [ds[idx] for ds in self.datasets]
-        return MultiRawTrainData(dataset_id=self.id, datasets=tds)
+        return RawMultiscaleTrainData(dataset_id=self.id, datasets=tds)
 
     def merge(self, tds: list[TrainData]) -> TrainData:
         TD = TrainData(tds[0].num_prognostic_channels)
@@ -697,7 +708,7 @@ class MultiscaleTrainDataset(GpuResolvedDataset[MultiRawTrainData]):
 
         return TD
 
-    def to_train_data(self, raw_train_dataset: MultiRawTrainData) -> TrainData:
+    def to_train_data(self, raw_train_dataset: RawMultiscaleTrainData) -> TrainData:
         """Converts each RawTrainData into a TrainData, then merges it into a single TrainData."""
         tds = [
             ds.to_train_data(rtd)

@@ -96,11 +96,7 @@ class Eval:
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)
-        self.wet, self.wet_surface = (
-            self.src.masks.repeat_prognostic(cfg.data.hist),
-            self.src.masks.boundary,
-        )
-        self.wet_without_hist_cpu = self.src.masks.prognostic
+        self.wet = self.src.masks.repeat_prognostic(cfg.data.hist)
         self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
@@ -108,10 +104,7 @@ class Eval:
             self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=self.wet_without_hist_cpu,
-            wet_mask_surface=self.wet_surface,
         )
-        self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
         # Model
         self.model = cfg.model.build(
@@ -178,8 +171,6 @@ class Eval:
             src=sliced_src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet=self.wet_without_hist_cpu,
-            wet_surface=self.wet_surface,
             hist=self.hist,
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
@@ -212,7 +203,7 @@ class Eval:
             self.metadata,
             self.hist,
             self.area_weights,
-            self.wet_without_hist,
+            self.src.masks.prognostic.to(self.device),
             self.num_out,
             self.prognostic_var_names,
         )

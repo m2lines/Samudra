@@ -17,8 +17,10 @@ from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 from ocean_emulators.constants import (
     BoundaryVarNames,
     Example,
+    ExampleMask,
     GridMask,
     Input,
+    InputMask,
     LoaderVersion,
     Prognostic,
     PrognosticMask,
@@ -358,11 +360,28 @@ class TrainData:
     def __init__(self, num_prognostic_channels: int):
         self.num_prognostic_channels = num_prognostic_channels
         self.example_by_step: list[Example] = []
+        self.nodata_masks: list[ExampleMask] = []
         self.load_stats: LoadStats | None = None
 
     def append(self, input_: Input, label: Prognostic):
         """Add another Example as a new step."""
         self.example_by_step.append((input_, label))
+
+    def insert_with_mask(
+        self,
+        step: int,
+        input_: Input,
+        label: Prognostic,
+        input_mask: InputMask,
+        label_mask: PrognosticMask,
+    ):
+        # TODO(alxmrs): check for off-by-one error.
+        if step == len(self.example_by_step):
+            self.example_by_step.append((input_, label))
+            self.nodata_masks.append((input_mask, label_mask))
+        else:
+            self.example_by_step[step] = (input_, label)
+            self.nodata_masks[step] = (input_mask, label_mask)
 
     def get_initial_input(self) -> Input:
         return self.get_input(0)
@@ -381,6 +400,10 @@ class TrainData:
 
     def values(self):
         return self.example_by_step
+
+    def example_shape(self) -> tuple[tuple[int], tuple[int]]:
+        input_, prognostic = self.get_initial_input()
+        return input_.shape, prognostic.shape
 
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
@@ -702,9 +725,95 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
         tds = [ds[idx] for ds in self.datasets]
         return RawMultiscaleTrainData(dataset_id=self.id, datasets=tds)
 
+    # TODO(alxmrs): I'll probably want to extract this into a new Masking Op class.
     def merge(self, tds: list[TrainData]) -> TrainData:
-        TD = TrainData(tds[0].num_prognostic_channels)
-        # TODO(alxmrs): Merge datasets of different dimensions (with masks).
+        """Merge multiple TrainData objects at different spatial resolutions into a single TrainData.
+
+        This method combines training data from multiple spatial scales by upsampling lower-resolution
+        data to match the highest resolution dataset. Lower-resolution data is placed at strided
+        intervals in a zero-padded tensor, effectively creating a sparse representation at the target
+        resolution. All datasets are concatenated along the channel dimension with corresponding masks
+        to indicate which spatial locations contain valid data.
+
+        The merging process:
+        1. Identifies the highest resolution dataset (largest spatial dimensions)
+        2. For each lower-resolution dataset:
+           - Computes the stride ratio between resolutions
+           - Creates strided tensors by placing values at regular intervals with zeros elsewhere
+           - Generates binary masks indicating valid data locations
+           - Concatenates both data and masks as additional channels
+        3. Returns a merged TrainData with all scales combined
+
+        Args:
+            tds: List of TrainData objects at different spatial resolutions. Each TrainData
+                should have the same number of steps but may have different spatial dimensions
+                (lat, lon). The spatial dimensions must be evenly divisible (e.g., 360x180 and
+                180x90 where the stride is exactly 2).
+
+        Returns:
+            TrainData: A merged dataset at the highest resolution with shape
+                [batch, total_channels, max_lat, max_lon] where total_channels includes
+                the original channels from the highest-resolution dataset plus additional
+                channels from each lower-resolution dataset (both data and mask channels).
+
+        Note:
+            The function assumes that spatial dimensions of lower-resolution datasets evenly
+            divide the dimensions of the highest-resolution dataset (i.e., the stride is an
+            integer value). This is typical for datasets downsampled by factors of 2, 4, etc.
+        """
+        tds_sorted = sorted(tds, key=lambda td: td[0][0].shape, reverse=True)
+        largest_td = tds_sorted.pop(0)
+
+        TD = TrainData(largest_td.num_prognostic_channels)
+
+        src_input: torch.Tensor
+        src_label: torch.Tensor
+        dst_input: Input
+        dst_label: Prognostic
+
+        for td in tds_sorted:
+            for step, (src_input, src_label), (dst_input, dst_label) in zip(
+                range(len(td)), td.example_by_step, largest_td.example_by_step
+            ):
+                lat, lon = dst_input.shape[-3:-1]
+                lat_p, lon_p = src_input.shape[-3:-1]
+                assert (lat / lat_p) % 2 == 0 and (lon / lon_p) % 2 == 0, (
+                    "Multi-scale datasets are not downscaled by factors of 2!"
+                )
+
+                lat_stride = lat // lat_p
+                lon_stride = lon // lon_p
+
+                src_input_stride = torch.zeros_like(dst_input)
+                src_input_mask = torch.zeros_like(dst_input)
+                src_label_stride = torch.zeros_like(dst_label)
+                src_label_mask = torch.zeros_like(dst_label)
+
+                src_input_stride[:, :, ::lat_stride, ::lon_stride] = src_input
+                src_input_mask[:, :, ::lat_stride, ::lon_stride] = torch.ones_like(
+                    src_input
+                )
+                src_label_stride[:, :, ::lat_stride, ::lon_stride] = src_label
+                src_label_mask[:, :, ::lat_stride, ::lon_stride] = torch.ones_like(
+                    src_label
+                )
+
+                combined_input = torch.cat((dst_input, src_input_stride), dim=1)
+                combined_label = torch.cat((dst_label, src_label_stride), dim=1)
+                combined_input_mask = torch.cat(
+                    (torch.ones_like(dst_input), src_label_mask), dim=1
+                )
+                combined_label_mask = torch.cat(
+                    (torch.ones_like(dst_label), src_label_mask), dim=1
+                )
+
+                TD.insert_with_mask(
+                    step,
+                    combined_input,
+                    combined_label,
+                    combined_input_mask,
+                    combined_label_mask,
+                )
 
         return TD
 

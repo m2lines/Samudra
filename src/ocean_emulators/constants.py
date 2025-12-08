@@ -32,6 +32,8 @@ Example = tuple[Input, Prognostic]
 
 GridMask = Bool[Tensor, "lat lon"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
+InputMask = Bool[GridMask, "total_vars"]
+ExampleMask = tuple[InputMask, PrognosticMask]
 
 SingleChannelVar = Float[Tensor, "batch time lat lon"]
 DictSingleChannelVar = dict[str, SingleChannelVar]

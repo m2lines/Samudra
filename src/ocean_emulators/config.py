@@ -1,4 +1,5 @@
 import abc
+from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
@@ -205,7 +206,7 @@ class DataConfig(BaseConfig):
 
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
-NormType = Literal["batch", "instance", "layer"]
+NormType = Literal["batch", "instance", "instance_affine", "layer", "rms"]
 
 
 class BlockConfig(BaseConfig):
@@ -225,6 +226,22 @@ class BlockConfig(BaseConfig):
                 activation = GELU
             case _:
                 assert_never(self.activation)
+
+        match self.norm:
+            case "batch":
+                norm: Callable[[int], nn.Module] = torch.nn.BatchNorm2d
+            case "instance":
+                norm = torch.nn.InstanceNorm2d
+            case "instance_affine":
+
+                def norm(num_features: int) -> nn.Module:
+                    return torch.nn.InstanceNorm2d(num_features, affine=True)
+            case "layer":
+                norm = torch.nn.LayerNorm
+            case "rms":
+                norm = torch.nn.RMSNorm
+            case _:
+                assert_never(self.norm)
 
         def create_block(
             in_channels: int,
@@ -256,7 +273,7 @@ class BlockConfig(BaseConfig):
                         checkpoint_simple=checkpoint_simple,
                         kernel_size=self.kernel_size,
                         upscale_factor=self.upscale_factor,
-                        norm=self.norm,
+                        norm=norm,
                         activation=activation,
                     )
                 case _:

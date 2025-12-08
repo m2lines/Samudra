@@ -43,7 +43,7 @@ def corrector_init():
 
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
-    masks = Masks(wet=wet_mask, wet_surface=wet_mask)
+    masks = Masks(prognostic=wet_mask, boundary=wet_mask)
 
     class MockTensorMap:
         def __init__(self):
@@ -160,7 +160,7 @@ def ocean_heat_init():
     )
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [1.0, 1.0]])
-    masks = Masks(wet=wet_mask, wet_surface=wet_mask)
+    masks = Masks(prognostic=wet_mask, boundary=wet_mask)
     test = DataSource("test", data, data_mean, data_std, masks)
 
     class MockTensorMap:

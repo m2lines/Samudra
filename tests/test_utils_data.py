@@ -150,7 +150,7 @@ def normalize_input():
 
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
-    masks = Masks(wet=wet_mask, wet_surface=wet_mask)
+    masks = Masks(prognostic=wet_mask, boundary=wet_mask)
 
     # Warning: the 'data' field is not used because this test tries to test
     # normalization which only needs mean and std. Thus, we set it to `data_mean`.
@@ -249,7 +249,7 @@ def data_init(hist: int):
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
         )
-        yield normalize, val.masks.wet
+        yield normalize, val.masks.prognostic
 
 
 @pytest.mark.parametrize("input_type", ["input", "target"])

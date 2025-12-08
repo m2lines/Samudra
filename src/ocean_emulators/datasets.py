@@ -91,8 +91,8 @@ class InferenceDataset(Dataset):
                 f" output at {data.time.values[self.hist + 1]}"
             )
 
-        self.wet: PrognosticMask = src.masks.wet.bool()
-        self.wet_surface: GridMask = src.masks.wet_surface.bool()
+        self.wet: PrognosticMask = src.masks.prognostic.bool()
+        self.wet_surface: GridMask = src.masks.boundary.bool()
         self.size = len(self.rolling_indices)
 
         if using_gpu():
@@ -454,8 +454,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
-        self.wet: PrognosticMask = src.masks.wet.bool().to(self.device)
-        self.wet_surface: GridMask = src.masks.wet_surface.bool().to(self.device)
+        self.wet: PrognosticMask = src.masks.prognostic.bool().to(self.device)
+        self.wet_surface: GridMask = src.masks.boundary.bool().to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
             if "lev" in means_or_stds.dims:

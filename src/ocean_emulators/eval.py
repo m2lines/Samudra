@@ -98,9 +98,9 @@ class Eval:
         self.metadata = construct_metadata(self.data)
         self.wet, self.wet_surface = (
             self.src.masks.repeat_prognostic(cfg.data.hist),
-            self.src.masks.wet_surface,
+            self.src.masks.boundary,
         )
-        self.wet_without_hist_cpu = self.src.masks.wet
+        self.wet_without_hist_cpu = self.src.masks.prognostic
         self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 

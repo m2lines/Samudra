@@ -56,11 +56,11 @@ def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
 class Masks:
     """A collection of masks to expose the ocean and mask land."""
 
-    wet: PrognosticMask
-    wet_surface: GridMask
+    prognostic: PrognosticMask
+    boundary: GridMask
 
     def repeat_prognostic(self, hist: int):
-        return torch.concat([self.wet] * (hist + 1), dim=0)
+        return torch.concat([self.prognostic] * (hist + 1), dim=0)
 
 
 @dataclasses.dataclass
@@ -274,9 +274,7 @@ class DataSource:
         data, means, stds = validate_data(
             data, means, stds, static_data_vars=static_data_vars
         )
-        wet, wet_surface = extract_wet_mask(data, prognostic_var_names)
-
-        masks = Masks(wet=wet, wet_surface=wet_surface)
+        masks = extract_wet_mask(data, prognostic_var_names)
 
         return cls(
             name=name,
@@ -385,7 +383,7 @@ def conditional_rearrange(
 
 def extract_wet_mask(
     data: xr.Dataset, prognostic_var_names: PrognosticVarNames
-) -> tuple[PrognosticMask, GridMask]:
+) -> Masks:
     """A mask for where the oceans are. Water is wet."""
     data_ = flatten_masks(data)
     wet_mask = data_[MASK_VARS]
@@ -400,7 +398,7 @@ def extract_wet_mask(
 
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)
-    return wet_inp.bool(), wet_surface.bool()
+    return Masks(wet_inp.bool(), wet_surface.bool())
 
 
 def _parse_lev_from_output_var(prognostic_var_names: PrognosticVarNames) -> list[int]:
@@ -647,8 +645,8 @@ class Normalize(Multiton):
         self.prognostic_std = prognostic_src.stds
         self.boundary_mean = boundary_src.means
         self.boundary_std = boundary_src.stds
-        self.wet_mask = src.masks.wet
-        self.wet_mask_surface = src.masks.wet_surface
+        self.wet_mask = src.masks.prognostic
+        self.wet_mask_surface = src.masks.boundary
 
         # Pre-compute numpy arrays for faster access
         self._prognostic_mean_np = (

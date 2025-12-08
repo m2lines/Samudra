@@ -48,8 +48,8 @@ from ocean_emulators.utils.schedule import SchedulerConfig
 
 class WandBConfig(BaseConfig):
     mode: Literal["online", "disabled"] = "disabled"
-    project: str = "3D_ocean_emu_CM4"
-    entity: str = "suryadheeshjith"
+    project: str = "default"
+    entity: str = "ocean_emulators"
     group: str | None = None
     tags: list[str] | None = None
     notes: str | None = None

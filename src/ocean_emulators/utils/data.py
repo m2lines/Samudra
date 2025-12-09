@@ -10,6 +10,7 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
+from jaxtyping import Bool
 
 if TYPE_CHECKING:
     from ocean_emulators.config import TimeConfig
@@ -59,7 +60,9 @@ class Masks:
     prognostic: PrognosticMask
     boundary: GridMask
 
-    def repeat_prognostic(self, hist: int):
+    def prognostic_with_hist(
+        self, hist: int
+    ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:
         return torch.concat([self.prognostic] * (hist + 1), dim=0)
 
 

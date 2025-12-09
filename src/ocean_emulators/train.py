@@ -185,7 +185,7 @@ class Trainer:
         self.loader_version = self.data_container.loader_version
 
         self.metadata = construct_metadata(self.data)
-        self.wet = self.src.masks.repeat_prognostic(cfg.data.hist).to(self.device)
+        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)

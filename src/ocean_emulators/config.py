@@ -47,8 +47,8 @@ from ocean_emulators.utils.schedule import SchedulerConfig
 
 class WandBConfig(BaseConfig):
     mode: Literal["online", "disabled"] = "disabled"
-    project: str = "3D_ocean_emu_CM4"
-    entity: str = "suryadheeshjith"
+    project: str = "default"
+    entity: str = "ocean_emulators"
     group: str | None = None
     tags: list[str] | None = None
     notes: str | None = None
@@ -717,6 +717,7 @@ class TrainConfig(TopLevelConfig):
     preemptible: bool = True
     batch_size: int = 2
     learning_rate: float = 2e-4
+    gradient_accumulation_steps: int = 1
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
     finetune: bool = False

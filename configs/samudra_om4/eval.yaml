@@ -13,10 +13,8 @@ experiment:
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
-    mode: online
-    project: ocean-emulators
-    entity: m2lines
-    group: samudra-om4-vnext-eval
+    mode: disabled
+    project: default
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
 

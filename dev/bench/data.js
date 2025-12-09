@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765290373846,
+  "lastUpdate": 1765290845070,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6159,6 +6159,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.25797900548670194",
             "extra": "mean: 88.5335922668 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a1642c9829dc3d20d50a1f7154cb981a4de421cd",
+          "message": "Various minor viz doc & config fixes (#502)\n\nThis is a bit awkward because the viz configs don't really have anything\nto do with the folder they're in (other than trying to be helpful by\nhaving the source eval run name included, though arguably this is\nconfusing more than helpful). And really they vary mostly by what\nresolution of data you need (and so data path + basin mask path). But I\nthink this is at least improving the situation a bit by fixing typos and\ndefaulting everything to 1-degree data.",
+          "timestamp": "2025-12-09T14:08:56Z",
+          "tree_id": "c1d1c1e6e0ca3d8cf80d1bd4c5279f00a6cfa8fc",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a1642c9829dc3d20d50a1f7154cb981a4de421cd"
+        },
+        "date": 1765290844248,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5807222154711864,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028862837723814014",
+            "extra": "mean: 632.6222217999998 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1879361915797823,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02356220021699192",
+            "extra": "mean: 5.320954902799985 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011515933275242267,
+            "unit": "iter/sec",
+            "range": "stddev: 0.20129730358440112",
+            "extra": "mean: 86.83620997959997 sec\nrounds: 5"
           }
         ]
       }

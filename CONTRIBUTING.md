@@ -262,9 +262,9 @@ To run a remote viz job with SkyPilot, please use the following command:
 uv run sky launch skypilot/viz.sky.yaml \
   --env WANDB_API_KEY \
   --env-file <my-vars>.env \
-  --env NAME <my-experiment-name>-viz \
-  --env BASIN_PATH basin_masks_original.zarr \
-  --env RUNS=[{"location": "/inputs/<my-experiment-name>-eval/predictions.zarr"}]
+  --env NAME=<my-experiment-name>-viz \
+  --env BASIN_PATH=basin_masks_original.zarr \
+  --env RUNS='[{"name": "my_experiment", "location": "/inputs/<my-experiment-name>-eval/predictions.zarr"}]'
 
 ```
 

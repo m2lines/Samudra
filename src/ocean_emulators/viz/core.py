@@ -746,7 +746,7 @@ class Viz:
         rho_0 = 1025  # kg/m^3
         
         # Use real areacello for physical calculations
-        areacello = data.get("areacello_real", data["areacello"])
+        areacello = data["areacello_real"]
         
         OHC = ((data["thetao"] * c_p * rho_0) * areacello * data["dz"]).sum(
             ["x", "y", "lev"]

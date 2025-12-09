@@ -66,7 +66,7 @@ class Viz:
         levels = len(DEPTH_LEVELS)
 
         groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
-        
+
         if "y" in groundtruth_rollout.coords:
             groundtruth_rollout = groundtruth_rollout.drop_vars(
                 ["lat", "lon"], errors="ignore"
@@ -76,9 +76,12 @@ class Viz:
         groundtruth_rollout = groundtruth_rollout.assign(
             areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
         )
-        
+
         # Compute real grid cell areas for physical calculations
-        groundtruth_rollout["areacello_real"] = (["lat", "lon"], spherical_area_weights_real(groundtruth_rollout))
+        groundtruth_rollout["areacello_real"] = (
+            ["lat", "lon"],
+            spherical_area_weights_real(groundtruth_rollout),
+        )
 
         # This function processes the ds_groundtruth and predictions for plotting
         # The predictions are loaded into pred_dict
@@ -159,7 +162,7 @@ class Viz:
             }
         )
 
-        #Compute profile means
+        # Compute profile means
         with ProgressBar():
             logger.info("Computing profile for ground truth " + dataset_name)
             profile_groundtruth = profile_mean(data).load()
@@ -744,16 +747,16 @@ class Viz:
     def ohc_anomaly_global(self, data: xr.Dataset) -> xr.DataArray:
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
-        
+
         # Use real areacello for physical calculations
         areacello = data["areacello_real"]
-        
+
         OHC = ((data["thetao"] * c_p * rho_0) * areacello * data["dz"]).sum(
             ["x", "y", "lev"]
         ) / 1e21
-        
+
         OHC = remove_climatology(OHC)
-        
+
         OHC = OHC.rename("OHC Anomaly")
         OHC = OHC.assign_attrs(units="ZJ")
         return OHC
@@ -3793,7 +3796,15 @@ def combine_variables_by_level(ds_groundtruth, pred_dict):
     return ds_groundtruth, pred_dict
 
 
-def _postprocess_for_plot(ds, areacello: np.ndarray, areacello_real: np.ndarray, dz, times, wetmask, coords=None):
+def _postprocess_for_plot(
+    ds,
+    areacello: np.ndarray,
+    areacello_real: np.ndarray,
+    dz,
+    times,
+    wetmask,
+    coords=None,
+):
     """
     Postprocess the dataset to make it compatible with plotting functions.
     """
@@ -3859,7 +3870,7 @@ def postprocess_for_plot(
     ds_groundtruth = _postprocess_for_plot(
         ds_groundtruth, areacello_values, areacello_real_values, dz, times, wetmask
     )
-    
+
     coords = ds_groundtruth.coords
 
     for key in pred_dict.keys():
@@ -3872,7 +3883,7 @@ def postprocess_for_plot(
             wetmask,
             coords=coords,
         )
-        
+
         # Rename lat and lon to y and x
         pred_dict[key]["ds_prediction"] = pred_dict[key]["ds_prediction"].rename(
             {"lat": "y", "lon": "x"}

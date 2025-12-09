@@ -473,35 +473,35 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
 def spherical_area_weights_real(data: xr.Dataset) -> Grid:
     """
     Compute real grid cell areas on a spherical Earth.
-    
+
     Uses the spherical geometry formula:
     A = R² × Δλ × (sin(φ₂) - sin(φ₁))
-    
+
     where:
     - R is Earth's radius (6371 km)
     - Δλ is the longitude spacing in radians
     - φ₁, φ₂ are the latitude bounds of the cell in radians
-    
+
     Args:
         data: Dataset containing lat/lon coordinates
-        
+
     Returns:
         Grid cell areas in m²
     """
     R = 6371000  # Earth radius in meters
-    
+
     lats = data.lat.to_numpy()
     lons = data.lon.to_numpy()
-    
+
     # Compute grid spacing (assuming uniform spacing)
     dlat = np.abs(np.diff(lats).mean())
     dlon = np.abs(np.diff(lons).mean())
-    
+
     # Convert to radians
     dlat_rad = np.deg2rad(dlat)
     dlon_rad = np.deg2rad(dlon)
     lats_rad = np.deg2rad(lats)
-    
+
     # Compute cell areas: A = R² × dlon × (sin(lat + dlat/2) - sin(lat - dlat/2))
     areas = np.zeros((len(lats), len(lons)))
     for i, lat_rad in enumerate(lats_rad):
@@ -509,7 +509,7 @@ def spherical_area_weights_real(data: xr.Dataset) -> Grid:
         lat_south = lat_rad - dlat_rad / 2
         area = R**2 * dlon_rad * (np.sin(lat_north) - np.sin(lat_south))
         areas[i, :] = area
-    
+
     return torch.from_numpy(areas)
 
 

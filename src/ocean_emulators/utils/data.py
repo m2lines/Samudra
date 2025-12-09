@@ -60,6 +60,10 @@ class Masks:
     prognostic: PrognosticMask
     boundary: GridMask
 
+    def __post_init__(self):
+        self.prognostic = self.prognostic.bool()
+        self.boundary = self.boundary.bool()
+
     def prognostic_with_hist(
         self, hist: int
     ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:

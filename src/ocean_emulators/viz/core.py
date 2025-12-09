@@ -159,19 +159,19 @@ class Viz:
             }
         )
 
-        # #Compute profile means
-        # with ProgressBar():
-        #     logger.info("Computing profile for ground truth " + dataset_name)
-        #     profile_groundtruth = profile_mean(data).load()
+        #Compute profile means
+        with ProgressBar():
+            logger.info("Computing profile for ground truth " + dataset_name)
+            profile_groundtruth = profile_mean(data).load()
 
-        #     for k in pred_dict.keys():
-        #         logger.info("Computing profile for prediction " + k)
-        #         pred_dict[k]["profile_prediction"] = profile_mean(
-        #             pred_dict[k]["ds_prediction"]
-        #         ).load()
+            for k in pred_dict.keys():
+                logger.info("Computing profile for prediction " + k)
+                pred_dict[k]["profile_prediction"] = profile_mean(
+                    pred_dict[k]["ds_prediction"]
+                ).load()
 
         self.data: xr.Dataset = data
-        # self.profile_groundtruth: xr.Dataset = profile_groundtruth
+        self.profile_groundtruth: xr.Dataset = profile_groundtruth
         self.pred_dict: dict[str, dict[str, Any]] = pred_dict
         self.dataset_name: str = dataset_name
         self.clist: list[str] = clist

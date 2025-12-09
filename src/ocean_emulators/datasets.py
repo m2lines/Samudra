@@ -454,8 +454,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
-        self.wet: PrognosticMask = src.masks.prognostic.bool().to(self.device)
-        self.wet_surface: GridMask = src.masks.boundary.bool().to(self.device)
+        self.wet: PrognosticMask = src.masks.prognostic.to(self.device)
+        self.wet_surface: GridMask = src.masks.boundary.to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
             if "lev" in means_or_stds.dims:

@@ -91,8 +91,8 @@ class InferenceDataset(Dataset):
                 f" output at {data.time.values[self.hist + 1]}"
             )
 
-        self.wet: PrognosticMask = src.masks.prognostic.bool()
-        self.wet_surface: GridMask = src.masks.boundary.bool()
+        self.wet: PrognosticMask = src.masks.prognostic
+        self.wet_surface: GridMask = src.masks.boundary
         self.size = len(self.rolling_indices)
 
         if using_gpu():

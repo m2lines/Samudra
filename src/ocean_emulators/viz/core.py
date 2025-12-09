@@ -28,7 +28,11 @@ from tqdm.auto import tqdm
 from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignore
 
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
-from ocean_emulators.utils.data import spherical_area_weights, with_level_index_vars
+from ocean_emulators.utils.data import (
+    spherical_area_weights,
+    spherical_area_weights_real,
+    with_level_index_vars,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,7 @@ class Viz:
         levels = len(DEPTH_LEVELS)
 
         groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
+        
         if "y" in groundtruth_rollout.coords:
             groundtruth_rollout = groundtruth_rollout.drop_vars(
                 ["lat", "lon"], errors="ignore"
@@ -71,6 +76,9 @@ class Viz:
         groundtruth_rollout = groundtruth_rollout.assign(
             areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
         )
+        
+        # Compute real grid cell areas for physical calculations
+        groundtruth_rollout["areacello_real"] = (["lat", "lon"], spherical_area_weights_real(groundtruth_rollout))
 
         # This function processes the ds_groundtruth and predictions for plotting
         # The predictions are loaded into pred_dict
@@ -151,19 +159,19 @@ class Viz:
             }
         )
 
-        # Compute profile means
-        with ProgressBar():
-            logger.info("Computing profile for ground truth " + dataset_name)
-            profile_groundtruth = profile_mean(data).load()
+        # #Compute profile means
+        # with ProgressBar():
+        #     logger.info("Computing profile for ground truth " + dataset_name)
+        #     profile_groundtruth = profile_mean(data).load()
 
-            for k in pred_dict.keys():
-                logger.info("Computing profile for prediction " + k)
-                pred_dict[k]["profile_prediction"] = profile_mean(
-                    pred_dict[k]["ds_prediction"]
-                ).load()
+        #     for k in pred_dict.keys():
+        #         logger.info("Computing profile for prediction " + k)
+        #         pred_dict[k]["profile_prediction"] = profile_mean(
+        #             pred_dict[k]["ds_prediction"]
+        #         ).load()
 
         self.data: xr.Dataset = data
-        self.profile_groundtruth: xr.Dataset = profile_groundtruth
+        # self.profile_groundtruth: xr.Dataset = profile_groundtruth
         self.pred_dict: dict[str, dict[str, Any]] = pred_dict
         self.dataset_name: str = dataset_name
         self.clist: list[str] = clist
@@ -736,10 +744,16 @@ class Viz:
     def ohc_anomaly_global(self, data: xr.Dataset) -> xr.DataArray:
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
-        OHC = ((data["thetao"] * c_p * rho_0) * data["areacello"] * data["dz"]).sum(
+        
+        # Use real areacello for physical calculations
+        areacello = data.get("areacello_real", data["areacello"])
+        
+        OHC = ((data["thetao"] * c_p * rho_0) * areacello * data["dz"]).sum(
             ["x", "y", "lev"]
         ) / 1e21
+        
         OHC = remove_climatology(OHC)
+        
         OHC = OHC.rename("OHC Anomaly")
         OHC = OHC.assign_attrs(units="ZJ")
         return OHC
@@ -3779,7 +3793,7 @@ def combine_variables_by_level(ds_groundtruth, pred_dict):
     return ds_groundtruth, pred_dict
 
 
-def _postprocess_for_plot(ds, areacello: np.ndarray, dz, times, wetmask, coords=None):
+def _postprocess_for_plot(ds, areacello: np.ndarray, areacello_real: np.ndarray, dz, times, wetmask, coords=None):
     """
     Postprocess the dataset to make it compatible with plotting functions.
     """
@@ -3811,6 +3825,7 @@ def _postprocess_for_plot(ds, areacello: np.ndarray, dz, times, wetmask, coords=
             ds[var] = ds[var].where(wetmask.isel(lev=0))
 
     ds["areacello"] = (["lat", "lon"], areacello)
+    ds["areacello_real"] = (["lat", "lon"], areacello_real)
     ds["dz"] = ("lev", dz)
     return ds
 
@@ -3831,6 +3846,7 @@ def postprocess_for_plot(
     """
     areacello_values = areacello.values
     times = ds_groundtruth.time
+    areacello_real_values = ds_groundtruth["areacello_real"].values
 
     # Masking land with NaNs
     if "mask" in ds_groundtruth.data_vars:
@@ -3841,19 +3857,22 @@ def postprocess_for_plot(
         wetmask = ds_groundtruth.wetmask
 
     ds_groundtruth = _postprocess_for_plot(
-        ds_groundtruth, areacello_values, dz, times, wetmask
+        ds_groundtruth, areacello_values, areacello_real_values, dz, times, wetmask
     )
+    
     coords = ds_groundtruth.coords
 
     for key in pred_dict.keys():
         pred_dict[key]["ds_prediction"] = _postprocess_for_plot(
             pred_dict[key]["ds_prediction"],
             areacello_values,
+            areacello_real_values,
             dz,
             times,
             wetmask,
             coords=coords,
         )
+        
         # Rename lat and lon to y and x
         pred_dict[key]["ds_prediction"] = pred_dict[key]["ds_prediction"].rename(
             {"lat": "y", "lon": "x"}

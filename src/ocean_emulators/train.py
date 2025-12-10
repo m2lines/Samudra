@@ -54,7 +54,6 @@ from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
-    extract_wet_mask,
     get_inference_steps,
     spherical_area_weights,
 )
@@ -132,6 +131,7 @@ class Trainer:
 
         self.data_container = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
+            prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
 
@@ -185,13 +185,7 @@ class Trainer:
         self.loader_version = self.data_container.loader_version
 
         self.metadata = construct_metadata(self.data)
-        self.wet, self.wet_surface = extract_wet_mask(
-            self.data, self.prognostic_var_names, cfg.data.hist
-        )
-        self.wet_without_hist_cpu, _ = extract_wet_mask(
-            self.data, self.prognostic_var_names, 0
-        )
-        self.wet = self.wet.to(self.device)
+        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -200,16 +194,13 @@ class Trainer:
             self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            wet_mask=self.wet_without_hist_cpu,
-            wet_mask_surface=self.wet_surface,
         )
-        self.wet_without_hist = self.wet_without_hist_cpu.to(self.device)
 
         self.model = cfg.model.build(
             in_channels=self.num_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            wet=self.wet.to(self.device),
+            wet=self.wet,
             area_weights=self.area_weights,
             static_data=self.static_data,
             lat=torch.from_numpy(self.data.lat.values),
@@ -369,8 +360,6 @@ class Trainer:
                 src=sliced_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                wet=self.wet_without_hist_cpu,
-                wet_surface=self.wet_surface,
                 hist=self.hist,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
@@ -630,7 +619,7 @@ class Trainer:
             self.metadata,
             self.hist,
             self.area_weights,
-            self.wet_without_hist,
+            self.src.masks.prognostic.to(self.device),
             self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
@@ -664,7 +653,7 @@ class Trainer:
                     self.metadata,
                     self.hist,
                     self.area_weights,
-                    self.wet_without_hist,
+                    self.src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,
                 )
@@ -731,8 +720,6 @@ class Trainer:
                 src=self.src.slice(self.train_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                wet=self.wet_without_hist_cpu,
-                wet_surface=self.wet_surface,
                 hist=self.hist,
                 steps=cur_step,
                 normalize_before_mask=self.normalize_before_mask,
@@ -748,8 +735,6 @@ class Trainer:
                 src=self.src.slice(self.val_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                wet=self.wet_without_hist_cpu,
-                wet_surface=self.wet_surface,
                 hist=self.hist,
                 steps=1,  # current_step set to 1 for validation
                 normalize_before_mask=self.normalize_before_mask,

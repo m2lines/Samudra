@@ -4,7 +4,7 @@ import xarray as xr
 
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
 from ocean_emulators.constants import TensorMap
-from ocean_emulators.utils.data import DataSource, Normalize
+from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
 
@@ -29,13 +29,12 @@ def test_positional_parameters_update():
             },
             coords=coords,
         )
-        src = DataSource(name="dummy", data=data, means=data, stds=ones)
+        masks = Masks(torch.ones(h, w), torch.ones(h, w))
+        src = DataSource(name="dummy", data=data, means=data, stds=ones, masks=masks)
         Normalize.init_instance(
             src,
             TensorMap.get_instance().prognostic_var_names,
             TensorMap.get_instance().boundary_var_names,
-            torch.ones(h, w),
-            torch.ones(h, w),
         )
 
         # Create the model itself with learned positional embeddings

@@ -8,7 +8,7 @@ import xarray as xr
 from ocean_emulators.aggregator.metrics import area_weighted_sum
 from ocean_emulators.derived_variables import compute_global_ocean_heat_content
 from ocean_emulators.models.corrector import OceanHeatCorrector, ReLUCorrector
-from ocean_emulators.utils.data import DataSource, Normalize
+from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.multiton import MultitonScope
 
@@ -43,6 +43,7 @@ def corrector_init():
 
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [0.0, 1.0]])
+    masks = Masks(prognostic=wet_mask, boundary=wet_mask)
 
     class MockTensorMap:
         def __init__(self):
@@ -62,14 +63,12 @@ def corrector_init():
             self.dz = torch.tensor([1.0, 1.0])
 
     tensor_map = MockTensorMap()
-    test = DataSource("test", data, data_mean, data_std)
+    test = DataSource("test", data, data_mean, data_std, masks)
     with MultitonScope():
         normalize = Normalize.init_instance(
             test,
             prognostic_var_names=["var_0", "var_1"],
             boundary_var_names=["var_2"],
-            wet_mask=wet_mask,
-            wet_mask_surface=wet_mask,
         )
 
     return normalize, tensor_map, wet_mask
@@ -159,10 +158,10 @@ def ocean_heat_init():
         },
         coords={"lat": [0], "lon": [0]},
     )
-    test = DataSource("test", data, data_mean, data_std)
-
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [1.0, 1.0]])
+    masks = Masks(prognostic=wet_mask, boundary=wet_mask)
+    test = DataSource("test", data, data_mean, data_std, masks)
 
     class MockTensorMap:
         def __init__(self):
@@ -187,8 +186,6 @@ def ocean_heat_init():
             test,
             prognostic_var_names=["thetao_0", "thetao_1", "thetao_2"],
             boundary_var_names=["hfds"],
-            wet_mask=wet_mask,
-            wet_mask_surface=wet_mask,
         )
 
     wet_mask = wet_mask.to(get_device())

@@ -6,7 +6,7 @@ import xarray as xr
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.datasets import TrainData
-from ocean_emulators.utils.data import DataSource, Normalize
+from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
 
@@ -43,7 +43,10 @@ def create_samudra_model():
                 },
                 coords=coords,
             )
-            src = DataSource(name="dummy", data=data, means=data, stds=ones)
+            masks = Masks(torch.ones(h, w), torch.ones(h, w))
+            src = DataSource(
+                name="dummy", data=data, means=data, stds=ones, masks=masks
+            )
 
             # Initialize TensorMap and Normalize
             TensorMap.init_instance("thetao_1", "hfds")
@@ -51,8 +54,6 @@ def create_samudra_model():
                 src,
                 TensorMap.get_instance().prognostic_var_names,
                 TensorMap.get_instance().boundary_var_names,
-                torch.ones(h, w),
-                torch.ones(h, w),
             )
 
             # Create Samudra model with the specified gradient_detach_interval

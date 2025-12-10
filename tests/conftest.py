@@ -15,8 +15,9 @@ from numpy.typing import ArrayLike, NDArray
 
 import ocean_emulators.constants as c
 from ocean_emulators.config import JulianDate, TrainBackendConfig, TrainConfig
+from ocean_emulators.constants import BOUNDARY_VARS
 from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import DataSource, compact_dataset
+from ocean_emulators.utils.data import DataSource, _is_compact, compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -346,7 +347,15 @@ def _uncached_data_source(name: str) -> DataSource:
             }
             ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
-            return DataSource(name=name, data=ds, means=ds.mean(), stds=ds.std())
+            return DataSource.from_datasets(
+                ds,
+                ds.mean(),
+                ds.std(),
+                name=name,
+                prognostic_var_names=[str(var) for var in ds if "_" in str(var)],
+                boundary_var_names=[str(var) for var in ds if "_" not in str(var)],
+            )
+
         case "remote-om4" | "compact":
             # The chunk-size should be about the same as the size of the time slice
             # for optimal download time. In local experiments, this time range (which
@@ -368,16 +377,29 @@ def _uncached_data_source(name: str) -> DataSource:
                 ).compute()
             )
 
+            # Keep the original flat data for variable name extraction
+            data_for_vars = data
+
             if name == "compact":
                 data = compact_dataset(data)
                 means = compact_dataset(means)
                 stds = compact_dataset(stds)
 
-            return DataSource(
-                name=name,
+            return DataSource.from_datasets(
                 data=data,
                 means=means,
                 stds=stds,
+                name=name,
+                prognostic_var_names=[
+                    str(v)
+                    for v in data_for_vars
+                    if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+                ],
+                boundary_var_names=[
+                    str(var)
+                    for var in data_for_vars
+                    if var in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+                ],
             )
         case _:
             raise ValueError(f"Unknown data source: {name}.")
@@ -393,7 +415,37 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         data = xr.open_zarr(cache / "data.zarr")
         means = xr.open_dataset(cache / "means.nc")
         stds = xr.open_dataset(cache / "stds.nc")
-        return DataSource(name=cache_name, data=data, means=means, stds=stds)
+
+        boundary_vars = [
+            str(v) for v in data.data_vars if v in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+        ]
+
+        if _is_compact(data, means, stds):
+            prognostic_var_names: list[str] = []
+            for var in data.data_vars:
+                if var in boundary_vars or "mask" in var:
+                    continue
+                if "lev" in data[var].dims:
+                    prognostic_var_names.extend(
+                        f"{var}_{i}" for i in range(len(data.lev))
+                    )
+                else:
+                    prognostic_var_names.append(str(var))
+        else:
+            prognostic_var_names = [
+                str(v)
+                for v in data.data_vars
+                if v not in boundary_vars and "mask" not in v
+            ]
+
+        return DataSource.from_datasets(
+            name=cache_name,
+            data=data,
+            means=means,
+            stds=stds,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_vars,
+        )
     except (FileNotFoundError, PermissionError):
         return None
 

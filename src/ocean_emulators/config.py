@@ -13,7 +13,14 @@ from torch import nn
 from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
-from ocean_emulators.constants import BoundaryVarNames, Grid, Lat, LoaderVersion, Lon
+from ocean_emulators.constants import (
+    BoundaryVarNames,
+    Grid,
+    Lat,
+    LoaderVersion,
+    Lon,
+    PrognosticVarNames,
+)
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
@@ -32,7 +39,7 @@ from ocean_emulators.models.modules import (
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
-from ocean_emulators.utils.data import DataContainer, DataSource, validate_data
+from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
@@ -148,6 +155,7 @@ class DataConfig(BaseConfig):
     def build(
         self,
         data_root: ResolvedLocation,
+        prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
@@ -161,9 +169,11 @@ class DataConfig(BaseConfig):
             data_location=data_location,
             means_location=means_location,
             stds_location=stds_location,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            static_data_vars=self.static_data_vars,
             use_dask=use_dask,
         )
-        source = validate_data(source, boundary_var_names, self.static_data_vars)
 
         if use_dask:
             # If we're already using dask, we don't need a second source
@@ -174,10 +184,10 @@ class DataConfig(BaseConfig):
                 data_location=data_location,
                 means_location=means_location,
                 stds_location=stds_location,
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
+                static_data_vars=self.static_data_vars,
                 use_dask=True,
-            )
-            source_using_dask = validate_data(
-                source_using_dask, boundary_var_names, self.static_data_vars
             )
 
         static_data = (

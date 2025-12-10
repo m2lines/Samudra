@@ -206,7 +206,7 @@ class DataConfig(BaseConfig):
 
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
-NormType = Literal["batch", "instance", "instance_affine", "layer", "rms"]
+NormType = Literal["batch", "instance", "instance_affine"]
 
 
 class BlockConfig(BaseConfig):
@@ -236,10 +236,6 @@ class BlockConfig(BaseConfig):
 
                 def norm(num_features: int) -> nn.Module:
                     return torch.nn.InstanceNorm2d(num_features, affine=True)
-            case "layer":
-                norm = torch.nn.LayerNorm
-            case "rms":
-                norm = torch.nn.RMSNorm
             case _:
                 assert_never(self.norm)
 

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765399060278,
+  "lastUpdate": 1765399061416,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12507,6 +12507,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.12160560719786741",
             "extra": "mean: 73.77324558840004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f8090cdcba2416f8cca178a01459b660791fd8c4",
+          "message": "Masking is same concern as the DataSource. (#499)\n\nIntroducing a `Masks` dataclass the in `DataSource` which has extracted\nwet masks. It turns out, near everywhere that `DataSource` is used, we\nhave to separately plumb the surface and default wetmask. Thinking about\nwhat it would take to load multiple datasets of different resolutions,\nit seems that ocean/land masks are actually part of the same concern in\nas the data source. My hope is that after this PR, we can introduce a\nseparate, but related masking concept -- namely, a dataloader-time\n\"nodata\" mask that is only necessary when combining disparate datasets.\n\nAlong the way, this refactor also brings in data validation into the\ncreation of the `DataSource`.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2025-12-10T20:12:32Z",
+          "tree_id": "08e23a015b591ce73de2b67a6d8dd3f80ac90cf7",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/f8090cdcba2416f8cca178a01459b660791fd8c4"
+        },
+        "date": 1765399061097,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.59731611789893,
+            "unit": "iter/sec",
+            "range": "stddev: 0.015814533912418847",
+            "extra": "mean: 626.0501530000056 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19191068848956558,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010732379999420394",
+            "extra": "mean: 5.210757190599997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013220240497234435,
+            "unit": "iter/sec",
+            "range": "stddev: 0.37490476860604477",
+            "extra": "mean: 75.64158913819999 sec\nrounds: 5"
           }
         ]
       }

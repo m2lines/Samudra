@@ -416,26 +416,22 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         means = xr.open_dataset(cache / "means.nc")
         stds = xr.open_dataset(cache / "stds.nc")
 
-        # Determine prognostic and boundary variable names
         boundary_vars = [
             str(v) for v in data.data_vars if v in BOUNDARY_VARS["tau_hfds_hfds_anom"]
         ]
 
         if _is_compact(data, means, stds):
-            # Compact format: expand variables to include level suffixes
             prognostic_var_names: list[str] = []
             for var in data.data_vars:
                 if var in boundary_vars or "mask" in var:
                     continue
                 if "lev" in data[var].dims:
-                    # Expand to all levels using level indices
                     prognostic_var_names.extend(
                         f"{var}_{i}" for i in range(len(data.lev))
                     )
                 else:
                     prognostic_var_names.append(str(var))
         else:
-            # Flat format: use variable names as-is
             prognostic_var_names = [
                 str(v)
                 for v in data.data_vars

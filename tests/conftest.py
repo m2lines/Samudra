@@ -17,7 +17,7 @@ import ocean_emulators.constants as c
 from ocean_emulators.config import JulianDate, TrainBackendConfig, TrainConfig
 from ocean_emulators.constants import BOUNDARY_VARS
 from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import DataSource, compact_dataset
+from ocean_emulators.utils.data import DataSource, _is_compact, compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -377,6 +377,9 @@ def _uncached_data_source(name: str) -> DataSource:
                 ).compute()
             )
 
+            # Keep the original flat data for variable name extraction
+            data_for_vars = data
+
             if name == "compact":
                 data = compact_dataset(data)
                 means = compact_dataset(means)
@@ -388,11 +391,13 @@ def _uncached_data_source(name: str) -> DataSource:
                 stds=stds,
                 name=name,
                 prognostic_var_names=[
-                    str(v) for v in data if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+                    str(v)
+                    for v in data_for_vars
+                    if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
                 ],
                 boundary_var_names=[
                     str(var)
-                    for var in data
+                    for var in data_for_vars
                     if var in BOUNDARY_VARS["tau_hfds_hfds_anom"]
                 ],
             )
@@ -410,17 +415,40 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         data = xr.open_zarr(cache / "data.zarr")
         means = xr.open_dataset(cache / "means.nc")
         stds = xr.open_dataset(cache / "stds.nc")
+
+        # Determine prognostic and boundary variable names
+        boundary_vars = [
+            str(v) for v in data.data_vars if v in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+        ]
+
+        if _is_compact(data, means, stds):
+            # Compact format: expand variables to include level suffixes
+            prognostic_var_names: list[str] = []
+            for var in data.data_vars:
+                if var in boundary_vars or "mask" in var:
+                    continue
+                if "lev" in data[var].dims:
+                    # Expand to all levels using level indices
+                    prognostic_var_names.extend(
+                        f"{var}_{i}" for i in range(len(data.lev))
+                    )
+                else:
+                    prognostic_var_names.append(str(var))
+        else:
+            # Flat format: use variable names as-is
+            prognostic_var_names = [
+                str(v)
+                for v in data.data_vars
+                if v not in boundary_vars and "mask" not in v
+            ]
+
         return DataSource.from_datasets(
             name=cache_name,
             data=data,
             means=means,
             stds=stds,
-            prognostic_var_names=[
-                str(v) for v in data if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
-            ],
-            boundary_var_names=[
-                str(v) for v in data if v in BOUNDARY_VARS["tau_hfds_hfds_anom"]
-            ],
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_vars,
         )
     except (FileNotFoundError, PermissionError):
         return None

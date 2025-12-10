@@ -61,7 +61,7 @@ def make_loader(
     )
 
     container = data_config.build(
-        cfg.experiment.resolved_data_root, boundary, prognostic
+        cfg.experiment.resolved_data_root, prognostic, boundary
     )
     version = container.loader_version
     src = container.source

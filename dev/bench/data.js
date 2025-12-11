@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765418262826,
+  "lastUpdate": 1765418263955,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12597,6 +12597,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.37490476860604477",
             "extra": "mean: 75.64158913819999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "537c1204a70650e6221a149f236a4c969f9fa9e0",
+          "message": "Mega-nit: \"Ocean\", not \"Oceans\" (#515)\n\nA minor copy+edit for our contrib guide that has been bothering me.",
+          "timestamp": "2025-12-10T20:32:06-05:00",
+          "tree_id": "93ef0885409c32e380c0204897c021b4ae0bac2b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/537c1204a70650e6221a149f236a4c969f9fa9e0"
+        },
+        "date": 1765418263637,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5875449055214752,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01662444159886069",
+            "extra": "mean: 629.9034417999792 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19325291011492798,
+            "unit": "iter/sec",
+            "range": "stddev: 0.019879075544986153",
+            "extra": "mean: 5.174566320400027 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013238891268385409,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7685993529719787",
+            "extra": "mean: 75.53502628940001 sec\nrounds: 5"
           }
         ]
       }

@@ -732,9 +732,9 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             largest_prog = largest_input[:, : largest_td.num_prognostic_channels]
             largest_bound = largest_input[:, largest_td.num_prognostic_channels :]
 
-            all_prognostics = [largest_prog]
-            all_boundaries = [largest_bound]
-            all_labels = [largest_label]
+            prognostics = [largest_prog]
+            boundaries = [largest_bound]
+            labels = [largest_label]
 
             # Iterate through the remaining `TrainData`s at smaller scales.
             for td in tds_sorted:
@@ -751,34 +751,34 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
                 src_bound = src_input[:, td.num_prognostic_channels :]
 
                 # Create strided tensors at reference resolution
-                prog_strided = torch.zeros(
+                prognostic_per_scale = torch.zeros(
                     (src_prog.shape[0], src_prog.shape[1], ref_lat, ref_lon),
                     dtype=src_prog.dtype,
                     device=src_prog.device,
                 )
-                bound_strided = torch.zeros(
+                boundary_per_scale = torch.zeros(
                     (src_bound.shape[0], src_bound.shape[1], ref_lat, ref_lon),
                     dtype=src_bound.dtype,
                     device=src_bound.device,
                 )
-                label_strided = torch.zeros(
+                label_per_scale = torch.zeros(
                     (src_label.shape[0], src_label.shape[1], ref_lat, ref_lon),
                     dtype=src_label.dtype,
                     device=src_label.device,
                 )
 
-                prog_strided[:, :, ::lat_stride, ::lon_stride] = src_prog
-                bound_strided[:, :, ::lat_stride, ::lon_stride] = src_bound
-                label_strided[:, :, ::lat_stride, ::lon_stride] = src_label
+                prognostic_per_scale[:, :, ::lat_stride, ::lon_stride] = src_prog
+                boundary_per_scale[:, :, ::lat_stride, ::lon_stride] = src_bound
+                label_per_scale[:, :, ::lat_stride, ::lon_stride] = src_label
 
-                all_prognostics.append(prog_strided)
-                all_boundaries.append(bound_strided)
-                all_labels.append(label_strided)
+                prognostics.append(prognostic_per_scale)
+                boundaries.append(boundary_per_scale)
+                labels.append(label_per_scale)
 
             # Concatenate: all prognostics first, then all boundaries
             # This maintains the invariant that input[:, :num_prognostic_channels] are prognostics
-            combined_input = torch.cat(all_prognostics + all_boundaries, dim=1)
-            combined_label = torch.cat(all_labels, dim=1)  # Labels are prognostic-only
+            combined_input = torch.cat(prognostics + boundaries, dim=1)
+            combined_label = torch.cat(labels, dim=1)  # Labels are prognostic-only
 
             TD.append(combined_input, combined_label)
 

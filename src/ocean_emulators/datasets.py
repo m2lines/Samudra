@@ -763,19 +763,19 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             all_boundary_masks = [torch.ones_like(largest_bound, dtype=torch.bool)]
             all_label_masks = [torch.ones_like(largest_label, dtype=torch.bool)]
 
+            # Iterate through the remaining `TrainData`s at smaller scales.
             for td in tds_sorted:
                 src_input, src_label = td[step]
-
-                src_prog = src_input[:, : td.num_prognostic_channels]
-                src_bound = src_input[:, td.num_prognostic_channels :]
 
                 lat, lon = src_input.shape[-2:]
                 assert ref_lat % lat == 0 and ref_lon % lon == 0, (
                     f"Spatial dimensions not evenly divisible: {ref_lat=} vs {lat=}; {ref_lon=} vs {lon=}"
                 )
-
                 lat_stride = ref_lat // lat
                 lon_stride = ref_lon // lon
+
+                src_prog = src_input[:, : td.num_prognostic_channels]
+                src_bound = src_input[:, td.num_prognostic_channels :]
 
                 # Create strided tensors at reference resolution
                 prog_strided = torch.zeros(

@@ -761,58 +761,61 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             integer value). This is typical for datasets downsampled by factors of 2, 4, etc.
         """
         tds_sorted = sorted(tds, key=lambda td: td[0][0].shape, reverse=True)
-        largest_td = tds_sorted.pop(0)
+        largest_td = tds_sorted[0]
 
         TD = TrainData(largest_td.num_prognostic_channels)
 
-        src_input: torch.Tensor
-        src_label: torch.Tensor
-        dst_input: Input
-        dst_label: Prognostic
+        for step in range(len(largest_td)):
+            combined_input, combined_label = largest_td[step]
+            combined_input_mask, combined_label_mask = (
+                torch.ones_like(combined_input),
+                torch.ones_like(combined_label),
+            )
 
-        for td in tds_sorted:
-            for step, (src_input, src_label), (dst_input, dst_label) in zip(
-                range(len(td)), td.example_by_step, largest_td.example_by_step
-            ):
-                lat, lon = dst_input.shape[-3:-1]
-                lat_p, lon_p = src_input.shape[-3:-1]
+            for td in tds_sorted[1:]:
+                src_input, src_label = td[step]
+
+                lat, lon = combined_input.shape[-2:]
+                lat_p, lon_p = src_input.shape[-2:]
                 assert lat % lat_p == 0 and lon % lon_p == 0, (
-                    f"The smaller datasets spatial dimensions are not an even factor of the largest multi-scale dataset! {lat=} vs {lat_p=}; {lon=} vs {lon_p=}."
+                    f"Spatial dimensions not evenly divisible: {lat=} vs {lat_p=}; {lon=} vs {lon_p=}"
                 )
 
                 lat_stride = lat // lat_p
                 lon_stride = lon // lon_p
 
-                src_input_stride = torch.zeros_like(dst_input)
-                src_input_mask = torch.zeros_like(dst_input)
-                src_label_stride = torch.zeros_like(dst_label)
-                src_label_mask = torch.zeros_like(dst_label)
-
+                src_input_stride = torch.zeros_like(
+                    combined_input[:, : src_input.shape[1]]
+                )
+                src_label_stride = torch.zeros_like(
+                    combined_label[:, : src_label.shape[1]]
+                )
                 src_input_stride[:, :, ::lat_stride, ::lon_stride] = src_input
-                src_input_mask[:, :, ::lat_stride, ::lon_stride] = torch.ones_like(
-                    src_input
-                )
                 src_label_stride[:, :, ::lat_stride, ::lon_stride] = src_label
-                src_label_mask[:, :, ::lat_stride, ::lon_stride] = torch.ones_like(
-                    src_label
-                )
 
-                combined_input = torch.cat((dst_input, src_input_stride), dim=1)
-                combined_label = torch.cat((dst_label, src_label_stride), dim=1)
+                src_input_mask = torch.zeros_like(src_input_stride, dtype=torch.bool)
+                src_label_mask = torch.zeros_like(src_label_stride, dtype=torch.bool)
+
+                src_input_mask[:, :, ::lat_stride, ::lon_stride] = True
+                src_label_mask[:, :, ::lat_stride, ::lon_stride] = True
+
+                combined_input = torch.cat([combined_input, src_input_stride], dim=1)
+                combined_label = torch.cat([combined_label, src_label_stride], dim=1)
+
                 combined_input_mask = torch.cat(
-                    (torch.ones_like(dst_input), src_input_mask), dim=1
+                    [combined_input_mask, src_input_mask], dim=1
                 )
                 combined_label_mask = torch.cat(
-                    (torch.ones_like(dst_label), src_label_mask), dim=1
+                    [combined_label_mask, src_label_mask], dim=1
                 )
 
-                TD.insert_with_mask(
-                    step,
-                    combined_input,
-                    combined_label,
-                    combined_input_mask,
-                    combined_label_mask,
-                )
+            TD.insert_with_mask(
+                step,
+                combined_input,
+                combined_label,
+                combined_input_mask,
+                combined_label_mask,
+            )
 
         return TD
 

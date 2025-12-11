@@ -5,7 +5,11 @@ from pathlib import Path
 import torch
 from xarray_einstats.einops import rearrange  # noqa: F401
 
-from ocean_emulators.datasets import InferenceDataset, RawTrainData
+from ocean_emulators.datasets import (
+    InferenceDataset,
+    RawMultiscaleTrainData,
+    RawTrainData,
+)
 from ocean_emulators.utils.data import LoadStats
 
 
@@ -26,12 +30,23 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
     for step in range(steps):
         all_prognostic = torch.stack([d.raw_data[step][0] for d in data])
         all_boundary = torch.stack([d.raw_data[step][1] for d in data])
-        batched_data.insert(all_prognostic, all_boundary)
+        batched_data.append(all_prognostic, all_boundary)
 
     stats = LoadStats.accumulated(
         [d.load_stats for d in data if d.load_stats is not None]
     )
     batched_data.load_stats = stats
+
+    return batched_data
+
+
+def collate_raw_multiscale_train_data(
+    data: Sequence[RawMultiscaleTrainData],
+) -> RawMultiscaleTrainData:
+    batched_data = RawMultiscaleTrainData(data[0].dataset_id, [])
+
+    for tds in zip(*data):
+        batched_data.datasets.append(collate_raw_train_data(tds))
 
     return batched_data
 

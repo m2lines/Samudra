@@ -1,15 +1,20 @@
 """Preprocess arbitrary datasets to standardized naming, grids"""
 
+import logging
+
 from xgcm import Grid
 import xarray as xr
 import numpy as np
 import cf_xarray
+
+from ocean_emulators.schema import vars_3d
 from ocean_emulators.utils import split_2d_3d
 import gcm_filters
 
 try:
     import xesmf as xe  # type: ignore
 except ImportError:
+    logging.exception("Error importing xesmf")
     xe = None
 # Could I replace this with the xarray logic I am using in the tests?
 
@@ -69,7 +74,7 @@ def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
         ],
         dims="lev",
     )
-    wetmask = ~np.isnan(ds_input.thetao.isel(time=0).reset_coords(drop=True)).load()
+    wetmask = ~np.isnan(ds_input.thetao.isel(time=0).reset_coords(drop=True))
     lon = xr.ones_like(ds_input.y) * ds_input.x
     lat = ds_input.y * xr.ones_like(ds_input.x)
     ds_input = ds_input.assign_coords(
@@ -224,7 +229,7 @@ def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.D
 
 
 def spatially_filter(
-    ds: xr.Dataset, w_mask, filter_scale=18, depth_dim="lev", y_dim="y", x_dim="x"
+    ds: xr.Dataset, w_mask, filter_scale, depth_dim="lev", y_dim="y", x_dim="x"
 ):
     """Applies a spatial filter with 3d/2d wetmask depending on the variable dimensions"""
     wmask_3d = (w_mask == 1).astype(int).reset_coords(drop=True)
@@ -267,12 +272,12 @@ def horizontal_regrid(ds, ds_target):
     # try to run this with higher precision (TODO: Test if this actually makes a difference).
     s = xr.Dataset(
         coords={
-            co: ds[co].astype("float128") for co in ["lon", "lat", "lon_b", "lat_b"]
+            co: ds[co].astype(np.float64) for co in ["lon", "lat", "lon_b", "lat_b"]
         }
     )
     t = xr.Dataset(
         coords={
-            co: ds_target[co].astype("float128")
+            co: ds_target[co].astype(np.float64)
             for co in ["lon", "lat", "lon_b", "lat_b"]
         }
     )
@@ -296,7 +301,7 @@ def horizontal_regrid(ds, ds_target):
     new_area = xe.util.cell_area(ds_target, r_earth) * 1e6
 
     ## calculate the wetmask afterwards...
-    wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars("time")).load()
+    wetmask = ~np.isnan(ds_regridded.thetao.isel(time=0).drop_vars("time"))
     ocean_frac = regridder(ds.wetmask.astype("float64")).fillna(0.0)
 
     ds_regridded = ds_regridded.drop_vars(["lon_b", "lat_b"])
@@ -352,3 +357,56 @@ def test_vertex_order(ds):
         and (ds_p.lat_b.diff("y_vertices") > 0).all()
     ):
         raise ValueError("Test vertices not strictly monotinically increasing")
+
+
+def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
+    """Post-condition: All vars have consistent dimensions, but depth is crossed with variable for 3d vars."""
+    # Notes from a conversation between Adam S. and Alex M., 2025-11-14:
+    # "lev" is the level center. It's a "nominal" not "true" dimension.
+    # In reality, we have interface heights. e.g. "ilev" is correct for the upper level, but not the bottom of each
+    # level.
+    # If we stored the `dz` info, we could in theory reconstruct true depth of a cell.
+    # This is still correct because the vertical rebidding is done before, but we should be cautious when taking an
+    # integral over depth.
+    # Compared to `ilev`, this is the better quantity to store.
+    for i, _depth in enumerate(ds["lev"].values):
+        for var in vars_3d:
+            ds[f"{var}_{i}"] = ds[var].isel({"lev": i})
+            if hasattr(ds[var], "long_name"):
+                long_name = ds[var].long_name
+                ds[f"{var}_{i}"].attrs["long_name"] = long_name + f" level-{i}"
+
+        # Also flatten wetmask if it has a lev dimension
+        assert (
+            "wetmask" in ds.coords and "lev" in ds["wetmask"].dims
+        ), "Input dataset does not have expected wetmask structure (equipped with a 'lev' dimension)."
+        ds[f"mask_{i}"] = ds["wetmask"].isel({"lev": i})
+        ds[f"mask_{i}"].attrs["long_name"] = f"ocean mask level-{i}"
+        ds[f"mask_{i}"].attrs["units"] = "0 if land, 1 if ocean"
+
+    ds = ds.drop_vars(vars_3d).drop_dims("lev").reset_coords(drop=True)
+
+    return ds
+
+
+def account_for_partial_depths(
+    ds: xr.Dataset, native_grid_ds: xr.Dataset
+) -> xr.Dataset:
+    """Modifies the `dz` coordinate to account for partial depths.
+
+    Consider grid cells at the lower levels of ocean depth. What should we do when these cells
+    cross the ocean floor? By default, the entire cell is approximated to consist of ocean.
+    In these instances, this function adjusts the approximated depth (`dz`) by the actual
+    ocean depth (`deptho`) from the native grid.
+    """
+    ds = ds.copy()
+
+    ds["dz"] = ds["dz"] * ds["wetmask"]
+
+    # Difference between the approximated ocean depth and actual depth.
+    depth_diff = ds["dz"].cumsum("lev") * ds["wetmask"] - native_grid_ds.deptho.values
+    depth_diff = depth_diff.where(depth_diff > 0, 0)
+    depth_diff = xr.where(depth_diff > ds["dz"], ds["dz"], depth_diff)
+    ds["dz"] = ds["dz"] - depth_diff
+
+    return ds

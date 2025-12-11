@@ -726,88 +726,102 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
 
     # TODO(alxmrs): I'll probably want to extract this into a new Masking Op class.
     def merge(self, tds: list[TrainData]) -> TrainData:
-        """Merge multiple TrainData objects at different spatial resolutions into a single TrainData.
+        """Merge multiple TrainData at different spatial resolutions into a single TrainData.
 
-        This method combines training data from multiple spatial scales by upsampling lower-resolution
-        data to match the highest resolution dataset. Lower-resolution data is placed at strided
-        intervals in a zero-padded tensor, effectively creating a sparse representation at the target
-        resolution. All datasets are concatenated along the channel dimension with corresponding masks
-        to indicate which spatial locations contain valid data.
+        Lower-resolution data is upsampled to the largest resolution by placing values at
+        strided intervals in zero-padded tensors. Masks track which spatial locations contain
+        valid data from each scale.
 
-        The merging process:
-        1. Identifies the highest resolution dataset (largest spatial dimensions)
-        2. For each lower-resolution dataset:
-           - Computes the stride ratio between resolutions
-           - Creates strided tensors by placing values at regular intervals with zeros elsewhere
-           - Generates binary masks indicating valid data locations
-           - Concatenates both data and masks as additional channels
-        3. Returns a merged TrainData with all scales combined
+        Channel layout: input = [all_scale_prognostics, all_scale_boundaries]
+                       label = [all_scale_prognostics]
 
         Args:
-            tds: List of TrainData objects at different spatial resolutions. Each TrainData
-                should have the same number of steps but may have different spatial dimensions
-                (lat, lon). The spatial dimensions must be evenly divisible (e.g., 360x180 and
-                180x90 where the stride is exactly 2).
+            tds: TrainData objects at different resolutions. Spatial dimensions must be
+                evenly divisible (e.g., 360x180 and 180x90 with stride=2).
 
         Returns:
-            TrainData: A merged dataset at the highest resolution with shape
-                [batch, total_channels, max_lat, max_lon] where total_channels includes
-                the original channels from the highest-resolution dataset plus additional
-                channels from each lower-resolution dataset (both data and mask channels).
-
-        Note:
-            The function assumes that spatial dimensions of lower-resolution datasets evenly
-            divide the dimensions of the highest-resolution dataset (i.e., the stride is an
-            integer value). This is typical for datasets downsampled by factors of 2, 4, etc.
+            TrainData with inputs/labels at the largest resolution, where num_prognostic_channels
+            equals the sum of prognostic channels across all scales.
         """
         tds_sorted = sorted(tds, key=lambda td: td[0][0].shape, reverse=True)
-        largest_td = tds_sorted[0]
+        total_prog_channels = sum(td.num_prognostic_channels for td in tds_sorted)
+        TD = TrainData(total_prog_channels)
 
-        TD = TrainData(largest_td.num_prognostic_channels)
+        largest_td = tds_sorted.pop(0)
+
+        ref_lat, ref_lon = largest_td[0][0].shape[-2:]
 
         for step in range(len(largest_td)):
-            combined_input, combined_label = largest_td[step]
-            combined_input_mask, combined_label_mask = (
-                torch.ones_like(combined_input),
-                torch.ones_like(combined_label),
-            )
+            largest_input, largest_label = largest_td[step]
+            largest_prog = largest_input[:, : largest_td.num_prognostic_channels]
+            largest_bound = largest_input[:, largest_td.num_prognostic_channels :]
 
-            for td in tds_sorted[1:]:
+            all_prognostics = [largest_prog]
+            all_boundaries = [largest_bound]
+            all_labels = [largest_label]
+            all_prognostic_masks = [torch.ones_like(largest_prog, dtype=torch.bool)]
+            all_boundary_masks = [torch.ones_like(largest_bound, dtype=torch.bool)]
+            all_label_masks = [torch.ones_like(largest_label, dtype=torch.bool)]
+
+            for td in tds_sorted:
                 src_input, src_label = td[step]
 
-                lat, lon = combined_input.shape[-2:]
-                lat_p, lon_p = src_input.shape[-2:]
-                assert lat % lat_p == 0 and lon % lon_p == 0, (
-                    f"Spatial dimensions not evenly divisible: {lat=} vs {lat_p=}; {lon=} vs {lon_p=}"
+                src_prog = src_input[:, : td.num_prognostic_channels]
+                src_bound = src_input[:, td.num_prognostic_channels :]
+
+                lat, lon = src_input.shape[-2:]
+                assert ref_lat % lat == 0 and ref_lon % lon == 0, (
+                    f"Spatial dimensions not evenly divisible: {ref_lat=} vs {lat=}; {ref_lon=} vs {lon=}"
                 )
 
-                lat_stride = lat // lat_p
-                lon_stride = lon // lon_p
+                lat_stride = ref_lat // lat
+                lon_stride = ref_lon // lon
 
-                src_input_stride = torch.zeros_like(
-                    combined_input[:, : src_input.shape[1]]
+                # Create strided tensors at reference resolution
+                prog_strided = torch.zeros(
+                    (src_prog.shape[0], src_prog.shape[1], ref_lat, ref_lon),
+                    dtype=src_prog.dtype,
+                    device=src_prog.device,
                 )
-                src_label_stride = torch.zeros_like(
-                    combined_label[:, : src_label.shape[1]]
+                bound_strided = torch.zeros(
+                    (src_bound.shape[0], src_bound.shape[1], ref_lat, ref_lon),
+                    dtype=src_bound.dtype,
+                    device=src_bound.device,
                 )
-                src_input_stride[:, :, ::lat_stride, ::lon_stride] = src_input
-                src_label_stride[:, :, ::lat_stride, ::lon_stride] = src_label
-
-                src_input_mask = torch.zeros_like(src_input_stride, dtype=torch.bool)
-                src_label_mask = torch.zeros_like(src_label_stride, dtype=torch.bool)
-
-                src_input_mask[:, :, ::lat_stride, ::lon_stride] = True
-                src_label_mask[:, :, ::lat_stride, ::lon_stride] = True
-
-                combined_input = torch.cat([combined_input, src_input_stride], dim=1)
-                combined_label = torch.cat([combined_label, src_label_stride], dim=1)
-
-                combined_input_mask = torch.cat(
-                    [combined_input_mask, src_input_mask], dim=1
+                label_strided = torch.zeros(
+                    (src_label.shape[0], src_label.shape[1], ref_lat, ref_lon),
+                    dtype=src_label.dtype,
+                    device=src_label.device,
                 )
-                combined_label_mask = torch.cat(
-                    [combined_label_mask, src_label_mask], dim=1
-                )
+
+                prog_strided[:, :, ::lat_stride, ::lon_stride] = src_prog
+                bound_strided[:, :, ::lat_stride, ::lon_stride] = src_bound
+                label_strided[:, :, ::lat_stride, ::lon_stride] = src_label
+
+                prog_mask = torch.zeros_like(prog_strided, dtype=torch.bool)
+                bound_mask = torch.zeros_like(bound_strided, dtype=torch.bool)
+                label_mask = torch.zeros_like(label_strided, dtype=torch.bool)
+
+                prog_mask[:, :, ::lat_stride, ::lon_stride] = True
+                bound_mask[:, :, ::lat_stride, ::lon_stride] = True
+                label_mask[:, :, ::lat_stride, ::lon_stride] = True
+
+                all_prognostics.append(prog_strided)
+                all_boundaries.append(bound_strided)
+                all_labels.append(label_strided)
+                all_prognostic_masks.append(prog_mask)
+                all_boundary_masks.append(bound_mask)
+                all_label_masks.append(label_mask)
+
+            # Concatenate: all prognostics first, then all boundaries
+            # This maintains the invariant that input[:, :num_prognostic_channels] are prognostics
+            combined_input = torch.cat(all_prognostics + all_boundaries, dim=1)
+            combined_label = torch.cat(all_labels, dim=1)  # Labels are prognostic-only
+
+            combined_input_mask = torch.cat(
+                all_prognostic_masks + all_boundary_masks, dim=1
+            )
+            combined_label_mask = torch.cat(all_label_masks, dim=1)
 
             TD.insert_with_mask(
                 step,

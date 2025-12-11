@@ -16,9 +16,11 @@ from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import (
     BoundaryVarNames,
     Grid,
+    InputMask,
     Lat,
     LoaderVersion,
     Lon,
+    PrognosticMask,
     PrognosticVarNames,
 )
 from ocean_emulators.models import FOMO, Samudra
@@ -635,6 +637,40 @@ class ExperimentConfig(BaseConfig):
             )
         default_root = LocalLocation(path=Path.cwd())
         return default_root.resolve(self.data_root)
+
+
+def build_nodata_masks(
+    sources: list[DataSource], num_prognostic_channels: int, num_boundary_channels: int
+) -> tuple[InputMask, PrognosticMask]:
+    sorted_scales = sorted(
+        [(src.data.lat.size, src.data.lon.size) for src in sources], reverse=True
+    )
+    ref_lat, ref_lon = sorted_scales.pop(0)
+
+    all_prognostic_masks = [
+        torch.ones(1, num_prognostic_channels, ref_lat, ref_lon, dtype=torch.bool),
+    ]
+    all_boundary_masks = [
+        torch.ones(1, num_boundary_channels, ref_lat, ref_lon, dtype=torch.bool),
+    ]
+
+    for lat, lon in sorted_scales:
+        lat_stride = ref_lat // lat
+        lon_stride = ref_lon // lon
+
+        prog_mask = torch.zeros_like(all_prognostic_masks[0], dtype=torch.bool)
+        bound_mask = torch.zeros_like(all_boundary_masks[0], dtype=torch.bool)
+
+        prog_mask[:, :, ::lat_stride, ::lon_stride] = True
+        bound_mask[:, :, ::lat_stride, ::lon_stride] = True
+
+        all_prognostic_masks.append(prog_mask)
+        all_boundary_masks.append(bound_mask)
+
+    input_mask = torch.cat(all_prognostic_masks + all_boundary_masks, dim=1)
+    label_mask = torch.cat(all_prognostic_masks, dim=1)
+
+    return input_mask, label_mask
 
 
 class ProfilerConfig(BaseConfig):

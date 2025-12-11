@@ -17,10 +17,8 @@ from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 from ocean_emulators.constants import (
     BoundaryVarNames,
     Example,
-    ExampleMask,
     GridMask,
     Input,
-    InputMask,
     LoaderVersion,
     Prognostic,
     PrognosticMask,
@@ -360,27 +358,11 @@ class TrainData:
     def __init__(self, num_prognostic_channels: int):
         self.num_prognostic_channels = num_prognostic_channels
         self.example_by_step: list[Example] = []
-        self.nodata_masks: list[ExampleMask] = []
         self.load_stats: LoadStats | None = None
 
     def append(self, input_: Input, label: Prognostic):
         """Add another Example as a new step."""
         self.example_by_step.append((input_, label))
-
-    def insert_with_mask(
-        self,
-        step: int,
-        input_: Input,
-        label: Prognostic,
-        input_mask: InputMask,
-        label_mask: PrognosticMask,
-    ):
-        if step == len(self.example_by_step):
-            self.example_by_step.append((input_, label))
-            self.nodata_masks.append((input_mask, label_mask))
-        else:
-            self.example_by_step[step] = (input_, label)
-            self.nodata_masks[step] = (input_mask, label_mask)
 
     def get_initial_input(self) -> Input:
         return self.get_input(0)
@@ -724,13 +706,11 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
         tds = [ds[idx] for ds in self.datasets]
         return RawMultiscaleTrainData(dataset_id=self.id, datasets=tds)
 
-    # TODO(alxmrs): I'll probably want to extract this into a new Masking Op class.
     def merge(self, tds: list[TrainData]) -> TrainData:
         """Merge multiple TrainData at different spatial resolutions into a single TrainData.
 
         Lower-resolution data is upsampled to the largest resolution by placing values at
-        strided intervals in zero-padded tensors. Masks track which spatial locations contain
-        valid data from each scale.
+        strided intervals in zero-padded tensors.
 
         Channel layout: input = [all_scale_prognostics, all_scale_boundaries]
                        label = [all_scale_prognostics]
@@ -759,9 +739,6 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             all_prognostics = [largest_prog]
             all_boundaries = [largest_bound]
             all_labels = [largest_label]
-            all_prognostic_masks = [torch.ones_like(largest_prog, dtype=torch.bool)]
-            all_boundary_masks = [torch.ones_like(largest_bound, dtype=torch.bool)]
-            all_label_masks = [torch.ones_like(largest_label, dtype=torch.bool)]
 
             # Iterate through the remaining `TrainData`s at smaller scales.
             for td in tds_sorted:
@@ -798,38 +775,16 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
                 bound_strided[:, :, ::lat_stride, ::lon_stride] = src_bound
                 label_strided[:, :, ::lat_stride, ::lon_stride] = src_label
 
-                prog_mask = torch.zeros_like(prog_strided, dtype=torch.bool)
-                bound_mask = torch.zeros_like(bound_strided, dtype=torch.bool)
-                label_mask = torch.zeros_like(label_strided, dtype=torch.bool)
-
-                prog_mask[:, :, ::lat_stride, ::lon_stride] = True
-                bound_mask[:, :, ::lat_stride, ::lon_stride] = True
-                label_mask[:, :, ::lat_stride, ::lon_stride] = True
-
                 all_prognostics.append(prog_strided)
                 all_boundaries.append(bound_strided)
                 all_labels.append(label_strided)
-                all_prognostic_masks.append(prog_mask)
-                all_boundary_masks.append(bound_mask)
-                all_label_masks.append(label_mask)
 
             # Concatenate: all prognostics first, then all boundaries
             # This maintains the invariant that input[:, :num_prognostic_channels] are prognostics
             combined_input = torch.cat(all_prognostics + all_boundaries, dim=1)
             combined_label = torch.cat(all_labels, dim=1)  # Labels are prognostic-only
 
-            combined_input_mask = torch.cat(
-                all_prognostic_masks + all_boundary_masks, dim=1
-            )
-            combined_label_mask = torch.cat(all_label_masks, dim=1)
-
-            TD.insert_with_mask(
-                step,
-                combined_input,
-                combined_label,
-                combined_input_mask,
-                combined_label_mask,
-            )
+            TD.append(combined_input, combined_label)
 
         return TD
 

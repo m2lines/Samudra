@@ -186,9 +186,8 @@ class Trainer:
 
         # This nodata mask is backwards compatible: when there is only one data source (i.e. one scale), the "mask"
         # will be all ones (i.e., there is data everywhere).
-        data_sources = [
-            self.src
-        ]  # TODO(alxmrs): replace with multiple sources when we have a config system.
+        # TODO(alxmrs): replace with multiple sources when we have a config system.
+        data_sources = [self.src]
         _, prognostic_nodata_mask = build_nodata_masks(
             data_sources,
             num_prognostic_channels=(self.hist + 1) * self.N_prog * len(data_sources),

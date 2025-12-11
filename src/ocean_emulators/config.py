@@ -647,28 +647,27 @@ def build_nodata_masks(
     )
     ref_lat, ref_lon = sorted_scales.pop(0)
 
-    all_prognostic_masks = [
-        torch.ones(1, num_prognostic_channels, ref_lat, ref_lon, dtype=torch.bool),
+    prognostic_masks = [
+        torch.ones(num_prognostic_channels, ref_lat, ref_lon, dtype=torch.bool),
     ]
-    all_boundary_masks = [
-        torch.ones(1, num_boundary_channels, ref_lat, ref_lon, dtype=torch.bool),
+    boundary_masks = [
+        torch.ones(num_boundary_channels, ref_lat, ref_lon, dtype=torch.bool),
     ]
 
     for lat, lon in sorted_scales:
-        lat_stride = ref_lat // lat
-        lon_stride = ref_lon // lon
+        lat_stride, lon_stride = ref_lat // lat, ref_lon // lon
 
-        prog_mask = torch.zeros_like(all_prognostic_masks[0], dtype=torch.bool)
-        bound_mask = torch.zeros_like(all_boundary_masks[0], dtype=torch.bool)
+        prog_mask_per_scale = torch.zeros_like(prognostic_masks[0], dtype=torch.bool)
+        bound_mask_per_scale = torch.zeros_like(boundary_masks[0], dtype=torch.bool)
 
-        prog_mask[:, :, ::lat_stride, ::lon_stride] = True
-        bound_mask[:, :, ::lat_stride, ::lon_stride] = True
+        prog_mask_per_scale[:, ::lat_stride, ::lon_stride] = True
+        bound_mask_per_scale[:, ::lat_stride, ::lon_stride] = True
 
-        all_prognostic_masks.append(prog_mask)
-        all_boundary_masks.append(bound_mask)
+        prognostic_masks.append(prog_mask_per_scale)
+        boundary_masks.append(bound_mask_per_scale)
 
-    input_mask = torch.cat(all_prognostic_masks + all_boundary_masks, dim=1)
-    label_mask = torch.cat(all_prognostic_masks, dim=1)
+    input_mask = torch.cat(prognostic_masks + boundary_masks, dim=0)
+    label_mask = torch.cat(prognostic_masks, dim=0)
 
     return input_mask, label_mask
 

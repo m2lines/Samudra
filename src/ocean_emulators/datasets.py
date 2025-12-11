@@ -382,10 +382,6 @@ class TrainData:
     def values(self):
         return self.example_by_step
 
-    def example_shape(self) -> tuple[tuple[int], tuple[int]]:
-        input_, prognostic = self.get_initial_input()
-        return input_.shape, prognostic.shape
-
     def __getitem__(self, step: int) -> Example:
         """Converts index (step) into (data, label) tuple."""
         return self.example_by_step[step]

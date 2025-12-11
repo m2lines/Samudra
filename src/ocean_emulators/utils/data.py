@@ -69,6 +69,12 @@ class Masks:
     ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:
         return torch.concat([self.prognostic] * (hist + 1), dim=0)
 
+    # TODO(alxmrs): It would probably be better to make a "repeat_prognostic" method, right?
+    def prognostic_with_hist_and_scales(
+        self, hist: int, scales: int
+    ) -> Bool[GridMask, " prognostic_vars*({hist}+1)*{scales}"]:
+        return torch.concat([self.prognostic] * (hist + 1) * scales, dim=0)
+
 
 @dataclasses.dataclass
 class DataSource:

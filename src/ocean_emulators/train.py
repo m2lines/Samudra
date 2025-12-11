@@ -31,7 +31,7 @@ from ocean_emulators.aggregator.loss import (
     get_variable_loss_dict,
 )
 from ocean_emulators.backend import init_train_backend
-from ocean_emulators.config import TrainConfig, build_loss_fn
+from ocean_emulators.config import TrainConfig, build_loss_fn, build_nodata_masks
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
@@ -142,8 +142,9 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
-        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
+        self.hist: int = cfg.data.hist
+        self.num_in = int((self.hist + 1) * (self.N_prog + self.N_bound))
+        self.num_out = int((self.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
@@ -181,11 +182,24 @@ class Trainer:
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
         self.inference_src = self.data_container.source_using_dask
-
         self.loader_version = self.data_container.loader_version
 
+        # This nodata mask is backwards compatible: when there is only one data source (i.e. one scale), the "mask"
+        # will be all ones (i.e., there is data everywhere).
+        data_sources = [
+            self.src
+        ]  # TODO(alxmrs): replace with multiple sources when we have a config system.
+        _, prognostic_nodata_mask = build_nodata_masks(
+            data_sources,
+            num_prognostic_channels=(self.hist + 1) * self.N_prog * len(data_sources),
+            num_boundary_channels=(self.hist + 1) * self.N_bound * len(data_sources),
+        )
+
         self.metadata = construct_metadata(self.data)
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
+        wet = self.src.masks.prognostic_with_hist_and_scales(
+            self.hist, len(data_sources)
+        )
+        self.mask = (wet & prognostic_nodata_mask).to(self.device)
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -199,8 +213,8 @@ class Trainer:
         self.model = cfg.model.build(
             in_channels=self.num_in,
             out_channels=self.num_out,
-            hist=cfg.data.hist,
-            wet=self.wet,
+            hist=self.hist,
+            wet=self.mask,
             area_weights=self.area_weights,
             static_data=self.static_data,
             lat=torch.from_numpy(self.data.lat.values),
@@ -213,7 +227,7 @@ class Trainer:
         # Loss function
         self.loss_fn: LossFn = build_loss_fn(
             cfg.loss,
-            wet=self.wet,
+            wet=self.mask,
             y_coord=self.data.lat,
             stds=self.src.filter(self.prognostic_var_names, prefix="prog_stds").stds,
             device=self.device,
@@ -301,7 +315,6 @@ class Trainer:
         # Training
         self.epochs = cfg.epochs
         self.test_using_ema = cfg.test_using_ema
-        self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq

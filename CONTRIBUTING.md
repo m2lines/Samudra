@@ -158,7 +158,7 @@ git push --force-with-lease
 
 10. Celebrate submitting your patch to Ocean Emulator — well done!
 
-## Running Oceans Emulator
+## Running Ocean Emulator
 
 ### Training the model
 
@@ -354,7 +354,7 @@ you'll want to configure it to use pyproject.toml, which you can do with a `.vsc
 }
 ```
 
-## Testing Oceans Emulator
+## Testing Ocean Emulator
 
 <details>
 <summary><strong>TL;DR</strong></summary>

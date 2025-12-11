@@ -64,7 +64,7 @@ def qc_plots(ds: xr.Dataset):
 
 ####### QC plotting for preprocessing #########
 def rotated_vectors_qc_plots(u, v, u_rotated, v_rotated):
-    roi = dict(lev=0, time=100, y=slice(900, None))
+    roi = dict(lev=0, time=min(100, len(u.time) - 1), y=slice(900, None))
     kwargs = dict(x="lon", y="lat", robust=True, transform=ccrs.PlateCarree())
 
     fig, axarr = plt.subplots(

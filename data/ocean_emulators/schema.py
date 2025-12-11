@@ -1,4 +1,13 @@
-from xarray_schema import CoordsSchema, DataArraySchema, DatasetSchema
+import warnings
+
+# Suppress pkg_resources deprecation warning from xarray_schema
+warnings.filterwarnings(
+    "ignore",
+    category=UserWarning,
+    message=".*pkg_resources is deprecated.*",
+)
+
+from xarray_schema import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 
 ### Preprocessing Stage
 vars_3d = ["so", "thetao", "uo", "vo"]
@@ -18,7 +27,7 @@ ds_processed_coords_schema = CoordsSchema(
         "areacello": DataArraySchema(
             dtype="float64", shape=(1080, 1440), dims=["y", "x"]
         ),
-        "dz": DataArraySchema(dtype="int64", shape=(19,), dims=["lev"]),
+        "dz": DataArraySchema(dtype="float64", shape=(19,), dims=["lev"]),
         "lev": DataArraySchema(dtype="float64", shape=(19,), dims=["lev"]),
         "ilev": DataArraySchema(dtype="float64", shape=(20,), dims=["ilev"]),
         "x": DataArraySchema(dtype="float64", shape=(1440,), dims=["x"]),

@@ -30,8 +30,16 @@ dependencies = [
     "xarray",
     "xmip",
     "xarray-schema",
-    "gcm_filters",
-    "setuptools" # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
+    "gcm_filters", # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
+    "setuptools",
+    "fire>=0.7.1",
+    "cartopy>=0.23.0",
+    "zarr>=2.18.2",
+    "gcsfs>=2025.10.0",
+    "s3fs>=2025.10.0",
+    "xesmf>=0.8.10",
+    "bokeh>=3.1.0",
+    "h5netcdf>=1.7.3",
 ]
 
 [project.optional-dependencies]

@@ -34,7 +34,7 @@ def processed_data():
                 19,
             ),
             dims=["lev"],
-        ).astype("int64"),
+        ).astype("float64"),
         "lev": xr.DataArray(
             np.random.rand(
                 19,
@@ -46,7 +46,7 @@ def processed_data():
                 20,
             ),
             dims=["ilev"],
-        ),
+        ).astype("float64"),
         "x": xr.DataArray(np.random.rand(1440), dims=["x"]).astype("float64"),
         "y": xr.DataArray(np.random.rand(1080), dims=["y"]).astype("float64"),
         "time": xr.DataArray(range(10), dims=["time"]),

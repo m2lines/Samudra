@@ -69,7 +69,7 @@ def om4_preprocessing(
                 1000,
             ],
             dims=["lev"],
-        )
+        ).astype("float64")
         ilev = xr.DataArray(
             [
                 0,
@@ -94,7 +94,7 @@ def om4_preprocessing(
                 6500,
             ],
             dims=["ilev"],
-        )
+        ).astype("float64")
 
     ds = ds.assign_coords(dz=dz)
 
@@ -120,13 +120,15 @@ def om4_preprocessing(
     ds = apply_mask(ds_interpolated, tracer_wetmask)
     ds = ds.assign_coords(ilev=ilev, wetmask=tracer_wetmask)
 
-    with fs.open(nc_grid_path) as f:
-        ds_grid = xr.open_dataset(f).load()
+    if nc_grid_path.endswith(".zarr"):
+        ds_grid = xr.open_zarr(nc_grid_path, chunks={})
+    else:
+        with fs.open(nc_grid_path) as f:
+            ds_grid = xr.open_dataset(f).load()
 
-    ds_grid = ds_grid.drop_vars("time")
+    ds_grid = ds_grid.drop_vars("time", errors="ignore")
     ds_grid = ds_grid.set_coords([v for v in ds_grid.data_vars])
-    # ds_grid
-    # ds = xr.merge([ds, ds_grid])
+
     ds = ds.assign_coords(
         lon=ds_grid.geolon, lat=ds_grid.geolat, areacello=ds_grid.areacello
     )
@@ -147,8 +149,11 @@ def om4_preprocessing(
     drop_coords = [co for co in ds.coords.keys() if co not in required_coords]
     ds = ds.drop(drop_coords)
 
-    with fs.open(nc_mosaic_path) as f:
-        ds_super_grid = xr.open_dataset(f).load()
+    if nc_mosaic_path.endswith(".zarr"):
+        ds_super_grid = xr.open_zarr(nc_mosaic_path, chunks={})
+    else:
+        with fs.open(nc_mosaic_path) as f:
+            ds_super_grid = xr.open_dataset(f).load()
 
     a, lon, lat, lon_b, lat_b = convert_super_grid(ds_super_grid)
     lon_expected = ds_grid.load().geolon.reset_coords(drop=True).drop(["xh", "yh"])

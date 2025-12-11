@@ -3,6 +3,97 @@
 [![Run Unit Tests](https://github.com/m2lines/ocean_emulators/actions/workflows/tests.yaml/badge.svg)](https://github.com/m2lines/ocean_emulators/actions/workflows/tests.yaml)
 [![Run Unit Tests requiring xESMF](https://github.com/m2lines/ocean_emulators/actions/workflows/tests_xesmf.yaml/badge.svg)](https://github.com/m2lines/ocean_emulators/actions/workflows/tests_xesmf.yaml)
 
+## Usage via command line interface
+
+First, please clone this repository:
+```bash
+git clone https://github.com/m2lines/ocean_emulators.git
+# recommended: via ssh -- requires additional setup
+git clone git@github.com:m2lines/ocean_emulators.git
+```
+
+Next, create a local environment from the `mamba_env.yaml` file with conda, mamba or pixi. Here is an example using
+mamba:
+
+```bash
+mamba create -f mamba_env.yaml
+```
+
+Now, you should be able to use this package as a CLI! You can call it like so:
+
+```bash
+python -m ocean_emulators -h
+```
+
+This opens up the help pages and documents the CLI's subcommands and common arguments.
+Currently, only the following subcommand is supported:
+
+```bash
+python -m ocean_emulators om4 -h
+```
+
+### Example usage
+
+Example: Test out this CLI on a small, dry run (this will process a small portion of the data and not write any output):
+
+```bash
+# Check if you have the right envvars set:
+# set | grep AWS
+# set | grep FSSPEC
+# If not, set vars needed to authenticate data access
+export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+# Check with M2LInES project management for how to get the OSN Access keys.
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+# Then, run the standard OM4 processing pipeline:
+python -m ocean_emulators om4 \
+   "s3://emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr" \
+   "s3://emulators/am16581/ocean_static_no_mask_table.zarr" \
+   "s3://emulators/am16581/grids/ocean_hgrid.zarr" \
+   "s3://emulators/am16581/grids/gaussian_grid_360_by_720.zarr" \
+    --output_path="./local_om4_test.zarr" \
+    --dry_run \
+    --small_run
+# ... [prints status messages]
+# <xarray.Dataset> Size: 829MB
+# Dimensions:    (time: 10, y: 360, x: 720)
+# Coordinates:
+#   * time       (time) object 80B 1958-01-03 12:00:00 ... 1958-02-17 12:00:00
+#   * y          (y) float64 3kB -89.62 -89.12 -88.62 -88.13 ... 88.62 89.12 89.62
+#   * x          (x) float64 6kB 0.25 0.75 1.25 1.75 ... 358.2 358.8 359.2 359.8
+# Data variables: (12/80)
+#     hfds       (time, y, x) float32 10MB nan nan nan ... 0.3576 0.3585 0.3594
+#     tauuo      (time, y, x) float32 10MB nan nan nan ... -0.02243 -0.02271
+# ...
+```
+
+Example: Run a real data processing pipeline on a coiled cluster:
+
+```bash
+# These exports are needed in order to write to the OSN pod in practice.
+export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
+# Check if you have the right envvars set:
+# set | grep AWS
+# set | grep FSSPEC
+# If not, set vars needed to authenticate data access
+export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+# Check with M2LInES project management for how to get the OSN Access keys.
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+# Then, run the standard OM4 processing pipeline:
+python -m ocean_emulators om4 \
+   "s3://emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr" \
+   "s3://emulators/am16581/ocean_static_no_mask_table.zarr" \
+   "s3://emulators/am16581/grids/ocean_hgrid.zarr" \
+   "s3://emulators/am16581/grids/gaussian_grid_360_by_720.zarr" \
+    --output_path="s3://emulators/am16581/om4_halfdeg_testrun.zarr" \
+    --cluster="coiled" \
+    --wait_for_workers=True
+```
+
+That's how you can run this package as a command-line utility! Beyond this, `ocean_emulators` can be used a library
+in a script or notebook. Continue reading to get a better understanding of this package's capabilities.
 
 ## Preprocessing
 
@@ -135,21 +226,11 @@ prediction_data_test(ds_prediction, ds_truth)
 
 ## Developing this package
 
-Set up a fresh mamba environment (optional but recommended)
+Follow the CLI usage instructions to clone the repository and create a local mamba environment. Then, please install
+these three dev dependencies manually:
 
 ```bash
-mamba create -n=ocean_emulators_dev python=3.10
-mamba activate ocean_emulators_dev
-pip install -e ".[dev]"
-```
-
->[!NOTE]
-> If you are using conda instead of mamba, you can replace `mamba` with `conda` above
-
-Now install this package with all the developer extra dependencies
-
-```
-pip install -e ".[dev]"
+mamba install pytest dask pre-commit
 ```
 
 Before you edit the code make sure all tests pass by running pytest from the root level of this repository

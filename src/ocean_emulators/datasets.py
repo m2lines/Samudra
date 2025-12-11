@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Generic, Protocol, Self, TypeAlias, TypeVar, final
@@ -307,7 +307,7 @@ class RawTrainData:
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
-    def insert(self, all_prognostic: torch.Tensor, all_boundary: torch.Tensor):
+    def append(self, all_prognostic: torch.Tensor, all_boundary: torch.Tensor):
         self.raw_data.append((all_prognostic, all_boundary))
 
     def to(self, device: torch.device):
@@ -333,6 +333,9 @@ class RawMultiscaleTrainData:
 
     dataset_id: str
     datasets: list[RawTrainData]
+
+    def __iter__(self) -> Iterator[RawTrainData]:
+        yield from self.datasets
 
     def to(self, device: torch.device) -> None:
         for dataset in self.datasets:
@@ -563,7 +566,7 @@ class TorchTrainDataset(GpuResolvedDataset[RawTrainData]):
                 .astype(np.float32)
             )
 
-            TD.insert(prognostic_all, boundary)
+            TD.append(prognostic_all, boundary)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
@@ -683,7 +686,6 @@ def concurrent_compute(
     wait(futures)
 
 
-# TODO(alxmrs): Need to fix the collate_fn!
 @final
 class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
     Id: TypeAlias = str
@@ -701,6 +703,9 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
     def __getitem__(self, idx: int) -> RawMultiscaleTrainData:
         tds = [ds[idx] for ds in self.datasets]
         return RawMultiscaleTrainData(dataset_id=self.id, datasets=tds)
+
+    def __len__(self) -> int:
+        return len(self.datasets[0])
 
     def merge(self, tds: list[TrainData]) -> TrainData:
         """Merge multiple TrainData at different spatial resolutions into a single TrainData.

@@ -4,6 +4,7 @@ import contextlib
 import dataclasses
 import datetime
 from collections.abc import Generator
+from functools import partial
 
 import cftime
 import numpy as np
@@ -25,13 +26,17 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.datasets import (
     InferenceDataset,
+    MultiscaleTrainDataset,
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
 )
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
-from ocean_emulators.utils.train import collate_raw_train_data
+from ocean_emulators.utils.train import (
+    collate_raw_multiscale_train_data,
+    collate_raw_train_data,
+)
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
 
 
@@ -88,21 +93,45 @@ def make_loader(
                     )
                     for stride in cfg.data_stride
                 ]
+                collate_fn = collate_raw_train_data  # type: ignore
 
-                data: ConcatDataset = ConcatDataset(dataset_list)
-                collate_fn = collate_raw_train_data
+            case LoaderVersion.OM4_MULTISCALE_TORCH:
+                srcs = [src]
 
-                raw_loader = DataLoader(
-                    data,
-                    batch_size=cfg.batch_size,
-                    drop_last=drop_last,
-                    collate_fn=collate_fn,
-                )
+                def make_dataset(s, stride):
+                    return TorchTrainDataset(
+                        src=s.slice(time_config),
+                        prognostic_var_names=prognostic,
+                        boundary_var_names=boundary,
+                        hist=cfg.data.hist,
+                        steps=cfg.steps[0],
+                        normalize_before_mask=cfg.data.normalize_before_mask,
+                        masked_fill_value=cfg.data.masked_fill_value,
+                        stride=stride,
+                    )
 
-                loader = TrainDataLoader(raw_loader, dataset_list, torch.device("cpu"))
-                yield loader
+                dataset_list = [
+                    MultiscaleTrainDataset(
+                        srcs=srcs,
+                        make_dataset=partial(make_dataset, stride=stride),
+                    )
+                    for stride in cfg.data_stride
+                ]
+                collate_fn = collate_raw_multiscale_train_data  # type: ignore
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
+
+        data: ConcatDataset = ConcatDataset(dataset_list)
+
+        raw_loader = DataLoader(
+            data,
+            batch_size=cfg.batch_size,
+            drop_last=drop_last,
+            collate_fn=collate_fn,
+        )
+
+        loader = TrainDataLoader(raw_loader, dataset_list, torch.device("cpu"))
+        yield loader
 
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:

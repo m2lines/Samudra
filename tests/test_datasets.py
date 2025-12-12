@@ -458,14 +458,13 @@ def test_multiscale_merge():
         scale = 2 ** (i + 1)
         td = TrainData(10)
 
-        prognostic = torch.rand((1, 10, scale, scale * 2))
+        prognostic = torch.ones((1, 10, scale, scale * 2)) + i
         label = prognostic * 2
-        boundary = torch.rand((1, 3, scale, scale * 2))
+        boundary = torch.ones((1, 3, scale, scale * 2)) + scale
         input_ = torch.cat((prognostic, boundary), dim=1)
 
         for step in range(4):
             td.append(input_ + step * 37, label + step * 17)
-
         tds.append(td)
 
     merged = merge(tds)
@@ -476,6 +475,7 @@ def test_multiscale_merge():
     assert merged_input.shape == (1, 13 * num_scales, scale, scale * 2)
     assert merged_label.shape == (1, 10 * num_scales, scale, scale * 2)
     assert merged.num_prognostic_channels == 10 * num_scales
+    assert set(merged_input[0, :, 0, 0].tolist()) == set(range(1, 6)) | {9, 17}
 
 
 @pytest.fixture

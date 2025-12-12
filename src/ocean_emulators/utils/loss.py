@@ -225,7 +225,7 @@ class DynamicLoss:
                 self._per_channel_scale.shape[0], -1
             ).mean(dim=1)
         )
-        if self._limits:
+        if self._limits is not None:
             new_target_weights = new_target_weights.min(self._limits)
 
         if get_world_size() > 1:

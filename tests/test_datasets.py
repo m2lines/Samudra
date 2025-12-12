@@ -30,6 +30,7 @@ from ocean_emulators.datasets import (
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
+    merge,
 )
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
@@ -447,6 +448,34 @@ def test_multiscale_loader__equals_standard_loader(
         new_samples = [extract_sample_arrays(sample) for sample in multi_scale]
 
     assert_equal_samples(original_samples, new_samples)
+
+
+def test_multiscale_merge():
+    tds = []
+    scale = 1
+    num_scales = 4
+    for i in range(num_scales):
+        scale = 2 ** (i + 1)
+        td = TrainData(10)
+
+        prognostic = torch.rand((1, 10, scale, scale * 2))
+        label = prognostic * 2
+        boundary = torch.rand((1, 3, scale, scale * 2))
+        input_ = torch.cat((prognostic, boundary), dim=1)
+
+        for step in range(4):
+            td.append(input_ + step * 37, label + step * 17)
+
+        tds.append(td)
+
+    merged = merge(tds)
+
+    assert len(merged) == 4
+    merged_input, merged_label = merged[0]
+
+    assert merged_input.shape == (1, 13 * num_scales, scale, scale * 2)
+    assert merged_label.shape == (1, 10 * num_scales, scale, scale * 2)
+    assert merged.num_prognostic_channels == 10 * num_scales
 
 
 @pytest.fixture

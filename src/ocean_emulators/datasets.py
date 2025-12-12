@@ -686,6 +686,89 @@ def concurrent_compute(
     wait(futures)
 
 
+def merge(tds: list[TrainData]) -> TrainData:
+    """Merge multiple TrainData at different spatial resolutions into a single TrainData.
+
+    Lower-resolution data is upsampled to the largest resolution by placing values at
+    strided intervals in zero-padded tensors.
+
+    Channel layout: input = [all_scale_prognostics, all_scale_boundaries]
+                   label = [all_scale_prognostics]
+
+    Args:
+        tds: TrainData objects at different resolutions. Spatial dimensions must be
+            evenly divisible (e.g., 360x180 and 180x90 with stride=2).
+
+    Returns:
+        TrainData with inputs/labels at the largest resolution, where num_prognostic_channels
+        equals the sum of prognostic channels across all scales.
+    """
+    tds_sorted = sorted(tds, key=lambda td: td[0][0].shape, reverse=True)
+    total_prog_channels = sum(td.num_prognostic_channels for td in tds_sorted)
+    TD = TrainData(total_prog_channels)
+
+    largest_td = tds_sorted.pop(0)
+
+    ref_lat, ref_lon = largest_td[0][0].shape[-2:]
+
+    for step in range(len(largest_td)):
+        largest_input, largest_label = largest_td[step]
+        largest_prog = largest_input[:, : largest_td.num_prognostic_channels]
+        largest_bound = largest_input[:, largest_td.num_prognostic_channels :]
+
+        prognostics = [largest_prog]
+        boundaries = [largest_bound]
+        labels = [largest_label]
+
+        # Iterate through the remaining `TrainData`s at smaller scales.
+        for td in tds_sorted:
+            src_input, src_label = td[step]
+
+            lat, lon = src_input.shape[-2:]
+            assert ref_lat % lat == 0 and ref_lon % lon == 0, (
+                f"Spatial dimensions not evenly divisible: {ref_lat=} vs {lat=}; {ref_lon=} vs {lon=}"
+            )
+            lat_stride = ref_lat // lat
+            lon_stride = ref_lon // lon
+
+            src_prog = src_input[:, : td.num_prognostic_channels]
+            src_bound = src_input[:, td.num_prognostic_channels :]
+
+            # Create strided tensors at reference resolution
+            prognostic_per_scale = torch.zeros(
+                (src_prog.shape[0], src_prog.shape[1], ref_lat, ref_lon),
+                dtype=src_prog.dtype,
+                device=src_prog.device,
+            )
+            boundary_per_scale = torch.zeros(
+                (src_bound.shape[0], src_bound.shape[1], ref_lat, ref_lon),
+                dtype=src_bound.dtype,
+                device=src_bound.device,
+            )
+            label_per_scale = torch.zeros(
+                (src_label.shape[0], src_label.shape[1], ref_lat, ref_lon),
+                dtype=src_label.dtype,
+                device=src_label.device,
+            )
+
+            prognostic_per_scale[:, :, ::lat_stride, ::lon_stride] = src_prog
+            boundary_per_scale[:, :, ::lat_stride, ::lon_stride] = src_bound
+            label_per_scale[:, :, ::lat_stride, ::lon_stride] = src_label
+
+            prognostics.append(prognostic_per_scale)
+            boundaries.append(boundary_per_scale)
+            labels.append(label_per_scale)
+
+        # Concatenate: all prognostics first, then all boundaries
+        # This maintains the invariant that input[:, :num_prognostic_channels] are prognostics
+        combined_input = torch.cat(prognostics + boundaries, dim=1)
+        combined_label = torch.cat(labels, dim=1)  # Labels are prognostic-only
+
+        TD.append(combined_input, combined_label)
+
+    return TD
+
+
 @final
 class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
     Id: TypeAlias = str
@@ -707,95 +790,13 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
     def __len__(self) -> int:
         return len(self.datasets[0])
 
-    def merge(self, tds: list[TrainData]) -> TrainData:
-        """Merge multiple TrainData at different spatial resolutions into a single TrainData.
-
-        Lower-resolution data is upsampled to the largest resolution by placing values at
-        strided intervals in zero-padded tensors.
-
-        Channel layout: input = [all_scale_prognostics, all_scale_boundaries]
-                       label = [all_scale_prognostics]
-
-        Args:
-            tds: TrainData objects at different resolutions. Spatial dimensions must be
-                evenly divisible (e.g., 360x180 and 180x90 with stride=2).
-
-        Returns:
-            TrainData with inputs/labels at the largest resolution, where num_prognostic_channels
-            equals the sum of prognostic channels across all scales.
-        """
-        tds_sorted = sorted(tds, key=lambda td: td[0][0].shape, reverse=True)
-        total_prog_channels = sum(td.num_prognostic_channels for td in tds_sorted)
-        TD = TrainData(total_prog_channels)
-
-        largest_td = tds_sorted.pop(0)
-
-        ref_lat, ref_lon = largest_td[0][0].shape[-2:]
-
-        for step in range(len(largest_td)):
-            largest_input, largest_label = largest_td[step]
-            largest_prog = largest_input[:, : largest_td.num_prognostic_channels]
-            largest_bound = largest_input[:, largest_td.num_prognostic_channels :]
-
-            prognostics = [largest_prog]
-            boundaries = [largest_bound]
-            labels = [largest_label]
-
-            # Iterate through the remaining `TrainData`s at smaller scales.
-            for td in tds_sorted:
-                src_input, src_label = td[step]
-
-                lat, lon = src_input.shape[-2:]
-                assert ref_lat % lat == 0 and ref_lon % lon == 0, (
-                    f"Spatial dimensions not evenly divisible: {ref_lat=} vs {lat=}; {ref_lon=} vs {lon=}"
-                )
-                lat_stride = ref_lat // lat
-                lon_stride = ref_lon // lon
-
-                src_prog = src_input[:, : td.num_prognostic_channels]
-                src_bound = src_input[:, td.num_prognostic_channels :]
-
-                # Create strided tensors at reference resolution
-                prognostic_per_scale = torch.zeros(
-                    (src_prog.shape[0], src_prog.shape[1], ref_lat, ref_lon),
-                    dtype=src_prog.dtype,
-                    device=src_prog.device,
-                )
-                boundary_per_scale = torch.zeros(
-                    (src_bound.shape[0], src_bound.shape[1], ref_lat, ref_lon),
-                    dtype=src_bound.dtype,
-                    device=src_bound.device,
-                )
-                label_per_scale = torch.zeros(
-                    (src_label.shape[0], src_label.shape[1], ref_lat, ref_lon),
-                    dtype=src_label.dtype,
-                    device=src_label.device,
-                )
-
-                prognostic_per_scale[:, :, ::lat_stride, ::lon_stride] = src_prog
-                boundary_per_scale[:, :, ::lat_stride, ::lon_stride] = src_bound
-                label_per_scale[:, :, ::lat_stride, ::lon_stride] = src_label
-
-                prognostics.append(prognostic_per_scale)
-                boundaries.append(boundary_per_scale)
-                labels.append(label_per_scale)
-
-            # Concatenate: all prognostics first, then all boundaries
-            # This maintains the invariant that input[:, :num_prognostic_channels] are prognostics
-            combined_input = torch.cat(prognostics + boundaries, dim=1)
-            combined_label = torch.cat(labels, dim=1)  # Labels are prognostic-only
-
-            TD.append(combined_input, combined_label)
-
-        return TD
-
     def to_train_data(self, raw_train_dataset: RawMultiscaleTrainData) -> TrainData:
         """Converts each RawTrainData into a TrainData, then merges it into a single TrainData."""
         tds = [
             ds.to_train_data(rtd)
             for ds, rtd in zip(self.datasets, raw_train_dataset.datasets)
         ]
-        return self.merge(tds)
+        return merge(tds)
 
 
 @final

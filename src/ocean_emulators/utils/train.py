@@ -46,8 +46,8 @@ def collate_raw_multiscale_train_data(
     batched_data = RawMultiscaleTrainData(data[0].dataset_id, [])
 
     # Since `RawMultiscaleTrainData` is a list of lists, we can think of this
-    # `zip` as a transpose of these lists. This is what we want, since we want to
-    # process every first `RawTrainData` via the collate_fn, then the second, and so on.
+    # `zip` as a transpose of these lists. This is what we want, since we process
+    # every first `RawTrainData` via the collate_fn, then the second, and so on.
     # After each stage is processed, we add it to the final multiscale TD.
     for tds in zip(*data):
         batched_data.datasets.append(collate_raw_train_data(tds))

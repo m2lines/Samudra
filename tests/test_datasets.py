@@ -419,6 +419,36 @@ def test_compact_loader__equals_flat_loader(
     assert_equal_samples(original_samples, new_samples)
 
 
+@pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
+def test_multiscale_loader__equals_standard_loader(
+    data_source: DataSource, pytestconfig: pytest.Config
+):
+    cache = cache_dir(pytestconfig)
+    default_config = str(pytestconfig.rootpath / "configs" / DEFAULT_CONFIG)
+
+    def make_config(src: DataSource):
+        return TrainConfig.from_yaml_and_cli(
+            [
+                default_config,
+                "--experiment.data_root",
+                str(cache / src.name),
+            ]
+        )
+
+    # The standard data source config, which only includes one scale, should make the multi-scale loader
+    # behave like the standard torch loader.
+    flat_config = make_config(data_source)
+
+    with make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader:
+        original_samples = [extract_sample_arrays(sample) for sample in flat_loader]
+    with make_loader(
+        flat_config, version=LoaderVersion.OM4_MULTISCALE_TORCH
+    ) as multi_scale:
+        new_samples = [extract_sample_arrays(sample) for sample in multi_scale]
+
+    assert_equal_samples(original_samples, new_samples)
+
+
 @pytest.fixture
 def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     # Create data

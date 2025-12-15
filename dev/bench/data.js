@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765418263955,
+  "lastUpdate": 1765836475163,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6294,6 +6294,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9924604780975258",
             "extra": "mean: 89.11518784519997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bb959db3087b2120f51f7b6f7e3c0b99588f6541",
+          "message": "Fix typo in dmse limit (#517)\n\nMust have gotten broken after I ran a first training run with this\nturned on but before checking this code in.",
+          "timestamp": "2025-12-15T21:42:56Z",
+          "tree_id": "1fd959ca4fcd4a3f54f4e554702c286be87b5c00",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/bb959db3087b2120f51f7b6f7e3c0b99588f6541"
+        },
+        "date": 1765836474335,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.6439684917906474,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01864257398980011",
+            "extra": "mean: 608.2841641999948 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19060853768812283,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03752884821350587",
+            "extra": "mean: 5.246354712800001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011439190782119892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9824939075652469",
+            "extra": "mean: 87.41877105180002 sec\nrounds: 5"
           }
         ]
       }

@@ -475,7 +475,7 @@ def test_multiscale_merge():
     assert merged_input.shape == (1, 13 * num_scales, scale, scale * 2)
     assert merged_label.shape == (1, 10 * num_scales, scale, scale * 2)
     assert merged.num_prognostic_channels == 10 * num_scales
-    assert set(merged_input[0, :, 0, 0].tolist()) == set(range(1, 6)) | {9, 17}
+    assert set(merged_input[0, :, 0, 0].unique().tolist()) == set(range(1, 6)) | {9, 17}
 
 
 @pytest.fixture

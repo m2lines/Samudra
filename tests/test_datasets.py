@@ -26,6 +26,7 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.datasets import (
     InferenceDataset,
+    MultiscaleMode,
     MultiscaleTrainDataset,
     TorchTrainDataset,
     TrainData,
@@ -96,8 +97,16 @@ def make_loader(
                 ]
                 collate_fn = collate_raw_train_data  # type: ignore
 
-            case LoaderVersion.OM4_MULTISCALE_TORCH:
+            case (
+                LoaderVersion.OM4_MULTISCALE_TORCH | LoaderVersion.OM4_MULTISCALE_MERGE
+            ):
                 srcs = [src]
+
+                mode: MultiscaleMode = (
+                    "merge"
+                    if version == LoaderVersion.OM4_MULTISCALE_TORCH
+                    else "multi"
+                )
 
                 def make_dataset(s, stride):
                     return TorchTrainDataset(
@@ -115,6 +124,7 @@ def make_loader(
                     MultiscaleTrainDataset(
                         srcs=srcs,
                         make_dataset=partial(make_dataset, stride=stride),
+                        mode=mode,
                     )
                     for stride in cfg.data_stride
                 ]

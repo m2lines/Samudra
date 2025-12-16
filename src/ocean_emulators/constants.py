@@ -237,6 +237,7 @@ def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
 class LoaderVersion(enum.Enum):
     OM4_TORCH = "om4-torch"
     OM4_MULTISCALE_TORCH = "om4-multiscale-torch"
+    OM4_MULTISCALE_MERGE = "om4-multiscale-merge"
 
 
 # TODO(#95): See if this can be removed and replaced.

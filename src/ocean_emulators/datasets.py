@@ -1,10 +1,11 @@
 import dataclasses
 import logging
 import time
+import typing
 from collections.abc import Callable, Iterator
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Generic, Protocol, Self, TypeAlias, TypeVar, final
+from typing import Generic, Literal, Protocol, Self, TypeAlias, TypeVar, final
 
 import numpy as np
 import torch
@@ -411,6 +412,55 @@ class TrainData:
         return self
 
 
+class MultiTrainData(TrainData):
+    """Store multiple scales of `TrainData`.
+
+    When performing an autoregressive rollout, where multiple steps of input/label pairs are used in training and
+    inference, this class opts to return the biggest single scale worth of data. For other cases, such as multiscale
+    model training, it will output each scale's input/output pair (i.e., an `Example`).
+    """
+
+    def __init__(self, tds: list[TrainData]):
+        super().__init__(tds[0].num_prognostic_channels)
+        # Ensure that data is organized by scale, from largest to smallest.
+        self.tds = sorted(
+            tds, key=lambda td: td.example_by_step[0][0].shape[:-2], reverse=True
+        )
+
+    def __iter__(self) -> Iterator[int]:
+        return iter(range(len(self)))
+
+    def __len__(self) -> int:
+        return len(self.tds[0])
+
+    def __getitem__(self, step: int):
+        return [td[step] for td in self.tds]
+
+    def append(self, input_: Input, label: Prognostic):
+        raise NotImplementedError(
+            "We need to append one `Example` pair per each scale of data."
+        )
+
+    def append_per_scale(self, examples: list[Example]):
+        for td, eg in zip(self.tds, examples, strict=True):
+            td.append(*eg)
+
+    def get_input(self, step: int) -> Input:
+        return self.tds[0].get_input(step)
+
+    def get_label(self, step: int) -> Prognostic:
+        return self.tds[0].get_label(step)
+
+    def to(self, device: torch.device) -> None:
+        for td in self.tds:
+            td.to(device=device)
+
+    def pin_memory(self):
+        for td in self.tds:
+            td.pin_memory()
+        return self
+
+
 class GpuResolvedDataset(Dataset[DataBoundToDataset]):
     """A `torch.utils.data.Dataset` of bound data used to perform normalization
     and other final processing operations on GPU.
@@ -769,6 +819,9 @@ def merge(tds: list[TrainData]) -> TrainData:
     return TD
 
 
+MultiscaleMode = Literal["merge", "multi"]
+
+
 @final
 class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
     Id: TypeAlias = str
@@ -778,9 +831,11 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
         self,
         srcs: list[DataSource],
         make_dataset: Callable[[DataSource], TorchTrainDataset],
+        mode: MultiscaleMode,
     ):
         self.datasets = [make_dataset(src) for src in srcs]
-        self.id = f"{self.__class__.__name__}({str(id(self))}, {', '.join([ds.id for ds in self.datasets])})"
+        self.id: MultiscaleTrainDataset.Id = f"{self.__class__.__name__}({str(id(self))}, {', '.join([ds.id for ds in self.datasets])})"
+        self.mode = mode
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int) -> RawMultiscaleTrainData:
@@ -796,7 +851,13 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             ds.to_train_data(rtd)
             for ds, rtd in zip(self.datasets, raw_train_dataset.datasets)
         ]
-        return merge(tds)
+        match self.mode:
+            case "merge":
+                return merge(tds)
+            case "multi":
+                return MultiTrainData(tds)
+            case _:
+                typing.assert_never(self.mode)
 
 
 @final

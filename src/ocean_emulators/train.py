@@ -230,7 +230,9 @@ class Trainer:
             wet=self.wet,
             y_coord=self.data.lat,
             temporal_stds=torch.from_numpy(
-                self.src.temporal_stds.to_array().to_numpy()
+                self.src.filter(self.prognostic_var_names, prefix="prognostic")
+                .temporal_stds.to_array()
+                .to_numpy()
             ).to(self.device),
             device=self.device,
             pad_mode=cfg.model.pad,

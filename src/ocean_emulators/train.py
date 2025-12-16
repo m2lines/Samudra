@@ -182,6 +182,20 @@ class Trainer:
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
         self.inference_src = self.data_container.source_using_dask
 
+        # logger.info("Computing temporal standard deviations")
+
+        # prognostic_dask = self.data_container.source_using_dask.filter(
+        #     self.prognostic_var_names, prefix="prognostic"
+        # )
+        # prognostic_normalized = prognostic_dask.normalize()
+
+        # temporal_stds = (
+        #     prognostic_normalized.diff("time").std(["time", "lat", "lon"]).compute()
+        # )
+
+        # logger.info(f"Temporal standard deviations: {temporal_stds.values}")
+        # temporal_stds.to_zarr("/Users/jder/oa/data/public/OM4_temporal_stds.zarr")
+
         self.loader_version = self.data_container.loader_version
 
         self.metadata = construct_metadata(self.data)
@@ -215,7 +229,9 @@ class Trainer:
             cfg.loss,
             wet=self.wet,
             y_coord=self.data.lat,
-            stds=self.src.filter(self.prognostic_var_names, prefix="prog_stds").stds,
+            temporal_stds=torch.from_numpy(
+                self.src.temporal_stds.to_array().to_numpy()
+            ).to(self.device),
             device=self.device,
             pad_mode=cfg.model.pad,
         )

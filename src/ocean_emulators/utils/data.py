@@ -78,6 +78,7 @@ class DataSource:
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
+    temporal_stds: xr.Dataset
     masks: Masks
 
     @cached_property
@@ -121,26 +122,42 @@ class DataSource:
             data = self.data[parsed_var_names]
             means = self.means[parsed_var_names]
             stds = self.stds[parsed_var_names]
+            temporal_stds = self.temporal_stds[parsed_var_names]
             if levels:
                 data = data.isel(lev=levels)
                 means = means.isel(lev=levels)
                 stds = stds.isel(lev=levels)
+                temporal_stds = temporal_stds.isel(lev=levels)
 
             return dataclasses.replace(
-                self, name=name, data=data, means=means, stds=stds
+                self,
+                name=name,
+                data=data,
+                means=means,
+                stds=stds,
+                temporal_stds=temporal_stds,
             )
 
         data = self.data[var_names]
         means = self.means[var_names]
         stds = self.stds[var_names]
-
-        return dataclasses.replace(self, name=name, data=data, means=means, stds=stds)
+        temporal_stds = self.temporal_stds[
+            [var for var in var_names if var in self.temporal_stds.variables]
+        ]
+        return dataclasses.replace(
+            self,
+            name=name,
+            data=data,
+            means=means,
+            stds=stds,
+            temporal_stds=temporal_stds,
+        )
 
     def map(
         self,
         func: Callable[
-            [xr.Dataset, xr.Dataset, xr.Dataset],
-            tuple[xr.Dataset, xr.Dataset, xr.Dataset],
+            [xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset],
+            tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset],
         ],
         *,
         suffix: str | None = None,
@@ -149,10 +166,20 @@ class DataSource:
         if suffix is None:
             suffix = func.__qualname__
 
-        data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
+        data, means, stds, temporal_stds = func(
+            self.data.copy(),
+            self.means.copy(),
+            self.stds.copy(),
+            self.temporal_stds.copy(),
+        )
 
         return dataclasses.replace(
-            self, name=f"{self.name}_{suffix}", data=data, means=means, stds=stds
+            self,
+            name=f"{self.name}_{suffix}",
+            data=data,
+            means=means,
+            stds=stds,
+            temporal_stds=temporal_stds,
         )
 
     def map_data(
@@ -248,6 +275,7 @@ class DataSource:
         data_location: ResolvedLocation,
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
+        temporal_stds_location: ResolvedLocation,
         *,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
@@ -258,11 +286,12 @@ class DataSource:
         data = data_location.open(chunks)
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
-
+        temporal_stds = temporal_stds_location.open(chunks)
         return cls.from_datasets(
             data,
             means,
             stds,
+            temporal_stds,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
@@ -275,16 +304,18 @@ class DataSource:
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
+        temporal_stds: xr.Dataset,
         *,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
     ) -> Self:
-        data, means, stds = validate_data(
+        data, means, stds, temporal_stds = validate_data(
             data,
             means,
             stds,
+            temporal_stds,
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
         )
@@ -295,6 +326,7 @@ class DataSource:
             data=data,
             means=means,
             stds=stds,
+            temporal_stds=temporal_stds,
             masks=masks,
         )
 
@@ -546,8 +578,9 @@ def compute_anomalies(
     data: xr.Dataset,
     means: xr.Dataset,
     stds: xr.Dataset,
+    temporal_stds: xr.Dataset,
     anomalies_vars: tuple[str, ...],
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset]:
     """Compute anomalies for the given variables."""
     for var in anomalies_vars:
         base_var = var.replace("_anomalies", "")
@@ -564,7 +597,10 @@ def compute_anomalies(
             data = data.drop_vars(["dayofyear"])
             means[var] = data[var].mean().compute()
             stds[var] = data[var].std().compute()
-    return data, means, stds
+            assert var not in temporal_stds.variables, (
+                f"can't compute temporal vars for anomalies for {var}"
+            )
+    return data, means, stds, temporal_stds
 
 
 def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
@@ -605,9 +641,10 @@ def validate_data(
     data: xr.Dataset,
     means: xr.Dataset,
     stds: xr.Dataset,
+    temporal_stds: xr.Dataset,
     boundary_var_names: BoundaryVarNames,
     static_data_vars: list[str] | None = None,
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, xr.Dataset]:
     """Validate the data such that we have the correct format for training."""
     is_compact = _is_compact(data, means, stds)
     if static_data_vars is not None:
@@ -631,13 +668,13 @@ def validate_data(
         # This check is to ensure we convert data to the correct format
         means = with_level_index_vars(means)
         stds = with_level_index_vars(stds)
-
+        temporal_stds = with_level_index_vars(temporal_stds)
     # Check if any anomalies are needed to be computed
     anomalies_vars = get_anomalies_vars(boundary_var_names)
     out = (
-        compute_anomalies(data, means, stds, anomalies_vars)
+        compute_anomalies(data, means, stds, temporal_stds, anomalies_vars)
         if anomalies_vars
-        else (data, means, stds)
+        else (data, means, stds, temporal_stds)
     )
 
     return out

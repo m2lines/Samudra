@@ -7,6 +7,7 @@ import cftime
 import pydantic
 import torch
 import xarray as xr
+from jaxtyping import Float
 from perceiver_pytorch import Perceiver as NaivePerceiver
 from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
 from torch import nn
@@ -144,6 +145,10 @@ class DataConfig(BaseConfig):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
+    data_temporal_stds_location: Location = Field(
+        description="Location of the data temporal standard deviations; "
+        + LOCATION_DOCS
+    )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
     hist: int = 1
@@ -164,11 +169,13 @@ class DataConfig(BaseConfig):
         data_location = data_root.resolve(self.data_location)
         means_location = data_root.resolve(self.data_means_location)
         stds_location = data_root.resolve(self.data_stds_location)
+        temporal_stds_location = data_root.resolve(self.data_temporal_stds_location)
 
         source = DataSource.from_locations(
             data_location=data_location,
             means_location=means_location,
             stds_location=stds_location,
+            temporal_stds_location=temporal_stds_location,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             static_data_vars=self.static_data_vars,
@@ -184,6 +191,7 @@ class DataConfig(BaseConfig):
                 data_location=data_location,
                 means_location=means_location,
                 stds_location=stds_location,
+                temporal_stds_location=temporal_stds_location,
                 prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names,
                 static_data_vars=self.static_data_vars,
@@ -202,6 +210,7 @@ class DataConfig(BaseConfig):
                 data_location,
                 means_location,
                 stds_location,
+                temporal_stds_location,
             ]
         )
         return DataContainer(
@@ -685,7 +694,7 @@ def build_loss_fn(
     loss_cfg: Loss,
     wet: Grid,
     y_coord: xr.DataArray,
-    stds: xr.Dataset,
+    temporal_stds: Float[torch.Tensor, " var"],
     device: torch.device,
     pad_mode: str,
 ) -> LossFn:
@@ -700,7 +709,7 @@ def build_loss_fn(
             )
             return DynamicLoss(
                 loss_fn=loss_fn,
-                stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
+                temporal_stds=temporal_stds,
                 should_limit=limit,
                 device=device,
             )

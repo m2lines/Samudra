@@ -3,5 +3,6 @@
 data_location: OM4.zarr
 data_means_location: OM4_means.zarr
 data_stds_location: OM4_stds.zarr
+data_temporal_stds_location: OM4_temporal_stds.zarr
 static_data_vars: []
 concurrent_compute: true

@@ -412,7 +412,7 @@ class TrainData:
         return self
 
 
-class MultiTrainData(TrainData):
+class MultiscaleTrainData(TrainData):
     """Store multiple scales of `TrainData`.
 
     When performing an autoregressive rollout, where multiple steps of input/label pairs are used in training and
@@ -855,7 +855,7 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             case "merge":
                 return merge(tds)
             case "multi":
-                return MultiTrainData(tds)
+                return MultiscaleTrainData(tds)
             case _:
                 typing.assert_never(self.mode)
 

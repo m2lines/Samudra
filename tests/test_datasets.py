@@ -446,18 +446,19 @@ def test_multiscale_loader__equals_standard_loader(
             ]
         )
 
-    # The standard data source config, which only includes one scale, should make the multi-scale loader
+    # The standard data source config, which only includes one scale, should make the multiscale loader
     # behave like the standard torch loader.
-    flat_config = make_config(data_source)
+    config = make_config(data_source)
 
-    with make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader:
+    with make_loader(config, version=LoaderVersion.OM4_TORCH) as flat_loader:
         original_samples = [extract_sample_arrays(sample) for sample in flat_loader]
-    with make_loader(
-        flat_config, version=LoaderVersion.OM4_MULTISCALE_TORCH
-    ) as multi_scale:
-        new_samples = [extract_sample_arrays(sample) for sample in multi_scale]
+    with make_loader(config, version=LoaderVersion.OM4_MULTISCALE_TORCH) as multi_scale:
+        multi_samples = [extract_sample_arrays(sample) for sample in multi_scale]
+    with make_loader(config, version=LoaderVersion.OM4_MULTISCALE_MERGE) as merge_scale:
+        merge_samples = [extract_sample_arrays(sample) for sample in merge_scale]
 
-    assert_equal_samples(original_samples, new_samples)
+    assert_equal_samples(original_samples, multi_samples)
+    assert_equal_samples(original_samples, merge_samples)
 
 
 def test_multiscale_merge():

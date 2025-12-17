@@ -104,7 +104,7 @@ def make_loader(
 
                 mode: MultiscaleMode = (
                     "merge"
-                    if version == LoaderVersion.OM4_MULTISCALE_TORCH
+                    if version == LoaderVersion.OM4_MULTISCALE_MERGE
                     else "multi"
                 )
 

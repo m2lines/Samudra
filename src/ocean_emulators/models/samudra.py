@@ -6,6 +6,7 @@ import xarray as xr
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+from ocean_emulators.utils.device import autocast
 
 
 class Samudra(BaseModel):
@@ -52,22 +53,29 @@ class Samudra(BaseModel):
         self.corrector = corrector
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
-        fts_input = fts.clone().detach()
+        if self.corrector is not None:
+            fts_input = fts.clone().detach()
 
-        if self.positional_params is not None:
-            pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)
-            fts = torch.cat([fts, pos], dim=1)
+        with autocast():
+            if self.positional_params is not None:
+                pos = self.positional_params.unsqueeze(0).expand(
+                    fts.shape[0], -1, -1, -1
+                )
+                fts = torch.cat([fts, pos], dim=1)
 
-        if self.add_3d_coordinates is not None:
-            fts = self.add_3d_coordinates(fts)
+            if self.add_3d_coordinates is not None:
+                fts = self.add_3d_coordinates(fts)
 
-        fts = self.unet(fts)
-        fts = torch.nn.functional.pad(
-            fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-        )
-        fts = torch.nn.functional.pad(
-            fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-        )
+            fts = self.unet(fts)
+            fts = torch.nn.functional.pad(
+                fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+            )
+            fts = torch.nn.functional.pad(
+                fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
+            )
+        # TODO(jder): would be nice to keep inputs in bfloat16 and
+        # have the convolution use float32 internally & in output dtype.
+        fts = fts.to(torch.float32)
         fts = self.decoder(fts)
 
         if self.corrector is not None:

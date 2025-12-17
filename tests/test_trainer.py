@@ -75,13 +75,13 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
 
     model = trainer.model
     assert isinstance(model, BaseModel)
-    out = model.forward_once(X[0][0].to(trainer.device))
+    out = model(X[0][0].to(trainer.device))
 
     with tempfile.TemporaryDirectory() as tmpdir:
         trainer.save_checkpoint(1, Path(tmpdir) / "test.pt")
         trainer.load_checkpoint(Path(tmpdir) / "test.pt")
 
-    out2 = model.forward_once(X[0][0].to(trainer.device))
+    out2 = model(X[0][0].to(trainer.device))
 
     assert torch.allclose(out, out2)
 

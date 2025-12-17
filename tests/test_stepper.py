@@ -89,7 +89,7 @@ class MockModel(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def forward_once(self, x):
+    def forward(self, x):
         return x[:, : self.out_channels] * 10.0 + x[:, -1]
 
 
@@ -223,7 +223,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     )
     assert torch.equal(input_tensor.flatten(), expected_input)
 
-    pred = model.forward_once(input_tensor)
+    pred = model(input_tensor)
     assert pred.shape == (1, num_prognostic_channels, 1, 1)
     expected_pred = torch.tensor(
         [2 * hist + 1 + 2 * i * 10 for i in range(hist + 1)], device=pred.device

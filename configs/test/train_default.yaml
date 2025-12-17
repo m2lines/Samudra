@@ -54,7 +54,6 @@ model:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
-  gradient_detach_interval: 0  # 0 means no gradient detaching (default for tests)
 
   unet:
     ch_width: [2, 2]

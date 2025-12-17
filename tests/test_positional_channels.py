@@ -69,7 +69,7 @@ def test_positional_parameters_update():
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         x = torch.randn(1, 2, h, w)
         optimizer.zero_grad()
-        out = model.forward_once(x)
+        out = model(x)
         loss = out.sum()
         loss.backward()
         before = model.positional_params.detach().clone()

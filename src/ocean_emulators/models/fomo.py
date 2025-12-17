@@ -29,7 +29,6 @@ class FOMO(BaseModel):
         self,
         in_channels: int,
         out_channels: int,
-        pred_residuals: bool,
         last_kernel_size: int,
         pad: str,
         add_3d_coordinates: nn.Module,
@@ -39,18 +38,15 @@ class FOMO(BaseModel):
         wet: Grid,
         static_data: xr.Dataset | None,
         checkpointing: "Checkpointing | None",
-        gradient_detach_interval: int,
     ):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
             wet=wet,
             hist=hist,
-            pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,
             static_data=static_data,
-            gradient_detach_interval=gradient_detach_interval,
         )
         self.patch_size = encoder.patch_size
 
@@ -86,7 +82,7 @@ class FOMO(BaseModel):
                 ),
             )
 
-    def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
             fts = layer(fts)
 

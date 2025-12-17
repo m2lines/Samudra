@@ -2,13 +2,14 @@ import logging
 from collections.abc import Callable
 from os import PathLike
 
+from ocean_emulators.utils.loss import LossFn
+
 logger = logging.getLogger(__name__)
 
 import torch
 
 from ocean_emulators.aggregator import InferenceEvaluatorAggregator
 from ocean_emulators.datasets import InferenceDataset, TrainData
-from ocean_emulators.models.base import BaseModel
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.output import (
     ModelInferenceOutput,
@@ -20,35 +21,65 @@ from ocean_emulators.utils.writer import ZarrWriter
 
 
 class Stepper:
-    def __init__(self):
-        pass
-
     @staticmethod
     def train_batch(
-        model: torch.nn.Module, batch: TrainData, loss_fn: Callable
+        model: torch.nn.Module,
+        batch: TrainData,
+        loss_fn: LossFn,
+        gradient_detach_interval: int,
+        pred_residuals: bool,
+        out_channels: int,
     ) -> TrainBatchOutput:
-        loss_per_channel = model(batch, loss_fn=loss_fn)
+        outputs: list[torch.Tensor] = []
+        loss_per_channel: torch.Tensor = torch.zeros(out_channels)
+        for step in range(len(batch)):
+            if step == 0:
+                input_tensor = batch.get_initial_input()
+            else:
+                prev_output = outputs[-1]
+                if (
+                    gradient_detach_interval > 0
+                    and step % gradient_detach_interval == 0
+                ):
+                    prev_output = prev_output.detach()
+                input_tensor = batch.merge_prognostic_and_boundary(
+                    prognostic=prev_output, step=step
+                )
+
+            decodings = model(input_tensor)
+
+            if pred_residuals:
+                pred = (
+                    input_tensor[
+                        :,
+                        :out_channels,
+                    ]  # Residuals on last state in input
+                    + decodings
+                )  # Residual prediction
+            else:
+                pred = decodings  # Absolute prediction
+
+            loss_per_channel += loss_fn(
+                pred,
+                batch.get_label(step),
+            )
+
+            outputs.append(pred)
+
         loss = torch.mean(loss_per_channel)
         return TrainBatchOutput(loss, loss_per_channel)
 
     @staticmethod
     @torch.no_grad()
     def validate_batch(
-        model: BaseModel | torch.nn.parallel.DistributedDataParallel,
+        model: torch.nn.Module,
         batch: TrainData,
         loss_fn: Callable,
     ) -> ValBatchOutput:
         assert len(batch) == 1  # Assert we are using one step of input and output
         input = batch.get_input(0)
         label = batch.get_label(0)
-        # TODO(jder): we need the underlying model so we can use forward_once;
-        # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
-        model = (
-            model.module
-            if isinstance(model, torch.nn.parallel.DistributedDataParallel)
-            else model
-        )
-        outs = model.forward_once(input)
+        outs = model(input)
         loss_per_channel = loss_fn(outs, label)
         loss = torch.mean(loss_per_channel)
         return ValBatchOutput(loss, loss_per_channel, input, label, outs)
@@ -56,10 +87,12 @@ class Stepper:
     @staticmethod
     @torch.no_grad()
     def inference(
-        model: BaseModel,
+        model: torch.nn.Module,
         dataset: InferenceDataset,
         inf_aggregator: InferenceEvaluatorAggregator,
         epoch: int,
+        pred_residuals: bool,
+        out_channels: int,
         output_dir: str | PathLike | None = None,
         model_path: str | PathLike | None = None,
         num_model_steps_forward: int = 200,
@@ -115,12 +148,14 @@ class Stepper:
                 f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
                 f"Stepping {num_steps} steps forward."
             )
-            IO: ModelInferenceOutput = model.inference(
+            IO: ModelInferenceOutput = Stepper.inference_steps(
+                model,
                 dataset,
                 initial_prognostic=initial_prognostic,
                 steps_completed=step,
                 num_steps=num_steps,
-                epoch=epoch,
+                pred_residuals=pred_residuals,
+                out_channels=out_channels,
             )
             # Setting initial prognostic for next loop
             initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
@@ -134,3 +169,58 @@ class Stepper:
             logger.info(f"Logging to wandb...")
             record_logs(logs)
             step += num_steps
+
+    @staticmethod
+    def inference_steps(
+        model: torch.nn.Module,
+        dataset: InferenceDataset,
+        initial_prognostic: torch.Tensor,
+        steps_completed,
+        num_steps,
+        pred_residuals: bool,
+        out_channels: int,
+    ) -> ModelInferenceOutput:
+        out_shape = (num_steps, *dataset[0][1].shape[1:])
+
+        pred_tensor = torch.zeros(out_shape, device=get_device())
+        initial_prognostic = initial_prognostic.to(get_device())
+        target_time = dataset.get_target_time(steps_completed, num_steps)
+
+        for step in range(num_steps):
+            logger.info(
+                f"Inference: Rollout step {steps_completed + step} "
+                f"of {steps_completed + num_steps - 1}."
+            )
+            if step == 0:
+                input_tensor = dataset.merge_prognostic_and_boundary(
+                    prognostic=initial_prognostic,
+                    step=steps_completed,
+                )
+            else:
+                input_tensor = dataset.merge_prognostic_and_boundary(
+                    prognostic=pred_tensor[step - 1].unsqueeze(0),
+                    step=steps_completed + step,
+                )
+
+            decodings = model(input_tensor)
+            if pred_residuals:
+                pred = (
+                    input_tensor[
+                        0,
+                        :out_channels,
+                    ].to(  # Residuals on last state in input
+                        device=get_device()
+                    )
+                    + decodings
+                )
+            else:
+                pred = decodings
+
+            pred_tensor[step] = pred
+
+        target_tensor = dataset.inference_target(
+            slice(steps_completed, steps_completed + num_steps)
+        ).to(device=get_device())
+
+        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
+        return IO

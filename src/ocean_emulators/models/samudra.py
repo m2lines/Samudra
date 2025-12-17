@@ -13,7 +13,6 @@ class Samudra(BaseModel):
         self,
         in_channels: int,
         out_channels: int,
-        pred_residuals: bool,
         last_kernel_size: int,
         pad: str,
         unet: UNetBackbone,
@@ -23,18 +22,15 @@ class Samudra(BaseModel):
         hist: int,
         wet: Grid,
         static_data: xr.Dataset | None,
-        gradient_detach_interval: int,
     ):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
             wet=wet,
             hist=hist,
-            pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,
             static_data=static_data,
-            gradient_detach_interval=gradient_detach_interval,
         )
 
         if pos_channels > 0:
@@ -51,8 +47,9 @@ class Samudra(BaseModel):
 
         self.corrector = corrector
 
-    def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
-        fts_input = fts.clone().detach()
+    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+        if self.corrector is not None:
+            fts_input = fts.clone().detach()
 
         if self.positional_params is not None:
             pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)

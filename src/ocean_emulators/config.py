@@ -462,7 +462,6 @@ class UNetBackboneConfig(BaseConfig):
 
 
 class BaseModelConfig(BaseConfig, abc.ABC):
-    pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
 
@@ -474,11 +473,6 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         top-level layer (CoreBlocks, scaling layers, etc.) in the backward pass.
         If set to 'simple', the model will recompute only cheap layers like scales
         and nonlinearities.""",
-    )
-
-    gradient_detach_interval: int = Field(
-        default=0,
-        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
     )
 
     add_3d_coordinates: bool = Field(
@@ -532,7 +526,6 @@ class SamudraConfig(BaseModelConfig):
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
-            pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             unet=self.unet.build(
@@ -546,7 +539,6 @@ class SamudraConfig(BaseModelConfig):
             hist=hist,
             wet=wet,
             static_data=static_data,
-            gradient_detach_interval=self.gradient_detach_interval,
         )
 
 
@@ -574,7 +566,6 @@ class FOMOConfig(BaseModelConfig):
         return FOMO(
             in_channels=total_in_channels,
             out_channels=out_channels,
-            pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=self.encoder.build(in_channels, self.embedding_dim, lat, lon),
@@ -589,7 +580,6 @@ class FOMOConfig(BaseModelConfig):
             wet=wet,
             static_data=static_data,
             checkpointing=self.checkpointing,
-            gradient_detach_interval=self.gradient_detach_interval,
         )
 
 
@@ -727,7 +717,15 @@ class TrainConfig(TopLevelConfig):
     preemptible: bool = True
     batch_size: int = 2
     learning_rate: float = 2e-4
-    gradient_accumulation_steps: int = 1
+    gradient_accumulation_steps: int = Field(
+        default=1,
+        description="""Number of microbatches to accumulate gradients over. `1` means no accumulation.""",
+    )
+    gradient_detach_interval: int = Field(
+        default=0,
+        description="""Interval for detaching gradients in autoregressive training. `0` means no detaching.""",
+    )
+
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
     finetune: bool = False

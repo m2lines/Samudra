@@ -196,6 +196,10 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
 
+        # TODO(#400): re-enable & fix residual prediction
+        self.pred_residuals = False
+        self.gradient_detach_interval = cfg.gradient_detach_interval
+
         self.model = cfg.model.build(
             in_channels=self.num_in,
             out_channels=self.num_out,
@@ -503,7 +507,14 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
+            TO: TrainBatchOutput = Stepper.train_batch(
+                self.model,
+                data,
+                self.loss_fn,
+                self.gradient_detach_interval,
+                self.pred_residuals,
+                self.num_out,
+            )
 
             # Scale loss by the actual number of microbatches that will be accumulated
             scaled_loss = TO.loss / r
@@ -658,15 +669,13 @@ class Trainer:
                     self.prognostic_var_names,
                 )
 
-                # TODO(jder): we need the underlying model so we can use forward_once;
-                # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
                 Stepper.inference(
-                    model=self.model.module
-                    if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
-                    else self.model,
+                    model=self.model,
                     dataset=inference_dataset,
                     inf_aggregator=inf_aggregator,
                     epoch=epoch,
+                    pred_residuals=self.pred_residuals,
+                    out_channels=self.num_out,
                     num_model_steps_forward=min(
                         num_steps // 2, self.max_train_model_steps_forward
                     ),

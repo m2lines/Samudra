@@ -26,6 +26,7 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.datasets import (
     InferenceDataset,
+    MultiscaleSchedule,
     MultiscaleTrainDataset,
     TorchTrainDataset,
     TrainData,
@@ -104,7 +105,7 @@ def make_loader(
                     for stride in cfg.data_stride
                 ]
                 collate_fn = collate_raw_train_data
-            case LoaderVersion.OM4_MULTI:
+            case LoaderVersion.OM4_MULTI_MATCH | LoaderVersion.OM4_MULTI_MIX:
                 srcs = [src, src]
 
                 def make_dataset(s, stride):
@@ -119,11 +120,15 @@ def make_loader(
                         stride=stride,
                     )
 
+                schedule: MultiscaleSchedule = (
+                    "match" if LoaderVersion.OM4_MULTI_MATCH else "mix"
+                )
+
                 dataset_list = [
                     MultiscaleTrainDataset(
                         srcs=srcs,
                         make_dataset=partial(make_dataset, stride=stride),
-                        schedule="match",
+                        schedule=schedule,
                     )
                     for stride in cfg.data_stride
                 ]
@@ -290,7 +295,10 @@ def test_loader__data_shape(
         )
 
         n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
-        if loader_version == LoaderVersion.OM4_MULTI:
+        if (
+            loader_version == LoaderVersion.OM4_MULTI_MATCH
+            or loader_version == LoaderVersion.OM4_MULTI_MIX
+        ):
             n_samples *= 2
         samples = list(loader)
 

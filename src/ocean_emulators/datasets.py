@@ -720,8 +720,6 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
     two `TrainData` batches only (if it is "match" or "mix" schedules, respectively).
     """
 
-    FLAG = LoaderVersion.OM4_MULTI
-
     def __init__(
         self,
         srcs: list[DataSource],
@@ -733,6 +731,11 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             "All datasets must be the same length."
         )
         self.schedule = schedule
+        self.FLAG = (
+            LoaderVersion.OM4_MULTI_MATCH
+            if schedule == "match"
+            else LoaderVersion.OM4_MULTI_MIX
+        )
         self.id: DatasetId = f"{self.__class__.__name__}({str(id(self))}, {schedule}, {', '.join([ds.id for ds in self.datasets])})"
         self.multiplex = {
             i: pair

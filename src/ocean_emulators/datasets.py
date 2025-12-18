@@ -1,8 +1,20 @@
+import dataclasses
 import logging
 import time
+from collections.abc import Callable, Iterator
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import TypeAlias, final
+from itertools import product
+from typing import (
+    Generic,
+    Literal,
+    Protocol,
+    Self,
+    TypeAlias,
+    TypeVar,
+    assert_never,
+    final,
+)
 
 import numpy as np
 import torch
@@ -292,9 +304,19 @@ class InferenceDatasets(Dataset):
         return (self.datasets[idx], self.lengths[idx])
 
 
+DatasetId = str
+
+
+class HasDatasetId(Protocol):
+    dataset_id: DatasetId
+
+
+DataBoundToDataset = TypeVar("DataBoundToDataset", bound=HasDatasetId)
+
+
 class RawTrainData:
-    def __init__(self, dataset_id: "TorchTrainDataset.Id"):
-        self.dataset_id: TorchTrainDataset.Id = dataset_id
+    def __init__(self, dataset_id: DatasetId):
+        self.dataset_id = dataset_id
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
@@ -315,6 +337,27 @@ class RawTrainData:
             (all_prognostic.pin_memory(), all_boundary.pin_memory())
             for all_prognostic, all_boundary in self.raw_data
         ]
+        return self
+
+
+@dataclasses.dataclass
+class RawMultiscaleTrainData:
+    """A collection of `RawTrainData` stores of `Example`s at multiple scales."""
+
+    dataset_id: DatasetId
+    datasets: list[RawTrainData]
+    index: int = -1
+
+    def __iter__(self) -> Iterator[RawTrainData]:
+        yield from self.datasets
+
+    def to(self, device: torch.device) -> None:
+        for dataset in self.datasets:
+            dataset.to(device=device)
+
+    def pin_memory(self) -> Self:
+        for dataset in self.datasets:
+            dataset.pin_memory()
         return self
 
 
@@ -382,8 +425,22 @@ class TrainData:
         return self
 
 
+class GpuResolvedDataset(Dataset[DataBoundToDataset]):
+    """A `torch.utils.data.Dataset` of bound data used to perform normalization
+    and other final processing operations on GPU.
+
+    Args:
+        id (str): The ID of the dataset - must be consistent with each data's `dataset_id`.
+    """
+
+    id: DatasetId
+
+    def to_train_data(self, raw_train_data: DataBoundToDataset) -> TrainData:
+        raise NotImplementedError()
+
+
 @final
-class TorchTrainDataset(Dataset[RawTrainData]):
+class TorchTrainDataset(GpuResolvedDataset[RawTrainData]):
     """
     This class is used for training and validation.
 
@@ -403,7 +460,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             step=3->[[9, 10, 11], [12, 13, 14]]
     """
 
-    Id: TypeAlias = str
+    Id: TypeAlias = tuple[str, DataSource]
 
     FLAG = LoaderVersion.OM4_TORCH
 
@@ -421,7 +478,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         executor: ThreadPoolExecutor | None = None,
     ):
         super().__init__()
-        self.id = f"{self.__class__.__name__}_{str(id(self))}"
+        self.id = f"{self.__class__.__name__}({str(id(self))})"
         self.device = get_device()
 
         self.hist: int = hist
@@ -643,8 +700,81 @@ def concurrent_compute(
     wait(futures)
 
 
+MultiscaleSchedule = Literal["match", "mix"]
+
+
+def mix_examples(left: TrainData, right: TrainData) -> TrainData:
+    """Mixes the examples for all steps: uses the 'left' for Input and 'right' for Label."""
+    assert left.num_prognostic_channels == right.num_prognostic_channels
+    out = TrainData(left.num_prognostic_channels)
+    for left_eg, right_eg in zip(
+        left.example_by_step, right.example_by_step, strict=True
+    ):
+        out.append(left_eg[0], right_eg[1])
+    return out
+
+
 @final
-class TrainDataLoader:
+class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
+    FLAG = LoaderVersion.OM4_MULTI
+
+    def __init__(
+        self,
+        srcs: list[DataSource],
+        make_dataset: Callable[[DataSource], TorchTrainDataset],
+        schedule: MultiscaleSchedule,
+    ):
+        self.datasets = [make_dataset(src) for src in srcs]
+        self.schedule = schedule
+        self.id: DatasetId = f"{self.__class__.__name__}({str(id(self))}, {schedule}, {', '.join([ds.id for ds in self.datasets])})"
+        self.multiplex = {
+            i: pair
+            for i, pair in enumerate(product(range(len(self.datasets)), repeat=2))
+        }
+
+    @elapsed(level=logging.DEBUG)
+    def __getitem__(self, idx: int) -> RawMultiscaleTrainData:
+        # TODO(alxmrs): Check the math here.
+        match self.schedule:
+            case "match":
+                sub_idx = idx // len(self.datasets)
+            case "mix":
+                sub_idx = idx // sum(len(ds) for ds in self.datasets)
+            case _:
+                assert_never(self.schedule)
+        tds = [ds[sub_idx] for ds in self.datasets]
+        return RawMultiscaleTrainData(dataset_id=self.id, datasets=tds, index=idx)
+
+    def __len__(self) -> int:
+        match self.schedule:
+            case "match":
+                # this should be len(datasets[0]) * len(datasets)
+                return sum(len(ds) for ds in self.datasets)
+            case "mix":
+                return int(np.prod([len(ds) for ds in self.datasets]))
+            case _:
+                assert_never(self.schedule)
+
+    def to_train_data(self, raw_train_dataset: RawMultiscaleTrainData) -> TrainData:
+        """Converts each RawTrainData into a TrainData, then merges it into a single TrainData."""
+        tds = [
+            ds.to_train_data(rtd)
+            for ds, rtd in zip(self.datasets, raw_train_dataset.datasets)
+        ]
+        match self.schedule:
+            case "match":
+                idx = raw_train_dataset.index % len(tds)
+                return tds[idx]
+            case "mix":
+                macro_idx = raw_train_dataset.index % len(self.multiplex)
+                left_idx, right_idx = self.multiplex[macro_idx]
+                return mix_examples(tds[left_idx], tds[right_idx])
+            case _:
+                assert_never(self.schedule)
+
+
+@final
+class TrainDataLoader(Generic[DataBoundToDataset]):
     """Wrapper around a torch DataLoader that handles GPU post-processing.
 
     This class wraps a DataLoader[RawTrainData] and converts the raw data
@@ -661,8 +791,8 @@ class TrainDataLoader:
 
     def __init__(
         self,
-        dataloader: torch.utils.data.DataLoader[RawTrainData],
-        datasets: list[TorchTrainDataset],
+        dataloader: torch.utils.data.DataLoader[DataBoundToDataset],
+        datasets: list[GpuResolvedDataset[DataBoundToDataset]],
         device: torch.device,
     ):
         self._dataloader = dataloader

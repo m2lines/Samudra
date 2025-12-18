@@ -5,7 +5,11 @@ from pathlib import Path
 import torch
 from xarray_einstats.einops import rearrange  # noqa: F401
 
-from ocean_emulators.datasets import InferenceDataset, RawTrainData
+from ocean_emulators.datasets import (
+    InferenceDataset,
+    RawMultiscaleTrainData,
+    RawTrainData,
+)
 from ocean_emulators.utils.data import LoadStats
 
 
@@ -32,6 +36,21 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
         [d.load_stats for d in data if d.load_stats is not None]
     )
     batched_data.load_stats = stats
+
+    return batched_data
+
+
+def collate_raw_multiscale_train_data(
+    data: Sequence[RawMultiscaleTrainData],
+) -> RawMultiscaleTrainData:
+    batched_data = RawMultiscaleTrainData(data[0].dataset_id, [])
+
+    # Since `RawMultiscaleTrainData` is a list of lists, we can think of this
+    # `zip` as a transpose of these lists. This is what we want, since we process
+    # every first `RawTrainData` via the collate_fn, then the second, and so on.
+    # After each stage is processed, we add it to the final multiscale TD.
+    for tds in zip(*data):
+        batched_data.datasets.append(collate_raw_train_data(tds))
 
     return batched_data
 

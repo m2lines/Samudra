@@ -33,13 +33,17 @@ class InferenceEvaluatorAggregator:
     ):
         """
         Args:
-            n_timesteps: Number of timesteps of inference that will be run.
+            n_timesteps: Number of predicted timesteps of inference that will be run.
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
-            hist: Number of timesteps of history.
+            num_input_states: Number of input states provided to the model for each
+                rollout window (used for sizing logged time series).
+            num_target_states: Number of predicted states produced for each model
+                forward call.
             area_weights: Area weights for the data.
             wet: Wet mask for the data.
-            num_prognostic_channels: Number of prognostic channels in the data.
+            target_prognostic_channels: Total prognostic channels across all predicted
+                states.
             record_step_20: Whether to record the mean of the 20th steps.
             log_global_mean_time_series: Whether to log global mean time series metrics.
             log_global_mean_norm_time_series: Whether to log the normalized global mean
@@ -54,17 +58,18 @@ class InferenceEvaluatorAggregator:
         self._log_time_series = (
             log_global_mean_time_series or log_global_mean_norm_time_series
         )
+        total_timesteps = n_timesteps + num_input_states
         if log_global_mean_time_series:
             self._aggregators["mean"] = MeanAggregator(
                 target="denorm",
-                n_timesteps=n_timesteps,
+                n_timesteps=total_timesteps,
                 metadata=metadata,
                 area_weights=area_weights,
             )
         if log_global_mean_norm_time_series:
             self._aggregators["mean_norm"] = MeanAggregator(
                 target="norm",
-                n_timesteps=n_timesteps,
+                n_timesteps=total_timesteps,
                 metadata=metadata,
                 area_weights=area_weights,
             )
@@ -105,6 +110,7 @@ class InferenceEvaluatorAggregator:
         self.input_prognostic_channels = self.num_prognostic_vars * num_input_states
         self.num_target_states = num_target_states
         self.num_input_states = num_input_states
+        self.total_timesteps = total_timesteps
         self.wet = wet
 
     @property

@@ -8,7 +8,13 @@ import pydantic
 import torch
 import xarray as xr
 from perceiver_pytorch import Perceiver as NaivePerceiver
-from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema, model_validator
+from pydantic import (
+    Field,
+    PlainSerializer,
+    PlainValidator,
+    WithJsonSchema,
+    model_validator,
+)
 from torch import nn
 from torch.nn import GELU
 

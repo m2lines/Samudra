@@ -27,6 +27,11 @@ class BaseModel(torch.nn.Module):
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
+        if out_channels % num_output_states != 0:
+            raise ValueError(
+                "out_channels must be divisible by num_output_states to support "
+                "per-state buffering."
+            )
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.wet = wet.bool()
@@ -51,7 +56,9 @@ class BaseModel(torch.nn.Module):
         prog_channels_per_state = self.out_channels // self.num_output_states
         total_prognostic_channels = prog_channels_per_state * self.num_input_states
 
-        prognostic_buffer = train_data.get_initial_input()[:, :total_prognostic_channels]
+        prognostic_buffer = train_data.get_initial_input()[
+            :, :total_prognostic_channels
+        ]
 
         for step in range(len(train_data)):
             if (

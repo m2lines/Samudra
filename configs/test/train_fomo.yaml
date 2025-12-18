@@ -47,7 +47,8 @@ data:
   data_means_location: means.nc
   data_stds_location: stds.nc
   num_workers: 4
-  hist: 0
+  num_in_states: 1
+  num_out_states: 1
 
 
 model:

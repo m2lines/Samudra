@@ -78,7 +78,7 @@ class Stepper:
             writer = ZarrWriter(
                 output_dir,
                 coords=coords,
-                hist=inf_aggregator.hist,
+                num_out_states=inf_aggregator.num_target_states,
                 model_path=model_path,
                 time_chunk_size=chunk_size,
             )

@@ -20,10 +20,11 @@ class InferenceEvaluatorAggregator:
         self,
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        num_input_states: int,
+        num_target_states: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
-        num_prognostic_channels: int,
+        target_prognostic_channels: int,
         record_step_20: bool = True,
         log_global_mean_time_series: bool = True,
         log_global_mean_norm_time_series: bool = True,
@@ -94,8 +95,16 @@ class InferenceEvaluatorAggregator:
         }
         self._n_timesteps_seen = 0
         self._normalize = Normalize.get_instance()
-        self.num_prognostic_channels = num_prognostic_channels
-        self.hist = hist
+        if target_prognostic_channels % num_target_states != 0:
+            raise ValueError(
+                "Target prognostic channels must be divisible by the number of "
+                "target states."
+            )
+        self.num_prognostic_vars = target_prognostic_channels // num_target_states
+        self.target_prognostic_channels = target_prognostic_channels
+        self.input_prognostic_channels = self.num_prognostic_vars * num_input_states
+        self.num_target_states = num_target_states
+        self.num_input_states = num_input_states
         self.wet = wet
 
     @property
@@ -109,22 +118,22 @@ class InferenceEvaluatorAggregator:
         if len(data.target) == 0:
             raise ValueError("No target values in data")
         total_len = len(data.time)
-        assert data.prediction.shape[0] == total_len // (self.hist + 1)
+        assert data.prediction.shape[0] == total_len // self.num_target_states
         target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
             wet=self.wet,
             long_rollout=True,
             input_type="prognostic",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            num_prognostic_channels=self.target_prognostic_channels,
+            num_states=self.num_target_states,
         )
         gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
             wet=self.wet,
             long_rollout=True,
             input_type="prognostic",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            num_prognostic_channels=self.target_prognostic_channels,
+            num_states=self.num_target_states,
         )
 
         for aggregator in self._aggregators.values():
@@ -165,8 +174,8 @@ class InferenceEvaluatorAggregator:
             wet=self.wet,
             long_rollout=True,
             input_type="input",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            num_prognostic_channels=self.input_prognostic_channels,
+            num_states=self.num_input_states,
         )
         for aggregator_name in ["mean", "mean_norm"]:
             aggregator = self._aggregators.get(aggregator_name)

@@ -15,7 +15,7 @@ class ZarrWriter:
         self,
         output_dir: str | os.PathLike,
         coords: dict[str, xr.DataArray],
-        hist: int,
+        num_out_states: int,
         model_path: str | os.PathLike,
         time_chunk_size: int,
     ):
@@ -26,7 +26,7 @@ class ZarrWriter:
                 f"Predictions already exist at {self.pred_path}. Please choose a unique experiment name, output directory, or delete the existing predictions."
             )
 
-        self.hist = hist
+        self.num_out_states = num_out_states
         self.buffer: torch.Tensor | None = None
         self.time_buffer: xr.DataArray | None = None
         self.coords = coords
@@ -40,7 +40,7 @@ class ZarrWriter:
         pred_tensor = IO.prediction
         pred_time = IO.time
         pred_tensor = rearrange(
-            pred_tensor, "n (hi c) h w -> (n hi) c h w", hi=self.hist + 1
+            pred_tensor, "n (t c) h w -> (n t) c h w", t=self.num_out_states
         )
         pred_tensor = self.normalize.unnormalize_tensor_prognostic(
             pred_tensor, fill_value=0.0

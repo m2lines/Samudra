@@ -19,24 +19,27 @@ class Aggregator:
     @staticmethod
     def get_validation_aggregator(
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        num_input_states: int,
+        num_target_states: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
     ) -> ValidateAggregator:
         return ValidateAggregator(
             metadata=metadata,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_target_states=num_target_states,
             area_weights=area_weights,
             wet=wet,
-            num_prognostic_channels=num_prognostic_channels,
+            target_prognostic_channels=num_prognostic_channels,
         )
 
     @staticmethod
     def get_inline_inference_aggregator(
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        num_input_states: int,
+        num_target_states: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
@@ -45,10 +48,11 @@ class Aggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_target_states=num_target_states,
             area_weights=area_weights,
             wet=wet,
-            num_prognostic_channels=num_prognostic_channels,
+            target_prognostic_channels=num_prognostic_channels,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
@@ -59,7 +63,8 @@ class Aggregator:
     def get_standalone_inference_aggregator(
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        num_input_states: int,
+        num_target_states: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
@@ -68,10 +73,11 @@ class Aggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_target_states=num_target_states,
             area_weights=area_weights,
             wet=wet,
-            num_prognostic_channels=num_prognostic_channels,
+            target_prognostic_channels=num_prognostic_channels,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,

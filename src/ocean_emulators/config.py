@@ -8,7 +8,7 @@ import pydantic
 import torch
 import xarray as xr
 from perceiver_pytorch import Perceiver as NaivePerceiver
-from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
+from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema, model_validator
 from torch import nn
 from torch.nn import GELU
 
@@ -146,11 +146,35 @@ class DataConfig(BaseConfig):
     )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
-    hist: int = 1
+    num_in_states: int = Field(
+        default=2,
+        description=(
+            "Number of sequential states provided as model input. "
+            "This replaces the previous hist+1 concept."
+        ),
+        ge=1,
+    )
+    num_out_states: int = Field(
+        default=2,
+        description=(
+            "Number of sequential states the model is trained to predict in each step. "
+            "This replaces the previous hist+1 concept."
+        ),
+        ge=1,
+    )
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+
+    @model_validator(mode="after")
+    def _validate_state_counts(self) -> Self:
+        if self.num_out_states > self.num_in_states:
+            raise ValueError(
+                "num_out_states must be less than or equal to num_in_states to support "
+                "autoregressive rollouts."
+            )
+        return self
 
     def build(
         self,
@@ -280,7 +304,11 @@ class CorrectorConfig(BaseConfig):
     ocean_heat_corrector: bool = False
 
     def build(
-        self, hist: int, area_weights: Grid, static_data: xr.Dataset | None
+        self,
+        num_input_states: int,
+        num_output_states: int,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
     ) -> nn.Module:
         # This prevents a circular import bug.
         from ocean_emulators.models.corrector import Correctors
@@ -288,7 +316,8 @@ class CorrectorConfig(BaseConfig):
         return Correctors(
             non_negative_corrector_names=self.non_negative_corrector_names,
             ocean_heat_corrector=self.ocean_heat_corrector,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
             area_weights=area_weights,
             static_data=static_data,
         )
@@ -491,7 +520,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         self,
         in_channels: int,
         out_channels: int,
-        hist: int,
+        num_input_states: int,
+        num_output_states: int,
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
@@ -513,7 +543,8 @@ class SamudraConfig(BaseModelConfig):
         self,
         in_channels: int,
         out_channels: int,
-        hist: int,
+        num_input_states: int,
+        num_output_states: int,
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
@@ -522,7 +553,9 @@ class SamudraConfig(BaseModelConfig):
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
-            corrector = self.corrector.build(hist, area_weights, static_data)
+            corrector = self.corrector.build(
+                num_input_states, num_output_states, area_weights, static_data
+            )
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
@@ -543,7 +576,8 @@ class SamudraConfig(BaseModelConfig):
             corrector=corrector,
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
             wet=wet,
             static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
@@ -560,7 +594,8 @@ class FOMOConfig(BaseModelConfig):
         self,
         in_channels: int,
         out_channels: int,
-        hist: int,
+        num_input_states: int,
+        num_output_states: int,
         wet: Grid,
         area_weights: Grid,
         static_data: xr.Dataset | None,
@@ -585,7 +620,8 @@ class FOMOConfig(BaseModelConfig):
             ),
             # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
             add_3d_coordinates=add_3d_coordinates,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
             wet=wet,
             static_data=static_data,
             checkpointing=self.checkpointing,

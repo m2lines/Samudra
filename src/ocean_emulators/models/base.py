@@ -17,7 +17,8 @@ class BaseModel(torch.nn.Module):
         in_channels,
         out_channels,
         wet,
-        hist,
+        num_input_states: int,
+        num_output_states: int,
         pred_residuals,
         last_kernel_size,
         pad,
@@ -32,7 +33,8 @@ class BaseModel(torch.nn.Module):
         self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad = pad
         self.pred_residuals = pred_residuals
-        self.hist = hist
+        self.num_input_states = num_input_states
+        self.num_output_states = num_output_states
         self.static_data = static_data
         self.gradient_detach_interval = gradient_detach_interval
 
@@ -46,29 +48,29 @@ class BaseModel(torch.nn.Module):
     ) -> torch.Tensor | list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         loss = torch.tensor(torch.nan)
+        prog_channels_per_state = self.out_channels // self.num_output_states
+        total_prognostic_channels = prog_channels_per_state * self.num_input_states
+
+        prognostic_buffer = train_data.get_initial_input()[:, :total_prognostic_channels]
+
         for step in range(len(train_data)):
-            if step == 0:
-                input_tensor = train_data.get_initial_input()
-            else:
-                prev_output = outputs[-1]
-                if (
-                    self.gradient_detach_interval > 0
-                    and step % self.gradient_detach_interval == 0
-                ):
-                    prev_output = prev_output.detach()
-                input_tensor = train_data.merge_prognostic_and_boundary(
-                    prognostic=prev_output, step=step
-                )
+            if (
+                step > 0
+                and self.gradient_detach_interval > 0
+                and step % self.gradient_detach_interval == 0
+            ):
+                prognostic_buffer = prognostic_buffer.detach()
+
+            input_tensor = train_data.merge_prognostic_and_boundary(
+                prognostic=prognostic_buffer, step=step
+            )
 
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
+                base = prognostic_buffer[:, -self.out_channels :]
                 pred = (
-                    input_tensor[
-                        :,
-                        : self.out_channels,
-                    ]  # Residuals on last state in input
-                    + decodings
-                )  # Residual prediction
+                    base + decodings
+                )  # Residual prediction on the most recent input states
             else:
                 pred = decodings  # Absolute prediction
 
@@ -85,6 +87,17 @@ class BaseModel(torch.nn.Module):
                     )
 
             outputs.append(pred)
+            if step + 1 < len(train_data):
+                prognostic_buffer = torch.cat(
+                    [
+                        prognostic_buffer[
+                            :,
+                            prog_channels_per_state * self.num_output_states :,
+                        ],
+                        pred,
+                    ],
+                    dim=1,
+                )
 
         if loss_fn is None:
             return outputs
@@ -102,40 +115,48 @@ class BaseModel(torch.nn.Module):
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
-        initial_prognostic = initial_prognostic.to(get_device())
+        prognostic_buffer = initial_prognostic.to(get_device())
         target_time = dataset.get_target_time(steps_completed, num_steps)
+        prog_channels_per_state = self.out_channels // self.num_output_states
 
         for step in range(num_steps):
             logger.info(
                 f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
                 f"of {steps_completed + num_steps - 1}."
             )
-            if step == 0:
-                input_tensor = dataset.merge_prognostic_and_boundary(
-                    prognostic=initial_prognostic,
-                    step=steps_completed,
-                )
-            else:
-                input_tensor = dataset.merge_prognostic_and_boundary(
-                    prognostic=pred_tensor[step - 1].unsqueeze(0),
-                    step=steps_completed + step,
-                )
+            if (
+                step > 0
+                and self.gradient_detach_interval > 0
+                and step % self.gradient_detach_interval == 0
+            ):
+                prognostic_buffer = prognostic_buffer.detach()
+
+            input_tensor = dataset.merge_prognostic_and_boundary(
+                prognostic=prognostic_buffer,
+                step=steps_completed + step,
+            )
 
             decodings = self.forward_once(input_tensor)
             if self.pred_residuals:
                 pred = (
-                    input_tensor[
-                        0,
-                        : self.out_channels,
-                    ].to(  # Residuals on last state in input
-                        device=get_device()
-                    )
+                    prognostic_buffer[:, -self.out_channels :].to(device=get_device())
                     + decodings
                 )
             else:
                 pred = decodings
 
-            pred_tensor[step] = pred
+            pred_tensor[step] = pred.squeeze(0)
+            if step + 1 < num_steps:
+                prognostic_buffer = torch.cat(
+                    [
+                        prognostic_buffer[
+                            :,
+                            prog_channels_per_state * self.num_output_states :,
+                        ],
+                        pred,
+                    ],
+                    dim=1,
+                )
 
         target_tensor = dataset.inference_target(
             slice(steps_completed, steps_completed + num_steps)

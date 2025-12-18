@@ -52,11 +52,7 @@ from ocean_emulators.datasets import (
 )
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
-from ocean_emulators.utils.data import (
-    Normalize,
-    get_inference_steps,
-    spherical_area_weights,
-)
+from ocean_emulators.utils.data import Normalize, spherical_area_weights
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
     all_reduce_mean,
@@ -142,8 +138,10 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
-        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
+        self.num_in_states = cfg.data.num_in_states
+        self.num_out_states = cfg.data.num_out_states
+        self.num_in = int(self.num_in_states * (self.N_prog + self.N_bound))
+        self.num_out = int(self.num_out_states * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
@@ -185,7 +183,9 @@ class Trainer:
         self.loader_version = self.data_container.loader_version
 
         self.metadata = construct_metadata(self.data)
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
+        self.wet = self.src.masks.prognostic_with_states(self.num_out_states).to(
+            self.device
+        )
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -199,7 +199,8 @@ class Trainer:
         self.model = cfg.model.build(
             in_channels=self.num_in,
             out_channels=self.num_out,
-            hist=cfg.data.hist,
+            num_input_states=self.num_in_states,
+            num_output_states=self.num_out_states,
             wet=self.wet,
             area_weights=self.area_weights,
             static_data=self.static_data,
@@ -301,7 +302,6 @@ class Trainer:
         # Training
         self.epochs = cfg.epochs
         self.test_using_ema = cfg.test_using_ema
-        self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
@@ -317,7 +317,7 @@ class Trainer:
         self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
-            self.hist + 1
+            self.num_out_states
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
@@ -352,22 +352,19 @@ class Trainer:
         num_steps_inf_set = []
         for i in range(num_splits):
             sliced_src = self.inference_src.slice(self.inference_times[i])
-            num_time_steps = get_inference_steps(
-                sliced_src,
-                hist=self.hist,
-            )
             inference_dataset = InferenceDataset(
                 src=sliced_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                num_in_states=self.num_in_states,
+                num_out_states=self.num_out_states,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
             )
 
             inference_datasets.append(inference_dataset)
-            num_steps_inf_set.append(num_time_steps)
+            num_steps_inf_set.append(inference_dataset.target_timesteps)
 
         inference_data_combined = InferenceDatasets(
             inference_datasets, num_steps_inf_set
@@ -617,7 +614,8 @@ class Trainer:
 
         val_aggregator = Aggregator.get_validation_aggregator(
             self.metadata,
-            self.hist,
+            self.num_in_states,
+            self.num_out_states,
             self.area_weights,
             self.src.masks.prognostic.to(self.device),
             self.num_out,
@@ -651,7 +649,8 @@ class Trainer:
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
                     self.metadata,
-                    self.hist,
+                    self.num_in_states,
+                    self.num_out_states,
                     self.area_weights,
                     self.src.masks.prognostic.to(self.device),
                     self.num_out,
@@ -668,7 +667,7 @@ class Trainer:
                     inf_aggregator=inf_aggregator,
                     epoch=epoch,
                     num_model_steps_forward=min(
-                        num_steps // 2, self.max_train_model_steps_forward
+                        len(inference_dataset), self.max_train_model_steps_forward
                     ),
                 )
 
@@ -720,7 +719,8 @@ class Trainer:
                 src=self.src.slice(self.train_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                num_in_states=self.num_in_states,
+                num_out_states=self.num_out_states,
                 steps=cur_step,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
@@ -735,7 +735,8 @@ class Trainer:
                 src=self.src.slice(self.val_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                num_in_states=self.num_in_states,
+                num_out_states=self.num_out_states,
                 steps=1,  # current_step set to 1 for validation
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,

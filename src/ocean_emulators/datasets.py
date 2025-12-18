@@ -32,15 +32,11 @@ logger = logging.getLogger(__name__)
 class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 
-    It creates rolling indices to keep track of histories/past states.
-    For example,
-    Hist=0 ; 0->[0, 1]; 1->[1, 2]; 2->[2, 3]; 3->[3, 4]
-    Hist=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]];
-            2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
-    Hist=2 ; 0->[[0, 1, 2], [3, 4, 5]];
-            1->[[3, 4, 5], [6, 7, 8]];
-            2->[[6, 7, 8], [9, 10, 11]];
-            3->[[9, 10, 11], [12, 13, 14]]
+    It creates rolling indices to keep track of past and future states.
+    For example with `num_in_states=2` and `num_out_states=1`:
+    0 -> [[0, 1], [2]]
+    1 -> [[2, 3], [4]]
+    2 -> [[4, 5], [6]]
     """
 
     @elapsed
@@ -49,7 +45,8 @@ class InferenceDataset(Dataset):
         src: DataSource,
         prognostic_var_names,
         boundary_var_names,
-        hist,
+        num_in_states: int,
+        num_out_states: int,
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
@@ -57,9 +54,21 @@ class InferenceDataset(Dataset):
         super().__init__()
         self.device = get_device()
 
-        self.hist = hist
+        if num_in_states < 1:
+            raise ValueError("num_in_states must be >= 1")
+        if num_out_states < 1:
+            raise ValueError("num_out_states must be >= 1")
 
-        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        self.num_in_states = num_in_states
+        self.num_out_states = num_out_states
+
+        self.num_input_prognostic_channels = num_in_states * len(prognostic_var_names)
+        self.num_output_prognostic_channels = num_out_states * len(
+            prognostic_var_names
+        )
+        self.num_input_boundary_channels = num_in_states * len(boundary_var_names)
+        # Backwards-compatibility name used by tests
+        self.num_prognostic_channels = self.num_output_prognostic_channels
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
@@ -67,33 +76,33 @@ class InferenceDataset(Dataset):
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
 
-        time_indices = np.arange(data.time.size)
-        indices = xr.DataArray(
-            time_indices,
-            dims=["time"],
-            coords={"time": time_indices},
+        window_length = self.num_in_states + self.num_out_states
+        if data.time.size < window_length:
+            raise ValueError(
+                "Not enough timesteps to build inference dataset: "
+                f"required at least {window_length}, got {data.time.size}"
+            )
+
+        starts = np.arange(
+            0, data.time.size - window_length + 1, self.num_out_states, dtype=int
         )
-        total_steps = 2 * self.hist + 1
-        rolling_indices = indices.rolling(
-            time=len(time_indices) - total_steps, center=False
-        ).construct("window_dim")
-        rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
-            time=slice(len(time_indices) - total_steps - 1, None)
-        )  # Remove first few null indices
-        self.rolling_indices = rolling_indices.isel(
-            window_dim=slice(0, None, self.hist + 1)
-        )  # Skip indices based on history
-        self.rolling_indices = self.rolling_indices.astype(int)
+        windows = starts[:, None] + np.arange(window_length, dtype=int)[None, :]
+        self.rolling_indices = xr.DataArray(
+            windows,
+            dims=["window_dim", "time"],
+        ).astype(int)
 
         if long_rollout:
             logger.info(
-                f"Long rollout will use input at time {data.time.values[0]} and produce"
-                f" output at {data.time.values[self.hist + 1]}"
+                "Long rollout will use input starting at time "
+                f"{data.time.values[0]} and produce output at "
+                f"{data.time.values[self.num_in_states]}"
             )
 
         self.wet: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
         self.size = len(self.rolling_indices)
+        self.target_timesteps = self.size * self.num_out_states
 
         if using_gpu():
             self.wet = self.wet.pin_memory()
@@ -120,8 +129,8 @@ class InferenceDataset(Dataset):
     def get_target_time(self, start_step: int, num_steps: int):
         x_index = self._get_x_index(start_step)
         batch_index = x_index.values[0]
-        steps_predicted = len(batch_index) // 2
-        start_target_index = batch_index[steps_predicted]
+        start_target_index = batch_index[self.num_in_states]
+        steps_predicted = self.num_out_states
 
         return self._times.isel(
             time=slice(
@@ -168,13 +177,13 @@ class InferenceDataset(Dataset):
             idx = slice(idx, idx + 1, 1)
 
         rolling_idx = self.rolling_indices.isel(window_dim=idx)
-        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
+        x_index = xr.Variable(["window_dim", "time"], rolling_idx.to_numpy())
 
         return x_index
 
     def _get_prognostic(self, x_index):
         data_in_src = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
+            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.num_in_states))
         )
         if self.normalize_before_mask:
             data_in_ds = data_in_src.normalize()
@@ -211,11 +220,11 @@ class InferenceDataset(Dataset):
         """
         This function returns the boundary condition for the current time step.
 
-        With hist > 0, the boundary condition considered is always the last step of
-        the input.
+        When using multiple input states, the boundary condition considered is always
+        the last step of the input window.
         """
         data_in_boundary_src = self._boundary_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
+            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.num_in_states))
         )
         if self.normalize_before_mask:
             data_in_boundary_ds = data_in_boundary_src.normalize()
@@ -242,7 +251,9 @@ class InferenceDataset(Dataset):
 
     def _get_label(self, x_index):
         label_src = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
+            lambda ds: ds.isel(time=x_index).isel(
+                time=slice(self.num_in_states, self.num_in_states + self.num_out_states)
+            )
         )
         if self.normalize_before_mask:
             label_ds = label_src.normalize()
@@ -387,20 +398,18 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     """
     This class is used for training and validation.
 
-    It creates rolling indices to keep track of histories/past states. But different
-    from InferenceDataset, as it creates rolling indices based on stride. By default,
+    It creates rolling indices to keep track of past and future states. Unlike
+    `InferenceDataset`, it advances one training step by `num_out_states` (times the
+    stride) so autoregressive training can consume newly predicted states. By default,
     the sliding window / stride is 1.
 
     We make use of TrainData class to store a single sample.
 
-    For example,
-    Hist=0 ; TD: step=0->[0, 1]; step=1->[1, 2]; step=2->[2, 3]; step=3->[3, 4]
-    Hist=1 ; TD: step=0->[[0, 1], [2, 3]]; step=1->[[2, 3], [4, 5]];
-            step=2->[[4, 5], [6, 7]]; step=3->[[6, 7], [8, 9]]
-    Hist=2 ; TD: step=0->[[0, 1, 2], [3, 4, 5]];
-            step=1->[[3, 4, 5], [6, 7, 8]];
-            step=2->[[6, 7, 8], [9, 10, 11]];
-            step=3->[[9, 10, 11], [12, 13, 14]]
+    For example with `num_in_states=2` and `num_out_states=1`:
+      step=0 -> [[0, 1], [2]]
+      step=1 -> [[2, 3], [4]]
+      step=2 -> [[4, 5], [6]]
+      step=3 -> [[6, 7], [8]]
     """
 
     Id: TypeAlias = str
@@ -413,7 +422,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        hist: int,
+        num_in_states: int,
+        num_out_states: int,
         steps: int,
         normalize_before_mask: bool,
         masked_fill_value: float,
@@ -424,30 +434,45 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         self.device = get_device()
 
-        self.hist: int = hist
+        if num_in_states < 1:
+            raise ValueError("num_in_states must be >= 1")
+        if num_out_states < 1:
+            raise ValueError("num_out_states must be >= 1")
+
+        self.num_in_states: int = num_in_states
+        self.num_out_states: int = num_out_states
         self.steps: int = steps
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._executor = executor
 
-        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
+        self.num_prognostic_channels: int = num_in_states * len(prognostic_var_names)
+        self.num_label_prognostic_channels: int = num_out_states * len(
+            prognostic_var_names
+        )
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
-        total_steps: int = 2 * self.hist + 2
+        self.window_length: int = self.num_in_states + self.num_out_states
 
         # Calculate the number of windows
-        num_windows = data.time.size - (total_steps - 1) * self.stride
+        num_windows = data.time.size - (self.window_length - 1) * self.stride
+        if num_windows <= 0:
+            raise ValueError(
+                "Not enough timesteps to construct training windows. "
+                f"Need at least {self.window_length} timesteps with stride {self.stride}, "
+                f"but got {data.time.size}."
+            )
 
         # Create base indices
         indices = np.arange(num_windows)
         indices_da = xr.DataArray(indices, dims=["window"])
 
         # Create window dimension
-        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
+        window_dim = xr.DataArray(np.arange(self.window_length), dims=["time"])
 
         # Construct rolling indices
         self.rolling_indices: Float[xr.DataArray, "window time"] = (
@@ -474,11 +499,12 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.boundary_means = flatten_to_device(self._boundary_src.means)
         self.boundary_stds = flatten_to_device(self._boundary_src.stds)
 
-        self.size: int = (
-            data.time.size
-            - self.steps * (self.hist + 1) * self.stride
-            - self.hist * self.stride
-        )
+        self.size = num_windows - (self.steps - 1) * self.num_out_states * self.stride
+        if self.size <= 0:
+            raise ValueError(
+                "Computed non-positive dataset size. Check num_in_states, "
+                "num_out_states, stride, and number of steps."
+            )
 
     def __len__(self) -> int:
         return self.size
@@ -541,17 +567,21 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
     def _get_input_and_label(
         self,
-        # time includes (self.hist + 1) past steps and the (label) future steps
         prognostic_all: Float[torch.Tensor, "batch time variable lat lon"],
         boundary_all: Float[torch.Tensor, "batch time variable lat lon"],
     ) -> tuple[Input, Prognostic]:
+        # `prognostic_all` and `boundary_all` include both the input and label steps.
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
-            prognostic_all[:, : self.hist + 1, :, :, :],
-            boundary_all[:, : self.hist + 1, :, :, :],
+            prognostic_all[:, : self.num_in_states, :, :, :],
+            boundary_all[:, : self.num_in_states, :, :, :],
         )
         # grab future steps, repeat as we do for input
-        label = self._prep_tensor_steps(prognostic_all[:, self.hist + 1 :, :, :, :])
+        label = self._prep_tensor_steps(
+            prognostic_all[
+                :, self.num_in_states : self.num_in_states + self.num_out_states, :, :, :
+            ]
+        )
         return total_input, label
 
     def _prep_tensor_steps(
@@ -624,7 +654,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         if idx >= len(self):
             raise IndexError("Index out of range")
 
-        window_index = idx + step * (self.hist + 1) * self.stride
+        window_index = idx + step * self.num_out_states * self.stride
         return self.rolling_indices.isel(window=window_index, drop=True)
 
 

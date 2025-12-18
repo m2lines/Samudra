@@ -25,26 +25,42 @@ from ocean_emulators.utils.device import get_device
 class BaseCorrector(torch.nn.Module):
     """Base class for tensor correction modules."""
 
-    def __init__(self, hist: int, tensor_map: TensorMap, normalize: Normalize):
+    def __init__(
+        self,
+        num_input_states: int,
+        num_output_states: int,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+    ):
         super().__init__()
-        self.hist = hist
+        self.num_input_states = num_input_states
+        self.num_output_states = num_output_states
         self.tensor_map = tensor_map
         self.normalize = normalize
         self.num_prognostic_channels = len(self.tensor_map.prognostic_var_names)
+        self.num_boundary_channels = len(self.tensor_map.boundary_var_names)
 
-    def _flatten_hist(self, fts: HistChanneled) -> HistBatched:
-        return rearrange(fts, "n (hist c) h w -> (n hist) c h w", hist=self.hist + 1)
+    def _flatten_output(self, fts: HistChanneled) -> HistBatched:
+        return rearrange(
+            fts, "n (t c) h w -> (n t) c h w", t=self.num_output_states
+        )
 
     def _flatten_input(self, fts: Input) -> tuple[HistBatched, HistBatched]:
-        fts_input = fts[:, : (self.hist + 1) * self.num_prognostic_channels]
-        fts_input = self._flatten_hist(fts_input)
+        fts_input = fts[:, : self.num_input_states * self.num_prognostic_channels]
+        fts_input = rearrange(
+            fts_input, "n (t c) h w -> (n t) c h w", t=self.num_input_states
+        )
 
-        fts_boundary = fts[:, (self.hist + 1) * self.num_prognostic_channels :]
-        fts_boundary = self._flatten_hist(fts_boundary)
+        fts_boundary = fts[:, self.num_input_states * self.num_prognostic_channels :]
+        fts_boundary = rearrange(
+            fts_boundary, "n (t c) h w -> (n t) c h w", t=self.num_input_states
+        )
         return fts_input, fts_boundary
 
-    def _unflatten_hist(self, fts: HistBatched) -> HistChanneled:
-        return rearrange(fts, "(n hist) c h w -> n (hist c) h w", hist=self.hist + 1)
+    def _unflatten_output(self, fts: HistBatched) -> HistChanneled:
+        return rearrange(
+            fts, "(n t) c h w -> n (t c) h w", t=self.num_output_states
+        )
 
     def _unnormalize_fts_prognostic(self, fts: Prognostic) -> Prognostic:
         # Corrector is run in float64 to avoid precision loss
@@ -88,11 +104,17 @@ class ReLUCorrector(BaseCorrector):
     def __init__(
         self,
         non_negative_corrector_names: list[str] | None,
-        hist: int,
+        num_input_states: int,
+        num_output_states: int,
         tensor_map: TensorMap,
         normalize: Normalize,
     ):
-        super().__init__(hist, tensor_map, normalize)
+        super().__init__(
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
+            tensor_map=tensor_map,
+            normalize=normalize,
+        )
         self.non_negative_corrector_names = non_negative_corrector_names
         if self.non_negative_corrector_names is not None:
             self.non_neg_indices = torch.cat(
@@ -126,16 +148,16 @@ class ReLUCorrector(BaseCorrector):
         """Applies correction to the input features if needed.
 
         Args:
-            fts_input: Input tensor of shape (batch_size, hist*channels, height, width)
-            fts: Output tensor of shape (batch_size, hist*channels, height, width)
+            fts_input: Input tensor of shape (batch_size, num_input_states*channels, height, width)
+            fts: Output tensor of shape (batch_size, num_output_states*channels, height, width)
 
         Returns:
             Corrected output tensor of the same shape
         """
         if not torch.isnan(self.non_neg_indices).all():
-            fts = self._flatten_hist(fts)
+            fts = self._flatten_output(fts)
             fts = self._apply_relu_correction(fts)
-            fts = self._unflatten_hist(fts)
+            fts = self._unflatten_output(fts)
         return fts
 
 
@@ -169,14 +191,20 @@ class OceanHeatCorrector(BaseCorrector):
 
     def __init__(
         self,
-        hist: int,
+        num_input_states: int,
+        num_output_states: int,
         area_weights: torch.Tensor,
         tensor_map: TensorMap,
         normalize: Normalize,
         hfgeou_tensor: torch.Tensor,
         sea_surface_fraction_tensor: torch.Tensor,
     ):
-        super().__init__(hist, tensor_map, normalize)
+        super().__init__(
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
+            tensor_map=tensor_map,
+            normalize=normalize,
+        )
         # Area weights are not on the correct scale.
         self.area_weights = area_weights
         self.area_weighted_func = partial(
@@ -203,7 +231,7 @@ class OceanHeatCorrector(BaseCorrector):
     def forward(self, fts_input: Input, fts: Prognostic) -> Prognostic:
         fts_input = fts_input.detach()
 
-        fts = self._flatten_hist(fts)
+        fts = self._flatten_output(fts)
         fts = self._unnormalize_fts_prognostic(fts)
 
         fts_input, fts_boundary = self._flatten_input(fts_input)
@@ -236,7 +264,7 @@ class OceanHeatCorrector(BaseCorrector):
         fts[:, self.thetao_idx] = T_corrected
 
         fts = self._normalize_fts_prognostic(fts)
-        fts = self._unflatten_hist(fts)
+        fts = self._unflatten_output(fts)
 
         return fts
 
@@ -248,7 +276,8 @@ class Correctors(torch.nn.Module):
         self,
         non_negative_corrector_names: list[str] | None,
         ocean_heat_corrector: bool,
-        hist: int,
+        num_input_states: int,
+        num_output_states: int,
         area_weights: torch.Tensor,
         static_data: xr.Dataset | None,
     ):
@@ -259,7 +288,8 @@ class Correctors(torch.nn.Module):
         Args:
             non_negative_corrector_names (list[str]): list of names of non-negative correctors (None turns feature off).
             ocean_heat_corrector (bool): whether to apply ocean heat corrections (turns this feature on or off)
-            hist: History length for temporal data
+            num_input_states: Number of sequential input states
+            num_output_states: Number of sequential output states
             area_weights: Area weights for area weighting
             static_data: Static data for corrections
         """
@@ -274,7 +304,8 @@ class Correctors(torch.nn.Module):
             correctors.append(
                 ReLUCorrector(
                     non_negative_corrector_names=non_negative_corrector_names,
-                    hist=hist,
+                    num_input_states=num_input_states,
+                    num_output_states=num_output_states,
                     tensor_map=self.tensor_map,
                     normalize=self.normalize,
                 )
@@ -298,7 +329,8 @@ class Correctors(torch.nn.Module):
             )
             correctors.append(
                 OceanHeatCorrector(
-                    hist=hist,
+                    num_input_states=num_input_states,
+                    num_output_states=num_output_states,
                     area_weights=area_weights,
                     tensor_map=self.tensor_map,
                     normalize=self.normalize,

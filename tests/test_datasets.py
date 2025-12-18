@@ -47,14 +47,29 @@ def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoa
     return cfg, trainer.inference_loader
 
 
-def coarsen(
-    ds: xr.Dataset, mean: xr.Dataset, stds: xr.Dataset
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
-    return (
-        ds.coarsen(lat=2, lon=2).mean(),  # type: ignore
-        mean.coarsen(lat=2, lon=2).mean(),  # type: ignore
-        stds.coarsen(lat=2, lon=2).mean(),  # type: ignore
-    )
+def coarsen_data(ds: xr.Dataset) -> xr.Dataset:
+    return ds.coarsen(lat=2, lon=2).mean()  # type: ignore
+
+
+def coarsen_masks(masks: Masks) -> Masks:
+    """Coarsen masks to half resolution using max pooling (any True -> True)."""
+    # For masks, we use max pooling: if any cell in the 2x2 block is True (valid),
+    # the coarsened cell is True
+    import torch.nn.functional as F
+
+    # Coarsen prognostic mask (3D: channels x lat x lon)
+    prog_mask = masks.prognostic.float().unsqueeze(0)  # Add batch dim
+    prog_coarsened = F.max_pool2d(prog_mask, kernel_size=2, stride=2)
+    prog_coarsened = prog_coarsened.squeeze(0).bool()  # Remove batch dim, back to bool
+
+    # Coarsen boundary mask (2D: lat x lon)
+    bound_mask = (
+        masks.boundary.float().unsqueeze(0).unsqueeze(0)
+    )  # Add batch and channel dims
+    bound_coarsened = F.max_pool2d(bound_mask, kernel_size=2, stride=2)
+    bound_coarsened = bound_coarsened.squeeze(0).squeeze(0).bool()  # Remove extra dims
+
+    return Masks(prognostic=prog_coarsened, boundary=bound_coarsened)
 
 
 @contextlib.contextmanager
@@ -106,7 +121,12 @@ def make_loader(
                 ]
                 collate_fn = collate_raw_train_data
             case LoaderVersion.OM4_MULTI_MATCH | LoaderVersion.OM4_MULTI_MIX:
-                srcs = [src, src]
+                # Create coarsened datasource with both coarsened data and masks
+                coarsened_src = src.map_data(coarsen_data, suffix="half-size")
+                coarsened_src = dataclasses.replace(
+                    coarsened_src, masks=coarsen_masks(src.masks)
+                )
+                srcs = [src, coarsened_src]
 
                 def make_dataset(s, stride):
                     return TorchTrainDataset(
@@ -121,7 +141,7 @@ def make_loader(
                     )
 
                 schedule: MultiscaleSchedule = (
-                    "match" if LoaderVersion.OM4_MULTI_MATCH else "mix"
+                    "match" if version == LoaderVersion.OM4_MULTI_MATCH else "mix"
                 )
 
                 dataset_list = [
@@ -295,11 +315,11 @@ def test_loader__data_shape(
         )
 
         n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
-        if (
-            loader_version == LoaderVersion.OM4_MULTI_MATCH
-            or loader_version == LoaderVersion.OM4_MULTI_MIX
-        ):
+        if loader_version == LoaderVersion.OM4_MULTI_MATCH:
             n_samples *= 2
+        elif loader_version == LoaderVersion.OM4_MULTI_MIX:
+            n_samples *= 4
+
         samples = list(loader)
 
         assert len(samples) == n_samples, (
@@ -307,24 +327,48 @@ def test_loader__data_shape(
             f"got {len(samples)}."
         )
 
-        # Only check the first 2 samples; this should be proof enough that everything is
+        cross_resolutions = []
+        # Only check the first 4 samples; this should be proof enough that everything is
         # the right shape.
-        for sample in samples[:2]:
+        for sample in samples[:4]:
             X, y = extract_sample_arrays(sample)
-            assert X.shape == (
+            # Exclude the coordinate shape information for now; we'll test that separately.
+            assert X.shape[:-2] == (
                 train_config.steps[0],
                 batch_size,
                 input_var_dim,
-                180,
-                360,
             )
-            assert y.shape == (
+            assert y.shape[:-2] == (
                 train_config.steps[0],
                 batch_size,
                 output_var_dim,
-                180,
-                360,
             )
+            cross_resolutions.append((X.shape[-2:], y.shape[-2:]))
+
+        match loader_version:
+            case LoaderVersion.OM4_TORCH:
+                assert cross_resolutions[0][0] == cross_resolutions[0][1], (
+                    "The input and output should be equal"
+                )
+                assert all(
+                    cross_resolutions[0] == cr for cr in cross_resolutions[1:]
+                ), "All resolutions should be equal"
+            case LoaderVersion.OM4_MULTI_MATCH:
+                for x_res, y_res in cross_resolutions:
+                    assert x_res == y_res, (
+                        f"Resolutions must match across batches for 'match' schedule multiscale loader. {cross_resolutions=}"
+                    )
+            case LoaderVersion.OM4_MULTI_MIX:
+                # In mix mode with 2 scales, multiplex creates pattern: (0,0), (0,1), (1,0), (1,1)
+                # Expected: same, different, different, same
+                assert cross_resolutions == [
+                    ((180, 360), (180, 360)),
+                    ((180, 360), (90, 180)),
+                    ((90, 180), (180, 360)),
+                    ((90, 180), (90, 180)),
+                ], (
+                    "Resolutions should follow a cartesian product for the 'mix' schedule multiscale loader."
+                )
 
 
 def test_inference__data_shape(inference_loader_pair):

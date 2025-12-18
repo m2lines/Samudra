@@ -43,14 +43,16 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
 def collate_raw_multiscale_train_data(
     data: Sequence[RawMultiscaleTrainData],
 ) -> RawMultiscaleTrainData:
-    batched_data = RawMultiscaleTrainData(data[0].dataset_id, [], data[0].index)
+    batched_data = RawMultiscaleTrainData(data[0].dataset_id, {}, data[0].index)
 
-    # Since `RawMultiscaleTrainData` is a list of lists, we can think of this
-    # `zip` as a transpose of these lists. This is what we want, since we process
-    # every first `RawTrainData` via the collate_fn, then the second, and so on.
-    # After each stage is processed, we add it to the final multiscale TD.
-    for tds in zip(*data):
-        batched_data.datasets.append(collate_raw_train_data(tds))
+    # Collect all dataset indices present in any batch item
+    all_indices: set[int] = {k for d in data for k in d.datasets.keys()}
+
+    # For each index, collate the RawTrainData from all batch items that have it
+    for idx in sorted(all_indices):
+        tds = [d.datasets[idx] for d in data if idx in d.datasets]
+        if tds:
+            batched_data.datasets[idx] = collate_raw_train_data(tds)
 
     return batched_data
 

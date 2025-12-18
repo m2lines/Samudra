@@ -333,21 +333,25 @@ class RawTrainData:
 
 @dataclasses.dataclass
 class RawMultiscaleTrainData:
-    """A collection of `RawTrainData` stores of `Example`s at multiple scales."""
+    """A collection of `RawTrainData` stores of `Example`s at multiple scales.
+
+    Uses a sparse representation where only loaded datasets are stored in the dict.
+    Keys are dataset indices, values are the corresponding RawTrainData.
+    """
 
     dataset_id: DatasetId
-    datasets: list[RawTrainData]
+    datasets: dict[int, RawTrainData]
     index: int
 
     def __iter__(self) -> Iterator[RawTrainData]:
-        yield from self.datasets
+        yield from self.datasets.values()
 
     def to(self, device: torch.device) -> None:
-        for dataset in self.datasets:
+        for dataset in self:
             dataset.to(device=device)
 
     def pin_memory(self) -> Self:
-        for dataset in self.datasets:
+        for dataset in self:
             dataset.pin_memory()
         return self
 
@@ -705,6 +709,17 @@ def mix_examples(left: TrainData, right: TrainData) -> TrainData:
 
 @final
 class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
+    """A dataset that loads `TrainData` at multiple scales, in either a "match" or "mix" schedule.
+
+    In a "match" schedule, the resolved `TrainData` Examples have matching scales, but scales vary by index.
+    In a "mix" schedule, the resolved `TrainData` Examples are combinations of scales, where the input is one scale and
+    the label is another scale.
+
+    This Dataset includes a sparse lookup optimization where we only load the data from scales that are used (depending
+    on the schedule). For instance, when two datasets of two scales are used, this loader will only load either one or
+    two `TrainData` batches only (if it is "match" or "mix" schedules, respectively).
+    """
+
     FLAG = LoaderVersion.OM4_MULTI
 
     def __init__(
@@ -714,6 +729,9 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
         schedule: MultiscaleSchedule,
     ):
         self.datasets = [make_dataset(src) for src in srcs]
+        assert all(len(self.datasets[0]) == len(ds) for ds in self.datasets[1:]), (
+            "All datasets must be the same length."
+        )
         self.schedule = schedule
         self.id: DatasetId = f"{self.__class__.__name__}({str(id(self))}, {schedule}, {', '.join([ds.id for ds in self.datasets])})"
         self.multiplex = {
@@ -721,45 +739,52 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
             for i, pair in enumerate(product(range(len(self.datasets)), repeat=2))
         }
 
-    @elapsed(level=logging.DEBUG)
-    def __getitem__(self, idx: int) -> RawMultiscaleTrainData:
+    def index_by_schedule(self, idx: int) -> tuple[int, int]:
         match self.schedule:
             case "match":
-                sub_idx = idx // len(self.datasets)
+                return divmod(idx, len(self.datasets))
             case "mix":
-                sub_idx = idx // len(self.multiplex)
+                return divmod(idx, len(self.multiplex))
             case _:
                 assert_never(self.schedule)
-        tds = [ds[sub_idx] for ds in self.datasets]
+
+    @elapsed(level=logging.DEBUG)
+    def __getitem__(self, idx: int) -> RawMultiscaleTrainData:
+        sub_idx, rem = self.index_by_schedule(idx)
+        # In this optimization, we only look up the `TrainData`s that we might eventually use.
+        maybe_needed = list(self.multiplex[rem]) if self.schedule == "mix" else [rem]
+        tds = {
+            i: ds[sub_idx] for i, ds in enumerate(self.datasets) if i in maybe_needed
+        }
         return RawMultiscaleTrainData(dataset_id=self.id, datasets=tds, index=idx)
 
     def __len__(self) -> int:
         match self.schedule:
             case "match":
-                # this should be len(datasets[0]) * len(datasets)
+                # this is the same as len(datasets[0]) * len(datasets)
                 return sum(len(ds) for ds in self.datasets)
             case "mix":
-                # assume all datasets are the same size
+                # All datasets must be the same length
                 return len(self.datasets[0]) * len(self.multiplex)
             case _:
                 assert_never(self.schedule)
 
     def to_train_data(self, raw_train_dataset: RawMultiscaleTrainData) -> TrainData:
         """Converts each RawTrainData into a TrainData, then merges it into a single TrainData."""
-        deferred_tds = list(zip(self.datasets, raw_train_dataset.datasets))
 
-        def get_scale(idx_: int) -> TrainData:
-            ds, rtd = deferred_tds[idx_]
+        def lazy_get_from(idx_: int) -> TrainData:
+            """Deferred GPU processing - only process scales that will be used."""
+            ds, rtd = self.datasets[idx_], raw_train_dataset.datasets[idx_]
             return ds.to_train_data(rtd)
+
+        _, idx = self.index_by_schedule(raw_train_dataset.index)
 
         match self.schedule:
             case "match":
-                idx = raw_train_dataset.index % len(deferred_tds)
-                return get_scale(idx)
+                return lazy_get_from(idx)
             case "mix":
-                macro_idx = raw_train_dataset.index % len(self.multiplex)
-                left_idx, right_idx = self.multiplex[macro_idx]
-                return mix_examples(get_scale(left_idx), get_scale(right_idx))
+                left_idx, right_idx = self.multiplex[idx]
+                return mix_examples(lazy_get_from(left_idx), lazy_get_from(right_idx))
             case _:
                 assert_never(self.schedule)
 

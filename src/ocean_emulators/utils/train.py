@@ -43,7 +43,7 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
 def collate_raw_multiscale_train_data(
     data: Sequence[RawMultiscaleTrainData],
 ) -> RawMultiscaleTrainData:
-    batched_data = RawMultiscaleTrainData(data[0].dataset_id, [])
+    batched_data = RawMultiscaleTrainData(data[0].dataset_id, [], data[0].index)
 
     # Since `RawMultiscaleTrainData` is a list of lists, we can think of this
     # `zip` as a transpose of these lists. This is what we want, since we process

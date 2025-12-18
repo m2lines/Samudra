@@ -346,7 +346,7 @@ class RawMultiscaleTrainData:
 
     dataset_id: DatasetId
     datasets: list[RawTrainData]
-    index: int = -1
+    index: int
 
     def __iter__(self) -> Iterator[RawTrainData]:
         yield from self.datasets
@@ -751,6 +751,7 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
                 # this should be len(datasets[0]) * len(datasets)
                 return sum(len(ds) for ds in self.datasets)
             case "mix":
+                # this should be len(datasets[0]) ** len(datasets)
                 return int(np.prod([len(ds) for ds in self.datasets]))
             case _:
                 assert_never(self.schedule)

@@ -80,7 +80,8 @@ def make_loader(
                         src=src.slice(time_config),
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
-                        hist=cfg.data.hist,
+                        num_in_states=cfg.data.num_in_states,
+                        num_out_states=cfg.data.num_out_states,
                         steps=cfg.steps[0],
                         normalize_before_mask=cfg.data.normalize_before_mask,
                         masked_fill_value=cfg.data.masked_fill_value,
@@ -119,10 +120,13 @@ def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
 
     data_size = ds.sel(time=time_slice).time.size
     steps = cfg.steps[0]
-    hist = cfg.data.hist
+    num_in_states = cfg.data.num_in_states
+    num_out_states = cfg.data.num_out_states
     stride = cfg.data_stride[0]
 
-    return data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
+    window_length = num_in_states + num_out_states
+    num_windows = data_size - (window_length - 1) * stride
+    return num_windows - (steps - 1) * num_out_states * stride
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):
@@ -236,19 +240,21 @@ def test_test_util__data_source_roundtrip(
 def test_loader__data_shape(
     train_config: TrainConfig, history: int, loader_version: LoaderVersion
 ):
-    train_config.data.hist = history
+    train_config.data.num_in_states = history + 1
+    train_config.data.num_out_states = history + 1
 
     with make_loader(train_config, version=loader_version) as loader:
         exp = train_config.experiment
         batch_size = train_config.batch_size
-        num_input_timesteps = history + 1
+        num_input_timesteps = train_config.data.num_in_states
+        num_output_timesteps = train_config.data.num_out_states
 
         input_var_dim = (
             len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
             + len(BOUNDARY_VARS[exp.boundary_vars_key])
         ) * num_input_timesteps
         output_var_dim = (
-            len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_input_timesteps
+            len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_output_timesteps
         )
 
         n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
@@ -284,13 +290,16 @@ def test_inference__data_shape(inference_loader_pair):
 
     exp = cfg.experiment
     batch_size = 1  # Inference always uses batch size 1
-    hist = cfg.data.hist + 1
+    num_input_timesteps = cfg.data.num_in_states
+    num_output_timesteps = cfg.data.num_out_states
 
     input_var_dim = (
         len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
         + len(BOUNDARY_VARS[exp.boundary_vars_key])
-    ) * hist
-    output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
+    ) * num_input_timesteps
+    output_var_dim = (
+        len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_output_timesteps
+    )
 
     samples = list(loader)
     assert len(samples) == 1, (
@@ -455,7 +464,8 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             src=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
-            hist=1,
+            num_in_states=2,
+            num_out_states=2,
             steps=2,
             normalize_before_mask=normalize_before_mask,
             masked_fill_value=masked_fill_value,
@@ -465,7 +475,8 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             src=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
-            hist=1,
+            num_in_states=2,
+            num_out_states=2,
             normalize_before_mask=normalize_before_mask,
             masked_fill_value=masked_fill_value,
             long_rollout=True,

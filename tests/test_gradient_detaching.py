@@ -68,7 +68,8 @@ def create_samudra_model():
             ).build(
                 in_channels=2,
                 out_channels=1,
-                hist=1,
+                num_input_states=2,
+                num_output_states=2,
                 wet=torch.ones(1, h, w, dtype=torch.bool),
                 area_weights=torch.ones(h, w),
                 static_data=None,
@@ -77,7 +78,7 @@ def create_samudra_model():
             )
 
             # Create TrainData compatible with model dimensions
-            train_data = TrainData(num_prognostic_channels=1)
+            train_data = TrainData(num_prognostic_channels=2)
             for step in range(4):
                 input_tensor = torch.randn(1, 2, h, w, requires_grad=True)
                 label_tensor = torch.randn(1, 1, h, w)

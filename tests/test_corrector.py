@@ -84,7 +84,8 @@ def test_relu_corrector(corrector_init):
     data = data * wet_mask.to(get_device())
     corrector = ReLUCorrector(
         non_negative_corrector_names=["var_1"],
-        hist=0,
+        num_input_states=1,
+        num_output_states=1,
         tensor_map=tensor_map,
         normalize=normalize,
     )
@@ -102,7 +103,8 @@ def test_hist_corrector(corrector_init):
     hist = 1
     corrector = ReLUCorrector(
         non_negative_corrector_names=["var_1"],
-        hist=hist,
+        num_input_states=hist + 1,
+        num_output_states=hist + 1,
         tensor_map=tensor_map,
         normalize=normalize,
     )
@@ -214,7 +216,8 @@ def test_ocean_heat_corrector(ocean_heat_init):
     hfgeou_tensor = torch.ones_like(wet_mask)
     sea_surface_fraction_tensor = torch.ones_like(wet_mask)
     corrector = OceanHeatCorrector(
-        hist=0,
+        num_input_states=1,
+        num_output_states=1,
         area_weights=torch.ones(wet_mask.shape),
         tensor_map=tensor_map,
         normalize=normalize,

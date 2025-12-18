@@ -76,13 +76,92 @@ def inf_data_init(hist: int):
             val,
             tensor_map.prognostic_var_names,
             tensor_map.boundary_var_names,
-            hist,
+            num_in_states=hist + 1,
+            num_out_states=hist + 1,
             normalize_before_mask=True,
             masked_fill_value=0.0,
             long_rollout=True,
         )
 
-        yield inference_dataset, val.masks.prognostic_with_hist(hist)
+        yield inference_dataset, val.masks.prognostic_with_states(hist + 1)
+
+
+def test_inference_dataset_mismatched_states():
+    with MultitonScope():
+        levels = 19
+        lats = 1
+        lons = 1
+        total_time_steps = 6
+
+        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
+
+        data = xr.Dataset(
+            {
+                **{
+                    f"thetao_{lev}": (
+                        ["time", "lat", "lon"],
+                        np.tile(
+                            np.arange(total_time_steps)[:, None, None] * 2,
+                            (1, lats, lons),
+                        ),
+                    )
+                    for lev in range(levels)
+                },
+                "hfds": (
+                    ["time", "lat", "lon"],
+                    np.tile(
+                        np.arange(total_time_steps)[:, None, None] * 2 + 1,
+                        (1, lats, lons),
+                    ),
+                ),
+                "wetmask": (
+                    ["time", "lev", "lat", "lon"],
+                    np.ones((total_time_steps, levels, lats, lons)),
+                ),
+            },
+                coords={
+                    "time": np.arange(total_time_steps),
+                    "lev": DEPTH_LEVELS[:levels],
+                    "lat": np.arange(lats),
+                    "lon": np.arange(lons),
+                },
+            )
+        data_mean: xr.Dataset = data.mean() * 0.0
+        data_std: xr.Dataset = data.std() * 0.0 + 1.0
+        source = DataSource.from_datasets(
+            data,
+            data_mean,
+            data_std,
+            name="test-data",
+            prognostic_var_names=tensor_map.prognostic_var_names,
+            boundary_var_names=tensor_map.boundary_var_names,
+        )
+        _ = Normalize.init_instance(
+            source,
+            prognostic_var_names=tensor_map.prognostic_var_names,
+            boundary_var_names=tensor_map.boundary_var_names,
+        )
+        dataset = InferenceDataset(
+            source,
+            tensor_map.prognostic_var_names,
+            tensor_map.boundary_var_names,
+            num_in_states=2,
+            num_out_states=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            long_rollout=True,
+        )
+
+        input_0, target_0 = dataset[0]
+        assert torch.equal(
+            input_0.flatten(), torch.tensor([0, 2, 1, 3], device=input_0.device)
+        )
+        assert torch.equal(target_0.flatten(), torch.tensor([4], device=target_0.device))
+        input_1, target_1 = dataset[1]
+        assert torch.equal(
+            input_1.flatten(), torch.tensor([2, 4, 3, 5], device=input_1.device)
+        )
+        assert torch.equal(target_1.flatten(), torch.tensor([6], device=target_1.device))
 
 
 class MockModel(BaseModel):
@@ -148,7 +227,8 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
         in_channels=1,
         out_channels=inference_dataset.num_prognostic_channels,
         wet=wet,
-        hist=hist,
+        num_input_states=hist + 1,
+        num_output_states=hist + 1,
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
@@ -203,7 +283,8 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
         in_channels=1,
         out_channels=inference_dataset.num_prognostic_channels,
         wet=wet,
-        hist=hist,
+        num_input_states=hist + 1,
+        num_output_states=hist + 1,
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",

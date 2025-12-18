@@ -49,7 +49,8 @@ def test_positional_parameters_update():
         model = config.build(
             in_channels=2,
             out_channels=1,
-            hist=0,
+            num_input_states=1,
+            num_output_states=1,
             wet=torch.ones(1, h, w, dtype=torch.bool),
             area_weights=torch.ones(h, w),
             static_data=None,

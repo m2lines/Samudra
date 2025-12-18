@@ -19,11 +19,7 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.stepper import Stepper
-from ocean_emulators.utils.data import (
-    Normalize,
-    get_inference_steps,
-    spherical_area_weights,
-)
+from ocean_emulators.utils.data import Normalize, spherical_area_weights
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import is_main_process, set_seed
 from ocean_emulators.utils.logging import (
@@ -75,8 +71,10 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
-        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
+        self.num_in_states = cfg.data.num_in_states
+        self.num_out_states = cfg.data.num_out_states
+        self.num_in = int(self.num_in_states * (self.N_prog + self.N_bound))
+        self.num_out = int(self.num_out_states * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
@@ -97,7 +95,7 @@ class Eval:
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
+        self.wet = self.src.masks.prognostic_with_states(self.num_out_states)
         self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
@@ -111,7 +109,8 @@ class Eval:
         self.model = cfg.model.build(
             in_channels=self.num_in,
             out_channels=self.num_out,
-            hist=cfg.data.hist,
+            num_input_states=self.num_in_states,
+            num_output_states=self.num_out_states,
             wet=self.wet.to(self.device),
             area_weights=self.area_weights,
             static_data=self.static_data,
@@ -141,7 +140,6 @@ class Eval:
         )
 
         # Eval
-        self.hist = cfg.data.hist
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.num_workers = cfg.data.num_workers
@@ -164,19 +162,17 @@ class Eval:
 
     def init_inference_store(self):
         sliced_src = self.src.slice(self.inference_time)
-        self.num_time_steps = get_inference_steps(
-            sliced_src,
-            hist=self.hist,
-        )
         self.inference_dataset = InferenceDataset(
             src=sliced_src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            hist=self.hist,
+            num_in_states=self.num_in_states,
+            num_out_states=self.num_out_states,
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
             long_rollout=True,
         )
+        self.num_time_steps = self.inference_dataset.target_timesteps
 
     def run(self) -> None:
         start_time = time.perf_counter()
@@ -202,7 +198,8 @@ class Eval:
         inf_aggregator = Aggregator.get_standalone_inference_aggregator(
             self.num_time_steps,
             self.metadata,
-            self.hist,
+            self.num_in_states,
+            self.num_out_states,
             self.area_weights,
             self.src.masks.prognostic.to(self.device),
             self.num_out,

@@ -186,7 +186,7 @@ def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
 
 
 @pytest.fixture
-def data_init(hist: int):
+def data_init():
     with MultitonScope():
         levels = 19
         lats = 3
@@ -255,20 +255,20 @@ def data_init(hist: int):
 
 @pytest.mark.parametrize("input_type", ["input", "target"])
 @pytest.mark.parametrize("long_rollout", [True, False])
-@pytest.mark.parametrize("hist", [0, 1, 2])
-def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
+@pytest.mark.parametrize("num_states", [1, 2, 3])
+def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, num_states):
     normalize, wet = data_init
     tensor_map: TensorMap = TensorMap.get_instance()
 
     num_prognostic_channels = normalize._prognostic_std_np.shape[0]
     num_boundary_channels = normalize._boundary_std_np.shape[0]
     if input_type == "target":
-        data = torch.randn([1, num_prognostic_channels * (hist + 1), *wet.shape[1:]])
+        data = torch.randn([1, num_prognostic_channels * num_states, *wet.shape[1:]])
     elif input_type == "input":
         data = torch.randn(
             [
                 6,
-                num_prognostic_channels * (hist + 1) + num_boundary_channels,
+                num_prognostic_channels * num_states + num_boundary_channels,
                 *wet.shape[1:],
             ]
         )
@@ -277,8 +277,8 @@ def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
         wet,
         long_rollout,
         input_type=input_type,
-        num_prognostic_channels=num_prognostic_channels * (hist + 1),
-        hist=hist,
+        num_prognostic_channels=num_prognostic_channels * num_states,
+        num_states=num_states,
     )
 
     var_name = tensor_map.prognostic_var_names[0]

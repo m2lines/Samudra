@@ -554,19 +554,27 @@ class Trainer:
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
                     loss_scale_per_channel = loss_scale_per_channel_fn()
-                    # Reshape from channels * history to channels
-                    # by averaging along the `hist` dimension
-                    loss_per_channel = TO.loss_per_channel.reshape(
+                    # Reshape from channels * states to channels by averaging along
+                    # the state dimension so channel-wise metrics align with the
+                    # per-variable scaling factors.
+                    loss_per_channel_by_var = loss_per_channel_reduce.reshape(
                         loss_scale_per_channel.shape[0], -1
                     ).mean(dim=1)
 
                     unscaled_loss_per_channel = (
-                        loss_per_channel / loss_scale_per_channel
+                        loss_per_channel_by_var / loss_scale_per_channel
                     )
                     unscaled_loss = torch.mean(unscaled_loss_per_channel)
 
                     metrics.update(
                         {
+                            # Override channel-level losses to report per-variable
+                            # values (aggregated across output states) alongside
+                            # their scales.
+                            **get_channel_loss_dict(
+                                label="train",
+                                loss_per_channel=loss_per_channel_by_var,
+                            ),
                             **get_channel_loss_scale_dict(
                                 label="train",
                                 loss_scale_per_channel=loss_scale_per_channel,

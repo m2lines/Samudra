@@ -727,9 +727,8 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
         schedule: MultiscaleSchedule,
     ):
         self.datasets = [make_dataset(src) for src in srcs]
-        assert all(len(self.datasets[0]) == len(ds) for ds in self.datasets[1:]), (
-            "All datasets must be the same length."
-        )
+        if not all(len(self.datasets[0]) == len(ds) for ds in self.datasets[1:]):
+            raise ValueError("All datasets must have the same length")
         self.schedule = schedule
         self.FLAG = (
             LoaderVersion.OM4_MULTI_MATCH

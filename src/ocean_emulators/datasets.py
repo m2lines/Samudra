@@ -755,7 +755,7 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
     def __getitem__(self, idx: int) -> RawMultiscaleTrainData:
         sub_idx, rem = self.index_by_schedule(idx)
         # In this optimization, we only look up the `TrainData`s that we might eventually use.
-        needed = list(self.multiplex[rem]) if self.schedule == "mix" else [rem]
+        needed = self.multiplex[rem] if self.schedule == "mix" else [rem]
         tds = {i: ds[sub_idx] for i, ds in enumerate(self.datasets) if i in needed}
         return RawMultiscaleTrainData(dataset_id=self.id, datasets=tds, index=idx)
 

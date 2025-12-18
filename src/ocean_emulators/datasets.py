@@ -5,16 +5,7 @@ from collections.abc import Callable, Iterator
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from itertools import product
-from typing import (
-    Generic,
-    Literal,
-    Protocol,
-    Self,
-    TypeAlias,
-    TypeVar,
-    assert_never,
-    final,
-)
+from typing import Generic, Literal, Protocol, Self, TypeVar, assert_never, final
 
 import numpy as np
 import torch
@@ -459,8 +450,6 @@ class TorchTrainDataset(GpuResolvedDataset[RawTrainData]):
             step=2->[[6, 7, 8], [9, 10, 11]];
             step=3->[[9, 10, 11], [12, 13, 14]]
     """
-
-    Id: TypeAlias = tuple[str, DataSource]
 
     FLAG = LoaderVersion.OM4_TORCH
 

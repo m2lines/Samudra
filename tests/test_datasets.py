@@ -50,9 +50,9 @@ def coarsen(
     ds: xr.Dataset, mean: xr.Dataset, stds: xr.Dataset
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     return (
-        ds.coarsen(lat=2, lon=2).mean(),
-        mean.coarsen(lat=2, lon=2).mean(),
-        stds.coarsen(lat=2, lon=2).mean(),
+        ds.coarsen(lat=2, lon=2).mean(),  # type: ignore
+        mean.coarsen(lat=2, lon=2).mean(),  # type: ignore
+        stds.coarsen(lat=2, lon=2).mean(),  # type: ignore
     )
 
 

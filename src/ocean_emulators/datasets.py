@@ -63,9 +63,7 @@ class InferenceDataset(Dataset):
         self.num_out_states = num_out_states
 
         self.num_input_prognostic_channels = num_in_states * len(prognostic_var_names)
-        self.num_output_prognostic_channels = num_out_states * len(
-            prognostic_var_names
-        )
+        self.num_output_prognostic_channels = num_out_states * len(prognostic_var_names)
         self.num_input_boundary_channels = num_in_states * len(boundary_var_names)
         # Backwards-compatibility name used by tests
         self.num_prognostic_channels = self.num_output_prognostic_channels
@@ -579,7 +577,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         # grab future steps, repeat as we do for input
         label = self._prep_tensor_steps(
             prognostic_all[
-                :, self.num_in_states : self.num_in_states + self.num_out_states, :, :, :
+                :,
+                self.num_in_states : self.num_in_states + self.num_out_states,
+                :,
+                :,
+                :,
             ]
         )
         return total_input, label

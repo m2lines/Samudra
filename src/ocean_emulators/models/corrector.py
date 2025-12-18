@@ -41,9 +41,7 @@ class BaseCorrector(torch.nn.Module):
         self.num_boundary_channels = len(self.tensor_map.boundary_var_names)
 
     def _flatten_output(self, fts: HistChanneled) -> HistBatched:
-        return rearrange(
-            fts, "n (t c) h w -> (n t) c h w", t=self.num_output_states
-        )
+        return rearrange(fts, "n (t c) h w -> (n t) c h w", t=self.num_output_states)
 
     def _flatten_input(self, fts: Input) -> tuple[HistBatched, HistBatched]:
         fts_input = fts[:, : self.num_input_states * self.num_prognostic_channels]
@@ -58,9 +56,7 @@ class BaseCorrector(torch.nn.Module):
         return fts_input, fts_boundary
 
     def _unflatten_output(self, fts: HistBatched) -> HistChanneled:
-        return rearrange(
-            fts, "(n t) c h w -> n (t c) h w", t=self.num_output_states
-        )
+        return rearrange(fts, "(n t) c h w -> n (t c) h w", t=self.num_output_states)
 
     def _unnormalize_fts_prognostic(self, fts: Prognostic) -> Prognostic:
         # Corrector is run in float64 to avoid precision loss

@@ -119,13 +119,13 @@ def test_inference_dataset_mismatched_states():
                     np.ones((total_time_steps, levels, lats, lons)),
                 ),
             },
-                coords={
-                    "time": np.arange(total_time_steps),
-                    "lev": DEPTH_LEVELS[:levels],
-                    "lat": np.arange(lats),
-                    "lon": np.arange(lons),
-                },
-            )
+            coords={
+                "time": np.arange(total_time_steps),
+                "lev": DEPTH_LEVELS[:levels],
+                "lat": np.arange(lats),
+                "lon": np.arange(lons),
+            },
+        )
         data_mean: xr.Dataset = data.mean() * 0.0
         data_std: xr.Dataset = data.std() * 0.0 + 1.0
         source = DataSource.from_datasets(
@@ -156,12 +156,16 @@ def test_inference_dataset_mismatched_states():
         assert torch.equal(
             input_0.flatten(), torch.tensor([0, 2, 1, 3], device=input_0.device)
         )
-        assert torch.equal(target_0.flatten(), torch.tensor([4], device=target_0.device))
+        assert torch.equal(
+            target_0.flatten(), torch.tensor([4], device=target_0.device)
+        )
         input_1, target_1 = dataset[1]
         assert torch.equal(
             input_1.flatten(), torch.tensor([2, 4, 3, 5], device=input_1.device)
         )
-        assert torch.equal(target_1.flatten(), torch.tensor([6], device=target_1.device))
+        assert torch.equal(
+            target_1.flatten(), torch.tensor([6], device=target_1.device)
+        )
 
 
 class MockModel(BaseModel):

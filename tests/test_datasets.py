@@ -290,6 +290,8 @@ def test_loader__data_shape(
         )
 
         n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
+        if loader_version == LoaderVersion.OM4_MULTI:
+            n_samples *= 2
         samples = list(loader)
 
         assert len(samples) == n_samples, (

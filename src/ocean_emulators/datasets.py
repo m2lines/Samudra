@@ -746,19 +746,20 @@ class MultiscaleTrainDataset(GpuResolvedDataset[RawMultiscaleTrainData]):
 
     def to_train_data(self, raw_train_dataset: RawMultiscaleTrainData) -> TrainData:
         """Converts each RawTrainData into a TrainData, then merges it into a single TrainData."""
-        # TODO(alxmrs): Only call `to_train_data()` on data that will be used!
-        tds = [
-            ds.to_train_data(rtd)
-            for ds, rtd in zip(self.datasets, raw_train_dataset.datasets)
-        ]
+        deferred_tds = list(zip(self.datasets, raw_train_dataset.datasets))
+
+        def get_scale(idx_: int) -> TrainData:
+            ds, rtd = deferred_tds[idx_]
+            return ds.to_train_data(rtd)
+
         match self.schedule:
             case "match":
-                idx = raw_train_dataset.index % len(tds)
-                return tds[idx]
+                idx = raw_train_dataset.index % len(deferred_tds)
+                return get_scale(idx)
             case "mix":
                 macro_idx = raw_train_dataset.index % len(self.multiplex)
                 left_idx, right_idx = self.multiplex[macro_idx]
-                return mix_examples(tds[left_idx], tds[right_idx])
+                return mix_examples(get_scale(left_idx), get_scale(right_idx))
             case _:
                 assert_never(self.schedule)
 

@@ -25,6 +25,7 @@ class Samudra(BaseModel):
         wet: Grid,
         static_data: xr.Dataset | None,
         gradient_detach_interval: int,
+        use_bfloat16: bool,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -51,12 +52,13 @@ class Samudra(BaseModel):
         self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
         self.corrector = corrector
+        self.use_bfloat16 = use_bfloat16
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         if self.corrector is not None:
             fts_input = fts.clone().detach()
 
-        with autocast():
+        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             if self.positional_params is not None:
                 pos = self.positional_params.unsqueeze(0).expand(
                     fts.shape[0], -1, -1, -1

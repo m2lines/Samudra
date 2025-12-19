@@ -43,6 +43,9 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
 def collate_raw_multiscale_train_data(
     data: Sequence[RawMultiscaleTrainData],
 ) -> RawMultiscaleTrainData:
+    assert all(data[0].index == d.index for d in data), (
+        "Multiscale data must be associated with the same index!"
+    )
     batched_data = RawMultiscaleTrainData(data[0].dataset_id, {}, data[0].index)
 
     # Collect all dataset indices present in any batch item

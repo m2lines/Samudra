@@ -1,5 +1,7 @@
 import dataclasses
+import itertools
 import logging
+import random
 import time
 from collections.abc import Callable, Iterator
 from concurrent.futures import wait
@@ -12,7 +14,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
-from torch.utils.data import Dataset, Sampler
+from torch.utils.data import BatchSampler, Dataset, Sampler, SubsetRandomSampler
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
@@ -693,26 +695,31 @@ def concurrent_compute(
     wait(futures)
 
 
-MultiscaleSchedule = Literal["match", "mix"]
+class _SimpleSubsetSampler(torch.utils.data.Sampler):
+    def __init__(self, indices):
+        super().__init__()
+        self.indices = indices
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
 
 
-class MultiscaleGroupedBatchSampler(Sampler[list[int]]):
-    """Groups indices by equivalence to ensure batch consistency in multiscale training.
+class EquivalenceGroupedBatchSampler(Sampler[list[int]]):
+    """Groups indices by equivalence class (modulo), batches within groups, and optionally shuffles.
 
-    For multiscale datasets with the "mix" schedule, items in a batch must have the same
-    group index (idx % group_size) to ensure consistent scale combinations are
-    applied during GPU processing.
-
-    This sampler collects indices by their group position and creates batches within
-    each group, preventing the collate function from combining incompatible indices.
+    This sampler partitions dataset indices into groups based on `idx % group_size`, creates
+    batches within each group, then chains them together. When shuffle=True, batches are
+    globally shuffled each epoch to avoid sequential group processing.
 
     Args:
         dataset_len: Total number of samples in the dataset
-        group_size: Number of scale combinations
+        group_size: Number of equivalence groups (e.g., 2 for MATCH mode, 4 for MIX mode)
         batch_size: Number of samples per batch
-        shuffle: Whether to shuffle indices within each group
-        drop_last: Whether to drop the last incomplete batch in each group
-        generator: Random number generator for shuffling
+        shuffle: Whether to shuffle indices within groups and shuffle batches globally
+        drop_last: Whether to drop incomplete batches at the end of each group
     """
 
     def __init__(
@@ -722,57 +729,57 @@ class MultiscaleGroupedBatchSampler(Sampler[list[int]]):
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
-        generator: torch.Generator | None = None,
     ):
         self.dataset_len = dataset_len
         self.group_size = group_size
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
-        self.generator = generator
+
+        # Pre-compute group indices for __len__ calculation
+        self.groups = [
+            [i for i in range(dataset_len) if i % group_size == g]
+            for g in range(group_size)
+        ]
 
     def __iter__(self):
-        # Group indices by their position
-        groups: list[list[int]] = [[] for _ in range(self.group_size)]
-        for idx in range(self.dataset_len):
-            group_pos = idx % self.group_size
-            groups[group_pos].append(idx)
+        # Choose sampler based on shuffle setting
+        SubsetSampler = SubsetRandomSampler if self.shuffle else _SimpleSubsetSampler
 
-        # Shuffle within each group if needed
-        if self.shuffle:
-            for group in groups:
-                # Use torch.randperm for consistent behavior with PyTorch
-                if self.generator is not None:
-                    perm = torch.randperm(len(group), generator=self.generator).tolist()
-                else:
-                    perm = torch.randperm(len(group)).tolist()
-                groups[groups.index(group)] = [group[i] for i in perm]
+        # Create batch samplers for each group
+        batch_sampler = itertools.chain(
+            *[
+                BatchSampler(
+                    SubsetSampler(group),
+                    batch_size=self.batch_size,
+                    drop_last=self.drop_last,
+                )
+                for group in self.groups
+            ]
+        )
 
-        # Yield batches from each group
-        for group in groups:
-            for i in range(0, len(group), self.batch_size):
-                batch = group[i : i + self.batch_size]
-                # Drop last incomplete batch if drop_last is True
-                if self.drop_last and len(batch) < self.batch_size:
-                    continue
-                yield batch
+        if not self.shuffle:
+            # No global shuffle: return batches in sequential group order
+            yield from batch_sampler
+        else:
+            # Shuffle batches globally to avoid sequential group processing
+            # This is regenerated each epoch, giving different orderings
+            all_batches = list(batch_sampler)
+            random.shuffle(all_batches)
+            yield from all_batches
 
-    def __len__(self) -> int:
-        # Calculate total number of batches across all groups
+    def __len__(self):
+        """Calculate total number of batches across all groups."""
         total_batches = 0
-        for group_pos in range(self.group_size):
-            # Count items in this group
-            group_size = (
-                self.dataset_len + self.group_size - group_pos - 1
-            ) // self.group_size
-            # Calculate number of batches for this group
+        for group in self.groups:
             if self.drop_last:
-                # Use floor division to drop incomplete batches
-                total_batches += group_size // self.batch_size
+                total_batches += len(group) // self.batch_size
             else:
-                # Use ceiling division to include all batches
-                total_batches += (group_size + self.batch_size - 1) // self.batch_size
+                total_batches += (len(group) + self.batch_size - 1) // self.batch_size
         return total_batches
+
+
+MultiscaleSchedule = Literal["match", "mix"]
 
 
 def mix_examples(left: TrainData, right: TrainData) -> TrainData:

@@ -25,8 +25,8 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.datasets import (
+    EquivalenceGroupedBatchSampler,
     InferenceDataset,
-    MultiscaleGroupedBatchSampler,
     MultiscaleSchedule,
     MultiscaleTrainDataset,
     TorchTrainDataset,
@@ -163,12 +163,8 @@ def make_loader(
                 if version == LoaderVersion.OM4_MULTI_MATCH
                 else len(dataset_list[0].multiplex)
             )
-            batch_sampler = MultiscaleGroupedBatchSampler(
-                dataset_len=len(data),
-                group_size=group_size,
-                batch_size=cfg.batch_size,
-                shuffle=True,
-                drop_last=drop_last,
+            batch_sampler = EquivalenceGroupedBatchSampler(
+                len(data), group_size, cfg.batch_size, drop_last=drop_last
             )
             # When using batch_sampler, we cannot pass batch_size, shuffle, sampler, or drop_last
             raw_loader = DataLoader(

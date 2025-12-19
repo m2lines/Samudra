@@ -339,7 +339,7 @@ def test_loader__data_shape(
                     "The input and output should be equal"
                 )
                 assert all(
-                    example_resolutions[0] == cr for cr in example_resolutions[1:]
+                    example_resolutions[0] == eg for eg in example_resolutions[1:]
                 ), "All resolutions should be equal"
             case LoaderVersion.OM4_MULTI_MATCH:
                 for x_res, y_res in example_resolutions:

@@ -2,7 +2,7 @@ import logging
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import TypeAlias, final
+from typing import Literal, TypeAlias, final
 
 import numpy as np
 import torch
@@ -295,25 +295,35 @@ class InferenceDatasets(Dataset):
 class RawTrainData:
     def __init__(self, dataset_id: "TorchTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
-        self.raw_data: list[tuple[torch.Tensor, torch.Tensor]] = []
+        self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
-    def insert(self, all_prognostic: torch.Tensor, all_boundary: torch.Tensor):
-        self.raw_data.append((all_prognostic, all_boundary))
+    def insert(
+        self,
+        all_prognostic: torch.Tensor,
+        all_boundary: torch.Tensor,
+        all_label: torch.Tensor,
+    ):
+        self.raw_data.append((all_prognostic, all_boundary, all_label))
 
     def to(self, device: torch.device):
         self.raw_data = [
             (
                 all_prognostic.to(device, non_blocking=True),
                 all_boundary.to(device, non_blocking=True),
+                all_label.to(device, non_blocking=True),
             )
-            for all_prognostic, all_boundary in self.raw_data
+            for all_prognostic, all_boundary, all_label in self.raw_data
         ]
 
     def pin_memory(self):
         self.raw_data = [
-            (all_prognostic.pin_memory(), all_boundary.pin_memory())
-            for all_prognostic, all_boundary in self.raw_data
+            (
+                all_prognostic.pin_memory(),
+                all_boundary.pin_memory(),
+                all_label.pin_memory(),
+            )
+            for all_prognostic, all_boundary, all_label in self.raw_data
         ]
         return self
 
@@ -382,6 +392,9 @@ class TrainData:
         return self
 
 
+TrainSchedule = Literal["standard", "match", "mix"]
+
+
 @final
 class TorchTrainDataset(Dataset[RawTrainData]):
     """
@@ -411,6 +424,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __init__(
         self,
         src: DataSource,
+        dst: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         hist: int,
@@ -432,15 +446,17 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self._executor = executor
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        data = src.data
+        # assert src.data.time == dst.data.time, "src and dst DataSource have different time slices!"
+        time_ = src.data.time
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self._label_src = dst.filter(prognostic_var_names, prefix="label")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
 
         # Calculate the number of windows
-        num_windows = data.time.size - (total_steps - 1) * self.stride
+        num_windows = time_.size - (total_steps - 1) * self.stride
 
         # Create base indices
         indices = np.arange(num_windows)
@@ -474,8 +490,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.boundary_means = flatten_to_device(self._boundary_src.means)
         self.boundary_stds = flatten_to_device(self._boundary_src.stds)
 
+        self.label_means = flatten_to_device(self._label_src.means)
+        self.label_stds = flatten_to_device(self._label_src.stds)
+
         self.size: int = (
-            data.time.size
+            time_.size
             - self.steps * (self.hist + 1) * self.stride
             - self.hist * self.stride
         )
@@ -492,14 +511,28 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             x_index = self._get_x_index(idx, step)
             prognostic_selected = self._prognostic_src.data.isel(time=x_index)
             boundary_selected = self._boundary_src.data.isel(time=x_index)
+            label_selected = self._label_src.data.isel(time=x_index)
 
             if self._executor is not None:
                 concurrent_compute(
-                    prognostic_selected, boundary_selected, executor=self._executor
+                    prognostic_selected,
+                    boundary_selected,
+                    label_selected,
+                    executor=self._executor,
                 )
 
             if "lev" in prognostic_selected.dims:
                 prognostic_all = torch.from_numpy(
+                    conditional_rearrange(
+                        prognostic_selected,
+                        "time (variable lev)=var lat lon",
+                        concat_dim="var",
+                    )
+                    .rename({"var": "variable"})
+                    .to_numpy()
+                    .astype(np.float32, copy=False)
+                )
+                label_all = torch.from_numpy(
                     conditional_rearrange(
                         prognostic_selected,
                         "time (variable lev)=var lat lon",
@@ -516,6 +549,12 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     .to_numpy()
                     .astype(np.float32, copy=False)
                 )
+                label_all = torch.from_numpy(
+                    prognostic_selected.to_array()
+                    .transpose("time", "variable", "lat", "lon")
+                    .to_numpy()
+                    .astype(np.float32, copy=False)
+                )
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
@@ -523,19 +562,20 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 .astype(np.float32, copy=False)
             )
 
-            TD.insert(prognostic_all, boundary)
+            TD.insert(prognostic_all, boundary, label_all)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
 
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
         train_data = TrainData(self.num_prognostic_channels)
-        for prognostic_all, boundary_all in raw_train_data.raw_data:
-            input, label = self._get_input_and_label(
+        for prognostic_all, boundary_all, label_all in raw_train_data.raw_data:
+            input_, label = self._get_input_and_label(
                 prognostic_all.to(device=self.device, non_blocking=True),
                 boundary_all.to(device=self.device, non_blocking=True),
+                label_all.to(device=self.device, non_blocking=True),
             )
-            train_data.append(input, label)
+            train_data.append(input_, label)
         train_data.load_stats = raw_train_data.load_stats
         return train_data
 
@@ -544,6 +584,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         # time includes (self.hist + 1) past steps and the (label) future steps
         prognostic_all: Float[torch.Tensor, "batch time variable lat lon"],
         boundary_all: Float[torch.Tensor, "batch time variable lat lon"],
+        label_all: Float[torch.Tensor, "batch time variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
@@ -551,7 +592,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             boundary_all[:, : self.hist + 1, :, :, :],
         )
         # grab future steps, repeat as we do for input
-        label = self._prep_tensor_steps(prognostic_all[:, self.hist + 1 :, :, :, :])
+        label = self._prep_tensor_steps(label_all[:, self.hist + 1 :, :, :, :])
         return total_input, label
 
     def _prep_tensor_steps(

@@ -16,6 +16,7 @@ from numpy.typing import ArrayLike, NDArray
 import ocean_emulators.constants as c
 from ocean_emulators.config import JulianDate, TrainBackendConfig, TrainConfig
 from ocean_emulators.constants import BOUNDARY_VARS
+from ocean_emulators.datasets import TrainSchedule
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.data import DataSource, _is_compact, compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
@@ -306,6 +307,11 @@ def loader_version(request: pytest.FixtureRequest) -> c.LoaderVersion:
 
 @pytest.fixture(scope="session", params=[0, 1], ids=lambda x: f"hist{x}")
 def history(request: pytest.FixtureRequest) -> int:
+    return request.param
+
+
+@pytest.fixture(scope="session", params=["standard", "match", "mix"])
+def schedule(request: pytest.FixtureRequest) -> TrainSchedule:
     return request.param
 
 

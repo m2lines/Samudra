@@ -718,6 +718,7 @@ class Trainer:
         train_datasets = [
             TorchTrainDataset(
                 src=self.src.slice(self.train_time),
+                dst=self.src.slice(self.train_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -733,6 +734,7 @@ class Trainer:
         val_datasets = [
             TorchTrainDataset(
                 src=self.src.slice(self.val_time),
+                dst=self.src.slice(self.val_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,

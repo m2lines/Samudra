@@ -315,7 +315,7 @@ def test_loader__data_shape(
             f"got {len(samples)}."
         )
 
-        cross_resolutions = []
+        example_resolutions = []
         # Only check the first 4 samples; this should be proof enough that everything is
         # the right shape.
         for sample in samples[:4]:
@@ -331,25 +331,25 @@ def test_loader__data_shape(
                 batch_size,
                 output_var_dim,
             )
-            cross_resolutions.append((X.shape[-2:], y.shape[-2:]))
+            example_resolutions.append((X.shape[-2:], y.shape[-2:]))
 
         match loader_version:
             case LoaderVersion.OM4_TORCH:
-                assert cross_resolutions[0][0] == cross_resolutions[0][1], (
+                assert example_resolutions[0][0] == example_resolutions[0][1], (
                     "The input and output should be equal"
                 )
                 assert all(
-                    cross_resolutions[0] == cr for cr in cross_resolutions[1:]
+                    example_resolutions[0] == cr for cr in example_resolutions[1:]
                 ), "All resolutions should be equal"
             case LoaderVersion.OM4_MULTI_MATCH:
-                for x_res, y_res in cross_resolutions:
+                for x_res, y_res in example_resolutions:
                     assert x_res == y_res, (
-                        f"Resolutions must match across batches for 'match' schedule multiscale loader. {cross_resolutions=}"
+                        f"Resolutions must match across batches for 'match' schedule multiscale loader. {example_resolutions=}"
                     )
             case LoaderVersion.OM4_MULTI_MIX:
                 # In mix mode with 2 scales, multiplex creates pattern: (0,0), (0,1), (1,0), (1,1)
                 # Expected: same, different, different, same
-                assert cross_resolutions == [
+                assert example_resolutions == [
                     ((180, 360), (180, 360)),
                     ((180, 360), (90, 180)),
                     ((90, 180), (180, 360)),

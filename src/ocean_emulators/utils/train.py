@@ -43,9 +43,9 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
 def collate_raw_multiscale_train_data(
     data: Sequence[RawMultiscaleTrainData],
 ) -> RawMultiscaleTrainData:
-    # When using MultiscaleGroupedBatchSampler, items in a batch have the same multiplex
-    # position (idx % multiplex_size) but not necessarily the same exact index.
-    # For example, indices [0, 4, 8] all have multiplex position 0 when multiplex_size=4.
+    # When using EquivalenceGroupedBatchSampler, items in a batch have the same group
+    # position (idx % group_size) but not necessarily the same exact index.
+    # For example, indices [0, 4, 8] all have group position 0 when group_size=4.
     # We use data[0].index as the representative since all items map to the same position.
     batched_data = RawMultiscaleTrainData(data[0].dataset_id, {}, data[0].index)
 

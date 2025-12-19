@@ -30,6 +30,7 @@ from ocean_emulators.datasets import (
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
+    TrainSchedule,
 )
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
@@ -139,6 +140,7 @@ def make_loader(
                     )
                     for src, dst in srcs
                     for stride in cfg.data_stride
+                    for src, dst in srcs
                 ]
 
                 data: ConcatDataset = ConcatDataset(dataset_list)

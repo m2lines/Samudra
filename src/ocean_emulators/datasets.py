@@ -2,7 +2,7 @@ import logging
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import TypeAlias, final
+from typing import Literal, TypeAlias, final
 
 import numpy as np
 import torch
@@ -391,6 +391,9 @@ class TrainData:
                 self[step][1].pin_memory(),
             )
         return self
+
+
+TrainSchedule = Literal["standard", "match", "mix"]
 
 
 @final

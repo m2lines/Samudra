@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import itertools
 import logging
 import multiprocessing
 import os
@@ -137,9 +138,6 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
-        assert self.train_schedule == "standard", (
-            "Mix and Match schedulers are not ready yet!"
-        )
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -722,12 +720,14 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        srcs: Iterable[tuple[DataSource, DataSource | None]] = []
+        scales = self.data_container.sources
         match self.train_schedule:
             case "standard":
-                srcs = [(self.src, None)]
-            case "match" | "mix":
-                raise ValueError(f"{self.train_schedule} is not supported (yet).")
+                srcs: Iterable[tuple[DataSource, DataSource | None]] = [(self.src, None)]
+            case "match":
+                srcs = [(s, s) for s in scales]
+            case "mix":
+                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
             case _:
                 assert_never(self.train_schedule)
 

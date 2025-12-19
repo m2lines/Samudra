@@ -121,6 +121,13 @@ def make_loader(
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [make_dataset(src, stride) for stride in cfg.data_stride]
                 collate_fn = collate_raw_train_data
+                data: ConcatDataset = ConcatDataset(dataset_list)
+                raw_loader = DataLoader(
+                    data,
+                    batch_size=cfg.batch_size,
+                    drop_last=drop_last,
+                    collate_fn=collate_fn,
+                )
             case LoaderVersion.OM4_MULTI_MATCH | LoaderVersion.OM4_MULTI_MIX:
                 # Create coarsened datasource with both coarsened data and masks
                 coarsened_src = src.map_data(coarsen_data, suffix="half-size")
@@ -142,44 +149,24 @@ def make_loader(
                     for stride in cfg.data_stride
                 ]
                 collate_fn = collate_raw_multiscale_train_data  # type: ignore
+                data = ConcatDataset(dataset_list)
+
+                group_size = (
+                    len(dataset_list[0].datasets)
+                    if version == LoaderVersion.OM4_MULTI_MATCH
+                    else len(dataset_list[0].multiplex)
+                )
+                batch_sampler = EquivalenceGroupedBatchSampler(
+                    len(data), group_size, cfg.batch_size, drop_last=drop_last
+                )
+                raw_loader = DataLoader(
+                    data,
+                    collate_fn=collate_fn,
+                    batch_sampler=batch_sampler,
+                )
 
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
-
-        data: ConcatDataset = ConcatDataset(dataset_list)
-
-        # Use MultiscaleGroupedBatchSampler for both MATCH and MIX modes with batch_size > 1
-        # This ensures all items in a batch have the same multiplex position (same resolution)
-        # For batch_size=1, use normal DataLoader (no batching consistency issues)
-        if (
-            version in (LoaderVersion.OM4_MULTI_MATCH, LoaderVersion.OM4_MULTI_MIX)
-            and cfg.batch_size > 1
-        ):
-            # For multiscale modes with batch_size > 1, use grouped batch sampler
-            # MATCH mode: groups by resolution index (idx % len(datasets))
-            # MIX mode: groups by multiplex position (idx % len(multiplex))
-            group_size = (
-                len(dataset_list[0].datasets)
-                if version == LoaderVersion.OM4_MULTI_MATCH
-                else len(dataset_list[0].multiplex)
-            )
-            batch_sampler = EquivalenceGroupedBatchSampler(
-                len(data), group_size, cfg.batch_size, drop_last=drop_last
-            )
-            # When using batch_sampler, we cannot pass batch_size, shuffle, sampler, or drop_last
-            raw_loader = DataLoader(
-                data,
-                collate_fn=collate_fn,
-                batch_sampler=batch_sampler,
-            )
-        else:
-            # For standard datasets or batch_size=1, use normal DataLoader construction
-            raw_loader = DataLoader(
-                data,
-                batch_size=cfg.batch_size,
-                drop_last=drop_last,
-                collate_fn=collate_fn,
-            )
 
         loader = TrainDataLoader(raw_loader, dataset_list, torch.device("cpu"))
         yield loader

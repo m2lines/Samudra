@@ -664,5 +664,5 @@ def test_multiscale_mix__batch_consistency(train_config: TrainConfig, batch_size
             # Verify batch dimension matches (or is <= for last batch which might be smaller)
             actual_batch_size = X.shape[1]
             assert actual_batch_size == batch_size, (
-                f"Batch size {actual_batch_size} should not exceed configured batch_size {batch_size}"
+                f"Batch size {actual_batch_size} should equal configured batch_size {batch_size}"
             )

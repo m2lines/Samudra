@@ -3,6 +3,13 @@ import torch
 _CHOSEN_DEVICE: torch.device | None = None
 
 
+def autocast(enabled: bool, dtype: torch.dtype) -> torch.autocast:
+    if using_gpu():
+        return torch.autocast("cuda", dtype=dtype, enabled=enabled)
+    else:
+        return torch.autocast("cpu", dtype=dtype, enabled=enabled)
+
+
 def using_gpu() -> bool:
     return get_device().type == "cuda"
 

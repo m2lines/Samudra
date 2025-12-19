@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1765836476281,
+  "lastUpdate": 1766166296027,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6339,6 +6339,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9824939075652469",
             "extra": "mean: 87.41877105180002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5555e329dc3f796e7d20daa392d1dd206010493d",
+          "message": "Allow using autocast for bfloat16 (#521)\n\nThis seems to largely be a memory win and neutral for our metrics. I\nhaven't asked for review of the viz results but it seems worth at least\nhaving this option checked in for running quarter-degree runs.",
+          "timestamp": "2025-12-19T12:18:22-05:00",
+          "tree_id": "933c2b3e48484401824450c489ceab38cd1623a4",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/5555e329dc3f796e7d20daa392d1dd206010493d"
+        },
+        "date": 1766166295394,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5568409299249504,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018391326055973472",
+            "extra": "mean: 642.3263808000002 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1806774499424536,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07962838492584988",
+            "extra": "mean: 5.534725004800009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010771259123244668,
+            "unit": "iter/sec",
+            "range": "stddev: 1.980546968114041",
+            "extra": "mean: 92.83965677159999 sec\nrounds: 5"
           }
         ]
       }

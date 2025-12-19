@@ -647,13 +647,6 @@ def test_profile__inference_loader__1gb(inference_loader_pair, benchmark):
 )
 @pytest.mark.parametrize("batch_size", [1, 2, 4])
 def test_multiscale_mix__batch_consistency(train_config: TrainConfig, batch_size: int):
-    """Test that batch_size > 1 works correctly with MultiscaleGroupedBatchSampler.
-
-    This test verifies that when using batch_size > 1 with the MIX schedule:
-    1. All items in a batch have the same multiplex index
-    2. The collate function produces consistent indices
-    3. Batching doesn't break the multiplex scheduling logic
-    """
     # Update config to use desired batch size
     train_config = train_config.model_copy(update={"batch_size": batch_size})
 
@@ -670,13 +663,6 @@ def test_multiscale_mix__batch_consistency(train_config: TrainConfig, batch_size
 
             # Verify batch dimension matches (or is <= for last batch which might be smaller)
             actual_batch_size = X.shape[1]
-            assert actual_batch_size <= batch_size, (
+            assert actual_batch_size == batch_size, (
                 f"Batch size {actual_batch_size} should not exceed configured batch_size {batch_size}"
             )
-
-            # If we have the full batch size, verify consistency within the batch
-            if actual_batch_size == batch_size:
-                # All items in batch should have same resolution pattern
-                # (though we can't easily check the multiplex index here without
-                # accessing internal state)
-                pass

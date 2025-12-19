@@ -85,6 +85,18 @@ def make_loader(
     prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
     boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
 
+    def make_dataset(s: DataSource, stride: int):
+        return TorchTrainDataset(
+            src=s.slice(time_config),
+            prognostic_var_names=prognostic,
+            boundary_var_names=boundary,
+            hist=cfg.data.hist,
+            steps=cfg.steps[0],
+            normalize_before_mask=cfg.data.normalize_before_mask,
+            masked_fill_value=cfg.data.masked_fill_value,
+            stride=stride,
+        )
+
     data_config = (
         cfg.data
         if version is None
@@ -106,19 +118,7 @@ def make_loader(
 
         match version:
             case LoaderVersion.OM4_TORCH:
-                dataset_list = [
-                    TorchTrainDataset(
-                        src=src.slice(time_config),
-                        prognostic_var_names=prognostic,
-                        boundary_var_names=boundary,
-                        hist=cfg.data.hist,
-                        steps=cfg.steps[0],
-                        normalize_before_mask=cfg.data.normalize_before_mask,
-                        masked_fill_value=cfg.data.masked_fill_value,
-                        stride=stride,
-                    )
-                    for stride in cfg.data_stride
-                ]
+                dataset_list = [make_dataset(src, stride) for stride in cfg.data_stride]
                 collate_fn = collate_raw_train_data
             case LoaderVersion.OM4_MULTI_MATCH | LoaderVersion.OM4_MULTI_MIX:
                 # Create coarsened datasource with both coarsened data and masks
@@ -127,18 +127,6 @@ def make_loader(
                     coarsened_src, masks=coarsen_masks(src.masks)
                 )
                 srcs = [src, coarsened_src]
-
-                def make_dataset(s, stride):
-                    return TorchTrainDataset(
-                        src=s.slice(time_config),
-                        prognostic_var_names=prognostic,
-                        boundary_var_names=boundary,
-                        hist=cfg.data.hist,
-                        steps=cfg.steps[0],
-                        normalize_before_mask=cfg.data.normalize_before_mask,
-                        masked_fill_value=cfg.data.masked_fill_value,
-                        stride=stride,
-                    )
 
                 schedule: MultiscaleSchedule = (
                     "match" if version == LoaderVersion.OM4_MULTI_MATCH else "mix"

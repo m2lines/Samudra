@@ -12,7 +12,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
@@ -694,6 +694,85 @@ def concurrent_compute(
 
 
 MultiscaleSchedule = Literal["match", "mix"]
+
+
+class MultiscaleGroupedBatchSampler(Sampler[list[int]]):
+    """Groups indices by multiplex position to ensure batch consistency in multiscale training.
+
+    For multiscale datasets with the "mix" schedule, items in a batch must have the same
+    multiplex index (idx % multiplex_size) to ensure consistent scale combinations are
+    applied during GPU processing.
+
+    This sampler groups indices by their multiplex position and creates batches within
+    each group, preventing the collate function from combining incompatible indices.
+
+    Args:
+        dataset_len: Total number of samples in the dataset
+        multiplex_size: Number of scale combinations (e.g., 4 for 2 scales: (0,0), (0,1), (1,0), (1,1))
+        batch_size: Number of samples per batch
+        shuffle: Whether to shuffle indices within each group
+        drop_last: Whether to drop the last incomplete batch in each group
+        generator: Random number generator for shuffling
+    """
+
+    def __init__(
+        self,
+        dataset_len: int,
+        multiplex_size: int,
+        batch_size: int,
+        shuffle: bool = True,
+        drop_last: bool = False,
+        generator: torch.Generator | None = None,
+    ):
+        self.dataset_len = dataset_len
+        self.group_size = multiplex_size
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.drop_last = drop_last
+        self.generator = generator
+
+    def __iter__(self):
+        # Group indices by their multiplex position
+        groups: list[list[int]] = [[] for _ in range(self.group_size)]
+        for idx in range(self.dataset_len):
+            multiplex_pos = idx % self.group_size
+            groups[multiplex_pos].append(idx)
+
+        # Shuffle within each group if needed
+        if self.shuffle:
+            for group in groups:
+                # Use torch.randperm for consistent behavior with PyTorch
+                if self.generator is not None:
+                    perm = torch.randperm(len(group), generator=self.generator).tolist()
+                else:
+                    perm = torch.randperm(len(group)).tolist()
+                groups[groups.index(group)] = [group[i] for i in perm]
+
+        # Yield batches from each group
+        for group in groups:
+            for i in range(0, len(group), self.batch_size):
+                batch = group[i : i + self.batch_size]
+                # Drop last incomplete batch if drop_last is True
+                if self.drop_last and len(batch) < self.batch_size:
+                    continue
+                yield batch
+
+    def __len__(self) -> int:
+        # Calculate total number of batches across all groups
+        total_batches = 0
+        for multiplex_pos in range(self.group_size):
+            # Count items in this group
+            group_size = (
+                self.dataset_len + self.group_size - multiplex_pos - 1
+            ) // self.group_size
+            # Calculate number of batches for this group
+            if self.drop_last:
+                # Use floor division to drop incomplete batches
+                total_batches += group_size // self.batch_size
+            else:
+                # Use ceiling division to include all batches
+                total_batches += (group_size + self.batch_size - 1) // self.batch_size
+        return total_batches
 
 
 def mix_examples(left: TrainData, right: TrainData) -> TrainData:

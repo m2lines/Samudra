@@ -697,18 +697,18 @@ MultiscaleSchedule = Literal["match", "mix"]
 
 
 class MultiscaleGroupedBatchSampler(Sampler[list[int]]):
-    """Groups indices by multiplex position to ensure batch consistency in multiscale training.
+    """Groups indices by equivalence to ensure batch consistency in multiscale training.
 
     For multiscale datasets with the "mix" schedule, items in a batch must have the same
-    multiplex index (idx % multiplex_size) to ensure consistent scale combinations are
+    group index (idx % group_size) to ensure consistent scale combinations are
     applied during GPU processing.
 
-    This sampler groups indices by their multiplex position and creates batches within
+    This sampler collects indices by their group position and creates batches within
     each group, preventing the collate function from combining incompatible indices.
 
     Args:
         dataset_len: Total number of samples in the dataset
-        multiplex_size: Number of scale combinations (e.g., 4 for 2 scales: (0,0), (0,1), (1,0), (1,1))
+        group_size: Number of scale combinations
         batch_size: Number of samples per batch
         shuffle: Whether to shuffle indices within each group
         drop_last: Whether to drop the last incomplete batch in each group
@@ -718,25 +718,25 @@ class MultiscaleGroupedBatchSampler(Sampler[list[int]]):
     def __init__(
         self,
         dataset_len: int,
-        multiplex_size: int,
+        group_size: int,
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
         generator: torch.Generator | None = None,
     ):
         self.dataset_len = dataset_len
-        self.group_size = multiplex_size
+        self.group_size = group_size
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
         self.generator = generator
 
     def __iter__(self):
-        # Group indices by their multiplex position
+        # Group indices by their position
         groups: list[list[int]] = [[] for _ in range(self.group_size)]
         for idx in range(self.dataset_len):
-            multiplex_pos = idx % self.group_size
-            groups[multiplex_pos].append(idx)
+            group_pos = idx % self.group_size
+            groups[group_pos].append(idx)
 
         # Shuffle within each group if needed
         if self.shuffle:
@@ -760,10 +760,10 @@ class MultiscaleGroupedBatchSampler(Sampler[list[int]]):
     def __len__(self) -> int:
         # Calculate total number of batches across all groups
         total_batches = 0
-        for multiplex_pos in range(self.group_size):
+        for group_pos in range(self.group_size):
             # Count items in this group
             group_size = (
-                self.dataset_len + self.group_size - multiplex_pos - 1
+                self.dataset_len + self.group_size - group_pos - 1
             ) // self.group_size
             # Calculate number of batches for this group
             if self.drop_last:

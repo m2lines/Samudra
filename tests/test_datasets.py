@@ -158,14 +158,14 @@ def make_loader(
             # For multiscale modes with batch_size > 1, use grouped batch sampler
             # MATCH mode: groups by resolution index (idx % len(datasets))
             # MIX mode: groups by multiplex position (idx % len(multiplex))
-            multiplex_size = (
+            group_size = (
                 len(dataset_list[0].datasets)
                 if version == LoaderVersion.OM4_MULTI_MATCH
                 else len(dataset_list[0].multiplex)
             )
             batch_sampler = MultiscaleGroupedBatchSampler(
                 dataset_len=len(data),
-                multiplex_size=multiplex_size,
+                group_size=group_size,
                 batch_size=cfg.batch_size,
                 shuffle=True,
                 drop_last=drop_last,

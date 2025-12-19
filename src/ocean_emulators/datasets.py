@@ -446,7 +446,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self._executor = executor
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        # assert src.data.time == dst.data.time, "src and dst DataSource have different time slices!"
+        assert np.array_equal(src.data.time, dst.data.time), (
+            "src and dst DataSource have different time slices!"
+        )
         time_ = src.data.time
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")

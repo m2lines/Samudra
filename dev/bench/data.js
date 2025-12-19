@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1766166296027,
+  "lastUpdate": 1766166297219,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12777,6 +12777,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18286265870546006",
             "extra": "mean: 74.15853584040005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5555e329dc3f796e7d20daa392d1dd206010493d",
+          "message": "Allow using autocast for bfloat16 (#521)\n\nThis seems to largely be a memory win and neutral for our metrics. I\nhaven't asked for review of the viz results but it seems worth at least\nhaving this option checked in for running quarter-degree runs.",
+          "timestamp": "2025-12-19T12:18:22-05:00",
+          "tree_id": "933c2b3e48484401824450c489ceab38cd1623a4",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/5555e329dc3f796e7d20daa392d1dd206010493d"
+        },
+        "date": 1766166296923,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.6006975855444558,
+            "unit": "iter/sec",
+            "range": "stddev: 0.030841286578658998",
+            "extra": "mean: 624.7276243999977 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18944642628699893,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04816488112194544",
+            "extra": "mean: 5.278537154799983 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012893990509241386,
+            "unit": "iter/sec",
+            "range": "stddev: 0.21046007633357483",
+            "extra": "mean: 77.55550923380001 sec\nrounds: 5"
           }
         ]
       }

@@ -120,13 +120,12 @@ def make_loader(
         match version:
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [make_dataset(src, stride) for stride in cfg.data_stride]
-                collate_fn = collate_raw_train_data
                 data: ConcatDataset = ConcatDataset(dataset_list)
                 raw_loader = DataLoader(
                     data,
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
-                    collate_fn=collate_fn,
+                    collate_fn=collate_raw_train_data,
                 )
             case LoaderVersion.OM4_MULTI_MATCH | LoaderVersion.OM4_MULTI_MIX:
                 # Create coarsened datasource with both coarsened data and masks
@@ -148,7 +147,6 @@ def make_loader(
                     )
                     for stride in cfg.data_stride
                 ]
-                collate_fn = collate_raw_multiscale_train_data  # type: ignore
                 data = ConcatDataset(dataset_list)
 
                 group_size = (
@@ -161,7 +159,7 @@ def make_loader(
                 )
                 raw_loader = DataLoader(
                     data,
-                    collate_fn=collate_fn,
+                    collate_fn=collate_raw_multiscale_train_data,  # type: ignore
                     batch_sampler=batch_sampler,
                 )
 

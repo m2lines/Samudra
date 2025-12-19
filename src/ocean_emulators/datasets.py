@@ -715,7 +715,7 @@ class EquivalenceGroupedBatchSampler(Sampler[list[int]]):
     globally shuffled each epoch to avoid sequential group processing.
 
     Args:
-        dataset_len: Total number of samples in the dataset
+        data_size: Total number of samples in the dataset
         group_size: Number of equivalence groups (e.g., 2 for MATCH mode, 4 for MIX mode)
         batch_size: Number of samples per batch
         shuffle: Whether to shuffle indices within groups and shuffle batches globally
@@ -724,13 +724,13 @@ class EquivalenceGroupedBatchSampler(Sampler[list[int]]):
 
     def __init__(
         self,
-        dataset_len: int,
+        data_size: int,
         group_size: int,
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
     ):
-        self.dataset_len = dataset_len
+        self.data_size = data_size
         self.group_size = group_size
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -738,7 +738,7 @@ class EquivalenceGroupedBatchSampler(Sampler[list[int]]):
 
         # Pre-compute group indices for __len__ calculation
         self.groups = [
-            [i for i in range(dataset_len) if i % group_size == g]
+            [i for i in range(data_size) if i % group_size == g]
             for g in range(group_size)
         ]
 

@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../schemas/SweepConfig.json
+
+base_config: ../samudra_om4/train.yaml
+base_overrides:
+  epochs: 10
+  experiment:
+    data_root: ~/data/om4_onedeg/
+  model:
+    use_bfloat16: true
+
+study:
+  name: samudra_om4_optuna
+  direction: minimize
+  n_trials: 20
+  sampler: tpe
+  seed: 15
+
+output_dir: .LOCAL/sweeps
+objective: val
+trial_name_template: "{study_name}/trial_{trial_number:04d}"
+
+parameters:
+  - kind: float
+    name: learning_rate
+    path: learning_rate
+    low: 1.0e-5
+    high: 5.0e-4
+    log: true
+  - kind: categorical
+    name: batch_size
+    path: batch_size
+    choices: [1, 2, 4]
+  - kind: categorical
+    name: grad_accum
+    path: gradient_accumulation_steps
+    choices: [1, 2, 4]
+  - kind: float
+    name: ema_decay
+    path: ema_decay
+    low: 0.995
+    high: 0.9999
+  - kind: categorical
+    name: scheduler
+    path: scheduler
+    choices:
+      - { type: cosine_with_warmup, warmup_epochs: 5, warmup_lr: 1.0e-6 }
+      - { type: cosine }
+      - null

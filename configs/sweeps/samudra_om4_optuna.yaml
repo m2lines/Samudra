@@ -4,7 +4,7 @@ base_config: ../samudra_om4/train.yaml
 base_overrides:
   epochs: 10
   experiment:
-    data_root: ~/data/om4_onedeg/
+    data_root: /home/jder/data/om4_onedeg/
   model:
     use_bfloat16: true
 

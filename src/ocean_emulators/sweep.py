@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ocean_emulators.utils.multiton import MultitonScope
 
 import argparse
 import logging
@@ -143,8 +144,9 @@ def main():
         _reset_logging_handlers()
         handle_logging(trial_cfg.debug, trial_cfg.experiment.output_dir)
 
-        trainer = Trainer(trial_cfg)
-        trainer.run()
+        with MultitonScope():
+            trainer = Trainer(trial_cfg)
+            trainer.run()
 
         if sweep_cfg.objective == "val":
             return trainer.best_val_loss

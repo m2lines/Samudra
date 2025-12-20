@@ -40,6 +40,7 @@ class FOMO(BaseModel):
         static_data: xr.Dataset | None,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
+        unet_mask_gating: bool,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -51,14 +52,16 @@ class FOMO(BaseModel):
             pad=pad,
             static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
+            unet_mask_gating=unet_mask_gating,
         )
         self.patch_size = encoder.patch_size
 
         # Placeholder decoder is a non-globe aware Conv2d.
+        self.processor = processor
         layers = [
             add_3d_coordinates,
             encoder,
-            processor,
+            self.processor,
             nn.Conv2d(
                 processor.out_channels,
                 out_channels,
@@ -88,7 +91,13 @@ class FOMO(BaseModel):
 
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
-            fts = layer(fts)
+            if layer is self.processor:
+                fts = layer(
+                    fts,
+                    wet_mask=self.wet_spatial if self.unet_mask_gating else None,
+                )
+            else:
+                fts = layer(fts)
 
         # Unpatchify: project to patch area, then reshape back to original spatial dimensions
         _, _, h, w = fts.shape

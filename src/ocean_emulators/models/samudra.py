@@ -26,6 +26,7 @@ class Samudra(BaseModel):
         static_data: xr.Dataset | None,
         gradient_detach_interval: int,
         use_bfloat16: bool,
+        unet_mask_gating: bool,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -37,6 +38,7 @@ class Samudra(BaseModel):
             pad=pad,
             static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
+            unet_mask_gating=unet_mask_gating,
         )
 
         if pos_channels > 0:
@@ -68,7 +70,9 @@ class Samudra(BaseModel):
             if self.add_3d_coordinates is not None:
                 fts = self.add_3d_coordinates(fts)
 
-            fts = self.unet(fts)
+            fts = self.unet(
+                fts, wet_mask=self.wet_spatial if self.unet_mask_gating else None
+            )
             fts = torch.nn.functional.pad(
                 fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
             )

@@ -75,7 +75,10 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
+        wet_mask_channels = cfg.data.wet_mask_channel_count(self.N_prog)
+        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound)) + int(
+            wet_mask_channels
+        )
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
@@ -83,6 +86,8 @@ class Eval:
         )
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
+        if wet_mask_channels > 0:
+            logger.info(f"Number of wet mask channels: {wet_mask_channels}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
@@ -151,6 +156,8 @@ class Eval:
         self.model_path = cfg.ckpt_path
         self.normalize_before_mask = cfg.data.normalize_before_mask
         self.masked_fill_value = cfg.data.masked_fill_value
+        self.add_wet_mask_channel = cfg.data.add_wet_mask_channel
+        self.wet_mask_channel_mode = cfg.data.wet_mask_channel_mode
         self.init_inference_store()
 
     def load_checkpoint(self, ckpt_path: str):
@@ -175,6 +182,8 @@ class Eval:
             hist=self.hist,
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
+            add_wet_mask_channel=self.add_wet_mask_channel,
+            wet_mask_channel_mode=self.wet_mask_channel_mode,
             long_rollout=True,
         )
 

@@ -134,6 +134,8 @@ class Trainer:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
+        self.add_wet_mask_channel = cfg.data.add_wet_mask_channel
+        self.wet_mask_channel_mode = cfg.data.wet_mask_channel_mode
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -142,7 +144,10 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
+        wet_mask_channels = cfg.data.wet_mask_channel_count(self.N_prog)
+        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound)) + int(
+            wet_mask_channels
+        )
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
@@ -150,6 +155,8 @@ class Trainer:
         )
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
+        if wet_mask_channels > 0:
+            logger.info(f"Number of wet mask channels: {wet_mask_channels}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
@@ -363,6 +370,8 @@ class Trainer:
                 hist=self.hist,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
+                add_wet_mask_channel=self.add_wet_mask_channel,
+                wet_mask_channel_mode=self.wet_mask_channel_mode,
                 long_rollout=True,
             )
 
@@ -724,6 +733,8 @@ class Trainer:
                 steps=cur_step,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
+                add_wet_mask_channel=self.add_wet_mask_channel,
+                wet_mask_channel_mode=self.wet_mask_channel_mode,
                 stride=stride,
                 executor=self.executor,
             )
@@ -739,6 +750,8 @@ class Trainer:
                 steps=1,  # current_step set to 1 for validation
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
+                add_wet_mask_channel=self.add_wet_mask_channel,
+                wet_mask_channel_mode=self.wet_mask_channel_mode,
                 stride=stride,
                 executor=self.executor,
             )

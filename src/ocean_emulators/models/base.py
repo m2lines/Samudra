@@ -23,18 +23,23 @@ class BaseModel(torch.nn.Module):
         pad,
         static_data,
         gradient_detach_interval: int,
+        unet_mask_gating: bool = False,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.wet = wet.bool()
+        self.wet_spatial = (
+            self.wet.any(dim=0) if self.wet.dim() >= 3 else self.wet
+        ).bool()
         self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad = pad
         self.pred_residuals = pred_residuals
         self.hist = hist
         self.static_data = static_data
         self.gradient_detach_interval = gradient_detach_interval
+        self.unet_mask_gating = unet_mask_gating
 
     def forward_once(self, fts):
         raise NotImplementedError()

@@ -146,7 +146,29 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def _apply_wet_mask(
+        self, fts: torch.Tensor, wet_mask: torch.Tensor | None
+    ) -> torch.Tensor:
+        if wet_mask is None:
+            return fts
+        mask = wet_mask.to(device=fts.device)
+        if mask.dim() == 2:
+            mask = mask.unsqueeze(0).unsqueeze(0)
+        elif mask.dim() == 3:
+            mask = mask.unsqueeze(0)
+        if mask.shape[1] != 1:
+            mask = mask.any(dim=1, keepdim=True)
+        if mask.shape[2:] != fts.shape[2:]:
+            mask = torch.nn.functional.interpolate(
+                mask.to(dtype=fts.dtype), size=fts.shape[2:], mode="nearest"
+            )
+        else:
+            mask = mask.to(dtype=fts.dtype)
+        return fts * mask
+
+    def forward(
+        self, fts: torch.Tensor, wet_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
@@ -166,6 +188,8 @@ class UNetBackbone(nn.Module):
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
             else:
                 fts = layer(fts)
+
+            fts = self._apply_wet_mask(fts, wet_mask)
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:
@@ -191,6 +215,7 @@ class UNetBackbone(nn.Module):
                     ]
                     fts = nn.functional.pad(fts, pads)
                     fts += skip_inputs[int(2 * self.num_steps - count - 1)]
+                    fts = self._apply_wet_mask(fts, wet_mask)
                     count += 1
 
         return fts

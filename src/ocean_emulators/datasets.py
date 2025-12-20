@@ -2,7 +2,7 @@ import logging
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import TypeAlias, final
+from typing import Literal, TypeAlias, final
 
 import numpy as np
 import torch
@@ -52,7 +52,9 @@ class InferenceDataset(Dataset):
         hist,
         normalize_before_mask,
         masked_fill_value,
-        long_rollout,
+        add_wet_mask_channel: bool = False,
+        wet_mask_channel_mode: Literal["surface", "per_var"] = "per_var",
+        long_rollout: bool = False,
     ):
         super().__init__()
         self.device = get_device()
@@ -66,6 +68,8 @@ class InferenceDataset(Dataset):
         self._times = data.time
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
+        self.add_wet_mask_channel = add_wet_mask_channel
+        self.wet_mask_channel_mode = wet_mask_channel_mode
 
         time_indices = np.arange(data.time.size)
         indices = xr.DataArray(
@@ -133,6 +137,9 @@ class InferenceDataset(Dataset):
         x_index = self._get_x_index(step)
         boundary = self._get_boundary(x_index).to(prognostic.device)
         data = torch.cat((prognostic, boundary), dim=1)
+        data = self._append_wet_mask_channels(
+            data, time_steps=self.hist + 1, device=prognostic.device
+        )
         return data
 
     @elapsed(level=logging.DEBUG)
@@ -141,6 +148,9 @@ class InferenceDataset(Dataset):
         data_in = self._get_prognostic(x_index)
         data_in_boundary = self._get_boundary(x_index)
         data_in = torch.cat((data_in, data_in_boundary), dim=1)
+        data_in = self._append_wet_mask_channels(
+            data_in, time_steps=self.hist + 1, device=data_in.device
+        )
         label = self._get_label(x_index)
         return (data_in, label)
 
@@ -273,6 +283,25 @@ class InferenceDataset(Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         return label
+
+    def _append_wet_mask_channels(
+        self, tensor: torch.Tensor, *, time_steps: int, device: torch.device
+    ) -> torch.Tensor:
+        if not self.add_wet_mask_channel:
+            return tensor
+        if self.wet_mask_channel_mode == "surface":
+            mask = (
+                self.wet_surface.to(device=device)
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .unsqueeze(0)
+            )
+        else:
+            mask = self.wet.to(device=device).unsqueeze(0).unsqueeze(0)
+        mask = mask.expand(tensor.shape[0], time_steps, -1, -1, -1)
+        mask = mask.to(dtype=tensor.dtype)
+        mask = rearrange(mask, "batch time var lat lon -> batch (time var) lat lon")
+        return torch.cat((tensor, mask), dim=1)
 
     def get_coords_dict(self):
         return {
@@ -417,6 +446,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         steps: int,
         normalize_before_mask: bool,
         masked_fill_value: float,
+        add_wet_mask_channel: bool = False,
+        wet_mask_channel_mode: Literal["surface", "per_var"] = "per_var",
         stride: int = 1,
         executor: ThreadPoolExecutor | None = None,
     ):
@@ -429,6 +460,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
+        self.add_wet_mask_channel: bool = add_wet_mask_channel
+        self.wet_mask_channel_mode: Literal["surface", "per_var"] = (
+            wet_mask_channel_mode
+        )
         self._executor = executor
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
@@ -549,9 +584,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         total_input = self._prep_tensor_steps(
             prognostic_all[:, : self.hist + 1, :, :, :],
             boundary_all[:, : self.hist + 1, :, :, :],
+            add_mask_channels=True,
         )
         # grab future steps, repeat as we do for input
-        label = self._prep_tensor_steps(prognostic_all[:, self.hist + 1 :, :, :, :])
+        label = self._prep_tensor_steps(
+            prognostic_all[:, self.hist + 1 :, :, :, :],
+            add_mask_channels=False,
+        )
         return total_input, label
 
     def _prep_tensor_steps(
@@ -559,8 +598,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         prognostic_steps: Float[torch.Tensor, "batch time variable lat lon"],
         boundary_steps: Float[torch.Tensor, "batch time variable lat lon"]
         | None = None,
+        *,
+        add_mask_channels: bool = False,
     ) -> Input:
         """Prepare tensor steps by normalizing, masking and flattening dimensions."""
+        time_steps = prognostic_steps.shape[1]
 
         def normalize(
             data: Float[torch.Tensor, "batch time var lat lon"],
@@ -613,9 +655,40 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         prognostic_steps = flatten_dims(prognostic_steps)
         if boundary_steps is not None:
             boundary_steps = flatten_dims(boundary_steps)
-            return torch.cat((prognostic_steps, boundary_steps), dim=1)
+            total = torch.cat((prognostic_steps, boundary_steps), dim=1)
+            if add_mask_channels:
+                total = self._append_wet_mask_channels(
+                    total, time_steps=time_steps, device=total.device
+                )
+            return total
+
+        if add_mask_channels:
+            prognostic_steps = self._append_wet_mask_channels(
+                prognostic_steps,
+                time_steps=time_steps,
+                device=prognostic_steps.device,
+            )
 
         return prognostic_steps
+
+    def _append_wet_mask_channels(
+        self, tensor: torch.Tensor, *, time_steps: int, device: torch.device
+    ) -> torch.Tensor:
+        if not self.add_wet_mask_channel:
+            return tensor
+        if self.wet_mask_channel_mode == "surface":
+            mask = (
+                self.wet_surface.to(device=device)
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .unsqueeze(0)
+            )
+        else:
+            mask = self.wet.to(device=device).unsqueeze(0).unsqueeze(0)
+        mask = mask.expand(tensor.shape[0], time_steps, -1, -1, -1)
+        mask = mask.to(dtype=tensor.dtype)
+        mask = rearrange(mask, "batch time var lat lon -> batch (time var) lat lon")
+        return torch.cat((tensor, mask), dim=1)
 
     def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
         assert isinstance(idx, int)

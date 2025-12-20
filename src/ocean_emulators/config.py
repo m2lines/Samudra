@@ -150,7 +150,20 @@ class DataConfig(BaseConfig):
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
+    add_wet_mask_channel: bool = False
+    wet_mask_channel_mode: Literal["surface", "per_var"] = "per_var"
     concurrent_compute: bool = False
+
+    def wet_mask_channel_count(self, num_prognostic_vars: int) -> int:
+        if not self.add_wet_mask_channel:
+            return 0
+        match self.wet_mask_channel_mode:
+            case "surface":
+                return self.hist + 1
+            case "per_var":
+                return (self.hist + 1) * num_prognostic_vars
+            case _:
+                assert_never(self.wet_mask_channel_mode)
 
     def build(
         self,
@@ -485,6 +498,10 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         default=False,
         description="Add 3d coordinates representing position on the Earth (cartesian coordinates on a unit sphere) to the input channels.",
     )
+    unet_mask_gating: bool = Field(
+        default=False,
+        description="Apply the wet mask at each U-Net scale to suppress land features.",
+    )
 
     @abc.abstractmethod
     def build(
@@ -552,6 +569,7 @@ class SamudraConfig(BaseModelConfig):
             static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            unet_mask_gating=self.unet_mask_gating,
         )
 
 
@@ -595,6 +613,7 @@ class FOMOConfig(BaseModelConfig):
             static_data=static_data,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
+            unet_mask_gating=self.unet_mask_gating,
         )
 
 

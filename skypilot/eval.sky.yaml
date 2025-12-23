@@ -84,4 +84,5 @@ run: |
     --experiment.wandb.mode=online \
     --experiment.base_output_dir=/outputs/ \
     --experiment.name="${NAME}" \
+    --backend="cuda" \
     ${ARGS}

@@ -4,6 +4,8 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+import os
+
 from ocean_emulators.config import (
     DistributedConfig,
     EvalBackendConfig,
@@ -11,6 +13,19 @@ from ocean_emulators.config import (
 )
 from ocean_emulators.utils.device import set_device
 from ocean_emulators.utils.distributed import init_distributed_mode
+
+
+def _cuda_diagnostics() -> str:
+    """Return a short string that helps debug why CUDA is (not) available."""
+    visible = os.getenv("CUDA_VISIBLE_DEVICES", None)
+    return (
+        "CUDA diagnostics: "
+        f"torch={torch.__version__}, "
+        f"torch.version.cuda={torch.version.cuda}, "
+        f"torch.cuda.is_available()={torch.cuda.is_available()}, "
+        f"torch.cuda.device_count()={torch.cuda.device_count()}, "
+        f"CUDA_VISIBLE_DEVICES={visible!r}"
+    )
 
 
 def init_train_backend(
@@ -22,9 +37,19 @@ def init_train_backend(
             device = torch.device("cpu")
             dist_cfg = None
         case "cuda":
+            if not torch.cuda.is_available():
+                raise RuntimeError(
+                    "Requested backend='cuda' but CUDA is not available. "
+                    + _cuda_diagnostics()
+                )
             device = torch.device("cuda")
             dist_cfg = None
         case "nccl":
+            if not torch.cuda.is_available():
+                raise RuntimeError(
+                    "Requested backend='nccl' but CUDA is not available. "
+                    + _cuda_diagnostics()
+                )
             device = torch.device("cuda")
             dist_cfg = init_distributed_mode()
         case "auto" if torch.cuda.is_available():
@@ -40,7 +65,9 @@ def init_train_backend(
                 )
                 dist_cfg = None
         case "auto":
-            logger.info("auto backend: cuda not found, using CPU")
+            logger.warning(
+                "auto backend: cuda not found, using CPU. " + _cuda_diagnostics()
+            )
             device = torch.device("cpu")
             dist_cfg = None
         case _:
@@ -59,14 +86,22 @@ def init_eval_backend(backend: EvalBackendConfig) -> torch.device:
         case "cpu":
             device = torch.device("cpu")
         case "cuda":
+            if not torch.cuda.is_available():
+                raise RuntimeError(
+                    "Requested backend='cuda' but CUDA is not available. "
+                    + _cuda_diagnostics()
+                )
             device = torch.device("cuda")
         case "auto" if torch.cuda.is_available():
             logger.info("auto backend detected CUDA")
             device = torch.device("cuda")
         case "auto":
-            logger.info("auto backend: cuda not found, using CPU")
+            logger.warning(
+                "auto backend: cuda not found, using CPU. " + _cuda_diagnostics()
+            )
             device = torch.device("cpu")
         case _:
             raise ValueError(f"Invalid backend: {backend}")
 
+    set_device(device)
     return device

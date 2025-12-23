@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1766517124217,
+  "lastUpdate": 1766517125535,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12957,6 +12957,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.22389416477017474",
             "extra": "mean: 74.3689868172 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3fa0b6a3de38a39ae9065bb487f9be323c7c89b0",
+          "message": "Fixes from running eval mistakenly on CPU (#526)\n\nI was (because of skypilot config [mis-]features) mistakenly running the\nquarter-degree eval on CPU. This PR:\n\n* Ensures that eval set_device's correctly so we use bfloat16 etc as\nexpected\n* Produces useful diagnostics for why we're not using CUDA when we're\nnot\n* Changes eval + train skypilot jobs to request CUDA backends, not auto,\nso they will fail if CUDA is not used.",
+          "timestamp": "2025-12-23T18:46:12Z",
+          "tree_id": "1424cf6e5cc53c2d25f0211ad38b7e491ff5a6c2",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/3fa0b6a3de38a39ae9065bb487f9be323c7c89b0"
+        },
+        "date": 1766517125215,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5768697419483746,
+            "unit": "iter/sec",
+            "range": "stddev: 0.024865252266313503",
+            "extra": "mean: 634.167790399988 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18875721489812294,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0689811780311752",
+            "extra": "mean: 5.297810738199996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012937645777411702,
+            "unit": "iter/sec",
+            "range": "stddev: 0.24344543241180785",
+            "extra": "mean: 77.29381505760003 sec\nrounds: 5"
           }
         ]
       }

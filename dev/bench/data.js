@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1766176183326,
+  "lastUpdate": 1766517124217,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6429,6 +6429,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.240181144467071",
             "extra": "mean: 87.5961141132 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3fa0b6a3de38a39ae9065bb487f9be323c7c89b0",
+          "message": "Fixes from running eval mistakenly on CPU (#526)\n\nI was (because of skypilot config [mis-]features) mistakenly running the\nquarter-degree eval on CPU. This PR:\n\n* Ensures that eval set_device's correctly so we use bfloat16 etc as\nexpected\n* Produces useful diagnostics for why we're not using CUDA when we're\nnot\n* Changes eval + train skypilot jobs to request CUDA backends, not auto,\nso they will fail if CUDA is not used.",
+          "timestamp": "2025-12-23T18:46:12Z",
+          "tree_id": "1424cf6e5cc53c2d25f0211ad38b7e491ff5a6c2",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/3fa0b6a3de38a39ae9065bb487f9be323c7c89b0"
+        },
+        "date": 1766517123355,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5724969656736927,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021653623219523653",
+            "extra": "mean: 635.9312747999979 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18849640321707878,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04351042309259614",
+            "extra": "mean: 5.305141015599998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011015661560869186,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5819132252454366",
+            "extra": "mean: 90.77984054560001 sec\nrounds: 5"
           }
         ]
       }

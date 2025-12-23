@@ -124,7 +124,8 @@ class Stepper:
             )
             # Setting initial prognostic for next loop
             prog_channels_per_state = model.out_channels // model.num_output_states
-            history = initial_prognostic.view(
+            device = IO.prediction.device
+            history = initial_prognostic.to(device).view(
                 1,
                 model.num_input_states,
                 prog_channels_per_state,

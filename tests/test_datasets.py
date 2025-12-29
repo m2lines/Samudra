@@ -373,7 +373,7 @@ def test_loader__data_shape__across_schedules(
         )
 
         example_resolutions = []
-        # Only check the first 8 samples; this should be proof enough that everything is
+        # Subsample the examples; this should be proof enough that everything is
         # the right shape.
         for sample in samples[::3]:
             X, y = extract_sample_arrays(sample)

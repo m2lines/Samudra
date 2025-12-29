@@ -204,7 +204,6 @@ class Trainer:
             in_channels=self.num_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            wet=self.wet,
             area_weights=self.area_weights,
             static_data=self.static_data,
             lat=torch.from_numpy(self.data.lat.values),
@@ -504,7 +503,8 @@ class Trainer:
                 r = self.gradient_accumulation_steps
 
             if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+                # Pass None since TrainData is not compatible with torchinfo's traversal
+                get_model_summary(self.model, None, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
 

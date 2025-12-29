@@ -50,7 +50,6 @@ def test_positional_parameters_update():
             in_channels=2,
             out_channels=1,
             hist=0,
-            wet=torch.ones(1, h, w, dtype=torch.bool),
             area_weights=torch.ones(h, w),
             static_data=None,
             lat=torch.from_numpy(src.data.y.values),
@@ -69,7 +68,7 @@ def test_positional_parameters_update():
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         x = torch.randn(1, 2, h, w)
         optimizer.zero_grad()
-        out = model.forward_once(x)
+        out = model.forward_once(x, wet=masks.prognostic)
         loss = out.sum()
         loss.backward()
         before = model.positional_params.detach().clone()

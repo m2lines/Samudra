@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.utils.checkpoint
 import xarray as xr
 
-from ocean_emulators.constants import Grid
+from ocean_emulators.constants import PrognosticMask
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.device import autocast
@@ -22,7 +22,7 @@ class Samudra(BaseModel):
         pos_channels: int,
         add_3d_coordinates: nn.Module | None,
         hist: int,
-        wet: Grid,
+        grid: tuple[int, int],
         static_data: xr.Dataset | None,
         gradient_detach_interval: int,
         use_bfloat16: bool,
@@ -30,7 +30,6 @@ class Samudra(BaseModel):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
-            wet=wet,
             hist=hist,
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
@@ -40,9 +39,7 @@ class Samudra(BaseModel):
         )
 
         if pos_channels > 0:
-            self.positional_params = nn.Parameter(
-                torch.empty(pos_channels, *wet.shape[-2:])
-            )
+            self.positional_params = nn.Parameter(torch.empty(pos_channels, *grid))
             nn.init.normal_(self.positional_params, mean=0.0, std=1e-5)
         else:
             self.register_parameter("positional_params", None)
@@ -54,7 +51,7 @@ class Samudra(BaseModel):
         self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
 
-    def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward_once(self, fts: torch.Tensor, wet: PrognosticMask) -> torch.Tensor:
         if self.corrector is not None:
             fts_input = fts.clone().detach()
 
@@ -82,4 +79,4 @@ class Samudra(BaseModel):
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)
-        return torch.where(self.wet, fts, 0.0)
+        return torch.where(wet, fts, 0.0)

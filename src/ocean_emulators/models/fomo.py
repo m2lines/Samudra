@@ -10,7 +10,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
-from ocean_emulators.constants import Grid
+from ocean_emulators.constants import PrognosticMask
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
@@ -36,7 +36,6 @@ class FOMO(BaseModel):
         encoder: PerceiverEncoder,
         processor: UNetBackbone,
         hist: int,
-        wet: Grid,
         static_data: xr.Dataset | None,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
@@ -44,7 +43,6 @@ class FOMO(BaseModel):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
-            wet=wet,
             hist=hist,
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
@@ -86,7 +84,7 @@ class FOMO(BaseModel):
                 ),
             )
 
-    def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward_once(self, fts: torch.Tensor, wet: PrognosticMask) -> torch.Tensor:
         for layer in self.layers:
             fts = layer(fts)
 
@@ -104,4 +102,4 @@ class FOMO(BaseModel):
             w=w,
         )
 
-        return torch.where(self.wet, fts, 0.0)
+        return torch.where(wet, fts, 0.0)

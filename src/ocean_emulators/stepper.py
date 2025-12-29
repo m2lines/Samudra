@@ -49,7 +49,7 @@ class Stepper:
             if isinstance(model, torch.nn.parallel.DistributedDataParallel)
             else model
         )
-        outs = model.forward_once(input)
+        outs = model.forward_once(input, wet=batch.label_mask)
         loss_per_channel = loss_fn(outs, label, wet=batch.label_mask)
         loss = torch.mean(loss_per_channel)
         return ValBatchOutput(loss, loss_per_channel, input, label, outs)

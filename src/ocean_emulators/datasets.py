@@ -98,11 +98,13 @@ class InferenceDataset(Dataset):
 
         self.wet: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
+        self.wet_label = src.masks.prognostic_with_hist(self.hist)
         self.size = len(self.rolling_indices)
 
         if using_gpu():
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
+            self.wet_label = self.wet_label.pin_memory()
 
     def __len__(self):
         return self.size

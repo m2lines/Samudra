@@ -69,7 +69,6 @@ def create_samudra_model():
                 in_channels=2,
                 out_channels=1,
                 hist=1,
-                wet=torch.ones(1, h, w, dtype=torch.bool),
                 area_weights=torch.ones(h, w),
                 static_data=None,
                 lat=torch.from_numpy(data.lat.values),

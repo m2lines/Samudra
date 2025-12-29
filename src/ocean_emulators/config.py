@@ -715,7 +715,6 @@ def build_loss_fn(
             )
             return GradientLoss(
                 loss_fn=loss_fn,
-                wet=wet,
                 gradient_weight=alpha,
                 pad_mode=pad_mode,
             )

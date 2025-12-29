@@ -18,7 +18,7 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from ocean_emulators.config import TimeConfig, TrainConfig
+from ocean_emulators.config import TimeConfig, TrainConfig, TrainSchedule
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -30,7 +30,6 @@ from ocean_emulators.datasets import (
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
-    TrainSchedule,
 )
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope

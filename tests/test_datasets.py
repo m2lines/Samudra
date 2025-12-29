@@ -110,7 +110,7 @@ def make_loader(
                     coarsened_src, masks=coarsen_masks(src.masks)
                 )
                 scales = [src, coarsened_src]
-                srcs = itertools.permutations(scales, 2)
+                srcs = [(s, s) for s in scales]
             case "mix":
                 coarsened_src = src.map_data(coarsen_data, suffix="half-size")
                 coarsened_src = dataclasses.replace(

@@ -139,9 +139,6 @@ LOCATION_DOCS = (
 )
 
 
-TrainSchedule = Literal["standard", "match", "mix"]
-
-
 class DataConfig(BaseConfig):
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
@@ -153,7 +150,6 @@ class DataConfig(BaseConfig):
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
     static_data_vars: list[str] | None = None
-    prefixes_by_scale: list[str] | None = None
     num_workers: int = 4
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
@@ -166,6 +162,7 @@ class DataConfig(BaseConfig):
         data_root: ResolvedLocation,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
+        prefixes_by_scale: list[str] | None,
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
@@ -194,10 +191,10 @@ class DataConfig(BaseConfig):
 
         source, supports_fork = make_source()
         additional_sources = None
-        if self.prefixes_by_scale is not None:
+        if prefixes_by_scale is not None:
             supports_forks = [supports_fork]
             additional_sources = []
-            for prefix in self.prefixes_by_scale:
+            for prefix in prefixes_by_scale:
                 src, fork = make_source(prefix)
                 additional_sources.append(src)
                 supports_forks.append(fork)
@@ -622,6 +619,9 @@ class DistributedConfig(BaseConfig):
     dist_backend: str | None = None
 
 
+TrainSchedule = Literal["standard", "match", "mix"]
+
+
 class ExperimentConfig(BaseConfig):
     name: str = "cm4_samudra"
     rand_seed: int = 1
@@ -629,6 +629,11 @@ class ExperimentConfig(BaseConfig):
     # we require this to be set by the user but have optional here
     # so we can leave it out of config files
     data_root: Location | None = None
+    prefixes_by_scale: list[str] | None = (
+        None  # Opt in to muti-scale/multi data training (Default: off).
+    )
+    # Define multi-scale dataloader example schedule. Default: single scale.
+    train_schedule: TrainSchedule = "standard"
     wandb: WandBConfig
 
     # Model configuration

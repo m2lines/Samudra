@@ -136,9 +136,9 @@ class Trainer:
             data_root=cfg.experiment.resolved_data_root,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
+            prefixes_by_scale=cfg.experiment.prefixes_by_scale,
         )
-        # TODO(alxmrs): configure
-        self.train_schedule: TrainSchedule = "standard"
+        self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -720,7 +720,9 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        scales = [self.src]  # TODO(alxmrs): wire up multiple scales from config.
+        scales = [self.src]
+        if self.data_container.additional_sources is not None:
+            scales.extend(self.data_container.additional_sources)
         match self.train_schedule:
             case "standard":
                 srcs: Iterable[tuple[DataSource, DataSource]] = [(self.src, self.src)]

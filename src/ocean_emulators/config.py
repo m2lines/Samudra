@@ -134,6 +134,9 @@ LOCATION_DOCS = (
 )
 
 
+TrainSchedule = Literal["standard", "match", "mix"]
+
+
 class DataConfig(BaseConfig):
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
@@ -607,9 +610,6 @@ class DistributedConfig(BaseConfig):
     rank: int | None = None
     gpu: int | None = None
     dist_backend: str | None = None
-
-
-TrainSchedule = Literal["standard", "match", "mix"]
 
 
 class ExperimentConfig(BaseConfig):

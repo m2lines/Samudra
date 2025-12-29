@@ -629,9 +629,6 @@ class ExperimentConfig(BaseConfig):
     # we require this to be set by the user but have optional here
     # so we can leave it out of config files
     data_root: Location | None = None
-    multiscale_data_prefixes: list[Location] | None = (
-        None  # Opt in to muti-scale/multi data training (Default: off).
-    )
     wandb: WandBConfig
 
     # Model configuration

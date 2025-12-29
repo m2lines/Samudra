@@ -534,7 +534,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 )
                 label_all = torch.from_numpy(
                     conditional_rearrange(
-                        input_selected,
+                        label_selected,
                         "time (variable lev)=var lat lon",
                         concat_dim="var",
                     )
@@ -550,7 +550,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     .astype(np.float32, copy=False)
                 )
                 label_all = torch.from_numpy(
-                    input_selected.to_array()
+                    label_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
                     .astype(np.float32, copy=False)

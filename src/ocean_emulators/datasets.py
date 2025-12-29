@@ -569,9 +569,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
         train_data = TrainData(self.num_prognostic_channels)
-        for prognostic_all, boundary_all, label_all in raw_train_data.raw_data:
+        for input_all, boundary_all, label_all in raw_train_data.raw_data:
             input_, label = self._get_input_and_label(
-                prognostic_all.to(device=self.device, non_blocking=True),
+                input_all.to(device=self.device, non_blocking=True),
                 boundary_all.to(device=self.device, non_blocking=True),
                 label_all.to(device=self.device, non_blocking=True),
             )

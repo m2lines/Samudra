@@ -91,6 +91,7 @@ class Eval:
             cfg.experiment.resolved_data_root,
             self.prognostic_var_names,
             self.boundary_var_names,
+            prefixes_by_scale=None,
         )
 
         self.src = self.data_container.inference_source

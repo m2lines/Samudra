@@ -470,8 +470,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
-        self.wet: PrognosticMask = src.masks.prognostic.to(self.device)
+        self.wet_input: PrognosticMask = src.masks.prognostic.to(self.device)
         self.wet_surface: GridMask = src.masks.boundary.to(self.device)
+        self.wet_label: PrognosticMask = dst.masks.prognostic.to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
             if "lev" in means_or_stds.dims:
@@ -591,11 +592,15 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             input_all[:, : self.hist + 1, :, :, :],
             self.input_means,
             self.input_stds,
+            self.wet_input,
             boundary_all[:, : self.hist + 1, :, :, :],
         )
         # grab future steps, repeat as we do for input
         label = self._prep_tensor_steps(
-            label_all[:, self.hist + 1 :, :, :, :], self.label_means, self.label_stds
+            label_all[:, self.hist + 1 :, :, :, :],
+            self.label_means,
+            self.label_stds,
+            self.wet_label,
         )
         return total_input, label
 
@@ -604,6 +609,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         prognostic_steps: Float[torch.Tensor, "batch time variable lat lon"],
         prognostic_means: Float[torch.Tensor, " variable"],
         prognostic_stds: Float[torch.Tensor, " variable"],
+        prognostic_mask: Float[torch.Tensor, " variable"],
         boundary_steps: Float[torch.Tensor, "batch time variable lat lon"]
         | None = None,
     ) -> Input:
@@ -641,7 +647,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             prognostic_steps,
             prognostic_means,
             prognostic_stds,
-            self.wet,
+            prognostic_mask,
         )
         if boundary_steps is not None:
             boundary_steps = normalize_and_mask(

@@ -300,11 +300,12 @@ class RawTrainData:
 
     def insert(
         self,
-        all_prognostic: torch.Tensor,
+        all_input: torch.Tensor,
         all_boundary: torch.Tensor,
         all_label: torch.Tensor,
     ):
-        self.raw_data.append((all_prognostic, all_boundary, all_label))
+        """Add a prognostic input, boundary, and prognostic label as the last step."""
+        self.raw_data.append((all_input, all_boundary, all_label))
 
     def to(self, device: torch.device):
         self.raw_data = [
@@ -524,7 +525,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 )
 
             if "lev" in prognostic_selected.dims:
-                prognostic_all = torch.from_numpy(
+                input_all = torch.from_numpy(
                     conditional_rearrange(
                         prognostic_selected,
                         "time (variable lev)=var lat lon",
@@ -545,7 +546,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     .astype(np.float32, copy=False)
                 )
             else:
-                prognostic_all = torch.from_numpy(
+                input_all = torch.from_numpy(
                     prognostic_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
@@ -564,7 +565,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 .astype(np.float32, copy=False)
             )
 
-            TD.insert(prognostic_all, boundary, label_all)
+            TD.insert(input_all, boundary, label_all)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD

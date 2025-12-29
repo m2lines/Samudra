@@ -43,6 +43,11 @@ envs:
   OSN_KEY_ID: null
   OSN_KEY_SECRET: null
   OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg  # Tip: Don't add a trailing `/`!
+  # Eventually, we'll want to move to a CSV list of paths; but for now, this will cover all the multiscale training
+  # needs we'll have for a while.
+  OSN_ADDITIONAL_DATA1: none
+  OSN_ADDITIONAL_DATA2: none
+  OSN_ADDITIONAL_DATA3: none
 
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs
@@ -74,6 +79,16 @@ setup: |
 
   mkdir -p ~/basins/
   rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins
+
+  # Copy additional data scales to data dir if specified
+  for DATA_VAR in "$OSN_ADDITIONAL_DATA1" "$OSN_ADDITIONAL_DATA2" "$OSN_ADDITIONAL_DATA3"; do
+    if [ "$DATA_VAR" != "none" ] && [ -n "$DATA_VAR" ]; then
+      BASENAME=$(basename "$DATA_VAR")
+      echo "Copying additional data from $DATA_VAR to ~/data/$BASENAME"
+      mkdir -p ~/data/${BASENAME}
+      rclone copy --progress nyu-osn:${DATA_VAR}/ ~/data/${BASENAME} --ignore-existing --transfers=32
+    fi
+  done
 
 #### End of shared setup ####
 

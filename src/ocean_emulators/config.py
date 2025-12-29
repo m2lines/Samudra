@@ -612,6 +612,9 @@ class DistributedConfig(BaseConfig):
     dist_backend: str | None = None
 
 
+TrainSchedule = Literal["standard", "match", "mix"]
+
+
 class ExperimentConfig(BaseConfig):
     name: str = "cm4_samudra"
     rand_seed: int = 1

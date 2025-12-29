@@ -40,7 +40,12 @@ from ocean_emulators.models.modules import (
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.utils.data import DataContainer, DataSource
-from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
+from ocean_emulators.utils.location import (
+    LocalLocation,
+    Location,
+    ResolvedLocation,
+    UnresolvedLocation,
+)
 from ocean_emulators.utils.loss import (
     DynamicLoss,
     GradientLoss,
@@ -148,6 +153,7 @@ class DataConfig(BaseConfig):
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
     static_data_vars: list[str] | None = None
+    prefixes_by_scale: list[str] | None = None
     num_workers: int = 4
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
@@ -164,34 +170,45 @@ class DataConfig(BaseConfig):
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
-        data_location = data_root.resolve(self.data_location)
-        means_location = data_root.resolve(self.data_means_location)
-        stds_location = data_root.resolve(self.data_stds_location)
-
-        source = DataSource.from_locations(
-            data_location=data_location,
-            means_location=means_location,
-            stds_location=stds_location,
-            prognostic_var_names=prognostic_var_names,
-            boundary_var_names=boundary_var_names,
-            static_data_vars=self.static_data_vars,
-            use_dask=use_dask,
-        )
-
-        if use_dask:
-            # If we're already using dask, we don't need a second source
-            source_using_dask = source
-        else:
-            # If we're not using dask for the main source, create a separate one
-            source_using_dask = DataSource.from_locations(
+        def make_source(
+            local_dir_prefix: str = "", turn_on_dask: bool = use_dask
+        ) -> tuple[DataSource, bool]:
+            prefix_root = data_root.resolve(UnresolvedLocation(path=local_dir_prefix))
+            data_location = prefix_root.resolve(self.data_location)
+            means_location = prefix_root.resolve(self.data_means_location)
+            stds_location = prefix_root.resolve(self.data_stds_location)
+            data_source = DataSource.from_locations(
                 data_location=data_location,
                 means_location=means_location,
                 stds_location=stds_location,
                 prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names,
                 static_data_vars=self.static_data_vars,
-                use_dask=True,
+                use_dask=turn_on_dask,
             )
+
+            return data_source, all(
+                loc.supports_fork
+                for loc in [data_location, means_location, stds_location]
+            )
+
+        source, supports_fork = make_source()
+        additional_sources = None
+        if self.prefixes_by_scale is not None:
+            supports_forks = [supports_fork]
+            additional_sources = []
+            for prefix in self.prefixes_by_scale:
+                src, fork = make_source(prefix)
+                additional_sources.append(src)
+                supports_forks.append(fork)
+            supports_fork = all(supports_forks)
+
+        if use_dask:
+            # If we're already using dask, we don't need a second source
+            source_using_dask = source
+        else:
+            # If we're not using dask for the main source, create a separate one
+            source_using_dask, _ = make_source(turn_on_dask=True)
 
         static_data = (
             source.data[self.static_data_vars]
@@ -199,20 +216,13 @@ class DataConfig(BaseConfig):
             else None
         )
 
-        supports_fork = all(
-            location is None or location.supports_fork
-            for location in [
-                data_location,
-                means_location,
-                stds_location,
-            ]
-        )
         return DataContainer(
             source,
             source_using_dask,
             loader_version,
             supports_fork,
             static_data,
+            additional_sources,
         )
 
 
@@ -619,6 +629,9 @@ class ExperimentConfig(BaseConfig):
     # we require this to be set by the user but have optional here
     # so we can leave it out of config files
     data_root: Location | None = None
+    multiscale_data_prefixes: list[Location] | None = (
+        None  # Opt in to muti-scale/multi data training (Default: off).
+    )
     wandb: WandBConfig
 
     # Model configuration

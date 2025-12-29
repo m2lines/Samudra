@@ -306,6 +306,7 @@ class DataContainer:
     loader_version: LoaderVersion
     supports_fork: bool
     static_data: xr.Dataset | None = None
+    additional_sources: list[DataSource] | None = None
 
 
 def conditional_rearrange(

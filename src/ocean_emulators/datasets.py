@@ -310,21 +310,21 @@ class RawTrainData:
     def to(self, device: torch.device):
         self.raw_data = [
             (
-                all_prognostic.to(device, non_blocking=True),
+                all_input.to(device, non_blocking=True),
                 all_boundary.to(device, non_blocking=True),
                 all_label.to(device, non_blocking=True),
             )
-            for all_prognostic, all_boundary, all_label in self.raw_data
+            for all_input, all_boundary, all_label in self.raw_data
         ]
 
     def pin_memory(self):
         self.raw_data = [
             (
-                all_prognostic.pin_memory(),
+                all_input.pin_memory(),
                 all_boundary.pin_memory(),
                 all_label.pin_memory(),
             )
-            for all_prognostic, all_boundary, all_label in self.raw_data
+            for all_input, all_boundary, all_label in self.raw_data
         ]
         return self
 

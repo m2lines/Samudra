@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import itertools
 import logging
 import multiprocessing
 import os
@@ -7,10 +8,11 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.context import BaseContext
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
 import dask
 import torch
@@ -31,7 +33,7 @@ from ocean_emulators.aggregator.loss import (
     get_variable_loss_dict,
 )
 from ocean_emulators.backend import init_train_backend
-from ocean_emulators.config import TrainConfig, build_loss_fn
+from ocean_emulators.config import TrainConfig, TrainSchedule, build_loss_fn
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
@@ -53,6 +55,7 @@ from ocean_emulators.datasets import (
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
+    DataSource,
     Normalize,
     get_inference_steps,
     spherical_area_weights,
@@ -134,6 +137,8 @@ class Trainer:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
+        # TODO(alxmrs): configure
+        self.train_schedule: TrainSchedule = "standard"
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -715,10 +720,21 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
+        scales = [self.src]  # TODO(alxmrs): wire up multiple scales from config.
+        match self.train_schedule:
+            case "standard":
+                srcs: Iterable[tuple[DataSource, DataSource]] = [(self.src, self.src)]
+            case "match":
+                srcs = [(s, s) for s in scales]
+            case "mix":
+                srcs = itertools.product(scales, repeat=2)  # type: ignore
+            case _:
+                assert_never(self.train_schedule)
+
         train_datasets = [
             TorchTrainDataset(
-                src=self.src.slice(self.train_time),
-                dst=self.src.slice(self.train_time),
+                src=src.slice(self.train_time),
+                dst=dst.slice(self.train_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -729,12 +745,13 @@ class Trainer:
                 executor=self.executor,
             )
             for stride in self.data_stride
+            for src, dst in srcs
         ]
 
         val_datasets = [
             TorchTrainDataset(
-                src=self.src.slice(self.val_time),
-                dst=self.src.slice(self.val_time),
+                src=src.slice(self.val_time),
+                dst=dst.slice(self.val_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -745,6 +762,7 @@ class Trainer:
                 executor=self.executor,
             )
             for stride in self.data_stride
+            for src, dst in srcs
         ]
 
         # Create datasets

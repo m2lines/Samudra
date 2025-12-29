@@ -509,22 +509,22 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
-            prognostic_selected = self._input_src.data.isel(time=x_index)
+            input_selected = self._input_src.data.isel(time=x_index)
             boundary_selected = self._boundary_src.data.isel(time=x_index)
             label_selected = self._label_src.data.isel(time=x_index)
 
             if self._executor is not None:
                 concurrent_compute(
-                    prognostic_selected,
+                    input_selected,
                     boundary_selected,
                     label_selected,
                     executor=self._executor,
                 )
 
-            if "lev" in prognostic_selected.dims:
+            if "lev" in input_selected.dims:
                 input_all = torch.from_numpy(
                     conditional_rearrange(
-                        prognostic_selected,
+                        input_selected,
                         "time (variable lev)=var lat lon",
                         concat_dim="var",
                     )
@@ -534,7 +534,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 )
                 label_all = torch.from_numpy(
                     conditional_rearrange(
-                        prognostic_selected,
+                        input_selected,
                         "time (variable lev)=var lat lon",
                         concat_dim="var",
                     )
@@ -544,13 +544,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 )
             else:
                 input_all = torch.from_numpy(
-                    prognostic_selected.to_array()
+                    input_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
                     .astype(np.float32, copy=False)
                 )
                 label_all = torch.from_numpy(
-                    prognostic_selected.to_array()
+                    input_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
                     .astype(np.float32, copy=False)

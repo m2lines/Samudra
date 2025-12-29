@@ -373,9 +373,9 @@ def test_loader__data_shape__across_schedules(
         )
 
         example_resolutions = []
-        # Only check the first 4 samples; this should be proof enough that everything is
+        # Only check the first 8 samples; this should be proof enough that everything is
         # the right shape.
-        for sample in samples[:4]:
+        for sample in samples[::3]:
             X, y = extract_sample_arrays(sample)
             # Exclude the coordinate shape information for now; we'll test that separately.
             assert X.shape[:-2] == (
@@ -415,13 +415,11 @@ def test_loader__data_shape__across_schedules(
                 }
                 observed_patterns = set(example_resolutions)
                 # All observed patterns must be valid
-                assert observed_patterns <= valid_patterns, (
+                assert observed_patterns == valid_patterns, (
                     f"All resolutions must be valid members of the cartesian product for 'mix' schedule. "
                     f"Valid patterns: {valid_patterns}, got {observed_patterns}, "
                     f"invalid patterns: {observed_patterns - valid_patterns}"
                 )
-                # We should have at least 1 pattern
-                assert len(observed_patterns) > 0, "Should have at least one pattern"
 
 
 def test_inference__data_shape(inference_loader_pair):

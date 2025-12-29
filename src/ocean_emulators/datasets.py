@@ -582,13 +582,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        prognostic_all: Float[torch.Tensor, "batch time variable lat lon"],
+        input_all: Float[torch.Tensor, "batch time variable lat lon"],
         boundary_all: Float[torch.Tensor, "batch time variable lat lon"],
         label_all: Float[torch.Tensor, "batch time variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
-            prognostic_all[:, : self.hist + 1, :, :, :],
+            input_all[:, : self.hist + 1, :, :, :],
             boundary_all[:, : self.hist + 1, :, :, :],
         )
         # grab future steps, repeat as we do for input

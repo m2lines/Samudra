@@ -81,6 +81,20 @@ class PerceiverEncoder(nn.Module):
             ph=self.patch_size[0],
             pw=self.patch_size[1],
         )
+        # Training run
+        # 1/2 + 1 degree
+        # - [x] (a) in a given batch, encoder sees either 1/2 or 1 degree data (not mixed)
+        # - [x]     in a given epoch, encoder see all 1/2 and 1 degree data
+        # either:
+        # - [ ] forward call of encoder takes patch size or grid info with data
+        # - [ ] or we have two PerceiverEncoders (1 degree vs 1/2 degree) which share parameters
+        #       (ie the self.perceiver (+pos_embed and scale_embed?) module)
+        # encoder produces a grid of patches each with an embedding
+        # - [ ] (b) the number of patches & physical extent is constant across all batches
+        # ---
+        # first step ("match"): decode to the same input data.
+        # long term ("mix"): not what we will want; won't form a join repr. What we really want is to decode to a different repr than we encoded to.
+
         # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
         x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)
 

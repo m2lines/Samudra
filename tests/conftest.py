@@ -458,8 +458,12 @@ def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
     """
     cache = cache_root / data_source.name
 
+    # Turn off compression! Our training datasets currently have compression turned off.
+    #  See https://github.com/m2lines/ocean_emulators/blob/main/ocean_emulators/__main__.py#L240
     assert not (dz := cache / "data.zarr").exists(), "Data already exists in cache"
-    data_source.data.to_zarr(dz)
+    data_source.data.to_zarr(
+        dz, encoding={dv: {"compressor": None} for dv in data_source.data.data_vars}
+    )
     assert not (dm := cache / "means.nc").exists(), "Means already exists in cache"
     data_source.means.to_netcdf(dm)
     assert not (ds := cache / "stds.nc").exists(), "Stds already exists in cache"

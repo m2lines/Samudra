@@ -51,7 +51,6 @@ class FOMO(BaseModel):
             static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
         )
-        self.patch_size = encoder.patch_size
 
         self.maybe_add_3d_coordinates = add_3d_coordinates
         self.encoder = encoder

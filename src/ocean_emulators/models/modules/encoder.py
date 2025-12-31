@@ -118,6 +118,7 @@ class PerceiverEncoder(nn.Module):
             pos_expansion=pos_expansion,
             scale_expansion=scale_expansion,
         )
+        # TODO(alxmrs): Do we need a different embedding for each scale/latlon?
         pos_encoding = self.pos_embed(pos_encode.to(dtype=x.dtype)).unsqueeze(0)
         scale_encoding = self.scale_embed(scale_encode.to(dtype=x.dtype)).unsqueeze(0)
         x = x + pos_encoding + scale_encoding

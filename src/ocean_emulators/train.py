@@ -170,8 +170,11 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
 
+        # TODO(alxmrs): This is only used in the aggregator. Remove?
         self.src = self.data_container.primary_source
+        # TODO(alxmrs): This is only used to get lats in the loss fn. Remove?
         self.data = self.src.data
+        # TODO(alxmrs): This is not used and incorrect. Refactor (as part of src)?
         self.static_data = self.data_container.static_data
 
         # We use dask for inference since it has memory issues otherwise.
@@ -181,6 +184,7 @@ class Trainer:
 
         self.loader_version = self.data_container.loader_version
 
+        # TODO(alxmrs): This is only used in the corrector IIUC, which is not used. Remove?
         self.normalize = Normalize.init_instance(
             self.src,
             prognostic_var_names=self.prognostic_var_names,
@@ -708,7 +712,7 @@ class Trainer:
         scales = self.data_container.sources
         match self.train_schedule:
             case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [(self.src, None)]
+                srcs: Iterable[tuple[DataSource, DataSource | None]] = [(scales[0], None)]
             case "match":
                 srcs = [(s, s) for s in scales]
             case "mix":

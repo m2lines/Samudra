@@ -8,7 +8,8 @@ import torch.nn.functional as F
 import xarray as xr
 from jaxtyping import Float
 
-from ocean_emulators.constants import PrognosticMask
+from ocean_emulators.constants import PrognosticMask, PrognosticVarNames
+from ocean_emulators.utils.data import DataSource
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
@@ -154,6 +155,27 @@ def decomposed_mae_gradient_weighted(
     mae_per_channel = decomposed_mae(pred, target)
     grad_loss = gradient_l1_loss(pred, target, pad_mode)
     return mae_per_channel + gradient_weight * grad_loss
+
+
+def pool_stds(
+    srcs: list[DataSource], prognostic_var_names: PrognosticVarNames
+) -> xr.Dataset:
+    """Combine standard deviations across data sources of the same population (i.e. different resolutions)."""
+    ns = []
+    variance_acc = None
+    for src in srcs:
+        n = src.data.time.shape[0] - 1
+        ns.append(n)
+        stds = src.filter(prognostic_var_names, prefix="prog_stds").stds
+        variance = stds**2
+
+        if variance_acc is None:
+            variance_acc = variance * n
+        else:
+            variance_acc += variance * n
+
+    pooled_stds = (variance_acc / sum(ns)) ** 0.5
+    return pooled_stds
 
 
 class DynamicLoss:

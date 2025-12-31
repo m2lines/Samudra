@@ -552,9 +552,9 @@ def test_compact_loader__equals_flat_loader(
 
 
 @pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
-def test_mixed_schedule__has_consistent_collated_batches(
-    train_config: TrainConfig, schedule: TrainSchedule
-):
+def test_mixed_schedule__has_consistent_collated_batches(train_config: TrainConfig):
+    schedule: TrainSchedule = "match"
+
     # Exposes underling consistency issue
     train_config.batch_size = 4
 

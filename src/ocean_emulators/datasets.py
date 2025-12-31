@@ -610,31 +610,79 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def _to_example(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        input_: OceanData,
-        boundary: OceanData,
-        label: OceanData,
+        input_: Float[torch.Tensor, "batch time variable lat lon"],
+        boundary: Float[torch.Tensor, "batch time variable lat lon"],
+        label: Float[torch.Tensor, "batch time variable lat lon"],
     ) -> tuple[Input, Prognostic]:
-        # Move normalization parameters to the same device as input data
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
-            input_.with_time(slice(0, self.hist + 1)),
-            boundary.with_time(slice(0, self.hist + 1)),
+            input_[:, : self.hist + 1, :, :, :],
+            self.prognostic_means[0],
+            self.prognostic_stds[0],
+            self.wet_prognostic[0],
+            boundary[:, : self.hist + 1, :, :, :],
         )
         # grab future steps, repeat as we do for input
-        label_tensor = self._prep_tensor_steps(
-            label.with_time(slice(self.hist + 1, None))
+        label = self._prep_tensor_steps(
+            label[:, self.hist + 1 :, :, :, :],
+            self.prognostic_means[-1],
+            self.prognostic_stds[-1],
+            self.wet_prognostic[-1],
         )
-        return total_input, label_tensor
+        return total_input, label
 
     def _prep_tensor_steps(
         self,
-        prognostic: OceanData,
-        boundary: OceanData | None = None,
+        prognostic_steps: Float[torch.Tensor, "batch time variable lat lon"],
+        prognostic_means: Float[torch.Tensor, " variable"],
+        prognostic_stds: Float[torch.Tensor, " variable"],
+        prognostic_mask: Float[torch.Tensor, " variable"],
+        boundary_steps: Float[torch.Tensor, "batch time variable lat lon"]
+        | None = None,
     ) -> Input:
         """Prepare tensor steps by normalizing, masking and flattening dimensions."""
-        prognostic_steps = prognostic.normalize_and_mask(
-            self.normalize_before_mask, self.masked_fill_value
+
+        def normalize(
+            data: Float[torch.Tensor, "batch time var lat lon"],
+            means: Float[torch.Tensor, " var"],
+            stds: Float[torch.Tensor, " var"],
+            fill_nan: bool = True,
+            fill_value: float = 0.0,
+        ) -> Float[torch.Tensor, "batch time var lat lon"]:
+            """Normalize input data treated as torch Tensors."""
+            norm = (data - means.view(1, 1, -1, 1, 1)) / stds.view(1, 1, -1, 1, 1)
+            if fill_nan:
+                norm = norm.nan_to_num(nan=fill_value)
+            norm = norm.to(data.dtype)
+            return norm
+
+        # Normalize and mask tensors
+        def normalize_and_mask(
+            tensor: torch.Tensor,
+            means: torch.Tensor,
+            stds: torch.Tensor,
+            mask: torch.Tensor,
+        ) -> torch.Tensor:
+            if self.normalize_before_mask:
+                tensor = normalize(tensor, means, stds)
+            tensor = torch.where(mask, tensor, self.masked_fill_value)
+            if not self.normalize_before_mask:
+                tensor = normalize(tensor, means, stds)
+            return tensor
+
+        prognostic_steps = normalize_and_mask(
+            prognostic_steps,
+            prognostic_means,
+            prognostic_stds,
+            prognostic_mask,
         )
+        if boundary_steps is not None:
+            boundary_steps = normalize_and_mask(
+                boundary_steps,
+                self.boundary_means,
+                self.boundary_stds,
+                self.wet_surface,
+            )
 
         # Flatten time and variable dimensions
         def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:
@@ -643,10 +691,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             )
 
         prognostic_steps = flatten_dims(prognostic_steps)
-        if boundary is not None:
-            boundary_steps = boundary.normalize_and_mask(
-                self.normalize_before_mask, self.masked_fill_value
-            )
+        if boundary_steps is not None:
             boundary_steps = flatten_dims(boundary_steps)
             return torch.cat((prognostic_steps, boundary_steps), dim=1)
 

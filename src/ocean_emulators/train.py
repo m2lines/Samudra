@@ -39,10 +39,8 @@ from ocean_emulators.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
-    Grid,
     PrognosticVarNames,
     TensorMap,
-    construct_metadata,
 )
 from ocean_emulators.datasets import (
     InferenceDataset,
@@ -54,12 +52,7 @@ from ocean_emulators.datasets import (
 )
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
-from ocean_emulators.utils.data import (
-    DataSource,
-    Normalize,
-    get_inference_steps,
-    spherical_area_weights,
-)
+from ocean_emulators.utils.data import DataSource, Normalize, get_inference_steps
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
     all_reduce_mean,
@@ -187,12 +180,6 @@ class Trainer:
         self.inference_src = self.data_container.inference_source
 
         self.loader_version = self.data_container.loader_version
-
-        self.metadata = construct_metadata(self.data)
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
-        self.area_weights: Grid = spherical_area_weights(self.data)
-
-        self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(
             self.src,
@@ -619,9 +606,9 @@ class Trainer:
         self.model.eval()
 
         val_aggregator = Aggregator.get_validation_aggregator(
-            self.metadata,
+            self.src.metadata,
             self.hist,
-            self.area_weights,
+            self.src.area_weights.to(self.device),
             self.src.masks.prognostic.to(self.device),
             self.num_out,
         )
@@ -653,9 +640,9 @@ class Trainer:
             ):
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
-                    self.metadata,
+                    self.src.metadata,
                     self.hist,
-                    self.area_weights,
+                    self.src.area_weights.to(self.device),
                     self.src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,

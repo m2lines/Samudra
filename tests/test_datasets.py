@@ -532,6 +532,18 @@ def test_compact_loader__equals_flat_loader(
     assert_equal_samples(original_samples, new_samples)
 
 
+@pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
+def test_mixed_schedule__has_consistent_collated_batches(train_config: TrainConfig):
+    schedule: TrainSchedule = "match"
+
+    # Exposes underling consistency issue
+    train_config.batch_size = 4
+
+    with make_loader(train_config, schedule=schedule) as loader:
+        for _ in loader:
+            pass
+
+
 @pytest.fixture
 def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     # Create data

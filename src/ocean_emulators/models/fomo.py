@@ -10,7 +10,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
-from ocean_emulators.constants import PrognosticMask
+from ocean_emulators.constants import Lat, Lon, PrognosticMask
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
@@ -39,6 +39,7 @@ class FOMO(BaseModel):
         static_data: xr.Dataset | None,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
+        all_grids: list[tuple[int, int]],
     ):
         super().__init__(
             in_channels=in_channels,
@@ -52,21 +53,25 @@ class FOMO(BaseModel):
         )
         self.patch_size = encoder.patch_size
 
+        self.maybe_add_3d_coordinates = add_3d_coordinates
+        self.encoder = encoder
+        self.processor = processor
         # Placeholder decoder is a non-globe aware Conv2d.
-        layers = [
-            add_3d_coordinates,
-            encoder,
-            processor,
-            nn.Conv2d(
-                processor.out_channels,
-                out_channels,
-                last_kernel_size,
-                padding=last_kernel_size // 2,
-            ),
-        ]
-        self.layers = nn.ModuleList(layers)
-        self.unpatch = nn.Linear(
-            out_channels, out_channels * self.patch_size[0] * self.patch_size[1]
+        self.decoder = nn.Conv2d(
+            processor.out_channels,
+            out_channels,
+            last_kernel_size,
+            padding=last_kernel_size // 2,
+        )
+        all_patches = [self.encoder.patch_from(*grid) for grid in all_grids]
+
+        self.unpatch = nn.ModuleDict(
+            {
+                str(patch_size): nn.Linear(
+                    out_channels, out_channels * patch_size[0] * patch_size[1]
+                )
+                for patch_size in all_patches
+            }
         )
 
         if checkpointing == "all":
@@ -84,20 +89,26 @@ class FOMO(BaseModel):
                 ),
             )
 
-    def forward_once(self, fts: torch.Tensor, wet: PrognosticMask) -> torch.Tensor:
-        for layer in self.layers:
-            fts = layer(fts)
+    def forward_once(
+        self, fts: torch.Tensor, wet: PrognosticMask, resolution: tuple[Lat, Lon]
+    ) -> torch.Tensor:
+        _, _, H, W = fts.shape
+        fts = self.maybe_add_3d_coordinates(fts)
+        fts = self.encoder(fts, resolution)
+        fts = self.processor(fts)
+        fts = self.decoder(fts)
 
         # Unpatchify: project to patch area, then reshape back to original spatial dimensions
+        patch_size = self.encoder.patch_from(H, W)
         _, _, h, w = fts.shape
         fts = rearrange(fts, "b l h w -> b h w l")
-        fts = self.unpatch(fts)  # (b, h, w, out_channels * ph * pw)
+        fts = self.unpatch[str(patch_size)](fts)  # (b, h, w, out_channels * ph * pw)
         fts = rearrange(
             fts,
             "b h w (c ph pw) -> b c (h ph) (w pw)",
             c=self.out_channels,
-            ph=self.patch_size[0],
-            pw=self.patch_size[1],
+            ph=patch_size[0],
+            pw=patch_size[1],
             h=h,
             w=w,
         )

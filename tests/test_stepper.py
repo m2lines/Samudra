@@ -3,7 +3,7 @@ import pytest
 import torch
 import xarray as xr
 
-from ocean_emulators.constants import DEPTH_LEVELS, PrognosticMask, TensorMap
+from ocean_emulators.constants import DEPTH_LEVELS, Lat, Lon, PrognosticMask, TensorMap
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.utils.data import DataSource, Normalize
@@ -89,7 +89,7 @@ class MockModel(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def forward_once(self, x, wet: PrognosticMask):
+    def forward_once(self, x, wet: PrognosticMask, resolution: tuple[Lat, Lon]):
         return x[:, : self.out_channels] * 10.0 + x[:, -1]
 
 
@@ -221,7 +221,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     )
     assert torch.equal(input_tensor.flatten(), expected_input)
 
-    pred = model.forward_once(input_tensor, wet)
+    pred = model.forward_once(input_tensor, wet, inference_dataset.input_res)
     assert pred.shape == (1, num_prognostic_channels, 1, 1)
     expected_pred = torch.tensor(
         [2 * hist + 1 + 2 * i * 10 for i in range(hist + 1)], device=pred.device

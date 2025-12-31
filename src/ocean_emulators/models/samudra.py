@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.utils.checkpoint
 import xarray as xr
 
-from ocean_emulators.constants import PrognosticMask
+from ocean_emulators.constants import Lat, Lon, PrognosticMask
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.device import autocast
@@ -51,7 +51,9 @@ class Samudra(BaseModel):
         self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
 
-    def forward_once(self, fts: torch.Tensor, wet: PrognosticMask) -> torch.Tensor:
+    def forward_once(
+        self, fts: torch.Tensor, wet: PrognosticMask, resolution: tuple[Lat, Lon]
+    ) -> torch.Tensor:
         if self.corrector is not None:
             fts_input = fts.clone().detach()
 

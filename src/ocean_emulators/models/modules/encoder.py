@@ -26,11 +26,8 @@ class PerceiverEncoder(nn.Module):
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         out_channels (int): size of the latent dimension (aka, the embedding dimension).
-        patch_size (int | tuple[int, int]): the size of the patches to embed. Patches must evenly divide the input grid.
-          If a tuple is supplied, then it represents the (height, width) of the patches to embed.
+        spatial_extent (tuple[float, float]): spatial extent of the lat/lon coordinates.
         perceiver (nn.Module): the perceiver module implementation to use.
-        lat (torch.Tensor): A vector of latitudes representing the center of the grid point.
-        lon (torch.Tensor): A vector of longitudes representing the center of the grid point.
 
     References:
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
@@ -41,35 +38,39 @@ class PerceiverEncoder(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        patch_size: int | tuple[int, int],
+        spatial_extent: tuple[float, float],
         perceiver: nn.Module,
-        lat: Lat,
-        lon: Lon,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
-        if isinstance(patch_size, int):
-            self.patch_size: tuple[int, int] = (patch_size, patch_size)
-        else:
-            assert isinstance(patch_size, tuple) and len(patch_size) == 2, (
-                "Patch sizes must only span spatial dimensions (lat and lon)!"
-            )
-            self.patch_size = patch_size
         self.out_channels: int = out_channels  # aka, `embed_dim`.
+        self.extent = spatial_extent
         self.perceiver = perceiver
-        self.lat, self.lon = lat, lon
         # TODO(#451): The input to these position and scale linear units could be a hparam.
         self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
         self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
 
-    def forward(self, x: Input) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
-        _, V, H, W = x.shape
+    def patch_from(self, height: int, width: int) -> tuple[int, int]:
+        lat_spacing = 180.0 / height  # Full sphere is 180 degrees (pole to pole)
+        lon_spacing = 360.0 / width  # Full circle is 360 degrees
 
+        # Calculate patch size to match target extent
+        patch_h = int(round(self.extent[0] / lat_spacing))
+        patch_w = int(round(self.extent[1] / lon_spacing))
+
+        return patch_h, patch_w
+
+    def forward(
+        self, x: Input, resolution: tuple[Lat, Lon]
+    ) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
+        _, V, H, W = x.shape
+        lat, lon = resolution
+        patch_h, patch_w = self.patch_from(H, W)
         # V is a cross product of variable, level (encoded in vars), and time (has history).
         assert V == self.in_channels
         # Ensure patch_size is appropriate for the data.
-        assert H % self.patch_size[0] == 0, f"{H} % {self.patch_size[0]} != 0."
-        assert W % self.patch_size[1] == 0, f"{W} % {self.patch_size[1]} != 0."
+        assert H % patch_h == 0, f"{H} % {patch_h} != 0."
+        assert W % patch_w == 0, f"{W} % {patch_w} != 0."
 
         # Perceiver experiment ideas:
         # 1. leave it as it is: treating each pixel as a token -- i.e. all channels (includes depths) per pixel
@@ -78,15 +79,15 @@ class PerceiverEncoder(nn.Module):
         x = rearrange(
             x,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
-            ph=self.patch_size[0],
-            pw=self.patch_size[1],
+            ph=patch_h,
+            pw=patch_w,
         )
         # Training run
         # 1/2 + 1 degree
         # - [x] (a) in a given batch, encoder sees either 1/2 or 1 degree data (not mixed)
         # - [x]     in a given epoch, encoder see all 1/2 and 1 degree data
         # either:
-        # - [ ] forward call of encoder takes patch size or grid info with data
+        # - [x] forward call of encoder takes patch size or grid info with data
         # - [ ] or we have two PerceiverEncoders (1 degree vs 1/2 degree) which share parameters
         #       (ie the self.perceiver (+pos_embed and scale_embed?) module)
         # encoder produces a grid of patches each with an embedding
@@ -102,16 +103,16 @@ class PerceiverEncoder(nn.Module):
         x = rearrange(
             x,
             "(b h w) l -> b (h w) l ",
-            h=(H // self.patch_size[0]),
-            w=(W // self.patch_size[1]),
+            h=(H // patch_h),
+            w=(W // patch_w),
         )
 
         # Calculate and add positional + scale encoding
         pos_encode, scale_encode = pos_scale_enc(
             self.out_channels,  # aka "embed_dim"
-            self.lat,
-            self.lon,
-            self.patch_size,
+            lat,
+            lon,
+            (patch_h, patch_w),
             # TODO(#452): Pos and scale wavelengths range all the way to the whole Earth by default; we could probably
             #  better tune these for our Oceans modeling use case.
             pos_expansion=pos_expansion,
@@ -125,8 +126,8 @@ class PerceiverEncoder(nn.Module):
         x = rearrange(
             x,
             "b (h w) l -> b l h w",
-            h=(H // self.patch_size[0]),
-            w=(W // self.patch_size[1]),
+            h=(H // patch_h),
+            w=(W // patch_w),
         )
 
         return x

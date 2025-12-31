@@ -14,11 +14,11 @@ from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import (
+    MAX_LAT,
+    MAX_LON,
     BoundaryVarNames,
     Grid,
-    Lat,
     LoaderVersion,
-    Lon,
     PrognosticVarNames,
 )
 from ocean_emulators.models import FOMO, Samudra
@@ -394,36 +394,32 @@ class PerceiverConfig(BaseConfig):
 
 
 class EncoderConfig(BaseConfig):
+    # TODO(alxmrs): Remove patch_size from all configs
     patch_size: int | list[int] = Field(
         default=4,
         description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
     )
+    spatial_extent: list[float] = Field(
+        default=[6.0, 10.0],
+        description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
+        "Patch sizes will be calculated to match this extent for each grid resolution.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
 
-    def build(
-        self, in_channels: int, out_channels: int, lat: Lat, lon: Lon
-    ) -> PerceiverEncoder:
-        if (
-            isinstance(self.patch_size, list)
-            and len(self.patch_size) == 2
-            and isinstance(self.patch_size[0], int)
-            and isinstance(self.patch_size[1], int)
-        ):
-            patch_size: tuple[int, int] = self.patch_size[0], self.patch_size[1]
-        elif isinstance(self.patch_size, int):
-            patch_size = self.patch_size, self.patch_size
-        else:
-            raise ValueError(
-                "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
-            )
-
+    def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
+        assert len(self.spatial_extent) == 2, "spatial extent must be a pair of floats."
+        extent = self.spatial_extent[0], self.spatial_extent[1]
+        # TODO(alxmrs): Make DRY?
+        lat_spacing = 180.0 / MAX_LAT
+        lon_spacing = 360.0 / MAX_LON
+        patch_h = int(round(self.spatial_extent[0] / lat_spacing))
+        patch_w = int(round(self.spatial_extent[1] / lon_spacing))
+        max_patch_size = (patch_h, patch_w)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
-            patch_size=patch_size,
-            perceiver=self.perceiver.build(in_channels, out_channels, patch_size),
-            lat=lat,
-            lon=lon,
+            spatial_extent=extent,
+            perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
         )
 
 
@@ -519,10 +515,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         in_channels: int,
         out_channels: int,
         hist: int,
-        area_weights: Grid,
         static_data: xr.Dataset | None,
-        lat: Lat,
-        lon: Lon,
+        srcs: list[DataSource],
     ) -> BaseModel:
         pass
 
@@ -544,14 +538,14 @@ class SamudraConfig(BaseModelConfig):
         in_channels: int,
         out_channels: int,
         hist: int,
-        area_weights: Grid,
         static_data: xr.Dataset | None,
-        lat: Lat,
-        lon: Lon,
+        srcs: list[DataSource],
     ) -> Samudra:
         corrector = None
+        src = srcs[0]
+        lat, lon = src.resolution
         if self.corrector is not None:
-            corrector = self.corrector.build(hist, area_weights, static_data)
+            corrector = self.corrector.build(hist, src.area_weights, static_data)
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
@@ -591,22 +585,23 @@ class FOMOConfig(BaseModelConfig):
         in_channels: int,
         out_channels: int,
         hist: int,
-        area_weights: Grid,
         static_data: xr.Dataset | None,
-        lat: Lat,
-        lon: Lon,
+        srcs: list[DataSource],
     ) -> FOMO:
+        src = srcs[0]
+        lat, lon = src.resolution
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = (
             Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
         )
+        all_grids = [(len(s.resolution[0]), len(s.resolution[1])) for s in srcs]
         return FOMO(
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.embedding_dim, lat, lon),
+            encoder=self.encoder.build(in_channels, self.embedding_dim),
             processor=self.processor.build(
                 self.embedding_dim,
                 self.pad,
@@ -618,6 +613,7 @@ class FOMOConfig(BaseModelConfig):
             static_data=static_data,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
+            all_grids=all_grids,
         )
 
 

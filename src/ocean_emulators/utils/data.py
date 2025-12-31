@@ -25,12 +25,15 @@ from ocean_emulators.constants import (
     Grid,
     GridMask,
     Input,
+    Lat,
     LoaderVersion,
+    Lon,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
     SingleTimeSeriesOutput,
     TensorMap,
+    construct_metadata,
 )
 from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.location import ResolvedLocation
@@ -84,6 +87,21 @@ class DataSource:
     def is_compact(self) -> bool:
         """Check if the data source is compact."""
         return _is_compact(self.data, self.means, self.stds)
+
+    @cached_property
+    def resolution(self) -> tuple[Lat, Lon]:
+        return (
+            torch.from_numpy(self.data.lat.values),
+            torch.from_numpy(self.data.lon.values),
+        )
+
+    @cached_property
+    def area_weights(self) -> Grid:
+        return spherical_area_weights(self.data)
+
+    @cached_property
+    def metadata(self) -> dict:
+        return construct_metadata(self.data)
 
     def filter(
         self,
@@ -394,6 +412,8 @@ class DataContainer:
     inference_source: DataSource
     loader_version: LoaderVersion
     supports_fork: bool
+    # TODO(alxmrs): static_data should belong to the DataSource, since we now
+    #  deal with multiple resolutions.
     static_data: xr.Dataset | None = None
 
     @property

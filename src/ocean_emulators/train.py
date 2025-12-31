@@ -204,10 +204,8 @@ class Trainer:
             in_channels=self.num_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            area_weights=self.area_weights,
             static_data=self.static_data,
-            lat=torch.from_numpy(self.data.lat.values),
-            lon=torch.from_numpy(self.data.lon.values),
+            srcs=self.data_container.all_sources,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
@@ -609,7 +607,7 @@ class Trainer:
         if update := getattr(self.loss_fn, "update", None):
             with torch.no_grad():
                 single_step_data = TrainData(
-                    data.num_prognostic_channels, data.label_mask
+                    data.num_prognostic_channels, data.label_mask, data.input_res
                 )
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]

@@ -17,7 +17,9 @@ from ocean_emulators.constants import (
     Example,
     GridMask,
     Input,
+    Lat,
     LoaderVersion,
+    Lon,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
@@ -66,6 +68,7 @@ class InferenceDataset(Dataset):
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
         data = src.data
+        self.input_res = src.resolution
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
@@ -300,9 +303,15 @@ class InferenceDatasets(Dataset):
 
 
 class RawTrainData:
-    def __init__(self, dataset_id: "TorchTrainDataset.Id", label_mask: PrognosticMask):
+    def __init__(
+        self,
+        dataset_id: "TorchTrainDataset.Id",
+        label_mask: PrognosticMask,
+        input_res: tuple[Lat, Lon],
+    ):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
         self.label_mask = label_mask
+        self.input_res = input_res
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
@@ -348,9 +357,15 @@ class TrainData:
     remaining bottom channels are boundary forcings.
     """
 
-    def __init__(self, num_prognostic_channels: int, label_mask: PrognosticMask):
+    def __init__(
+        self,
+        num_prognostic_channels: int,
+        label_mask: PrognosticMask,
+        input_res: tuple[Lat, Lon],
+    ):
         self.num_prognostic_channels = num_prognostic_channels
         self.label_mask = label_mask
+        self.input_res = input_res
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
 
@@ -501,7 +516,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         TD = RawTrainData(
-            self.id, self._prognostic_srcs[-1].masks.prognostic_with_hist(self.hist)
+            self.id,
+            self._prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
+            self._prognostic_srcs[0].resolution,
         )
 
         for step in range(self.steps):
@@ -566,8 +583,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(self.num_prognostic_channels, raw_train_data.label_mask)
-
+        train_data = TrainData(
+            self.num_prognostic_channels,
+            raw_train_data.label_mask,
+            raw_train_data.input_res,
+        )
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 OceanData.from_data_source(

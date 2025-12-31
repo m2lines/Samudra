@@ -1,6 +1,7 @@
 import torch
 from perceiver_pytorch import Perceiver
 
+from ocean_emulators.constants import Lat, Lon
 from ocean_emulators.models.modules.encoder import PerceiverEncoder
 
 
@@ -19,19 +20,23 @@ def make_perceiver(in_channels, out_channels):
     )
 
 
+def make_resolution(x: torch.Tensor) -> tuple[Lat, Lon]:
+    lat = torch.linspace(start=-90, end=90, steps=x.shape[-2])
+    lon = torch.linspace(start=0, end=360, steps=x.shape[-1])
+    return lat, lon
+
+
 def test_makes_patches():
     x = torch.randn(3, 10, 4, 8)
 
     patch_embed = PerceiverEncoder(
         in_channels=10,
         out_channels=4,
-        patch_size=4,
+        spatial_extent=(180, 180),
         perceiver=make_perceiver(10, 4),
-        lat=torch.linspace(start=-90, end=90, steps=x.shape[-2]),
-        lon=torch.linspace(start=0, end=360, steps=x.shape[-1]),
     )
 
-    patches = patch_embed(x)
+    patches = patch_embed(x, make_resolution(x))
 
     assert patches.shape == (3, 4, 1, 2)
 
@@ -42,13 +47,11 @@ def test_makes_rectangular_patches():
     patch_embed = PerceiverEncoder(
         in_channels=10,
         out_channels=4,
-        patch_size=(4, 2),
+        spatial_extent=(180, 90),
         perceiver=make_perceiver(10, 4),
-        lat=torch.linspace(start=-90, end=90, steps=x.shape[-2]),
-        lon=torch.linspace(start=0, end=360, steps=x.shape[-1]),
     )
 
-    patches = patch_embed(x)
+    patches = patch_embed(x, make_resolution(x))
 
     assert patches.shape == (
         1,
@@ -64,13 +67,11 @@ def test_makes_patches__high_res():
     patch_embed = PerceiverEncoder(
         in_channels=10,
         out_channels=4,
-        patch_size=7,
+        spatial_extent=(90.0, 120.0),
         perceiver=make_perceiver(10, 4),
-        lat=torch.linspace(start=-90, end=90, steps=x.shape[-2]),
-        lon=torch.linspace(start=0, end=360, steps=x.shape[-1]),
     )
 
-    patches = patch_embed(x)
+    patches = patch_embed(x, make_resolution(x))
 
     assert patches.shape == (1, 4, 2, 3)
 
@@ -81,12 +82,10 @@ def test_makes_patches__more_variables():
     patch_embed = PerceiverEncoder(
         in_channels=20,
         out_channels=4,
-        patch_size=4,
+        spatial_extent=(180, 180),
         perceiver=make_perceiver(20, 4),
-        lat=torch.linspace(start=-90, end=90, steps=x.shape[-2]),
-        lon=torch.linspace(start=0, end=360, steps=x.shape[-1]),
     )
 
-    patches = patch_embed(x)
+    patches = patch_embed(x, make_resolution(x))
 
     assert patches.shape == (1, 4, 1, 2)

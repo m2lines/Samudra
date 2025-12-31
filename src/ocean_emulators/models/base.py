@@ -4,7 +4,7 @@ import logging
 
 import torch
 
-from ocean_emulators.constants import PrognosticMask
+from ocean_emulators.constants import Lat, Lon, PrognosticMask
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class BaseModel(torch.nn.Module):
         self.static_data = static_data
         self.gradient_detach_interval = gradient_detach_interval
 
-    def forward_once(self, fts, wet: PrognosticMask):
+    def forward_once(self, fts, wet: PrognosticMask, resolution: tuple[Lat, Lon]):
         raise NotImplementedError()
 
     def forward(
@@ -60,7 +60,9 @@ class BaseModel(torch.nn.Module):
                     prognostic=prev_output, step=step
                 )
 
-            decodings = self.forward_once(input_tensor, wet=train_data.label_mask)
+            decodings = self.forward_once(
+                input_tensor, wet=train_data.label_mask, resolution=train_data.input_res
+            )
             if self.pred_residuals:
                 pred = (
                     input_tensor[
@@ -121,7 +123,9 @@ class BaseModel(torch.nn.Module):
                     step=steps_completed + step,
                 )
 
-            decodings = self.forward_once(input_tensor, wet=dataset.wet_label)
+            decodings = self.forward_once(
+                input_tensor, wet=dataset.wet_label, resolution=dataset.input_res
+            )
             if self.pred_residuals:
                 pred = (
                     input_tensor[

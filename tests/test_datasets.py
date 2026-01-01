@@ -26,6 +26,7 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.datasets import (
+    EquivalenceGroupBatchSampler,
     InferenceDataset,
     TorchTrainDataset,
     TrainData,
@@ -142,10 +143,18 @@ def make_loader(
                 data: ConcatDataset = ConcatDataset(dataset_list)
                 collate_fn = collate_raw_train_data
 
-                raw_loader = DataLoader(
-                    data,
+                # TODO(alxmrs): Is this correct? This includes multiple lens for each stride!
+                dataset_sizes = [len(ds) for ds in dataset_list]
+                batch_sampler = EquivalenceGroupBatchSampler(
+                    dataset_sizes=dataset_sizes,
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
+                    shuffle=True,
+                )
+
+                raw_loader = DataLoader(
+                    data,
+                    batch_sampler=batch_sampler,
                     collate_fn=collate_fn,
                 )
 
@@ -533,14 +542,14 @@ def test_compact_loader__equals_flat_loader(
 
 
 @pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
-def test_mixed_schedule__has_consistent_collated_batches(train_config: TrainConfig):
-    schedule: TrainSchedule = "match"
-
+def test_mixed_schedule__has_consistent_collated_batches(
+    train_config: TrainConfig, schedule: TrainSchedule
+):
     # Exposes underling consistency issue
     train_config.batch_size = 4
 
     with make_loader(train_config, schedule=schedule) as loader:
-        for _ in loader:
+        for _ in itertools.islice(loader, 2):
             pass
 
 

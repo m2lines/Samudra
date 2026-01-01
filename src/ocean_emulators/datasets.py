@@ -1,4 +1,6 @@
+import itertools
 import logging
+import random
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -9,7 +11,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
-from torch.utils.data import Dataset
+from torch.utils.data import BatchSampler, Dataset, Sampler, SubsetRandomSampler
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
@@ -694,6 +696,89 @@ def concurrent_compute(
             futures.append(executor.submit(load_variable_data, var))
 
     wait(futures)
+
+
+class _SimpleSubsetSampler(torch.utils.data.Sampler):
+    def __init__(self, indices):
+        super().__init__()
+        self.indices = indices
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __len__(self):
+        return len(self.indices)
+
+
+class EquivalenceGroupBatchSampler(Sampler[list[int]]):
+    """Groups indices by dataset membership in ConcatDataset, batches within groups, and optionally shuffles.
+
+    This sampler partitions dataset indices into groups based on their source dataset when using
+    ConcatDataset. It creates batches within each group, then chains them together. When shuffle=True,
+    batches are globally shuffled each epoch to avoid sequential group processing.
+
+    Args:
+        dataset_sizes: Optional list of individual dataset sizes. If provided, groups are created
+            based on dataset boundaries.
+        batch_size: Number of samples per batch
+        shuffle: Whether to shuffle indices within groups and shuffle batches globally
+        drop_last: Whether to drop incomplete batches at the end of each group
+    """
+
+    def __init__(
+        self,
+        dataset_sizes: list[int],
+        batch_size: int,
+        shuffle: bool = True,
+        drop_last: bool = False,
+    ):
+        super().__init__()
+        self.group_size = len(dataset_sizes)
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.drop_last = drop_last
+
+        # Create groups based on cumulative dataset boundaries
+        cumsum = 0
+        self.groups = []
+        for size in dataset_sizes:
+            self.groups.append(list(range(cumsum, cumsum + size)))
+            cumsum += size
+
+    def __iter__(self):
+        # Choose sampler based on shuffle setting
+        SubsetSampler = SubsetRandomSampler if self.shuffle else _SimpleSubsetSampler
+
+        # Create batch samplers for each group
+        batch_sampler = itertools.chain(
+            *[
+                BatchSampler(
+                    SubsetSampler(group),
+                    batch_size=self.batch_size,
+                    drop_last=self.drop_last,
+                )
+                for group in self.groups
+            ]
+        )
+
+        if not self.shuffle:
+            # No global shuffle: return batches in sequential group order
+            yield from batch_sampler
+        else:
+            # Shuffle batches globally to avoid sequential group processing
+            # This is regenerated each epoch, giving different orderings
+            all_batches = list(batch_sampler)
+            random.shuffle(all_batches)
+            yield from all_batches
+
+    def __len__(self):
+        """Calculate total number of batches across all groups."""
+        total_batches = 0
+        for group in self.groups:
+            if self.drop_last:
+                total_batches += len(group) // self.batch_size
+            else:
+                total_batches += (len(group) + self.batch_size - 1) // self.batch_size
 
 
 @final

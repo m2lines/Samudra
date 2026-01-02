@@ -136,17 +136,20 @@ def make_loader(
                         masked_fill_value=cfg.data.masked_fill_value,
                         stride=stride,
                     )
-                    for stride in cfg.data_stride
                     for src, dst in srcs
+                    for stride in cfg.data_stride
                 ]
 
                 data: ConcatDataset = ConcatDataset(dataset_list)
                 collate_fn = collate_raw_train_data
 
-                # TODO(alxmrs): Is this correct? This includes multiple lens for each stride!
-                dataset_sizes = [len(ds) for ds in dataset_list]
-                batch_sampler = EquivalenceGroupBatchSampler(
-                    dataset_sizes=dataset_sizes,
+                # Group datasets by resolution (lat, lon sizes), allowing different strides to batch together
+                batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
+                    datasets=dataset_list,
+                    group_key=lambda ds: (
+                        ds._input_src.data.sizes["lat"],
+                        ds._input_src.data.sizes["lon"],
+                    ),
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
                     shuffle=True,

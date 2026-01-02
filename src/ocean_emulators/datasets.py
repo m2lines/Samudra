@@ -2,9 +2,10 @@ import itertools
 import logging
 import random
 import time
+from collections.abc import Callable
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import TypeAlias, final
+from typing import Any, Self, TypeAlias, final
 
 import numpy as np
 import torch
@@ -718,8 +719,8 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
     batches are globally shuffled each epoch to avoid sequential group processing.
 
     Args:
-        dataset_sizes: Optional list of individual dataset sizes. If provided, groups are created
-            based on dataset boundaries.
+        dataset_sizes: List of individual dataset sizes. Groups are created based on dataset boundaries,
+            where each dataset forms its own equivalence group.
         batch_size: Number of samples per batch
         shuffle: Whether to shuffle indices within groups and shuffle batches globally
         drop_last: Whether to drop incomplete batches at the end of each group
@@ -744,6 +745,77 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         for size in dataset_sizes:
             self.groups.append(list(range(cumsum, cumsum + size)))
             cumsum += size
+
+    @classmethod
+    def from_datasets(
+        cls,
+        datasets: list["TorchTrainDataset"],
+        group_key: Callable[["TorchTrainDataset"], Any],
+        batch_size: int,
+        shuffle: bool,
+        drop_last: bool,
+    ) -> Self:
+        """Create sampler by grouping datasets using a key function.
+
+        This factory method allows grouping datasets by arbitrary criteria (e.g., resolution,
+        regardless of other parameters like stride). Datasets with the same key are batched together.
+
+        Args:
+            datasets: List of TorchTrainDataset instances to group
+            group_key: Callable that extracts grouping key from a dataset.
+            batch_size: Number of samples per batch
+            shuffle: Whether to shuffle indices within groups and shuffle batches globally
+            drop_last: Whether to drop incomplete batches at the end of each group
+
+        Examples:
+                - lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon'])  # group by resolution
+                - lambda ds: ds._input_src.data.sizes['lat']  # group by latitude size only
+            batch_size: Number of samples per batch
+            shuffle: Whether to shuffle indices within groups and shuffle batches globally
+            drop_last: Whether to drop incomplete batches at the end of each group
+
+        Returns:
+            EquivalenceGroupBatchSampler configured to group by the provided key
+
+        Example:
+            >>> # Group datasets by resolution, allowing different strides to be batched together
+            >>> sampler = EquivalenceGroupBatchSampler.from_datasets(
+            ...     datasets=dataset_list,
+            ...     group_key=lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon']),
+            ...     batch_size=32,
+            ...     shuffle=True,
+            ...     drop_last=True,
+            ... )
+        """
+        from collections import defaultdict
+
+        # Group indices by their key
+        groups: dict[tuple, list[int]] = defaultdict(list)
+
+        cumsum = 0
+        for ds in datasets:
+            key = group_key(ds)
+            # Make key hashable if it isn't already
+            if not isinstance(key, (int, str, tuple)):
+                key = tuple(key) if hasattr(key, "__iter__") else (key,)
+            groups[key].extend(range(cumsum, cumsum + len(ds)))
+            cumsum += len(ds)
+
+        # Convert groups to dataset_sizes format
+        # Sort by key for deterministic ordering across runs
+        sorted_groups = sorted(groups.items(), key=lambda x: str(x[0]))
+
+        # Create instance with computed dataset_sizes
+        instance = cls.__new__(cls)
+        instance.batch_size = batch_size
+        instance.shuffle = shuffle
+        instance.drop_last = drop_last
+        instance.group_size = len(sorted_groups)
+
+        # Store the actual grouped indices (not just sizes)
+        instance.groups = [indices for _, indices in sorted_groups]
+
+        return instance
 
     def __iter__(self):
         # Choose sampler based on shuffle setting

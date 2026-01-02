@@ -145,7 +145,8 @@ def make_loader(
                 data: ConcatDataset = ConcatDataset(dataset_list)
                 collate_fn = collate_raw_train_data
 
-                # Group datasets by resolution (lat, lon sizes), allowing different strides to batch together
+                # Group datasets by input AND label resolution, allowing different strides to batch together
+                # This ensures datasets with same (src, dst) resolution pair but different strides can batch
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
                     group_key=lambda ds: tuple(

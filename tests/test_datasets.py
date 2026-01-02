@@ -151,8 +151,7 @@ def make_loader(
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
                     group_key=lambda ds: tuple(
-                        (prog.data.sizes["lat"], prog.data.sizes["lon"])
-                        for prog in ds._prognostic_srcs
+                        prog.grid for prog in ds._prognostic_srcs
                     ),
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,

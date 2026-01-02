@@ -43,6 +43,8 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.datasets import (
+    DistributedEquivalenceGroupBatchSampler,
+    EquivalenceGroupBatchSampler,
     InferenceDataset,
     InferenceDatasets,
     RawTrainData,
@@ -772,13 +774,6 @@ class Trainer:
 
         logger.info("Instantiating torch loaders")
 
-        if self.distributed is not None:
-            self.train_sampler = DistributedSampler(train_data, shuffle=True)
-            self.val_sampler = DistributedSampler(val_data, shuffle=False)
-        else:
-            self.train_sampler = RandomSampler(train_data)  # type: ignore
-            self.val_sampler = RandomSampler(val_data)  # type: ignore
-
         match self.loader_version:
             case TorchTrainDataset.FLAG:
                 collate_fn = collate_raw_train_data
@@ -788,25 +783,70 @@ class Trainer:
                     f"{self.loader_version}"
                 )
 
-        # Create data loaders
+        # Create batch samplers - branch on distributed vs non-distributed
+        # Group by input AND label resolution to handle all training schedules
+        def group_key(ds):
+            return ds._input_src.grid, ds._label_src.grid
+
+        if self.distributed is not None:
+            # Distributed training - use DistributedEquivalenceGroupBatchSampler
+            train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
+                datasets=train_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                num_replicas=self.distributed.world_size,
+                rank=self.distributed.rank,
+                shuffle=True,
+                drop_last=True,
+            )
+
+            val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
+                datasets=val_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                num_replicas=self.distributed.world_size,
+                rank=self.distributed.rank,
+                shuffle=False,
+                drop_last=False,
+            )
+        else:
+            # Non-distributed training - use EquivalenceGroupBatchSampler
+            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+                datasets=train_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                shuffle=True,
+                drop_last=True,
+            )
+
+            val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+                datasets=val_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                shuffle=False,
+                drop_last=False,
+            )
+
+        # Store samplers for set_epoch calls
+        self.train_sampler = train_batch_sampler
+        self.val_sampler = val_batch_sampler
+
+        # Create data loaders (same for both distributed and non-distributed)
+        # When using batch_sampler, don't specify batch_size or sampler
         train_dataloader = DataLoader(
             train_data,
-            batch_size=self.batch_size,
-            sampler=self.train_sampler,
+            batch_sampler=train_batch_sampler,
             num_workers=self.num_workers,
             pin_memory=self.pin_mem,
-            drop_last=True,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
         )
 
         val_dataloader = DataLoader(
             val_data,
-            batch_size=self.batch_size,
-            sampler=self.val_sampler,
+            batch_sampler=val_batch_sampler,
             num_workers=self.num_workers,
             pin_memory=self.pin_mem,
-            drop_last=False,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
         )

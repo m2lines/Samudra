@@ -96,6 +96,10 @@ class DataSource:
         )
 
     @cached_property
+    def grid(self) -> tuple[int, int]:
+        return self.data.dims["lat"], self.data.dims["lon"]
+
+    @cached_property
     def area_weights(self) -> Grid:
         return spherical_area_weights(self.data)
 

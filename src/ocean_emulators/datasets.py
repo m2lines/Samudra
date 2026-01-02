@@ -458,7 +458,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
-        self.device = get_device()
         # If the src and dst DataSource are the same, we can do a lot less work.
         srcs = [src, dst] if dst else [src]
 
@@ -636,6 +635,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         prognostic_steps = prognostic.normalize_and_mask(
             self.normalize_before_mask, self.masked_fill_value
         )
+        if boundary_steps is not None:
+            boundary_steps = normalize_and_mask(
+                boundary_steps,
+                self.boundary_means,
+                self.boundary_stds,
+                self.wet_surface,
+            )
 
         # Flatten time and variable dimensions
         def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:

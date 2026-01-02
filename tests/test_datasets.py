@@ -140,14 +140,12 @@ def make_loader(
                     )
                     for src, dst in srcs
                     for stride in cfg.data_stride
-                    for src, dst in srcs
                 ]
 
                 data: ConcatDataset = ConcatDataset(dataset_list)
                 collate_fn = collate_raw_train_data
 
-                # Group datasets by input AND label resolution, allowing different strides to batch together
-                # This ensures datasets with same (src, dst) resolution pair but different strides can batch
+                # Group datasets by resolution (lat, lon sizes), allowing different strides to batch together
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
                     group_key=lambda ds: tuple(

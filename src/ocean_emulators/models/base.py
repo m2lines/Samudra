@@ -61,7 +61,9 @@ class BaseModel(torch.nn.Module):
                 )
 
             decodings = self.forward_once(
-                input_tensor, wet=train_data.label_mask, resolution=train_data.input_res
+                input_tensor,
+                wet=train_data.label_mask.to(device=input_tensor.device),
+                resolution=train_data.input_res,
             )
             if self.pred_residuals:
                 pred = (
@@ -124,7 +126,9 @@ class BaseModel(torch.nn.Module):
                 )
 
             decodings = self.forward_once(
-                input_tensor, wet=dataset.wet_label, resolution=dataset.input_res
+                input_tensor,
+                wet=dataset.wet_label.to(input_tensor.device),
+                resolution=dataset.input_res,
             )
             if self.pred_residuals:
                 pred = (

@@ -50,7 +50,9 @@ class Stepper:
             else model
         )
         outs = model.forward_once(
-            input, wet=batch.label_mask, resolution=batch.input_res
+            input,
+            wet=batch.label_mask.to(device=input.device),
+            resolution=batch.input_res,
         )
         loss_per_channel = loss_fn(outs, label, wet=batch.label_mask)
         loss = torch.mean(loss_per_channel)

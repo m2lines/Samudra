@@ -120,4 +120,6 @@ class FOMO(BaseModel):
             w=w,
         )
 
+        # Ensure mask is on the same device as fts
+        wet = wet.to(device=fts.device)
         return torch.where(wet, fts, 0.0)

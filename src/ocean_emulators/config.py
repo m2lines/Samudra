@@ -579,6 +579,10 @@ class FOMOConfig(BaseModelConfig):
     processor: UNetBackboneConfig = UNetBackboneConfig()
     # decoder will go here.
     embedding_dim: int = 128
+    use_bfloat16: bool = Field(
+        default=False,
+        description="Use bfloat16 for most layers rather than float32.",
+    )
 
     def build(
         self,
@@ -614,6 +618,7 @@ class FOMOConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             all_grids=all_grids,
+            use_bfloat16=self.use_bfloat16,
         )
 
 

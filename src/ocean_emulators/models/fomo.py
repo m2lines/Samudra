@@ -14,6 +14,7 @@ from ocean_emulators.constants import Lat, Lon, PrognosticMask
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+from ocean_emulators.utils.device import autocast
 
 if TYPE_CHECKING:
     from ocean_emulators.config import Checkpointing
@@ -40,6 +41,7 @@ class FOMO(BaseModel):
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         all_grids: list[tuple[int, int]],
+        use_bfloat16: bool,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -55,6 +57,7 @@ class FOMO(BaseModel):
         self.maybe_add_3d_coordinates = add_3d_coordinates
         self.encoder = encoder
         self.processor = processor
+        self.use_bfloat16 = use_bfloat16
         # Placeholder decoder is a non-globe aware Conv2d.
         self.decoder = nn.Conv2d(
             processor.out_channels,
@@ -92,9 +95,14 @@ class FOMO(BaseModel):
         self, fts: torch.Tensor, wet: PrognosticMask, resolution: tuple[Lat, Lon]
     ) -> torch.Tensor:
         _, _, H, W = fts.shape
-        fts = self.maybe_add_3d_coordinates(fts)
-        fts = self.encoder(fts, resolution)
-        fts = self.processor(fts)
+
+        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            fts = self.maybe_add_3d_coordinates(fts)
+            fts = self.encoder(fts, resolution)
+            fts = self.processor(fts)
+
+        # Convert back to float32 for decoder and unpatchify operations
+        fts = fts.to(torch.float32)
         fts = self.decoder(fts)
 
         # Unpatchify: project to patch area, then reshape back to original spatial dimensions

@@ -81,4 +81,6 @@ class Samudra(BaseModel):
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)
+        # Ensure mask is on the same device as fts
+        wet = wet.to(device=fts.device)
         return torch.where(wet, fts, 0.0)

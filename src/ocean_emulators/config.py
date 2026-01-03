@@ -580,8 +580,8 @@ class FOMOConfig(BaseModelConfig):
     # decoder will go here.
     embedding_dim: int = 128
     use_bfloat16: bool = Field(
-        default=False,
-        description="Use bfloat16 for most layers rather than float32.",
+        default=True,
+        description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
     )
 
     def build(

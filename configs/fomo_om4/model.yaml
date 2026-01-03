@@ -9,6 +9,7 @@ embedding_dim: 280
 encoder:
   patch_size: [12, 20]
   perceiver:
+    implementation: "naive"
     depth: 3
     latent_dim: 64
     num_latents: 256

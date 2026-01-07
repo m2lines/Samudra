@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1766517125535,
+  "lastUpdate": 1767799989796,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6474,6 +6474,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5819132252454366",
             "extra": "mean: 90.77984054560001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4dc0bd5841ca0468c3c8ba28aa69a1ea233eb432",
+          "message": "Make cached benchmark datasets match our training data: uncompressed. (#533)\n\nFrom my local cprofile traces, this should cut our benchmark times in\nhalf. A significant amount of time spent in our local profiles is on\ndecompression, which we don't do in our real training runs.\n\nAfter this PR is merged, we will need to delete our caches once to\nregenerate them:\nhttps://docs.github.com/en/actions/how-tos/manage-workflow-runs/manage-caches#deleting-cache-entries",
+          "timestamp": "2026-01-07T10:08:04-05:00",
+          "tree_id": "17752282f2bf2e7db8480b29d3948cb394987652",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/4dc0bd5841ca0468c3c8ba28aa69a1ea233eb432"
+        },
+        "date": 1767799988941,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.6717941937596958,
+            "unit": "iter/sec",
+            "range": "stddev: 0.026754138689209197",
+            "extra": "mean: 598.1597518000115 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19331178855587874,
+            "unit": "iter/sec",
+            "range": "stddev: 0.019345187138465208",
+            "extra": "mean: 5.172990263399998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011490745941355426,
+            "unit": "iter/sec",
+            "range": "stddev: 0.739450690893839",
+            "extra": "mean: 87.026552071 sec\nrounds: 5"
           }
         ]
       }

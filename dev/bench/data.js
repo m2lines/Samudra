@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1767799989796,
+  "lastUpdate": 1767799991078,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13047,6 +13047,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.24344543241180785",
             "extra": "mean: 77.29381505760003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4dc0bd5841ca0468c3c8ba28aa69a1ea233eb432",
+          "message": "Make cached benchmark datasets match our training data: uncompressed. (#533)\n\nFrom my local cprofile traces, this should cut our benchmark times in\nhalf. A significant amount of time spent in our local profiles is on\ndecompression, which we don't do in our real training runs.\n\nAfter this PR is merged, we will need to delete our caches once to\nregenerate them:\nhttps://docs.github.com/en/actions/how-tos/manage-workflow-runs/manage-caches#deleting-cache-entries",
+          "timestamp": "2026-01-07T10:08:04-05:00",
+          "tree_id": "17752282f2bf2e7db8480b29d3948cb394987652",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/4dc0bd5841ca0468c3c8ba28aa69a1ea233eb432"
+        },
+        "date": 1767799990717,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.708716691014023,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010446678630831298",
+            "extra": "mean: 585.2345244000389 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19501729332639492,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014851987108258448",
+            "extra": "mean: 5.127750380200018 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013501864483327389,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08742351001300847",
+            "extra": "mean: 74.06384512560007 sec\nrounds: 5"
           }
         ]
       }

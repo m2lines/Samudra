@@ -341,15 +341,15 @@ def assert_equal_samples(original_samples, new_samples):
         x_not_equal = np.equal(x_orig, x_new) == False  # noqa: E712
         y_not_equal = np.equal(y_orig, y_new) == False  # noqa: E712
 
-        x_not_equal_index = list(zip(*np.where(x_not_equal)))
-        y_not_equal_index = list(zip(*np.where(y_not_equal)))
+        x_not_equal_index = np.where(x_not_equal)
+        y_not_equal_index = np.where(y_not_equal)
 
         assert not np.any(x_not_equal), (
-            f"{len(x_not_equal_index)} values differ: "
+            f"{len(x_not_equal_index[0])} values differ: "
             f"{x_orig[x_not_equal_index]} != {x_new[x_not_equal_index]}."
         )
         assert not np.any(y_not_equal), (
-            f"{len(y_not_equal_index)} values differ: "
+            f"{len(y_not_equal_index[0])} values differ: "
             f"{y_orig[y_not_equal_index]} != {y_new[y_not_equal_index]}."
         )
 

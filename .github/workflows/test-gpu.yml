@@ -27,7 +27,9 @@ jobs:
     runs-on: ${{ needs.ec2.outputs.id }}
     steps:
       - name: Install CUDA toolkit
-        run: sudo apt-get install nvidia-cuda-toolkit
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nvidia-cuda-toolkit
 
       - name: Check out code
         uses: actions/checkout@v4

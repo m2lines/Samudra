@@ -470,7 +470,7 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
     return weights
 
 
-def spherical_area_weights_real(data: xr.Dataset) -> Grid:
+def spherical_area(data: xr.Dataset) -> Grid:
     """
     Compute real grid cell areas on a spherical Earth.
 

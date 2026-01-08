@@ -30,7 +30,7 @@ from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignor
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 from ocean_emulators.utils.data import (
     spherical_area_weights,
-    spherical_area_weights_real,
+    spherical_area,
     with_level_index_vars,
 )
 
@@ -78,9 +78,9 @@ class Viz:
         )
 
         # Compute real grid cell areas for physical calculations
-        groundtruth_rollout["areacello_real"] = (
+        groundtruth_rollout["areacello_spherical"] = (
             ["lat", "lon"],
-            spherical_area_weights_real(groundtruth_rollout),
+            spherical_area(groundtruth_rollout),
         )
 
         # This function processes the ds_groundtruth and predictions for plotting
@@ -749,7 +749,7 @@ class Viz:
         rho_0 = 1025  # kg/m^3
 
         # Use real areacello for physical calculations
-        areacello = data["areacello_real"]
+        areacello = data["areacello_spherical"]
 
         OHC = ((data["thetao"] * c_p * rho_0) * areacello * data["dz"]).sum(
             ["x", "y", "lev"]
@@ -3799,7 +3799,7 @@ def combine_variables_by_level(ds_groundtruth, pred_dict):
 def _postprocess_for_plot(
     ds,
     areacello: np.ndarray,
-    areacello_real: np.ndarray,
+    areacello_spherical: np.ndarray,
     dz,
     times,
     wetmask,
@@ -3836,7 +3836,7 @@ def _postprocess_for_plot(
             ds[var] = ds[var].where(wetmask.isel(lev=0))
 
     ds["areacello"] = (["lat", "lon"], areacello)
-    ds["areacello_real"] = (["lat", "lon"], areacello_real)
+    ds["areacello_spherical"] = (["lat", "lon"], areacello_spherical)
     ds["dz"] = ("lev", dz)
     return ds
 
@@ -3857,7 +3857,7 @@ def postprocess_for_plot(
     """
     areacello_values = areacello.values
     times = ds_groundtruth.time
-    areacello_real_values = ds_groundtruth["areacello_real"].values
+    areacello_spherical_values = ds_groundtruth["areacello_spherical"].values
 
     # Masking land with NaNs
     if "mask" in ds_groundtruth.data_vars:
@@ -3868,7 +3868,7 @@ def postprocess_for_plot(
         wetmask = ds_groundtruth.wetmask
 
     ds_groundtruth = _postprocess_for_plot(
-        ds_groundtruth, areacello_values, areacello_real_values, dz, times, wetmask
+        ds_groundtruth, areacello_values, areacello_spherical_values, dz, times, wetmask
     )
 
     coords = ds_groundtruth.coords
@@ -3877,7 +3877,7 @@ def postprocess_for_plot(
         pred_dict[key]["ds_prediction"] = _postprocess_for_plot(
             pred_dict[key]["ds_prediction"],
             areacello_values,
-            areacello_real_values,
+            areacello_spherical_values,
             dz,
             times,
             wetmask,

@@ -20,7 +20,7 @@ jobs:
     with:
       ec2_instance_type: g4dn.xlarge
       ec2_image_id: ami-0000f0cf91a6ed38c # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.9 (Ubuntu 24.04) 20251217 in oa-ci-dev
-      ec2_root_device_size: 200 # leaves headroom for benchmarking I/O; instance runs out of disk otherwise
+      ec2_root_device_size: 300 # leaves headroom for benchmarking I/O; instance runs out of disk otherwise
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

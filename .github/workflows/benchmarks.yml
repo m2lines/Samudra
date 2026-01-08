@@ -18,7 +18,7 @@ jobs:
   ec2:
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
-      ec2_instance_type: g6.xlarge
+      ec2_instance_type: g4dn.xlarge
       ec2_image_id: ami-0c7f681724e638643 # NVIDIA GPU Cloud VMI Base 2025.9.1 x86_64 in oa-ci-dev us-east-1
       ec2_root_device_size: 200 # leaves headroom for benchmarking I/O; instance runs out of disk otherwise
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'

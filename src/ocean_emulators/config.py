@@ -508,6 +508,10 @@ class SamudraConfig(BaseModelConfig):
         default=0,
         description="""Number of channels used for a learned positional embedding""",
     )
+    use_bfloat16: bool = Field(
+        default=False,
+        description="Use bfloat16 for most layers rather than float32.",
+    )
 
     def build(
         self,
@@ -547,6 +551,7 @@ class SamudraConfig(BaseModelConfig):
             wet=wet,
             static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
+            use_bfloat16=self.use_bfloat16,
         )
 
 

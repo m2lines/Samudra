@@ -256,7 +256,7 @@ class Trainer:
         logger.info(
             f"Effective batch size: {effective_batch_size} "
             f"(batch_size={cfg.batch_size} × "
-            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps})"
         )
         if self.is_wandb_enabled():
             self.wandb_logger.log(

@@ -666,6 +666,7 @@ class DynamicLossConfig(pydantic.BaseModel):
     limit: float | None = Field(
         description="The ratio of the largest weight to the smallest weight across all channels which we'll allow. Default of None means no limit.",
         default=None,
+        ge=1.0,
     )
 
 

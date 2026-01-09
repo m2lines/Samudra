@@ -101,5 +101,5 @@ run: |
     --experiment.data_root="${DATA_ROOT}" \
     --experiment.base_output_dir=/outputs/  \
     --experiment.wandb.mode=online \
-    --backend="cuda" \
+    --backend="nccl" \
     ${ARGS}

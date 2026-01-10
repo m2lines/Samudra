@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1767802584511,
+  "lastUpdate": 1768014033196,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6564,6 +6564,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7438187199204386",
             "extra": "mean: 90.39219115980002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37f4720e52c029906b364db627d21fa7b390fdbf",
+          "message": "skypilot train must use distributed backend (#542)\n\nWhen I tried to force a non-CPU backend here I forgot that we separate\n\"cuda\" from \"nccl\". As a result our runs were training individually on\neach GPU (cc @alxmrs I think this also affected your recent multi-scale\nruns)\n\nalso fix a typo that's been bugging me :)",
+          "timestamp": "2026-01-09T21:33:28-05:00",
+          "tree_id": "7d83cd3c8f9e8dfc0d67f085321f0efb02bb1083",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/37f4720e52c029906b364db627d21fa7b390fdbf"
+        },
+        "date": 1768014032501,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5735662942842639,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013433243740693317",
+            "extra": "mean: 635.4991229999939 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18939781556371763,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018902848262879614",
+            "extra": "mean: 5.279891940800013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01054422810085577,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0803614511119388",
+            "extra": "mean: 94.83861601199997 sec\nrounds: 5"
           }
         ]
       }

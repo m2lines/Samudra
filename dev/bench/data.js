@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768014033196,
+  "lastUpdate": 1768014034322,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13227,6 +13227,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.09365162377229785",
             "extra": "mean: 76.24011075520002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "37f4720e52c029906b364db627d21fa7b390fdbf",
+          "message": "skypilot train must use distributed backend (#542)\n\nWhen I tried to force a non-CPU backend here I forgot that we separate\n\"cuda\" from \"nccl\". As a result our runs were training individually on\neach GPU (cc @alxmrs I think this also affected your recent multi-scale\nruns)\n\nalso fix a typo that's been bugging me :)",
+          "timestamp": "2026-01-09T21:33:28-05:00",
+          "tree_id": "7d83cd3c8f9e8dfc0d67f085321f0efb02bb1083",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/37f4720e52c029906b364db627d21fa7b390fdbf"
+        },
+        "date": 1768014034031,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.648303342739202,
+            "unit": "iter/sec",
+            "range": "stddev: 0.020336215382874542",
+            "extra": "mean: 606.6844457999878 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18783836893376704,
+            "unit": "iter/sec",
+            "range": "stddev: 0.026077510407758887",
+            "extra": "mean: 5.323725954800034 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012203230560634708,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2623199700494638",
+            "extra": "mean: 81.94551393839997 sec\nrounds: 5"
           }
         ]
       }

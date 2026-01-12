@@ -24,9 +24,9 @@
 # ```
 resources:
   infra: aws/us-east-2
-  memory: 64GB
-  cpus: 16+
-  disk_size: 1TB
+  memory: 256GB
+  cpus: 32+
+  disk_size: 3TB
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`
 # NOTE: All `null` values must be specified in order for this script to run!

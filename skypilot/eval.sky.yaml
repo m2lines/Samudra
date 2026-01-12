@@ -22,9 +22,13 @@
 resources:
   # Optional; if left out, automatically pick the cheapest cloud.
   cloud: lambda
-  # 1x NVIDIA A100 GPU -- Evaluation only needs 1 GPU
-  accelerators: A100:1
+  # Evaluation only needs 1 GPU
+  # We could use an A100 here but we need larger disks and skypilot seems to
+  # ignore the disk_size parameter, but the H100 lambda nodes have larger disks.
+  accelerators: H100:1
   disk_tier: best
+  memory: 225GB
+  disk_size: 2TB
 
 # NOTE: Remember to pass environment variables with `--env` or `--env-file`
 # NOTE: All `null` values must be specified in order for this script to run!

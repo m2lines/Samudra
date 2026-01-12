@@ -574,7 +574,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
         train_data = TrainData(self.num_prognostic_channels)
         for input_, boundary, label in raw_train_data.raw_data:
-            input_, label = self._get_input_and_label(
+            input_, label = self._get_full_input_and_label(
                 input_.to(device=self.device, non_blocking=True),
                 boundary.to(device=self.device, non_blocking=True),
                 label.to(device=self.device, non_blocking=True),
@@ -583,7 +583,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         train_data.load_stats = raw_train_data.load_stats
         return train_data
 
-    def _get_input_and_label(
+    def _get_full_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
         input_: Float[torch.Tensor, "batch time variable lat lon"],

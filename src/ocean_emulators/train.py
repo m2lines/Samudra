@@ -43,8 +43,6 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.datasets import (
-    DistributedEquivalenceGroupBatchSampler,
-    EquivalenceGroupBatchSampler,
     InferenceDataset,
     InferenceDatasets,
     RawTrainData,
@@ -71,6 +69,10 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import LossFnWithMask
+from ocean_emulators.utils.samplers import (
+    DistributedEquivalenceGroupBatchSampler,
+    EquivalenceGroupBatchSampler,
+)
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -323,8 +325,12 @@ class Trainer:
             self.init_inference_stores()
 
         # Add type annotations for samplers
-        self.train_sampler: DistributedSampler | RandomSampler
-        self.val_sampler: DistributedSampler | RandomSampler
+        self.train_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
+        self.val_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
@@ -790,6 +796,8 @@ class Trainer:
 
         if self.distributed is not None:
             # Distributed training - use DistributedEquivalenceGroupBatchSampler
+            assert self.distributed.world_size is not None
+            assert self.distributed.rank is not None
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=train_datasets,
                 group_key=group_key,

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768230154050,
+  "lastUpdate": 1768235205695,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6654,6 +6654,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.6299099548145284",
             "extra": "mean: 89.9182853044 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ab1f44f53be9df0c48e5955afd6f361a8b5779b7",
+          "message": "Introduce a cap on max ratio of DMSE weights  (#540)\n\n\"Unlimited\" DMSE seems to produce unwanted artifacts in rollouts due to\nincreased variance. This lets us trade off between the positive effects\nof DMSE (reducing imprinting) and these negative ones. More context:\nhttps://openathena.slack.com/archives/C08CYM42DT3/p1766175789740149?thread_ts=1765824627.046769&cid=C08CYM42DT3\n\nNote that the previous limit by stddev was in fact broken (we intended\nto limit by temporal stddev, not spatial as was written; again see\ndetails in the above thread).",
+          "timestamp": "2026-01-12T16:00:52Z",
+          "tree_id": "5362e226c9fbd06a62d6bedc532c983757e27abd",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/ab1f44f53be9df0c48e5955afd6f361a8b5779b7"
+        },
+        "date": 1768235204968,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.5095106121370632,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09015966832028241",
+            "extra": "mean: 662.4663595999948 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1914265413746034,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028938603465216896",
+            "extra": "mean: 5.223935995599982 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010889281237627502,
+            "unit": "iter/sec",
+            "range": "stddev: 3.0914688231970278",
+            "extra": "mean: 91.83342574940002 sec\nrounds: 5"
           }
         ]
       }

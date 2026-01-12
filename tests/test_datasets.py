@@ -26,7 +26,6 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.datasets import (
-    EquivalenceGroupBatchSampler,
     InferenceDataset,
     TorchTrainDataset,
     TrainData,

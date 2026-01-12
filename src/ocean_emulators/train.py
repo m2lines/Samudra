@@ -215,8 +215,8 @@ class Trainer:
             cfg.loss,
             wet=self.wet,
             y_coord=self.data.lat,
-            stds=self.src.filter(self.prognostic_var_names, prefix="prog_stds").stds,
             device=self.device,
+            num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
         )
 

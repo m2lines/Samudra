@@ -176,21 +176,17 @@ class DynamicLoss:
     def __init__(
         self,
         loss_fn: LossFn,
-        stds: Float[torch.Tensor, " var"],
         *,
-        should_limit: bool,
+        limit: float | None,
         device: torch.device,
+        num_channels: int,
     ):
         self.loss_fn = loss_fn
         self._device = device
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
-            stds.shape[0], device=self._device
+            num_channels, device=self._device
         )
-        if should_limit:
-            variances: Float[torch.Tensor, " var"] = stds.pow(2)
-            self._limits: Float[torch.Tensor, " var"] | None = 1.0 / variances
-        else:
-            self._limits = None
+        self._limit = limit
 
     def __call__(
         self,
@@ -225,11 +221,14 @@ class DynamicLoss:
                 self._per_channel_scale.shape[0], -1
             ).mean(dim=1)
         )
-        if self._limits is not None:
-            new_target_weights = new_target_weights.min(self._limits)
 
         if get_world_size() > 1:
             all_reduce_mean(new_target_weights)
+
+        if self._limit is not None:
+            min_scale = new_target_weights.min()
+            max_scale = min_scale * self._limit
+            new_target_weights = new_target_weights.clamp(min_scale, max_scale)
 
         self._per_channel_scale = (
             self._per_channel_scale * (DynamicLoss.N_WINDOW - 1) + new_target_weights

@@ -1,7 +1,7 @@
 import itertools
 import random
 from collections.abc import Callable, Hashable
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Self
 
 from torch.utils.data import BatchSampler, Sampler, SubsetRandomSampler
 
@@ -89,7 +89,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
     def from_datasets(
         cls,
         datasets: list["TorchTrainDataset"],
-        group_key: Callable[["TorchTrainDataset"], Any],
+        group_key: Callable[["TorchTrainDataset"], Hashable],
         batch_size: int,
         shuffle: bool,
         drop_last: bool,
@@ -129,14 +129,14 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         from collections import defaultdict
 
         # Group indices by their key
-        groups: dict[tuple, list[int]] = defaultdict(list)
+        groups: dict[Hashable, list[int]] = defaultdict(list)
 
         cumsum = 0
         for ds in datasets:
             key = group_key(ds)
-            # Make key hashable if it isn't already
-            if not isinstance(key, Hashable):
-                key = tuple(key) if hasattr(key, "__iter__") else (key,)
+            assert isinstance(key, (int, str, tuple, Hashable)), (
+                "`group_key` must be hashable."
+            )
             groups[key].extend(range(cumsum, cumsum + len(ds)))
             cumsum += len(ds)
 

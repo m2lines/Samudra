@@ -176,15 +176,15 @@ class DynamicLoss:
     def __init__(
         self,
         loss_fn: LossFn,
-        stds: Float[torch.Tensor, " var"],
         *,
         limit: float | None,
         device: torch.device,
+        num_channels: int,
     ):
         self.loss_fn = loss_fn
         self._device = device
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
-            stds.shape[0], device=self._device
+            num_channels, device=self._device
         )
         self._limit = limit
 

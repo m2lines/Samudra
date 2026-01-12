@@ -691,8 +691,8 @@ def build_loss_fn(
     loss_cfg: Loss,
     wet: Grid,
     y_coord: xr.DataArray,
-    stds: xr.Dataset,
     device: torch.device,
+    num_channels: int,
     pad_mode: str,
 ) -> LossFn:
     match loss_cfg:
@@ -706,9 +706,9 @@ def build_loss_fn(
             )
             return DynamicLoss(
                 loss_fn=loss_fn,
-                stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
                 limit=limit,
                 device=device,
+                num_channels=num_channels,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(

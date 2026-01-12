@@ -303,31 +303,31 @@ class RawTrainData:
 
     def insert(
         self,
-        all_input: torch.Tensor,
-        all_boundary: torch.Tensor,
-        all_label: torch.Tensor,
+        input_: torch.Tensor,
+        boundary: torch.Tensor,
+        label: torch.Tensor,
     ):
         """Add a prognostic input, boundary, and prognostic label as the last step."""
-        self.raw_data.append((all_input, all_boundary, all_label))
+        self.raw_data.append((input_, boundary, label))
 
     def to(self, device: torch.device):
         self.raw_data = [
             (
-                all_input.to(device, non_blocking=True),
-                all_boundary.to(device, non_blocking=True),
-                all_label.to(device, non_blocking=True),
+                input_.to(device, non_blocking=True),
+                boundary.to(device, non_blocking=True),
+                label.to(device, non_blocking=True),
             )
-            for all_input, all_boundary, all_label in self.raw_data
+            for input_, boundary, label in self.raw_data
         ]
 
     def pin_memory(self):
         self.raw_data = [
             (
-                all_input.pin_memory(),
-                all_boundary.pin_memory(),
-                all_label.pin_memory(),
+                input_.pin_memory(),
+                boundary.pin_memory(),
+                label.pin_memory(),
             )
-            for all_input, all_boundary, all_label in self.raw_data
+            for input_, boundary, label in self.raw_data
         ]
         return self
 
@@ -526,7 +526,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 )
 
             if "lev" in input_selected.dims:
-                input_all = torch.from_numpy(
+                input_ = torch.from_numpy(
                     conditional_rearrange(
                         input_selected,
                         "time (variable lev)=var lat lon",
@@ -536,7 +536,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     .to_numpy()
                     .astype(np.float32, copy=False)
                 )
-                label_all = torch.from_numpy(
+                label = torch.from_numpy(
                     conditional_rearrange(
                         label_selected,
                         "time (variable lev)=var lat lon",
@@ -547,13 +547,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     .astype(np.float32, copy=False)
                 )
             else:
-                input_all = torch.from_numpy(
+                input_ = torch.from_numpy(
                     input_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
                     .astype(np.float32, copy=False)
                 )
-                label_all = torch.from_numpy(
+                label = torch.from_numpy(
                     label_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
@@ -566,18 +566,18 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 .astype(np.float32, copy=False)
             )
 
-            TD.insert(input_all, boundary, label_all)
+            TD.insert(input_, boundary, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
 
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
         train_data = TrainData(self.num_prognostic_channels)
-        for input_all, boundary_all, label_all in raw_train_data.raw_data:
+        for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._get_input_and_label(
-                input_all.to(device=self.device, non_blocking=True),
-                boundary_all.to(device=self.device, non_blocking=True),
-                label_all.to(device=self.device, non_blocking=True),
+                input_.to(device=self.device, non_blocking=True),
+                boundary.to(device=self.device, non_blocking=True),
+                label.to(device=self.device, non_blocking=True),
             )
             train_data.append(input_, label)
         train_data.load_stats = raw_train_data.load_stats
@@ -586,21 +586,21 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        input_all: Float[torch.Tensor, "batch time variable lat lon"],
-        boundary_all: Float[torch.Tensor, "batch time variable lat lon"],
-        label_all: Float[torch.Tensor, "batch time variable lat lon"],
+        input_: Float[torch.Tensor, "batch time variable lat lon"],
+        boundary: Float[torch.Tensor, "batch time variable lat lon"],
+        label: Float[torch.Tensor, "batch time variable lat lon"],
     ) -> tuple[Input, Prognostic]:
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
-            input_all[:, : self.hist + 1, :, :, :],
+            input_[:, : self.hist + 1, :, :, :],
             self.input_means,
             self.input_stds,
             self.wet_input,
-            boundary_all[:, : self.hist + 1, :, :, :],
+            boundary[:, : self.hist + 1, :, :, :],
         )
         # grab future steps, repeat as we do for input
         label = self._prep_tensor_steps(
-            label_all[:, self.hist + 1 :, :, :, :],
+            label[:, self.hist + 1 :, :, :, :],
             self.label_means,
             self.label_stds,
             self.wet_label,

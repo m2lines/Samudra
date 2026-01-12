@@ -1,6 +1,6 @@
 import itertools
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Hashable
 from typing import TYPE_CHECKING, Any, Self
 
 from torch.utils.data import BatchSampler, Sampler, SubsetRandomSampler
@@ -135,7 +135,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         for ds in datasets:
             key = group_key(ds)
             # Make key hashable if it isn't already
-            if not isinstance(key, (int, str, tuple)):
+            if not isinstance(key, Hashable):
                 key = tuple(key) if hasattr(key, "__iter__") else (key,)
             groups[key].extend(range(cumsum, cumsum + len(ds)))
             cumsum += len(ds)

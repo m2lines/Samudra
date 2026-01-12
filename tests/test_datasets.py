@@ -26,7 +26,6 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.datasets import (
-    EquivalenceGroupBatchSampler,
     InferenceDataset,
     TorchTrainDataset,
     TrainData,
@@ -34,6 +33,7 @@ from ocean_emulators.datasets import (
 )
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
+from ocean_emulators.utils.samplers import EquivalenceGroupBatchSampler
 from ocean_emulators.utils.train import collate_raw_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
 

@@ -695,7 +695,7 @@ def concurrent_compute(
     wait(futures)
 
 
-class _SimpleSubsetSampler(torch.utils.data.Sampler):
+class _SimpleSubsetSampler(Sampler):
     def __init__(self, indices):
         super().__init__()
         self.indices = indices

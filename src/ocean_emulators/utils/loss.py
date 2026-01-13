@@ -208,3 +208,101 @@ class MseDynamic:
         """Load state from ``state_dict``."""
         if "per_channel_scale" in state:
             self._per_channel_scale = state["per_channel_scale"].to(self._wet.device)
+
+
+class CrpsDynamic:
+    """CRPS loss with dynamic per-channel scaling.
+
+    This uses a rolling estimate of the CRPS of each channel to scale each
+    channel's loss, discouraging the model from focusing on only a few channels.
+
+    Similar to MseDynamic but for ensemble CRPS loss.
+    """
+
+    N_WINDOW = 25
+    """Rolling window size to average over. (~number of steps)"""
+
+    def __init__(
+        self,
+        wet: Grid,
+        stds: Float[torch.Tensor, " var"],
+        *,
+        should_limit: bool,
+    ):
+        self._wet: Grid = wet
+        self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
+            stds.shape[0], device=wet.device
+        )
+        if should_limit:
+            vars: Float[torch.Tensor, " var"] = stds.pow(2)
+            self._limits: Float[torch.Tensor, " var"] | None = 1.0 / vars
+        else:
+            self._limits = None
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "ensemble batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+    ) -> Float[torch.Tensor, " hist*var"]:
+        """Compute scaled CRPS loss.
+
+        Args:
+            pred: Ensemble predictions (ensemble_size, batch, hist*var, lat, lon)
+            target: Ground truth (batch, hist*var, lat, lon)
+
+        Returns:
+            Scaled CRPS per channel (hist*var,)
+        """
+        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = crps_ensemble(
+            pred, target, self._wet
+        )
+        scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
+            loss_with_history_channels.reshape(self._per_channel_scale.shape[0], -1)
+            * self._per_channel_scale.unsqueeze(1)
+        )
+        return scaled_loss_including_history_dimension.reshape(-1)
+
+    def update(
+        self,
+        pred: Float[torch.Tensor, "ensemble batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+    ) -> None:
+        """Given the prediction & target for this step, update the per-channel scale.
+
+        Args:
+            pred: Ensemble predictions (ensemble_size, batch, hist*var, lat, lon)
+            target: Ground truth (batch, hist*var, lat, lon)
+        """
+        crps_loss = crps_ensemble(pred, target, self._wet)
+        crps_loss = torch.where(crps_loss == 0, 1e-8, crps_loss)
+        new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = (
+            1.0 / crps_loss
+        )
+        # Reshape from channels * history to channels
+        # by averaging along the `hist` dimension
+        new_target_weights: Float[torch.Tensor, " var"] = (
+            new_target_weights_with_history.reshape(
+                self._per_channel_scale.shape[0], -1
+            ).mean(dim=1)
+        )
+        if self._limits:
+            new_target_weights = new_target_weights.min(self._limits)
+
+        if get_world_size() > 1:
+            all_reduce_mean(new_target_weights)
+
+        self._per_channel_scale = (
+            self._per_channel_scale * (CrpsDynamic.N_WINDOW - 1) + new_target_weights
+        ) / CrpsDynamic.N_WINDOW
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        return self._per_channel_scale
+
+    def state_dict(self) -> dict[str, torch.Tensor]:
+        """Return state dictionary for checkpointing."""
+        return {"per_channel_scale": self._per_channel_scale.detach().cpu()}
+
+    def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
+        """Load state from ``state_dict``."""
+        if "per_channel_scale" in state:
+            self._per_channel_scale = state["per_channel_scale"].to(self._wet.device)

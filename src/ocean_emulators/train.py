@@ -80,6 +80,7 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import (
+    CrpsDynamic,
     MseDynamic,
     crps_ensemble,
     decomposed_mse,
@@ -290,11 +291,21 @@ class Trainer:
             case "crps":
                 logger.info("Using CRPS loss")
                 self.loss_fn = partial(crps_ensemble, wet=self.wet)
+            case "crps_dynamic" | "crps_dynamic_no_limit":
+                should_limit = cfg.loss == "crps_dynamic"
+                logger.info(f"Using dynamic CRPS loss (limit = {should_limit})")
+                self.loss_fn = CrpsDynamic(
+                    wet=self.wet,
+                    stds=torch.from_numpy(
+                        self.src.stds[self.prognostic_var_names].to_array().to_numpy()
+                    ).to(device=self.device),
+                    should_limit=should_limit,
+                )
             case _:
                 assert_never(cfg.loss)
 
         # Store whether CRPS loss is being used
-        self.is_crps = cfg.loss == "crps"
+        self.is_crps = cfg.loss in ("crps", "crps_dynamic", "crps_dynamic_no_limit")
 
         # Ensemble training setup
         self.use_ensemble = cfg.ensemble_size_train > 1
@@ -686,8 +697,21 @@ class Trainer:
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]
                 single_step_data.insert(input, label)
-                pred = self.model(single_step_data)
-                update(pred[0], label)
+
+                # For CRPS dynamic loss, need ensemble predictions
+                if self.is_crps and self.use_ensemble:
+                    # Generate ensemble predictions for single step
+                    ensemble_preds = []
+                    for _ in range(self.ensemble_size):
+                        pred = self.model(single_step_data)
+                        ensemble_preds.append(pred[0])
+                    # Stack to (ensemble_size, batch, channels, lat, lon)
+                    ensemble_tensor = torch.stack(ensemble_preds, dim=0)
+                    update(ensemble_tensor, label)
+                else:
+                    # For non-ensemble losses (MSE dynamic)
+                    pred = self.model(single_step_data)
+                    update(pred[0], label)
 
     def validate_one_epoch(self, epoch, step: int | None = None):
         """Run validation on the validation set.

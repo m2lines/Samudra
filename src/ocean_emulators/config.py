@@ -697,6 +697,8 @@ LossType = Literal[
     "mse_dynamic",
     "mse_dynamic_no_limit",
     "crps",
+    "crps_dynamic",
+    "crps_dynamic_no_limit",
 ]
 
 

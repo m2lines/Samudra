@@ -28,6 +28,11 @@ jobs:
     steps:
       - name: Install CUDA toolkit
         run: |
+          sudo systemctl stop unattended-upgrades || true
+          sudo systemctl mask unattended-upgrades || true
+
+          sudo systemctl stop apt-daily.service apt-daily-upgrade.service || true
+          sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer || true
           sudo apt-get -o APT::Lock::Timeout=120 -o DPkg::Lock::Timeout=120 update
           sudo apt-get -o APT::Lock::Timeout=120 -o DPkg::Lock::Timeout=120 install -y nvidia-cuda-toolkit
 

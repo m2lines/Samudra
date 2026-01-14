@@ -35,8 +35,12 @@ jobs:
 
           sudo systemctl stop apt-daily.service apt-daily-upgrade.service || true
           sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer || true
+
+          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+
           sudo apt-get -o APT::Lock::Timeout=600 -o DPkg::Lock::Timeout=600 update
-          sudo apt-get -o APT::Lock::Timeout=600 -o DPkg::Lock::Timeout=600 install -y nvidia-cuda-toolkit
+          sudo apt-get -o APT::Lock::Timeout=600 -o DPkg::Lock::Timeout=600 install -y cuda-toolkit
 
       - name: Check out code
         uses: actions/checkout@v4

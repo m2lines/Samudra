@@ -17,7 +17,9 @@ jobs:
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
       ec2_instance_type: g4dn.xlarge
-      ec2_image_id: ami-0c7f681724e638643 # NVIDIA GPU Cloud VMI Base 2025.9.1 x86_64 in oa-ci-dev us-east-1
+      # Deep Learning Base AMI with Single CUDA (Ubuntu 22.04) 20260106 in us-east-1
+      # https://docs.aws.amazon.com/dlami/latest/devguide/aws-deep-learning-ami-gpubasesinglecuda-ul2204-2026-01-08.html
+      ec2_image_id: ami-003cccc5c868e7d71
       ec2_root_device_size: 300
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
@@ -33,8 +35,8 @@ jobs:
 
           sudo systemctl stop apt-daily.service apt-daily-upgrade.service || true
           sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer || true
-          sudo apt-get -o APT::Lock::Timeout=120 -o DPkg::Lock::Timeout=120 update
-          sudo apt-get -o APT::Lock::Timeout=120 -o DPkg::Lock::Timeout=120 install -y nvidia-cuda-toolkit
+          sudo apt-get -o APT::Lock::Timeout=600 -o DPkg::Lock::Timeout=600 update
+          sudo apt-get -o APT::Lock::Timeout=600 -o DPkg::Lock::Timeout=600 install -y nvidia-cuda-toolkit
 
       - name: Check out code
         uses: actions/checkout@v6

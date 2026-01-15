@@ -92,6 +92,9 @@ class VizConfig(TopLevelConfig):
             chunks={}
         )
 
+        length =  698
+        groundtruth_rollout = groundtruth_rollout.isel(time = slice(0,length))
+
         return Viz(
             # TODO(jder): change to Path
             str(self.output_path),

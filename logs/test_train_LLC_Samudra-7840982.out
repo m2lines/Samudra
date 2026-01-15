@@ -1,0 +1,1597 @@
+Resolved 288 packages in 1ms
+Audited 285 packages in 116ms
+======== train ocean_emulator samudra w/ 1 gpu on LLC4320 data ========
+2026-01-08 21:16:15,824 - INFO - backend - auto backend detected CUDA
+2026-01-08 21:16:15,999 - INFO - distributed - | distributed init (rank 0), gpu 0, world_size 1, dist_url env://
+2026-01-08 21:16:15,999 - INFO - logging - 
+=== Warning Details ===
+2026-01-08 21:16:15,999 - INFO - logging - Message: No device id is provided via `init_process_group` or `barrier `. Using the current device set by the user. 
+2026-01-08 21:16:15,999 - INFO - logging - Category: <class 'UserWarning'>
+2026-01-08 21:16:15,999 - INFO - logging - File: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/distributed_c10d.py
+2026-01-08 21:16:15,999 - INFO - logging - Line: 4807
+2026-01-08 21:16:15,999 - INFO - logging - 
+Full stack trace:
+2026-01-08 21:16:16,002 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-08 21:16:16,002 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-08 21:16:16,002 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1056, in <module>
+2026-01-08 21:16:16,002 - INFO - logging -     main()
+2026-01-08 21:16:16,002 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1046, in main
+2026-01-08 21:16:16,002 - INFO - logging -     trainer = Trainer(cfg)
+2026-01-08 21:16:16,002 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 107, in __init__
+2026-01-08 21:16:16,002 - INFO - logging -     self.device, self.distributed = init_train_backend(cfg.backend)
+2026-01-08 21:16:16,002 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/backend.py", line 32, in init_train_backend
+2026-01-08 21:16:16,002 - INFO - logging -     dist_cfg = init_distributed_mode()
+2026-01-08 21:16:16,002 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/distributed.py", line 129, in init_distributed_mode
+2026-01-08 21:16:16,002 - INFO - logging -     torch.distributed.barrier()
+2026-01-08 21:16:16,002 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/c10d_logger.py", line 81, in wrapper
+2026-01-08 21:16:16,002 - INFO - logging -     return func(*args, **kwargs)
+2026-01-08 21:16:16,002 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/distributed_c10d.py", line 4807, in barrier
+2026-01-08 21:16:16,003 - INFO - logging -     warnings.warn(  # warn only once
+2026-01-08 21:16:16,003 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-08 21:16:16,003 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-08 21:16:16,003 - INFO - logging - =====================
+
+[rank0]:[W108 21:16:16.339675163 ProcessGroupNCCL.cpp:5023] [PG ID 0 PG GUID 0 Rank 0]  using GPU 0 as device used by this process is currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. You can specify device_id in init_process_group() to force use of a particular device.
+2026-01-08 21:16:16,255 - INFO - backend - succeeded in initializing distributed mode
+2026-01-08 21:16:16,259 - INFO - train - Prognostic variables: U_0, U_1, U_2, U_3, U_4, U_5, U_6, U_7, U_8, U_9, U_10, U_11, U_12, U_13, U_14, U_15, U_16, U_17, U_18, V_0, V_1, V_2, V_3, V_4, V_5, V_6, V_7, V_8, V_9, V_10, V_11, V_12, V_13, V_14, V_15, V_16, V_17, V_18, Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, Theta_7, Theta_8, Theta_9, Theta_10, Theta_11, Theta_12, Theta_13, Theta_14, Theta_15, Theta_16, Theta_17, Theta_18, Salt_0, Salt_1, Salt_2, Salt_3, Salt_4, Salt_5, Salt_6, Salt_7, Salt_8, Salt_9, Salt_10, Salt_11, Salt_12, Salt_13, Salt_14, Salt_15, Salt_16, Salt_17, Salt_18
+2026-01-08 21:16:16,259 - INFO - train - Boundary variables: oceTAUX, oceTAUY, oceQnet, Eta
+2026-01-08 21:16:16,259 - INFO - train - Levels: 19
+2026-01-08 21:16:16,441 - INFO - logging - 
+=== Warning Details ===
+2026-01-08 21:16:16,441 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-08 21:16:16,441 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-08 21:16:16,441 - INFO - logging - File: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-08 21:16:16,441 - INFO - logging - Line: 135
+2026-01-08 21:16:16,441 - INFO - logging - 
+Full stack trace:
+2026-01-08 21:16:16,444 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-08 21:16:16,444 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-08 21:16:16,444 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1056, in <module>
+2026-01-08 21:16:16,444 - INFO - logging -     main()
+2026-01-08 21:16:16,444 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1046, in main
+2026-01-08 21:16:16,444 - INFO - logging -     trainer = Trainer(cfg)
+2026-01-08 21:16:16,444 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 145, in __init__
+2026-01-08 21:16:16,444 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-08 21:16:16,444 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/config.py", line 153, in build
+2026-01-08 21:16:16,444 - INFO - logging -     source = DataSource.from_locations(
+2026-01-08 21:16:16,444 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 289, in from_locations
+2026-01-08 21:16:16,444 - INFO - logging -     data = data_location.open(chunks)
+2026-01-08 21:16:16,444 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-08 21:16:16,444 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-08 21:16:16,444 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-08 21:16:16,445 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-08 21:16:16,445 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-08 21:16:16,445 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-08 21:16:16,445 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-08 21:16:16,445 - INFO - logging -     ) = _get_open_params(
+2026-01-08 21:16:16,445 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-08 21:16:16,445 - INFO - logging -     emit_user_level_warning(
+2026-01-08 21:16:16,445 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-08 21:16:16,445 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-08 21:16:16,445 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-08 21:16:16,445 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-08 21:16:16,445 - INFO - logging - =====================
+
+2026-01-08 21:16:38,091 - INFO - logging - 
+=== Warning Details ===
+2026-01-08 21:16:38,091 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-08 21:16:38,091 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-08 21:16:38,092 - INFO - logging - File: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-08 21:16:38,092 - INFO - logging - Line: 135
+2026-01-08 21:16:38,092 - INFO - logging - 
+Full stack trace:
+2026-01-08 21:16:38,092 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-08 21:16:38,092 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-08 21:16:38,092 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1056, in <module>
+2026-01-08 21:16:38,092 - INFO - logging -     main()
+2026-01-08 21:16:38,092 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1046, in main
+2026-01-08 21:16:38,092 - INFO - logging -     trainer = Trainer(cfg)
+2026-01-08 21:16:38,092 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 145, in __init__
+2026-01-08 21:16:38,092 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-08 21:16:38,092 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/config.py", line 167, in build
+2026-01-08 21:16:38,092 - INFO - logging -     source_using_dask = DataSource.from_locations(
+2026-01-08 21:16:38,092 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 289, in from_locations
+2026-01-08 21:16:38,093 - INFO - logging -     data = data_location.open(chunks)
+2026-01-08 21:16:38,093 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-08 21:16:38,093 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-08 21:16:38,093 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-08 21:16:38,093 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-08 21:16:38,093 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-08 21:16:38,093 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-08 21:16:38,093 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-08 21:16:38,093 - INFO - logging -     ) = _get_open_params(
+2026-01-08 21:16:38,093 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-08 21:16:38,093 - INFO - logging -     emit_user_level_warning(
+2026-01-08 21:16:38,093 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-08 21:16:38,093 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-08 21:16:38,093 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-08 21:16:38,093 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-08 21:16:38,093 - INFO - logging - =====================
+
+2026-01-08 21:17:09,095 - INFO - train - Number of inputs (prognostic + boundary): 160
+2026-01-08 21:17:09,095 - INFO - train - Number of outputs (prognostic): 152
+2026-01-08 21:17:09,096 - INFO - train - Loading data
+2026-01-08 21:17:09,097 - INFO - constants - hFacC does not have any default metadata
+2026-01-08 21:17:09,097 - INFO - constants - hFacS does not have any default metadata
+2026-01-08 21:17:09,097 - INFO - constants - hFacW does not have any default metadata
+2026-01-08 21:17:09,097 - INFO - constants - i does not have any default metadata
+2026-01-08 21:17:09,098 - INFO - constants - iter does not have any default metadata
+2026-01-08 21:17:09,098 - INFO - constants - j does not have any default metadata
+2026-01-08 21:17:09,098 - INFO - constants - lev does not have any default metadata
+2026-01-08 21:17:09,098 - INFO - constants - k_l does not have any default metadata
+2026-01-08 21:17:09,098 - INFO - constants - k_p1 does not have any default metadata
+2026-01-08 21:17:09,098 - INFO - constants - k_u does not have any default metadata
+2026-01-08 21:17:09,098 - INFO - constants - mask_s does not have any default metadata
+2026-01-08 21:17:09,098 - INFO - constants - mask_w does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - time does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_0 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_1 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_2 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_3 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_4 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_5 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_6 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_7 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_8 does not have any default metadata
+2026-01-08 21:17:09,099 - INFO - constants - mask_9 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_10 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_11 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_12 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_13 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_14 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_15 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_16 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_17 does not have any default metadata
+2026-01-08 21:17:09,100 - INFO - constants - mask_18 does not have any default metadata
+2026-01-08 21:17:10,110 - INFO - train - Using decomposed mse loss
+2026-01-08 21:17:10,121 - INFO - train - Number of processes: 1, preferably use 8
+2026-01-08 21:17:10,204 - INFO - datasets - Long rollout will use input at time 2011-11-13T12:00:00.000000000 and produce output at 2011-11-13T14:00:00.000000000
+2026-01-08 21:17:10,204 - INFO - logging - InferenceDataset.__init__ took 0.0208 seconds
+2026-01-08 21:17:10,206 - INFO - train - Starting training
+2026-01-08 21:17:10,206 - INFO - train - Starting training at step 4
+2026-01-08 21:17:10,285 - INFO - logging - TorchTrainDataset.__init__ took 0.0183 seconds
+2026-01-08 21:17:10,367 - INFO - logging - TorchTrainDataset.__init__ took 0.0186 seconds
+2026-01-08 21:17:10,368 - INFO - train - Instantiating torch loaders
+2026-01-08 21:17:10,368 - INFO - train - train stats
+2026-01-08 21:17:10,375 - INFO - datasets - band-aid ignoring :D
+2026-01-08 21:17:30,394 - INFO - data - ================================================================
+2026-01-08 21:17:30,408 - INFO - data - data: tensor([[[[[ 4.8378e-02,  8.7605e-02,  1.0544e-01,  ...,  1.3527e-01,
+             1.2995e-01,  1.0819e-01],
+           [ 6.5488e-02,  1.0053e-01,  1.1892e-01,  ...,  1.5432e-01,
+             1.3895e-01,  1.1264e-01],
+           [ 7.8682e-02,  9.8188e-02,  1.1279e-01,  ...,  1.5517e-01,
+             1.3658e-01,  1.1047e-01],
+           ...,
+           [ 6.8040e-02,  6.3789e-02,  6.2874e-02,  ..., -2.3396e-02,
+             1.6108e-02,  7.5036e-02],
+           [ 5.0002e-02,  2.6985e-02,  9.0255e-03,  ..., -4.5316e-02,
+             9.5129e-03,  8.6197e-02],
+           [ 5.3168e-02, -2.0116e-02, -5.6515e-02,  ..., -4.5759e-02,
+             3.0468e-03,  7.1276e-02]],
+
+          [[ 4.3601e-02,  8.2981e-02,  1.0096e-01,  ...,  1.3034e-01,
+             1.2498e-01,  1.0315e-01],
+           [ 6.0657e-02,  9.5839e-02,  1.1435e-01,  ...,  1.4936e-01,
+             1.3396e-01,  1.0762e-01],
+           [ 7.3846e-02,  9.3408e-02,  1.0803e-01,  ...,  1.5031e-01,
+             1.3166e-01,  1.0546e-01],
+           ...,
+           [ 6.2417e-02,  5.8056e-02,  5.7139e-02,  ..., -2.9347e-02,
+             1.0215e-02,  6.9312e-02],
+           [ 4.3838e-02,  2.0810e-02,  2.9838e-03,  ..., -5.1721e-02,
+             3.0496e-03,  8.0088e-02],
+           [ 4.6447e-02, -2.6850e-02, -6.3194e-02,  ..., -5.2331e-02,
+            -3.6285e-03,  6.4820e-02]],
+
+          [[ 3.3026e-02,  7.2608e-02,  9.0683e-02,  ...,  1.2176e-01,
+             1.1719e-01,  9.5879e-02],
+           [ 4.9707e-02,  8.5064e-02,  1.0368e-01,  ...,  1.4137e-01,
+             1.2674e-01,  1.0085e-01],
+           [ 6.2719e-02,  8.2679e-02,  9.7719e-02,  ...,  1.4323e-01,
+             1.2496e-01,  9.8910e-02],
+           ...,
+           [ 5.3201e-02,  4.9630e-02,  4.9313e-02,  ..., -3.6609e-02,
+             2.8538e-03,  6.1952e-02],
+           [ 3.3922e-02,  1.1994e-02, -5.0248e-03,  ..., -5.9054e-02,
+            -4.5239e-03,  7.2509e-02],
+           [ 3.5954e-02, -3.5889e-02, -7.1361e-02,  ..., -5.9606e-02,
+            -1.1128e-02,  5.7232e-02]],
+
+          ...,
+
+          [[ 6.8858e-02,  7.6681e-02,  8.8027e-02,  ...,  7.2015e-02,
+             6.4898e-02,  5.7387e-02],
+           [ 9.3363e-02,  9.1619e-02,  9.3575e-02,  ...,  7.9702e-02,
+             7.4932e-02,  6.9333e-02],
+           [ 9.9304e-02,  9.2545e-02,  8.3098e-02,  ...,  8.9755e-02,
+             8.7506e-02,  8.1500e-02],
+           ...,
+           [ 7.7748e-02,  5.0069e-02,  2.3278e-02,  ..., -4.3424e-02,
+            -5.0068e-03,  3.5816e-02],
+           [ 6.2791e-02,  3.5810e-02,  2.7972e-04,  ..., -4.3524e-02,
+            -1.0064e-02,  3.1486e-02],
+           [ 3.4037e-02, -9.2619e-05, -4.0332e-02,  ..., -4.1982e-02,
+            -2.2124e-02,  1.4404e-02]],
+
+          [[ 1.1342e-01,  9.9439e-02,  9.1816e-02,  ...,  7.5132e-02,
+             6.9342e-02,  6.3197e-02],
+           [ 1.3201e-01,  1.1514e-01,  9.6817e-02,  ...,  8.1312e-02,
+             7.4354e-02,  7.1607e-02],
+           [ 1.3039e-01,  1.2234e-01,  9.8507e-02,  ...,  8.5856e-02,
+             8.5658e-02,  8.5047e-02],
+           ...,
+           [ 8.0933e-02,  5.8169e-02,  2.6027e-02,  ...,  1.0233e-02,
+             2.5943e-02,  4.1834e-02],
+           [ 5.9026e-02,  4.2253e-02,  1.3727e-02,  ...,  8.0188e-03,
+             1.5650e-02,  3.3175e-02],
+           [ 2.8960e-02,  1.5846e-02, -9.4997e-03,  ...,  1.2846e-03,
+             2.6846e-03,  2.1724e-02]],
+
+          [[ 1.4930e-01,  1.2080e-01,  9.3765e-02,  ...,  8.8588e-02,
+             8.8467e-02,  8.6756e-02],
+           [ 1.5688e-01,  1.3651e-01,  1.0409e-01,  ...,  9.8260e-02,
+             8.8836e-02,  8.8564e-02],
+           [ 1.4500e-01,  1.4576e-01,  1.2138e-01,  ...,  9.4891e-02,
+             9.1274e-02,  9.2798e-02],
+           ...,
+           [ 9.3588e-02,  6.9512e-02,  3.3932e-02,  ...,  6.8781e-02,
+             6.4427e-02,  6.0806e-02],
+           [ 5.7330e-02,  3.9363e-02,  2.0526e-02,  ...,  6.2862e-02,
+             5.2032e-02,  4.9244e-02],
+           [ 2.4028e-02,  2.2579e-02,  1.8065e-02,  ...,  4.9605e-02,
+             3.9985e-02,  4.1016e-02]]],
+
+
+         [[[ 1.2010e-02,  5.1022e-02,  8.9026e-02,  ...,  1.4356e-01,
+             1.3730e-01,  1.2442e-01],
+           [ 3.0186e-02,  6.1184e-02,  9.6863e-02,  ...,  9.7066e-02,
+             1.0058e-01,  1.0842e-01],
+           [ 5.8786e-02,  6.9733e-02,  8.9939e-02,  ...,  5.7852e-02,
+             7.6480e-02,  1.0164e-01],
+           ...,
+           [-2.5989e-02, -2.5176e-02, -1.0502e-02,  ..., -2.5907e-02,
+             2.0090e-03,  5.4973e-02],
+           [-4.8528e-02, -6.5980e-02, -5.7129e-02,  ..., -2.2731e-02,
+             1.0911e-02,  5.5039e-02],
+           [-6.2699e-02, -9.1770e-02, -9.3054e-02,  ..., -2.8135e-02,
+             1.7708e-02,  6.2827e-02]],
+
+          [[ 6.3053e-03,  4.5395e-02,  8.3522e-02,  ...,  1.3847e-01,
+             1.3214e-01,  1.1894e-01],
+           [ 2.4821e-02,  5.5835e-02,  9.1640e-02,  ...,  9.1921e-02,
+             9.5173e-02,  1.0273e-01],
+           [ 5.3796e-02,  6.4738e-02,  8.4962e-02,  ...,  5.2421e-02,
+             7.0807e-02,  9.5864e-02],
+           ...,
+           [-3.2291e-02, -3.1714e-02, -1.7128e-02,  ..., -3.2740e-02,
+            -4.7108e-03,  4.8419e-02],
+           [-5.5408e-02, -7.3095e-02, -6.4335e-02,  ..., -2.9897e-02,
+             3.9532e-03,  4.8393e-02],
+           [-6.9922e-02, -9.9458e-02, -1.0099e-01,  ..., -3.5515e-02,
+             1.0517e-02,  5.6007e-02]],
+
+          [[-6.9623e-03,  3.2788e-02,  7.1373e-02,  ...,  1.2783e-01,
+             1.2183e-01,  1.0886e-01],
+           [ 1.1673e-02,  4.3324e-02,  7.9513e-02,  ...,  8.1637e-02,
+             8.5187e-02,  9.3005e-02],
+           [ 4.0897e-02,  5.2579e-02,  7.3306e-02,  ...,  4.2347e-02,
+             6.0789e-02,  8.5858e-02],
+           ...,
+           [-4.5418e-02, -4.4193e-02, -2.9017e-02,  ..., -4.3346e-02,
+            -1.5613e-02,  3.7592e-02],
+           [-6.9822e-02, -8.6156e-02, -7.6620e-02,  ..., -4.0443e-02,
+            -7.2303e-03,  3.7112e-02],
+           [-8.4133e-02, -1.1203e-01, -1.1310e-01,  ..., -4.5719e-02,
+            -3.3199e-04,  4.4799e-02]],
+
+          ...,
+
+          [[ 4.0648e-02,  3.4799e-02,  5.4298e-02,  ...,  6.1647e-02,
+             6.6998e-02,  7.2686e-02],
+           [ 6.1874e-02,  4.5461e-02,  4.9841e-02,  ...,  2.9928e-02,
+             4.7528e-02,  6.7913e-02],
+           [ 6.4450e-02,  4.3419e-02,  3.0848e-02,  ...,  1.2456e-02,
+             3.3548e-02,  6.4984e-02],
+           ...,
+           [-1.8355e-02, -2.8810e-02, -3.6556e-02,  ..., -5.1661e-02,
+            -2.5366e-02,  6.1031e-03],
+           [-3.7893e-02, -4.0442e-02, -4.5207e-02,  ..., -3.2906e-02,
+            -2.5000e-02, -7.4617e-03],
+           [-5.9820e-02, -6.7310e-02, -6.4161e-02,  ..., -3.6423e-02,
+            -2.3490e-02, -5.2067e-03]],
+
+          [[ 7.9496e-02,  5.4326e-02,  5.2471e-02,  ...,  5.3328e-02,
+             6.2260e-02,  7.0720e-02],
+           [ 9.6338e-02,  6.8242e-02,  4.9015e-02,  ...,  2.8712e-02,
+             4.9040e-02,  7.1113e-02],
+           [ 9.6801e-02,  7.3237e-02,  3.7636e-02,  ...,  2.0065e-02,
+             4.3722e-02,  7.4583e-02],
+           ...,
+           [-9.9959e-03, -1.2452e-02, -2.0431e-02,  ..., -1.1832e-02,
+            -7.8529e-03,  7.3471e-03],
+           [-3.3854e-02, -1.9021e-02, -1.3580e-02,  ..., -4.5612e-03,
+            -1.2544e-02, -2.9718e-03],
+           [-4.3851e-02, -3.3672e-02, -2.1888e-02,  ..., -9.8286e-03,
+            -1.0647e-02, -2.2020e-03]],
+
+          [[ 1.0484e-01,  7.1728e-02,  5.1497e-02,  ...,  6.0131e-02,
+             7.3283e-02,  8.3733e-02],
+           [ 1.1492e-01,  8.9607e-02,  5.7337e-02,  ...,  4.3459e-02,
+             6.1381e-02,  8.1469e-02],
+           [ 1.1373e-01,  1.0510e-01,  6.5471e-02,  ...,  3.5365e-02,
+             5.8012e-02,  8.3318e-02],
+           ...,
+           [ 8.9084e-03,  7.9795e-03,  1.3845e-03,  ...,  2.9437e-02,
+             1.7282e-02,  2.1829e-02],
+           [-2.3626e-02, -4.0094e-03,  1.3275e-02,  ...,  2.3164e-02,
+             7.7666e-03,  1.3045e-02],
+           [-2.3902e-02, -2.9774e-03,  1.8456e-02,  ...,  1.8530e-02,
+             9.0228e-03,  8.9447e-03]]],
+
+
+         [[[ 5.7815e-02,  9.1535e-02,  1.1263e-01,  ...,  1.1649e-01,
+             9.4753e-02,  8.8360e-02],
+           [ 6.0905e-02,  7.6893e-02,  8.9897e-02,  ...,  8.8514e-02,
+             6.1347e-02,  5.3742e-02],
+           [ 6.4395e-02,  6.4244e-02,  7.2500e-02,  ...,  5.0736e-02,
+             3.5066e-02,  3.7622e-02],
+           ...,
+           [-4.2624e-02, -8.4286e-02, -1.1859e-01,  ...,  6.9369e-03,
+             5.9055e-02,  8.8665e-02],
+           [-9.9841e-02, -1.2866e-01, -1.4707e-01,  ...,  1.6372e-02,
+             7.0639e-02,  8.8565e-02],
+           [-1.3508e-01, -1.3613e-01, -1.3732e-01,  ...,  7.6662e-03,
+             6.6709e-02,  9.0385e-02]],
+
+          [[ 5.1103e-02,  8.5103e-02,  1.0648e-01,  ...,  1.1078e-01,
+             8.8912e-02,  8.2280e-02],
+           [ 5.5278e-02,  7.1270e-02,  8.4201e-02,  ...,  8.2643e-02,
+             5.5252e-02,  4.7403e-02],
+           [ 5.8811e-02,  5.8572e-02,  6.6633e-02,  ...,  4.4533e-02,
+             2.8620e-02,  3.0963e-02],
+           ...,
+           [-4.9460e-02, -9.1214e-02, -1.2575e-01,  ..., -2.0452e-04,
+             5.2223e-02,  8.2067e-02],
+           [-1.0693e-01, -1.3598e-01, -1.5460e-01,  ...,  9.0753e-03,
+             6.3924e-02,  8.2171e-02],
+           [-1.4283e-01, -1.4424e-01, -1.4544e-01,  ..., -5.8198e-05,
+             5.9544e-02,  8.3601e-02]],
+
+          [[ 3.6918e-02,  7.1513e-02,  9.3385e-02,  ...,  9.9302e-02,
+             7.7768e-02,  7.1040e-02],
+           [ 4.1372e-02,  5.8166e-02,  7.1560e-02,  ...,  7.1312e-02,
+             4.3790e-02,  3.5679e-02],
+           [ 4.4830e-02,  4.5347e-02,  5.3864e-02,  ...,  3.2845e-02,
+             1.6534e-02,  1.8632e-02],
+           ...,
+           [-6.4654e-02, -1.0605e-01, -1.4051e-01,  ..., -1.4797e-02,
+             3.7653e-02,  6.8089e-02],
+           [-1.2390e-01, -1.5245e-01, -1.7075e-01,  ..., -5.1534e-03,
+             4.9310e-02,  6.7639e-02],
+           [-1.6084e-01, -1.6185e-01, -1.6282e-01,  ..., -1.4335e-02,
+             4.4862e-02,  6.8606e-02]],
+
+          ...,
+
+          [[ 7.4777e-02,  6.6771e-02,  6.8239e-02,  ...,  3.9205e-02,
+             3.2021e-02,  3.9296e-02],
+           [ 6.0493e-02,  4.2342e-02,  3.6721e-02,  ...,  2.1409e-02,
+             7.8762e-03,  1.2908e-02],
+           [ 3.3191e-02,  1.0016e-02, -3.0589e-04,  ..., -3.5512e-03,
+            -1.1854e-02,  2.3727e-03],
+           ...,
+           [-5.2578e-02, -9.1183e-02, -1.2960e-01,  ..., -3.4492e-02,
+             1.3943e-03,  2.3339e-02],
+           [-8.5223e-02, -9.9659e-02, -1.1224e-01,  ..., -2.5043e-02,
+             4.1566e-04,  1.3736e-02],
+           [-1.1377e-01, -1.0535e-01, -8.7609e-02,  ..., -2.5620e-02,
+             6.7375e-04,  1.6538e-02]],
+
+          [[ 9.7438e-02,  7.8994e-02,  6.4011e-02,  ...,  1.9305e-02,
+             1.9024e-02,  3.3174e-02],
+           [ 8.6725e-02,  5.8495e-02,  3.5071e-02,  ...,  1.1845e-02,
+             1.0318e-02,  2.3171e-02],
+           [ 6.4643e-02,  2.7837e-02, -5.1050e-03,  ...,  6.8723e-03,
+             4.7383e-03,  2.3165e-02],
+           ...,
+           [-4.9246e-02, -7.0332e-02, -9.7398e-02,  ..., -2.0564e-02,
+            -3.0174e-03,  1.7098e-02],
+           [-6.9473e-02, -6.9376e-02, -6.8423e-02,  ..., -2.4136e-02,
+            -6.0449e-03,  1.0317e-02],
+           [-7.7053e-02, -6.8796e-02, -4.4044e-02,  ..., -1.8506e-02,
+             5.8505e-04,  1.5982e-02]],
+
+          [[ 1.0653e-01,  8.7580e-02,  6.1619e-02,  ...,  1.3255e-02,
+             1.8284e-02,  3.4016e-02],
+           [ 1.0226e-01,  7.8656e-02,  4.5761e-02,  ...,  1.1954e-02,
+             1.9586e-02,  3.7118e-02],
+           [ 9.2416e-02,  6.2259e-02,  1.7752e-02,  ...,  1.9542e-02,
+             2.5071e-02,  4.4791e-02],
+           ...,
+           [-4.5798e-02, -5.1820e-02, -6.1649e-02,  ..., -9.9023e-03,
+            -7.4975e-04,  2.2770e-02],
+           [-4.7781e-02, -4.2985e-02, -2.9798e-02,  ..., -2.4814e-02,
+            -7.3904e-03,  1.6980e-02],
+           [-2.9752e-02, -3.0001e-02, -5.1975e-03,  ..., -1.2548e-02,
+             1.9470e-03,  2.0137e-02]]],
+
+
+         [[[ 8.8548e-02,  1.0489e-01,  1.2503e-01,  ...,  1.4479e-01,
+             1.4763e-01,  1.6038e-01],
+           [ 9.5684e-02,  1.0608e-01,  1.1838e-01,  ...,  1.3341e-01,
+             1.2972e-01,  1.2892e-01],
+           [ 1.0305e-01,  1.1054e-01,  1.1200e-01,  ...,  1.2402e-01,
+             1.2067e-01,  1.0719e-01],
+           ...,
+           [-1.9219e-02, -5.9289e-02, -9.9511e-02,  ...,  7.0621e-02,
+             1.1575e-01,  1.3084e-01],
+           [-7.3781e-02, -1.1003e-01, -1.4602e-01,  ...,  7.7829e-02,
+             1.2059e-01,  1.3465e-01],
+           [-8.8771e-02, -1.2788e-01, -1.6309e-01,  ...,  7.8067e-02,
+             1.2154e-01,  1.3570e-01]],
+
+          [[ 8.1485e-02,  9.8325e-02,  1.1895e-01,  ...,  1.3928e-01,
+             1.4205e-01,  1.5474e-01],
+           [ 8.9983e-02,  1.0039e-01,  1.1264e-01,  ...,  1.2775e-01,
+             1.2393e-01,  1.2301e-01],
+           [ 9.7478e-02,  1.0495e-01,  1.0635e-01,  ...,  1.1803e-01,
+             1.1456e-01,  1.0085e-01],
+           ...,
+           [-2.8729e-02, -6.9481e-02, -1.1078e-01,  ...,  5.9558e-02,
+             1.0543e-01,  1.2110e-01],
+           [-8.4596e-02, -1.2209e-01, -1.5947e-01,  ...,  6.5827e-02,
+             1.0938e-01,  1.2397e-01],
+           [-1.0028e-01, -1.4056e-01, -1.7711e-01,  ...,  6.4861e-02,
+             1.0910e-01,  1.2365e-01]],
+
+          [[ 6.6625e-02,  8.4145e-02,  1.0524e-01,  ...,  1.2639e-01,
+             1.2963e-01,  1.4240e-01],
+           [ 7.5483e-02,  8.6544e-02,  9.9019e-02,  ...,  1.1477e-01,
+             1.1081e-01,  1.0988e-01],
+           [ 8.2281e-02,  9.0396e-02,  9.2243e-02,  ...,  1.0450e-01,
+             1.0058e-01,  8.6672e-02],
+           ...,
+           [-4.4060e-02, -8.4742e-02, -1.2610e-01,  ...,  4.4173e-02,
+             9.0081e-02,  1.0611e-01],
+           [-1.0153e-01, -1.3903e-01, -1.7634e-01,  ...,  5.0908e-02,
+             9.4218e-02,  1.0871e-01],
+           [-1.1881e-01, -1.5889e-01, -1.9526e-01,  ...,  5.0294e-02,
+             9.4144e-02,  1.0820e-01]],
+
+          ...,
+
+          [[ 9.3760e-02,  8.1307e-02,  8.5369e-02,  ...,  8.4155e-02,
+             9.3976e-02,  1.1331e-01],
+           [ 6.7185e-02,  5.5207e-02,  5.7944e-02,  ...,  7.1836e-02,
+             7.1518e-02,  7.8475e-02],
+           [ 4.5090e-02,  3.7529e-02,  3.0203e-02,  ...,  5.7459e-02,
+             5.9473e-02,  6.2091e-02],
+           ...,
+           [-4.2163e-02, -8.6448e-02, -1.2022e-01,  ..., -1.0210e-03,
+             2.4666e-02,  4.7642e-02],
+           [-8.0237e-02, -1.0750e-01, -1.2230e-01,  ...,  2.0743e-04,
+             3.0631e-02,  5.2287e-02],
+           [-1.0243e-01, -1.2119e-01, -1.2957e-01,  ...,  8.8613e-03,
+             4.3873e-02,  6.5642e-02]],
+
+          [[ 1.0419e-01,  9.2038e-02,  8.5848e-02,  ...,  6.4697e-02,
+             7.8019e-02,  1.0414e-01],
+           [ 8.2912e-02,  6.2319e-02,  5.1739e-02,  ...,  6.1045e-02,
+             6.8291e-02,  8.5339e-02],
+           [ 6.2686e-02,  3.6641e-02,  1.2171e-02,  ...,  6.2917e-02,
+             6.9579e-02,  8.1425e-02],
+           ...,
+           [-3.7656e-02, -6.6065e-02, -8.7645e-02,  ..., -1.3824e-02,
+             9.1185e-03,  3.9192e-02],
+           [-6.4000e-02, -7.8230e-02, -7.6759e-02,  ..., -1.6706e-02,
+             1.7686e-02,  4.7183e-02],
+           [-7.4828e-02, -8.6113e-02, -8.2092e-02,  ...,  9.2447e-04,
+             3.8238e-02,  6.5562e-02]],
+
+          [[ 1.0314e-01,  9.8124e-02,  8.7466e-02,  ...,  5.2679e-02,
+             6.8854e-02,  9.3927e-02],
+           [ 9.4593e-02,  7.6971e-02,  5.8176e-02,  ...,  5.2122e-02,
+             6.8436e-02,  9.2128e-02],
+           [ 8.8574e-02,  5.6193e-02,  1.8843e-02,  ...,  6.8653e-02,
+             8.1560e-02,  1.0031e-01],
+           ...,
+           [-4.3172e-02, -5.1849e-02, -5.2282e-02,  ..., -2.4487e-02,
+            -2.6135e-05,  3.8779e-02],
+           [-4.3749e-02, -5.1848e-02, -3.6216e-02,  ..., -3.2968e-02,
+             3.9654e-03,  4.6385e-02],
+           [-3.0446e-02, -4.4626e-02, -3.6456e-02,  ..., -9.5409e-03,
+             2.7975e-02,  6.4640e-02]]]],
+
+
+
+        [[[[ 1.1892e-01,  1.2786e-01,  1.3284e-01,  ...,  1.1727e-01,
+             1.1417e-01,  1.0242e-01],
+           [ 1.2985e-01,  1.2995e-01,  1.2882e-01,  ...,  9.5284e-02,
+             8.0169e-02,  5.9215e-02],
+           [ 1.6151e-01,  1.4592e-01,  1.2758e-01,  ...,  4.3868e-02,
+             1.7353e-02, -5.2702e-03],
+           ...,
+           [-1.4298e-01, -1.4686e-01, -1.4551e-01,  ..., -1.3678e-01,
+            -1.2873e-01, -1.0269e-01],
+           [-1.7480e-01, -1.7377e-01, -1.8916e-01,  ..., -1.4274e-01,
+            -1.3203e-01, -1.1416e-01],
+           [-1.5817e-01, -1.7856e-01, -2.0847e-01,  ..., -1.1910e-01,
+            -1.1029e-01, -1.1784e-01]],
+
+          [[ 1.2475e-01,  1.3352e-01,  1.3837e-01,  ...,  1.2363e-01,
+             1.2062e-01,  1.0899e-01],
+           [ 1.3565e-01,  1.3559e-01,  1.3434e-01,  ...,  1.0172e-01,
+             8.6610e-02,  6.5715e-02],
+           [ 1.6734e-01,  1.5166e-01,  1.3326e-01,  ...,  5.0150e-02,
+             2.3608e-02,  1.0647e-03],
+           ...,
+           [-1.3711e-01, -1.4094e-01, -1.3964e-01,  ..., -1.3041e-01,
+            -1.2229e-01, -9.6229e-02],
+           [-1.6871e-01, -1.6775e-01, -1.8337e-01,  ..., -1.3594e-01,
+            -1.2515e-01, -1.0749e-01],
+           [-1.5182e-01, -1.7242e-01, -2.0249e-01,  ..., -1.1192e-01,
+            -1.0298e-01, -1.1084e-01]],
+
+          [[ 1.4012e-01,  1.4859e-01,  1.5333e-01,  ...,  1.3680e-01,
+             1.3277e-01,  1.2033e-01],
+           [ 1.5124e-01,  1.5097e-01,  1.4949e-01,  ...,  1.1354e-01,
+             9.7441e-02,  7.6108e-02],
+           [ 1.8318e-01,  1.6709e-01,  1.4824e-01,  ...,  6.0919e-02,
+             3.3615e-02,  1.0969e-02],
+           ...,
+           [-1.2474e-01, -1.3013e-01, -1.2969e-01,  ..., -1.2016e-01,
+            -1.1197e-01, -8.6065e-02],
+           [-1.5631e-01, -1.5704e-01, -1.7380e-01,  ..., -1.2572e-01,
+            -1.1455e-01, -9.7054e-02],
+           [-1.3995e-01, -1.6231e-01, -1.9332e-01,  ..., -1.0184e-01,
+            -9.2357e-02, -1.0023e-01]],
+
+          ...,
+
+          [[ 6.5271e-02,  6.9769e-02,  7.3511e-02,  ...,  3.6509e-02,
+             5.0509e-02,  6.8656e-02],
+           [ 5.0081e-02,  4.8062e-02,  3.8047e-02,  ...,  2.2623e-02,
+             4.1881e-02,  5.5034e-02],
+           [ 3.8395e-02,  2.5640e-02,  3.6275e-03,  ...,  2.7988e-03,
+             1.8472e-02,  2.8081e-02],
+           ...,
+           [-1.3670e-01, -1.2791e-01, -1.1840e-01,  ..., -1.1342e-01,
+            -1.0984e-01, -9.2256e-02],
+           [-1.6312e-01, -1.4744e-01, -1.3736e-01,  ..., -1.1336e-01,
+            -1.1530e-01, -1.0588e-01],
+           [-1.8862e-01, -1.7525e-01, -1.6442e-01,  ..., -1.0283e-01,
+            -1.0403e-01, -1.0859e-01]],
+
+          [[ 1.4032e-02,  2.1572e-02,  2.6777e-02,  ...,  3.0766e-03,
+             1.6522e-02,  3.6506e-02],
+           [-1.0908e-02, -8.5609e-03, -1.3121e-02,  ..., -7.0529e-03,
+             1.4921e-02,  3.1835e-02],
+           [-2.7381e-02, -3.2990e-02, -3.8692e-02,  ..., -2.0873e-02,
+             4.1935e-03,  2.0868e-02],
+           ...,
+           [-1.3117e-01, -1.3413e-01, -1.3022e-01,  ..., -1.1137e-01,
+            -1.1516e-01, -1.0736e-01],
+           [-1.5767e-01, -1.5342e-01, -1.3910e-01,  ..., -1.0722e-01,
+            -1.1879e-01, -1.1540e-01],
+           [-1.9045e-01, -1.8535e-01, -1.6575e-01,  ..., -1.0931e-01,
+            -1.1716e-01, -1.2025e-01]],
+
+          [[-3.5936e-02, -2.5660e-02, -1.9973e-02,  ..., -2.5030e-02,
+            -1.4640e-02,  2.1607e-03],
+           [-6.2353e-02, -5.6619e-02, -5.4446e-02,  ..., -3.2086e-02,
+            -1.3483e-02,  2.3186e-03],
+           [-7.2979e-02, -7.3431e-02, -6.5575e-02,  ..., -4.1454e-02,
+            -1.5126e-02,  3.3550e-03],
+           ...,
+           [-9.2899e-02, -1.2053e-01, -1.3450e-01,  ..., -8.8617e-02,
+            -1.0400e-01, -1.0985e-01],
+           [-1.2777e-01, -1.5003e-01, -1.4222e-01,  ..., -8.8257e-02,
+            -1.0765e-01, -1.1135e-01],
+           [-1.7216e-01, -1.8096e-01, -1.5917e-01,  ..., -1.0217e-01,
+            -1.1749e-01, -1.2098e-01]]],
+
+
+         [[[ 2.4306e-01,  2.3480e-01,  2.2735e-01,  ...,  1.1854e-01,
+             7.5230e-02,  3.7640e-02],
+           [ 2.5093e-01,  2.4440e-01,  2.3615e-01,  ...,  4.8185e-02,
+            -5.0508e-03, -3.8654e-02],
+           [ 2.1789e-01,  2.1047e-01,  1.9149e-01,  ..., -3.9223e-02,
+            -8.1599e-02, -1.0167e-01],
+           ...,
+           [-1.8296e-01, -1.8973e-01, -1.9463e-01,  ..., -5.9872e-02,
+            -4.2537e-02, -3.7155e-02],
+           [-1.6227e-01, -1.6892e-01, -1.8096e-01,  ..., -6.8855e-02,
+            -5.2669e-02, -5.3864e-02],
+           [-1.1009e-01, -1.1235e-01, -1.1950e-01,  ..., -7.8837e-02,
+            -6.7286e-02, -6.2672e-02]],
+
+          [[ 2.5031e-01,  2.4190e-01,  2.3430e-01,  ...,  1.2508e-01,
+             8.1721e-02,  4.4427e-02],
+           [ 2.5771e-01,  2.5116e-01,  2.4274e-01,  ...,  5.4603e-02,
+             1.5456e-03, -3.1764e-02],
+           [ 2.2415e-01,  2.1681e-01,  1.9770e-01,  ..., -3.2812e-02,
+            -7.4975e-02, -9.4950e-02],
+           ...,
+           [-1.7694e-01, -1.8345e-01, -1.8828e-01,  ..., -5.2781e-02,
+            -3.5251e-02, -2.9713e-02],
+           [-1.5594e-01, -1.6239e-01, -1.7441e-01,  ..., -6.1454e-02,
+            -4.5227e-02, -4.6481e-02],
+           [-1.0354e-01, -1.0545e-01, -1.1243e-01,  ..., -7.1212e-02,
+            -5.9713e-02, -5.5359e-02]],
+
+          [[ 2.7027e-01,  2.6063e-01,  2.5224e-01,  ...,  1.4264e-01,
+             9.8432e-02,  6.0023e-02],
+           [ 2.7737e-01,  2.7004e-01,  2.6101e-01,  ...,  7.1203e-02,
+             1.7289e-02, -1.7068e-02],
+           [ 2.4352e-01,  2.3574e-01,  2.1607e-01,  ..., -1.6994e-02,
+            -5.9813e-02, -8.0418e-02],
+           ...,
+           [-1.6036e-01, -1.6785e-01, -1.7369e-01,  ..., -3.7268e-02,
+            -1.9116e-02, -1.3659e-02],
+           [-1.3936e-01, -1.4681e-01, -1.5964e-01,  ..., -4.6330e-02,
+            -2.9006e-02, -3.0289e-02],
+           [-8.8626e-02, -9.1194e-02, -9.8115e-02,  ..., -5.6563e-02,
+            -4.3721e-02, -3.9113e-02]],
+
+          ...,
+
+          [[ 1.5567e-01,  1.5905e-01,  1.6262e-01,  ...,  5.4269e-02,
+             4.9020e-02,  5.0610e-02],
+           [ 1.3226e-01,  1.4097e-01,  1.4509e-01,  ...,  9.5255e-03,
+             3.0470e-03,  4.4278e-03],
+           [ 9.1286e-02,  9.9079e-02,  9.5545e-02,  ..., -2.4645e-02,
+            -3.4012e-02, -3.5850e-02],
+           ...,
+           [-1.5620e-01, -1.4825e-01, -1.3292e-01,  ..., -3.5478e-02,
+            -3.7410e-02, -4.1849e-02],
+           [-1.6006e-01, -1.3779e-01, -1.1317e-01,  ..., -4.7837e-02,
+            -5.5823e-02, -5.9318e-02],
+           [-1.2744e-01, -1.0072e-01, -7.4555e-02,  ..., -6.2967e-02,
+            -5.6139e-02, -4.7980e-02]],
+
+          [[ 8.6044e-02,  9.5403e-02,  1.0220e-01,  ...,  1.0196e-02,
+             1.2778e-02,  2.4506e-02],
+           [ 5.5115e-02,  7.1143e-02,  8.0116e-02,  ..., -2.0881e-02,
+            -1.3839e-02, -2.9460e-03],
+           [ 1.5938e-02,  3.1977e-02,  4.1044e-02,  ..., -3.1031e-02,
+            -2.6573e-02, -2.2637e-02],
+           ...,
+           [-1.5358e-01, -1.4867e-01, -1.3182e-01,  ..., -4.6274e-02,
+            -5.7636e-02, -6.7606e-02],
+           [-1.6075e-01, -1.4269e-01, -1.0999e-01,  ..., -5.8237e-02,
+            -7.1653e-02, -7.7653e-02],
+           [-1.3950e-01, -1.1459e-01, -8.2952e-02,  ..., -6.9675e-02,
+            -6.3927e-02, -5.9582e-02]],
+
+          [[ 1.9514e-02,  3.2653e-02,  4.1172e-02,  ..., -2.7907e-02,
+            -2.5673e-02, -9.8221e-03],
+           [-1.0478e-02,  1.1048e-02,  2.6399e-02,  ..., -4.6961e-02,
+            -3.4874e-02, -1.8788e-02],
+           [-4.1046e-02, -2.0153e-02,  1.9970e-03,  ..., -3.7054e-02,
+            -2.3256e-02, -1.4440e-02],
+           ...,
+           [-1.1757e-01, -1.3015e-01, -1.2571e-01,  ..., -4.4785e-02,
+            -6.4533e-02, -8.0479e-02],
+           [-1.3505e-01, -1.3399e-01, -1.0431e-01,  ..., -5.9472e-02,
+            -7.3880e-02, -8.0838e-02],
+           [-1.2796e-01, -1.1058e-01, -8.2687e-02,  ..., -6.3969e-02,
+            -5.9980e-02, -5.9639e-02]]],
+
+
+         [[[ 2.8351e-01,  2.6485e-01,  2.4071e-01,  ...,  1.5237e-01,
+             1.1992e-01,  7.5360e-02],
+           [ 2.6606e-01,  2.3397e-01,  1.9495e-01,  ...,  5.8530e-02,
+             1.6217e-02, -2.6912e-02],
+           [ 1.8323e-01,  1.5815e-01,  1.3039e-01,  ..., -4.5813e-02,
+            -8.2740e-02, -1.0617e-01],
+           ...,
+           [-8.6349e-02, -1.0853e-01, -1.3364e-01,  ..., -1.5665e-02,
+             1.2002e-02,  5.8813e-03],
+           [-1.1967e-01, -1.2975e-01, -1.2752e-01,  ..., -4.2870e-03,
+             1.1670e-02,  9.1256e-03],
+           [-1.4589e-01, -1.3455e-01, -1.0641e-01,  ..., -1.6456e-02,
+            -1.8768e-02, -2.0724e-02]],
+
+          [[ 2.9256e-01,  2.7333e-01,  2.4860e-01,  ...,  1.5958e-01,
+             1.2728e-01,  8.2857e-02],
+           [ 2.7350e-01,  2.4129e-01,  2.0215e-01,  ...,  6.5430e-02,
+             2.3322e-02, -1.9618e-02],
+           [ 1.8985e-01,  1.6497e-01,  1.3743e-01,  ..., -3.9006e-02,
+            -7.5675e-02, -9.8859e-02],
+           ...,
+           [-7.9941e-02, -1.0212e-01, -1.2716e-01,  ..., -7.9776e-03,
+             1.9756e-02,  1.3519e-02],
+           [-1.1338e-01, -1.2327e-01, -1.2083e-01,  ...,  3.2111e-03,
+             1.8849e-02,  1.6194e-02],
+           [-1.3936e-01, -1.2775e-01, -9.9414e-02,  ..., -8.8199e-03,
+            -1.1636e-02, -1.3799e-02]],
+
+          [[ 3.1488e-01,  2.9513e-01,  2.6918e-01,  ...,  1.7940e-01,
+             1.4651e-01,  1.0171e-01],
+           [ 2.9563e-01,  2.6260e-01,  2.2259e-01,  ...,  8.3893e-02,
+             4.1624e-02, -1.4777e-03],
+           [ 2.1146e-01,  1.8616e-01,  1.5834e-01,  ..., -2.1121e-02,
+            -5.7467e-02, -8.0556e-02],
+           ...,
+           [-6.1196e-02, -8.3932e-02, -1.0931e-01,  ...,  1.3219e-02,
+             4.1024e-02,  3.4294e-02],
+           [-9.4349e-02, -1.0448e-01, -1.0225e-01,  ...,  2.4287e-02,
+             4.0066e-02,  3.6846e-02],
+           [-1.2048e-01, -1.0853e-01, -7.9983e-02,  ...,  1.1689e-02,
+             9.1451e-03,  6.7048e-03]],
+
+          ...,
+
+          [[ 1.5791e-01,  1.6508e-01,  1.6948e-01,  ...,  1.3615e-01,
+             1.3811e-01,  1.2423e-01],
+           [ 1.4328e-01,  1.3214e-01,  1.1921e-01,  ...,  6.8926e-02,
+             5.8600e-02,  4.3588e-02],
+           [ 1.1238e-01,  9.2196e-02,  7.1087e-02,  ..., -9.0802e-04,
+            -1.4601e-02, -2.3011e-02],
+           ...,
+           [-5.7473e-02, -6.0612e-02, -5.5999e-02,  ..., -2.4164e-03,
+            -7.1458e-03, -1.5140e-02],
+           [-1.1810e-01, -9.9483e-02, -6.4026e-02,  ...,  1.5197e-03,
+            -2.8483e-03, -5.8826e-03],
+           [-1.4462e-01, -1.2690e-01, -8.1518e-02,  ..., -9.7791e-03,
+            -2.4782e-03,  5.6726e-03]],
+
+          [[ 8.2260e-02,  9.4353e-02,  1.0515e-01,  ...,  8.4279e-02,
+             9.8917e-02,  9.5639e-02],
+           [ 6.3953e-02,  6.1850e-02,  5.6075e-02,  ...,  3.9279e-02,
+             4.5526e-02,  4.2713e-02],
+           [ 4.3576e-02,  3.4383e-02,  2.0928e-02,  ...,  6.4961e-04,
+            -3.1864e-04, -3.3318e-03],
+           ...,
+           [-8.4882e-02, -7.8509e-02, -6.0122e-02,  ..., -2.4641e-02,
+            -3.8945e-02, -4.7109e-02],
+           [-1.3617e-01, -1.1393e-01, -7.3713e-02,  ..., -2.5789e-02,
+            -3.2942e-02, -3.7987e-02],
+           [-1.5687e-01, -1.4329e-01, -1.0414e-01,  ..., -2.2149e-02,
+            -1.4351e-02, -9.0168e-03]],
+
+          [[ 1.3156e-02,  2.7672e-02,  4.2519e-02,  ...,  3.1645e-02,
+             5.0284e-02,  5.8481e-02],
+           [-5.6809e-03,  1.7828e-03,  6.7879e-03,  ...,  9.9852e-03,
+             2.8089e-02,  3.7155e-02],
+           [-1.3557e-02, -1.2864e-02, -1.3309e-02,  ...,  3.2823e-03,
+             1.3935e-02,  1.7429e-02],
+           ...,
+           [-8.8416e-02, -8.4606e-02, -6.3577e-02,  ..., -3.8460e-02,
+            -5.9196e-02, -6.7490e-02],
+           [-1.2911e-01, -1.1368e-01, -8.0367e-02,  ..., -4.3674e-02,
+            -5.1362e-02, -5.6709e-02],
+           [-1.4742e-01, -1.4080e-01, -1.1649e-01,  ..., -2.4841e-02,
+            -1.5786e-02, -1.3249e-02]]],
+
+
+         [[[ 2.4052e-01,  2.1874e-01,  1.8761e-01,  ...,  9.0849e-02,
+             6.7670e-02,  2.8733e-02],
+           [ 1.9970e-01,  1.8200e-01,  1.5811e-01,  ...,  3.8048e-02,
+             1.8546e-02, -1.3467e-02],
+           [ 1.3479e-01,  1.2996e-01,  1.1604e-01,  ..., -7.7688e-03,
+            -1.9973e-02, -4.1627e-02],
+           ...,
+           [-3.9887e-02, -5.2384e-02, -7.5875e-02,  ..., -9.6915e-02,
+            -8.4244e-02, -8.5077e-02],
+           [-3.6788e-02, -4.7437e-02, -6.0121e-02,  ..., -4.5362e-02,
+            -4.4586e-02, -4.7805e-02],
+           [-5.6841e-02, -5.0501e-02, -4.4847e-02,  ...,  9.1626e-03,
+             3.1437e-03, -3.5263e-03]],
+
+          [[ 2.4972e-01,  2.2697e-01,  1.9490e-01,  ...,  9.7681e-02,
+             7.4601e-02,  3.5497e-02],
+           [ 2.0700e-01,  1.8910e-01,  1.6500e-01,  ...,  4.4528e-02,
+             2.5177e-02, -6.8171e-03],
+           [ 1.4123e-01,  1.3651e-01,  1.2271e-01,  ..., -1.3599e-03,
+            -1.3414e-02, -3.4775e-02],
+           ...,
+           [-3.1632e-02, -4.3620e-02, -6.6383e-02,  ..., -8.5852e-02,
+            -7.3829e-02, -7.5324e-02],
+           [-2.7276e-02, -3.6992e-02, -4.8555e-02,  ..., -3.3477e-02,
+            -3.3562e-02, -3.7330e-02],
+           [-4.6527e-02, -3.8965e-02, -3.1966e-02,  ...,  2.2077e-02,
+             1.5202e-02,  8.0982e-03]],
+
+          [[ 2.7317e-01,  2.5043e-01,  2.1752e-01,  ...,  1.2023e-01,
+             9.6818e-02,  5.7062e-02],
+           [ 2.3005e-01,  2.1171e-01,  1.8734e-01,  ...,  6.5377e-02,
+             4.6039e-02,  1.3801e-02],
+           [ 1.6461e-01,  1.5970e-01,  1.4600e-01,  ...,  1.8682e-02,
+             6.9676e-03, -1.3972e-02],
+           ...,
+           [-1.2362e-02, -2.5200e-02, -4.7888e-02,  ..., -6.3209e-02,
+            -5.1853e-02, -5.4440e-02],
+           [-7.7384e-03, -1.7653e-02, -2.9183e-02,  ..., -1.1044e-02,
+            -1.1809e-02, -1.6401e-02],
+           [-2.6135e-02, -1.8325e-02, -1.1211e-02,  ...,  4.3713e-02,
+             3.6397e-02,  2.8934e-02]],
+
+          ...,
+
+          [[ 1.2007e-01,  1.3738e-01,  1.4852e-01,  ...,  1.1797e-01,
+             1.1780e-01,  1.0190e-01],
+           [ 1.2545e-01,  1.2481e-01,  1.1944e-01,  ...,  9.3334e-02,
+             8.9735e-02,  7.4498e-02],
+           [ 1.2092e-01,  1.0871e-01,  8.8780e-02,  ...,  5.3451e-02,
+             5.4741e-02,  4.4947e-02],
+           ...,
+           [ 1.7371e-02,  1.6427e-02,  8.4335e-03,  ..., -1.0081e-01,
+            -1.0430e-01, -9.6370e-02],
+           [-1.5329e-02, -1.1400e-02, -5.5454e-03,  ..., -7.2228e-02,
+            -6.6237e-02, -5.7353e-02],
+           [-4.4090e-02, -3.8248e-02, -2.3631e-02,  ..., -2.1399e-02,
+            -4.2374e-03,  9.6803e-03]],
+
+          [[ 5.7547e-02,  7.7757e-02,  9.5228e-02,  ...,  7.6142e-02,
+             8.5524e-02,  7.5828e-02],
+           [ 6.4850e-02,  6.7687e-02,  6.2291e-02,  ...,  7.0954e-02,
+             7.6476e-02,  6.9252e-02],
+           [ 6.9889e-02,  6.2094e-02,  4.2294e-02,  ...,  4.7575e-02,
+             5.6403e-02,  5.2174e-02],
+           ...,
+           [-3.1580e-02, -1.8983e-02, -1.0446e-02,  ..., -1.1921e-01,
+            -1.2773e-01, -1.2179e-01],
+           [-6.1521e-02, -5.1804e-02, -3.8971e-02,  ..., -1.0136e-01,
+            -9.5783e-02, -9.0474e-02],
+           [-7.9385e-02, -7.7360e-02, -6.6044e-02,  ..., -4.1098e-02,
+            -2.5296e-02, -1.4702e-02]],
+
+          [[ 1.1546e-03,  2.1803e-02,  4.1642e-02,  ...,  2.9963e-02,
+             4.4844e-02,  4.4701e-02],
+           [ 1.0270e-02,  1.8724e-02,  1.8359e-02,  ...,  4.7396e-02,
+             6.2042e-02,  6.5123e-02],
+           [ 2.6270e-02,  2.5241e-02,  1.2669e-02,  ...,  4.5291e-02,
+             6.1189e-02,  6.2157e-02],
+           ...,
+           [-7.4001e-02, -5.4031e-02, -3.6165e-02,  ..., -1.3289e-01,
+            -1.4273e-01, -1.3904e-01],
+           [-8.9828e-02, -8.2820e-02, -7.2148e-02,  ..., -1.2196e-01,
+            -1.1555e-01, -1.1178e-01],
+           [-9.6822e-02, -1.0025e-01, -9.9469e-02,  ..., -5.7234e-02,
+            -3.6818e-02, -2.7391e-02]]]]])
+2026-01-08 21:17:30,410 - INFO - data - means: tensor([[[[[[[5.7335e-03]]]],
+
+
+
+          [[[[4.2052e-03]]]],
+
+
+
+          [[[[3.5189e-03]]]],
+
+
+
+          [[[[3.1209e-03]]]],
+
+
+
+          [[[[2.8703e-03]]]],
+
+
+
+          [[[[2.7017e-03]]]],
+
+
+
+          [[[[2.5991e-03]]]],
+
+
+
+          [[[[2.5731e-03]]]],
+
+
+
+          [[[[2.6454e-03]]]],
+
+
+
+          [[[[2.8349e-03]]]],
+
+
+
+          [[[[3.1151e-03]]]],
+
+
+
+          [[[[3.4448e-03]]]],
+
+
+
+          [[[[3.7705e-03]]]],
+
+
+
+          [[[[4.0572e-03]]]],
+
+
+
+          [[[[4.3011e-03]]]],
+
+
+
+          [[[[4.5300e-03]]]],
+
+
+
+          [[[[4.7422e-03]]]],
+
+
+
+          [[[[4.8902e-03]]]],
+
+
+
+          [[[[4.9201e-03]]]]],
+
+
+
+
+         [[[[[7.8056e-03]]]],
+
+
+
+          [[[[6.4492e-03]]]],
+
+
+
+          [[[[5.7543e-03]]]],
+
+
+
+          [[[[5.2709e-03]]]],
+
+
+
+          [[[[4.9032e-03]]]],
+
+
+
+          [[[[4.5974e-03]]]],
+
+
+
+          [[[[4.3778e-03]]]],
+
+
+
+          [[[[4.2548e-03]]]],
+
+
+
+          [[[[4.2155e-03]]]],
+
+
+
+          [[[[4.2507e-03]]]],
+
+
+
+          [[[[4.3502e-03]]]],
+
+
+
+          [[[[4.5154e-03]]]],
+
+
+
+          [[[[4.7062e-03]]]],
+
+
+
+          [[[[4.9215e-03]]]],
+
+
+
+          [[[[5.1674e-03]]]],
+
+
+
+          [[[[5.4404e-03]]]],
+
+
+
+          [[[[5.7599e-03]]]],
+
+
+
+          [[[[6.1098e-03]]]],
+
+
+
+          [[[[6.4294e-03]]]]],
+
+
+
+
+         [[[[[1.1517e+01]]]],
+
+
+
+          [[[[1.1515e+01]]]],
+
+
+
+          [[[[1.1507e+01]]]],
+
+
+
+          [[[[1.1498e+01]]]],
+
+
+
+          [[[[1.1494e+01]]]],
+
+
+
+          [[[[1.1488e+01]]]],
+
+
+
+          [[[[1.1482e+01]]]],
+
+
+
+          [[[[1.1475e+01]]]],
+
+
+
+          [[[[1.1455e+01]]]],
+
+
+
+          [[[[1.1432e+01]]]],
+
+
+
+          [[[[1.1393e+01]]]],
+
+
+
+          [[[[1.1346e+01]]]],
+
+
+
+          [[[[1.1275e+01]]]],
+
+
+
+          [[[[1.1185e+01]]]],
+
+
+
+          [[[[1.1076e+01]]]],
+
+
+
+          [[[[1.0958e+01]]]],
+
+
+
+          [[[[1.0829e+01]]]],
+
+
+
+          [[[[1.0687e+01]]]],
+
+
+
+          [[[[1.0526e+01]]]]],
+
+
+
+
+         [[[[[3.3885e+01]]]],
+
+
+
+          [[[[3.3891e+01]]]],
+
+
+
+          [[[[3.3899e+01]]]],
+
+
+
+          [[[[3.3908e+01]]]],
+
+
+
+          [[[[3.3928e+01]]]],
+
+
+
+          [[[[3.3948e+01]]]],
+
+
+
+          [[[[3.3974e+01]]]],
+
+
+
+          [[[[3.4010e+01]]]],
+
+
+
+          [[[[3.4045e+01]]]],
+
+
+
+          [[[[3.4087e+01]]]],
+
+
+
+          [[[[3.4128e+01]]]],
+
+
+
+          [[[[3.4172e+01]]]],
+
+
+
+          [[[[3.4214e+01]]]],
+
+
+
+          [[[[3.4260e+01]]]],
+
+
+
+          [[[[3.4308e+01]]]],
+
+
+
+          [[[[3.4355e+01]]]],
+
+
+
+          [[[[3.4403e+01]]]],
+
+
+
+          [[[[3.4452e+01]]]],
+
+
+
+          [[[[3.4499e+01]]]]]]])
+2026-01-08 21:17:30,411 - INFO - data - stds: tensor([[[[[[[ 0.2148]]]],
+
+
+
+          [[[[ 0.2087]]]],
+
+
+
+          [[[[ 0.2055]]]],
+
+
+
+          [[[[ 0.2029]]]],
+
+
+
+          [[[[ 0.2009]]]],
+
+
+
+          [[[[ 0.1988]]]],
+
+
+
+          [[[[ 0.1966]]]],
+
+
+
+          [[[[ 0.1945]]]],
+
+
+
+          [[[[ 0.1922]]]],
+
+
+
+          [[[[ 0.1897]]]],
+
+
+
+          [[[[ 0.1871]]]],
+
+
+
+          [[[[ 0.1847]]]],
+
+
+
+          [[[[ 0.1823]]]],
+
+
+
+          [[[[ 0.1798]]]],
+
+
+
+          [[[[ 0.1772]]]],
+
+
+
+          [[[[ 0.1747]]]],
+
+
+
+          [[[[ 0.1721]]]],
+
+
+
+          [[[[ 0.1697]]]],
+
+
+
+          [[[[ 0.1674]]]]],
+
+
+
+
+         [[[[[ 0.2200]]]],
+
+
+
+          [[[[ 0.2140]]]],
+
+
+
+          [[[[ 0.2108]]]],
+
+
+
+          [[[[ 0.2081]]]],
+
+
+
+          [[[[ 0.2059]]]],
+
+
+
+          [[[[ 0.2037]]]],
+
+
+
+          [[[[ 0.2015]]]],
+
+
+
+          [[[[ 0.1993]]]],
+
+
+
+          [[[[ 0.1968]]]],
+
+
+
+          [[[[ 0.1943]]]],
+
+
+
+          [[[[ 0.1917]]]],
+
+
+
+          [[[[ 0.1891]]]],
+
+
+
+          [[[[ 0.1865]]]],
+
+
+
+          [[[[ 0.1839]]]],
+
+
+
+          [[[[ 0.1813]]]],
+
+
+
+          [[[[ 0.1785]]]],
+
+
+
+          [[[[ 0.1757]]]],
+
+
+
+          [[[[ 0.1733]]]],
+
+
+
+          [[[[ 0.1713]]]]],
+
+
+
+
+         [[[[[11.2354]]]],
+
+
+
+          [[[[11.2319]]]],
+
+
+
+          [[[[11.2250]]]],
+
+
+
+          [[[[11.2191]]]],
+
+
+
+          [[[[11.2085]]]],
+
+
+
+          [[[[11.2013]]]],
+
+
+
+          [[[[11.1916]]]],
+
+
+
+          [[[[11.1790]]]],
+
+
+
+          [[[[11.1631]]]],
+
+
+
+          [[[[11.1416]]]],
+
+
+
+          [[[[11.1126]]]],
+
+
+
+          [[[[11.0728]]]],
+
+
+
+          [[[[11.0172]]]],
+
+
+
+          [[[[10.9425]]]],
+
+
+
+          [[[[10.8431]]]],
+
+
+
+          [[[[10.7177]]]],
+
+
+
+          [[[[10.5649]]]],
+
+
+
+          [[[[10.3827]]]],
+
+
+
+          [[[[10.1696]]]]],
+
+
+
+
+         [[[[[ 2.2248]]]],
+
+
+
+          [[[[ 2.2081]]]],
+
+
+
+          [[[[ 2.1864]]]],
+
+
+
+          [[[[ 2.1605]]]],
+
+
+
+          [[[[ 2.1064]]]],
+
+
+
+          [[[[ 2.0518]]]],
+
+
+
+          [[[[ 1.9852]]]],
+
+
+
+          [[[[ 1.9049]]]],
+
+
+
+          [[[[ 1.8288]]]],
+
+
+
+          [[[[ 1.7485]]]],
+
+
+
+          [[[[ 1.6772]]]],
+
+
+
+          [[[[ 1.6101]]]],
+
+
+
+          [[[[ 1.5500]]]],
+
+
+
+          [[[[ 1.4733]]]],
+
+
+
+          [[[[ 1.4041]]]],
+
+
+
+          [[[[ 1.3525]]]],
+
+
+
+          [[[[ 1.3053]]]],
+
+
+
+          [[[[ 1.2581]]]],
+
+
+
+          [[[[ 1.2121]]]]]]])
+2026-01-08 21:17:30,411 - INFO - data - ================================================================
+2026-01-08 21:17:30,412 - ERROR - train - Training failed with an exception
+Traceback (most recent call last):
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1049, in main
+    trainer.run()
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 462, in run
+    train_stats = self.train_one_epoch(epoch)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 521, in train_one_epoch
+    for data_iter_step, data in enumerate(
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 182, in log_every
+    for obj in data_loader:
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataloader.py", line 734, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataloader.py", line 790, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+            ~~~~~~~~~~~~^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataset.py", line 346, in __getitem__
+    return self.datasets[dataset_idx][sample_idx]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 242, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 693, in __getitem__
+    input_, label = self._get_input_and_label(prognostic_all, boundary)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 706, in _get_input_and_label
+    total_input = self._prep_tensor_steps(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 747, in _prep_tensor_steps
+    prognostic_steps = normalize_and_mask(
+                       ^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 741, in normalize_and_mask
+    tensor = src.normalize_with(tensor, variable_axis=1).float()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 262, in normalize_with
+    norm = (data - means) / stds
+            ~~~~~^~~~~~~
+RuntimeError: The size of tensor a (2) must match the size of tensor b (19) at non-singleton dimension 2
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank0]:   File "<frozen runpy>", line 88, in _run_code
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1056, in <module>
+[rank0]:     main()
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1052, in main
+[rank0]:     raise e
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1049, in main
+[rank0]:     trainer.run()
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 462, in run
+[rank0]:     train_stats = self.train_one_epoch(epoch)
+[rank0]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 521, in train_one_epoch
+[rank0]:     for data_iter_step, data in enumerate(
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 182, in log_every
+[rank0]:     for obj in data_loader:
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataloader.py", line 734, in __next__
+[rank0]:     data = self._next_data()
+[rank0]:            ^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataloader.py", line 790, in _next_data
+[rank0]:     data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+[rank0]:     data = [self.dataset[idx] for idx in possibly_batched_index]
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+[rank0]:     data = [self.dataset[idx] for idx in possibly_batched_index]
+[rank0]:             ~~~~~~~~~~~~^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataset.py", line 346, in __getitem__
+[rank0]:     return self.datasets[dataset_idx][sample_idx]
+[rank0]:            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 242, in wrapper
+[rank0]:     result = func(*args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 693, in __getitem__
+[rank0]:     input_, label = self._get_input_and_label(prognostic_all, boundary)
+[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 706, in _get_input_and_label
+[rank0]:     total_input = self._prep_tensor_steps(
+[rank0]:                   ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 747, in _prep_tensor_steps
+[rank0]:     prognostic_steps = normalize_and_mask(
+[rank0]:                        ^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 741, in normalize_and_mask
+[rank0]:     tensor = src.normalize_with(tensor, variable_axis=1).float()
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 262, in normalize_with
+[rank0]:     norm = (data - means) / stds
+[rank0]:             ~~~~~^~~~~~~
+[rank0]: RuntimeError: The size of tensor a (2) must match the size of tensor b (19) at non-singleton dimension 2
+[rank0]:[W108 21:17:39.833487054 ProcessGroupNCCL.cpp:1538] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+E0108 21:17:40.938000 3720649 .venv/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:874] failed (exitcode: 1) local_rank: 0 (pid: 3720698) of binary: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/bin/python3
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 905, in <module>
+    main()
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 901, in main
+    run(args)
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 143, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 277, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+ocean_emulators.train FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-01-08_21:17:40
+  host      : node2905.inband
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 3720698)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

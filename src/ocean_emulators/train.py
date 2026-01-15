@@ -453,25 +453,27 @@ class Trainer:
             if epoch == self.start_epoch or epoch in self.step_transition:
                 cur_step = self.get_current_step(epoch)
                 self.init_data_loaders(cur_step)
-
             if isinstance(self.train_sampler, DistributedSampler):
                 self.train_sampler.set_epoch(epoch)
             if isinstance(self.val_sampler, DistributedSampler):
                 self.val_sampler.set_epoch(epoch)
-
             start_epoch_train_time = time.perf_counter()
+            logger.info("train stats")
             train_stats = self.train_one_epoch(epoch)
+            logger.info("end epoch train time")
             end_epoch_train_time = time.perf_counter()
+            logger.info("val stats")
             val_stats = self.validate_one_epoch(epoch)
+            logger.info("end epoch val time")
             end_epoch_val_time = time.perf_counter()
-
+            logger.info("inf_stats")
             if -1 in self.inference_epochs or epoch in self.inference_epochs:
                 inf_stats = self.inference_one_epoch(epoch)
                 end_epoch_inf_time = time.perf_counter()
             else:
                 inf_stats = {}
                 end_epoch_inf_time = None
-
+            logger.info("train loss, v loss, inf loss")
             train_loss = train_stats["train/mean/loss"]
             v_loss = val_stats["val/mean/loss"]
             inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
@@ -515,7 +517,7 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
-        # iters = len(self.train_loader)
+        
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
@@ -523,7 +525,11 @@ class Trainer:
                 break
 
             self.optimizer.zero_grad()
+
             data.to(self.device)
+
+
+
 
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
@@ -822,7 +828,6 @@ class Trainer:
         else:
             self.train_sampler = RandomSampler(train_data)
             self.val_sampler = RandomSampler(val_data)
-
         match self.loader_version:
             case TrainDataset.FLAG:
                 collate_fn: Callable[[Sequence[Any]], TrainData] = collate_train_data
@@ -833,7 +838,6 @@ class Trainer:
                     f"Collate function not defined for loader version "
                     f"{self.loader_version}"
                 )
-
         # Create data loaders
         self.train_loader = DataLoader(
             train_data,

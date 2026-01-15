@@ -1,0 +1,54 @@
+Resolved 289 packages in 1ms
+Audited 286 packages in 122ms
+======== train ocean_emulator samudra w/ 1 gpu on LLC4320 data ========
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 31, in <module>
+    from ocean_emulators import config
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/config.py", line 15, in <module>
+    from ocean_emulators.models import FOMO, Samudra
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/models/__init__.py", line 1, in <module>
+    from .fomo import FOMO
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/models/fomo.py", line 6, in <module>
+    from ocean_emulators.models.base import BaseModel
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/models/base.py", line 7, in <module>
+    from ocean_emulators.datasets import InferenceDataset, TrainData
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 740
+    logger.info(f'mask:' mask)
+                ^^^^^^^^^^^^^
+SyntaxError: invalid syntax. Perhaps you forgot a comma?
+E0114 15:01:42.389000 194557 .venv/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:874] failed (exitcode: 1) local_rank: 0 (pid: 194590) of binary: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/bin/python3
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 905, in <module>
+    main()
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 901, in main
+    run(args)
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 143, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 277, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+ocean_emulators.train FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-01-14_15:01:42
+  host      : node2905.inband
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 194590)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

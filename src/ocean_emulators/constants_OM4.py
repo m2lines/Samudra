@@ -51,124 +51,162 @@ MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
 # These represent depth centers
 DEPTH_LEVELS = [
-    0.5,
-    1.57,
-    2.79,
-    4.185,
-    5.78,
-    7.595,
-    9.66,
-    12.01,
-    14.68,
-    17.705,
-    21.125,
-    24.99,
-    29.345,
-    34.24,
-    39.725,
-    45.855,
-    52.69,
-    60.28,
-    68.685,
-] # should go deeper --------------------------------------------------------
+    2.5,
+    10.0,
+    22.5,
+    40.0,
+    65.0,
+    105.0,
+    165.0,
+    250.0,
+    375.0,
+    550.0,
+    775.0,
+    1050.0,
+    1400.0,
+    1850.0,
+    2400.0,
+    3100.0,
+    4000.0,
+    5000.0,
+    6000.0,
+]
 
 # Depth thicknesses
 DEPTH_THICKNESS = [
-    1.57 - 0.5,
-    2.79 - 1.57,
-    4.185 - 2.79,
-    5.78 - 4.185,
-    7.595 - 5.78,
-    9.66 - 7.595,
-    12.01 - 9.66,
-    14.68 - 12.01,
-    17.705 - 14.68,
-    21.125 - 17.705,
-    24.99 - 21.125,
-    29.345 - 24.99,
-    34.24 - 29.345,
-    39.725 - 34.24,
-    45.855 - 39.725,
-    52.69 - 45.855,
-    60.28 - 52.69,
-    68.685 - 60.28,
-    77.965 - 66.685
+    5.0,
+    10.0,
+    15.0,
+    20.0,
+    30.0,
+    50.0,
+    70.0,
+    100.0,
+    150.0,
+    200.0,
+    250.0,
+    300.0,
+    400.0,
+    500.0,
+    600.0,
+    800.0,
+    1000.0,
+    1000.0,
+    1000.0,
 ]
 
-DEPTH_I_LEVELS = [str(i) for i in range(len(DEPTH_LEVELS))]
+DEPTH_I_LEVELS = [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+]
 
-MASK_VARS = [f"mask_{i}" for i in range(len(DEPTH_LEVELS))]
+MASK_VARS = [
+    "mask_0",
+    "mask_1",
+    "mask_2",
+    "mask_3",
+    "mask_4",
+    "mask_5",
+    "mask_6",
+    "mask_7",
+    "mask_8",
+    "mask_9",
+    "mask_10",
+    "mask_11",
+    "mask_12",
+    "mask_13",
+    "mask_14",
+    "mask_15",
+    "mask_16",
+    "mask_17",
+    "mask_18",
+]
 
 RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
 CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
-SECONDS_PER_5DAY = 5 * 24 * 60 * 60  # 5 day average -----------------------------------------
-TIME_DELTA = 5  # Time delta in days -------------------------------------------------------------- change to actual LLC time steps?
- # LLC is hourly, so could do daily snapshots or hourly -- play around with this--------------------------------------------------------------------------------
+SECONDS_PER_5DAY = 5 * 24 * 60 * 60  # 5 day average
+TIME_DELTA = 5  # Time delta in days
+
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
-    "Theta_1": [f"Theta_{DEPTH_I_LEVELS[0]}"],
+    "thetao_1": [f"thetao_{DEPTH_I_LEVELS[0]}"],
     "thermo_dynamic_5": [
-        k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS[:5]
+        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
     ]
-   ,# + ["Eta"],
+    + ["zos"],
     "thermo_dynamic_all": [
-        k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS
+        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
     ]
-   ,# + ["Eta"],
-    "thermo_all": [k + str(j) for k in ["Theta_", "Salt_"] for j in DEPTH_I_LEVELS]
-    ,#+ ["Eta"],
+    + ["zos"],
+    "thermo_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
+    + ["zos"],
 }
-
 BoundaryVarNames = list[str]
 BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
-    "hfds": ["oceQnet"],
-    "tau_hfds": ["oceTAUX", "oceTAUY", "oceQnet", "Eta"],
-   # "Eta" : ["Eta"]
-   # "tau_hfds_hfds_anom": ["tauuo", "tauvo", "oceQnet", "hfds_anomalies"],
+    "hfds": ["hfds"],
+    "tau_hfds": ["tauuo", "tauvo", "hfds"],
+    "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
 }
 
 DEFAULT_METADATA = {
-    "Theta": {
+    "thetao": {
         "long_name": "Sea Water Potential Temperature",
         "units": r"\degree C",
     },
-    "Salt": {
+    "so": {
         "long_name": "Sea Water Salinity",
         "units": "psu",
     },
-    "U": {
+    "uo": {
         "long_name": "Sea Water X Velocity",
         "units": "m/s",
     },
-    "V": {
+    "vo": {
         "long_name": "Sea Water Y Velocity",
         "units": "m/s",
     },
-    "Eta": {
+    "zos": {
         "long_name": "Sea surface height above geoid",
         "units": "m",
     },
-   # "tos": {
-   #     "long_name": "Sea surface temperature",
-   #     "units": r"\degree C",
-   # },
-    "oceTAUX": {
+    "tos": {
+        "long_name": "Sea surface temperature",
+        "units": r"\degree C",
+    },
+    "tauuo": {
         "long_name": "Surface Downward X Stress",
         "units": "N/m^2",
     },
-    "oceTAUY": {
+    "tauvo": {
         "long_name": "Surface Downward Y Stress",
         "units": "N/m^2",
     },
-    "oceQnet": {
+    "hfds": {
         "long_name": "Surface ocean heat flux from "
         "SW+LW+latent+sensible+masstransfer+frazil+seaice_melt_heat",
         "units": "W/m^2",
     },
-  #  "hfds_anomalies": {
-  #      "long_name": "hfds anomalies",
-  #      "units": "W/m^2",
-  #  },
+    "hfds_anomalies": {
+        "long_name": "hfds anomalies",
+        "units": "W/m^2",
+    },
 }
 
 

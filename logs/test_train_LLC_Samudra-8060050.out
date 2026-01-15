@@ -1,0 +1,322 @@
+Resolved 289 packages in 1ms
+Audited 286 packages in 144ms
+======== train ocean_emulator samudra w/ 1 gpu on LLC4320 data ========
+2026-01-14 13:31:55,730 - INFO - backend - auto backend detected CUDA
+2026-01-14 13:31:55,900 - INFO - distributed - | distributed init (rank 0), gpu 0, world_size 1, dist_url env://
+2026-01-14 13:31:55,900 - INFO - logging - 
+=== Warning Details ===
+2026-01-14 13:31:55,901 - INFO - logging - Message: No device id is provided via `init_process_group` or `barrier `. Using the current device set by the user. 
+2026-01-14 13:31:55,901 - INFO - logging - Category: <class 'UserWarning'>
+2026-01-14 13:31:55,901 - INFO - logging - File: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/distributed_c10d.py
+2026-01-14 13:31:55,901 - INFO - logging - Line: 4807
+2026-01-14 13:31:55,901 - INFO - logging - 
+Full stack trace:
+2026-01-14 13:31:55,904 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-14 13:31:55,904 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-14 13:31:55,904 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1056, in <module>
+2026-01-14 13:31:55,904 - INFO - logging -     main()
+2026-01-14 13:31:55,904 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1046, in main
+2026-01-14 13:31:55,904 - INFO - logging -     trainer = Trainer(cfg)
+2026-01-14 13:31:55,904 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 107, in __init__
+2026-01-14 13:31:55,904 - INFO - logging -     self.device, self.distributed = init_train_backend(cfg.backend)
+2026-01-14 13:31:55,904 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/backend.py", line 32, in init_train_backend
+2026-01-14 13:31:55,904 - INFO - logging -     dist_cfg = init_distributed_mode()
+2026-01-14 13:31:55,904 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/distributed.py", line 129, in init_distributed_mode
+2026-01-14 13:31:55,904 - INFO - logging -     torch.distributed.barrier()
+2026-01-14 13:31:55,904 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/c10d_logger.py", line 81, in wrapper
+2026-01-14 13:31:55,904 - INFO - logging -     return func(*args, **kwargs)
+2026-01-14 13:31:55,904 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/distributed_c10d.py", line 4807, in barrier
+2026-01-14 13:31:55,904 - INFO - logging -     warnings.warn(  # warn only once
+2026-01-14 13:31:55,904 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-14 13:31:55,904 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-14 13:31:55,904 - INFO - logging - =====================
+
+[rank0]:[W114 13:31:55.241435463 ProcessGroupNCCL.cpp:5023] [PG ID 0 PG GUID 0 Rank 0]  using GPU 0 as device used by this process is currently unknown. This can potentially cause a hang if this rank to GPU mapping is incorrect. You can specify device_id in init_process_group() to force use of a particular device.
+2026-01-14 13:31:56,145 - INFO - backend - succeeded in initializing distributed mode
+2026-01-14 13:31:56,148 - INFO - train - Prognostic variables: U_0, U_1, U_2, U_3, U_4, U_5, U_6, U_7, U_8, U_9, U_10, U_11, U_12, U_13, U_14, U_15, U_16, U_17, U_18, V_0, V_1, V_2, V_3, V_4, V_5, V_6, V_7, V_8, V_9, V_10, V_11, V_12, V_13, V_14, V_15, V_16, V_17, V_18, Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, Theta_7, Theta_8, Theta_9, Theta_10, Theta_11, Theta_12, Theta_13, Theta_14, Theta_15, Theta_16, Theta_17, Theta_18, Salt_0, Salt_1, Salt_2, Salt_3, Salt_4, Salt_5, Salt_6, Salt_7, Salt_8, Salt_9, Salt_10, Salt_11, Salt_12, Salt_13, Salt_14, Salt_15, Salt_16, Salt_17, Salt_18
+2026-01-14 13:31:56,148 - INFO - train - Boundary variables: oceTAUX, oceTAUY, oceQnet, Eta
+2026-01-14 13:31:56,148 - INFO - train - Levels: 19
+2026-01-14 13:31:56,328 - INFO - logging - 
+=== Warning Details ===
+2026-01-14 13:31:56,328 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-14 13:31:56,328 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-14 13:31:56,328 - INFO - logging - File: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-14 13:31:56,328 - INFO - logging - Line: 135
+2026-01-14 13:31:56,328 - INFO - logging - 
+Full stack trace:
+2026-01-14 13:31:56,331 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-14 13:31:56,331 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-14 13:31:56,331 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1056, in <module>
+2026-01-14 13:31:56,331 - INFO - logging -     main()
+2026-01-14 13:31:56,331 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1046, in main
+2026-01-14 13:31:56,331 - INFO - logging -     trainer = Trainer(cfg)
+2026-01-14 13:31:56,331 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 145, in __init__
+2026-01-14 13:31:56,331 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-14 13:31:56,331 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/config.py", line 153, in build
+2026-01-14 13:31:56,331 - INFO - logging -     source = DataSource.from_locations(
+2026-01-14 13:31:56,331 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 290, in from_locations
+2026-01-14 13:31:56,331 - INFO - logging -     data = data_location.open(chunks)
+2026-01-14 13:31:56,331 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-14 13:31:56,331 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-14 13:31:56,331 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-14 13:31:56,331 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-14 13:31:56,331 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-14 13:31:56,331 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-14 13:31:56,332 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-14 13:31:56,332 - INFO - logging -     ) = _get_open_params(
+2026-01-14 13:31:56,332 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-14 13:31:56,332 - INFO - logging -     emit_user_level_warning(
+2026-01-14 13:31:56,332 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-14 13:31:56,332 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-14 13:31:56,332 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-14 13:31:56,332 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-14 13:31:56,332 - INFO - logging - =====================
+
+2026-01-14 13:32:17,233 - INFO - logging - 
+=== Warning Details ===
+2026-01-14 13:32:17,234 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-14 13:32:17,234 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-14 13:32:17,235 - INFO - logging - File: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-14 13:32:17,235 - INFO - logging - Line: 135
+2026-01-14 13:32:17,235 - INFO - logging - 
+Full stack trace:
+2026-01-14 13:32:17,235 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-14 13:32:17,235 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-14 13:32:17,235 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1056, in <module>
+2026-01-14 13:32:17,235 - INFO - logging -     main()
+2026-01-14 13:32:17,235 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1046, in main
+2026-01-14 13:32:17,235 - INFO - logging -     trainer = Trainer(cfg)
+2026-01-14 13:32:17,235 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 145, in __init__
+2026-01-14 13:32:17,235 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-14 13:32:17,235 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/config.py", line 167, in build
+2026-01-14 13:32:17,235 - INFO - logging -     source_using_dask = DataSource.from_locations(
+2026-01-14 13:32:17,235 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 290, in from_locations
+2026-01-14 13:32:17,235 - INFO - logging -     data = data_location.open(chunks)
+2026-01-14 13:32:17,235 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-14 13:32:17,235 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-14 13:32:17,235 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-14 13:32:17,236 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-14 13:32:17,236 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-14 13:32:17,236 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-14 13:32:17,236 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-14 13:32:17,236 - INFO - logging -     ) = _get_open_params(
+2026-01-14 13:32:17,236 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-14 13:32:17,236 - INFO - logging -     emit_user_level_warning(
+2026-01-14 13:32:17,236 - INFO - logging -   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-14 13:32:17,236 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-14 13:32:17,236 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-14 13:32:17,236 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-14 13:32:17,236 - INFO - logging - =====================
+
+2026-01-14 13:32:42,920 - INFO - train - Number of inputs (prognostic + boundary): 160
+2026-01-14 13:32:42,920 - INFO - train - Number of outputs (prognostic): 152
+2026-01-14 13:32:42,920 - INFO - train - Loading data
+2026-01-14 13:32:42,922 - INFO - constants - hFacC does not have any default metadata
+2026-01-14 13:32:42,922 - INFO - constants - hFacS does not have any default metadata
+2026-01-14 13:32:42,922 - INFO - constants - hFacW does not have any default metadata
+2026-01-14 13:32:42,922 - INFO - constants - i does not have any default metadata
+2026-01-14 13:32:42,922 - INFO - constants - iter does not have any default metadata
+2026-01-14 13:32:42,922 - INFO - constants - j does not have any default metadata
+2026-01-14 13:32:42,922 - INFO - constants - lev does not have any default metadata
+2026-01-14 13:32:42,922 - INFO - constants - k_l does not have any default metadata
+2026-01-14 13:32:42,922 - INFO - constants - k_p1 does not have any default metadata
+2026-01-14 13:32:42,923 - INFO - constants - k_u does not have any default metadata
+2026-01-14 13:32:42,923 - INFO - constants - mask_s does not have any default metadata
+2026-01-14 13:32:42,923 - INFO - constants - mask_w does not have any default metadata
+2026-01-14 13:32:42,923 - INFO - constants - time does not have any default metadata
+2026-01-14 13:32:42,923 - INFO - constants - mask_0 does not have any default metadata
+2026-01-14 13:32:42,923 - INFO - constants - mask_1 does not have any default metadata
+2026-01-14 13:32:42,923 - INFO - constants - mask_2 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_3 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_4 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_5 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_6 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_7 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_8 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_9 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_10 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_11 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_12 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_13 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_14 does not have any default metadata
+2026-01-14 13:32:42,924 - INFO - constants - mask_15 does not have any default metadata
+2026-01-14 13:32:42,925 - INFO - constants - mask_16 does not have any default metadata
+2026-01-14 13:32:42,925 - INFO - constants - mask_17 does not have any default metadata
+2026-01-14 13:32:42,925 - INFO - constants - mask_18 does not have any default metadata
+2026-01-14 13:32:43,905 - INFO - train - Using decomposed mse loss
+2026-01-14 13:32:43,915 - INFO - train - Number of processes: 1, preferably use 8
+2026-01-14 13:32:43,996 - INFO - datasets - Long rollout will use input at time 2011-11-13T12:00:00.000000000 and produce output at 2011-11-13T14:00:00.000000000
+2026-01-14 13:32:43,996 - INFO - logging - InferenceDataset.__init__ took 0.0211 seconds
+2026-01-14 13:32:43,997 - INFO - train - Starting training
+2026-01-14 13:32:43,998 - INFO - train - Starting training at step 4
+2026-01-14 13:32:44,077 - INFO - logging - TorchTrainDataset.__init__ took 0.0185 seconds
+2026-01-14 13:32:44,157 - INFO - logging - TorchTrainDataset.__init__ took 0.0186 seconds
+2026-01-14 13:32:44,157 - INFO - train - Instantiating torch loaders
+2026-01-14 13:32:44,158 - INFO - train - train stats
+2026-01-14 13:32:44,165 - INFO - datasets - band-aid ignoring :D
+2026-01-14 13:33:03,652 - INFO - datasets - ================================================================
+2026-01-14 13:33:03,652 - INFO - datasets - mask: torch.Size([2, 4, 19, 10, 10])
+2026-01-14 13:33:03,652 - INFO - datasets - tensor: torch.Size([2, 4, 19, 10, 10])
+2026-01-14 13:33:03,652 - INFO - datasets - ================================================================
+2026-01-14 13:33:03,686 - INFO - datasets - ================================================================
+2026-01-14 13:33:03,686 - INFO - datasets - mask: torch.Size([2, 2, 4, 10, 10, 10, 10])
+2026-01-14 13:33:03,686 - INFO - datasets - tensor: torch.Size([2, 4, 10, 10, 10, 10])
+2026-01-14 13:33:03,686 - INFO - datasets - ================================================================
+2026-01-14 13:33:03,690 - ERROR - train - Training failed with an exception
+Traceback (most recent call last):
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/einops/einops.py", line 531, in reduce
+    recipe = _prepare_transformation_recipe(pattern, reduction, axes_names=tuple(axes_lengths), ndim=len(shape))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/einops/einops.py", line 366, in _prepare_transformation_recipe
+    raise EinopsError(f"Wrong shape: expected {len(left.composition)} dims. Received {ndim}-dim tensor.")
+einops.EinopsError: Wrong shape: expected 6 dims. Received 7-dim tensor.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1049, in main
+    trainer.run()
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 462, in run
+    train_stats = self.train_one_epoch(epoch)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 521, in train_one_epoch
+    for data_iter_step, data in enumerate(
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 182, in log_every
+    for obj in data_loader:
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataloader.py", line 734, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataloader.py", line 790, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+            ~~~~~~~~~~~~^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataset.py", line 346, in __getitem__
+    return self.datasets[dataset_idx][sample_idx]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 242, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 693, in __getitem__
+    input_, label = self._get_input_and_label(prognostic_all, boundary)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 706, in _get_input_and_label
+    total_input = self._prep_tensor_steps(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 773, in _prep_tensor_steps
+    boundary_steps = rearrange(boundary_steps, "batch var ind1 ind2 ind3 ind4 -> batch var (ind1 ind2 ind3 ind4)")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/einops/einops.py", line 600, in rearrange
+    return reduce(tensor, pattern, reduction="rearrange", **axes_lengths)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/einops/einops.py", line 542, in reduce
+    raise EinopsError(message + "\n {}".format(e))
+einops.EinopsError:  Error while processing rearrange-reduction pattern "batch var ind1 ind2 ind3 ind4 -> batch var (ind1 ind2 ind3 ind4)".
+ Input tensor shape: torch.Size([2, 2, 4, 10, 10, 10, 10]). Additional info: {}.
+ Wrong shape: expected 6 dims. Received 7-dim tensor.
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/einops/einops.py", line 531, in reduce
+[rank0]:     recipe = _prepare_transformation_recipe(pattern, reduction, axes_names=tuple(axes_lengths), ndim=len(shape))
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/einops/einops.py", line 366, in _prepare_transformation_recipe
+[rank0]:     raise EinopsError(f"Wrong shape: expected {len(left.composition)} dims. Received {ndim}-dim tensor.")
+[rank0]: einops.EinopsError: Wrong shape: expected 6 dims. Received 7-dim tensor.
+
+[rank0]: During handling of the above exception, another exception occurred:
+
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank0]:   File "<frozen runpy>", line 88, in _run_code
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1056, in <module>
+[rank0]:     main()
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1052, in main
+[rank0]:     raise e
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 1049, in main
+[rank0]:     trainer.run()
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 462, in run
+[rank0]:     train_stats = self.train_one_epoch(epoch)
+[rank0]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/train.py", line 521, in train_one_epoch
+[rank0]:     for data_iter_step, data in enumerate(
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 182, in log_every
+[rank0]:     for obj in data_loader:
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataloader.py", line 734, in __next__
+[rank0]:     data = self._next_data()
+[rank0]:            ^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataloader.py", line 790, in _next_data
+[rank0]:     data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/_utils/fetch.py", line 52, in fetch
+[rank0]:     data = [self.dataset[idx] for idx in possibly_batched_index]
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/_utils/fetch.py", line 52, in <listcomp>
+[rank0]:     data = [self.dataset[idx] for idx in possibly_batched_index]
+[rank0]:             ~~~~~~~~~~~~^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/utils/data/dataset.py", line 346, in __getitem__
+[rank0]:     return self.datasets[dataset_idx][sample_idx]
+[rank0]:            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/utils/logging.py", line 242, in wrapper
+[rank0]:     result = func(*args, **kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 693, in __getitem__
+[rank0]:     input_, label = self._get_input_and_label(prognostic_all, boundary)
+[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 706, in _get_input_and_label
+[rank0]:     total_input = self._prep_tensor_steps(
+[rank0]:                   ^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/src/ocean_emulators/datasets.py", line 773, in _prep_tensor_steps
+[rank0]:     boundary_steps = rearrange(boundary_steps, "batch var ind1 ind2 ind3 ind4 -> batch var (ind1 ind2 ind3 ind4)")
+[rank0]:                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/einops/einops.py", line 600, in rearrange
+[rank0]:     return reduce(tensor, pattern, reduction="rearrange", **axes_lengths)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/einops/einops.py", line 542, in reduce
+[rank0]:     raise EinopsError(message + "\n {}".format(e))
+[rank0]: einops.EinopsError:  Error while processing rearrange-reduction pattern "batch var ind1 ind2 ind3 ind4 -> batch var (ind1 ind2 ind3 ind4)".
+[rank0]:  Input tensor shape: torch.Size([2, 2, 4, 10, 10, 10, 10]). Additional info: {}.
+[rank0]:  Wrong shape: expected 6 dims. Received 7-dim tensor.
+[rank0]:[W114 13:33:16.636190164 ProcessGroupNCCL.cpp:1538] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+E0114 13:33:17.859000 167266 .venv/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:874] failed (exitcode: 1) local_rank: 0 (pid: 167296) of binary: /orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/bin/python3
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 905, in <module>
+    main()
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 901, in main
+    run(args)
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 143, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/LLC_ocean_emulator/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 277, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+ocean_emulators.train FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-01-14_13:33:17
+  host      : node2905.inband
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 167296)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

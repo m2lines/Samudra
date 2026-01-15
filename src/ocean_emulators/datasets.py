@@ -179,11 +179,13 @@ class InferenceDataset(Dataset):
         data_in_src = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
+        
         if self.normalize_before_mask:
             data_in_ds = data_in_src.normalize()
         else:
             data_in_ds = data_in_src.data
-
+        logger.info(f'data_in_src.data: {data_in_src.data}')
+     #   logger.info(f'data_in_src.data.: {data_in_src.data[]}')
         if "lev" in data_in_ds.dims:
             data_in_np: np.ndarray = (
                 conditional_rearrange(
@@ -654,30 +656,37 @@ class TorchTrainDataset(Dataset):
             prognostic_selected = self._prognostic_src.data.isel(time=x_index)
             boundary_selected = self._boundary_src.data.isel(time=x_index)
 
+        #    logger.info(f'prognostic_selected {prognostic_selected}')
+        #    logger.info(f'boundary_selected {boundary_selected}')
+
             if self._executor is not None:
                 concurrent_compute(
                     prognostic_selected, boundary_selected, executor=self._executor
                 )
-
-            if "lev" in prognostic_selected.dims:
-                prognostic_all = torch.from_numpy(
-                    conditional_rearrange(
-                        prognostic_selected,
-                        "time (variable lev)=var lat lon",
-                        concat_dim="var",
-                    )
-                    .rename({"var": "variable"})
-                    .to_numpy()
-                )
+            logger.info('band-aid ignoring :D')
+            if "lev___________" in prognostic_selected.dims:
+                print('what???')
+                
+         #       logger.info(f'prognostic selected {prognostic_selected}')
+         #       prognostic_all = torch.from_numpy(
+         #           conditional_rearrange(
+         #               prognostic_selected,
+         #            #   "time (variable lev)=var lat lon",
+         #                "lat lon time (variable lev)",
+         #               concat_dim="var",
+         #           )
+         #           .rename({"var": "variable"})
+         #           .to_numpy()
+         #       )
             else:
                 prognostic_all = torch.from_numpy(
                     prognostic_selected.to_array()
-                    .transpose("time", "variable", "lat", "lon")
+                   # .transpose("time", "variable", "i", "j", 'i_g', 'j_g') #----------
                     .to_numpy()
                 )
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
+               # .transpose("time", "variable", "i", "j", 'i_g', 'j_g') #-----------
                 .to_numpy()
             )
 
@@ -715,8 +724,21 @@ class TorchTrainDataset(Dataset):
             src: DataSource,
             mask: torch.Tensor,
         ) -> torch.Tensor:
+
+            if src is self._prognostic_src:
+                batch_size = tensor.shape[0]
+                num_vars = tensor.shape[1]
+                depth_idx = tensor.shape[2]
+                mask = mask.reshape(1, num_vars, depth_idx, 10, 10).repeat(batch_size, 1, 1, 1, 1)
+            elif src is self._boundary_src:
+               # mask = mask.unsqueeze(0).unsqueeze(1)#.unsqueeze(-1).unsqueeze(-1)
+                tensor = tensor[..., 0, 0]# for indexing simplicity I consider i = i_g and j = j_g so we should set i_g and j_g in boundary as ghosts
+                mask = mask.expand_as(tensor)
+
             if self.normalize_before_mask:
                 tensor = src.normalize_with(tensor, variable_axis=1).float()
+
+
             tensor = torch.where(mask, tensor, self.masked_fill_value)
             if not self.normalize_before_mask:
                 tensor = src.normalize_with(tensor, variable_axis=1).float()
@@ -732,11 +754,17 @@ class TorchTrainDataset(Dataset):
 
         # Flatten time and variable dimensions
         def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:
-            return rearrange(tensor, "time variable lat lon -> (time variable) lat lon")
+            #return rearrange(tensor, "time variable lat lon -> (time variable) lat lon")
+
+           # wasworking: return rearrange(tensor, "batch var depth ind1 ind2 ind3 ind4 -> (batch depth) var (ind1 ind2 ind3 ind4)")
+
+            return rearrange(tensor, "batch var depth ind1 ind2 -> (batch depth) var (ind1 ind2)")
+
+            #rearrange(tensor, "time variable lat lon -> (time variable) lat lon")
 
         prognostic_steps = flatten_dims(prognostic_steps)
         if boundary_steps is not None:
-            boundary_steps = flatten_dims(boundary_steps)
+            boundary_steps = rearrange(boundary_steps, "batch var ind1 ind2 -> batch var (ind1 ind2)")
             return torch.cat((prognostic_steps, boundary_steps), dim=0)
 
         return prognostic_steps

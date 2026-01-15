@@ -6,13 +6,16 @@ from collections.abc import Callable
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Self
 
+import datetime as dt
+import cftime
+
 import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
 
 if TYPE_CHECKING:
-    from ocean_emulators.config import TimeConfig
+    from ocean_emulators.config import TimeConfig # WOULD THIS BE A CICULAR IMPORT?
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
@@ -107,9 +110,27 @@ class DataSource:
                 self, name=name, data=data, means=means, stds=stds
             )
 
-        data = self.data[var_names]
-        means = self.means[var_names]
-        stds = self.stds[var_names]
+        #DEBUG
+     #   for var in self.means.keys():
+     #       logger.info(f'{var}')
+     #   logger.info(f'var names: {var_names}')
+
+        if prefix == "prognostic":
+            consolidated_var_names = list(dict.fromkeys([name.split('_')[0] for name in var_names]))
+            depths = sorted(
+                {part[1] for part in (name.split('_') for name in var_names) if len(part) == 2},
+                key=lambda x: int(x))
+            depths_int = [int(d) for d in depths]
+            data = self.data[consolidated_var_names].isel(lev = depths_int)
+
+        elif prefix == "boundary":
+            data = self.data[var_names]
+
+        var_names_m_std = [ f"{name}.0" if "_" in name else name for name in var_names] 
+        #var_names_m_std = [ f"{name.rsplit('_', 1)[0]}_lev_{name.rsplit('_', 1)[1]}" if "_" in name else name for name in var_names] 
+        means = self.means[var_names_m_std]
+        stds = self.stds[var_names_m_std]
+
 
         return dataclasses.replace(self, name=name, data=data, means=means, stds=stds)
 
@@ -141,26 +162,38 @@ class DataSource:
         data = func(self.data.copy())
         return dataclasses.replace(self, name=f"{self.name}_{suffix}", data=data)
 
-    def slice(self, time: "TimeConfig") -> Self:
-        """Slice the data source to only include the specified time slice."""
-        data_time_min = self.data.time.min().item()
-        data_time_max = self.data.time.max().item()
-        if time.start.datetime > data_time_max or time.end.datetime < data_time_min:
+    def slice(self, time: "TimeConfig") -> "Self":
+
+        # get the dataset time type
+        time_coord = self.data.time
+
+        # if dataset is OM4, using Julian Datetimes:
+        if isinstance(time_coord.values[0], cftime.datetime):
+            start = time.start.datetime
+            end   = time.end.datetime
+
+        # if dataset is LLC, using datetime64[ns], we need to convert to HOURLY Julian Datetimes:
+        else:
+            start = np.datetime64(time.start.datetime, 'h')
+            end   = np.datetime64(time.end.datetime, 'h')
+
+        data_time_min = np.datetime64(self.data.time.min().values, 'ns')
+        data_time_max = np.datetime64(self.data.time.max().values, 'ns')
+
+        if start > data_time_max or end < data_time_min:
             raise ValueError(
-                f"Time slice {time} is entirely outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"Time slice {time} is entirely outside the data range "
+                f"{data_time_min} to {data_time_max}"
             )
 
-        if time.start.datetime < data_time_min or time.end.datetime > data_time_max:
+        if start < data_time_min or end > data_time_max:
             logger.warning(
-                f"Time slice {time} is partially outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"Time slice {time} is partially outside the data range "
+                f"{data_time_min} to {data_time_max}"
             )
 
-        data = self.data.sel(time=time.time_slice)
-        return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
+        data = self.data.sel(time=slice(start, end))
+        return dataclasses.replace(self, name=f"time={time}[{self.name}]", data=data)
 
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
@@ -211,6 +244,22 @@ class DataSource:
         means = torch.from_numpy(means_np).reshape(reshape_vars)
         stds = torch.from_numpy(stds_np).reshape(reshape_vars)
 
+     #   logger.info(f'self.name: {self.name}')
+        var_type = self.name.split("[", 1)[0]
+
+        if var_type == "prognostic":
+            batch_size_maybe_idk = data.shape[0] # still unsure what this is
+            num_vars = data.shape[1]
+            depth_idx = data.shape[2]
+            means = means.reshape(1, num_vars, depth_idx, 1, 1, 1, 1).repeat(batch_size_maybe_idk, 1, 1, 1, 1, 1, 1).squeeze(-1).squeeze(-1)
+            stds = stds.reshape(1, num_vars, depth_idx, 1, 1, 1, 1).repeat(batch_size_maybe_idk, 1, 1, 1, 1, 1, 1).squeeze(-1).squeeze(-1)
+      #  if var_type =="boundary":
+                #
+        # logger.info(f'================================================================')
+        # logger.info(f'data: {data.shape}')
+        # logger.info(f'means: {means.shape}')
+        # logger.info(f'stds: {stds.shape}')
+        # logger.info(f'================================================================')
         norm = (data - means) / stds
         if fill_nan:
             norm = norm.nan_to_num(nan=fill_value)
@@ -239,6 +288,18 @@ class DataSource:
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
         data = data_location.open(chunks)
+        # remap data, k --> lev
+        data = data.rename({'k': 'lev'})
+
+        # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS
+        data["U"] = data["U"].rename({"i_g": "i"})
+        data["V"] = data["V"].rename({"j_g": "j"})
+
+        # TEMPORARY BAND-AID: Drop staggered dims
+        for dim in ["i_g", "j_g"]:
+            data = data.drop_vars(dim)
+
+      #  logger.info(f'data: {data}')
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
 
@@ -386,17 +447,17 @@ def flatten_masks(data: xr.Dataset) -> xr.Dataset:
     """Adds data_vars "mask_0"..."mask_18" with dimensions (y, x)."""
     data_ = data.copy()
     if MASK_VARS[0] not in data_.variables:
-        assert "wetmask" in data_.variables, (
+        assert "mask_c" in data_.variables, ( #--------------------------------------------------- change to wetmask name
             "Wet mask cannot be constructed without "
             "either the wetmask variable or the level-wise masks"
         )
 
-        wet_mask = data_["wetmask"]
+        wet_mask = data_["mask_c"] #--------------------------------------------------- change to wetmask name
         for i, lev in enumerate(DEPTH_I_LEVELS):
             assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
             data_[f"mask_{lev}"] = wet_mask.isel(lev=i)
 
-        data_ = data_.drop_vars("wetmask")
+        data_ = data_.drop_vars("mask_c")
 
     return data_
 
@@ -404,22 +465,28 @@ def flatten_masks(data: xr.Dataset) -> xr.Dataset:
 def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
     """Adds a "wetmask" `xarray.DataArray` with dimensions (lev, y, x)."""
     data_ = data.copy()
-    if "wetmask" not in data_.variables:
+    if "mask_c" not in data_.variables:
         assert MASK_VARS[0] in data_.variables, "Wet mask must have masks as data vars!"
 
-        wetmask = data_[MASK_VARS].to_array(dim="lev", name="wetmask")
+        wetmask = data_[MASK_VARS].to_array(dim="lev", name="mask_c") #--------------------------------------------------- change to wetmask name
 
-        data_["wetmask"] = wetmask.assign_coords(lev=data_.lev)
+        data_["mask_c"] = wetmask.assign_coords(lev=data_.lev) #--------------------------------------------------- change to wetmask name
         data_ = data_.drop_vars(MASK_VARS)
 
     return data_
 
 
-def spherical_area_weights(data: xr.Dataset) -> Grid:
-    num_lon = data.lon.size
-    lats = torch.from_numpy(data.lat.to_numpy())
-    weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
-    weights /= weights.sum()
+#def spherical_area_weights(data: xr.Dataset) -> Grid:
+#    num_lon = data.lon.size
+#    lats = torch.from_numpy(data.lat.to_numpy())
+#    weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
+#    weights /= weights.sum()
+#    return weights
+
+# for LLC, use the LLC grid cell area that exists in the dataset ------------------------------
+def spherical_area_weights(data: xr.Dataset):
+    area = torch.from_numpy(data['rA'].to_numpy())  # shape (face, j, i)
+    weights = area / area.sum()
     return weights
 
 
@@ -434,10 +501,24 @@ def get_inference_steps(data_source: DataSource, hist: int = 1):
     Returns:
         num_steps: Total number of rolled-out inferences which fit into the time range
     """
-    start_time = data_source.data.time.min().item()
-    end_time = data_source.data.time.max().item()
 
-    num_steps = (end_time - start_time).days // TIME_DELTA + 1
+    # get the dataset time type
+    time_coord = data_source.data.time
+
+    # if dataset is OM4, using Julian Datetimes:
+    if isinstance(time_coord.values[0], cftime.datetime):
+        start_time = data_source.data.time.min().item()
+        end_time   = data_source.data.time.max().item()
+        delta_days = (end_time - start_time).days
+
+    # if dataset is LLC, using datetime64[ns], we need to convert to Julian Datetimes:
+    else:
+        # Convert numpy timedelta64 → integer days
+        start_time = np.datetime64(time_coord.min().values, 'ns')
+        end_time   = np.datetime64(time_coord.max().values, 'ns')
+        delta_days = (end_time - start_time) / np.timedelta64(1, 'D')
+
+    num_steps = int(delta_days) // TIME_DELTA + 1
 
     # Might have extra remaining days, so we remove them
     mod = num_steps % (hist + 1)
@@ -530,6 +611,7 @@ def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
     """
     data_copy = data.copy()
 
+
     for var in data.variables:
         # OM4 data format has variables in the form: var_lev_{depthlevel}
         # ex. so_lev_1040_0. We need to convert into var_{depthlevelidx}
@@ -538,8 +620,8 @@ def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
             var_split = var_str.split("_lev_")
             var = var_split[0]
             lev_in_depth = float(var_split[1].replace("_", "."))
-            lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
-            data_copy = data_copy.rename({var_str: f"{var}_{lev_in_depth_idx!s}"})
+            lev_in_depth_idx = lev_in_depth
+            data_copy = data_copy.rename({var_str: f"{var}_{lev_in_depth_idx}"})
 
     return data_copy
 
@@ -550,10 +632,12 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     # OM4 data has coordinates we don't need
     # We drop them and rename x, y dimensions to lon, lat
     if "lat" not in data_copy.dims:
+            # convert to lat/lon
+        data_copy = data_copy.rename({'XC':'lon','YC':'lat'}) #---------------------
         # Drop unnecessary coordinates and rename dimensions
-        data_copy = data_copy.drop_vars(
-            ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
-        ).rename({"x": "lon", "y": "lat"})
+   #     data_copy = data_copy.drop_vars(
+   #         ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
+   #     ).rename({"x": "lon", "y": "lat"})
 
     return data_copy
 
@@ -563,6 +647,16 @@ def validate_data(
     boundary_vars: BoundaryVarNames,
     static_data_vars: list[str] | None = None,
 ) -> DataSource:
+
+    #src.data = src.data.rename({'k':'lev'}) #--------------------------------------------------------------
+    
+
+    # Testing: GRAB ONE FACE, GRAB SUBSET OF I,J, CHUNK ---------------------------------------------------------------------------
+    src.data = src.data.sel(face = 8, drop = True)
+    src.data = src.data.isel(i=slice(0, 10), j=slice(0, 10), i_g=slice(0,10), j_g=slice(0,10))
+   # src.data = src.data.chunk({'time': 512, 'k': 1, 'j': 45, 'i': 45})
+
+
     """Validate the data such that we have the correct format for training."""
     if static_data_vars is not None:
 

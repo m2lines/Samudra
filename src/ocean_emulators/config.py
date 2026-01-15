@@ -131,7 +131,7 @@ class DataConfig(BaseConfig):
         default=None,
     )
     static_data_vars: list[str] | None = None
-    num_workers: int = 4
+    num_workers: int = 0
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
@@ -151,10 +151,11 @@ class DataConfig(BaseConfig):
         stds_location = data_root.resolve(self.data_stds_location)
 
         source = DataSource.from_locations(
+            use_dask = True,
             data_location=data_location,
             means_location=means_location,
             stds_location=stds_location,
-            use_dask=use_dask,
+           # use_dask=use_dask,
         )
         source = validate_data(source, boundary_var_names, self.static_data_vars)
 
@@ -553,7 +554,7 @@ class TrainConfig(TopLevelConfig):
     save_freq: int = 5
     epochs: int = 120
     preemptible: bool = True
-    batch_size: int = 2
+    batch_size: int = 1 # 2 --------------------------------------------
     learning_rate: float = 2e-4
     scheduler: SchedulerConfig | None = None
     loss: LossType = "mse"
@@ -575,10 +576,10 @@ class TrainConfig(TopLevelConfig):
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]
     train_time: TimeConfig = TimeConfig(
-        start=JulianDate("0151-01-06"), end=JulianDate("0306-01-01")
+        start=JulianDate("2011-09-13"), end=JulianDate("2011-10-13")
     )
     val_time: TimeConfig = TimeConfig(
-        start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
+        start=JulianDate("2011-10-13"), end=JulianDate("2011-11-13")
     )
     inference_times: list[TimeConfig] = []
 
@@ -609,7 +610,7 @@ class EvalConfig(TopLevelConfig):
 
     # Config components
     inference_time: TimeConfig = TimeConfig(
-        start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
+        start=JulianDate("2011-11-13"), end=JulianDate("2011-12-13")
     )
     experiment: ExperimentConfig
     data: DataConfig

@@ -3,8 +3,8 @@
 debug: false
 disk_mode: true
 pin_mem: true
-save_freq: 5
-epochs: 70
+save_freq: 1
+epochs: 1
 batch_size: 4
 learning_rate: 0.0002
 scheduler: {type: cosine}
@@ -35,20 +35,21 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: local_om4_samudra
+  name: train_om4_samudra_10-24
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
-    mode: disabled
+    mode: online
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
-data: !include data/om4_ohc.yaml
+data: !include data/public.yaml
 
 model:
   pred_residuals: false
+  checkpointing: "all" # recalc weights/grads at backpass
   last_kernel_size: 3
   pad: "circular"
 
@@ -69,4 +70,4 @@ model:
 
   corrector:
     non_negative_corrector_names: null
-    ocean_heat_corrector: true
+    ocean_heat_corrector: false

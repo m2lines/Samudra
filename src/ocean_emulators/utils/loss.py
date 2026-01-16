@@ -161,6 +161,89 @@ def decomposed_mae_gradient_weighted(
     return mae_per_channel + gradient_weight * grad_loss
 
 
+# From W&B run hkr8dqpy (train/loss_scale/channel/*), ordered per
+# PROGNOSTIC_VARS["thermo_dynamic_all"] in `src/ocean_emulators/constants.py`.
+THERMO_DYNAMIC_ALL_INIT_SCALES = [
+    18.58357048034668,
+    25.7071475982666,
+    35.75689697265625,
+    49.15318298339844,
+    69.16156768798828,
+    93.63509368896484,
+    107.09491729736328,
+    96.78095245361328,
+    93.43359375,
+    93.91637420654295,
+    92.3412857055664,
+    77.74732208251953,
+    60.6519660949707,
+    44.92789459228515,
+    30.28107261657715,
+    20.203407287597656,
+    14.929391860961914,
+    28.532567977905273,
+    152.4101104736328,
+    10.43045711517334,
+    14.419339179992676,
+    20.23604965209961,
+    25.98076629638672,
+    32.55672836303711,
+    40.05400085449219,
+    47.61842346191406,
+    53.08211898803711,
+    55.90306091308594,
+    56.57585906982422,
+    55.97503280639648,
+    49.005897521972656,
+    39.28280258178711,
+    29.406517028808594,
+    20.717554092407227,
+    14.91426944732666,
+    13.794933319091797,
+    27.871747970581055,
+    127.76571655273438,
+    3255.0068359375,
+    3771.70361328125,
+    3522.33154296875,
+    2972.378173828125,
+    2737.653076171875,
+    2972.67626953125,
+    3219.197509765625,
+    3472.205322265625,
+    3592.693603515625,
+    3691.8505859375,
+    4177.6259765625,
+    5559.6494140625,
+    8359.5263671875,
+    8583.66015625,
+    7951.98291015625,
+    8239.75,
+    16047.7509765625,
+    27570.75,
+    106471.09375,
+    958.6434326171876,
+    1575.109619140625,
+    1626.52294921875,
+    1941.3668212890625,
+    2362.41064453125,
+    2947.748046875,
+    3660.943603515625,
+    4135.17919921875,
+    4258.4453125,
+    5239.1767578125,
+    8041.40869140625,
+    11344.90625,
+    15416.080078125,
+    22398.951171875,
+    30796.830078125,
+    21885.15625,
+    23614.369140625,
+    29406.9453125,
+    145215.640625,
+    1385.7586669921875,
+]
+
+
 class DynamicLoss:
     """A loss function that scales each channel to contribute equally to the loss.
 
@@ -183,9 +266,17 @@ class DynamicLoss:
     ):
         self.loss_fn = loss_fn
         self._device = device
-        self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
-            num_channels, device=self._device
+        assert num_channels == len(THERMO_DYNAMIC_ALL_INIT_SCALES), (
+            "Number of channels must match the number of initial scales"
         )
+        self._per_channel_scale = torch.tensor(
+            THERMO_DYNAMIC_ALL_INIT_SCALES, device=self._device
+        )
+
+        if limit is not None:
+            self._per_channel_scale = self._per_channel_scale.clamp(
+                max=self._per_channel_scale.min() * limit,
+            )
         self._limit = limit
 
     def __call__(

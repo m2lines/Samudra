@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
     DEPTH_LEVELS,
+    MASK_ALL_LEVELS_VAR,
     MASK_VARS,
     BatchTimeSeriesOutput,
     BoundaryVarNames,
@@ -552,30 +553,30 @@ def flatten_masks(data: xr.Dataset) -> xr.Dataset:
     """Adds data_vars "mask_0"..."mask_18" with dimensions (y, x)."""
     data_ = data.copy()
     if MASK_VARS[0] not in data_.variables:
-        assert "wetmask" in data_.variables, (
+        assert MASK_ALL_LEVELS_VAR in data_.variables, (
             "Wet mask cannot be constructed without "
             "either the wetmask variable or the level-wise masks"
         )
 
-        wet_mask = data_["wetmask"]
+        wet_mask = data_[MASK_ALL_LEVELS_VAR]
         for i, lev in enumerate(DEPTH_I_LEVELS):
             assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
             data_[f"mask_{lev}"] = wet_mask.isel(lev=i)
 
-        data_ = data_.drop_vars("wetmask")
+        data_ = data_.drop_vars(MASK_ALL_LEVELS_VAR)
 
     return data_
 
 
 def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
-    """Adds a "wetmask" `xarray.DataArray` with dimensions (lev, y, x)."""
+    """Adds MASK_ALL_LEVELS_VAR `xarray.DataArray` with dimensions (lev, y, x)."""
     data_ = data.copy()
-    if "wetmask" not in data_.variables:
+    if MASK_ALL_LEVELS_VAR not in data_.variables:
         assert MASK_VARS[0] in data_.variables, "Wet mask must have masks as data vars!"
 
-        wetmask = data_[MASK_VARS].to_array(dim="lev", name="wetmask")
+        wetmask = data_[MASK_VARS].to_array(dim="lev", name=MASK_ALL_LEVELS_VAR)
 
-        data_["wetmask"] = wetmask.assign_coords(lev=data_.lev)
+        data_[MASK_ALL_LEVELS_VAR] = wetmask.assign_coords(lev=data_.lev)
         data_ = data_.drop_vars(MASK_VARS)
 
     return data_

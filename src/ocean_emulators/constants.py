@@ -121,6 +121,8 @@ MASK_VARS = [
     "mask_18",
 ]
 
+MASK_ALL_LEVELS_VAR = "mask_c" # "wetmask" in OM4 data
+
 RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
 CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
 SECONDS_PER_TIME_STEP = 60 # hourly

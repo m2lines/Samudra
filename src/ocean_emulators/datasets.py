@@ -531,20 +531,20 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     )
                     .rename({"var": "variable"})
                     .to_numpy()
-                    .astype(np.float32)
+                    .astype(np.float32, copy=False)
                 )
             else:
                 prognostic_all = torch.from_numpy(
                     prognostic_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
                     .to_numpy()
-                    .astype(np.float32)
+                    .astype(np.float32, copy=False)
                 )
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
-                .astype(np.float32)
+                .astype(np.float32, copy=False)
             )
 
             TD.insert(prognostic_all, boundary)

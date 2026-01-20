@@ -216,8 +216,8 @@ class Trainer:
             cfg.loss,
             wet=self.wet,
             y_coord=self.data.lat,
-            stds=self.src.filter(self.prognostic_var_names, prefix="prog_stds").stds,
             device=self.device,
+            num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
         )
 
@@ -257,7 +257,7 @@ class Trainer:
         logger.info(
             f"Effective batch size: {effective_batch_size} "
             f"(batch_size={cfg.batch_size} × "
-            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps})"
         )
         if self.is_wandb_enabled():
             self.wandb_logger.log(

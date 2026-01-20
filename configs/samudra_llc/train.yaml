@@ -46,7 +46,7 @@ experiment:
   wandb:
     mode: disabled
     project: default
-  prognostic_vars_key: single
+  prognostic_vars_key: single_1
   boundary_vars_key: single
 
 data: !include ../data/llc.yaml

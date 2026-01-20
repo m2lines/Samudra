@@ -127,7 +127,7 @@ SECONDS_PER_TIME_STEP = 60 # hourly
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
-    "single": [f"Theta_{DEPTH_I_LEVELS[0]}"],
+    "single_1": [f"Theta_{DEPTH_I_LEVELS[0]}"],
     "all": [
         k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS
     ]

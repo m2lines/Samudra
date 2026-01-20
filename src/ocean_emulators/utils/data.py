@@ -260,6 +260,18 @@ class DataSource:
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
 
+        # LLC-specific fixes
+        # remap data, k --> lev
+        data = data.rename({'k': 'lev', 'mask_c': 'wetmask'})
+
+        # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS
+        data["U"] = data["U"].rename({"i_g": "i"})
+        data["V"] = data["V"].rename({"j_g": "j"})
+
+        # TEMPORARY BAND-AID: Drop staggered dims
+        for dim in ["i_g", "j_g"]:
+            data = data.drop_vars(dim)
+
         return cls.from_datasets(
             data,
             means,

@@ -288,7 +288,7 @@ class DataSource:
 
         # slice out a single face and small area 
         data = data.sel(face = 8, drop = True)
-        data = data.isel(i=slice(0, 10), j=slice(0, 10), i_g=slice(0,10), j_g=slice(0,10))
+        data = data.isel(i=slice(0, 100), j=slice(0, 100), i_g=slice(0,100), j_g=slice(0,100))
 
         # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS
         data["U"] = data["U"].rename({"i_g": "i"})

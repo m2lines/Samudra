@@ -272,6 +272,23 @@ class DataSource:
 
         data = data.rename({'k': 'lev', 'mask_c': 'wetmask', 'i': 'x', 'j': 'y'})
 
+        # Rename means and stds from $var_lev_$index to $var_$index
+        for v in list(means.variables):
+            if "_lev_" in v:
+                var, lev = v.split("_lev_")
+                means = means.rename({v: f"{var}_{lev}"})
+        for v in stds.variables:
+            if "_lev_" in v:
+                var, lev = v.split("_lev_")
+                stds = stds.rename({v: f"{var}_{lev}"})
+
+        # Flatten data to non-compact (ie Salt with `lev` into Salt_0, Salt_1, etc.)
+        for v in data.variables:
+            if "lev" in data[v].dims:
+                for index, lev in enumerate(DEPTH_I_LEVELS):
+                    data[f"{v}_{lev}"] = data[v].isel(lev=index)
+                data = data.drop_vars(v)
+
         return cls.from_datasets(
             data,
             means,

@@ -3,7 +3,7 @@ from collections.abc import Callable
 import torch
 from jaxtyping import Float
 
-from ocean_emulators.constants import CP_SW, RHO_0, Grid, TensorMap
+from ocean_emulators.constants import CP_SW, HEAT_VAR_NAME, RHO_0, Grid, TensorMap
 
 
 def compute_ocean_heat_content(
@@ -75,7 +75,7 @@ def add_derived_variables(tensor_out: torch.Tensor) -> dict[str, torch.Tensor]:
     derived_vars = {}
     tensor_map = TensorMap.get_instance()
     dz = tensor_map.dz.to(tensor_out.device)
-    thetao = tensor_out[:, :, tensor_map.VAR_3D_IDX["thetao"]]
+    thetao = tensor_out[:, :, tensor_map.VAR_3D_IDX[HEAT_VAR_NAME]]
     ohct = compute_ocean_heat_content(thetao, dz)
     derived_vars["ocean_heat_content"] = ohct
 

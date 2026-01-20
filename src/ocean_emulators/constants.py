@@ -51,49 +51,31 @@ MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
 # These represent depth centers
 DEPTH_LEVELS = [
-    2.5,
-    10.0,
-    22.5,
-    40.0,
-    65.0,
-    105.0,
-    165.0,
-    250.0,
-    375.0,
-    550.0,
-    775.0,
-    1050.0,
-    1400.0,
-    1850.0,
-    2400.0,
-    3100.0,
-    4000.0,
-    5000.0,
-    6000.0,
-]
+    0.5,
+    1.57,
+    2.79,
+    4.185,
+    5.78,
+    7.595,
+    9.66,
+    12.01,
+    14.68,
+    17.705,
+    21.125,
+    24.99,
+    29.345,
+    34.24,
+    39.725,
+    45.855,
+    52.69,
+    60.28,
+    68.685,
+] # should go deeper --------------------------------------------------------
+
+NEXT_DEPTH_LEVEL = 77.965
 
 # Depth thicknesses
-DEPTH_THICKNESS = [
-    5.0,
-    10.0,
-    15.0,
-    20.0,
-    30.0,
-    50.0,
-    70.0,
-    100.0,
-    150.0,
-    200.0,
-    250.0,
-    300.0,
-    400.0,
-    500.0,
-    600.0,
-    800.0,
-    1000.0,
-    1000.0,
-    1000.0,
-]
+DEPTH_THICKNESS = [n - p for p, n in zip(DEPTH_LEVELS, DEPTH_LEVELS[1:] + [NEXT_DEPTH_LEVEL])]
 
 DEPTH_I_LEVELS = [
     "0",
@@ -141,73 +123,58 @@ MASK_VARS = [
 
 RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
 CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
-SECONDS_PER_TIME_STEP = 5 * 24 * 60 * 60  # 5 day average
+SECONDS_PER_TIME_STEP = 60 # hourly
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
-    "thetao_1": [f"thetao_{DEPTH_I_LEVELS[0]}"],
-    "thermo_dynamic_5": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
+    "single": [f"Theta_{DEPTH_I_LEVELS[0]}"],
+    "all": [
+        k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS
     ]
-    + ["zos"],
-    "thermo_dynamic_all": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
-    ]
-    + ["zos"],
-    "thermo_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
-    + ["zos"],
+    + ["Eta"],
 }
+
 BoundaryVarNames = list[str]
 BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
-    "hfds": ["hfds"],
-    "tau_hfds": ["tauuo", "tauvo", "hfds"],
-    "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
+    "single": ["oceQnet"],
+    "all": ["oceTAUX", "oceTAUY", "oceQnet", "Eta"],
 }
 
 DEFAULT_METADATA = {
-    "thetao": {
+    "Theta": {
         "long_name": "Sea Water Potential Temperature",
         "units": r"\degree C",
     },
-    "so": {
+    "Salt": {
         "long_name": "Sea Water Salinity",
         "units": "psu",
     },
-    "uo": {
+    "U": {
         "long_name": "Sea Water X Velocity",
         "units": "m/s",
     },
-    "vo": {
+    "V": {
         "long_name": "Sea Water Y Velocity",
         "units": "m/s",
     },
-    "zos": {
+    "Eta": {
         "long_name": "Sea surface height above geoid",
         "units": "m",
     },
-    "tos": {
-        "long_name": "Sea surface temperature",
-        "units": r"\degree C",
-    },
-    "tauuo": {
+    "oceTAUX": {
         "long_name": "Surface Downward X Stress",
         "units": "N/m^2",
     },
-    "tauvo": {
+    "oceTAUY": {
         "long_name": "Surface Downward Y Stress",
         "units": "N/m^2",
     },
-    "hfds": {
+    "oceQnet": {
         "long_name": "Surface ocean heat flux from "
         "SW+LW+latent+sensible+masstransfer+frazil+seaice_melt_heat",
         "units": "W/m^2",
     },
-    "hfds_anomalies": {
-        "long_name": "hfds anomalies",
-        "units": "W/m^2",
-    },
 }
-
 
 def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
     metadata = {}
@@ -265,6 +232,8 @@ class TensorMap(Multiton):
                 [out.split("_")[0] for out in PROGNOSTIC_VARS[prognostic_vars_key]]
             )
         )
+
+        assert 19 == len(DEPTH_I_LEVELS) == len(DEPTH_THICKNESS) == len(DEPTH_LEVELS) == len(MASK_VARS)
 
         levels_str = prognostic_vars_key.split("_")[-1]
         if "all" in levels_str:

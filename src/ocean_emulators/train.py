@@ -557,11 +557,11 @@ class Trainer:
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
                     loss_scale_per_channel = loss_scale_per_channel_fn()
-                    # Reshape from channels * history to channels
-                    # by averaging along the `hist` dimension
+                    # Reshape from time-major channels to [hist, var] and
+                    # average along the history dimension.
                     loss_per_channel = TO.loss_per_channel.reshape(
-                        loss_scale_per_channel.shape[0], -1
-                    ).mean(dim=1)
+                        -1, loss_scale_per_channel.shape[0]
+                    ).mean(dim=0)
 
                     unscaled_loss_per_channel = (
                         loss_per_channel / loss_scale_per_channel

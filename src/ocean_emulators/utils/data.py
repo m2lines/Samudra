@@ -276,6 +276,13 @@ class DataSource:
 
         data = data.rename({'k': 'lev', 'mask_c': 'wetmask', 'i': 'x', 'j': 'y'})
 
+        # Convert data.time from numpy.datetime64[ns] to cftime.DatetimeJulian 
+        if "time" in data.coords:
+            import cftime
+            times = data["time"].values
+            julian_times = [cftime.num2date(t.item() / 1_000_000, 'milliseconds since 1970-01-01', calendar='julian') for t in times]
+            data = data.assign_coords(time=("time", julian_times))
+
         # Rename means and stds from $var_lev_$index to $var_$index
         for v in list(means.variables):
             if "_lev_" in v:

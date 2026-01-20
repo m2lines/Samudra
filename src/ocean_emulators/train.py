@@ -554,12 +554,11 @@ class Trainer:
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
                     loss_scale_per_channel = loss_scale_per_channel_fn()
-                    # Reshape from channels * states to channels by averaging along
-                    # the state dimension so channel-wise metrics align with the
-                    # per-variable scaling factors.
+                    # Reshape from [hist*var] to [hist, var] and average across
+                    # history so metrics align with per-variable scaling factors.
                     loss_per_channel_by_var = loss_per_channel_reduce.reshape(
-                        loss_scale_per_channel.shape[0], -1
-                    ).mean(dim=1)
+                        -1, loss_scale_per_channel.shape[0]
+                    ).mean(dim=0)
 
                     unscaled_loss_per_channel = (
                         loss_per_channel_by_var / loss_scale_per_channel

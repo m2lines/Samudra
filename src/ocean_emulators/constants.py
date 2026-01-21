@@ -283,11 +283,6 @@ class TensorMap(Multiton):
             ]
         )
 
-        print("DP_3D_IDX")
-        print(self.DP_3D_IDX)
-        print("VAR_3D_IDX")
-        print(self.VAR_3D_IDX)
-
     def _populate_boundary_idx(self):
         """
         Populates the indices of the boundary variables in the input tensor.

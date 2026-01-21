@@ -23,6 +23,7 @@ from dask.array.core import Array as DaskArray
 from dask.base import compute
 from dask.delayed import delayed
 from dask.diagnostics.progress import ProgressBar
+from matplotlib import colors
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignore
@@ -31,6 +32,76 @@ from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 from ocean_emulators.utils.data import spherical_area_weights, with_level_index_vars
 
 logger = logging.getLogger(__name__)
+
+
+def _flatten_for_norm(data: Any) -> np.ndarray:
+    if isinstance(data, xr.DataArray):
+        arr = data.data
+    elif isinstance(data, np.ndarray):
+        arr = data
+    elif isinstance(data, DaskArray):
+        arr = data
+    elif isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
+        arrays = [_flatten_for_norm(item) for item in data]
+        if arrays:
+            return np.concatenate(arrays)
+        return np.array([], dtype=float)
+    else:
+        arr = data
+
+    if isinstance(arr, DaskArray):
+        arr = arr.compute()
+    return np.asarray(arr).ravel()
+
+
+def symmetric_percentile_norm(
+    data: Any, percentile: float = 98.0, fallback: float = 1.0
+) -> colors.Normalize:
+    flat = _flatten_for_norm(data)
+    flat = flat[~np.isnan(flat)]
+    if flat.size == 0:
+        max_abs = fallback
+    else:
+        max_abs = np.percentile(np.abs(flat), percentile)
+        if not np.isfinite(max_abs) or max_abs == 0:
+            max_abs = fallback
+    return colors.Normalize(vmin=-max_abs, vmax=max_abs)
+
+
+def nonnegative_percentile_norm(
+    data: Any, percentile: float = 98.0, fallback: float = 1.0
+) -> colors.Normalize:
+    flat = _flatten_for_norm(data)
+    flat = flat[~np.isnan(flat)]
+    if flat.size == 0:
+        vmax = fallback
+    else:
+        vmax = np.percentile(flat, percentile)
+        if not np.isfinite(vmax) or vmax <= 0:
+            vmax = fallback
+    return colors.Normalize(vmin=0.0, vmax=vmax)
+
+
+def percentile_norm(
+    data: Any, lower: float = 2.0, upper: float = 98.0, fallback: float = 1.0
+) -> colors.Normalize:
+    flat = _flatten_for_norm(data)
+    flat = flat[~np.isnan(flat)]
+    if flat.size == 0:
+        vmin = 0.0
+        vmax = fallback
+    else:
+        vmin = np.percentile(flat, lower)
+        vmax = np.percentile(flat, upper)
+        if not np.isfinite(vmin) or not np.isfinite(vmax):
+            vmin = 0.0
+            vmax = fallback
+        elif vmin == vmax:
+            vmin = vmin - fallback
+            vmax = vmax + fallback
+        elif vmin > vmax:
+            vmin, vmax = vmax, vmin
+    return colors.Normalize(vmin=vmin, vmax=vmax)
 
 
 @dataclasses.dataclass
@@ -1391,9 +1462,7 @@ class Viz:
         )
 
     def step_ocean_temperature_profile_plots(self):
-        def ocean_temperature_profile(
-            datasets, titles, plot_title, vmin=-0.3, vmax=0.3
-        ):
+        def ocean_temperature_profile(datasets, titles, plot_title):
             fig, axs = plt.subplots(
                 2,
                 3,
@@ -1409,6 +1478,7 @@ class Viz:
             fig.suptitle(plot_title, fontsize=15, fontweight="bold", y=0.95)
 
             ax = axs.flatten()
+            norm = symmetric_percentile_norm(datasets)
 
             for i, (data, title) in enumerate(zip(datasets, titles)):
                 data = data.rename(r"$\theta_O$").assign_attrs(units=r"$\degree C$")
@@ -1417,9 +1487,7 @@ class Viz:
                 )
                 data["lev"] = data.lev.assign_attrs(long_name="depth", units="m")
 
-                im = data.plot(
-                    ax=ax[i], cmap="bwr", vmin=vmin, vmax=vmax, add_colorbar=False
-                )
+                im = data.plot(ax=ax[i], cmap="bwr", norm=norm, add_colorbar=False)
                 ax[i].invert_yaxis()
                 linear_piecewise_scale(1000, 5, ax=ax[i])
                 ax[i].axhline(1000, color="0.5", ls="--")
@@ -2204,16 +2272,12 @@ class Viz:
 
         # Define a common plotting function for Cartesian lat-lon grids
 
-        def plot_ohc(ax, ohc_data, title, i):
+        def plot_ohc(ax, ohc_data, title, i, norm):
             # Configure colormap and set color for NaN values (land)
             colormap = (
                 cm.cm.balance
             )  # cm.cm.thermal  # Using thermal colormap from cmocean
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-            mean = ohc_data.mean().compute().item()
-            std = ohc_data.std().compute().item()
-            vmin = mean - 4 * std
-            vmax = mean + 4 * std
             im = ax.pcolormesh(
                 ohc_data["x"],
                 ohc_data["y"],
@@ -2221,8 +2285,7 @@ class Viz:
                 shading="auto",
                 cmap=colormap,
                 transform=ccrs.PlateCarree(),
-                vmin=vmin,
-                vmax=vmax,
+                norm=norm,
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black")
             ax.set_title(title, fontsize=14)
@@ -2238,15 +2301,11 @@ class Viz:
                 gl.left_labels = False
             return im
 
-        def plot_diff_ohc(ax, ohc_data, gt_ohc_data, title, i):
+        def plot_diff_ohc(ax, ohc_data, gt_ohc_data, title, i, norm):
             # Configure colormap and set color for NaN values (land)
             colormap = cm.cm.balance  # Using thermal colormap from cmocean
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
             bias_ohc = ohc_data - gt_ohc_data
-            mean = ohc_data.mean().compute().item()
-            std = ohc_data.std().compute().item()
-            vmin = mean - 4 * std
-            vmax = mean + 4 * std
             im = ax.pcolormesh(
                 bias_ohc["x"],
                 bias_ohc["y"],
@@ -2254,8 +2313,7 @@ class Viz:
                 shading="auto",
                 cmap=colormap,
                 transform=ccrs.PlateCarree(),
-                vmin=vmin,
-                vmax=vmax,
+                norm=norm,
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black")
             ax.set_title(title, fontsize=14)
@@ -2276,7 +2334,8 @@ class Viz:
         bias_titles = [self.pred_dict[self.key1]["name"] + " Bias"]
         datasets = [self.data, self.pred_dict[self.key1]["ds_prediction"]]
 
-        for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
+        ohc_maps = []
+        for ds in datasets:
             section_mask = isnan(ds["thetao"]).all("lev").isel(time=5)
             OHC_pred = (
                 (ds["thetao"][Days_to_Eq:] * c_p * rho_0 / zeta_joules_factor)
@@ -2294,14 +2353,14 @@ class Viz:
                 long_name="longitude", units=r"${^o}$"
             )
             OHC_pred = OHC_pred.assign_attrs(units="ZJ")
+            ohc_maps.append(OHC_pred)
 
-            if i == 0:
-                gt_ohc = OHC_pred
-            elif i == 1:
-                pred1_ohc = OHC_pred
+        gt_ohc, pred1_ohc = ohc_maps
+        ohc_norm = symmetric_percentile_norm(ohc_maps)
 
+        for i, (ax, title, ohc_data) in enumerate(zip(axs[:2], titles, ohc_maps)):
             # Plot using the Cartesian lat-lon grid
-            im = plot_ohc(ax, OHC_pred, title, i)
+            im = plot_ohc(ax, ohc_data, title, i, ohc_norm)
 
         # Add colorbar
         cbar = fig.colorbar(
@@ -2309,7 +2368,8 @@ class Viz:
         )
         cbar.set_label("Ocean Heat Content [ZJ]", fontsize=14)
 
-        im = plot_diff_ohc(axs[3], pred1_ohc, gt_ohc, bias_titles[0], 4)
+        bias_norm = symmetric_percentile_norm(pred1_ohc - gt_ohc)
+        im = plot_diff_ohc(axs[3], pred1_ohc, gt_ohc, bias_titles[0], 4, bias_norm)
 
         # Add colorbar
         cbar = fig.colorbar(
@@ -2344,9 +2404,11 @@ class Viz:
             ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
 
             # Plot Prediction
+            norm = symmetric_percentile_norm(data_pred1)
             im = data_pred1.plot(
                 ax=ax,
                 cmap=new_cmap,
+                norm=norm,
                 add_colorbar=False,
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)
@@ -2473,13 +2535,13 @@ class Viz:
             dpi=600,
         )
 
-    def plot_sst(self, ax, sst_data, title, i):
+    def plot_sst(self, ax, sst_data, title, i, nonnegative: bool = False):
         colormap = cm.cm.thermal
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        mean = sst_data.mean().compute().item()
-        std = sst_data.std().compute().item()
-        vmin = mean - std
-        vmax = mean + std
+        if nonnegative:
+            norm = nonnegative_percentile_norm(sst_data)
+        else:
+            norm = percentile_norm(sst_data)
         im = ax.pcolormesh(
             sst_data["x"],
             sst_data["y"],
@@ -2487,8 +2549,7 @@ class Viz:
             shading="auto",
             cmap=colormap,
             transform=ccrs.PlateCarree(),
-            vmin=vmin,
-            vmax=vmax,
+            norm=norm,
         )
         ax.add_feature(cfeature.COASTLINE, edgecolor="black")
         ax.set_title(title, fontsize=14)
@@ -2503,16 +2564,11 @@ class Viz:
             gl.left_labels = False
         return im
 
-    def plot_bias(
-        self, ax, sst_data, gt_sst_data, title, range: tuple[float, float] | None
-    ):
+    def plot_bias(self, ax, sst_data, gt_sst_data, title):
         colormap = cm.cm.balance
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
         sst_bias = sst_data - gt_sst_data
-        if range is None:
-            bias_max = np.abs(sst_bias).max().compute().item()
-            range = (-bias_max, bias_max)
-
+        norm = symmetric_percentile_norm(sst_bias)
         im = ax.pcolormesh(
             sst_bias["x"],
             sst_bias["y"],
@@ -2520,8 +2576,7 @@ class Viz:
             shading="auto",
             cmap=colormap,
             transform=ccrs.PlateCarree(),
-            vmin=range[0],
-            vmax=range[1],
+            norm=norm,
         )
         ax.add_feature(cfeature.COASTLINE, edgecolor="black")
         ax.set_title(title, fontsize=14)
@@ -2578,7 +2633,7 @@ class Viz:
         cbar.set_label(r"$\theta_O$ [$\degree C$]", fontsize=14)
 
         # Plot biases for SST
-        im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], (-1.0, 1.0))
+        im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0])
 
         # Add colorbar for bias plots
         cbar = fig.colorbar(
@@ -2651,7 +2706,7 @@ class Viz:
             cbar.set_label(r"$\theta_O$ [$\degree C$]", fontsize=14)
 
             # Plot biases for SST
-            im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0], None)
+            im = self.plot_bias(axs[3], pred1_sst, gt_sst, bias_titles[0])
 
             # Add colorbar for bias plots
             cbar = fig.colorbar(
@@ -2710,7 +2765,7 @@ class Viz:
                 pred1_sss = SSS_pred
 
             # Plot using the Cartesian lat-lon grid
-            im = self.plot_sst(ax, SSS_pred, title, i)
+            im = self.plot_sst(ax, SSS_pred, title, i, nonnegative=True)
 
         # Add colorbar for SSS plots
         cbar = fig.colorbar(
@@ -2719,7 +2774,7 @@ class Viz:
         cbar.set_label(r"$so$ [$psu$]", fontsize=14)
 
         # Plot biases for SSS
-        im = self.plot_bias(axs[3], pred1_sss, gt_sss, bias_titles[0], (-0.5, 0.5))
+        im = self.plot_bias(axs[3], pred1_sss, gt_sss, bias_titles[0])
 
         # Add colorbar for bias plots
         cbar = fig.colorbar(
@@ -2743,10 +2798,7 @@ class Viz:
         def plot_sst(ax, sst_data, title, i):
             colormap = cm.cm.thermal
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-            mean = sst_data.mean().compute().item()
-            std = sst_data.std().compute().item()
-            vmin = mean - std
-            vmax = mean + std
+            norm = nonnegative_percentile_norm(sst_data)
             im = ax.pcolormesh(
                 sst_data["x"],
                 sst_data["y"],
@@ -2754,8 +2806,7 @@ class Viz:
                 shading="auto",
                 cmap=colormap,
                 transform=ccrs.PlateCarree(),
-                vmin=vmin,
-                vmax=vmax,
+                norm=norm,
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black")
             ax.set_title(title, fontsize=14)
@@ -2774,6 +2825,7 @@ class Viz:
             colormap = cm.cm.balance
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
             sst_bias = sst_data - gt_sst_data
+            norm = symmetric_percentile_norm(sst_bias)
             im = ax.pcolormesh(
                 sst_bias["x"],
                 sst_bias["y"],
@@ -2781,8 +2833,7 @@ class Viz:
                 shading="auto",
                 cmap=colormap,
                 transform=ccrs.PlateCarree(),
-                vmin=-0.5,
-                vmax=0.5,
+                norm=norm,
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black")
             ax.set_title(title, fontsize=14)

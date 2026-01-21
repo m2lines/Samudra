@@ -413,7 +413,7 @@ class UNetBackboneConfig(BaseConfig):
     n_layers: list[int] = [1, 1, 1, 1]
     core_block: BlockConfig = BlockConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
-    up_sampling_block: UpSamplingBlocks = "bilinear_upsample"
+    up_sampling_block: UpSamplingBlocks = "zonally_periodic_upsample"
 
     def build(
         self,

@@ -119,3 +119,8 @@ check_untyped_defs = true
 [[tool.mypy.overrides]]
 module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*" ]
 follow_untyped_imports = true
+
+[project.optional-dependencies]
+profiling = [
+    "scalene>=1.5.30"
+]

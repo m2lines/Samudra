@@ -2715,6 +2715,11 @@ dependencies = [
     { name = "zarr" },
 ]
 
+[package.optional-dependencies]
+profiling = [
+    { name = "scalene" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "beartype" },
@@ -2760,6 +2765,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "s3fs", specifier = ">=2025.5.1" },
+    { name = "scalene", marker = "extra == 'profiling'", specifier = ">=1.5.30" },
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "skypilot", extras = ["aws", "lambda"], specifier = ">=0.10" },
     { name = "sqlalchemy", specifier = ">=2" },
@@ -2773,6 +2779,7 @@ requires-dist = [
     { name = "xrft" },
     { name = "zarr", specifier = "<3" },
 ]
+provides-extras = ["profiling"]
 
 [package.metadata.requires-dev]
 dev = [

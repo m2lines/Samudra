@@ -17,14 +17,14 @@ resume_ckpt_path: null
 inference_epochs: [-1]
 data_percent: 1.0
 train_time:
-  start: '1975-08-15'
-  end: '1975-10-25'
+  start: "1975-08-15"
+  end: "1975-10-25"
 val_time:
-  start: '1975-10-25'
-  end: '1975-11-25'
+  start: "1975-10-25"
+  end: "1975-11-25"
 inference_times:
-  - start: '1975-11-25'
-    end: '1975-12-25'
+  - start: "1975-11-25"
+    end: "1975-12-25"
 data_stride: [1]
 steps: [1]
 step_transition: []
@@ -48,7 +48,6 @@ data:
   data_stds_location: stds.nc
   num_workers: 4
   hist: 0
-
 
 model:
   pred_residuals: false
@@ -74,4 +73,4 @@ model:
       norm: "batch"
 
     down_sampling_block: "avg_pool"
-    up_sampling_block: "bilinear_upsample"
+    up_sampling_block: "zonally_periodic_upsample"

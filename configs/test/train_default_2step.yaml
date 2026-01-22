@@ -49,7 +49,6 @@ data:
   num_workers: 4
   hist: 0
 
-
 model:
   pred_residuals: false
   last_kernel_size: 3
@@ -67,5 +66,4 @@ model:
       norm: "batch"
 
     down_sampling_block: "avg_pool"
-    up_sampling_block: "bilinear_upsample"
-
+    up_sampling_block: "zonally_periodic_upsample"

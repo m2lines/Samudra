@@ -396,6 +396,8 @@ class DataSource:
         # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS
         data["U"] = data["U"].rename({"i_g": "i"})
         data["V"] = data["V"].rename({"j_g": "j"})
+        data["oceTAUX"] = data["oceTAUX"].rename({"i_g": "i"})
+        data["oceTAUY"] = data["oceTAUY"].rename({"j_g": "j"})
 
         # TEMPORARY BAND-AID: Drop staggered dims
         for dim in ["i_g", "j_g"]:

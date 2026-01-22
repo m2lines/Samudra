@@ -292,14 +292,12 @@ class Trainer:
                 logger.info("Using CRPS loss")
                 self.loss_fn = partial(crps_ensemble, wet=self.wet)
             case "crps_dynamic" | "crps_dynamic_no_limit":
-                should_limit = cfg.loss == "crps_dynamic"
-                logger.info(f"Using dynamic CRPS loss (limit = {should_limit})")
+                limit = 10.0 if cfg.loss == "crps_dynamic" else None
+                logger.info(f"Using dynamic CRPS loss (limit = {limit})")
                 self.loss_fn = CrpsDynamic(
                     wet=self.wet,
-                    stds=torch.from_numpy(
-                        self.src.stds[self.prognostic_var_names].to_array().to_numpy()
-                    ).to(device=self.device),
-                    should_limit=should_limit,
+                    limit=limit,
+                    num_channels=len(self.prognostic_var_names),
                 )
             case _:
                 assert_never(cfg.loss)
@@ -697,7 +695,7 @@ class Trainer:
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]
                 single_step_data.insert(input, label)
-
+                
                 # For CRPS dynamic loss, need ensemble predictions
                 if self.is_crps and self.use_ensemble:
                     # Generate ensemble predictions for single step

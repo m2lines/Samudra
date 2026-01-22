@@ -45,7 +45,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: local_om4_samudra_crps_dynamic
+  name: local_om4_samudra_crps_dynamic_limit_10
   rand_seed: 15
   base_output_dir: /scratch/ag11542/models
   wandb:

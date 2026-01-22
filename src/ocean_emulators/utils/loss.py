@@ -225,19 +225,15 @@ class CrpsDynamic:
     def __init__(
         self,
         wet: Grid,
-        stds: Float[torch.Tensor, " var"],
         *,
-        should_limit: bool,
+        limit: float | None,
+        num_channels: int,
     ):
         self._wet: Grid = wet
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
-            stds.shape[0], device=wet.device
+            num_channels, device=wet.device
         )
-        if should_limit:
-            vars: Float[torch.Tensor, " var"] = stds.pow(2)
-            self._limits: Float[torch.Tensor, " var"] | None = 1.0 / vars
-        else:
-            self._limits = None
+        self._limit = limit
 
     def __call__(
         self,
@@ -285,12 +281,27 @@ class CrpsDynamic:
                 self._per_channel_scale.shape[0], -1
             ).mean(dim=1)
         )
-        #no one tried mse with limits?
-        if self._limits is not None:
-            new_target_weights = new_target_weights.min(self._limits)
 
         if get_world_size() > 1:
             all_reduce_mean(new_target_weights)
+
+        if self._limit is not None:
+            min_scale = new_target_weights.min()
+            max_scale = min_scale * self._limit
+            weights_before = new_target_weights.clone()
+            new_target_weights = new_target_weights.clamp(min_scale, max_scale)
+            
+            # Log clamping information
+            ratio = weights_before / min_scale
+            clamped_mask = ratio > self._limit
+            if clamped_mask.any():
+                print(f"[CRPS Dynamic] Clamping applied:")
+                print(f"  Min scale: {min_scale.item():.6f}")
+                print(f"  Max scale: {max_scale.item():.6f} (limit={self._limit})")
+                print(f"  Channels clamped: {clamped_mask.sum().item()} / {len(new_target_weights)}")
+                print(f"  Max ratio before clamp: {ratio.max().item():.2f}")
+                print(f"  Weights before: {weights_before.cpu().numpy()}")
+                print(f"  Weights after:  {new_target_weights.cpu().numpy()}")
 
         self._per_channel_scale = (
             self._per_channel_scale * (CrpsDynamic.N_WINDOW - 1) + new_target_weights

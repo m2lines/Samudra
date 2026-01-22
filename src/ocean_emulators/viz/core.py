@@ -2258,12 +2258,13 @@ class Viz:
 
         # Define a common plotting function for Cartesian lat-lon grids
 
-        def plot_ohc(ax, ohc_data, title, i, norm):
+        def plot_ohc(ax, ohc_data, title, i):
             # Configure colormap and set color for NaN values (land)
             colormap = (
                 cm.cm.balance
             )  # cm.cm.thermal  # Using thermal colormap from cmocean
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
+            norm = symmetric_percentile_norm(ohc_data)
             im = ax.pcolormesh(
                 ohc_data["x"],
                 ohc_data["y"],
@@ -2287,11 +2288,12 @@ class Viz:
                 gl.left_labels = False
             return im
 
-        def plot_diff_ohc(ax, ohc_data, gt_ohc_data, title, i, norm):
+        def plot_diff_ohc(ax, ohc_data, gt_ohc_data, title, i):
             # Configure colormap and set color for NaN values (land)
             colormap = cm.cm.balance  # Using thermal colormap from cmocean
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
             bias_ohc = ohc_data - gt_ohc_data
+            norm = symmetric_percentile_norm(bias_ohc)
             im = ax.pcolormesh(
                 bias_ohc["x"],
                 bias_ohc["y"],
@@ -2342,11 +2344,9 @@ class Viz:
             ohc_maps.append(OHC_pred)
 
         gt_ohc, pred1_ohc = ohc_maps
-        ohc_norm = symmetric_percentile_norm(ohc_maps)
-
         for i, (ax, title, ohc_data) in enumerate(zip(axs[:2], titles, ohc_maps)):
             # Plot using the Cartesian lat-lon grid
-            im = plot_ohc(ax, ohc_data, title, i, ohc_norm)
+            im = plot_ohc(ax, ohc_data, title, i)
 
         # Add colorbar
         cbar = fig.colorbar(
@@ -2354,8 +2354,7 @@ class Viz:
         )
         cbar.set_label("Ocean Heat Content [ZJ]", fontsize=14)
 
-        bias_norm = symmetric_percentile_norm(pred1_ohc - gt_ohc)
-        im = plot_diff_ohc(axs[3], pred1_ohc, gt_ohc, bias_titles[0], 4, bias_norm)
+        im = plot_diff_ohc(axs[3], pred1_ohc, gt_ohc, bias_titles[0], 4)
 
         # Add colorbar
         cbar = fig.colorbar(

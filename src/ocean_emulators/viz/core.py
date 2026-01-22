@@ -68,20 +68,6 @@ def symmetric_percentile_norm(
     return colors.Normalize(vmin=-max_abs, vmax=max_abs)
 
 
-def nonnegative_percentile_norm(
-    data: Any, percentile: float = 98.0, fallback: float = 1.0
-) -> colors.Normalize:
-    flat = _flatten_for_norm(data)
-    flat = flat[~np.isnan(flat)]
-    if flat.size == 0:
-        vmax = fallback
-    else:
-        vmax = np.percentile(flat, percentile)
-        if not np.isfinite(vmax) or vmax <= 0:
-            vmax = fallback
-    return colors.Normalize(vmin=0.0, vmax=vmax)
-
-
 def percentile_norm(
     data: Any, lower: float = 2.0, upper: float = 98.0, fallback: float = 1.0
 ) -> colors.Normalize:
@@ -2535,17 +2521,14 @@ class Viz:
             dpi=600,
         )
 
-    def plot_sst(self, ax, sst_data, title, i, nonnegative: bool = False):
+    def plot_surface_map(self, ax, data, title, i):
         colormap = cm.cm.thermal
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        if nonnegative:
-            norm = nonnegative_percentile_norm(sst_data)
-        else:
-            norm = percentile_norm(sst_data)
+        norm = percentile_norm(data)
         im = ax.pcolormesh(
-            sst_data["x"],
-            sst_data["y"],
-            sst_data,
+            data["x"],
+            data["y"],
+            data,
             shading="auto",
             cmap=colormap,
             transform=ccrs.PlateCarree(),
@@ -2564,15 +2547,15 @@ class Viz:
             gl.left_labels = False
         return im
 
-    def plot_bias(self, ax, sst_data, gt_sst_data, title):
+    def plot_bias(self, ax, data, gt_data, title):
         colormap = cm.cm.balance
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-        sst_bias = sst_data - gt_sst_data
-        norm = symmetric_percentile_norm(sst_bias)
+        bias = data - gt_data
+        norm = symmetric_percentile_norm(bias)
         im = ax.pcolormesh(
-            sst_bias["x"],
-            sst_bias["y"],
-            sst_bias,
+            bias["x"],
+            bias["y"],
+            bias,
             shading="auto",
             cmap=colormap,
             transform=ccrs.PlateCarree(),
@@ -2624,7 +2607,7 @@ class Viz:
                 pred1_sst = SST_pred
 
             # Plot using the Cartesian lat-lon grid
-            im = self.plot_sst(ax, SST_pred, title, i)
+            im = self.plot_surface_map(ax, SST_pred, title, i)
 
         # Add colorbar for SST plots
         cbar = fig.colorbar(
@@ -2697,7 +2680,7 @@ class Viz:
                     pred1_sst = SST_pred
 
                 # Plot using the Cartesian lat-lon grid
-                im = self.plot_sst(ax, SST_pred, title, i)
+                im = self.plot_surface_map(ax, SST_pred, title, i)
 
             # Add colorbar for SST plots
             cbar = fig.colorbar(
@@ -2765,7 +2748,7 @@ class Viz:
                 pred1_sss = SSS_pred
 
             # Plot using the Cartesian lat-lon grid
-            im = self.plot_sst(ax, SSS_pred, title, i, nonnegative=True)
+            im = self.plot_surface_map(ax, SSS_pred, title, i)
 
         # Add colorbar for SSS plots
         cbar = fig.colorbar(
@@ -2794,58 +2777,6 @@ class Viz:
         # plt.show()
 
     def step_salinity_snapshot_maps(self):
-        # TODO(jder): this is a copy-paste of self.plot_sst/plot_diff_sst but with minor changes; deduplicate them
-        def plot_sst(ax, sst_data, title, i):
-            colormap = cm.cm.thermal
-            colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-            norm = nonnegative_percentile_norm(sst_data)
-            im = ax.pcolormesh(
-                sst_data["x"],
-                sst_data["y"],
-                sst_data,
-                shading="auto",
-                cmap=colormap,
-                transform=ccrs.PlateCarree(),
-                norm=norm,
-            )
-            ax.add_feature(cfeature.COASTLINE, edgecolor="black")
-            ax.set_title(title, fontsize=14)
-            gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
-            gl.top_labels = False
-            gl.right_labels = False
-            gl.xlabel_style = {"size": 14}
-            gl.ylabel_style = {"size": 14}
-            gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
-
-            if i > 0:
-                gl.left_labels = False
-            return im
-
-        def plot_diff_sst(ax, sst_data, gt_sst_data, title, i):
-            colormap = cm.cm.balance
-            colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
-            sst_bias = sst_data - gt_sst_data
-            norm = symmetric_percentile_norm(sst_bias)
-            im = ax.pcolormesh(
-                sst_bias["x"],
-                sst_bias["y"],
-                sst_bias,
-                shading="auto",
-                cmap=colormap,
-                transform=ccrs.PlateCarree(),
-                norm=norm,
-            )
-            ax.add_feature(cfeature.COASTLINE, edgecolor="black")
-            ax.set_title(title, fontsize=14)
-            gl = ax.gridlines(draw_labels=True, color="0.4", linestyle="--", alpha=0)
-            gl.top_labels = False
-            gl.right_labels = False
-            gl.xlabel_style = {"size": 14}
-            gl.ylabel_style = {"size": 14}
-            gl.xlocator = FixedLocator([-120, -60, 0, 60, 120])
-
-            return im
-
         for t_index in self.time_indices:
             plt.rcParams.update({"font.size": 14})
             fig, axs = plt.subplots(
@@ -2870,33 +2801,33 @@ class Viz:
 
             for i, (ax, title, ds) in enumerate(zip(axs, titles, datasets)):
                 section_mask = isnan(ds["so"]).isel(lev=0).isel(time=5)
-                SST_pred = ds["so"].isel(lev=0).isel(time=t_index)
-                SST_pred = SST_pred.where(~section_mask)
-                SST_pred = SST_pred.rename("2.5m " + r"$so$")
-                SST_pred["y"] = SST_pred.y.assign_attrs(
+                SSS_pred = ds["so"].isel(lev=0).isel(time=t_index)
+                SSS_pred = SSS_pred.where(~section_mask)
+                SSS_pred = SSS_pred.rename("2.5m " + r"$so$")
+                SSS_pred["y"] = SSS_pred.y.assign_attrs(
                     long_name="latitude", units=r"${^o}$"
                 )
-                SST_pred["x"] = SST_pred.x.assign_attrs(
+                SSS_pred["x"] = SSS_pred.x.assign_attrs(
                     long_name="longitude", units=r"${^o}$"
                 )
-                SST_pred = SST_pred.assign_attrs(units=r"$psu$")
+                SSS_pred = SSS_pred.assign_attrs(units=r"$psu$")
 
                 if i == 0:
-                    gt_sst = SST_pred
+                    gt_sss = SSS_pred
                 elif i == 1:
-                    pred1_sst = SST_pred
+                    pred1_sss = SSS_pred
 
                 # Plot using the Cartesian lat-lon grid
-                im = plot_sst(ax, SST_pred, title, i)
+                im = self.plot_surface_map(ax, SSS_pred, title, i)
 
-            # Add colorbar for SST plots
+            # Add colorbar for SSS plots
             cbar = fig.colorbar(
                 im, ax=axs[:2], orientation="vertical", fraction=0.01, pad=0.02
             )
             cbar.set_label(r"$so$ [$psu$]", fontsize=14)
 
-            # Plot biases for SST
-            im = plot_diff_sst(axs[3], pred1_sst, gt_sst, bias_titles[0], 3)
+            # Plot biases for SSS
+            im = self.plot_bias(axs[3], pred1_sss, gt_sss, bias_titles[0])
 
             # Add colorbar for bias plots
             cbar = fig.colorbar(

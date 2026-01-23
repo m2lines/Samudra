@@ -29,8 +29,8 @@ from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignor
 
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 from ocean_emulators.utils.data import (
-    spherical_area_weights,
     spherical_area,
+    spherical_area_weights,
     with_level_index_vars,
 )
 

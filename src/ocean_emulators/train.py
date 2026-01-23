@@ -729,7 +729,7 @@ class Trainer:
             case "match":
                 srcs = [(s, s) for s in scales]
             case "mix":
-                srcs = itertools.product(scales, repeat=2)  # type: ignore
+                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
             case _:
                 assert_never(self.train_schedule)
 

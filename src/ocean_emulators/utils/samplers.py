@@ -134,7 +134,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         cumsum = 0
         for ds in datasets:
             key = group_key(ds)
-            assert isinstance(key, (int, str, tuple, Hashable)), (
+            assert isinstance(key, Hashable), (
                 "`group_key` must be hashable."
             )
             groups[key].extend(range(cumsum, cumsum + len(ds)))

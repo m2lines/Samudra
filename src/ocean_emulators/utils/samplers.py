@@ -134,14 +134,12 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         cumsum = 0
         for ds in datasets:
             key = group_key(ds)
-            assert isinstance(key, Hashable), (
-                "`group_key` must be hashable."
-            )
+            assert isinstance(key, Hashable), "`group_key` must be hashable."
             groups[key].extend(range(cumsum, cumsum + len(ds)))
             cumsum += len(ds)
 
         # Sort by key for deterministic ordering across runs
-        sorted_groups = sorted(groups.items(), key=lambda x: x[0])
+        sorted_groups = sorted(groups.items(), key=lambda x: x[0])  # type: ignore
         group_indices = [indices for _, indices in sorted_groups]
 
         return cls(group_indices, batch_size, shuffle, drop_last)

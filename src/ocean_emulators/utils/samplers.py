@@ -141,7 +141,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
             cumsum += len(ds)
 
         # Sort by key for deterministic ordering across runs
-        sorted_groups = sorted(groups.items(), key=lambda x: str(x[0]))
+        sorted_groups = sorted(groups.items(), key=lambda x: x[0])
         group_indices = [indices for _, indices in sorted_groups]
 
         return cls(group_indices, batch_size, shuffle, drop_last)

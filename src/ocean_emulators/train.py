@@ -74,7 +74,7 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
-from ocean_emulators.utils.loss import LossFn
+from ocean_emulators.utils.loss import LossFnWithMask
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -217,10 +217,9 @@ class Trainer:
         self.network = self.model.__class__.__name__
 
         # Loss function
-        self.loss_fn: LossFn = build_loss_fn(
+        self.loss_fn: LossFnWithMask = build_loss_fn(
             cfg.loss,
-            wet=self.wet,
-            y_coord=self.data.lat,
+            y_coord=self.data.lat,  # TODO(alxmrs): Needs to be label lat vals. Remove?
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
@@ -507,7 +506,8 @@ class Trainer:
                 r = self.gradient_accumulation_steps
 
             if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+                # Pass None since TrainData is not compatible with torchinfo's traversal
+                get_model_summary(self.model, None, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
 
@@ -611,12 +611,14 @@ class Trainer:
         # This is a separate function to ensure locals are dropped immediately after use
         if update := getattr(self.loss_fn, "update", None):
             with torch.no_grad():
-                single_step_data = TrainData(data.num_prognostic_channels)
+                single_step_data = TrainData(
+                    data.num_prognostic_channels, data.label_mask
+                )
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]
                 single_step_data.append(input, label)
                 pred = self.model(single_step_data)
-                update(pred[0], label)
+                update(pred[0], label, wet=data.label_mask)
 
     def validate_one_epoch(self, epoch):
         self.model.eval()

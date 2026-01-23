@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Callable
+from functools import partial
 from os import PathLike
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class Stepper:
     def train_batch(
         model: torch.nn.Module, batch: TrainData, loss_fn: Callable
     ) -> TrainBatchOutput:
-        loss_per_channel = model(batch, loss_fn=loss_fn)
+        loss_per_channel = model(batch, loss_fn=partial(loss_fn, wet=batch.label_mask))
         loss = torch.mean(loss_per_channel)
         return TrainBatchOutput(loss, loss_per_channel)
 
@@ -49,7 +50,7 @@ class Stepper:
             else model
         )
         outs = model.forward_once(input)
-        loss_per_channel = loss_fn(outs, label)
+        loss_per_channel = loss_fn(outs, label, wet=batch.label_mask)
         loss = torch.mean(loss_per_channel)
         return ValBatchOutput(loss, loss_per_channel, input, label, outs)
 

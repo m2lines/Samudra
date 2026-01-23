@@ -8,9 +8,10 @@ import torch.nn.functional as F
 import xarray as xr
 from jaxtyping import Float
 
-from ocean_emulators.constants import Grid
+from ocean_emulators.constants import PrognosticMask
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+LossFnWithMask = Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
 LossMetric = Literal[
     "mse",
     "mae",
@@ -21,51 +22,50 @@ LossMetric = Literal[
 
 
 def loss_fn_from_metric(
-    metric: LossMetric, *, wet: Grid, y_coord: xr.DataArray, device: torch.device
-) -> LossFn:
+    metric: LossMetric, *, y_coord: xr.DataArray, device: torch.device
+) -> LossFnWithMask:
     match metric:
         case "mse":
-            loss_fn: LossFn = partial(decomposed_mse, wet=wet)
+            loss_fn: LossFn = decomposed_mse
         case "mae":
-            loss_fn = partial(decomposed_mae, wet=wet)
+            loss_fn = decomposed_mae
         case "mse_mae":
-            loss_fn = partial(decomposed_mse_mae, wet=wet)
+            loss_fn = decomposed_mse_mae
         case "mse_diff_weighted":
-            loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
+            loss_fn = decomposed_mse_diff_weighted
         case "mse_cos_weighted":
             area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device=device)
-            loss_fn = partial(decomposed_mse_cos_weighted, wet=wet, cos=area_weights)
+            loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
         case _:
             assert_never(metric)
-    return loss_fn
+
+    def loss_fn_with_mask(
+        pred: torch.Tensor, target: torch.Tensor, wet: PrognosticMask
+    ) -> torch.Tensor:
+        wet = wet.to(device=pred.device)
+        pred = pred * wet
+        target = target * wet
+        return loss_fn(pred, target)
+
+    return loss_fn_with_mask
 
 
-def decomposed_mse(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
-) -> torch.Tensor:
+def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """Standard MSE loss (l2) computed per channel."""
-    pred = pred * wet
-    target = target * wet
     return F.mse_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
 
 
-def decomposed_mae(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
-) -> torch.Tensor:
+def decomposed_mae(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """Standard MAE loss (l1) computed per channel."""
-    pred = pred * wet
-    target = target * wet
     return F.l1_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
 
 
 # TODO(alxmrs): This used to assume that hist=1; it may need to be fixed in the future.
 def decomposed_mse_diff_weighted(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+    pred: torch.Tensor, target: torch.Tensor
 ) -> torch.Tensor:
     """MSE loss with weighted differences."""
-    pred = pred * wet
-    target = target * wet
     # Compute standard MSE
     mse = F.mse_loss(pred, target, reduction="none")
 
@@ -84,11 +84,9 @@ def decomposed_mse_diff_weighted(
 
 
 def decomposed_mse_cos_weighted(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor, cos: torch.Tensor
+    pred: torch.Tensor, target: torch.Tensor, cos: torch.Tensor
 ) -> torch.Tensor:
     """MSE loss weighted by cosine of latitude."""
-    pred = pred * wet
-    target = target * wet
     weights = cos.view(1, 1, -1, 1)  # Reshape for broadcasting
     mse = F.mse_loss(pred, target, reduction="none")
     weighted_mse = mse * weights
@@ -96,22 +94,16 @@ def decomposed_mse_cos_weighted(
 
 
 def decomposed_mse_scaled(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor, scaling: torch.Tensor
+    pred: torch.Tensor, target: torch.Tensor, scaling: torch.Tensor
 ) -> torch.Tensor:
     """MSE loss with scaled residuals."""
-    pred = pred * wet
-    target = target * wet
     scaled_pred = pred * scaling.view(1, -1, 1, 1)
     scaled_target = target * scaling.view(1, -1, 1, 1)
     return F.mse_loss(scaled_pred, scaled_target, reduction="none").mean(dim=(0, 2, 3))
 
 
-def decomposed_mse_mae(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
-) -> torch.Tensor:
+def decomposed_mse_mae(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """Combined MSE and MAE loss."""
-    pred = pred * wet
-    target = target * wet
     mse = F.mse_loss(pred, target, reduction="none")
     mae = F.l1_loss(pred, target, reduction="none")
     combined = (mse + mae) / 2
@@ -132,12 +124,9 @@ def _spatial_gradients(
 
 
 def gradient_l1_loss(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor, pad_mode: str
+    pred: torch.Tensor, target: torch.Tensor, pad_mode: str
 ) -> torch.Tensor:
     """L1 loss on spatial gradients, averaged per channel."""
-    pred = pred * wet
-    target = target * wet
-
     pred_grad_y, pred_grad_x = _spatial_gradients(pred, pad_mode=pad_mode)
     target_grad_y, target_grad_x = _spatial_gradients(target, pad_mode=pad_mode)
 
@@ -151,13 +140,12 @@ def gradient_l1_loss(
 def decomposed_mae_gradient_weighted(
     pred: torch.Tensor,
     target: torch.Tensor,
-    wet: torch.Tensor,
     gradient_weight: float,
     pad_mode: str = "constant",
 ) -> torch.Tensor:
     """MAE loss with spatial gradient matching penalty."""
-    mae_per_channel = decomposed_mae(pred, target, wet)
-    grad_loss = gradient_l1_loss(pred, target, wet, pad_mode)
+    mae_per_channel = decomposed_mae(pred, target)
+    grad_loss = gradient_l1_loss(pred, target, pad_mode)
     return mae_per_channel + gradient_weight * grad_loss
 
 
@@ -175,7 +163,7 @@ class DynamicLoss:
 
     def __init__(
         self,
-        loss_fn: LossFn,
+        loss_fn: LossFnWithMask,
         *,
         limit: float | None,
         device: torch.device,
@@ -192,9 +180,10 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
+        wet: PrognosticMask,
     ) -> Float[torch.Tensor, " hist*var"]:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
-            pred, target
+            pred, target, wet
         )
         # Channels are time-major: (hist+1) * var.
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
@@ -207,12 +196,13 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
+        wet: PrognosticMask,
     ) -> None:
         """Given the prediction & target for this step, update the per-channel scale."""
         # Local import is needed to prevent a circular import error.
         from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
-        loss = self.loss_fn(pred, target)
+        loss = self.loss_fn(pred, target, wet)
         loss = torch.where(loss == 0, 1e-8, loss)
         new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels
@@ -258,14 +248,12 @@ class GradientLoss:
 
     def __init__(
         self,
-        loss_fn: LossFn,
+        loss_fn: LossFnWithMask,
         *,
-        wet: Grid,
         gradient_weight: float,
         pad_mode: str,
     ):
         self.loss_fn = loss_fn
-        self._wet = wet
         self._gradient_weight = gradient_weight
         self._pad_mode = pad_mode
 
@@ -273,9 +261,12 @@ class GradientLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
+        wet: PrognosticMask,
     ) -> Float[torch.Tensor, " hist*var"]:
-        base_loss = self.loss_fn(pred, target)
-        grad_loss = gradient_l1_loss(
-            pred=pred, target=target, wet=self._wet, pad_mode=self._pad_mode
-        )
+        base_loss = self.loss_fn(pred, target, wet)
+        # Ensure mask is on the same device as pred for gradient computation
+        wet = wet.to(device=pred.device)
+        pred = pred * wet
+        target = target * wet
+        grad_loss = gradient_l1_loss(pred=pred, target=target, pad_mode=self._pad_mode)
         return base_loss + self._gradient_weight * grad_loss

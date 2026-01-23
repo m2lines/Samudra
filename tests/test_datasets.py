@@ -122,7 +122,7 @@ def make_loader(
                     coarsened_src, masks=coarsen_masks(src.masks)
                 )
                 scales = [src, coarsened_src]
-                srcs = itertools.product(scales, repeat=2)  # type: ignore
+                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
             case _:
                 assert_never(schedule)
 

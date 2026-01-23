@@ -136,7 +136,6 @@ class Trainer:
             data_root=cfg.experiment.resolved_data_root,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            prefixes_by_scale=cfg.experiment.prefixes_by_scale,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
 
@@ -178,8 +177,8 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
 
-        self.src = self.data_container.source
-        self.data = self.data_container.source.data
+        self.src = self.data_container.sources[0]
+        self.data = self.src.data
         self.static_data = self.data_container.static_data
 
         # We use dask for inference since it has memory issues otherwise.
@@ -720,9 +719,7 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        scales = [self.src]
-        if self.data_container.additional_sources is not None:
-            scales.extend(self.data_container.additional_sources)
+        scales = self.data_container.sources
         match self.train_schedule:
             case "standard":
                 srcs: Iterable[tuple[DataSource, DataSource]] = [(self.src, self.src)]

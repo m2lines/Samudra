@@ -40,12 +40,7 @@ from ocean_emulators.models.modules import (
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.utils.data import DataContainer, DataSource
-from ocean_emulators.utils.location import (
-    LocalLocation,
-    Location,
-    ResolvedLocation,
-    UnresolvedLocation,
-)
+from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
     GradientLoss,
@@ -139,7 +134,7 @@ LOCATION_DOCS = (
 )
 
 
-class DataConfig(BaseConfig):
+class DataSourceConfig(BaseConfig):
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
     )
@@ -148,6 +143,16 @@ class DataConfig(BaseConfig):
     )
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
+    )
+
+
+class DataConfig(BaseConfig):
+    sources: list[DataSourceConfig] = Field(
+        description=(
+            "Data sources to include, each with explicit data/means/stds "
+            "locations. These are resolved relative to data_root."
+        ),
+        min_length=1,
     )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
@@ -162,22 +167,23 @@ class DataConfig(BaseConfig):
         data_root: ResolvedLocation,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        prefixes_by_scale: list[str] | None,
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
         def make_source(
-            local_dir_prefix: str = "", turn_on_dask: bool = use_dask
+            data_location: Location,
+            means_location: Location,
+            stds_location: Location,
+            turn_on_dask: bool = use_dask,
         ) -> tuple[DataSource, bool]:
-            prefix_root = data_root.resolve(UnresolvedLocation(path=local_dir_prefix))
-            data_location = prefix_root.resolve(self.data_location)
-            means_location = prefix_root.resolve(self.data_means_location)
-            stds_location = prefix_root.resolve(self.data_stds_location)
+            resolved_data_location = data_root.resolve(data_location)
+            resolved_means_location = data_root.resolve(means_location)
+            resolved_stds_location = data_root.resolve(stds_location)
             data_source = DataSource.from_locations(
-                data_location=data_location,
-                means_location=means_location,
-                stds_location=stds_location,
+                data_location=resolved_data_location,
+                means_location=resolved_means_location,
+                stds_location=resolved_stds_location,
                 prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names,
                 static_data_vars=self.static_data_vars,
@@ -186,40 +192,51 @@ class DataConfig(BaseConfig):
 
             return data_source, all(
                 loc.supports_fork
-                for loc in [data_location, means_location, stds_location]
+                for loc in [
+                    resolved_data_location,
+                    resolved_means_location,
+                    resolved_stds_location,
+                ]
             )
 
-        source, supports_fork = make_source()
-        additional_sources = None
-        if prefixes_by_scale is not None:
-            supports_forks = [supports_fork]
-            additional_sources = []
-            for prefix in prefixes_by_scale:
-                src, fork = make_source(prefix)
-                additional_sources.append(src)
-                supports_forks.append(fork)
-            supports_fork = all(supports_forks)
+        sources = []
+        supports_forks = []
+        for source_cfg in self.sources:
+            src, fork = make_source(
+                source_cfg.data_location,
+                source_cfg.data_means_location,
+                source_cfg.data_stds_location,
+            )
+            sources.append(src)
+            supports_forks.append(fork)
+        supports_fork = all(supports_forks)
 
+        primary_source = sources[0]
         if use_dask:
             # If we're already using dask, we don't need a second source
-            source_using_dask = source
+            source_using_dask = primary_source
         else:
             # If we're not using dask for the main source, create a separate one
-            source_using_dask, _ = make_source(turn_on_dask=True)
+            primary = self.sources[0]
+            source_using_dask, _ = make_source(
+                primary.data_location,
+                primary.data_means_location,
+                primary.data_stds_location,
+                turn_on_dask=True,
+            )
 
         static_data = (
-            source.data[self.static_data_vars]
+            primary_source.data[self.static_data_vars]
             if self.static_data_vars is not None
             else None
         )
 
         return DataContainer(
-            source,
+            sources,
             source_using_dask,
             loader_version,
             supports_fork,
             static_data,
-            additional_sources,
         )
 
 
@@ -629,9 +646,6 @@ class ExperimentConfig(BaseConfig):
     # we require this to be set by the user but have optional here
     # so we can leave it out of config files
     data_root: Location | None = None
-    prefixes_by_scale: list[str] | None = (
-        None  # Opt in to muti-scale/multi data training (Default: off).
-    )
     # Define multi-scale dataloader example schedule. Default: single scale.
     train_schedule: TrainSchedule = "standard"
     wandb: WandBConfig

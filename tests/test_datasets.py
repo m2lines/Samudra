@@ -94,10 +94,9 @@ def make_loader(
         cfg.experiment.resolved_data_root,
         prognostic,
         boundary,
-        prefixes_by_scale=None,
     )
     version = container.loader_version
-    src = container.source
+    src = container.sources[0]
     if src.is_compact and version != LoaderVersion.OM4_TORCH:
         pytest.skip(f"{version} does not support compact data.")
 
@@ -184,7 +183,8 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
 def calc_num_samples(
     cfg: TrainConfig, time_slice: slice, schedule: TrainSchedule
 ) -> int:
-    ds = cfg.experiment.resolved_data_root.resolve(cfg.data.data_location).open()
+    primary = cfg.data.sources[0]
+    ds = cfg.experiment.resolved_data_root.resolve(primary.data_location).open()
 
     data_size = ds.sel(time=time_slice).time.size
     steps = cfg.steps[0]

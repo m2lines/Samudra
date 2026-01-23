@@ -301,12 +301,16 @@ class DataSource:
 
 @dataclasses.dataclass
 class DataContainer:
-    source: DataSource
+    sources: list[DataSource]
     source_using_dask: DataSource
     loader_version: LoaderVersion
     supports_fork: bool
     static_data: xr.Dataset | None = None
     additional_sources: list[DataSource] | None = None
+
+    @property
+    def source(self) -> DataSource:
+        return self.sources[0]
 
 
 def conditional_rearrange(

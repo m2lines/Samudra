@@ -47,7 +47,14 @@ experiment:
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom
   train_schedule: match
-  prefixes_by_scale:
-    - "om4_onedeg_v3"
-data: !include ../data/om4.yaml
+data:
+  static_data_vars: []
+  concurrent_compute: true
+  sources:
+    - data_location: OM4.zarr
+      data_means_location: OM4_means.zarr
+      data_stds_location: OM4_stds.zarr
+    - data_location: om4_onedeg_v3/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
 model: !include model.yaml

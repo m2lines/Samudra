@@ -76,6 +76,7 @@ def make_loader(
     drop_last: bool = True,
     version: LoaderVersion | None = None,
     schedule: TrainSchedule = "standard",
+    shuffle: bool = True,
 ) -> Generator[DataLoader | TrainDataLoader, None, None]:
     if time_config is None:
         time_config = cfg.train_time
@@ -155,7 +156,7 @@ def make_loader(
                     ),
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
-                    shuffle=True,
+                    shuffle=shuffle,
                 )
 
                 raw_loader = DataLoader(
@@ -539,9 +540,13 @@ def test_compact_loader__equals_flat_loader(
     compact_source = dataclasses.replace(data_source, name="compact")
     compact_config = make_config(compact_source)
 
-    with make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader:
+    with make_loader(
+        flat_config, version=LoaderVersion.OM4_TORCH, shuffle=False
+    ) as flat_loader:
         original_samples = [extract_sample_arrays(sample) for sample in flat_loader]
-    with make_loader(compact_config, version=LoaderVersion.OM4_TORCH) as compact_loader:
+    with make_loader(
+        compact_config, version=LoaderVersion.OM4_TORCH, shuffle=False
+    ) as compact_loader:
         new_samples = [extract_sample_arrays(sample) for sample in compact_loader]
 
     assert_equal_samples(original_samples, new_samples)

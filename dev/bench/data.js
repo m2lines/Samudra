@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1768235206846,
+  "lastUpdate": 1769190859106,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6699,6 +6699,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 3.0914688231970278",
             "extra": "mean: 91.83342574940002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34085119+amogh-gulati@users.noreply.github.com",
+            "name": "Amogh Gulati",
+            "username": "amogh-gulati"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "09064250f63cfda8ecee366631fb1b5f6b45ecda",
+          "message": "Ohc plots rescale (#513)\n\nThis PR fixes OHC scaling by real grid-cell areas.\n\nKey changes\n\n- Added spherical_area_weights_real to compute true cell areas using\nspherical geometry.\n- Updated OHC computation and post-processing pipelines to propagate\nboth areacello and areacello_real.\n- Ensures OHC anomaly now matches expected magnitude (±50 ZJ)\n\n---------\n\nCo-authored-by: Amogh Gulati <ag11542@cs054.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs426.hpc.nyu.edu>\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-01-23T12:29:06-05:00",
+          "tree_id": "19d5e004eae853d99e39a79f43ec690a9c5612c8",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/09064250f63cfda8ecee366631fb1b5f6b45ecda"
+        },
+        "date": 1769190858362,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.4810335962972014,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11141310053277986",
+            "extra": "mean: 675.204129399998 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19380006543922768,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022211562504649934",
+            "extra": "mean: 5.159956978000002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011520776218143984,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14268097630752838",
+            "extra": "mean: 86.79970698720001 sec\nrounds: 5"
           }
         ]
       }

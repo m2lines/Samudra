@@ -91,7 +91,7 @@ class Eval:
             cfg.experiment.resolved_data_root,
             self.prognostic_var_names,
             self.boundary_var_names,
-            prefixes_by_scale=cfg.experiment.prefixes_by_scale,
+            cfg.experiment.prefixes_by_scale,
         )
 
         self.src = self.data_container.source_using_dask

@@ -3,7 +3,9 @@
 import contextlib
 import dataclasses
 import datetime
-from collections.abc import Generator
+import itertools
+from collections.abc import Generator, Iterable
+from typing import assert_never
 
 import cftime
 import numpy as np
@@ -16,7 +18,7 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from ocean_emulators.config import TimeConfig, TrainConfig
+from ocean_emulators.config import TimeConfig, TrainConfig, TrainSchedule
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -31,6 +33,7 @@ from ocean_emulators.datasets import (
 )
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
+from ocean_emulators.utils.samplers import EquivalenceGroupBatchSampler
 from ocean_emulators.utils.train import collate_raw_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
 
@@ -41,12 +44,39 @@ def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoa
     return cfg, trainer.inference_loader
 
 
+def coarsen_data(ds: xr.Dataset) -> xr.Dataset:
+    return ds.coarsen(lat=2, lon=2).mean()  # type: ignore
+
+
+def coarsen_masks(masks: Masks) -> Masks:
+    """Coarsen masks to half resolution using max pooling (any True -> True)."""
+    # For masks, we use max pooling: if any cell in the 2x2 block is True (valid),
+    # the coarsened cell is True
+    import torch.nn.functional as F
+
+    # Coarsen prognostic mask (3D: channels x lat x lon)
+    prog_mask = masks.prognostic.float().unsqueeze(0)  # Add batch dim
+    prog_coarsened = F.max_pool2d(prog_mask, kernel_size=2, stride=2)
+    prog_coarsened = prog_coarsened.squeeze(0).bool()  # Remove batch dim, back to bool
+
+    # Coarsen boundary mask (2D: lat x lon)
+    bound_mask = (
+        masks.boundary.float().unsqueeze(0).unsqueeze(0)
+    )  # Add batch and channel dims
+    bound_coarsened = F.max_pool2d(bound_mask, kernel_size=2, stride=2)
+    bound_coarsened = bound_coarsened.squeeze(0).squeeze(0).bool()  # Remove extra dims
+
+    return Masks(prognostic=prog_coarsened, boundary=bound_coarsened)
+
+
 @contextlib.contextmanager
 def make_loader(
     cfg: TrainConfig,
     time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion | None = None,
+    schedule: TrainSchedule = "standard",
+    shuffle: bool = True,
 ) -> Generator[DataLoader | TrainDataLoader, None, None]:
     if time_config is None:
         time_config = cfg.train_time
@@ -73,11 +103,32 @@ def make_loader(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
+        match schedule:
+            case "standard":
+                srcs: Iterable[tuple[DataSource, DataSource]] = [(src, src)]
+            case "match":
+                coarsened_src = src.map_data(coarsen_data, suffix="half-size")
+                coarsened_src = dataclasses.replace(
+                    coarsened_src, masks=coarsen_masks(src.masks)
+                )
+                scales = [src, coarsened_src]
+                srcs = [(s, s) for s in scales]
+            case "mix":
+                coarsened_src = src.map_data(coarsen_data, suffix="half-size")
+                coarsened_src = dataclasses.replace(
+                    coarsened_src, masks=coarsen_masks(src.masks)
+                )
+                scales = [src, coarsened_src]
+                srcs = itertools.product(scales, repeat=2)  # type: ignore
+            case _:
+                assert_never(schedule)
+
         match version:
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [
                     TorchTrainDataset(
                         src=src.slice(time_config),
+                        dst=dst.slice(time_config),
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -86,16 +137,31 @@ def make_loader(
                         masked_fill_value=cfg.data.masked_fill_value,
                         stride=stride,
                     )
+                    for src, dst in srcs
                     for stride in cfg.data_stride
                 ]
 
                 data: ConcatDataset = ConcatDataset(dataset_list)
                 collate_fn = collate_raw_train_data
 
-                raw_loader = DataLoader(
-                    data,
+                # Group datasets by input AND label resolution, allowing different strides to batch together
+                # This ensures datasets with same (src, dst) resolution pair but different strides can batch
+                batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
+                    datasets=dataset_list,
+                    group_key=lambda ds: (
+                        ds._input_src.data.sizes["lat"],
+                        ds._input_src.data.sizes["lon"],
+                        ds._label_src.data.sizes["lat"],
+                        ds._label_src.data.sizes["lon"],
+                    ),
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
+                    shuffle=shuffle,
+                )
+
+                raw_loader = DataLoader(
+                    data,
+                    batch_sampler=batch_sampler,
                     collate_fn=collate_fn,
                 )
 
@@ -114,7 +180,9 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
 
 
-def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
+def calc_num_samples(
+    cfg: TrainConfig, time_slice: slice, schedule: TrainSchedule
+) -> int:
     ds = cfg.experiment.resolved_data_root.resolve(cfg.data.data_location).open()
 
     data_size = ds.sel(time=time_slice).time.size
@@ -122,7 +190,13 @@ def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
     hist = cfg.data.hist
     stride = cfg.data_stride[0]
 
-    return data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
+    n_samples = data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
+    if schedule == "match":
+        n_samples *= 2
+    if schedule == "mix":
+        n_samples *= 4
+
+    return n_samples
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):
@@ -251,7 +325,9 @@ def test_loader__data_shape(
             len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_input_timesteps
         )
 
-        n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
+        n_samples = calc_num_samples(
+            train_config, train_config.train_time.time_slice, "standard"
+        )
         samples = list(loader)
 
         assert len(samples) == n_samples, (
@@ -277,6 +353,88 @@ def test_loader__data_shape(
                 180,
                 360,
             )
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
+)
+def test_loader__data_shape__across_schedules(
+    train_config: TrainConfig, schedule: TrainSchedule
+):
+    history = train_config.data.hist
+
+    with make_loader(
+        train_config, version=LoaderVersion.OM4_TORCH, schedule=schedule
+    ) as loader:
+        exp = train_config.experiment
+        batch_size = train_config.batch_size
+        num_input_timesteps = history + 1
+
+        input_var_dim = (
+            len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
+            + len(BOUNDARY_VARS[exp.boundary_vars_key])
+        ) * num_input_timesteps
+        output_var_dim = (
+            len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_input_timesteps
+        )
+
+        n_samples = calc_num_samples(
+            train_config, train_config.train_time.time_slice, schedule
+        )
+        samples = list(loader)
+
+        assert len(samples) == n_samples, (
+            f"Current config {train_config} only supports {n_samples} examples; "
+            f"got {len(samples)}."
+        )
+
+        example_resolutions = []
+        # Subsample the examples; this should be proof enough that everything is the right shape.
+        for sample in samples[::3]:
+            X, y = extract_sample_arrays(sample)
+            # Exclude the coordinate shape information for now; we'll test that separately.
+            assert X.shape[:-2] == (
+                train_config.steps[0],
+                batch_size,
+                input_var_dim,
+            )
+            assert y.shape[:-2] == (
+                train_config.steps[0],
+                batch_size,
+                output_var_dim,
+            )
+            example_resolutions.append((X.shape[-2:], y.shape[-2:]))
+
+        match schedule:
+            case "standard":
+                assert example_resolutions[0][0] == example_resolutions[0][1], (
+                    "The input and output should be equal"
+                )
+                assert all(
+                    example_resolutions[0] == eg for eg in example_resolutions[1:]
+                ), "All resolutions should be equal"
+            case "match":
+                for x_res, y_res in example_resolutions:
+                    assert x_res == y_res, (
+                        f"Resolutions must match across batches for 'match' schedule multiscale loader. {example_resolutions=}"
+                    )
+            case "mix":
+                # In mix mode with 2 scales, multiplex creates pattern: (0,0), (0,1), (1,0), (1,1)
+                # With grouped batch sampler, order may vary due to shuffling within groups.
+                # With drop_last=True and small sample counts, some groups might not produce any batches
+                valid_patterns = {
+                    ((180, 360), (180, 360)),  # (0,0): full-res input, full-res label
+                    ((180, 360), (90, 180)),  # (0,1): full-res input, half-res label
+                    ((90, 180), (180, 360)),  # (1,0): half-res input, full-res label
+                    ((90, 180), (90, 180)),  # (1,1): half-res input, half-res label
+                }
+                observed_patterns = set(example_resolutions)
+                # All observed patterns must be valid
+                assert observed_patterns == valid_patterns, (
+                    f"All resolutions must be valid members of the cartesian product for 'mix' schedule. "
+                    f"Valid patterns: {valid_patterns}, got {observed_patterns}, "
+                    f"invalid patterns: {observed_patterns - valid_patterns}"
+                )
 
 
 def test_inference__data_shape(inference_loader_pair):
@@ -382,12 +540,28 @@ def test_compact_loader__equals_flat_loader(
     compact_source = dataclasses.replace(data_source, name="compact")
     compact_config = make_config(compact_source)
 
-    with make_loader(flat_config, version=LoaderVersion.OM4_TORCH) as flat_loader:
+    with make_loader(
+        flat_config, version=LoaderVersion.OM4_TORCH, shuffle=False
+    ) as flat_loader:
         original_samples = [extract_sample_arrays(sample) for sample in flat_loader]
-    with make_loader(compact_config, version=LoaderVersion.OM4_TORCH) as compact_loader:
+    with make_loader(
+        compact_config, version=LoaderVersion.OM4_TORCH, shuffle=False
+    ) as compact_loader:
         new_samples = [extract_sample_arrays(sample) for sample in compact_loader]
 
     assert_equal_samples(original_samples, new_samples)
+
+
+@pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
+def test_mixed_schedule__has_consistent_collated_batches(
+    train_config: TrainConfig, schedule: TrainSchedule
+):
+    # Exposes underling consistency issue
+    train_config.batch_size = 4
+
+    with make_loader(train_config, schedule=schedule) as loader:
+        for _ in itertools.islice(loader, 2):
+            pass
 
 
 @pytest.fixture
@@ -453,6 +627,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         )
         torch_train_dataset = TorchTrainDataset(
             src=test,
+            dst=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             hist=1,

@@ -134,6 +134,9 @@ LOCATION_DOCS = (
 )
 
 
+TrainSchedule = Literal["standard", "match", "mix"]
+
+
 class DataConfig(BaseConfig):
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS

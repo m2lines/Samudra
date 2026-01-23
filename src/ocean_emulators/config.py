@@ -663,9 +663,10 @@ TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 class DynamicLossConfig(pydantic.BaseModel):
     type: Literal["dynamic"] = "dynamic"
     metric: LossMetric = "mse"
-    limit: bool = Field(
-        description="For dynamic loss, should we limit the range of weighted loss by the variance. Default: off.",
-        default=False,
+    limit: float | None = Field(
+        description="The ratio of the largest weight to the smallest weight across all channels which we'll allow. Default of None means no limit.",
+        default=None,
+        ge=1.0,
     )
 
 
@@ -690,8 +691,8 @@ def build_loss_fn(
     loss_cfg: Loss,
     wet: Grid,
     y_coord: xr.DataArray,
-    stds: xr.Dataset,
     device: torch.device,
+    num_channels: int,
     pad_mode: str,
 ) -> LossFn:
     match loss_cfg:
@@ -705,9 +706,9 @@ def build_loss_fn(
             )
             return DynamicLoss(
                 loss_fn=loss_fn,
-                stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
-                should_limit=limit,
+                limit=limit,
                 device=device,
+                num_channels=num_channels,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(

@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 import torch
 
+from ocean_emulators.config import DynamicLossConfig
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.loss import DynamicLoss
 from ocean_emulators.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, TrainPair
 
@@ -57,6 +59,29 @@ def test_checkpoint_ema(train_config, caplog):
     # TODO(jder): would be nice to generalize to testing the whole trainer state,
     # or even running it forward and checking the output is identical
     assert resume_trainer._ema == e2e_trainer._ema
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("remote-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+def test_checkpoint_dynamic_loss_state(train_config, caplog):
+    """DynamicLoss has internal rolling state; ensure it round-trips via checkpoints."""
+    caplog.set_level(logging.INFO)
+    train_config.epochs = 1
+    train_config.save_freq = 1
+    train_config.loss = DynamicLossConfig(metric="mse", limit=100.0)
+
+    with MultitonScope():
+        e2e_trainer = Trainer(train_config)
+        assert isinstance(e2e_trainer.loss_fn, DynamicLoss)
+        e2e_trainer.run()
+        scale_before = e2e_trainer.loss_fn.loss_scale_per_channel().detach().cpu()
+
+        # Make the test meaningful: ensure at least one update away from the init value.
+        assert torch.isfinite(scale_before).all()
+        assert not torch.allclose(scale_before, torch.ones_like(scale_before))
 
 
 @pytest.mark.parametrize(

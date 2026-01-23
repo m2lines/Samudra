@@ -215,8 +215,8 @@ class Trainer:
             cfg.loss,
             wet=self.wet,
             y_coord=self.data.lat,
-            stds=self.src.filter(self.prognostic_var_names, prefix="prog_stds").stds,
             device=self.device,
+            num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
         )
 
@@ -256,7 +256,7 @@ class Trainer:
         logger.info(
             f"Effective batch size: {effective_batch_size} "
             f"(batch_size={cfg.batch_size} × "
-            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps})"
         )
         if self.is_wandb_enabled():
             self.wandb_logger.log(
@@ -557,11 +557,11 @@ class Trainer:
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
                     loss_scale_per_channel = loss_scale_per_channel_fn()
-                    # Reshape from channels * history to channels
-                    # by averaging along the `hist` dimension
+                    # Reshape from time-major channels to [hist, var] and
+                    # average along the history dimension.
                     loss_per_channel = TO.loss_per_channel.reshape(
-                        loss_scale_per_channel.shape[0], -1
-                    ).mean(dim=1)
+                        -1, loss_scale_per_channel.shape[0]
+                    ).mean(dim=0)
 
                     unscaled_loss_per_channel = (
                         loss_per_channel / loss_scale_per_channel

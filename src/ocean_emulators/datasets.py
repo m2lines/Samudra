@@ -436,6 +436,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         self.device = get_device()
 
+        # If the src and dst DataSource are the same, we can skip one set of normalizations.
+        self.enable_input_only_opt = src == dst
+
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
@@ -450,7 +453,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         time_ = src.data.time
         self._input_src = src.filter(prognostic_var_names, prefix="input")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
-        self._label_src = dst.filter(prognostic_var_names, prefix="label")
+        if self.enable_input_only_opt:
+            self._label_src = self._input_src
+        else:
+            self._label_src = dst.filter(prognostic_var_names, prefix="label")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -472,7 +478,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         self.wet_input: PrognosticMask = src.masks.prognostic.to(self.device)
         self.wet_surface: GridMask = src.masks.boundary.to(self.device)
-        self.wet_label: PrognosticMask = dst.masks.prognostic.to(self.device)
+        if self.enable_input_only_opt:
+            self.wet_label: PrognosticMask = self.wet_input
+        else:
+            self.wet_label = dst.masks.prognostic.to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
             if "lev" in means_or_stds.dims:
@@ -491,8 +500,12 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.boundary_means = flatten_to_device(self._boundary_src.means)
         self.boundary_stds = flatten_to_device(self._boundary_src.stds)
 
-        self.label_means = flatten_to_device(self._label_src.means)
-        self.label_stds = flatten_to_device(self._label_src.stds)
+        if self.enable_input_only_opt:
+            self.label_means = self.input_means
+            self.label_stds = self.input_stds
+        else:
+            self.label_means = flatten_to_device(self._label_src.means)
+            self.label_stds = flatten_to_device(self._label_src.stds)
 
         self.size: int = (
             time_.size
@@ -512,13 +525,16 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             x_index = self._get_x_index(idx, step)
             input_selected = self._input_src.data.isel(time=x_index)
             boundary_selected = self._boundary_src.data.isel(time=x_index)
-            label_selected = self._label_src.data.isel(time=x_index)
+            label_selected = input_selected
+            if not self.enable_input_only_opt:
+                label_selected = self._label_src.data.isel(time=x_index)
 
             if self._executor is not None:
+                datasets = [input_selected, boundary_selected]
+                if not self.enable_input_only_opt:
+                    datasets.append(label_selected)
                 concurrent_compute(
-                    input_selected,
-                    boundary_selected,
-                    label_selected,
+                    *datasets,
                     executor=self._executor,
                 )
 
@@ -533,16 +549,17 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     .to_numpy()
                     .astype(np.float32, copy=False)
                 )
-                label = torch.from_numpy(
-                    conditional_rearrange(
-                        label_selected,
-                        "time (variable lev)=var lat lon",
-                        concat_dim="var",
+                if not self.enable_input_only_opt:
+                    label = torch.from_numpy(
+                        conditional_rearrange(
+                            label_selected,
+                            "time (variable lev)=var lat lon",
+                            concat_dim="var",
+                        )
+                        .rename({"var": "variable"})
+                        .to_numpy()
+                        .astype(np.float32, copy=False)
                     )
-                    .rename({"var": "variable"})
-                    .to_numpy()
-                    .astype(np.float32, copy=False)
-                )
             else:
                 input_ = torch.from_numpy(
                     input_selected.to_array()
@@ -550,12 +567,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     .to_numpy()
                     .astype(np.float32, copy=False)
                 )
-                label = torch.from_numpy(
-                    label_selected.to_array()
-                    .transpose("time", "variable", "lat", "lon")
-                    .to_numpy()
-                    .astype(np.float32, copy=False)
-                )
+                if not self.enable_input_only_opt:
+                    label = torch.from_numpy(
+                        label_selected.to_array()
+                        .transpose("time", "variable", "lat", "lon")
+                        .to_numpy()
+                        .astype(np.float32, copy=False)
+                    )
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
@@ -563,6 +581,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 .astype(np.float32, copy=False)
             )
 
+            if self.enable_input_only_opt:
+                label = input_
             TD.insert(input_, boundary, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
@@ -571,11 +591,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
         train_data = TrainData(self.num_prognostic_channels)
         for input_, boundary, label in raw_train_data.raw_data:
-            input_, label = self._to_example(
-                input_.to(device=self.device, non_blocking=True),
-                boundary.to(device=self.device, non_blocking=True),
-                label.to(device=self.device, non_blocking=True),
-            )
+            input_ = input_.to(device=self.device, non_blocking=True)
+            boundary = boundary.to(device=self.device, non_blocking=True)
+            if self.enable_input_only_opt:
+                label = input_
+            else:
+                label = label.to(device=self.device, non_blocking=True)
+            input_, label = self._to_example(input_, boundary, label)
             train_data.append(input_, label)
         train_data.load_stats = raw_train_data.load_stats
         return train_data

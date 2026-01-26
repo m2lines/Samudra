@@ -436,7 +436,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         self.device = get_device()
 
-        # If the src and dst DataSource are the same, we can skip one set of normalizations.
+        # If the src and dst DataSource are the same, we can do a lot less work.
         self.independent_label = src != dst
 
         self.hist: int = hist

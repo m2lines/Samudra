@@ -1,7 +1,7 @@
 import itertools
 import random
 from collections.abc import Callable, Hashable
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Self
 
 from torch.utils.data import BatchSampler, Sampler, SubsetRandomSampler
 
@@ -187,7 +187,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
     def __init__(
         self,
         datasets: list["TorchTrainDataset"],
-        group_key: Callable[["TorchTrainDataset"], Any],
+        group_key: Callable[["TorchTrainDataset"], Hashable],
         batch_size: int,
         num_replicas: int,
         rank: int,

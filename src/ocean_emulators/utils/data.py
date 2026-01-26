@@ -420,16 +420,17 @@ class TorchDataSource:
     def map(self, data_func: Callable) -> Self:
         return dataclasses.replace(self, data=data_func(self.data))
 
-    def normalize(
-        self, fill_nan: bool = True, fill_value: float = 0.0
+    def _normalize(
+        self,
+        data: Float[torch.Tensor, "batch time var lat lon"],
+        fill_nan: bool = True,
+        fill_value: float = 0.0,
     ) -> Float[torch.Tensor, "batch time var lat lon"]:
         """Normalize input data treated as torch Tensors."""
-        norm = (self.data - self.means.view(1, 1, -1, 1, 1)) / self.stds.view(
-            1, 1, -1, 1, 1
-        )
+        norm = (data - self.means.view(1, 1, -1, 1, 1)) / self.stds.view(1, 1, -1, 1, 1)
         if fill_nan:
             norm = norm.nan_to_num(nan=fill_value)
-        norm = norm.to(self.data.dtype)
+        norm = norm.to(data.dtype)
         return norm
 
     def normalize_and_mask(
@@ -438,10 +439,10 @@ class TorchDataSource:
         """Normalize and mask tensors."""
         tensor = self.data
         if normalize_before_mask:
-            tensor = self.normalize()
+            tensor = self._normalize(tensor)
         tensor = torch.where(self.mask, tensor, masked_fill_value)
         if not normalize_before_mask:
-            tensor = self.normalize()
+            tensor = self._normalize(tensor, fill_nan=False)
         return tensor
 
     def to(self, device: torch.device, non_blocking: bool = False) -> Self:

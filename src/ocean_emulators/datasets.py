@@ -22,7 +22,12 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource, LoadStats, conditional_rearrange
+from ocean_emulators.utils.data import (
+    DataSource,
+    LoadStats,
+    TorchDataSource,
+    conditional_rearrange,
+)
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
 
@@ -475,12 +480,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
+        # NB(alxmrs): Keep masks on CPU - will be moved to GPU in to_train_data()
         self.wet_prognostic: list[PrognosticMask] = [
-            src.masks.prognostic.to(self.device) for src in srcs
+            src.masks.prognostic for src in srcs
         ]
-        self.wet_surface: GridMask = src.masks.boundary.to(self.device)
+        self.wet_surface: GridMask = src.masks.boundary
 
-        def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
+        def flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
             if "lev" in means_or_stds.dims:
                 array = conditional_rearrange(
                     means_or_stds,
@@ -489,17 +495,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 ).rename({"var": "variable"})
             else:
                 array = means_or_stds.to_dataarray()
-            return torch.from_numpy(array.to_numpy().flatten()).to(self.device)
+            return torch.from_numpy(array.to_numpy().flatten())
 
-        self.prognostic_means = [
-            flatten_to_device(src.means) for src in self._prognostic_srcs
-        ]
-        self.prognostic_stds = [
-            flatten_to_device(dst.stds) for dst in self._prognostic_srcs
-        ]
+        self.prognostic_means = [flatten(src.means) for src in self._prognostic_srcs]
+        self.prognostic_stds = [flatten(dst.stds) for dst in self._prognostic_srcs]
 
-        self.boundary_means = flatten_to_device(self._boundary_src.means)
-        self.boundary_stds = flatten_to_device(self._boundary_src.stds)
+        self.boundary_means = flatten(self._boundary_src.means)
+        self.boundary_stds = flatten(self._boundary_src.stds)
 
         self.size: int = (
             time_.size
@@ -567,14 +569,34 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         return TD
 
-    def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
+    def to_train_data(
+        self, raw_train_data: RawTrainData, device: torch.device
+    ) -> TrainData:
+        """Convert RawTrainData to TrainData, moving tensors to the specified device.
+
+        Args:
+            raw_train_data: CPU data from worker process
+            device: Target device (typically GPU) to move tensors to
+
+        Returns:
+            TrainData with tensors on the target device
+        """
         train_data = TrainData(self.num_prognostic_channels, raw_train_data.label_mask)
+
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
-                input_.to(device=self.device, non_blocking=True),
-                boundary.to(device=self.device, non_blocking=True),
-                # If this is the same as input_, `to` should return without copying.
-                label.to(device=self.device, non_blocking=True),
+                TorchDataSource(
+                    input_, self.prognostic_means[0], self.prognostic_stds[0], self.wet_prognostic[0],
+                ).to(device=device, non_blocking=True),
+                TorchDataSource(
+                    boundary,
+                    self.boundary_means,
+                    self.boundary_stds,
+                    self.wet_surface,
+                ).to(device=device, non_blocking=True),
+                TorchDataSource(
+                label, self.prognostic_means[-1], self.prognostic_stds[-1], self.wet_prognostic[-1],
+                ).to(device=device, non_blocking=True),
             )
             train_data.append(input_, label)
         train_data.load_stats = raw_train_data.load_stats
@@ -583,79 +605,31 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def _to_example(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        input_: Float[torch.Tensor, "batch time variable lat lon"],
-        boundary: Float[torch.Tensor, "batch time variable lat lon"],
-        label: Float[torch.Tensor, "batch time variable lat lon"],
+        input_: TorchDataSource,
+        boundary: TorchDataSource,
+        label: TorchDataSource,
     ) -> tuple[Input, Prognostic]:
+        # Move normalization parameters to the same device as input data
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
-            input_[:, : self.hist + 1, :, :, :],
-            self.prognostic_means[0],
-            self.prognostic_stds[0],
-            self.wet_prognostic[0],
-            boundary[:, : self.hist + 1, :, :, :],
+            input_.map(lambda data: data[:, : self.hist + 1, :, :, :]),
+            boundary.map(lambda data: data[:, : self.hist + 1, :, :, :]),
         )
         # grab future steps, repeat as we do for input
-        label = self._prep_tensor_steps(
-            label[:, self.hist + 1 :, :, :, :],
-            self.prognostic_means[-1],
-            self.prognostic_stds[-1],
-            self.wet_prognostic[-1],
+        label_tensor = self._prep_tensor_steps(
+            label.map(lambda data: data[:, self.hist + 1 :, :, :, :])
         )
-        return total_input, label
+        return total_input, label_tensor
 
     def _prep_tensor_steps(
         self,
-        prognostic_steps: Float[torch.Tensor, "batch time variable lat lon"],
-        prognostic_means: Float[torch.Tensor, " variable"],
-        prognostic_stds: Float[torch.Tensor, " variable"],
-        prognostic_mask: Float[torch.Tensor, " variable"],
-        boundary_steps: Float[torch.Tensor, "batch time variable lat lon"]
-        | None = None,
+        prognostic: TorchDataSource,
+        boundary: TorchDataSource | None = None,
     ) -> Input:
         """Prepare tensor steps by normalizing, masking and flattening dimensions."""
-
-        def normalize(
-            data: Float[torch.Tensor, "batch time var lat lon"],
-            means: Float[torch.Tensor, " var"],
-            stds: Float[torch.Tensor, " var"],
-            fill_nan: bool = True,
-            fill_value: float = 0.0,
-        ) -> Float[torch.Tensor, "batch time var lat lon"]:
-            """Normalize input data treated as torch Tensors."""
-            norm = (data - means.view(1, 1, -1, 1, 1)) / stds.view(1, 1, -1, 1, 1)
-            if fill_nan:
-                norm = norm.nan_to_num(nan=fill_value)
-            norm = norm.to(data.dtype)
-            return norm
-
-        # Normalize and mask tensors
-        def normalize_and_mask(
-            tensor: torch.Tensor,
-            means: torch.Tensor,
-            stds: torch.Tensor,
-            mask: torch.Tensor,
-        ) -> torch.Tensor:
-            if self.normalize_before_mask:
-                tensor = normalize(tensor, means, stds)
-            tensor = torch.where(mask, tensor, self.masked_fill_value)
-            if not self.normalize_before_mask:
-                tensor = normalize(tensor, means, stds)
-            return tensor
-
-        prognostic_steps = normalize_and_mask(
-            prognostic_steps,
-            prognostic_means,
-            prognostic_stds,
-            prognostic_mask,
+        prognostic_steps = prognostic.normalize_and_mask(
+            self.normalize_before_mask, self.masked_fill_value
         )
-        if boundary_steps is not None:
-            boundary_steps = normalize_and_mask(
-                boundary_steps,
-                self.boundary_means,
-                self.boundary_stds,
-                self.wet_surface,
-            )
 
         # Flatten time and variable dimensions
         def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:
@@ -664,7 +638,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             )
 
         prognostic_steps = flatten_dims(prognostic_steps)
-        if boundary_steps is not None:
+        if boundary is not None:
+            boundary_steps = boundary.normalize_and_mask(
+                self.normalize_before_mask, self.masked_fill_value
+            )
             boundary_steps = flatten_dims(boundary_steps)
             return torch.cat((prognostic_steps, boundary_steps), dim=1)
 
@@ -726,7 +703,7 @@ class TrainDataLoader:
         """Iterate over the dataloader, converting RawTrainData to TrainData."""
         for raw_train_data in self._dataloader:
             dataset = self._datasets[raw_train_data.dataset_id]
-            train_data = dataset.to_train_data(raw_train_data)
+            train_data = dataset.to_train_data(raw_train_data, self._device)
             yield train_data
 
     def __len__(self) -> int:
@@ -740,14 +717,14 @@ class TrainDataLoader:
         """
         # Access the underlying dataset directly
         raw_train_data = self._dataloader.dataset[index]
-        # Apply collate function to add batch dimension (expects a list)
+        # Apply the collate function to add batch dimension (expects a list)
         collate_fn = self._dataloader.collate_fn
         if collate_fn is not None:
             raw_train_data = collate_fn([raw_train_data])
         # Get the dataset that created this raw data
         dataset = self._datasets[raw_train_data.dataset_id]
         # Convert to TrainData
-        train_data = dataset.to_train_data(raw_train_data)
+        train_data = dataset.to_train_data(raw_train_data, self._device)
         return train_data
 
     @property

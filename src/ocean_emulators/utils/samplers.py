@@ -1,7 +1,7 @@
 import itertools
 import random
 from collections.abc import Callable, Hashable
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from torch.utils.data import BatchSampler, Sampler, SubsetRandomSampler
 
@@ -165,3 +165,76 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
             total_batches += len(sampler)
 
         return total_batches
+
+
+class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
+    """Distributed version of EquivalenceGroupBatchSampler for multi-GPU training.
+
+    Uses composition to delegate batching logic to EquivalenceGroupBatchSampler,
+    handling only the distribution and epoch-based shuffling.
+
+    Args:
+        datasets: List of TorchTrainDataset instances to group
+        group_key: Callable that extracts grouping key from a dataset
+        batch_size: Number of samples per batch
+        num_replicas: Number of distributed workers (world size)
+        rank: Index of current worker (0 to num_replicas-1)
+        shuffle: Whether to shuffle batches
+        drop_last: Whether to drop incomplete batches within each group
+        seed: Random seed for shuffling (default: 0)
+    """
+
+    def __init__(
+        self,
+        datasets: list["TorchTrainDataset"],
+        group_key: Callable[["TorchTrainDataset"], Any],
+        batch_size: int,
+        num_replicas: int,
+        rank: int,
+        shuffle: bool = True,
+        drop_last: bool = False,
+        seed: int = 0,
+    ):
+        super().__init__()
+        if rank >= num_replicas or rank < 0:
+            raise ValueError(
+                f"Invalid rank {rank}, must be in range [0, {num_replicas})"
+            )
+
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.shuffle = shuffle
+        self.seed = seed
+        self.epoch = 0
+
+        # Delegate batching logic to inner sampler (without shuffle for determinism)
+        self._inner = EquivalenceGroupBatchSampler.from_datasets(
+            datasets=datasets,
+            group_key=group_key,
+            batch_size=batch_size,
+            shuffle=False,  # We handle shuffling with seeded RNG
+            drop_last=drop_last,
+        )
+
+    def set_epoch(self, epoch: int) -> None:
+        """Set the epoch for deterministic shuffling across workers."""
+        self.epoch = epoch
+
+    def __iter__(self):
+        # Get all batches from inner sampler (deterministic order)
+        all_batches = list(self._inner)
+
+        # Shuffle with seeded RNG so all workers get identical ordering
+        if self.shuffle:
+            rng = random.Random(self.seed + self.epoch)
+            rng.shuffle(all_batches)
+
+        # Each worker takes every num_replicas'th batch starting at rank
+        for i in range(self.rank, len(all_batches), self.num_replicas):
+            yield all_batches[i]
+
+    def __len__(self):
+        """Number of batches for this worker."""
+        total_batches = len(self._inner)
+        # Each worker gets ceil(total / num_replicas) batches at most
+        return (total_batches + self.num_replicas - 1 - self.rank) // self.num_replicas

@@ -331,7 +331,7 @@ class TorchDataSource:
             tensor = self._normalize(tensor)
         tensor = torch.where(self.mask, tensor, masked_fill_value)
         if not normalize_before_mask:
-            tensor = self._normalize(tensor, fill_nan=False)
+            tensor = self._normalize(tensor)
         return tensor
 
     def to(self, device: torch.device, non_blocking: bool = False) -> Self:

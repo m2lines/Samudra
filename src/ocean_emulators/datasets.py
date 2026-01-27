@@ -435,6 +435,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         self.device = get_device()
+        # If the src and dst DataSource are the same, we can do a lot less work.
+        srcs = [src] if src is dst else [src, dst]
 
         self.hist: int = hist
         self.steps: int = steps
@@ -448,9 +450,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             "src and dst DataSource have different time slices!"
         )
         time_ = src.data.time
-        self._input_src = src.filter(prognostic_var_names, prefix="input")
+        self._prognostic_srcs = [
+            src.filter(prognostic_var_names, prefix="prog") for src in srcs
+        ]
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
-        self._label_src = dst.filter(prognostic_var_names, prefix="label")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -470,9 +473,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
-        self.wet_input: PrognosticMask = src.masks.prognostic.to(self.device)
+        self.wet_prognostic: list[PrognosticMask] = [
+            src.masks.prognostic.to(self.device) for src in srcs
+        ]
         self.wet_surface: GridMask = src.masks.boundary.to(self.device)
-        self.wet_label: PrognosticMask = dst.masks.prognostic.to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
             if "lev" in means_or_stds.dims:
@@ -485,14 +489,15 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 array = means_or_stds.to_dataarray()
             return torch.from_numpy(array.to_numpy().flatten()).to(self.device)
 
-        self.input_means = flatten_to_device(self._input_src.means)
-        self.input_stds = flatten_to_device(self._input_src.stds)
+        self.prognostic_means = [
+            flatten_to_device(src.means) for src in self._prognostic_srcs
+        ]
+        self.prognostic_stds = [
+            flatten_to_device(dst.stds) for dst in self._prognostic_srcs
+        ]
 
         self.boundary_means = flatten_to_device(self._boundary_src.means)
         self.boundary_stds = flatten_to_device(self._boundary_src.stds)
-
-        self.label_means = flatten_to_device(self._label_src.means)
-        self.label_stds = flatten_to_device(self._label_src.stds)
 
         self.size: int = (
             time_.size
@@ -510,59 +515,49 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
-            input_selected = self._input_src.data.isel(time=x_index)
+            prognostic_selected = [
+                src.data.isel(time=x_index) for src in self._prognostic_srcs
+            ]
             boundary_selected = self._boundary_src.data.isel(time=x_index)
-            label_selected = self._label_src.data.isel(time=x_index)
 
             if self._executor is not None:
+                datasets = prognostic_selected + [boundary_selected]
                 concurrent_compute(
-                    input_selected,
-                    boundary_selected,
-                    label_selected,
+                    *datasets,
                     executor=self._executor,
                 )
 
-            if "lev" in input_selected.dims:
-                input_ = torch.from_numpy(
-                    conditional_rearrange(
-                        input_selected,
-                        "time (variable lev)=var lat lon",
-                        concat_dim="var",
+            if "lev" in prognostic_selected[0].dims:
+                prognostics = [
+                    torch.from_numpy(
+                        conditional_rearrange(
+                            selected,
+                            "time (variable lev)=var lat lon",
+                            concat_dim="var",
+                        )
+                        .rename({"var": "variable"})
+                        .to_numpy()
+                        .astype(np.float32, copy=False)
                     )
-                    .rename({"var": "variable"})
-                    .to_numpy()
-                    .astype(np.float32, copy=False)
-                )
-                label = torch.from_numpy(
-                    conditional_rearrange(
-                        label_selected,
-                        "time (variable lev)=var lat lon",
-                        concat_dim="var",
-                    )
-                    .rename({"var": "variable"})
-                    .to_numpy()
-                    .astype(np.float32, copy=False)
-                )
+                    for selected in prognostic_selected
+                ]
             else:
-                input_ = torch.from_numpy(
-                    input_selected.to_array()
-                    .transpose("time", "variable", "lat", "lon")
-                    .to_numpy()
-                    .astype(np.float32, copy=False)
-                )
-                label = torch.from_numpy(
-                    label_selected.to_array()
-                    .transpose("time", "variable", "lat", "lon")
-                    .to_numpy()
-                    .astype(np.float32, copy=False)
-                )
+                prognostics = [
+                    torch.from_numpy(
+                        selected.to_array()
+                        .transpose("time", "variable", "lat", "lon")
+                        .to_numpy()
+                        .astype(np.float32, copy=False)
+                    )
+                    for selected in prognostic_selected
+                ]
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
                 .astype(np.float32, copy=False)
             )
-
+            input_, label = prognostics[0], prognostics[-1]
             TD.insert(input_, boundary, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
@@ -574,6 +569,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             input_, label = self._to_example(
                 input_.to(device=self.device, non_blocking=True),
                 boundary.to(device=self.device, non_blocking=True),
+                # If this is the same as input_, `to` should return without copying.
                 label.to(device=self.device, non_blocking=True),
             )
             train_data.append(input_, label)
@@ -590,17 +586,17 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
             input_[:, : self.hist + 1, :, :, :],
-            self.input_means,
-            self.input_stds,
-            self.wet_input,
+            self.prognostic_means[0],
+            self.prognostic_stds[0],
+            self.wet_prognostic[0],
             boundary[:, : self.hist + 1, :, :, :],
         )
         # grab future steps, repeat as we do for input
         label = self._prep_tensor_steps(
             label[:, self.hist + 1 :, :, :, :],
-            self.label_means,
-            self.label_stds,
-            self.wet_label,
+            self.prognostic_means[-1],
+            self.prognostic_stds[-1],
+            self.wet_prognostic[-1],
         )
         return total_input, label
 

@@ -120,7 +120,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
             >>> # Group datasets by resolution, allowing different strides to be batched together
             >>> sampler = EquivalenceGroupBatchSampler.from_datasets(
             ...     datasets=dataset_list,
-            ...     group_key=lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon']),
+            ...     group_key=lambda ds: tuple(prog.data.sizes["lat"], prog.data.sizes["lon"] for prog in ds._prognostic_srcs),
             ...     batch_size=32,
             ...     shuffle=True,
             ...     drop_last=True,

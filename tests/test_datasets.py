@@ -148,11 +148,9 @@ def make_loader(
                 # This ensures datasets with same (src, dst) resolution pair but different strides can batch
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
-                    group_key=lambda ds: (
-                        ds._input_src.data.sizes["lat"],
-                        ds._input_src.data.sizes["lon"],
-                        ds._label_src.data.sizes["lat"],
-                        ds._label_src.data.sizes["lon"],
+                    group_key=lambda ds: tuple(
+                        (prog.data.sizes["lat"], prog.data.sizes["lon"])
+                        for prog in ds._prognostic_srcs
                     ),
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,

@@ -514,7 +514,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         TD = RawTrainData(
-            self.id, self._label_src.masks.prognostic_with_hist(self.hist)
+            self.id, self._prognostic_srcs[-1].masks.prognostic_with_hist(self.hist)
         )
 
         for step in range(self.steps):

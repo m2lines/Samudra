@@ -138,6 +138,9 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
+        assert self.train_schedule == "standard", (
+            "Mix and Match schedulers are not ready yet!"
+        )
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:

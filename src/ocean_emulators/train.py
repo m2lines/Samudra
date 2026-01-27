@@ -180,7 +180,7 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
 
-        self.src = self.data_container.sources[0]
+        self.src = self.data_container.primary_source
         self.data = self.src.data
         self.static_data = self.data_container.static_data
 

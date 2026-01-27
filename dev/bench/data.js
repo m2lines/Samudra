@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769205814817,
+  "lastUpdate": 1769538953094,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6789,6 +6789,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.9803856414281276",
             "extra": "mean: 90.82804510559998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0fb910701775beca0cd5909b1c853a3b0009d4e6",
+          "message": "Fix performance regression introduced by new multi modal data loader. (#556)\n\nThis only fixes the performance regression when loading single datasets\n(i.e. \"standard\"). Loading multiple datasets is inherently slower. We\nwill only know the final benchmark results when the are automatically\nrun. Short of that, here is some evidence that the changes in this PR is\nan improvement:\n\nStart: \n```\n------------------------------------------------------------------------------------------- benchmark: 1 tests ------------------------------------------------------------------------------------------\nName (time in ms)                                                                                               Min       Max      Mean   StdDev    Median      IQR  Outliers     OPS  Rounds  Iterations\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\ntest_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]     766.8572  866.5532  806.3264  38.8650  806.3489  51.7769       2;0  1.2402       5           1\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\nLegend:\n  Outliers: 1 Standard Deviation from Mean; 1.5 IQR (InterQuartile Range) from 1st Quartile and 3rd Quartile.\n  OPS: Operations Per Second, computed as 1 / Mean\n```\n\nFinish:\n```\n------------------------------------------------------------------------------------------- benchmark: 1 tests ------------------------------------------------------------------------------------------\nName (time in ms)                                                                                               Min       Max      Mean   StdDev    Median      IQR  Outliers     OPS  Rounds  Iterations\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\ntest_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]     414.9687  524.9424  458.3332  44.6805  448.1001  68.2806       1;0  2.1818       5           1\n---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n\nLegend:\n  Outliers: 1 Standard Deviation from Mean; 1.5 IQR (InterQuartile Range) from 1st Quartile and 3rd Quartile.\n  OPS: Operations Per Second, computed as 1 / Mean\n```\n\nTL;DR: This cuts standard data loading time in half on average.",
+          "timestamp": "2026-01-27T18:05:13Z",
+          "tree_id": "dccc37729f9e88e18035a83b5f13c8714142cfa5",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/0fb910701775beca0cd5909b1c853a3b0009d4e6"
+        },
+        "date": 1769538952250,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.7767555638998669,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06669404985670077",
+            "extra": "mean: 1.287406291600007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16804045348259425,
+            "unit": "iter/sec",
+            "range": "stddev: 0.040345467862455145",
+            "extra": "mean: 5.950947996600002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.009045991120422377,
+            "unit": "iter/sec",
+            "range": "stddev: 0.563484768747926",
+            "extra": "mean: 110.54620623519999 sec\nrounds: 5"
           }
         ]
       }

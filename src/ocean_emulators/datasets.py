@@ -486,23 +486,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         ]
         self.wet_surface: GridMask = src.masks.boundary
 
-        def flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
-            if "lev" in means_or_stds.dims:
-                array = conditional_rearrange(
-                    means_or_stds,
-                    "(variable lev)=var",
-                    concat_dim="var",
-                ).rename({"var": "variable"})
-            else:
-                array = means_or_stds.to_dataarray()
-            return torch.from_numpy(array.to_numpy().flatten())
-
-        self.prognostic_means = [flatten(src.means) for src in self._prognostic_srcs]
-        self.prognostic_stds = [flatten(dst.stds) for dst in self._prognostic_srcs]
-
-        self.boundary_means = flatten(self._boundary_src.means)
-        self.boundary_stds = flatten(self._boundary_src.stds)
-
         self.size: int = (
             time_.size
             - self.steps * (self.hist + 1) * self.stride
@@ -585,23 +568,16 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
-                TorchDataSource(
-                    input_,
-                    self.prognostic_means[0],
-                    self.prognostic_stds[0],
-                    self.wet_prognostic[0],
+                TorchDataSource.from_data_source(
+                    input_, self.wet_input, self._prognostic_srcs[0],
                 ).to(device=device, non_blocking=True),
-                TorchDataSource(
+                TorchDataSource.from_data_source(
                     boundary,
-                    self.boundary_means,
-                    self.boundary_stds,
                     self.wet_surface,
+                    self._boundary_src,
                 ).to(device=device, non_blocking=True),
-                TorchDataSource(
-                    label,
-                    self.prognostic_means[-1],
-                    self.prognostic_stds[-1],
-                    self.wet_prognostic[-1],
+                TorchDataSource.from_data_source(
+                    label, self.wet_label, self._prognostic_srcs[-1]
                 ).to(device=device, non_blocking=True),
             )
             train_data.append(input_, label)

@@ -299,12 +299,35 @@ class DataSource:
         )
 
 
+def _flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
+    if "lev" in means_or_stds.dims:
+        array = conditional_rearrange(
+            means_or_stds,
+            "(variable lev)=var",
+            concat_dim="var",
+        ).rename({"var": "variable"})
+    else:
+        array = means_or_stds.to_dataarray()
+    return torch.from_numpy(array.to_numpy().flatten())
+
+
 @dataclasses.dataclass
 class TorchDataSource:
     data: Float[torch.Tensor, "batch time variable lat lon"]
     means: Float[torch.Tensor, " variable"]
     stds: Float[torch.Tensor, " variable"]
     mask: Bool[torch.Tensor, " variable"]
+
+    @classmethod
+    def from_data_source(
+        cls,
+        data: Float[torch.Tensor, "batch time variable lat lon"],
+        mask: Float[torch.Tensor, " variable"],
+        src: DataSource,
+    ) -> Self:
+        means_torch = _flatten(src.means)
+        stds_torch = _flatten(src.stds)
+        return cls(data, means_torch, stds_torch, mask)
 
     def map(self, data_func: Callable) -> Self:
         return dataclasses.replace(self, data=data_func(self.data))

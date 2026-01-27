@@ -531,7 +531,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 prognostics = [
                     torch.from_numpy(
                         conditional_rearrange(
-                            prog,
+                            selected,
                             "time (variable lev)=var lat lon",
                             concat_dim="var",
                         )
@@ -539,17 +539,17 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                         .to_numpy()
                         .astype(np.float32, copy=False)
                     )
-                    for prog in prognostic_selected
+                    for selected in prognostic_selected
                 ]
             else:
                 prognostics = [
                     torch.from_numpy(
-                        prog.to_array()
+                        selected.to_array()
                         .transpose("time", "variable", "lat", "lon")
                         .to_numpy()
                         .astype(np.float32, copy=False)
                     )
-                    for prog in prognostic_selected
+                    for selected in prognostic_selected
                 ]
             boundary = torch.from_numpy(
                 boundary_selected.to_array()

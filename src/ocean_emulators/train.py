@@ -184,7 +184,7 @@ class Trainer:
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
-        self.inference_src = self.data_container.source_using_dask
+        self.inference_src = self.data_container.inference_source
 
         self.loader_version = self.data_container.loader_version
 

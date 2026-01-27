@@ -1,6 +1,5 @@
 import contextlib
 import datetime
-import itertools
 import logging
 import multiprocessing
 import os
@@ -722,14 +721,12 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        scales = self.data_container.sources
+        srcs: Iterable[tuple[DataSource, DataSource]] = []
         match self.train_schedule:
             case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource]] = [(self.src, self.src)]
-            case "match":
-                srcs = [(s, s) for s in scales]
-            case "mix":
-                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
+                srcs = [(self.src, self.src)]
+            case "match" | "mix":
+                raise ValueError(f"{self.train_schedule} is not supported (yet).")
             case _:
                 assert_never(self.train_schedule)
 

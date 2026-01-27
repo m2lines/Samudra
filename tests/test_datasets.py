@@ -96,7 +96,7 @@ def make_loader(
         boundary,
     )
     version = container.loader_version
-    src = container.sources[0]
+    src = container.primary_source
     if src.is_compact and version != LoaderVersion.OM4_TORCH:
         pytest.skip(f"{version} does not support compact data.")
 

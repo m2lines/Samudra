@@ -308,7 +308,7 @@ class DataContainer:
     static_data: xr.Dataset | None = None
 
     @property
-    def source(self) -> DataSource:
+    def primary_source(self) -> DataSource:
         return self.sources[0]
 
 

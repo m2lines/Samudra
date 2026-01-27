@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from functools import partial
-from typing import Literal, assert_never
+from typing import Literal, Protocol, assert_never
 
 import numpy as np
 import torch
@@ -11,7 +11,14 @@ from jaxtyping import Float
 from ocean_emulators.constants import PrognosticMask
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-LossFnWithMask = Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
+
+
+class LossFnWithMask(Protocol):
+    def __call__(
+        self, pred: torch.Tensor, target: torch.Tensor, wet: PrognosticMask
+    ) -> torch.Tensor: ...
+
+
 LossMetric = Literal[
     "mse",
     "mae",

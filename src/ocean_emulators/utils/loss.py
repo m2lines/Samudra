@@ -162,9 +162,10 @@ class MseDynamic:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = decomposed_mse(
             pred, target, self._wet
         )
+        # Channels are time-major: (hist+1) * var.
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
-            loss_with_history_channels.reshape(self._per_channel_scale.shape[0], -1)
-            * self._per_channel_scale.unsqueeze(1)
+            loss_with_history_channels.reshape(-1, self._per_channel_scale.shape[0])
+            * self._per_channel_scale
         )
         return scaled_loss_including_history_dimension.reshape(-1)
 
@@ -183,8 +184,8 @@ class MseDynamic:
         # by averaging along the `hist` dimension
         new_target_weights: Float[torch.Tensor, " var"] = (
             new_target_weights_with_history.reshape(
-                self._per_channel_scale.shape[0], -1
-            ).mean(dim=1)
+                -1, self._per_channel_scale.shape[0]
+            ).mean(dim=0)
         )
         if self._limits is not None:
             new_target_weights = new_target_weights.min(self._limits)
@@ -252,9 +253,10 @@ class CrpsDynamic:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = crps_ensemble(
             pred, target, self._wet
         )
+        # Channels are time-major: (hist+1) * var.
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
-            loss_with_history_channels.reshape(self._per_channel_scale.shape[0], -1)
-            * self._per_channel_scale.unsqueeze(1)
+            loss_with_history_channels.reshape(-1, self._per_channel_scale.shape[0])
+            * self._per_channel_scale
         )
         return scaled_loss_including_history_dimension.reshape(-1)
 
@@ -278,8 +280,8 @@ class CrpsDynamic:
         # by averaging along the `hist` dimension
         new_target_weights: Float[torch.Tensor, " var"] = (
             new_target_weights_with_history.reshape(
-                self._per_channel_scale.shape[0], -1
-            ).mean(dim=1)
+                -1, self._per_channel_scale.shape[0]
+            ).mean(dim=0)
         )
 
         if get_world_size() > 1:

@@ -586,7 +586,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 TorchDataSource(
-                    input_, self.prognostic_means[0], self.prognostic_stds[0], self.wet_prognostic[0],
+                    input_,
+                    self.prognostic_means[0],
+                    self.prognostic_stds[0],
+                    self.wet_prognostic[0],
                 ).to(device=device, non_blocking=True),
                 TorchDataSource(
                     boundary,
@@ -595,7 +598,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     self.wet_surface,
                 ).to(device=device, non_blocking=True),
                 TorchDataSource(
-                label, self.prognostic_means[-1], self.prognostic_stds[-1], self.wet_prognostic[-1],
+                    label,
+                    self.prognostic_means[-1],
+                    self.prognostic_stds[-1],
+                    self.wet_prognostic[-1],
                 ).to(device=device, non_blocking=True),
             )
             train_data.append(input_, label)

@@ -588,9 +588,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         train_data = TrainData(self.num_prognostic_channels)
         for input_, boundary, label in raw_train_data.raw_data:
             input_ = input_.to(device=self.device, non_blocking=True)
-            label = input_
             if self.independent_label:
                 label = label.to(device=self.device, non_blocking=True)
+            else:
+                label = input_
             input_, label = self._to_example(
                 input_,
                 boundary.to(device=self.device, non_blocking=True),

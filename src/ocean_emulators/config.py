@@ -214,11 +214,11 @@ class DataConfig(BaseConfig):
         primary_source = sources[0]
         if use_dask:
             # If we're already using dask, we don't need a second source
-            source_using_dask = primary_source
+            inference_source = primary_source
         else:
             # If we're not using dask for the main source, create a separate one
             primary = self.sources[0]
-            source_using_dask, _ = make_source(
+            inference_source, _ = make_source(
                 primary.data_location,
                 primary.data_means_location,
                 primary.data_stds_location,
@@ -233,7 +233,7 @@ class DataConfig(BaseConfig):
 
         return DataContainer(
             sources,
-            source_using_dask,
+            inference_source,
             loader_version,
             supports_fork,
             static_data,

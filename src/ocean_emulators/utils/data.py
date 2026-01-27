@@ -417,6 +417,17 @@ class TorchDataSource:
     stds: Float[torch.Tensor, " variable"]
     mask: Bool[torch.Tensor, " variable"]
 
+    @classmethod
+    def from_data_source(
+        cls,
+        data: Float[torch.Tensor, "batch time variable lat lon"],
+        mask: Float[torch.Tensor, " variable"],
+        src: DataSource,
+    ) -> Self:
+        means_torch = _flatten(src.means)
+        stds_torch = _flatten(src.stds)
+        return cls(data, means_torch, stds_torch, mask)
+
     def map(self, data_func: Callable) -> Self:
         return dataclasses.replace(self, data=data_func(self.data))
 

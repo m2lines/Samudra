@@ -420,59 +420,6 @@ class OceanData:
 
 
 @dataclasses.dataclass
-class TorchDataSource:
-    data: Float[torch.Tensor, "batch time variable lat lon"]
-    means: Float[torch.Tensor, " variable"]
-    stds: Float[torch.Tensor, " variable"]
-    mask: Bool[torch.Tensor, " variable"]
-
-    def map(self, data_func: Callable) -> Self:
-        return dataclasses.replace(self, data=data_func(self.data))
-
-    def normalize(
-        self, fill_nan: bool = True, fill_value: float = 0.0
-    ) -> Float[torch.Tensor, "batch time var lat lon"]:
-        """Normalize input data treated as torch Tensors."""
-        norm = (self.data - self.means.view(1, 1, -1, 1, 1)) / self.stds.view(
-            1, 1, -1, 1, 1
-        )
-        if fill_nan:
-            norm = norm.nan_to_num(nan=fill_value)
-        norm = norm.to(self.data.dtype)
-        return norm
-
-    def normalize_and_mask(
-        self, normalize_before_mask: bool, masked_fill_value: float
-    ) -> Float[torch.Tensor, "batch time var lat lon"]:
-        """Normalize and mask tensors."""
-        tensor = self.data
-        if normalize_before_mask:
-            tensor = self.normalize()
-        tensor = torch.where(self.mask, tensor, masked_fill_value)
-        if not normalize_before_mask:
-            tensor = self.normalize()
-        return tensor
-
-    def to(self, device: torch.device, non_blocking: bool = False) -> Self:
-        return dataclasses.replace(
-            self,
-            data=self.data.to(device, non_blocking=non_blocking),
-            means=self.means.to(device, non_blocking=non_blocking),
-            stds=self.stds.to(device, non_blocking=non_blocking),
-            mask=self.mask.to(device, non_blocking=non_blocking),
-        )
-
-    def pin_memory(self, device: torch.device | None = None) -> Self:
-        return dataclasses.replace(
-            self,
-            data=self.data.pin_memory(device=device),
-            means=self.means.pin_memory(device=device),
-            stds=self.stds.pin_memory(device=device),
-            mask=self.mask.pin_memory(device=device),
-        )
-
-
-@dataclasses.dataclass
 class DataContainer:
     sources: list[DataSource]
     inference_source: DataSource

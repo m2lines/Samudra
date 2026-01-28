@@ -610,19 +610,19 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def _to_example(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        input_all: OceanData,
-        boundary_all: OceanData,
-        label_all: OceanData,
+        input_: OceanData,
+        boundary: OceanData,
+        label: OceanData,
     ) -> tuple[Input, Prognostic]:
         # Move normalization parameters to the same device as input data
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
-            input_all.with_time(slice(0, self.hist + 1)),
-            boundary_all.with_time(slice(0, self.hist + 1)),
+            input_.with_time(slice(0, self.hist + 1)),
+            boundary.with_time(slice(0, self.hist + 1)),
         )
         # grab future steps, repeat as we do for input
         label_tensor = self._prep_tensor_steps(
-            label_all.with_time(slice(self.hist + 1, None)),
+            label.with_time(slice(self.hist + 1, None)),
         )
         return total_input, label_tensor
 

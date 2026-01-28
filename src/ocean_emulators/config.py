@@ -394,7 +394,6 @@ class PerceiverConfig(BaseConfig):
 
 
 class EncoderConfig(BaseConfig):
-    # TODO(alxmrs): Remove patch_size from all configs
     spatial_extent: list[float] = Field(
         default=[6.0, 10.0],
         description="Target physical extent of each patch in degrees [height_deg, width_deg]. "

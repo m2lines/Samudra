@@ -395,10 +395,6 @@ class PerceiverConfig(BaseConfig):
 
 class EncoderConfig(BaseConfig):
     # TODO(alxmrs): Remove patch_size from all configs
-    patch_size: int | list[int] = Field(
-        default=4,
-        description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
-    )
     spatial_extent: list[float] = Field(
         default=[6.0, 10.0],
         description="Target physical extent of each patch in degrees [height_deg, width_deg]. "

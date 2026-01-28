@@ -7,7 +7,6 @@ checkpointing: "all"
 embedding_dim: 128  # Reduced from 280
 
 encoder:
-  patch_size: [12, 20]
   perceiver:
     implementation: "naive"
     depth: 2  # Reduced from 3

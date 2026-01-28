@@ -10,6 +10,7 @@ import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
 from torch.utils.data import Dataset
+from torch.utils.dlpack import from_dlpack
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
@@ -22,11 +23,69 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from ocean_emulators.utils.data import DataSource, LoadStats, conditional_rearrange
+from ocean_emulators.utils.data import (
+    DataSource,
+    LoadStats,
+    conditional_rearrange,
+    ensure_cupy_backend,
+)
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
 
 logger = logging.getLogger(__name__)
+
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
+
+try:
+    import dask.array as da
+except ImportError:
+    da = None
+
+
+def _compute_if_needed(array):
+    compute = getattr(array, "compute", None)
+    if callable(compute):
+        return compute()
+    return array
+
+
+def _xr_to_torch(
+    array_like: xr.DataArray | xr.Variable | np.ndarray | torch.Tensor,
+    *,
+    device: torch.device,
+    dtype: torch.dtype = torch.float32,
+) -> torch.Tensor:
+    if isinstance(array_like, (xr.DataArray, xr.Variable)):
+        array = array_like.data
+    else:
+        array = array_like
+
+    array = _compute_if_needed(array)
+
+    if cp is not None and isinstance(array, cp.ndarray):
+        tensor = from_dlpack(array)
+        if tensor.device != device:
+            tensor = tensor.to(device=device, non_blocking=True)
+        return tensor.to(dtype=dtype)
+
+    tensor = torch.as_tensor(array)
+    if tensor.device != device:
+        tensor = tensor.to(device=device, non_blocking=True)
+    return tensor.to(dtype=dtype)
+
+
+def _is_cupy_backend(dataset: xr.Dataset) -> bool:
+    if cp is None:
+        return False
+    for var in dataset.data_vars.values():
+        data = var.data
+        if da is not None and isinstance(data, da.Array):
+            return isinstance(data._meta, cp.ndarray)
+        return isinstance(data, cp.ndarray)
+    return False
 
 
 class InferenceDataset(Dataset):
@@ -96,8 +155,8 @@ class InferenceDataset(Dataset):
         self.size = len(self.rolling_indices)
 
         if using_gpu():
-            self.wet = self.wet.pin_memory()
-            self.wet_surface = self.wet_surface.pin_memory()
+            self.wet = self.wet.to(self.device, non_blocking=True)
+            self.wet_surface = self.wet_surface.to(self.device, non_blocking=True)
 
     def __len__(self):
         return self.size
@@ -176,28 +235,33 @@ class InferenceDataset(Dataset):
         data_in_src = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
-        if self.normalize_before_mask:
+        use_torch_normalize = self.normalize_before_mask and _is_cupy_backend(
+            data_in_src.data
+        )
+        if self.normalize_before_mask and not use_torch_normalize:
             data_in_ds = data_in_src.normalize()
         else:
             data_in_ds = data_in_src.data
 
         if "lev" in data_in_ds.dims:
-            data_in_np: np.ndarray = (
+            data_in_arr = (
                 conditional_rearrange(
                     data_in_ds,
                     "window_dim time (variable lev)=var lat lon",
                     concat_dim="var",
                 )
                 .rename({"var": "variable"})
-                .to_numpy()
+                .astype(np.float32, copy=False)
             )
         else:
-            data_in_np = (
+            data_in_arr = (
                 data_in_ds.to_array()
                 .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
+                .astype(np.float32, copy=False)
             )
-        data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
+        data_in = _xr_to_torch(data_in_arr, device=self.device)
+        if use_torch_normalize:
+            data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
         data_in = torch.where(self.wet, data_in, self.masked_fill_value)
         if not self.normalize_before_mask:
             data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
@@ -217,16 +281,23 @@ class InferenceDataset(Dataset):
         data_in_boundary_src = self._boundary_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
         )
-        if self.normalize_before_mask:
+        use_torch_normalize = self.normalize_before_mask and _is_cupy_backend(
+            data_in_boundary_src.data
+        )
+        if self.normalize_before_mask and not use_torch_normalize:
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_np: np.ndarray = (
+        data_in_boundary_arr = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
+            .astype(np.float32, copy=False)
         )
-        data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
+        data_in_boundary = _xr_to_torch(data_in_boundary_arr, device=self.device)
+        if use_torch_normalize:
+            data_in_boundary = self._boundary_src.normalize_with(
+                data_in_boundary, variable_axis=2
+            )
         data_in_boundary = torch.where(
             self.wet_surface, data_in_boundary, self.masked_fill_value
         )
@@ -244,27 +315,32 @@ class InferenceDataset(Dataset):
         label_src = self._prognostic_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
         )
-        if self.normalize_before_mask:
+        use_torch_normalize = self.normalize_before_mask and _is_cupy_backend(
+            label_src.data
+        )
+        if self.normalize_before_mask and not use_torch_normalize:
             label_ds = label_src.normalize()
         else:
             label_ds = label_src.data
         if "lev" in label_ds.dims:
-            label_np: np.ndarray = (
+            label_arr = (
                 conditional_rearrange(
                     label_ds,
                     "window_dim time (variable lev)=var lat lon",
                     concat_dim="var",
                 )
                 .rename({"var": "variable"})
-                .to_numpy()
+                .astype(np.float32, copy=False)
             )
         else:
-            label_np = (
+            label_arr = (
                 label_ds.to_array()
                 .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
+                .astype(np.float32, copy=False)
             )
-        label: torch.Tensor = torch.from_numpy(label_np).float()
+        label = _xr_to_torch(label_arr, device=self.device)
+        if use_torch_normalize:
+            label = self._prognostic_src.normalize_with(label, variable_axis=2)
         label = torch.where(self.wet, label, self.masked_fill_value)
         if not self.normalize_before_mask:
             label = self._prognostic_src.normalize_with(label, variable_axis=2)
@@ -458,6 +534,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.wet_surface: GridMask = src.masks.boundary.to(self.device)
 
         def flatten_to_device(means_or_stds: xr.Dataset) -> torch.Tensor:
+            means_or_stds = ensure_cupy_backend(means_or_stds, allow_eager=True)
             if "lev" in means_or_stds.dims:
                 array = conditional_rearrange(
                     means_or_stds,
@@ -466,7 +543,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 ).rename({"var": "variable"})
             else:
                 array = means_or_stds.to_dataarray()
-            return torch.from_numpy(array.to_numpy().flatten()).to(self.device)
+            tensor = _xr_to_torch(
+                array.astype(np.float32, copy=False),
+                device=self.device,
+            )
+            return tensor.flatten()
 
         self.prognostic_means = flatten_to_device(self._prognostic_src.means)
         self.prognostic_stds = flatten_to_device(self._prognostic_src.stds)
@@ -499,29 +580,29 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 )
 
             if "lev" in prognostic_selected.dims:
-                prognostic_all = torch.from_numpy(
+                prognostic_arr = (
                     conditional_rearrange(
                         prognostic_selected,
                         "time (variable lev)=var lat lon",
                         concat_dim="var",
                     )
                     .rename({"var": "variable"})
-                    .to_numpy()
                     .astype(np.float32, copy=False)
                 )
+                prognostic_all = _xr_to_torch(prognostic_arr, device=self.device)
             else:
-                prognostic_all = torch.from_numpy(
+                prognostic_arr = (
                     prognostic_selected.to_array()
                     .transpose("time", "variable", "lat", "lon")
-                    .to_numpy()
                     .astype(np.float32, copy=False)
                 )
-            boundary = torch.from_numpy(
+                prognostic_all = _xr_to_torch(prognostic_arr, device=self.device)
+            boundary_arr = (
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
                 .astype(np.float32, copy=False)
             )
+            boundary = _xr_to_torch(boundary_arr, device=self.device)
 
             TD.insert(prognostic_all, boundary)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)

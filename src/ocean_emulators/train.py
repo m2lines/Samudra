@@ -54,6 +54,7 @@ from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
+    _xr_to_torch,
     get_inference_steps,
     spherical_area_weights,
 )
@@ -97,7 +98,12 @@ class Trainer:
         if not using_gpu():
             cfg.pin_mem = False
         elif cfg.disk_mode:
-            cfg.pin_mem = True
+            cfg.data.num_workers = 0
+            cfg.pin_mem = False
+            logger.info(
+                "Disk mode on GPU: forcing num_workers=0 and pin_mem=False "
+                "to keep data loading in-process."
+            )
 
         # Distributed mode
         dask.config.set(scheduler="synchronous")
@@ -203,8 +209,8 @@ class Trainer:
             wet=self.wet,
             area_weights=self.area_weights,
             static_data=self.static_data,
-            lat=torch.from_numpy(self.data.lat.values),
-            lon=torch.from_numpy(self.data.lon.values),
+            lat=_xr_to_torch(self.data.lat, device=self.device, dtype=torch.float32),
+            lon=_xr_to_torch(self.data.lon, device=self.device, dtype=torch.float32),
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir

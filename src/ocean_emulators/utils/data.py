@@ -11,6 +11,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 from jaxtyping import Bool
+from torch.utils.dlpack import from_dlpack
 
 if TYPE_CHECKING:
     from ocean_emulators.config import TimeConfig
@@ -35,8 +36,177 @@ from ocean_emulators.constants import (
 from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.location import ResolvedLocation
 from ocean_emulators.utils.multiton import Multiton
+from ocean_emulators.utils.device import using_gpu
 
 logger = logging.getLogger(__name__)
+_XARRAY_BACKEND_LOGGED: set[str] = set()
+
+try:
+    import dask.array as da
+except ImportError:
+    da = None
+
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
+
+
+def _detect_cupy_nvrtc() -> bool:
+    if cp is None:
+        return False
+    try:
+        from cupy_backends.cuda.libs import nvrtc
+
+        nvrtc.getVersion()
+    except Exception as exc:  # pragma: no cover - environment dependent
+        logger.warning(
+            "CuPy is installed but NVRTC is not available (%s). "
+            "Disabling CuPy-backed dask conversion.",
+            exc,
+        )
+        return False
+    return True
+
+
+_CUPY_ENABLED = _detect_cupy_nvrtc()
+
+
+def _compute_if_needed(array):
+    compute = getattr(array, "compute", None)
+    if callable(compute):
+        return compute()
+    return array
+
+
+def _xr_to_torch(
+    array_like: xr.DataArray | xr.Variable | np.ndarray | torch.Tensor,
+    *,
+    device: torch.device | None = None,
+    dtype: torch.dtype | None = None,
+) -> torch.Tensor:
+    if isinstance(array_like, (xr.DataArray, xr.Variable)):
+        array = array_like.data
+    else:
+        array = array_like
+
+    array = _compute_if_needed(array)
+
+    if cp is not None and isinstance(array, cp.ndarray):
+        tensor = from_dlpack(array)
+        if device is not None and tensor.device != device:
+            tensor = tensor.to(device=device, non_blocking=True)
+        return tensor.to(dtype=dtype) if dtype is not None else tensor
+
+    tensor = torch.as_tensor(array)
+    if device is not None and tensor.device != device:
+        tensor = tensor.to(device=device, non_blocking=True)
+    return tensor.to(dtype=dtype) if dtype is not None else tensor
+
+
+def _to_cupy_dask_array(array: object):
+    if not _CUPY_ENABLED or da is None or not isinstance(array, da.Array):
+        return array
+    if isinstance(array._meta, cp.ndarray):
+        return array
+    meta = cp.array((), dtype=array.dtype)
+    return array.map_blocks(cp.asarray, dtype=array.dtype, meta=meta)
+
+
+def ensure_cupy_backend(dataset: xr.Dataset, *, allow_eager: bool = False) -> xr.Dataset:
+    """Best-effort conversion of dataset variables to CuPy.
+
+    If allow_eager=True and a variable is a NumPy-backed array, convert it to
+    a CuPy array directly. This is intended for small datasets (means/stds).
+    """
+    if not using_gpu() or not _CUPY_ENABLED or da is None:
+        return dataset
+
+    changed = False
+    data_vars: dict[str, xr.DataArray] = {}
+    for name, var in dataset.data_vars.items():
+        data = _to_cupy_dask_array(var.data)
+        if data is var.data and allow_eager and cp is not None:
+            if not isinstance(data, cp.ndarray):
+                data = cp.asarray(data)
+        if data is not var.data:
+            changed = True
+            data_vars[name] = xr.DataArray(
+                data,
+                dims=var.dims,
+                coords=var.coords,
+                attrs=var.attrs,
+                name=var.name,
+            )
+
+    if not changed:
+        return dataset
+
+    updated = dataset.copy()
+    for name, data_array in data_vars.items():
+        updated[name] = data_array
+    return updated
+
+
+def is_xarray_cupy_backend(dataset: xr.Dataset) -> bool:
+    if cp is None:
+        return False
+    if not dataset.data_vars:
+        return False
+    sample = next(iter(dataset.data_vars.values()))
+    data = sample.data
+    if da is not None and isinstance(data, da.Array):
+        return isinstance(data._meta, cp.ndarray)
+    return isinstance(data, cp.ndarray)
+
+
+def log_xarray_backend(dataset: xr.Dataset, *, label: str) -> bool:
+    """Log whether xarray is backed by CuPy (GPU) or NumPy (CPU) arrays."""
+    if label in _XARRAY_BACKEND_LOGGED:
+        return is_xarray_cupy_backend(dataset)
+    _XARRAY_BACKEND_LOGGED.add(label)
+
+    if not dataset.data_vars:
+        logger.warning("xarray backend check for %s: no data variables found.", label)
+        return False
+
+    sample = next(iter(dataset.data_vars.values()))
+    data = sample.data
+
+    try:
+        import dask.array as da
+    except ImportError:
+        da = None
+
+    is_dask = da is not None and isinstance(data, da.Array)
+    if is_dask:
+        meta = data._meta
+        is_cupy = cp is not None and isinstance(meta, cp.ndarray)
+        backend = "cupy" if is_cupy else type(meta).__name__
+        logger.info("xarray backend for %s: dask[%s]", label, backend)
+    else:
+        is_cupy = cp is not None and isinstance(data, cp.ndarray)
+        backend = "cupy" if is_cupy else type(data).__name__
+        logger.info("xarray backend for %s: %s", label, backend)
+
+    if using_gpu():
+        if is_cupy:
+            logger.info("xarray backend for %s is GPU-backed (cupy).", label)
+        elif not _CUPY_ENABLED:
+            logger.warning(
+                "GPU is enabled but NVRTC is unavailable; "
+                "CuPy-backed dask conversion is disabled for %s.",
+                label,
+            )
+        else:
+            logger.warning(
+                "GPU is enabled but xarray backend for %s is %s; "
+                "data will stage on CPU. Install cupy + cupy-xarray and "
+                "use dask/chunked zarr to enable GPU-backed arrays.",
+                label,
+                backend,
+            )
+    return is_cupy
 
 
 def _var_name_encode_level(var_name: str) -> bool:
@@ -188,7 +358,9 @@ class DataSource:
     # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
-        norm = (self.data - self.means) / self.stds
+        means = ensure_cupy_backend(self.means, allow_eager=True)
+        stds = ensure_cupy_backend(self.stds, allow_eager=True)
+        norm = (self.data - means) / stds
         if fill_nan:
             norm = norm.fillna(fill_value)
         return norm
@@ -205,36 +377,25 @@ class DataSource:
         reshape_vars = [1] * data.ndim
         reshape_vars[variable_axis] = -1
 
-        # TODO(alxmrs): Do we have to reshape twice?
         if "lev" in self.means.dims:
-            means_np = (
-                conditional_rearrange(
-                    self.means,
-                    "(variable lev)=var",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-                .reshape(-1)
-            )
+            means_arr = conditional_rearrange(
+                self.means,
+                "(variable lev)=var",
+                concat_dim="var",
+            ).rename({"var": "variable"})
         else:
-            means_np = self.means.to_array().to_numpy().reshape(-1)
+            means_arr = self.means.to_array()
         if "lev" in self.stds.dims:
-            stds_np = (
-                conditional_rearrange(
-                    self.stds,
-                    "(variable lev)=var",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-                .reshape(-1)
-            )
+            stds_arr = conditional_rearrange(
+                self.stds,
+                "(variable lev)=var",
+                concat_dim="var",
+            ).rename({"var": "variable"})
         else:
-            stds_np = self.stds.to_array().to_numpy().reshape(-1)
+            stds_arr = self.stds.to_array()
 
-        means = torch.from_numpy(means_np).reshape(reshape_vars)
-        stds = torch.from_numpy(stds_np).reshape(reshape_vars)
+        means = _xr_to_torch(means_arr, device=data.device).reshape(reshape_vars)
+        stds = _xr_to_torch(stds_arr, device=data.device).reshape(reshape_vars)
 
         norm = (data - means) / stds
         if fill_nan:
@@ -258,6 +419,11 @@ class DataSource:
         data = data_location.open(chunks)
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
+
+        if use_dask:
+            data = ensure_cupy_backend(data, allow_eager=False)
+            means = ensure_cupy_backend(means, allow_eager=True)
+            stds = ensure_cupy_backend(stds, allow_eager=True)
 
         return cls.from_datasets(
             data,
@@ -402,16 +568,17 @@ def extract_wet_mask(
     data_ = flatten_masks(data)
     wet_mask = data_[MASK_VARS]
     if "time" in wet_mask.dims:
-        wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
-        wet_surface_mask_np = wet_mask[MASK_VARS[0]].isel(time=0).to_numpy()
+        wet_mask_arr = wet_mask.isel(time=0).to_array()
+        wet_surface_mask_arr = wet_mask[MASK_VARS[0]].isel(time=0)
     else:
-        wet_mask_np = wet_mask.to_array().to_numpy()
-        wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
+        wet_mask_arr = wet_mask.to_array()
+        wet_surface_mask_arr = wet_mask[MASK_VARS[0]]
 
     depth_ind = _parse_lev_from_output_var(prognostic_var_names)
 
-    wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
-    wet_surface = torch.from_numpy(wet_surface_mask_np)
+    wet_mask_tensor = _xr_to_torch(wet_mask_arr)
+    wet_inp = wet_mask_tensor[depth_ind]
+    wet_surface = _xr_to_torch(wet_surface_mask_arr)
     return Masks(wet_inp.bool(), wet_surface.bool())
 
 
@@ -464,7 +631,7 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
 
 def spherical_area_weights(data: xr.Dataset) -> Grid:
     num_lon = data.lon.size
-    lats = torch.from_numpy(data.lat.to_numpy())
+    lats = _xr_to_torch(data.lat, dtype=torch.float32)
     weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
     weights /= weights.sum()
     return weights
@@ -651,39 +818,57 @@ class Normalize(Multiton):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> None:
-        """Store normalization parameters and pre-compute numpy arrays."""
+        """Store normalization parameters and pre-compute tensor views."""
         prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         boundary_src = src.filter(boundary_var_names, prefix="boundary")
-        self.prognostic_mean = prognostic_src.means
-        self.prognostic_std = prognostic_src.stds
-        self.boundary_mean = boundary_src.means
-        self.boundary_std = boundary_src.stds
+        self.prognostic_mean = ensure_cupy_backend(
+            prognostic_src.means, allow_eager=True
+        )
+        self.prognostic_std = ensure_cupy_backend(
+            prognostic_src.stds, allow_eager=True
+        )
+        self.boundary_mean = ensure_cupy_backend(
+            boundary_src.means, allow_eager=True
+        )
+        self.boundary_std = ensure_cupy_backend(
+            boundary_src.stds, allow_eager=True
+        )
         self.wet_mask = src.masks.prognostic
         self.wet_mask_surface = src.masks.boundary
 
-        # Pre-compute numpy arrays for faster access
-        self._prognostic_mean_np = (
-            self.prognostic_mean.to_array().to_numpy().reshape(-1)
-        )
-        self._prognostic_std_np = self.prognostic_std.to_array().to_numpy().reshape(-1)
-        self._boundary_mean_np = self.boundary_mean.to_array().to_numpy().reshape(-1)
-        self._boundary_std_np = self.boundary_std.to_array().to_numpy().reshape(-1)
-        self._wet_mask_np = self.wet_mask.numpy()
+        self._prognostic_mean_t = _xr_to_torch(
+            self.prognostic_mean.to_array(),
+            dtype=torch.float32,
+        ).reshape(-1)
+        self._prognostic_std_t = _xr_to_torch(
+            self.prognostic_std.to_array(),
+            dtype=torch.float32,
+        ).reshape(-1)
+        self._boundary_mean_t = _xr_to_torch(
+            self.boundary_mean.to_array(),
+            dtype=torch.float32,
+        ).reshape(-1)
+        self._boundary_std_t = _xr_to_torch(
+            self.boundary_std.to_array(),
+            dtype=torch.float32,
+        ).reshape(-1)
 
-    def _to_tensor(self, array: np.ndarray, device: torch.device) -> torch.Tensor:
-        """Convert numpy array to tensor on specified device."""
-        return torch.from_numpy(array).to(device)
+        # Backward-compatible attribute names used in tests and downstream code.
+        self._prognostic_mean_np = self._prognostic_mean_t
+        self._prognostic_std_np = self._prognostic_std_t
+        self._boundary_mean_np = self._boundary_mean_t
+        self._boundary_std_np = self._boundary_std_t
 
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
     ) -> torch.Tensor:
         """Normalize prognostic tensor."""
-        tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
-        tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
+        tensor_mean = self._prognostic_mean_t.to(data.device, non_blocking=True)
+        tensor_std = self._prognostic_std_t.to(data.device, non_blocking=True)
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1
-        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
+        assert data.shape[-3] == self._prognostic_mean_t.shape[0]
         tensor_mean = tensor_mean.reshape(expand_var_dim)
         tensor_std = tensor_std.reshape(expand_var_dim)
 
@@ -697,12 +882,12 @@ class Normalize(Multiton):
         self, data: torch.Tensor, fill_value=float("nan")
     ) -> torch.Tensor:
         """Unnormalize prognostic tensor and apply fill value to land cells."""
-        tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
-        tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
+        tensor_mean = self._prognostic_mean_t.to(data.device, non_blocking=True)
+        tensor_std = self._prognostic_std_t.to(data.device, non_blocking=True)
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1
-        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
+        assert data.shape[-3] == self._prognostic_mean_t.shape[0]
         tensor_mean = tensor_mean.reshape(expand_var_dim)
         tensor_std = tensor_std.reshape(expand_var_dim)
 
@@ -715,12 +900,12 @@ class Normalize(Multiton):
         self, data: torch.Tensor, fill_value=float("nan")
     ) -> torch.Tensor:
         """Unnormalize boundary tensor."""
-        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device)
-        tensor_std = self._to_tensor(self._boundary_std_np, data.device)
+        tensor_mean = self._boundary_mean_t.to(data.device, non_blocking=True)
+        tensor_std = self._boundary_std_t.to(data.device, non_blocking=True)
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1
-        assert data.shape[-3] == self._boundary_mean_np.shape[0]
+        assert data.shape[-3] == self._boundary_mean_t.shape[0]
         tensor_mean = tensor_mean.reshape(expand_var_dim)
         tensor_std = tensor_std.reshape(expand_var_dim)
 

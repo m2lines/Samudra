@@ -18,7 +18,7 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.derived_variables import compute_global_ocean_heat_content
-from ocean_emulators.utils.data import Normalize
+from ocean_emulators.utils.data import Normalize, _xr_to_torch
 from ocean_emulators.utils.device import get_device
 
 
@@ -292,9 +292,13 @@ class Correctors(torch.nn.Module):
             )
             hfgeou = static_data["hfgeou"]
             sea_surface_fraction = static_data["sea_surface_fraction"]
-            hfgeou_tensor = torch.from_numpy(hfgeou.to_numpy())
-            sea_surface_fraction_tensor = torch.from_numpy(
-                sea_surface_fraction.to_numpy()
+            hfgeou_tensor = _xr_to_torch(
+                hfgeou, device=area_weights.device, dtype=torch.float32
+            )
+            sea_surface_fraction_tensor = _xr_to_torch(
+                sea_surface_fraction,
+                device=area_weights.device,
+                dtype=torch.float32,
             )
             correctors.append(
                 OceanHeatCorrector(

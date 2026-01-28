@@ -2,13 +2,13 @@ from collections.abc import Callable
 from functools import partial
 from typing import Literal, assert_never
 
-import numpy as np
 import torch
 import torch.nn.functional as F
 import xarray as xr
 from jaxtyping import Float
 
 from ocean_emulators.constants import Grid
+from ocean_emulators.utils.data import _xr_to_torch
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 LossMetric = Literal[
@@ -33,8 +33,8 @@ def loss_fn_from_metric(
         case "mse_diff_weighted":
             loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
         case "mse_cos_weighted":
-            area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
-            area_weights = torch.from_numpy(area_weights).to(device=device)
+            lats = _xr_to_torch(y_coord, device=device, dtype=torch.float32)
+            area_weights = torch.sqrt(torch.cos(torch.deg2rad(lats)))
             loss_fn = partial(decomposed_mse_cos_weighted, wet=wet, cos=area_weights)
         case _:
             assert_never(metric)

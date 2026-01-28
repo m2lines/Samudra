@@ -39,7 +39,14 @@ from ocean_emulators.models.modules import (
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
-from ocean_emulators.utils.data import DataContainer, DataSource
+from ocean_emulators.utils.data import (
+    DataContainer,
+    DataSource,
+    _xr_to_torch,
+    is_xarray_cupy_backend,
+    log_xarray_backend,
+)
+from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
@@ -148,6 +155,8 @@ class DataConfig(BaseConfig):
     num_workers: int = 4
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
+    use_dask: bool = False
+    require_cupy_backend: bool = False
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
@@ -159,7 +168,7 @@ class DataConfig(BaseConfig):
         boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
-        use_dask = loader_version != LoaderVersion.OM4_TORCH
+        use_dask = self.use_dask or loader_version != LoaderVersion.OM4_TORCH
 
         data_location = data_root.resolve(self.data_location)
         means_location = data_root.resolve(self.data_means_location)
@@ -174,6 +183,14 @@ class DataConfig(BaseConfig):
             static_data_vars=self.static_data_vars,
             use_dask=use_dask,
         )
+        log_xarray_backend(source.data, label=f"data_source[dask={use_dask}]")
+        if self.require_cupy_backend and using_gpu():
+            if not is_xarray_cupy_backend(source.data):
+                raise RuntimeError(
+                    "CuPy-backed xarray arrays are required but not available. "
+                    "Ensure data.use_dask=true, cupy + cupy-xarray are installed, "
+                    "and NVRTC is available for your CUDA version."
+                )
 
         if use_dask:
             # If we're already using dask, we don't need a second source
@@ -189,6 +206,7 @@ class DataConfig(BaseConfig):
                 static_data_vars=self.static_data_vars,
                 use_dask=True,
             )
+            log_xarray_backend(source_using_dask.data, label="data_source[dask=True]")
 
         static_data = (
             source.data[self.static_data_vars]
@@ -705,7 +723,7 @@ def build_loss_fn(
             )
             return DynamicLoss(
                 loss_fn=loss_fn,
-                stds=torch.from_numpy(stds.to_array().to_numpy()).to(device=device),
+                stds=_xr_to_torch(stds.to_array(), device=device, dtype=torch.float32),
                 should_limit=limit,
                 device=device,
             )

@@ -1,4 +1,6 @@
+import logging
 from abc import ABC, abstractmethod
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 from urllib.parse import quote, urljoin, urlparse
@@ -11,6 +13,34 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+
+from ocean_emulators.utils.device import using_gpu
+
+logger = logging.getLogger(__name__)
+_ZARR_GPU_LOGGED = False
+
+try:
+    import zarr
+except ImportError:  # pragma: no cover - zarr is a required dependency
+    zarr = None
+
+try:  # Registers GPU-capable backends (e.g., kvikio) when available.
+    import cupy_xarray  # noqa: F401
+except ImportError:
+    cupy_xarray = None
+
+
+def _zarr_gpu_context():
+    global _ZARR_GPU_LOGGED
+    if not using_gpu() or zarr is None:
+        return nullcontext()
+    enable_gpu = getattr(getattr(zarr, "config", None), "enable_gpu", None)
+    if enable_gpu is None:
+        return nullcontext()
+    if not _ZARR_GPU_LOGGED:
+        logger.info("Enabling zarr GPU array support for xarray opens.")
+        _ZARR_GPU_LOGGED = True
+    return enable_gpu()
 
 
 class UnresolvedLocation(BaseModel):
@@ -76,13 +106,15 @@ class S3Location(ResolvedLocation, BaseModel):
     def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
         # TODO(jder): could consider passing credentials here
         # rather than relying on the environment
-
-        return xr.open_dataset(
-            self.url(),
-            backend_kwargs={"storage_options": {"endpoint_url": self.endpoint_url}},
-            engine="zarr",
-            chunks=chunks,
-        )
+        with _zarr_gpu_context():
+            return xr.open_dataset(
+                self.url(),
+                backend_kwargs={
+                    "storage_options": {"endpoint_url": self.endpoint_url}
+                },
+                engine="zarr",
+                chunks=chunks,
+            )
 
     def url(self) -> str:
         path = quote(self.path.lstrip("/"))
@@ -132,7 +164,8 @@ class LocalLocation(ResolvedLocation, BaseModel):
 
     def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
         engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"
-        return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+        with _zarr_gpu_context() if engine == "zarr" else nullcontext():
+            return xr.open_dataset(self.path, engine=engine, chunks=chunks)
 
     def resolve(self, location: "Location") -> "ResolvedLocation":
         if isinstance(location, UnresolvedLocation):

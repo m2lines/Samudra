@@ -48,6 +48,8 @@ data:
   data_stds_location: stds.nc
   num_workers: 4
   hist: 0
+  use_dask: true
+  require_cupy_backend: true
 
 
 model:
@@ -68,4 +70,3 @@ model:
 
     down_sampling_block: "avg_pool"
     up_sampling_block: "bilinear_upsample"
-

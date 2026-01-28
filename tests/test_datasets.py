@@ -322,13 +322,15 @@ def test_inference__data_is_not_zero(inference_loader_pair):
     for sample in loader:
         dataset, n = sample
         for X, y in dataset:
+            X_np = X.detach().cpu().numpy() if torch.is_tensor(X) else np.array(X)
+            y_np = y.detach().cpu().numpy() if torch.is_tensor(y) else np.array(y)
             assert np.count_nonzero(np.zeros(X.shape)) == 0, (
                 "Sanity check: Zero is zero."
             )
-            assert np.count_nonzero(X.numpy()) != 0, (
+            assert np.count_nonzero(X_np) != 0, (
                 "Input data should not be a zeros matrix!"
             )
-            assert np.count_nonzero(y.numpy()) != 0, (
+            assert np.count_nonzero(y_np) != 0, (
                 "Label data should not be a zeros matrix!"
             )
 

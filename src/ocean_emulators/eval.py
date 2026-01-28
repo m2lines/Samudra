@@ -21,6 +21,7 @@ from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
     Normalize,
+    _xr_to_torch,
     get_inference_steps,
     spherical_area_weights,
 )
@@ -115,8 +116,8 @@ class Eval:
             wet=self.wet.to(self.device),
             area_weights=self.area_weights,
             static_data=self.static_data,
-            lat=torch.from_numpy(self.data.lat.values),
-            lon=torch.from_numpy(self.data.lon.values),
+            lat=_xr_to_torch(self.data.lat, device=self.device, dtype=torch.float32),
+            lon=_xr_to_torch(self.data.lon, device=self.device, dtype=torch.float32),
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)

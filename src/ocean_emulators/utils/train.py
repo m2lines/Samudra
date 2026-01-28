@@ -17,7 +17,7 @@ def pairwise(iterable):
 
 
 def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
-    batched_data = RawTrainData(data[0].dataset_id)
+    batched_data = RawTrainData(data[0].dataset_id, data[0].label_mask)
     assert all(d.dataset_id == batched_data.dataset_id for d in data), (
         "we don't support heterogenous batches yet"
     )

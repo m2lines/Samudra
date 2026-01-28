@@ -293,8 +293,9 @@ class InferenceDatasets(Dataset):
 
 
 class RawTrainData:
-    def __init__(self, dataset_id: "TorchTrainDataset.Id"):
+    def __init__(self, dataset_id: "TorchTrainDataset.Id", label_mask: PrognosticMask):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
+        self.label_mask = label_mask
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
@@ -340,8 +341,9 @@ class TrainData:
     remaining bottom channels are boundary forcings.
     """
 
-    def __init__(self, num_prognostic_channels: int):
+    def __init__(self, num_prognostic_channels: int, label_mask: PrognosticMask):
         self.num_prognostic_channels = num_prognostic_channels
+        self.label_mask = label_mask
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
 
@@ -511,7 +513,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = RawTrainData(self.id)
+        TD = RawTrainData(
+            self.id, self._prognostic_srcs[-1].masks.prognostic_with_hist(self.hist)
+        )
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
@@ -564,7 +568,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         return TD
 
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
-        train_data = TrainData(self.num_prognostic_channels)
+        train_data = TrainData(self.num_prognostic_channels, raw_train_data.label_mask)
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 input_.to(device=self.device, non_blocking=True),

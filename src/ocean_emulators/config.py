@@ -44,7 +44,7 @@ from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLoca
 from ocean_emulators.utils.loss import (
     DynamicLoss,
     GradientLoss,
-    LossFn,
+    LossFnWithMask,
     LossMetric,
     loss_fn_from_metric,
 )
@@ -721,21 +721,16 @@ Loss = LossMetric | DynamicLossConfig | GradientLossConfig
 
 def build_loss_fn(
     loss_cfg: Loss,
-    wet: Grid,
     y_coord: xr.DataArray,
     device: torch.device,
     num_channels: int,
     pad_mode: str,
-) -> LossFn:
+) -> LossFnWithMask:
     match loss_cfg:
         case str():
-            return loss_fn_from_metric(
-                loss_cfg, wet=wet, y_coord=y_coord, device=device
-            )
+            return loss_fn_from_metric(loss_cfg, y_coord=y_coord, device=device)
         case DynamicLossConfig(metric=metric, limit=limit):
-            loss_fn = loss_fn_from_metric(
-                metric, wet=wet, y_coord=y_coord, device=device
-            )
+            loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)
             return DynamicLoss(
                 loss_fn=loss_fn,
                 limit=limit,
@@ -743,12 +738,9 @@ def build_loss_fn(
                 num_channels=num_channels,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
-            loss_fn = loss_fn_from_metric(
-                metric, wet=wet, y_coord=y_coord, device=device
-            )
+            loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)
             return GradientLoss(
                 loss_fn=loss_fn,
-                wet=wet,
                 gradient_weight=alpha,
                 pad_mode=pad_mode,
             )

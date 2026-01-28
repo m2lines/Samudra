@@ -7,6 +7,8 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Self
 
 import numpy as np
+import cftime
+import datetime as dt
 import torch
 import xarray as xr
 from einops import rearrange
@@ -209,6 +211,74 @@ def log_xarray_backend(dataset: xr.Dataset, *, label: str) -> bool:
     return is_cupy
 
 
+def _coerce_time_bounds(
+    time_coord: xr.DataArray, time_cfg: "TimeConfig"
+) -> tuple[object, object]:
+    """Coerce a TimeConfig to the same type as the dataset time coordinate."""
+    if np.issubdtype(time_coord.dtype, np.datetime64):
+        return (
+            np.datetime64(str(time_cfg.start)),
+            np.datetime64(str(time_cfg.end)),
+        )
+    if time_coord.dtype == object:
+        data = time_coord.values
+        sample = data.ravel()[0] if data.size else None
+        if isinstance(sample, cftime.datetime):
+            return time_cfg.start.datetime, time_cfg.end.datetime
+        if isinstance(sample, (np.datetime64, dt.datetime, dt.date)):
+            return (
+                np.datetime64(str(time_cfg.start)),
+                np.datetime64(str(time_cfg.end)),
+            )
+    units = time_coord.attrs.get("units")
+    calendar = time_coord.attrs.get("calendar", "standard")
+    if units is None:
+        raise ValueError(
+            "Time coordinate is numeric but missing 'units'; "
+            "unable to compare with configured Julian dates."
+        )
+    start = cftime.date2num(time_cfg.start.datetime, units=units, calendar=calendar)
+    end = cftime.date2num(time_cfg.end.datetime, units=units, calendar=calendar)
+    return start, end
+
+
+def _format_time_value(value: object, time_coord: xr.DataArray) -> str:
+    if isinstance(value, cftime.datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, np.datetime64):
+        return np.datetime_as_string(value, unit="D")
+    units = time_coord.attrs.get("units")
+    calendar = time_coord.attrs.get("calendar", "standard")
+    if units is not None:
+        try:
+            dt = cftime.num2date(value, units=units, calendar=calendar)
+            if isinstance(dt, np.ndarray):
+                dt = dt.item()
+            if isinstance(dt, cftime.datetime):
+                return dt.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+    return str(value)
+
+
+def _time_indices(
+    time_coord: xr.DataArray, start: object, end: object
+) -> np.ndarray:
+    """Return numpy indices for the given time window without requiring indexes."""
+    data = time_coord.data
+    if cp is not None and isinstance(data, cp.ndarray):
+        values = data.get()
+    elif da is not None and isinstance(data, da.Array):
+        values = data.compute()
+        if cp is not None and isinstance(values, cp.ndarray):
+            values = values.get()
+    else:
+        values = np.asarray(data)
+
+    mask = (values >= start) & (values < end)
+    return np.nonzero(mask)[0]
+
+
 def _var_name_encode_level(var_name: str) -> bool:
     """Check if the variable name encodes the level."""
     var_name_encodes_level = re.compile(r"_[0-9]+")
@@ -336,23 +406,25 @@ class DataSource:
 
     def slice(self, time: "TimeConfig") -> Self:
         """Slice the data source to only include the specified time slice."""
+        start, end = _coerce_time_bounds(self.data.time, time)
         data_time_min = self.data.time.min().item()
         data_time_max = self.data.time.max().item()
-        if time.start.datetime > data_time_max or time.end.datetime < data_time_min:
+        if start > data_time_max or end < data_time_min:
             raise ValueError(
                 f"Time slice {time} is entirely outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"{_format_time_value(data_time_min, self.data.time)} to "
+                f"{_format_time_value(data_time_max, self.data.time)}"
             )
 
-        if time.start.datetime < data_time_min or time.end.datetime > data_time_max:
+        if start < data_time_min or end > data_time_max:
             logger.warning(
                 f"Time slice {time} is partially outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"{_format_time_value(data_time_min, self.data.time)} to "
+                f"{_format_time_value(data_time_max, self.data.time)}"
             )
 
-        data = self.data.sel(time=time.time_slice)
+        indices = _time_indices(self.data.time, start, end)
+        data = self.data.isel(time=indices)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
 
     # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
@@ -419,11 +491,6 @@ class DataSource:
         data = data_location.open(chunks)
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
-
-        if use_dask:
-            data = ensure_cupy_backend(data, allow_eager=False)
-            means = ensure_cupy_backend(means, allow_eager=True)
-            stds = ensure_cupy_backend(stds, allow_eager=True)
 
         return cls.from_datasets(
             data,

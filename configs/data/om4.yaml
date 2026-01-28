@@ -5,4 +5,4 @@ data_means_location: OM4_means.zarr
 data_stds_location: OM4_stds.zarr
 static_data_vars: []
 concurrent_compute: false
-use_dask: true
+use_dask: false

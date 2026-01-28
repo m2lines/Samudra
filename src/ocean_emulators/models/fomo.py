@@ -13,6 +13,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from ocean_emulators.constants import Lat, Lon, PrognosticMask
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
+from ocean_emulators.models.modules.encoder import patch_from
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.device import autocast
 
@@ -65,7 +66,7 @@ class FOMO(BaseModel):
             last_kernel_size,
             padding=last_kernel_size // 2,
         )
-        all_patches = [self.encoder.patch_from(*grid) for grid in all_grids]
+        all_patches = [patch_from(self.encoder.extent, *grid) for grid in all_grids]
 
         self.unpatch = nn.ModuleDict(
             {
@@ -106,7 +107,7 @@ class FOMO(BaseModel):
         fts = self.decoder(fts)
 
         # Unpatchify: project to patch area, then reshape back to original spatial dimensions
-        patch_size = self.encoder.patch_from(H, W)
+        patch_size = patch_from(self.encoder.extent, H, W)
         _, _, h, w = fts.shape
         fts = rearrange(fts, "b l h w -> b h w l")
         fts = self.unpatch[str(patch_size)](fts)  # (b, h, w, out_channels * ph * pw)

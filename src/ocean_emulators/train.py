@@ -200,7 +200,7 @@ class Trainer:
             out_channels=self.num_out,
             hist=cfg.data.hist,
             static_data=self.static_data,
-            srcs=self.data_container.all_sources,
+            srcs=self.data_container.sources,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir

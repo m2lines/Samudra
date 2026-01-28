@@ -91,7 +91,6 @@ class Eval:
             cfg.experiment.resolved_data_root,
             self.prognostic_var_names,
             self.boundary_var_names,
-            prefixes_by_scale=None,
         )
 
         self.src = self.data_container.inference_source
@@ -114,7 +113,7 @@ class Eval:
             out_channels=self.num_out,
             hist=cfg.data.hist,
             static_data=self.static_data,
-            srcs=self.data_container.all_sources,
+            srcs=self.data_container.sources,
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)

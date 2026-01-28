@@ -335,25 +335,7 @@ def _flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
 
 @dataclasses.dataclass
 class OceanData:
-    """A slice of ocean data (boundary or prognostic) with normalization statistics.
-
-    This dataclass bundles raw tensor data with the statistics needed to normalize it
-    and the mask needed to handle land/invalid values. It serves as an intermediary
-    representation used when constructing training `Example`s from raw xarray data.
-
-    The typical workflow is:
-        1. Load raw data from a `DataSource` via `from_data_source()`
-        2. Slice to the desired time range with `with_time()`
-        3. Apply normalization and masking with `normalize_and_mask()`
-        4. Flatten time/variable dims to create the final `Input` or `Prognostic` tensor
-
-    Attributes:
-        data: Raw ocean variable values with shape (batch, time, variable, lat, lon).
-        means: Per-variable means for normalization, shape (variable,).
-        stds: Per-variable standard deviations for normalization, shape (variable,).
-        mask: Boolean mask indicating valid ocean points (True) vs land (False),
-            broadcast-compatible with the variable dimension.
-    """
+    """A slice of either boundary or prognostic ocean data. An intermediary tensor for creating `Example`s."""
 
     data: Float[torch.Tensor, "batch time variable lat lon"]
     means: Float[torch.Tensor, " variable"]
@@ -374,62 +356,6 @@ class OceanData:
     def with_time(self, time_range: slice) -> Self:
         """Slice data across the time dimension."""
         return dataclasses.replace(self, data=self.data[:, time_range, :, :, :])
-
-    def _normalize(
-        self,
-        data: Float[torch.Tensor, "batch time var lat lon"],
-        fill_nan: bool = True,
-        fill_value: float = 0.0,
-    ) -> Float[torch.Tensor, "batch time var lat lon"]:
-        """Normalize input data treated as torch Tensors."""
-        norm = (data - self.means.view(1, 1, -1, 1, 1)) / self.stds.view(1, 1, -1, 1, 1)
-        if fill_nan:
-            norm = norm.nan_to_num(nan=fill_value)
-        norm = norm.to(data.dtype)
-        return norm
-
-    def normalize_and_mask(
-        self, normalize_before_mask: bool, masked_fill_value: float
-    ) -> Float[torch.Tensor, "batch time var lat lon"]:
-        """Normalize and mask tensors."""
-        tensor = self.data
-        if normalize_before_mask:
-            tensor = self._normalize(tensor)
-        tensor = torch.where(self.mask, tensor, masked_fill_value)
-        if not normalize_before_mask:
-            tensor = self._normalize(tensor)
-        return tensor
-
-    def to(self, device: torch.device, non_blocking: bool = True) -> Self:
-        return dataclasses.replace(
-            self,
-            data=self.data.to(device, non_blocking=non_blocking),
-            means=self.means.to(device, non_blocking=non_blocking),
-            stds=self.stds.to(device, non_blocking=non_blocking),
-            mask=self.mask.to(device, non_blocking=non_blocking),
-        )
-
-
-@dataclasses.dataclass
-class TorchDataSource:
-    data: Float[torch.Tensor, "batch time variable lat lon"]
-    means: Float[torch.Tensor, " variable"]
-    stds: Float[torch.Tensor, " variable"]
-    mask: Bool[torch.Tensor, " variable"]
-
-    @classmethod
-    def from_data_source(
-        cls,
-        data: Float[torch.Tensor, "batch time variable lat lon"],
-        mask: Float[torch.Tensor, " variable"],
-        src: DataSource,
-    ) -> Self:
-        means_torch = _flatten(src.means)
-        stds_torch = _flatten(src.stds)
-        return cls(data, means_torch, stds_torch, mask)
-
-    def map(self, data_func: Callable) -> Self:
-        return dataclasses.replace(self, data=data_func(self.data))
 
     def _normalize(
         self,

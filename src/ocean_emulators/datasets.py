@@ -621,10 +621,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             boundary_all.with_time(slice(0, self.hist + 1)),
         )
         # grab future steps, repeat as we do for input
-        label = self._prep_tensor_steps(
+        label_tensor = self._prep_tensor_steps(
             label_all.with_time(slice(self.hist + 1, None)),
         )
-        return total_input, label
+        return total_input, label_tensor
 
     def _prep_tensor_steps(
         self,

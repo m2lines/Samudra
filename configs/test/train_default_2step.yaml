@@ -43,9 +43,10 @@ experiment:
   boundary_vars_key: tau_hfds
   data_root: .data_cache/
 data:
-  data_location: data.zarr
-  data_means_location: means.nc
-  data_stds_location: stds.nc
+  sources:
+    - data_location: data.zarr
+      data_means_location: means.nc
+      data_stds_location: stds.nc
   num_workers: 4
   hist: 0
 

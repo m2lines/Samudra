@@ -24,9 +24,10 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
 
     steps = len(data[0].raw_data)
     for step in range(steps):
-        all_prognostic = torch.stack([d.raw_data[step][0] for d in data])
-        all_boundary = torch.stack([d.raw_data[step][1] for d in data])
-        batched_data.insert(all_prognostic, all_boundary)
+        input_ = torch.stack([d.raw_data[step][0] for d in data])
+        boundary = torch.stack([d.raw_data[step][1] for d in data])
+        label = torch.stack([d.raw_data[step][2] for d in data])
+        batched_data.insert(input_, boundary, label)
 
     stats = LoadStats.accumulated(
         [d.load_stats for d in data if d.load_stats is not None]

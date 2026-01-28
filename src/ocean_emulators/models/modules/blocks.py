@@ -60,28 +60,20 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
         self.scale_h, self.scale_w = upsampling
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # First upsample along latitude/height using standard "bilinear" interpolation.
-        # (This is just linear interpolation but pytorch requires us to use "bilinear" for
-        # 2d data.)
-        up_height = torch.nn.functional.interpolate(
-            x,
-            scale_factor=(self.scale_h, 1),
+        # Upsample with periodic padding along longitude to avoid seams and
+        # keep interpolation aligned with PyTorch's bilinear sampling grid.
+        width = x.shape[-1]
+        padded = torch.nn.functional.pad(x, (1, 1, 0, 0), mode="circular")
+        upsampled = torch.nn.functional.interpolate(
+            padded,
+            scale_factor=(self.scale_h, self.scale_w),
             mode="bilinear",
+            align_corners=False,
         )
-
-        # Then upsample along longitude/width using a circular 1D linear interpolation.
-        left = up_height
-        right = torch.roll(up_height, shifts=-1, dims=-1)
-        midpoint = 0.5 * (left + right)
-
-        out = torch.empty(
-            (*up_height.shape[:-1], up_height.shape[-1] * self.scale_w),
-            dtype=up_height.dtype,
-            device=up_height.device,
-        )
-        out[..., ::2] = left
-        out[..., 1::2] = midpoint
-        return out
+        # Crop out the extra padded columns (scaled by the upsampling factor).
+        start = self.scale_w
+        end = start + width * self.scale_w
+        return upsampled[..., start:end]
 
 
 class AvgPool(torch.nn.Module):

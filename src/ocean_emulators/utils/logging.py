@@ -15,6 +15,8 @@ import torch
 from torch.nn.parallel import DistributedDataParallel
 from torchinfo import summary
 
+from ocean_emulators.constants import Lat, Lon, PrognosticMask
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -220,13 +222,22 @@ class MetricLogger:
 class _ForwardOnceWrapper(torch.nn.Module):
     """Wrapper that redirects forward() to forward_once() for torchinfo summary."""
 
-    def __init__(self, model: "BaseModel | DistributedDataParallel") -> None:
+    def __init__(
+        self,
+        model: "BaseModel | DistributedDataParallel",
+        mask: PrognosticMask,
+        resolution: tuple[Lat, Lon],
+    ) -> None:
         super().__init__()
         self._underlying: BaseModel = getattr(model, "module", model)  # type: ignore
+        self._mask = mask
+        self._resolution = resolution
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Get the underlying model (handles DDP wrapping)
-        return self._underlying.forward_once(x)
+        return self._underlying.forward_once(
+            x, wet=self._mask, resolution=self._resolution
+        )
 
 
 def get_model_summary(
@@ -242,7 +253,7 @@ def get_model_summary(
         # Extract the initial tensor and wrap the model to use forward_once.
         input_tensor = data.get_initial_input()
         # Wrap model to use forward_once for the summary
-        wrapper = _ForwardOnceWrapper(model)
+        wrapper = _ForwardOnceWrapper(model, data.label_mask, data.input_res)
         logger.info(
             summary(
                 wrapper,

@@ -13,6 +13,17 @@ from torch import nn
 from ocean_emulators.constants import Input, Lat, Lon
 
 
+def patch_from(extent: tuple[float, float], height: int, width: int) -> tuple[int, int]:
+    lat_spacing = 180.0 / height  # Full sphere is 180 degrees (pole to pole)
+    lon_spacing = 360.0 / width  # Full circle is 360 degrees
+
+    # Calculate patch size to match target extent
+    patch_h = int(round(extent[0] / lat_spacing))
+    patch_w = int(round(extent[1] / lon_spacing))
+
+    return patch_h, patch_w
+
+
 class PerceiverEncoder(nn.Module):
     """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
 
@@ -55,22 +66,12 @@ class PerceiverEncoder(nn.Module):
         self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
         self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
 
-    def patch_from(self, height: int, width: int) -> tuple[int, int]:
-        lat_spacing = 180.0 / height  # Full sphere is 180 degrees (pole to pole)
-        lon_spacing = 360.0 / width  # Full circle is 360 degrees
-
-        # Calculate patch size to match target extent
-        patch_h = int(round(self.extent[0] / lat_spacing))
-        patch_w = int(round(self.extent[1] / lon_spacing))
-
-        return patch_h, patch_w
-
     def forward(
         self, x: Input, resolution: tuple[Lat, Lon]
     ) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
         lat, lon = resolution
-        patch_h, patch_w = self.patch_from(H, W)
+        patch_h, patch_w = patch_from(self.extent, H, W)
         # V is a cross product of variable, level (encoded in vars), and time (has history).
         assert V == self.in_channels
         # Ensure patch_size is appropriate for the data.

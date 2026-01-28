@@ -37,6 +37,7 @@ from ocean_emulators.models.modules import (
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
+from ocean_emulators.models.modules.encoder import patch_from
 from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
@@ -404,12 +405,7 @@ class EncoderConfig(BaseConfig):
     ) -> PerceiverEncoder:
         assert len(self.spatial_extent) == 2, "spatial extent must be a pair of floats."
         extent = self.spatial_extent[0], self.spatial_extent[1]
-        # TODO(alxmrs): Make DRY?
-        lat_spacing = 180.0 / max_lat
-        lon_spacing = 360.0 / max_lon
-        patch_h = int(round(self.spatial_extent[0] / lat_spacing))
-        patch_w = int(round(self.spatial_extent[1] / lon_spacing))
-        max_patch_size = (patch_h, patch_w)
+        max_patch_size = patch_from(extent, max_lat, max_lon)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,

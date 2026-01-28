@@ -500,8 +500,7 @@ class Trainer:
                 r = self.gradient_accumulation_steps
 
             if self.num_batches_seen == 0:
-                # Pass None since TrainData is not compatible with torchinfo's traversal
-                get_model_summary(self.model, None, self.debug)
+                get_model_summary(self.model, data, self.debug)
 
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
 

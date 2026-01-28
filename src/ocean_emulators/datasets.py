@@ -473,10 +473,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             "src and dst DataSource have different time slices!"
         )
         time_ = src.data.time
-        self._prognostic_srcs = [
+        self.prognostic_srcs = [
             src.filter(prognostic_var_names, prefix="prog") for src in srcs
         ]
-        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -516,16 +516,16 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         start_time = time.perf_counter()
         TD = RawTrainData(
             self.id,
-            self._prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
-            self._prognostic_srcs[0].resolution,
+            self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
+            self.prognostic_srcs[0].resolution,
         )
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
             prognostic_selected = [
-                src.data.isel(time=x_index) for src in self._prognostic_srcs
+                src.data.isel(time=x_index) for src in self.prognostic_srcs
             ]
-            boundary_selected = self._boundary_src.data.isel(time=x_index)
+            boundary_selected = self.boundary_src.data.isel(time=x_index)
 
             if self._executor is not None:
                 datasets = prognostic_selected + [boundary_selected]
@@ -592,15 +592,15 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 OceanData.from_data_source(
                     input_,
                     self.wet_prognostic[0],
-                    self._prognostic_srcs[0],
+                    self.prognostic_srcs[0],
                 ).to(device=device, non_blocking=True),
                 OceanData.from_data_source(
                     boundary,
                     self.wet_surface,
-                    self._boundary_src,
+                    self.boundary_src,
                 ).to(device=device, non_blocking=True),
                 OceanData.from_data_source(
-                    label, self.wet_prognostic[-1], self._prognostic_srcs[-1]
+                    label, self.wet_prognostic[-1], self.prognostic_srcs[-1]
                 ).to(device=device, non_blocking=True),
             )
             train_data.append(input_, label)
@@ -635,13 +635,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         prognostic_steps = prognostic.normalize_and_mask(
             self.normalize_before_mask, self.masked_fill_value
         )
-        if boundary_steps is not None:
-            boundary_steps = normalize_and_mask(
-                boundary_steps,
-                self.boundary_means,
-                self.boundary_stds,
-                self.wet_surface,
-            )
 
         # Flatten time and variable dimensions
         def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:

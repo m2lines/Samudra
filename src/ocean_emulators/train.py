@@ -792,7 +792,7 @@ class Trainer:
         # Create batch samplers - branch on distributed vs non-distributed
         # Group by input AND label resolution to handle all training schedules
         def group_key(ds):
-            return ds.input_src.grid, ds.label_src.grid
+            return tuple(prog.grid for prog in ds.prognostic_srcs)
 
         if self.distributed is not None:
             # Distributed training - use DistributedEquivalenceGroupBatchSampler

@@ -209,7 +209,6 @@ class Trainer:
         # Loss function
         self.loss_fn: LossFnWithMask = build_loss_fn(
             cfg.loss,
-            y_coord=self.data.lat,  # TODO(alxmrs): Needs to be label lat vals. Remove?
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
@@ -611,7 +610,7 @@ class Trainer:
                 input, label = data[0]
                 single_step_data.append(input, label)
                 pred = self.model(single_step_data)
-                update(pred[0], label, wet=data.label_mask)
+                update(pred[0], label, wet=data.label_mask, lat=data.input_res[0])
 
     def validate_one_epoch(self, epoch):
         self.model.eval()

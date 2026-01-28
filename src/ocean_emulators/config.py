@@ -715,16 +715,15 @@ Loss = LossMetric | DynamicLossConfig | GradientLossConfig
 
 def build_loss_fn(
     loss_cfg: Loss,
-    y_coord: xr.DataArray,
     device: torch.device,
     num_channels: int,
     pad_mode: str,
 ) -> LossFnWithMask:
     match loss_cfg:
         case str():
-            return loss_fn_from_metric(loss_cfg, y_coord=y_coord, device=device)
+            return loss_fn_from_metric(loss_cfg)
         case DynamicLossConfig(metric=metric, limit=limit):
-            loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)
+            loss_fn = loss_fn_from_metric(metric)
             return DynamicLoss(
                 loss_fn=loss_fn,
                 limit=limit,
@@ -732,7 +731,7 @@ def build_loss_fn(
                 num_channels=num_channels,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
-            loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)
+            loss_fn = loss_fn_from_metric(metric)
             return GradientLoss(
                 loss_fn=loss_fn,
                 gradient_weight=alpha,

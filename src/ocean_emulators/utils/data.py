@@ -425,7 +425,7 @@ class DataContainer:
     inference_source: DataSource
     loader_version: LoaderVersion
     supports_fork: bool
-    # TODO(alxmrs): static_data should belong to the DataSource, since we now
+    # TODO(559): static_data should belong to the DataSource, since we now
     #  deal with multiple resolutions.
     static_data: xr.Dataset | None = None
 

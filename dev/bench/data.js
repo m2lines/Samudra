@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769565733208,
+  "lastUpdate": 1769565734274,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13947,6 +13947,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.318513403299491",
             "extra": "mean: 75.19097807559999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f97c8149b0e52677a9cab76083b4eeea045f04cb",
+          "message": "Fix colorbars  (#551)\n\nThese runs are the same data but with the new color bars:\n[before](https://drive.google.com/drive/u/0/folders/1Kh32QlzLVNOkcpBm9YsOoInscQwselak),\n[after](https://drive.google.com/drive/u/0/folders/1inz0VAHbQNXg6NIoyD0jM3CwymXyWc8i).\n\nFor example, the SST_Global_map:\n\n<img width=\"7159\" height=\"3480\" alt=\"before\"\nsrc=\"https://github.com/user-attachments/assets/b0e473e0-a548-4a5f-abb1-d3197e8011ea\"\n/>\n\n<img width=\"7159\" height=\"3480\" alt=\"after\"\nsrc=\"https://github.com/user-attachments/assets/98eb1c19-c485-4fa2-849d-ecba8f134590\"\n/>\n\nNote the snapshots are no longer blown out over most of the domain and\nthe bias map is better scaled in the other direction. cc @adam-subel",
+          "timestamp": "2026-01-28T01:36:04Z",
+          "tree_id": "01552247e08b4b6155af5a66372beb2a095d0a04",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/f97c8149b0e52677a9cab76083b4eeea045f04cb"
+        },
+        "date": 1769565733977,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.8791305306216266,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03092750828077827",
+            "extra": "mean: 1.1374875119999615 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.192703288122178,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02375150466175333",
+            "extra": "mean: 5.189325048599994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012813485714683062,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1902060959485047",
+            "extra": "mean: 78.04277635819994 sec\nrounds: 5"
           }
         ]
       }

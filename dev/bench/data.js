@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769538954301,
+  "lastUpdate": 1769561595847,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6834,6 +6834,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.563484768747926",
             "extra": "mean: 110.54620623519999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "93ca0339f9f7420f4bb650a057cbfcfb29206074",
+          "message": "Adding the ability to configure multi-scale training runs. (#530)\n\nChanges our config system and skypilot scripts to support multi\nresolution training.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-01-27T16:27:42-08:00",
+          "tree_id": "61b5ead732ba7f1c0205ab67a3c05a0aa8278d0a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/93ca0339f9f7420f4bb650a057cbfcfb29206074"
+        },
+        "date": 1769561594993,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.9162252955928841,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04296577068322721",
+            "extra": "mean: 1.0914346119999947 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19081113381292764,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013880364752635167",
+            "extra": "mean: 5.240784329600001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011214835176759318,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7465026231017012",
+            "extra": "mean: 89.167605608 sec\nrounds: 5"
           }
         ]
       }

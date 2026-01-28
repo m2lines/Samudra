@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769561597031,
+  "lastUpdate": 1769564447855,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6879,6 +6879,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7465026231017012",
             "extra": "mean: 89.167605608 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76347feebb6892744e93badc32c602e0ba45d3f5",
+          "message": "Enable zonally-periodic upsampling for non-v1 runs (#554)\n\nI re-ran some comparisons in #506 and can confirm that at least at\n1-degree, the bilinear upsample has an artifact at lon=0 but this one\ndoes not. Here is an example of a (doctored to increase contrast) run\nwith the artifact in a zos snapshot:\n<img width=\"221\" height=\"482\" alt=\"Screenshot 2026-01-22 at 5 10 33 PM\"\nsrc=\"https://github.com/user-attachments/assets/fd018f76-b186-43c2-8fbd-7b163b26d32d\"\n/>\n\nAnd the next identical one with the new upsampling and no artifact:\n<img width=\"179\" height=\"258\" alt=\"Screenshot 2026-01-22 at 5 11 32 PM\"\nsrc=\"https://github.com/user-attachments/assets/0f110ec9-fe13-4ec8-b0d3-b17414c8962f\"\n/>\n\nI also replaced the upsampling with a simpler approach that does less\nfunny stuff and is hopefully more obviously correct.",
+          "timestamp": "2026-01-28T01:15:30Z",
+          "tree_id": "ebc34c35548837ffe9a9dbc5dfbbb211752d5522",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/76347feebb6892744e93badc32c602e0ba45d3f5"
+        },
+        "date": 1769564446984,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.8694984520075628,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07001557903803288",
+            "extra": "mean: 1.1500883039999963 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19204765146308436,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01615982952741077",
+            "extra": "mean: 5.207041025399997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011362991308545187,
+            "unit": "iter/sec",
+            "range": "stddev: 0.468508369757632",
+            "extra": "mean: 88.0049955902 sec\nrounds: 5"
           }
         ]
       }

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769561595847,
+  "lastUpdate": 1769561597031,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -13767,6 +13767,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.935953022289391",
             "extra": "mean: 94.63462561160004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "93ca0339f9f7420f4bb650a057cbfcfb29206074",
+          "message": "Adding the ability to configure multi-scale training runs. (#530)\n\nChanges our config system and skypilot scripts to support multi\nresolution training.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-01-27T16:27:42-08:00",
+          "tree_id": "61b5ead732ba7f1c0205ab67a3c05a0aa8278d0a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/93ca0339f9f7420f4bb650a057cbfcfb29206074"
+        },
+        "date": 1769561596710,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.8913555751238726,
+            "unit": "iter/sec",
+            "range": "stddev: 0.043707144574351105",
+            "extra": "mean: 1.121886739599995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19247391329000582,
+            "unit": "iter/sec",
+            "range": "stddev: 0.033500697604523746",
+            "extra": "mean: 5.195509266199997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013090896526908303,
+            "unit": "iter/sec",
+            "range": "stddev: 0.17084701062090463",
+            "extra": "mean: 76.38896220319995 sec\nrounds: 5"
           }
         ]
       }

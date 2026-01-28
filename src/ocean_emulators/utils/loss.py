@@ -211,12 +211,13 @@ class DynamicLoss:
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
         wet: PrognosticMask,
+        lat: Lat | None = None,
     ) -> None:
         """Given the prediction & target for this step, update the per-channel scale."""
         # Local import is needed to prevent a circular import error.
         from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
-        loss = self.loss_fn(pred, target, wet)
+        loss = self.loss_fn(pred, target, wet, lat)
         loss = torch.where(loss == 0, 1e-8, loss)
         new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels

@@ -23,6 +23,11 @@ class PerceiverEncoder(nn.Module):
     > Note: We assume that data along the lat/lon coordinates are positioned at the center of each grid point! Please
     > ensure this is the case at the data processing time.
 
+    This encoder is designed to make the same number of patches out of the same spatial extents across different scales
+    (each scale's patch will have a different lat/lon grid). To accomplish this with a single perceiver model, our
+    `forward` call requires supplementary information: the resolution (a pair of Lat/Lon tensors), which is used to make
+     consistent positional encodings for patches across different scales.
+
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         out_channels (int): size of the latent dimension (aka, the embedding dimension).
@@ -82,19 +87,6 @@ class PerceiverEncoder(nn.Module):
             ph=patch_h,
             pw=patch_w,
         )
-        # Training run
-        # 1/2 + 1 degree
-        # - [x] (a) in a given batch, encoder sees either 1/2 or 1 degree data (not mixed)
-        # - [x]     in a given epoch, encoder see all 1/2 and 1 degree data
-        # either:
-        # - [x] forward call of encoder takes patch size or grid info with data
-        # - [ ] or we have two PerceiverEncoders (1 degree vs 1/2 degree) which share parameters
-        #       (ie the self.perceiver (+pos_embed and scale_embed?) module)
-        # encoder produces a grid of patches each with an embedding
-        # - [x] (b) the number of patches & physical extent is constant across all batches
-        # ---
-        # first step ("match"): decode to the same input data.
-        # long term ("mix"): not what we will want; won't form a join repr. What we really want is to decode to a different repr than we encoded to.
 
         # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
         x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)

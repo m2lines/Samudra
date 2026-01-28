@@ -34,6 +34,7 @@ from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig, build_loss_fn
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
+    LoaderVersion,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
@@ -327,6 +328,10 @@ class Trainer:
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
+        self.dali_prefetch_queue_depth: int = cfg.data.dali_prefetch_queue_depth
+        self.dali_num_threads: int = cfg.data.dali_num_threads
+        self.dali_exec_pipelined: bool = cfg.data.dali_exec_pipelined
+        self.dali_exec_async: bool = cfg.data.dali_exec_async
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
 
@@ -753,7 +758,7 @@ class Trainer:
 
         # Create datasets
         match self.loader_version:
-            case TorchTrainDataset.FLAG:
+            case TorchTrainDataset.FLAG | LoaderVersion.OM4_DALI:
                 train_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
                     train_datasets
                 )
@@ -777,7 +782,7 @@ class Trainer:
             self.val_sampler = RandomSampler(val_data)  # type: ignore
 
         match self.loader_version:
-            case TorchTrainDataset.FLAG:
+            case TorchTrainDataset.FLAG | LoaderVersion.OM4_DALI:
                 collate_fn = collate_raw_train_data
             case _:
                 raise NotImplementedError(
@@ -786,33 +791,64 @@ class Trainer:
                 )
 
         # Create data loaders
-        train_dataloader = DataLoader(
-            train_data,
-            batch_size=self.batch_size,
-            sampler=self.train_sampler,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_mem,
-            drop_last=True,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+        if self.loader_version == LoaderVersion.OM4_DALI:
+            from ocean_emulators.dali_loader import DaliTrainDataLoader
 
-        val_dataloader = DataLoader(
-            val_data,
-            batch_size=self.batch_size,
-            sampler=self.val_sampler,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_mem,
-            drop_last=False,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+            train_dataloader = DaliTrainDataLoader(
+                dataset=train_data,
+                datasets=train_datasets,
+                sampler=self.train_sampler,
+                batch_size=self.batch_size,
+                drop_last=True,
+                device=self.device,
+                prefetch_queue_depth=self.dali_prefetch_queue_depth,
+                num_threads=self.dali_num_threads,
+                exec_pipelined=self.dali_exec_pipelined,
+                exec_async=self.dali_exec_async,
+            )
+            val_dataloader = DaliTrainDataLoader(
+                dataset=val_data,
+                datasets=val_datasets,
+                sampler=self.val_sampler,
+                batch_size=self.batch_size,
+                drop_last=False,
+                device=self.device,
+                prefetch_queue_depth=self.dali_prefetch_queue_depth,
+                num_threads=self.dali_num_threads,
+                exec_pipelined=self.dali_exec_pipelined,
+                exec_async=self.dali_exec_async,
+            )
 
-        # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = TrainDataLoader(
-            train_dataloader, train_datasets, self.device
-        )
-        self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
+            self.train_loader = train_dataloader
+            self.val_loader = val_dataloader
+        else:
+            train_dataloader = DataLoader(
+                train_data,
+                batch_size=self.batch_size,
+                sampler=self.train_sampler,
+                num_workers=self.num_workers,
+                pin_memory=self.pin_mem,
+                drop_last=True,
+                collate_fn=collate_fn,
+                multiprocessing_context=self.mp_context,
+            )
+
+            val_dataloader = DataLoader(
+                val_data,
+                batch_size=self.batch_size,
+                sampler=self.val_sampler,
+                num_workers=self.num_workers,
+                pin_memory=self.pin_mem,
+                drop_last=False,
+                collate_fn=collate_fn,
+                multiprocessing_context=self.mp_context,
+            )
+
+            # Wrap dataloaders to handle GPU post-processing
+            self.train_loader = TrainDataLoader(
+                train_dataloader, train_datasets, self.device
+            )
+            self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

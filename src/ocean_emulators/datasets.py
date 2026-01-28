@@ -564,6 +564,42 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __len__(self) -> int:
         return self.size
 
+    def _load_step(self, x_index: xr.DataArray) -> tuple[torch.Tensor, torch.Tensor]:
+        prognostic_selected = self._prognostic_src.data.isel(time=x_index)
+        boundary_selected = self._boundary_src.data.isel(time=x_index)
+
+        if self._executor is not None:
+            concurrent_compute(
+                prognostic_selected, boundary_selected, executor=self._executor
+            )
+
+        if "lev" in prognostic_selected.dims:
+            prognostic_arr = (
+                conditional_rearrange(
+                    prognostic_selected,
+                    "time (variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .astype(np.float32, copy=False)
+            )
+            prognostic_all = _xr_to_torch(prognostic_arr, device=self.device)
+        else:
+            prognostic_arr = (
+                prognostic_selected.to_array()
+                .transpose("time", "variable", "lat", "lon")
+                .astype(np.float32, copy=False)
+            )
+            prognostic_all = _xr_to_torch(prognostic_arr, device=self.device)
+        boundary_arr = (
+            boundary_selected.to_array()
+            .transpose("time", "variable", "lat", "lon")
+            .astype(np.float32, copy=False)
+        )
+        boundary = _xr_to_torch(boundary_arr, device=self.device)
+
+        return prognostic_all, boundary
+
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
@@ -571,39 +607,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
-            prognostic_selected = self._prognostic_src.data.isel(time=x_index)
-            boundary_selected = self._boundary_src.data.isel(time=x_index)
-
-            if self._executor is not None:
-                concurrent_compute(
-                    prognostic_selected, boundary_selected, executor=self._executor
-                )
-
-            if "lev" in prognostic_selected.dims:
-                prognostic_arr = (
-                    conditional_rearrange(
-                        prognostic_selected,
-                        "time (variable lev)=var lat lon",
-                        concat_dim="var",
-                    )
-                    .rename({"var": "variable"})
-                    .astype(np.float32, copy=False)
-                )
-                prognostic_all = _xr_to_torch(prognostic_arr, device=self.device)
-            else:
-                prognostic_arr = (
-                    prognostic_selected.to_array()
-                    .transpose("time", "variable", "lat", "lon")
-                    .astype(np.float32, copy=False)
-                )
-                prognostic_all = _xr_to_torch(prognostic_arr, device=self.device)
-            boundary_arr = (
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .astype(np.float32, copy=False)
-            )
-            boundary = _xr_to_torch(boundary_arr, device=self.device)
-
+            prognostic_all, boundary = self._load_step(x_index)
             TD.insert(prognostic_all, boundary)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 

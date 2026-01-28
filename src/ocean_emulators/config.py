@@ -160,6 +160,10 @@ class DataConfig(BaseConfig):
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+    dali_prefetch_queue_depth: int = 2
+    dali_num_threads: int = 1
+    dali_exec_pipelined: bool = True
+    dali_exec_async: bool = True
 
     def build(
         self,
@@ -168,7 +172,10 @@ class DataConfig(BaseConfig):
         boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
-        use_dask = self.use_dask or loader_version != LoaderVersion.OM4_TORCH
+        use_dask = self.use_dask or loader_version not in {
+            LoaderVersion.OM4_TORCH,
+            LoaderVersion.OM4_DALI,
+        }
 
         data_location = data_root.resolve(self.data_location)
         means_location = data_root.resolve(self.data_means_location)

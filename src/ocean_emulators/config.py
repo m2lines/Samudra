@@ -540,9 +540,7 @@ class SamudraConfig(BaseModelConfig):
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
-        add_3d_coordinates = (
-            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else None
-        )
+        add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -583,11 +581,9 @@ class FOMOConfig(BaseModelConfig):
         static_data: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> FOMO:
-        src = srcs[0]
-        lat, lon = src.resolution
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = (
-            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+            Concat3dCoordinates() if self.add_3d_coordinates else nn.Identity()
         )
         all_grids = [(len(s.resolution[0]), len(s.resolution[1])) for s in srcs]
         max_lat, max_lon = (

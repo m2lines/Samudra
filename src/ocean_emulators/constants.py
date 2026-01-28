@@ -44,8 +44,6 @@ HistChanneled = Float[Tensor, "batch hist_prognostic_vars lat lon"]
 
 
 MAX_TRAIN_MODEL_STEPS_FORWARD = 200
-MAX_LAT = 720
-MAX_LON = 1440
 
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels

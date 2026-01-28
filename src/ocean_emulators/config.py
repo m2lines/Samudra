@@ -14,8 +14,6 @@ from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import (
-    MAX_LAT,
-    MAX_LON,
     BoundaryVarNames,
     Grid,
     LoaderVersion,
@@ -401,12 +399,14 @@ class EncoderConfig(BaseConfig):
     )
     perceiver: PerceiverConfig = PerceiverConfig()
 
-    def build(self, in_channels: int, out_channels: int) -> PerceiverEncoder:
+    def build(
+        self, in_channels: int, out_channels: int, max_lat: int, max_lon: int
+    ) -> PerceiverEncoder:
         assert len(self.spatial_extent) == 2, "spatial extent must be a pair of floats."
         extent = self.spatial_extent[0], self.spatial_extent[1]
         # TODO(alxmrs): Make DRY?
-        lat_spacing = 180.0 / MAX_LAT
-        lon_spacing = 360.0 / MAX_LON
+        lat_spacing = 180.0 / max_lat
+        lon_spacing = 360.0 / max_lon
         patch_h = int(round(self.spatial_extent[0] / lat_spacing))
         patch_w = int(round(self.spatial_extent[1] / lon_spacing))
         max_patch_size = (patch_h, patch_w)
@@ -594,13 +594,19 @@ class FOMOConfig(BaseModelConfig):
             Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
         )
         all_grids = [(len(s.resolution[0]), len(s.resolution[1])) for s in srcs]
+        max_lat, max_lon = (
+            max(g[0] for g in all_grids),
+            max(g[1] for g in all_grids),
+        )
         return FOMO(
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.embedding_dim),
+            encoder=self.encoder.build(
+                in_channels, self.embedding_dim, max_lat, max_lon
+            ),
             processor=self.processor.build(
                 self.embedding_dim,
                 self.pad,

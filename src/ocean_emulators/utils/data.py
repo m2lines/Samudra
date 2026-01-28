@@ -312,7 +312,9 @@ def _flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
 
 
 @dataclasses.dataclass
-class TorchDataSource:
+class OceanData:
+    """A slice of either boundary or prognostic ocean data. An intermediary tensor for creating `Example`s."""
+
     data: Float[torch.Tensor, "batch time variable lat lon"]
     means: Float[torch.Tensor, " variable"]
     stds: Float[torch.Tensor, " variable"]
@@ -329,8 +331,9 @@ class TorchDataSource:
         stds_torch = _flatten(src.stds)
         return cls(data, means_torch, stds_torch, mask)
 
-    def map(self, data_func: Callable) -> Self:
-        return dataclasses.replace(self, data=data_func(self.data))
+    def with_time(self, time_range: slice) -> Self:
+        """Slice data across the time dimension."""
+        return dataclasses.replace(self, data=self.data[:, time_range, :, :, :])
 
     def _normalize(
         self,

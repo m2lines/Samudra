@@ -25,7 +25,7 @@ from ocean_emulators.constants import (
 from ocean_emulators.utils.data import (
     DataSource,
     LoadStats,
-    TorchDataSource,
+    OceanData,
     conditional_rearrange,
 )
 from ocean_emulators.utils.device import get_device, using_gpu
@@ -568,17 +568,17 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
-                TorchDataSource.from_data_source(
+                OceanData.from_data_source(
                     input_,
                     self.wet_prognostic[0],
                     self._prognostic_srcs[0],
                 ).to(device=device, non_blocking=True),
-                TorchDataSource.from_data_source(
+                OceanData.from_data_source(
                     boundary,
                     self.wet_surface,
                     self._boundary_src,
                 ).to(device=device, non_blocking=True),
-                TorchDataSource.from_data_source(
+                OceanData.from_data_source(
                     label, self.wet_prognostic[-1], self._prognostic_srcs[-1]
                 ).to(device=device, non_blocking=True),
             )
@@ -589,26 +589,26 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def _to_example(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps
-        input_: TorchDataSource,
-        boundary: TorchDataSource,
-        label: TorchDataSource,
+        input_: OceanData,
+        boundary: OceanData,
+        label: OceanData,
     ) -> tuple[Input, Prognostic]:
         # Move normalization parameters to the same device as input data
         # grab past steps and prep for model
         total_input = self._prep_tensor_steps(
-            input_.map(lambda data: data[:, : self.hist + 1, :, :, :]),
-            boundary.map(lambda data: data[:, : self.hist + 1, :, :, :]),
+            input_.with_time(slice(0, self.hist + 1)),
+            boundary.with_time(slice(0, self.hist + 1)),
         )
         # grab future steps, repeat as we do for input
         label_tensor = self._prep_tensor_steps(
-            label.map(lambda data: data[:, self.hist + 1 :, :, :, :])
+            label.with_time(slice(self.hist + 1, None))
         )
         return total_input, label_tensor
 
     def _prep_tensor_steps(
         self,
-        prognostic: TorchDataSource,
-        boundary: TorchDataSource | None = None,
+        prognostic: OceanData,
+        boundary: OceanData | None = None,
     ) -> Input:
         """Prepare tensor steps by normalizing, masking and flattening dimensions."""
         prognostic_steps = prognostic.normalize_and_mask(

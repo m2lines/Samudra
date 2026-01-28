@@ -335,7 +335,25 @@ def _flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
 
 @dataclasses.dataclass
 class OceanData:
-    """A slice of either boundary or prognostic ocean data. An intermediary tensor for creating `Example`s."""
+    """A slice of ocean data (boundary or prognostic) with normalization statistics.
+
+    This dataclass bundles raw tensor data with the statistics needed to normalize it
+    and the mask needed to handle land/invalid values. It serves as an intermediary
+    representation used when constructing training `Example`s from raw xarray data.
+
+    The typical workflow is:
+        1. Load raw data from a `DataSource` via `from_data_source()`
+        2. Slice to the desired time range with `with_time()`
+        3. Apply normalization and masking with `normalize_and_mask()`
+        4. Flatten time/variable dims to create the final `Input` or `Prognostic` tensor
+
+    Attributes:
+        data: Raw ocean variable values with shape (batch, time, variable, lat, lon).
+        means: Per-variable means for normalization, shape (variable,).
+        stds: Per-variable standard deviations for normalization, shape (variable,).
+        mask: Boolean mask indicating valid ocean points (True) vs land (False),
+            broadcast-compatible with the variable dimension.
+    """
 
     data: Float[torch.Tensor, "batch time variable lat lon"]
     means: Float[torch.Tensor, " variable"]

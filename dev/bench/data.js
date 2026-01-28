@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769567301343,
+  "lastUpdate": 1769567302554,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -14037,6 +14037,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1902060959485047",
             "extra": "mean: 78.04277635819994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f11625140b03bcc9ef6fd7509061a51c27be0838",
+          "message": "Apply wet mask to loss function late. (#555)\n\nTo prepare for multi-scale training, we need to properly handle masking.\nIn our loss function, making was previously done eagerly. This won't\nwork when training on multiple scales, because the output resolution\nwill differ based on the training schedule. Thus, this change applies\nmasking late. To accomplish this, we make the label mask a primary\nproperty of TrainData and RawTrainData.\n\nThis supersedes #531.",
+          "timestamp": "2026-01-28T02:00:46Z",
+          "tree_id": "eb6164d3f2d86d225720d8ea3953d0af32238826",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/f11625140b03bcc9ef6fd7509061a51c27be0838"
+        },
+        "date": 1769567302247,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.8657709095277246,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03600644908815726",
+            "extra": "mean: 1.1550399638000044 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18832701631920815,
+            "unit": "iter/sec",
+            "range": "stddev: 0.024445412944685094",
+            "extra": "mean: 5.3099126166000135 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012296278128205437,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5084193617720263",
+            "extra": "mean: 81.32542136520001 sec\nrounds: 5"
           }
         ]
       }

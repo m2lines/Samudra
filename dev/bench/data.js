@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769565734274,
+  "lastUpdate": 1769567301343,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6969,6 +6969,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1246701879618614",
             "extra": "mean: 91.24641796379998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f11625140b03bcc9ef6fd7509061a51c27be0838",
+          "message": "Apply wet mask to loss function late. (#555)\n\nTo prepare for multi-scale training, we need to properly handle masking.\nIn our loss function, making was previously done eagerly. This won't\nwork when training on multiple scales, because the output resolution\nwill differ based on the training schedule. Thus, this change applies\nmasking late. To accomplish this, we make the label mask a primary\nproperty of TrainData and RawTrainData.\n\nThis supersedes #531.",
+          "timestamp": "2026-01-28T02:00:46Z",
+          "tree_id": "eb6164d3f2d86d225720d8ea3953d0af32238826",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/f11625140b03bcc9ef6fd7509061a51c27be0838"
+        },
+        "date": 1769567300585,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.8575451778442188,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03242906077103396",
+            "extra": "mean: 1.1661193204000029 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18228291196303403,
+            "unit": "iter/sec",
+            "range": "stddev: 0.036051100376925035",
+            "extra": "mean: 5.485977754199991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010390414378608392,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5609168582301144",
+            "extra": "mean: 96.242552372 sec\nrounds: 5"
           }
         ]
       }

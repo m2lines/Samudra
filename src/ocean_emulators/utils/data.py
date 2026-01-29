@@ -387,15 +387,6 @@ class OceanData:
             mask=self.mask.to(device, non_blocking=non_blocking),
         )
 
-    def pin_memory(self, device: torch.device | None = None) -> Self:
-        return dataclasses.replace(
-            self,
-            data=self.data.pin_memory(device=device),
-            means=self.means.pin_memory(device=device),
-            stds=self.stds.pin_memory(device=device),
-            mask=self.mask.pin_memory(device=device),
-        )
-
 
 @dataclasses.dataclass
 class DataContainer:

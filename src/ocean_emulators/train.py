@@ -553,6 +553,49 @@ class Trainer:
         logger.info(f"Training time {total_time_str}")
         self.finish()
 
+    def _get_conditional_bn_stats(self) -> dict[str, float]:
+        """Collect gamma/beta stats from ConditionalBatchNorm2d modules for logging."""
+        from ocean_emulators.models.modules.noise_conditioning import ConditionalBatchNorm2d
+
+        model = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+
+        gamma_stds = []
+        gamma_means = []
+        beta_stds = []
+        beta_means = []
+        normalized_stds = []
+        modulated_stds = []
+        modulation_effects = []
+
+        for module in model.modules():
+            if isinstance(module, ConditionalBatchNorm2d):
+                stats = module.get_conditioning_stats()
+                gamma_stds.append(stats["gamma_std"])
+                gamma_means.append(stats["gamma_mean"])
+                beta_stds.append(stats["beta_std"])
+                beta_means.append(stats["beta_mean"])
+                normalized_stds.append(stats["normalized_std"])
+                modulated_stds.append(stats["modulated_std"])
+                modulation_effects.append(stats["modulation_effect"])
+
+        if not gamma_stds:
+            return {}
+
+        n = len(gamma_stds)
+        return {
+            "train/noise/gamma_std": sum(gamma_stds) / n,
+            "train/noise/gamma_mean": sum(gamma_means) / n,
+            "train/noise/beta_std": sum(beta_stds) / n,
+            "train/noise/beta_mean": sum(beta_means) / n,
+            "train/noise/normalized_std": sum(normalized_stds) / n,
+            "train/noise/modulated_std": sum(modulated_stds) / n,
+            "train/noise/modulation_effect": sum(modulation_effects) / n,
+        }
+
     def train_one_epoch(self, epoch):
         self.model.train(True)
         train_aggregator = Aggregator.get_train_aggregator()
@@ -652,6 +695,12 @@ class Trainer:
                             "train/ensemble/spread_skill_ratio": ss_ratio_reduce,
                         }
                     )
+
+                # Log conditional batch norm gamma/beta stats (for noise debugging)
+                if self.use_ensemble:
+                    cbn_stats = self._get_conditional_bn_stats()
+                    if cbn_stats:
+                        metrics.update(cbn_stats)
 
                 if loss_scale_per_channel_fn := getattr(
                     self.loss_fn, "loss_scale_per_channel", None

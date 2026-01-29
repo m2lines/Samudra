@@ -127,6 +127,15 @@ class ConditionalBatchNorm2d(nn.Module):
         nn.init.normal_(self.noise_projection.weight, std=1.0)
         nn.init.zeros_(self.noise_projection.bias)
 
+        # Stats tracking for debugging
+        self._last_gamma_std: float = 0.0
+        self._last_gamma_mean: float = 0.0
+        self._last_beta_std: float = 0.0
+        self._last_beta_mean: float = 0.0
+        self._last_normalized_std: float = 0.0
+        self._last_modulated_std: float = 0.0
+        self._last_modulation_effect: float = 0.0  # diff between modulated and normalized
+
     def forward(self, x: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:
         """Apply conditional batch normalization.
 
@@ -151,4 +160,27 @@ class ConditionalBatchNorm2d(nn.Module):
         # Apply conditional modulation: out = (1 + gamma) * normalized + beta
         modulated = (1 + gamma) * normalized + beta
 
+        # Track stats for debugging (no grad needed)
+        with torch.no_grad():
+            self._last_gamma_std = gamma.std().item()
+            self._last_gamma_mean = gamma.mean().item()
+            self._last_beta_std = beta.std().item()
+            self._last_beta_mean = beta.mean().item()
+            self._last_normalized_std = normalized.std().item()
+            self._last_modulated_std = modulated.std().item()
+            # How much does modulation change the output?
+            self._last_modulation_effect = (modulated - normalized).abs().mean().item()
+
         return modulated
+
+    def get_conditioning_stats(self) -> dict[str, float]:
+        """Return last gamma/beta statistics for logging."""
+        return {
+            "gamma_std": self._last_gamma_std,
+            "gamma_mean": self._last_gamma_mean,
+            "beta_std": self._last_beta_std,
+            "beta_mean": self._last_beta_mean,
+            "normalized_std": self._last_normalized_std,
+            "modulated_std": self._last_modulated_std,
+            "modulation_effect": self._last_modulation_effect,
+        }

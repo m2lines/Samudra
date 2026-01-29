@@ -94,6 +94,9 @@ class Samudra(BaseModel):
                 dtype=fts.dtype,
             )
             cond = self.noise_mlp(noise)  # (B, noise_embed_dim)
+            
+            # DEBUG: Check conditioning variance
+            # print(f"[DEBUG] noise std: {noise.std().item():.4f}, cond std: {cond.std().item():.4f}, cond mean: {cond.mean().item():.4f}")
 
         if self.positional_params is not None:
             pos = self.positional_params.unsqueeze(0).expand(fts.shape[0], -1, -1, -1)

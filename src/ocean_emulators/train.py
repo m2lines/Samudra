@@ -20,6 +20,7 @@ from typing import Any, assert_never
 import dask
 import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from torch.utils.data import (
     ConcatDataset,
@@ -298,6 +299,7 @@ class Trainer:
                     wet=self.wet,
                     limit=limit,
                     num_channels=len(self.prognostic_var_names),
+                    var_names=self.prognostic_var_names,
                 )
             case _:
                 assert_never(cfg.loss)
@@ -308,12 +310,14 @@ class Trainer:
         # Ensemble training setup
         self.use_ensemble = cfg.ensemble_size_train > 1
         self.ensemble_size = cfg.ensemble_size_train
+        self.ensemble_parallel = cfg.ensemble_parallel
 
         if self.use_ensemble:
             logger.info(
                 f"Enabling ensemble training: "
                 f"ensemble_size={cfg.ensemble_size_train}, "
-                f"loss={cfg.loss}"
+                f"loss={cfg.loss}, "
+                f"ensemble_parallel={cfg.ensemble_parallel}"
             )
 
         # Optimizer
@@ -565,7 +569,19 @@ class Trainer:
             self.optimizer.zero_grad()
 
             if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+                # Only run model summary on rank 0, and skip forward pass for distributed
+                # (SyncBatchNorm requires all ranks to participate in forward)
+                rank = (
+                    dist.get_rank()
+                    if (dist.is_available() and dist.is_initialized())
+                    else 0
+                )
+                if rank == 0:
+                    if self.distributed is not None:
+                        # Skip forward pass in summary - just log param count
+                        get_model_summary(self.model, None, self.debug)
+                    else:
+                        get_model_summary(self.model, data, self.debug)
 
             # Training step
             TO: TrainBatchOutput
@@ -624,6 +640,19 @@ class Trainer:
                     ].value,
                 }
 
+                # Log ensemble metrics if available
+                if TO.ensemble_spread is not None:
+                    spread_reduce = all_reduce_mean(TO.ensemble_spread.detach())
+                    skill_reduce = all_reduce_mean(TO.ensemble_skill.detach())
+                    ss_ratio_reduce = all_reduce_mean(TO.spread_skill_ratio.detach())
+                    metrics.update(
+                        {
+                            "train/ensemble/spread": spread_reduce,
+                            "train/ensemble/skill": skill_reduce,
+                            "train/ensemble/spread_skill_ratio": ss_ratio_reduce,
+                        }
+                    )
+
                 if loss_scale_per_channel_fn := getattr(
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
@@ -679,6 +708,11 @@ class Trainer:
 
             self._call_loss_update(data)
 
+            # Log CRPS dynamic clamping stats if available
+            if clamp_stats_fn := getattr(self.loss_fn, "get_clamp_stats", None):
+                if clamp_stats := clamp_stats_fn():
+                    self.wandb_logger.log(clamp_stats, step=self.num_batches_seen)
+
             self.profiler.after_batch(self.num_batches_seen)
 
         if self.scheduler is not None:
@@ -695,7 +729,7 @@ class Trainer:
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]
                 single_step_data.insert(input, label)
-                
+
                 # For CRPS dynamic loss, need ensemble predictions
                 if self.is_crps and self.use_ensemble:
                     # Generate ensemble predictions for single step
@@ -741,13 +775,23 @@ class Trainer:
                 # Use ensemble validation if ensemble training is enabled
                 VO: ValBatchOutput
                 if self.use_ensemble:
-                    VO = Stepper.validate_batch(
-                        self.model,
-                        data,
-                        self.loss_fn,
-                        ensemble_size=self.ensemble_size,
-                        is_crps=self.is_crps,
-                    )
+                    # Choose between distributed and sequential ensemble validation
+                    if self.ensemble_parallel and self.distributed is not None:
+                        VO = Stepper.validate_batch_distributed(
+                            self.model,
+                            data,
+                            self.loss_fn,
+                            ensemble_size=self.ensemble_size,
+                            is_crps=self.is_crps,
+                        )
+                    else:
+                        VO = Stepper.validate_batch(
+                            self.model,
+                            data,
+                            self.loss_fn,
+                            ensemble_size=self.ensemble_size,
+                            is_crps=self.is_crps,
+                        )
                     # Debug: check if ensemble_data is set
                     if data_iter_step == 0:
                         if VO.ensemble_data is None:

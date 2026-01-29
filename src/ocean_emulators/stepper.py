@@ -12,7 +12,9 @@ from ocean_emulators.models.base import BaseModel
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.ensemble import (
     compute_crps_loss_for_ensemble,
+    compute_ensemble_metrics,
     generate_ensemble_predictions,
+    members_for_rank,
 )
 from ocean_emulators.utils.output import (
     ModelInferenceOutput,
@@ -58,7 +60,19 @@ class Stepper:
         # Compute scalar loss for backprop
         loss = torch.mean(loss_per_channel)
 
-        return TrainBatchOutput(loss, loss_per_channel)
+        # Compute ensemble metrics for logging (no grad needed)
+        with torch.no_grad():
+            spread, skill, spread_skill_ratio = compute_ensemble_metrics(
+                ensemble_preds, targets
+            )
+
+        return TrainBatchOutput(
+            loss,
+            loss_per_channel,
+            ensemble_spread=spread,
+            ensemble_skill=skill,
+            spread_skill_ratio=spread_skill_ratio,
+        )
 
     @staticmethod
     @torch.no_grad()
@@ -130,6 +144,156 @@ class Stepper:
         else:
             # Deterministic validation
             outs = model.forward_once(input)
+            loss_per_channel = loss_fn(outs, label)
+            loss = torch.mean(loss_per_channel)
+
+            return ValBatchOutput(loss, loss_per_channel, input, label, outs)
+
+    @staticmethod
+    @torch.no_grad()
+    def validate_batch_distributed(
+        model: BaseModel | torch.nn.parallel.DistributedDataParallel,
+        batch: TrainData,
+        loss_fn: Callable,
+        ensemble_size: int,
+        is_crps: bool = False,
+    ) -> ValBatchOutput:
+        """Validation with ensemble members distributed across GPUs.
+
+        Unlike validate_batch which runs all ensemble members sequentially on each GPU,
+        this version shards ensemble members across GPUs and gathers results.
+        This reduces memory per GPU from O(ensemble_size) to O(ensemble_size/world_size).
+
+        Note: All GPUs must process the same batch for this to work correctly.
+        """
+        import torch.distributed as dist
+
+        assert len(batch) == 1  # Assert we are using one step of input and output
+        input = batch.get_input(0)
+        label = batch.get_label(0)
+
+        # Unwrap DDP model
+        base_model = (
+            model.module
+            if isinstance(model, torch.nn.parallel.DistributedDataParallel)
+            else model
+        )
+
+        if ensemble_size > 1:
+            # Get distributed info
+            world_size = (
+                dist.get_world_size()
+                if (dist.is_available() and dist.is_initialized())
+                else 1
+            )
+            rank = (
+                dist.get_rank()
+                if (dist.is_available() and dist.is_initialized())
+                else 0
+            )
+
+            # Determine which ensemble members this rank computes
+            start_idx, local_count = members_for_rank(ensemble_size, rank, world_size)
+
+            logger.debug(
+                f"validate_batch_distributed: rank {rank}/{world_size}, "
+                f"computing members {start_idx} to {start_idx + local_count - 1}"
+            )
+
+            # Generate local ensemble predictions
+            local_ensemble_outs: list[torch.Tensor] = []
+            for member_idx in range(local_count):
+                outs = base_model.forward_once(input)
+                local_ensemble_outs.append(outs)
+
+            # Stack local members: (local_count, batch, ...)
+            local_ensemble = torch.stack(local_ensemble_outs, dim=0)
+
+            # Remove time dimension if present (take last time step)
+            if local_ensemble.ndim == 6:  # (E, B, T, C, H, W)
+                local_ensemble = local_ensemble[:, :, -1, :, :, :]  # (E, B, C, H, W)
+
+            # Gather ensemble members from all ranks
+            if world_size > 1:
+                # Use all_gather to collect predictions from all ranks
+                gathered_list = [
+                    torch.zeros_like(local_ensemble) for _ in range(world_size)
+                ]
+
+                # Handle uneven distribution - need to pad/gather with different sizes
+                # For simplicity, assume ensemble_size is divisible by world_size
+                # or use all_gather with different sizes
+                local_counts = [
+                    members_for_rank(ensemble_size, r, world_size)[1]
+                    for r in range(world_size)
+                ]
+
+                if all(c == local_count for c in local_counts):
+                    # Even distribution - simple all_gather
+                    dist.all_gather(gathered_list, local_ensemble)
+                    ensemble_outs = torch.cat(gathered_list, dim=0)
+                else:
+                    # Uneven distribution - need to handle different sizes
+                    # Pad to max size, gather, then trim
+                    max_count = max(local_counts)
+                    if local_count < max_count:
+                        padding = torch.zeros(
+                            max_count - local_count,
+                            *local_ensemble.shape[1:],
+                            device=local_ensemble.device,
+                            dtype=local_ensemble.dtype,
+                        )
+                        local_ensemble_padded = torch.cat(
+                            [local_ensemble, padding], dim=0
+                        )
+                    else:
+                        local_ensemble_padded = local_ensemble
+
+                    gathered_list = [
+                        torch.zeros_like(local_ensemble_padded)
+                        for _ in range(world_size)
+                    ]
+                    dist.all_gather(gathered_list, local_ensemble_padded)
+
+                    # Trim each rank's contribution to actual count
+                    trimmed = []
+                    for r, gathered in enumerate(gathered_list):
+                        count = local_counts[r]
+                        trimmed.append(gathered[:count])
+                    ensemble_outs = torch.cat(trimmed, dim=0)
+            else:
+                ensemble_outs = local_ensemble
+
+            # Verify final shape
+            if ensemble_outs.ndim != 5:
+                raise ValueError(
+                    f"Expected ensemble_outs to be 5D (E,B,C,H,W), got {ensemble_outs.ndim}D: {ensemble_outs.shape}"
+                )
+
+            logger.debug(
+                f"validate_batch_distributed: final ensemble_outs.shape = {ensemble_outs.shape}"
+            )
+
+            # Compute ensemble mean as the prediction
+            outs = ensemble_outs.mean(dim=0)
+
+            # Compute loss based on loss function type
+            if is_crps:
+                # CRPS loss expects (ensemble_size, batch, ...) and computes internally
+                loss_per_channel = loss_fn(ensemble_outs, label)
+            else:
+                # Standard losses expect (batch, ...) and work on ensemble mean
+                loss_per_channel = loss_fn(outs, label)
+
+            loss = torch.mean(loss_per_channel)
+
+            # Return with ensemble data for computing statistics
+            return ValBatchOutput(
+                loss, loss_per_channel, input, label, outs, ensemble_data=ensemble_outs
+            )
+        else:
+            # Deterministic validation
+            outs = base_model.forward_once(input)
             loss_per_channel = loss_fn(outs, label)
             loss = torch.mean(loss_per_channel)
 

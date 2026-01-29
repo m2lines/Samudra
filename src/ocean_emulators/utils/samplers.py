@@ -173,6 +173,12 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
     Uses composition to delegate batching logic to EquivalenceGroupBatchSampler,
     handling only the distribution and epoch-based shuffling.
 
+    Ensures uniform batch counts across all ranks to prevent DDP hangs at
+    collective sync points. When the total batch count isn't divisible by
+    num_replicas:
+    - drop_last=True: trims to the largest multiple of num_replicas
+    - drop_last=False: pads by duplicating batches from the beginning
+
     Args:
         datasets: List of TorchTrainDataset instances to group
         group_key: Callable that extracts grouping key from a dataset
@@ -180,7 +186,8 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         num_replicas: Number of distributed workers (world size)
         rank: Index of current worker (0 to num_replicas-1)
         shuffle: Whether to shuffle batches
-        drop_last: Whether to drop incomplete batches within each group
+        drop_last: Whether to drop incomplete batches within each group, and
+            whether to trim (vs pad) when distributing batches across ranks
         seed: Random seed for shuffling (default: 0)
     """
 
@@ -204,6 +211,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         self.num_replicas = num_replicas
         self.rank = rank
         self.shuffle = shuffle
+        self._drop_last = drop_last
         self.seed = seed
         self.epoch = 0
 
@@ -229,12 +237,32 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
             rng = random.Random(self.seed + self.epoch)
             rng.shuffle(all_batches)
 
+        # Ensure uniform batch count across all ranks to prevent DDP hangs.
+        # Similar to torch.utils.data.DistributedSampler behavior:
+        # - drop_last=True: trim to largest multiple of num_replicas
+        # - drop_last=False: pad by duplicating batches to reach next multiple
+        total = len(all_batches)
+        if self._drop_last:
+            # Trim to ensure divisibility
+            num_batches_per_rank = total // self.num_replicas
+            total_batches_to_use = num_batches_per_rank * self.num_replicas
+            all_batches = all_batches[:total_batches_to_use]
+        else:
+            # Pad to ensure divisibility (ceiling division)
+            num_batches_per_rank = (total + self.num_replicas - 1) // self.num_replicas
+            # Pad by wrapping around from the beginning
+            padding_size = num_batches_per_rank * self.num_replicas - total
+            if padding_size > 0:
+                all_batches = all_batches + all_batches[:padding_size]
+
         # Each worker takes every num_replicas'th batch starting at rank
         for i in range(self.rank, len(all_batches), self.num_replicas):
             yield all_batches[i]
 
     def __len__(self):
-        """Number of batches for this worker."""
+        """Number of batches for this worker (same for all ranks)."""
         total_batches = len(self._inner)
-        # Each worker gets ceil(total / num_replicas) batches at most
-        return (total_batches + self.num_replicas - 1 - self.rank) // self.num_replicas
+        if self._drop_last:
+            return total_batches // self.num_replicas
+        else:
+            return (total_batches + self.num_replicas - 1) // self.num_replicas

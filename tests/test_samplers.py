@@ -203,10 +203,10 @@ class TestDistributedBatchSamplerDistribution:
                 overlap = set(batches_by_worker[i]) & set(batches_by_worker[j])
                 assert len(overlap) == 0, f"Workers {i} and {j} share batches"
 
-    def test_all_workers_cover_all_batches(self):
-        """All workers together should cover all batches exactly once."""
+    def test_all_workers_cover_all_indices_with_padding(self):
+        """All workers together should cover all indices (with possible duplicates from padding)."""
         datasets = [MockDataset(10), MockDataset(10)]
-        num_replicas = 3
+        num_replicas = 3  # 10 batches / 3 = 3.33, so we pad to 12 batches
 
         all_batches = []
         for rank in range(num_replicas):
@@ -221,9 +221,79 @@ class TestDistributedBatchSamplerDistribution:
             )
             all_batches.extend(list(sampler))
 
-        # All indices should be covered exactly once
+        # All indices should be covered (duplicates allowed due to padding)
         all_indices = [idx for batch in all_batches for idx in batch]
-        assert sorted(all_indices) == list(range(20))
+        assert set(all_indices) == set(range(20))
+
+    def test_all_workers_cover_all_batches_exactly_once_with_drop_last(self):
+        """With drop_last=True and divisible batch count, all batches covered exactly once."""
+        datasets = [MockDataset(12), MockDataset(12)]  # 12 batches total
+        num_replicas = 4  # 12 batches / 4 = 3, evenly divisible
+
+        all_batches = []
+        for rank in range(num_replicas):
+            sampler = DistributedEquivalenceGroupBatchSampler(
+                datasets=datasets,  # type: ignore[arg-type]
+                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                batch_size=2,
+                num_replicas=num_replicas,
+                rank=rank,
+                shuffle=False,
+                drop_last=True,
+            )
+            all_batches.extend(list(sampler))
+
+        # All indices covered exactly once when evenly divisible with drop_last
+        all_indices = [idx for batch in all_batches for idx in batch]
+        assert sorted(all_indices) == list(range(24))
+
+    def test_all_workers_get_same_batch_count(self):
+        """All workers must get the same number of batches to prevent DDP hangs."""
+        datasets = [MockDataset(10), MockDataset(10)]  # 10 batches total
+
+        for num_replicas in [2, 3, 4, 7]:  # Test various divisibility scenarios
+            for drop_last in [True, False]:
+                batch_counts = []
+                for rank in range(num_replicas):
+                    sampler = DistributedEquivalenceGroupBatchSampler(
+                        datasets=datasets,  # type: ignore[arg-type]
+                        group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                        batch_size=2,
+                        num_replicas=num_replicas,
+                        rank=rank,
+                        shuffle=False,
+                        drop_last=drop_last,
+                    )
+                    batch_counts.append(len(list(sampler)))
+
+                # Critical DDP safety check: all workers must have identical batch counts
+                assert len(set(batch_counts)) == 1, (
+                    f"Workers have different batch counts with num_replicas={num_replicas}, "
+                    f"drop_last={drop_last}: {batch_counts}"
+                )
+
+    def test_drop_last_trims_batches(self):
+        """With drop_last=True, batches should be trimmed (not padded) for even distribution."""
+        datasets = [MockDataset(10), MockDataset(10)]  # 10 batches total
+        num_replicas = 3  # 10 // 3 = 3 batches per worker
+
+        all_batches = []
+        for rank in range(num_replicas):
+            sampler = DistributedEquivalenceGroupBatchSampler(
+                datasets=datasets,  # type: ignore[arg-type]
+                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                batch_size=2,
+                num_replicas=num_replicas,
+                rank=rank,
+                shuffle=False,
+                drop_last=True,
+            )
+            all_batches.extend(list(sampler))
+
+        # With 10 batches and 3 replicas, trimming gives 9 batches (3 per worker)
+        # So we should have 9 batches * 2 samples = 18 indices (not all 20)
+        all_indices = [idx for batch in all_batches for idx in batch]
+        assert len(all_indices) == 18
 
     def test_set_epoch_changes_ordering(self):
         """Different epochs should produce different batch orderings."""

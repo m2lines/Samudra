@@ -29,7 +29,7 @@ class BaseModel(torch.nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.N_pad = int((last_kernel_size - 1) / 2)
-        self.pad = pad
+        self.pad: str = pad
         self.pred_residuals = pred_residuals
         self.hist = hist
         self.gradient_detach_interval = gradient_detach_interval

@@ -56,7 +56,7 @@ class UNetBackbone(nn.Module):
     ):
         super().__init__()
         self.in_channels = in_channels
-        self.out_channels = ch_width[0]
+        self.out_channels: int = ch_width[0]
 
         # Create local copies of config lists that will be reversed
         ch_width = [in_channels] + ch_width.copy()

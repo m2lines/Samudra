@@ -534,7 +534,6 @@ class SamudraConfig(BaseModelConfig):
     ) -> Samudra:
         corrector = None
         src = srcs[0]
-        lat, lon = src.resolution
         if self.corrector is not None:
             corrector = self.corrector.build(
                 hist, src.area_weights, static_data_for_corrector
@@ -558,7 +557,7 @@ class SamudraConfig(BaseModelConfig):
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
-            grid=(lat.shape[0], lon.shape[0]),
+            grid=src.grid,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
@@ -583,10 +582,11 @@ class FOMOConfig(BaseModelConfig):
         srcs: list[DataSource],
     ) -> FOMO:
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        # TODO(alxmrs): Is Identity OK, or should I use the `None` pattern?
         add_3d_coordinates = (
             Concat3dCoordinates() if self.add_3d_coordinates else nn.Identity()
         )
-        all_grids = [(len(s.resolution[0]), len(s.resolution[1])) for s in srcs]
+        all_grids = [s.grid for s in srcs]
         max_lat, max_lon = (
             max(g[0] for g in all_grids),
             max(g[1] for g in all_grids),

@@ -67,6 +67,8 @@ class Masks:
             boundary=boundary.bool(),
         )
 
+    # NB(alxmrs): Since this dataclass is long-lived, functools cache decorators shouldn't cause additional
+    #  memory issues.
     @lru_cache(maxsize=5)
     def prognostic_with_hist(
         self, hist: int

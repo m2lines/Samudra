@@ -609,6 +609,7 @@ class Trainer:
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
+        # TODO(alxmrs): Aggregator only supports a single scale.
         val_aggregator = Aggregator.get_validation_aggregator(
             self.primary_src.metadata,
             self.hist,
@@ -642,6 +643,7 @@ class Trainer:
             for data_iter_step, (inference_dataset, num_steps) in enumerate(
                 self.inference_loader
             ):
+                # TODO(alxmrs): Aggregator only supports a single scale.
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
                     self.primary_src.metadata,
@@ -787,7 +789,7 @@ class Trainer:
             return tuple(prog.grid for prog in ds.prognostic_srcs)
 
         if self.distributed is not None:
-            # Distributed training - use DistributedEquivalenceGroupBatchSampler
+            # Distributed training
             assert self.distributed.world_size is not None
             assert self.distributed.rank is not None
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
@@ -810,7 +812,7 @@ class Trainer:
                 drop_last=False,
             )
         else:
-            # Non-distributed training - use EquivalenceGroupBatchSampler
+            # Non-distributed training
             train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=train_datasets,
                 group_key=group_key,
@@ -823,7 +825,7 @@ class Trainer:
                 datasets=val_datasets,
                 group_key=group_key,
                 batch_size=self.batch_size,
-                shuffle=False,
+                shuffle=True,
                 drop_last=False,
             )
 

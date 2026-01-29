@@ -3,9 +3,20 @@ import xarray as xr
 
 
 class TrainBatchOutput:
-    def __init__(self, loss: torch.Tensor, loss_per_channel: torch.Tensor):
+    def __init__(
+        self,
+        loss: torch.Tensor,
+        loss_per_channel: torch.Tensor,
+        ensemble_spread: torch.Tensor | None = None,
+        ensemble_skill: torch.Tensor | None = None,
+        spread_skill_ratio: torch.Tensor | None = None,
+    ):
         self.loss = loss
         self.loss_per_channel = loss_per_channel
+        # Ensemble metrics (only set when training with ensembles)
+        self.ensemble_spread = ensemble_spread
+        self.ensemble_skill = ensemble_skill
+        self.spread_skill_ratio = spread_skill_ratio
 
 
 class ValBatchOutput(TrainBatchOutput):

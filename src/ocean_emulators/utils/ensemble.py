@@ -81,6 +81,39 @@ def generate_ensemble_predictions(
     return ensemble_predictions, targets_stacked
 
 
+def compute_ensemble_metrics(
+    ensemble_predictions: torch.Tensor,
+    targets: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Compute spread, skill (RMSE), and spread/skill ratio for ensemble predictions.
+
+    Args:
+        ensemble_predictions: (ensemble_size, steps, batch, channels, lat, lon)
+        targets: (steps, batch, channels, lat, lon)
+
+    Returns:
+        spread: scalar, mean std across ensemble members
+        skill: scalar, RMSE of ensemble mean vs targets
+        spread_skill_ratio: scalar, spread / skill
+    """
+    # Use last step for metrics (most relevant for autoregressive)
+    preds_last = ensemble_predictions[:, -1]  # (E, B, C, H, W)
+    target_last = targets[-1]  # (B, C, H, W)
+
+    # Spread: std across ensemble members, averaged over spatial dims
+    spread = preds_last.std(dim=0).mean()  # scalar
+
+    # Skill: RMSE of ensemble mean vs target
+    ensemble_mean = preds_last.mean(dim=0)  # (B, C, H, W)
+    mse = ((ensemble_mean - target_last) ** 2).mean()
+    skill = torch.sqrt(mse)  # scalar
+
+    # Spread/skill ratio (avoid div by zero)
+    spread_skill_ratio = spread / skill.clamp(min=1e-12)
+
+    return spread, skill, spread_skill_ratio
+
+
 def compute_crps_loss_for_ensemble(
     ensemble_predictions: torch.Tensor,
     targets: torch.Tensor,

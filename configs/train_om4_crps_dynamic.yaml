@@ -12,7 +12,7 @@ batch_size: 1
 learning_rate: 0.0002
 scheduler: { type: cosine }
 loss: crps_dynamic  # Dynamic CRPS with limiting enabled
-ensemble_size_train: 2  # Required for CRPS (minimum 2)
+ensemble_size_train: 2  # Minimum for CRPS
 val_freq_steps: 500
 finetune: false
 resume_ckpt_path: null
@@ -45,7 +45,7 @@ step_transition: []
 backend: auto
 
 experiment:
-  name: local_om4_samudra_crps_dynamic_limit_10
+  name: local_om4_samudra_crps_dynamic_limit_10_high_noise_log
   rand_seed: 15
   base_output_dir: /scratch/ag11542/models
   wandb:
@@ -60,7 +60,8 @@ data: !include data/public.yaml
 
 model:
   noise_mode: conditional_norm
-  noise_resolution: [16, 16]
+  noise_resolution: [32, 32]  # Higher res noise for more diversity
+  noise_channels: 8  # More noise channels
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"

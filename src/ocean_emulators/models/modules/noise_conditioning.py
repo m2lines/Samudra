@@ -122,8 +122,9 @@ class ConditionalBatchNorm2d(nn.Module):
         # Learned projection from noise embeddings to scale/shift parameters
         self.noise_projection = nn.Linear(cond_dim, 2 * num_features)
 
-        # Initialize projection to output zeros (initially behaves like regular BN)
-        nn.init.zeros_(self.noise_projection.weight)
+        # Initialize with random weights so noise has immediate effect on output
+        # Using std=1.0 for strong initial noise effect - can tune down if too much
+        nn.init.normal_(self.noise_projection.weight, std=1.0)
         nn.init.zeros_(self.noise_projection.bias)
 
     def forward(self, x: torch.Tensor, cond: torch.Tensor) -> torch.Tensor:

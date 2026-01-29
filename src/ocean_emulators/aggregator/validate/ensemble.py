@@ -127,6 +127,14 @@ class EnsembleAggregator(ValidateSubAggregator):
                 f"Inconsistent ensemble sizes across batches: {self._ensemble_size} vs {E}"
             )
 
+        # Validate channel dimension
+        num_vars = len(self._var_to_channel)
+        hist_plus_1 = C // num_vars
+        if C != hist_plus_1 * num_vars:
+            raise ValueError(
+                f"ensemble_data channels {C} not divisible by num_vars {num_vars}"
+            )
+
         # Device/dtype alignment
         device = ensemble_data.device
         dtype = ensemble_data.dtype

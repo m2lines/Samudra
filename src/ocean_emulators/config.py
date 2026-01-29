@@ -733,6 +733,12 @@ class TrainConfig(TopLevelConfig):
         description="Number of ensemble members to generate per sample during training. "
         "If > 1, uses ensemble training mode with the loss function specified in 'loss'.",
     )
+    ensemble_parallel: bool = Field(
+        default=False,
+        description="If True, distribute ensemble members across GPUs during validation. "
+        "Each GPU computes ensemble_size/world_size members. Requires ensemble_size >= world_size. "
+        "This reduces memory per GPU but requires all GPUs to process the same batch.",
+    )
 
     # Profiling parameters
     profiler: ProfilerConfig = ProfilerConfig()

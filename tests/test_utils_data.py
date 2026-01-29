@@ -11,6 +11,7 @@ from ocean_emulators.utils.data import (
     DataSource,
     Masks,
     Normalize,
+    OceanData,
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
@@ -287,3 +288,70 @@ def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
     assert torch.isnan(data_dict[var_name][:, :, 0, 1]).all()
     assert torch.isnan(data_dict[var_name][:, :, 1, 0]).all()
     assert torch.isnan(data_dict[var_name][:, :, 1, 2]).all()
+
+
+def test_ocean_data_with_time():
+    """Test slicing OceanData across the time dimension."""
+    batch, time, var, lat, lon = 2, 5, 3, 4, 6
+    data = torch.randn(batch, time, var, lat, lon)
+    means = torch.tensor([1.0, 2.0, 3.0])
+    stds = torch.tensor([0.5, 1.0, 2.0])
+    mask = torch.ones(var, dtype=torch.bool)
+    ocean_data = OceanData(data=data, means=means, stds=stds, mask=mask)
+
+    sliced = ocean_data.with_time(slice(0, 3))
+
+    assert sliced.data.shape[1] == 3
+    assert torch.equal(sliced.data, ocean_data.data[:, 0:3, :, :, :])
+    # Other fields should be unchanged
+    assert torch.equal(sliced.means, ocean_data.means)
+    assert torch.equal(sliced.stds, ocean_data.stds)
+
+
+@pytest.mark.parametrize("masked_fill_value", [0.0, -1.0])
+def test_ocean_data_normalize_and_mask(masked_fill_value):
+    """Test that masked positions receive the fill value when normalizing first."""
+    batch, time, var, lat, lon = 2, 5, 3, 4, 6
+    data = torch.randn(batch, time, var, lat, lon)
+    data[:, :, :, 0, 0] = float("nan")  # Simulate land
+    means = torch.tensor([1.0, 2.0, 3.0])
+    stds = torch.tensor([0.5, 1.0, 2.0])
+    mask = torch.ones(var, lat, lon, dtype=torch.bool)
+    mask[:, 0, 0] = False  # Mark as land
+
+    ocean_data = OceanData(data=data, means=means, stds=stds, mask=mask)
+    result = ocean_data.normalize_and_mask(
+        normalize_before_mask=True, masked_fill_value=masked_fill_value
+    )
+
+    assert result.shape == ocean_data.data.shape
+    # Masked positions should have the fill value
+    mask_expanded = mask.unsqueeze(0).unsqueeze(0)
+    masked_positions = ~mask_expanded.expand_as(result)
+    assert torch.all(result[masked_positions] == masked_fill_value)
+    # Valid positions should not be NaN
+    valid_positions = mask_expanded.expand_as(result)
+    assert not torch.any(torch.isnan(result[valid_positions]))
+
+
+def test_ocean_data_normalize_and_mask_values():
+    """Test that normalization produces expected values with known inputs."""
+    batch, time, num_var, lat, lon = 1, 1, 2, 2, 2
+    data = torch.tensor(
+        [[[[[10.0, 10.0], [10.0, 10.0]], [[20.0, 20.0], [20.0, 20.0]]]]]
+    )
+    means = torch.tensor([5.0, 10.0])
+    stds = torch.tensor([5.0, 5.0])
+    mask = torch.ones(num_var, lat, lon, dtype=torch.bool)
+
+    ocean_data = OceanData(data=data, means=means, stds=stds, mask=mask)
+    result = ocean_data.normalize_and_mask(
+        normalize_before_mask=True, masked_fill_value=0.0
+    )
+
+    # Expected: (10 - 5) / 5 = 1.0 for var 0, (20 - 10) / 5 = 2.0 for var 1
+    expected_var0 = torch.ones(batch, time, lat, lon)
+    expected_var1 = torch.ones(batch, time, lat, lon) * 2.0
+
+    assert torch.allclose(result[:, :, 0, :, :], expected_var0)
+    assert torch.allclose(result[:, :, 1, :, :], expected_var1)

@@ -482,6 +482,7 @@ def get_aggregator_dicts(
     data_normalized = data_reshaped.clone()
     data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
     data_dict = convert_tensor_out_to_dict(data_normalized)
+
     # Unnormalize
     data_unnorm = normalize.unnormalize_tensor_prognostic(
         data_reshaped, fill_value=float("nan")

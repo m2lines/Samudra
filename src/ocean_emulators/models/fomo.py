@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 
 import torch
-import xarray as xr
 from einops import rearrange
 from perceiver_pytorch import Perceiver
 from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
@@ -38,7 +37,6 @@ class FOMO(BaseModel):
         encoder: PerceiverEncoder,
         processor: UNetBackbone,
         hist: int,
-        static_data: xr.Dataset | None,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         all_grids: list[tuple[int, int]],
@@ -51,7 +49,6 @@ class FOMO(BaseModel):
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,
-            static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
         )
 

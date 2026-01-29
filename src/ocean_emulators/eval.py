@@ -112,7 +112,7 @@ class Eval:
             in_channels=self.num_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            static_data=self.static_data,
+            static_data_for_corrector=self.static_data,
             srcs=self.data_container.sources,
         ).to(self.device)
 

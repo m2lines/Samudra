@@ -174,12 +174,7 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
 
-        # TODO(alxmrs): This is only used in the aggregator. Remove?
-        self.src = self.data_container.primary_source
-        # TODO(alxmrs): This is only used to get lats in the loss fn. Remove?
-        self.data = self.src.data
-        # TODO(alxmrs): This is not used and incorrect. Refactor (as part of src)?
-        self.static_data = self.data_container.static_data
+        self.primary_src = self.data_container.primary_source
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
@@ -188,9 +183,9 @@ class Trainer:
 
         self.loader_version = self.data_container.loader_version
 
-        # TODO(alxmrs): This is only used in the corrector IIUC, which is not used. Remove?
+        # This is used by both the aggregator and corrector. It only works at a single scale.
         self.normalize = Normalize.init_instance(
-            self.src,
+            self.primary_src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
@@ -199,7 +194,8 @@ class Trainer:
             in_channels=self.num_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            static_data=self.static_data,
+            # TODO(559): This won't work at multiple scales. Refactor as part of src.
+            static_data_for_corrector=self.data_container.static_data,
             srcs=self.data_container.sources,
         ).to(self.device)
 
@@ -616,10 +612,10 @@ class Trainer:
         self.model.eval()
 
         val_aggregator = Aggregator.get_validation_aggregator(
-            self.src.metadata,
+            self.primary_src.metadata,
             self.hist,
-            self.src.area_weights.to(self.device),
-            self.src.masks.prognostic.to(self.device),
+            self.primary_src.area_weights.to(self.device),
+            self.primary_src.masks.prognostic.to(self.device),
             self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
@@ -650,10 +646,10 @@ class Trainer:
             ):
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
-                    self.src.metadata,
+                    self.primary_src.metadata,
                     self.hist,
-                    self.src.area_weights.to(self.device),
-                    self.src.masks.prognostic.to(self.device),
+                    self.primary_src.area_weights.to(self.device),
+                    self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,
                 )

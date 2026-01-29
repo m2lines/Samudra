@@ -22,7 +22,6 @@ class BaseModel(torch.nn.Module):
         pred_residuals,
         last_kernel_size,
         pad,
-        static_data,
         gradient_detach_interval: int,
     ) -> None:
         super().__init__()
@@ -33,7 +32,6 @@ class BaseModel(torch.nn.Module):
         self.pad = pad
         self.pred_residuals = pred_residuals
         self.hist = hist
-        self.static_data = static_data
         self.gradient_detach_interval = gradient_detach_interval
 
     def forward_once(self, fts, wet: PrognosticMask, resolution: tuple[Lat, Lon]):

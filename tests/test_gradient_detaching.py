@@ -69,7 +69,7 @@ def create_samudra_model():
                 in_channels=2,
                 out_channels=1,
                 hist=1,
-                static_data=None,
+                static_data_for_corrector=None,
                 srcs=[src],
             )
 

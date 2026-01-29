@@ -50,7 +50,7 @@ def test_positional_parameters_update():
             in_channels=2,
             out_channels=1,
             hist=0,
-            static_data=None,
+            static_data_for_corrector=None,
             srcs=[src],
         )
 

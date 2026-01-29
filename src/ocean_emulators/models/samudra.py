@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
-import xarray as xr
 
 from ocean_emulators.constants import Lat, Lon, PrognosticMask
 from ocean_emulators.models.base import BaseModel
@@ -23,7 +22,6 @@ class Samudra(BaseModel):
         add_3d_coordinates: nn.Module | None,
         hist: int,
         grid: tuple[int, int],
-        static_data: xr.Dataset | None,
         gradient_detach_interval: int,
         use_bfloat16: bool,
     ):
@@ -34,7 +32,6 @@ class Samudra(BaseModel):
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,
-            static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
         )
 

@@ -506,7 +506,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         in_channels: int,
         out_channels: int,
         hist: int,
-        static_data: xr.Dataset | None,
+        static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> BaseModel:
         pass
@@ -529,14 +529,16 @@ class SamudraConfig(BaseModelConfig):
         in_channels: int,
         out_channels: int,
         hist: int,
-        static_data: xr.Dataset | None,
+        static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> Samudra:
         corrector = None
         src = srcs[0]
         lat, lon = src.resolution
         if self.corrector is not None:
-            corrector = self.corrector.build(hist, src.area_weights, static_data)
+            corrector = self.corrector.build(
+                hist, src.area_weights, static_data_for_corrector
+            )
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
@@ -557,7 +559,6 @@ class SamudraConfig(BaseModelConfig):
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             grid=(lat.shape[0], lon.shape[0]),
-            static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
@@ -578,7 +579,7 @@ class FOMOConfig(BaseModelConfig):
         in_channels: int,
         out_channels: int,
         hist: int,
-        static_data: xr.Dataset | None,
+        static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> FOMO:
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
@@ -607,7 +608,6 @@ class FOMOConfig(BaseModelConfig):
             # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
-            static_data=static_data,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             all_grids=all_grids,

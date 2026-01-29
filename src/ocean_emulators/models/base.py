@@ -4,7 +4,7 @@ import logging
 
 import torch
 
-from ocean_emulators.constants import Lat, Lon, PrognosticMask
+from ocean_emulators.constants import Auxiliary
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class BaseModel(torch.nn.Module):
         self.hist = hist
         self.gradient_detach_interval = gradient_detach_interval
 
-    def forward_once(self, fts, wet: PrognosticMask, resolution: tuple[Lat, Lon]):
+    def forward_once(self, fts, aux: Auxiliary):
         raise NotImplementedError()
 
     def forward(
@@ -58,11 +58,7 @@ class BaseModel(torch.nn.Module):
                     prognostic=prev_output, step=step
                 )
 
-            decodings = self.forward_once(
-                input_tensor,
-                wet=train_data.label_mask.to(device=input_tensor.device),
-                resolution=train_data.input_res,
-            )
+            decodings = self.forward_once(input_tensor, train_data.aux)
             if self.pred_residuals:
                 pred = (
                     input_tensor[
@@ -122,12 +118,11 @@ class BaseModel(torch.nn.Module):
                     prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
-
-            decodings = self.forward_once(
-                input_tensor,
-                wet=dataset.wet_label.to(input_tensor.device),
-                resolution=dataset.input_res,
+            aux = Auxiliary(
+                dataset.wet_label.to(input_tensor.device),
+                dataset.input_res,
             )
+            decodings = self.forward_once(input_tensor, aux)
             if self.pred_residuals:
                 pred = (
                     input_tensor[

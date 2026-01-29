@@ -5,19 +5,18 @@ import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
-from ocean_emulators.constants import Lat, PrognosticMask
+from ocean_emulators.constants import Auxiliary
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 LossFnCosWeighted = Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
 
 
-class LossFnWithMask(Protocol):
+class LossFnWithAuxiliary(Protocol):
     def __call__(
         self,
         pred: torch.Tensor,
         target: torch.Tensor,
-        wet: PrognosticMask,
-        lat: Lat | None = None,
+        aux: Auxiliary,
     ) -> torch.Tensor: ...
 
 
@@ -30,7 +29,7 @@ LossMetric = Literal[
 ]
 
 
-def loss_fn_from_metric(metric: LossMetric) -> LossFnWithMask:
+def loss_fn_from_metric(metric: LossMetric) -> LossFnWithAuxiliary:
     match metric:
         case "mse":
             loss_fn: LossFn | LossFnCosWeighted = decomposed_mse
@@ -48,13 +47,15 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithMask:
     def loss_fn_with_mask(
         pred: torch.Tensor,
         target: torch.Tensor,
-        wet: PrognosticMask,
-        lat: Lat | None = None,
+        aux: Auxiliary,
     ) -> torch.Tensor:
-        wet = wet.to(device=pred.device)
+        wet = aux.label_mask.to(device=pred.device)
         pred = pred * wet
         target = target * wet
-        if metric == "mse_cos_weighted" and lat is not None:
+        if (
+            metric == "mse_cos_weighted"
+            and (lat := aux.input_resolution[0]) is not None
+        ):
             area_weights = torch.sqrt(torch.cos(torch.deg2rad(lat))).to(
                 device=pred.device
             )
@@ -176,7 +177,7 @@ class DynamicLoss:
 
     def __init__(
         self,
-        loss_fn: LossFnWithMask,
+        loss_fn: LossFnWithAuxiliary,
         *,
         limit: float | None,
         device: torch.device,
@@ -193,11 +194,10 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        wet: PrognosticMask,
-        lat: Lat | None = None,
+        aux: Auxiliary,
     ) -> Float[torch.Tensor, " hist*var"]:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
-            pred, target, wet, lat
+            pred, target, aux
         )
         # Channels are time-major: (hist+1) * var.
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
@@ -210,14 +210,13 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        wet: PrognosticMask,
-        lat: Lat | None = None,
+        aux: Auxiliary,
     ) -> None:
         """Given the prediction & target for this step, update the per-channel scale."""
         # Local import is needed to prevent a circular import error.
         from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
-        loss = self.loss_fn(pred, target, wet, lat)
+        loss = self.loss_fn(pred, target, aux)
         loss = torch.where(loss == 0, 1e-8, loss)
         new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels
@@ -263,7 +262,7 @@ class GradientLoss:
 
     def __init__(
         self,
-        loss_fn: LossFnWithMask,
+        loss_fn: LossFnWithAuxiliary,
         *,
         gradient_weight: float,
         pad_mode: str,
@@ -276,12 +275,11 @@ class GradientLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        wet: PrognosticMask,
-        lat: Lat | None = None,
+        aux: Auxiliary,
     ) -> Float[torch.Tensor, " hist*var"]:
-        base_loss = self.loss_fn(pred, target, wet, lat)
+        base_loss = self.loss_fn(pred, target, aux)
         # Ensure mask is on the same device as pred for gradient computation
-        wet = wet.to(device=pred.device)
+        wet = aux.label_mask.to(device=pred.device)
         pred = pred * wet
         target = target * wet
         grad_loss = gradient_l1_loss(pred=pred, target=target, pad_mode=self._pad_mode)

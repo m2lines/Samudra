@@ -9,7 +9,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
-from ocean_emulators.constants import Lat, Lon, PrognosticMask
+from ocean_emulators.constants import Auxiliary
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
 from ocean_emulators.models.modules.encoder import patch_from
@@ -89,14 +89,12 @@ class FOMO(BaseModel):
                 ),
             )
 
-    def forward_once(
-        self, fts: torch.Tensor, wet: PrognosticMask, resolution: tuple[Lat, Lon]
-    ) -> torch.Tensor:
+    def forward_once(self, fts: torch.Tensor, aux: Auxiliary) -> torch.Tensor:
         _, _, H, W = fts.shape
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             fts = self.maybe_add_3d_coordinates(fts)
-            fts = self.encoder(fts, resolution)
+            fts = self.encoder(fts, aux.input_resolution)
             fts = self.processor(fts)
 
         # Convert back to float32 for decoder and unpatchify operations
@@ -119,5 +117,6 @@ class FOMO(BaseModel):
         )
 
         # Ensure mask is on the same device as fts
-        wet = wet.to(device=fts.device)
+        # TODO(alxmrs): I think we can remove the `to(device)`.
+        wet = aux.label_mask.to(device=fts.device)
         return torch.where(wet, fts, 0.0)

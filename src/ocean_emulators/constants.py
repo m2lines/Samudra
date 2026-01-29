@@ -1,6 +1,7 @@
+import dataclasses
 import enum
 import logging
-from typing import TypeAlias
+from typing import Self, TypeAlias
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,21 @@ def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
 
 class LoaderVersion(enum.Enum):
     OM4_TORCH = "om4-torch"
+
+
+# TODO(alxmrs,Claude): I need help naming this.
+@dataclasses.dataclass(frozen=True)
+class Auxiliary:
+    """Auxiliary data needed for both the model and loss_fn.
+
+    This is used in `forward_once` and the deferred loss function.
+    """
+
+    label_mask: PrognosticMask
+    input_resolution: tuple[Lat, Lon]
+
+    def to(self, device: torch.device) -> Self:
+        return dataclasses.replace(self, label_mask=self.label_mask.to(device))
 
 
 # TODO(#95): See if this can be removed and replaced.

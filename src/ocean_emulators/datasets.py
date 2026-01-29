@@ -13,13 +13,12 @@ from torch.utils.data import Dataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
+    Auxiliary,
     BoundaryVarNames,
     Example,
     GridMask,
     Input,
-    Lat,
     LoaderVersion,
-    Lon,
     Prognostic,
     PrognosticMask,
     PrognosticVarNames,
@@ -303,15 +302,9 @@ class InferenceDatasets(Dataset):
 
 
 class RawTrainData:
-    def __init__(
-        self,
-        dataset_id: "TorchTrainDataset.Id",
-        label_mask: PrognosticMask,
-        input_res: tuple[Lat, Lon],
-    ):
+    def __init__(self, dataset_id: "TorchTrainDataset.Id", aux: Auxiliary):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
-        self.label_mask = label_mask
-        self.input_res = input_res
+        self.aux = aux
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
@@ -360,12 +353,10 @@ class TrainData:
     def __init__(
         self,
         num_prognostic_channels: int,
-        label_mask: PrognosticMask,
-        input_res: tuple[Lat, Lon],
+        aux: Auxiliary,
     ):
         self.num_prognostic_channels = num_prognostic_channels
-        self.label_mask = label_mask
-        self.input_res = input_res
+        self.aux = aux
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
 
@@ -516,8 +507,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         start_time = time.perf_counter()
         TD = RawTrainData(
             self.id,
-            self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
-            self.prognostic_srcs[0].resolution,
+            Auxiliary(
+                self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
+                self.prognostic_srcs[0].resolution,
+            ),
         )
 
         for step in range(self.steps):
@@ -583,9 +576,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             TrainData with tensors on the target device
         """
         train_data = TrainData(
-            self.num_prognostic_channels,
-            raw_train_data.label_mask,
-            raw_train_data.input_res,
+            self.num_prognostic_channels, raw_train_data.aux.to(device)
         )
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(

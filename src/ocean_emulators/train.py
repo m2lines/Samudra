@@ -68,7 +68,7 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
-from ocean_emulators.utils.loss import LossFnWithMask
+from ocean_emulators.utils.loss import LossFnWithAuxiliary
 from ocean_emulators.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
@@ -203,7 +203,7 @@ class Trainer:
         self.network = self.model.__class__.__name__
 
         # Loss function
-        self.loss_fn: LossFnWithMask = build_loss_fn(
+        self.loss_fn: LossFnWithAuxiliary = build_loss_fn(
             cfg.loss,
             device=self.device,
             num_channels=self.N_prog,
@@ -599,14 +599,12 @@ class Trainer:
         # This is a separate function to ensure locals are dropped immediately after use
         if update := getattr(self.loss_fn, "update", None):
             with torch.no_grad():
-                single_step_data = TrainData(
-                    data.num_prognostic_channels, data.label_mask, data.input_res
-                )
+                single_step_data = TrainData(data.num_prognostic_channels, data.aux)
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]
                 single_step_data.append(input, label)
                 pred = self.model(single_step_data)
-                update(pred[0], label, wet=data.label_mask, lat=data.input_res[0])
+                update(pred[0], label, aux=data.aux)
 
     def validate_one_epoch(self, epoch):
         self.model.eval()

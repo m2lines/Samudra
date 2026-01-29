@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769657349324,
+  "lastUpdate": 1769715101242,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7059,6 +7059,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.0735268960973983",
             "extra": "mean: 92.32803687680001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "edd7b8c48cd6d835d0d77868aae15ce5c85dd4e4",
+          "message": "Extract similar concerns from the torch data loader into a `TorchDataSource`. (#558)\n\nA drive by refactor made during #532. I noticed that the means/stds/mask\narrays really should be grouped with their associated tensor (either\ninput, label, or boundary). The interface mirrors `DataSource`, except\nall operations are on `torch.Tensor`s rather than Xarray `Dataset`s.\n\nAs a sanity check, I ran a local performance profile before and after\nthis change. On my machine, both take basically the same median amount\nof time.",
+          "timestamp": "2026-01-29T19:06:05Z",
+          "tree_id": "adfe3d04f0c3a96dacebb08e44423b254e403f45",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/edd7b8c48cd6d835d0d77868aae15ce5c85dd4e4"
+        },
+        "date": 1769715100386,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.889116977030729,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05578885447093794",
+            "extra": "mean: 1.1247114000000011 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.192982168117512,
+            "unit": "iter/sec",
+            "range": "stddev: 0.015231853554535905",
+            "extra": "mean: 5.181825915600001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011383398480125102,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4441803805538926",
+            "extra": "mean: 87.84722785079997 sec\nrounds: 5"
           }
         ]
       }

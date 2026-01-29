@@ -28,10 +28,7 @@ class Stepper:
     def train_batch(
         model: torch.nn.Module, batch: TrainData, loss_fn: Callable
     ) -> TrainBatchOutput:
-        loss_per_channel = model(
-            batch,
-            loss_fn=partial(loss_fn, aux=batch.aux),
-        )
+        loss_per_channel = model(batch, loss_fn=partial(loss_fn, aux=batch.aux))
         loss = torch.mean(loss_per_channel)
         return TrainBatchOutput(loss, loss_per_channel)
 

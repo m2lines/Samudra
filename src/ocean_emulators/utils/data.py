@@ -378,7 +378,7 @@ class OceanData:
             tensor = self._normalize(tensor)
         return tensor
 
-    def to(self, device: torch.device, non_blocking: bool = False) -> Self:
+    def to(self, device: torch.device, non_blocking: bool = True) -> Self:
         return dataclasses.replace(
             self,
             data=self.data.to(device, non_blocking=non_blocking),

@@ -42,9 +42,9 @@ envs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
   OSN_KEY_ID: null
   OSN_KEY_SECRET: null
-  OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg  # Tip: Don't add a trailing `/`!
+  OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg # Tip: Don't add a trailing `/`!
   # Comma-separated list of OSN paths. If unset, defaults to OSN_DATA_PATH.
-  OSN_DATA_PATHS: null
+  OSN_DATA_PATHS: ""
 
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs

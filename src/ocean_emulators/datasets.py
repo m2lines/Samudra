@@ -564,7 +564,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(self.num_prognostic_channels, raw_train_data.label_mask)
+        label_mask = raw_train_data.label_mask.to(device=device, non_blocking=True)
+        train_data = TrainData(self.num_prognostic_channels, label_mask)
 
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(

@@ -50,7 +50,6 @@ def loss_fn_from_metric(
     def loss_fn_with_mask(
         pred: torch.Tensor, target: torch.Tensor, wet: PrognosticMask
     ) -> torch.Tensor:
-        wet = wet.to(device=pred.device)
         pred = pred * wet
         target = target * wet
         return loss_fn(pred, target)
@@ -271,8 +270,6 @@ class GradientLoss:
         wet: PrognosticMask,
     ) -> Float[torch.Tensor, " hist*var"]:
         base_loss = self.loss_fn(pred, target, wet)
-        # Ensure mask is on the same device as pred for gradient computation
-        wet = wet.to(device=pred.device)
         pred = pred * wet
         target = target * wet
         grad_loss = gradient_l1_loss(pred=pred, target=target, pad_mode=self._pad_mode)

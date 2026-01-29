@@ -1,9 +1,13 @@
+import logging
+
 import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
 from ocean_emulators.constants import Grid
 from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
+
+logger = logging.getLogger(__name__)
 
 
 def decomposed_mse(
@@ -229,12 +233,20 @@ class CrpsDynamic:
         *,
         limit: float | None,
         num_channels: int,
+        var_names: list[str] | None = None,
     ):
         self._wet: Grid = wet
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
             num_channels, device=wet.device
         )
         self._limit = limit
+        self._var_names = var_names or [f"var_{i}" for i in range(num_channels)]
+        # Store last clamping stats for WandB logging
+        self._last_clamp_stats: dict[str, float] | None = None
+
+    def get_clamp_stats(self) -> dict[str, float] | None:
+        """Return last clamping statistics for WandB logging."""
+        return self._last_clamp_stats
 
     def __call__(
         self,
@@ -292,18 +304,56 @@ class CrpsDynamic:
             max_scale = min_scale * self._limit
             weights_before = new_target_weights.clone()
             new_target_weights = new_target_weights.clamp(min_scale, max_scale)
-            
-            # Log clamping information
+
+            # Store clamping statistics for WandB logging
             ratio = weights_before / min_scale
             clamped_mask = ratio > self._limit
-            if clamped_mask.any():
-                print(f"[CRPS Dynamic] Clamping applied:")
-                print(f"  Min scale: {min_scale.item():.6f}")
-                print(f"  Max scale: {max_scale.item():.6f} (limit={self._limit})")
-                print(f"  Channels clamped: {clamped_mask.sum().item()} / {len(new_target_weights)}")
-                print(f"  Max ratio before clamp: {ratio.max().item():.2f}")
-                print(f"  Weights before: {weights_before.cpu().numpy()}")
-                print(f"  Weights after:  {new_target_weights.cpu().numpy()}")
+            n_clamped = clamped_mask.sum().item()
+
+            self._last_clamp_stats = {
+                "crps_dynamic/min_scale": min_scale.item(),
+                "crps_dynamic/max_scale": max_scale.item(),
+                "crps_dynamic/channels_clamped": n_clamped,
+                "crps_dynamic/max_ratio_before_clamp": ratio.max().item(),
+                "crps_dynamic/mean_scale": new_target_weights.mean().item(),
+                "crps_dynamic/scale_std": new_target_weights.std().item(),
+            }
+
+            # Add per-variable weights (unclamped and clamped)
+            for i, var_name in enumerate(self._var_names):
+                self._last_clamp_stats[f"crps_dynamic/weight_unclamped/{var_name}"] = (
+                    weights_before[i].item()
+                )
+                self._last_clamp_stats[f"crps_dynamic/weight_clamped/{var_name}"] = (
+                    new_target_weights[i].item()
+                )
+
+            # Brief debug log (not verbose arrays)
+            if n_clamped > 0:
+                logger.debug(
+                    f"CRPS Dynamic clamping: {n_clamped}/{len(new_target_weights)} channels, "
+                    f"max_ratio={ratio.max().item():.2f}"
+                )
+        else:
+            self._last_clamp_stats = {
+                "crps_dynamic/min_scale": new_target_weights.min().item(),
+                "crps_dynamic/max_scale": new_target_weights.max().item(),
+                "crps_dynamic/channels_clamped": 0,
+                "crps_dynamic/max_ratio_before_clamp": (
+                    new_target_weights.max() / new_target_weights.min()
+                ).item(),
+                "crps_dynamic/mean_scale": new_target_weights.mean().item(),
+                "crps_dynamic/scale_std": new_target_weights.std().item(),
+            }
+
+            # Add per-variable weights (no clamping, unclamped == clamped)
+            for i, var_name in enumerate(self._var_names):
+                self._last_clamp_stats[f"crps_dynamic/weight_unclamped/{var_name}"] = (
+                    new_target_weights[i].item()
+                )
+                self._last_clamp_stats[f"crps_dynamic/weight_clamped/{var_name}"] = (
+                    new_target_weights[i].item()
+                )
 
         self._per_channel_scale = (
             self._per_channel_scale * (CrpsDynamic.N_WINDOW - 1) + new_target_weights

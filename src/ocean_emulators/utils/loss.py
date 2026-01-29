@@ -44,7 +44,7 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithAuxiliary:
         case _:
             assert_never(metric)
 
-    def loss_fn_with_mask(
+    def loss_fn_with_aux(
         pred: torch.Tensor,
         target: torch.Tensor,
         aux: Auxiliary,
@@ -62,7 +62,7 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithAuxiliary:
             return loss_fn(pred, target, cos=area_weights)  # type: ignore[call-arg]
         return loss_fn(pred, target)  # type: ignore[call-arg]
 
-    return loss_fn_with_mask
+    return loss_fn_with_aux
 
 
 def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:

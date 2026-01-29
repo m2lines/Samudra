@@ -350,11 +350,7 @@ class TrainData:
     remaining bottom channels are boundary forcings.
     """
 
-    def __init__(
-        self,
-        num_prognostic_channels: int,
-        aux: Auxiliary,
-    ):
+    def __init__(self, num_prognostic_channels: int, aux: Auxiliary):
         self.num_prognostic_channels = num_prognostic_channels
         self.aux = aux
         self.example_by_step: list[Example] = []
@@ -575,9 +571,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(
-            self.num_prognostic_channels, raw_train_data.aux.to(device)
-        )
+        train_data = TrainData(self.num_prognostic_channels, raw_train_data.aux.to(device))
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 OceanData.from_data_source(
@@ -613,7 +607,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         )
         # grab future steps, repeat as we do for input
         label_tensor = self._prep_tensor_steps(
-            label.with_time(slice(self.hist + 1, None)),
+            label.with_time(slice(self.hist + 1, None))
         )
         return total_input, label_tensor
 

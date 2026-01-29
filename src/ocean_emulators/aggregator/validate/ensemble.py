@@ -1,8 +1,13 @@
+import logging
+
 import torch
 import torch.distributed as dist
 
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
+from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.distributed import all_reduce_mean
+
+logger = logging.getLogger(__name__)
 
 
 class EnsembleAggregator(ValidateSubAggregator):
@@ -19,6 +24,12 @@ class EnsembleAggregator(ValidateSubAggregator):
         self._ensemble_size: int | None = None
         self._compute_global_best_worst = compute_global_best_worst
 
+        # Cache normalization parameters for denormalizing ensemble_data
+        # These are indexed by channel (0 to num_vars-1)
+        normalize = Normalize.get_instance()
+        self._prog_mean = torch.from_numpy(normalize._prognostic_mean_np)  # (num_vars,)
+        self._prog_std = torch.from_numpy(normalize._prognostic_std_np)  # (num_vars,)
+
         # Accumulators (sums over batches; divided by _n_batches in get_logs)
         self._spread_sum = 0.0  # averaged across variables per batch
         self._rmse_sum = (
@@ -29,6 +40,24 @@ class EnsembleAggregator(ValidateSubAggregator):
 
         # Per-member accumulators (RMSE averaged across variables per batch)
         self._member_rmse_sum: list[float] = []
+
+    def _unnormalize_channel(
+        self, data: torch.Tensor, ch: int, device: torch.device, dtype: torch.dtype
+    ) -> torch.Tensor:
+        """Unnormalize a single channel of data using stored mean/std.
+
+        Args:
+            data: Tensor of any shape, representing a single variable channel
+            ch: Channel index (0 to num_vars-1) for looking up mean/std
+            device: Target device
+            dtype: Target dtype
+
+        Returns:
+            Unnormalized tensor in physical units
+        """
+        mean = self._prog_mean[ch].to(device=device, dtype=dtype)
+        std = self._prog_std[ch].to(device=device, dtype=dtype)
+        return data * std + mean
 
     @staticmethod
     def _ensure_bc_hw(t: torch.Tensor) -> torch.Tensor:
@@ -107,7 +136,6 @@ class EnsembleAggregator(ValidateSubAggregator):
         i_time_start: int = 0,
         ensemble_data: torch.Tensor | None = None,
     ):
-        # TODO (amogh) methods to be validated here
         if ensemble_data is None:
             return
 
@@ -153,23 +181,34 @@ class EnsembleAggregator(ValidateSubAggregator):
         per_var_rmse = []
         per_var_mae = []
 
+        # Use DENORMALIZED data for target_data and gen_data (physical units).
+        # We manually denormalize ensemble_data channels to match.
         for var, ch in self._var_to_channel.items():
-            if var not in target_data or var not in gen_data:
+            if var not in target_data:
                 continue
             if ch < 0 or ch >= C:
                 continue
 
-            # Targets and predictions for this variable
+            # Targets for this variable (DENORMALIZED / physical units)
             tgt_bhw = self._ensure_bc_hw(
                 target_data[var].to(device=device, dtype=dtype)
             )  # (B, H, W)
-            pred_mean_bhw = self._ensure_bc_hw(
-                gen_data[var].to(device=device, dtype=dtype)
-            )  # (B, H, W)
+
+            # --- Get ensemble members for this channel ---
+            # Offset by num_vars to get current timestep (t1) channels, not history (t0)
+            ch_current = ch + num_vars
+            ch_members_norm = ensemble_data[
+                :, :, ch_current, :, :
+            ]  # (E, B, H, W) normalized
+
+            # Denormalize ensemble members to physical units
+            ch_members = self._unnormalize_channel(ch_members_norm, ch, device, dtype)
+
+            # Compute ensemble mean DIRECTLY from ensemble_data (not from gen_data!)
+            # This ensures consistency between spread and RMSE calculations
+            pred_mean_bhw = ch_members.mean(dim=0)  # (B, H, W)
 
             # --- Spread: std over members for this channel ---
-            # (E, B, H, W) -> std over E -> (B, H, W)
-            ch_members = ensemble_data[:, :, ch, :, :]  # (E, B, H, W)
             ch_std_bhw = ch_members.std(dim=0, correction=0)  # (B, H, W)
             ch_spread_per_sample = self._weighted_spatial_mean(ch_std_bhw, w_hw)  # (B,)
             ch_spread_batch = ch_spread_per_sample.mean()  # scalar
@@ -215,6 +254,7 @@ class EnsembleAggregator(ValidateSubAggregator):
 
         # ---- 2) Per-member RMSE (averaged across variables) ----
         # If you want per-var per-member, extend this section similarly.
+        # Use denormalized data for consistency with spread/RMSE calculation above.
         if per_var_rmse:
             # Build per-member per-variable RMSE, then average over variables.
             # member_ch_bhw: (B, H, W) for each var -> RMSE scalar, then average over vars.
@@ -225,8 +265,17 @@ class EnsembleAggregator(ValidateSubAggregator):
                         continue
                     tgt_bhw = self._ensure_bc_hw(
                         target_data[var].to(device=device, dtype=dtype)
-                    )  # (B, H, W)
-                    member_ch_bhw = ensemble_data[e, :, ch, :, :]  # (B, H, W)
+                    )  # (B, H, W) - DENORMALIZED
+
+                    # Offset by num_vars to get current timestep (t1) channels
+                    ch_current = ch + num_vars
+                    member_ch_norm = ensemble_data[
+                        e, :, ch_current, :, :
+                    ]  # (B, H, W) normalized
+                    # Denormalize to physical units
+                    member_ch_bhw = self._unnormalize_channel(
+                        member_ch_norm, ch, device, dtype
+                    )
                     diff2 = (member_ch_bhw - tgt_bhw).pow(2)
                     mse_per_sample = self._weighted_spatial_mean(diff2, w_hw)  # (B,)
                     rmse_member = torch.sqrt(mse_per_sample.mean())

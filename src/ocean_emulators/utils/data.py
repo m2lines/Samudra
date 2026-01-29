@@ -3,7 +3,7 @@ import logging
 import re
 from collections import defaultdict
 from collections.abc import Callable
-from functools import cached_property
+from functools import cached_property, lru_cache
 from typing import TYPE_CHECKING, Literal, Self
 
 import numpy as np
@@ -53,17 +53,21 @@ def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
     )
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Masks:
     """A collection of masks to expose the ocean and mask land."""
 
     prognostic: PrognosticMask
     boundary: GridMask
 
-    def __post_init__(self):
-        self.prognostic = self.prognostic.bool()
-        self.boundary = self.boundary.bool()
+    @classmethod
+    def from_floating(cls, prognostic, boundary) -> Self:
+        return cls(
+            prognostic=prognostic.bool(),
+            boundary=boundary.bool(),
+        )
 
+    @lru_cache(maxsize=5)
     def prognostic_with_hist(
         self, hist: int
     ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:

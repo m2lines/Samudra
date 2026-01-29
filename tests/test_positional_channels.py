@@ -29,7 +29,7 @@ def test_positional_parameters_update():
             },
             coords=coords,
         )
-        masks = Masks(torch.ones(h, w), torch.ones(h, w))
+        masks = Masks.from_floating(torch.ones(h, w), torch.ones(h, w))
         src = DataSource(name="dummy", data=data, means=data, stds=ones, masks=masks)
         Normalize.init_instance(
             src,

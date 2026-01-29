@@ -613,7 +613,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     wet_surface[0, 0] = 0.0
     wet_surface[1, 1] = 0.0
     wet = wet_surface.expand(2, 2, 2)
-    masks = Masks(
+    masks = Masks.from_floating(
         prognostic=wet,
         boundary=wet_surface,
     )

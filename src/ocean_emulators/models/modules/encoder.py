@@ -88,7 +88,6 @@ class PerceiverEncoder(nn.Module):
             ph=patch_h,
             pw=patch_w,
         )
-
         # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
         x = self.perceiver(x)  # (B_H_W, PH, PW, V) -> (B_H_W, out_channels)
 

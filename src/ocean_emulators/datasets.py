@@ -492,7 +492,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.ctx = GridContext(
             self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
             self.prognostic_srcs[0].resolution,
-        ).to(device=get_device())
+        )
 
         self.size: int = (
             time_.size
@@ -570,7 +570,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(self.num_prognostic_channels, self.ctx)
+        train_data = TrainData(self.num_prognostic_channels, self.ctx.to(device))
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 OceanData.from_data_source(

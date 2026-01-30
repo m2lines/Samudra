@@ -2,7 +2,7 @@ import torch
 from perceiver_pytorch import Perceiver
 
 from ocean_emulators.constants import Lat, Lon
-from ocean_emulators.models.modules.encoder import PerceiverEncoder
+from ocean_emulators.models.modules.encoder import PerceiverEncoder, patch_from
 
 
 def make_perceiver(in_channels, out_channels):
@@ -89,3 +89,17 @@ def test_makes_patches__more_variables():
     patches = patch_embed(x, make_resolution(x))
 
     assert patches.shape == (1, 4, 1, 2)
+
+
+def test_patch_from__full_globe():
+    # Full globe extent should equal grid dimensions
+    patch_h, patch_w = patch_from(extent=(180.0, 360.0), height=4, width=8)
+    assert patch_h == 4
+    assert patch_w == 8
+
+
+def test_patch_from__half_extent():
+    # Half the extent should give half the patch size
+    patch_h, patch_w = patch_from(extent=(90.0, 180.0), height=4, width=8)
+    assert patch_h == 2
+    assert patch_w == 4

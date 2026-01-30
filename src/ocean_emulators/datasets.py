@@ -108,6 +108,8 @@ class InferenceDataset(Dataset):
             self.wet_surface = self.wet_surface.pin_memory()
             self.wet_label = self.wet_label.pin_memory()
 
+        self.aux = Auxiliary(self.wet_label, self.input_res)
+
     def __len__(self):
         return self.size
 

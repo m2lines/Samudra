@@ -118,8 +118,7 @@ class BaseModel(torch.nn.Module):
                     prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
-            aux = Auxiliary(dataset.wet_label, dataset.input_res)
-            decodings = self.forward_once(input_tensor, aux)
+            decodings = self.forward_once(input_tensor, dataset.aux)
             if self.pred_residuals:
                 pred = (
                     input_tensor[

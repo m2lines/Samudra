@@ -571,7 +571,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(self.num_prognostic_channels, raw_train_data.aux.to(device))
+        train_data = TrainData(
+            self.num_prognostic_channels, raw_train_data.aux.to(device)
+        )
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 OceanData.from_data_source(

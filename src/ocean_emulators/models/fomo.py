@@ -93,7 +93,7 @@ class FOMO(BaseModel):
         _, _, H, W = fts.shape
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
-            fts = self.maybe_add_3d_coordinates(fts)
+            fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution)
             fts = self.encoder(fts, ctx.input_resolution)
             fts = self.processor(fts)
 

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769715102377,
+  "lastUpdate": 1769793253518,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7104,6 +7104,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4441803805538926",
             "extra": "mean: 87.84722785079997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a217a1c20117d7992375fd6d511581dd1a3b00ea",
+          "message": "Adding distributed equivalence batch sampler. (#557)\n\nAdding a distributed version of the new equivalence batch sampler for\nuse in multi-GPU training (with tests).",
+          "timestamp": "2026-01-30T16:46:52Z",
+          "tree_id": "fac2f5d418d83b429b2fcec3fe61900082254cc9",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a217a1c20117d7992375fd6d511581dd1a3b00ea"
+        },
+        "date": 1769793252695,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.8971332643203782,
+            "unit": "iter/sec",
+            "range": "stddev: 0.030498906568416386",
+            "extra": "mean: 1.1146616001999974 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18568956418881702,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02503551617797948",
+            "extra": "mean: 5.385332258000011 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010285991659223042,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23014226470922589",
+            "extra": "mean: 97.21960051399999 sec\nrounds: 5"
           }
         ]
       }

@@ -20,13 +20,16 @@ class ValidateAggregator(TrainAggregator):
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        region_weights: dict[str, torch.Tensor] | None = None,
     ):
         super().__init__()
 
         val_aggregators: dict[str, ValidateSubAggregator] = {
             "snapshot": SnapshotAggregator(metadata, hist),
             "mean_map": MapAggregator(metadata, hist),
-            "reduced": MeanAggregator(area_weights, hist),
+            "reduced": MeanAggregator(
+                area_weights, hist, region_weights=region_weights
+            ),
         }
         self._aggregators = val_aggregators
         self.normalize = Normalize.get_instance()

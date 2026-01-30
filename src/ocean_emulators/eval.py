@@ -31,6 +31,7 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
+from ocean_emulators.utils.regions import build_region_weights
 from ocean_emulators.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,12 @@ class Eval:
         self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
         self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
+        self.region_weights = build_region_weights(
+            cfg.metrics.regions,
+            lat=self.data.lat.values,
+            lon=self.data.lon.values,
+            area_weights=self.area_weights,
+        )
 
         self.normalize = Normalize.init_instance(
             self.src,
@@ -207,6 +214,7 @@ class Eval:
             self.src.masks.prognostic.to(self.device),
             self.num_out,
             self.prognostic_var_names,
+            region_weights=self.region_weights,
         )
 
         Stepper.inference(

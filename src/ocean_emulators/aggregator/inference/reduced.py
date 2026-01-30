@@ -9,6 +9,7 @@ import wandb
 
 from ocean_emulators.aggregator.metrics import (
     area_weighted_gradient_magnitude_percent_diff,
+    area_weighted_mae,
     area_weighted_mean,
     area_weighted_mean_bias,
     area_weighted_rmse,
@@ -165,6 +166,7 @@ class MeanAggregator:
         n_timesteps: int,
         area_weights: torch.Tensor,
         metadata: dict[str, dict[str, str]] | None = None,
+        region_weights: dict[str, torch.Tensor] | None = None,
     ):
         self._variable_metrics: dict[str, dict[str, MeanMetric]] | None = None
         self._shape_x = None
@@ -172,6 +174,7 @@ class MeanAggregator:
         self._target = target
         self._n_timesteps = n_timesteps
         self._area_weights = area_weights
+        self._region_weights: dict[str, torch.Tensor] | None = region_weights
 
         if metadata is None:
             self._metadata: dict[str, dict[str, str]] = {}
@@ -250,6 +253,21 @@ class MeanAggregator:
                     n_timesteps=self._n_timesteps,
                 )
             )
+            if self._target == "denorm" and self._region_weights is not None:
+                for region_name, region_weights in self._region_weights.items():
+                    metric_name = f"weighted_mae/{region_name}"
+                    self._variable_metrics[metric_name] = defaultdict(
+                        partial(
+                            lambda region_weights: AreaWeightedReducedMetric(
+                                device=device,
+                                compute_metric=partial(
+                                    area_weighted_mae, area_weights=region_weights
+                                ),
+                                n_timesteps=self._n_timesteps,
+                            ),
+                            region_weights=region_weights,
+                        )
+                    )
         return self._variable_metrics
 
     @torch.no_grad()

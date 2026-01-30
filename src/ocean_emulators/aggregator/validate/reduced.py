@@ -6,6 +6,7 @@ import torch
 
 from ocean_emulators.aggregator.metrics import (
     area_weighted_gradient_magnitude_percent_diff,
+    area_weighted_mae,
     area_weighted_mean_bias,
     area_weighted_rmse,
 )
@@ -56,11 +57,17 @@ class MeanAggregator(ValidateSubAggregator):
     metrics across batches and processors.
     """
 
-    def __init__(self, area_weights: torch.Tensor, target_time: int):
+    def __init__(
+        self,
+        area_weights: torch.Tensor,
+        target_time: int,
+        region_weights: dict[str, torch.Tensor] | None = None,
+    ):
         self._n_batches = 0
         self._variable_metrics: dict | None = None
         self._target_time = target_time
         self._area_weights = area_weights
+        self._region_weights = region_weights
 
     def _get_variable_metrics(self, gen_data):
         if self._variable_metrics is None:
@@ -96,6 +103,19 @@ class MeanAggregator(ValidateSubAggregator):
                         ),  # noqa: E501
                     )
                 )
+            if self._region_weights:
+                for region_name, region_weights in self._region_weights.items():
+                    metric_name = f"weighted_mae/{region_name}"
+                    self._variable_metrics[metric_name] = {}
+                    for key in gen_data:
+                        self._variable_metrics[metric_name][key] = (
+                            AreaWeightedReducedMetric(
+                                device=device,
+                                compute_metric=partial(
+                                    area_weighted_mae, area_weights=region_weights
+                                ),
+                            )
+                        )
 
         return self._variable_metrics
 

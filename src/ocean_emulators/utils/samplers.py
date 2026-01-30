@@ -203,6 +203,8 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         seed: int = 0,
     ):
         super().__init__()
+        if num_replicas <= 0:
+            raise ValueError(f"num_replicas must be positive, got {num_replicas}.")
         if rank >= num_replicas or rank < 0:
             raise ValueError(
                 f"Invalid rank {rank}, must be in range [0, {num_replicas})"

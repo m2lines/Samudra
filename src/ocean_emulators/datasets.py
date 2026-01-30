@@ -302,9 +302,8 @@ class InferenceDatasets(Dataset):
 
 
 class RawTrainData:
-    def __init__(self, dataset_id: "TorchTrainDataset.Id", aux: Auxiliary):
+    def __init__(self, dataset_id: "TorchTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
-        self.aux = aux
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
@@ -489,6 +488,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         ]
         self.wet_surface: GridMask = src.masks.boundary
 
+        self.aux = Auxiliary(
+            self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
+            self.prognostic_srcs[0].resolution,
+        ).to(device=get_device())
+
         self.size: int = (
             time_.size
             - self.steps * (self.hist + 1) * self.stride
@@ -501,13 +505,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = RawTrainData(
-            self.id,
-            Auxiliary(
-                self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
-                self.prognostic_srcs[0].resolution,
-            ),
-        )
+        TD = RawTrainData(self.id)
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
@@ -571,9 +569,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(
-            self.num_prognostic_channels, raw_train_data.aux.to(device)
-        )
+        train_data = TrainData(self.num_prognostic_channels, self.aux)
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 OceanData.from_data_source(

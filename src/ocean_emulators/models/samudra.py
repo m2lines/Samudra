@@ -76,7 +76,4 @@ class Samudra(BaseModel):
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)
-        # Ensure mask is on the same device as fts
-        # TODO(alxmrs): I think we can remove the `to(device)`.
-        wet = aux.label_mask.to(device=fts.device)
-        return torch.where(wet, fts, 0.0)
+        return torch.where(aux.label_mask, fts, 0.0)

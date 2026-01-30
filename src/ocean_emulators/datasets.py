@@ -106,7 +106,6 @@ class InferenceDataset(Dataset):
         if using_gpu():
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
-            self.wet_label = self.wet_label.pin_memory()
 
         self.ctx = GridContext(self.wet_label, self.input_res)
 

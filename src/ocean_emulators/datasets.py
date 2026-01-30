@@ -485,6 +485,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             src.masks.prognostic for src in srcs
         ]
         self.wet_surface: GridMask = src.masks.boundary
+        self.wet_prognostic_label_with_hist = self._prognostic_srcs[
+            -1
+        ].masks.prognostic_with_hist(self.hist)
 
         self.size: int = (
             time_.size
@@ -498,9 +501,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = RawTrainData(
-            self.id, self._prognostic_srcs[-1].masks.prognostic_with_hist(self.hist)
-        )
+        TD = RawTrainData(self.id, self.wet_prognostic_label_with_hist)
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)

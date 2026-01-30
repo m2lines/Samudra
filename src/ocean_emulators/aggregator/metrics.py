@@ -92,6 +92,13 @@ def area_weighted_rmse(
     return torch.sqrt(area_weighted_mean((gen - target) ** 2, area_weights))
 
 
+def area_weighted_mae(
+    target: torch.Tensor, gen: torch.Tensor, area_weights: torch.Tensor
+) -> torch.Tensor:
+    area_weights = area_weights.to(target.device)
+    return area_weighted_mean(torch.abs(gen - target), area_weights)
+
+
 def area_weighted_mean_bias(
     target: torch.Tensor, gen: torch.Tensor, area_weights: torch.Tensor
 ) -> torch.Tensor:

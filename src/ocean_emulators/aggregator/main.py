@@ -23,6 +23,7 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        region_weights: dict[str, torch.Tensor] | None = None,
     ) -> ValidateAggregator:
         return ValidateAggregator(
             metadata=metadata,
@@ -30,6 +31,7 @@ class Aggregator:
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
+            region_weights=region_weights,
         )
 
     @staticmethod
@@ -41,6 +43,7 @@ class Aggregator:
         wet: torch.Tensor,
         num_prognostic_channels: int,
         channel_mean_names: list[str] | None = None,
+        region_weights: dict[str, torch.Tensor] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
@@ -53,6 +56,7 @@ class Aggregator:
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
             channel_mean_names=channel_mean_names,
+            region_weights=region_weights,
         )
 
     @staticmethod
@@ -64,6 +68,7 @@ class Aggregator:
         wet: torch.Tensor,
         num_prognostic_channels: int,
         channel_mean_names: list[str] | None = None,
+        region_weights: dict[str, torch.Tensor] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
@@ -76,4 +81,5 @@ class Aggregator:
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,
             channel_mean_names=channel_mean_names,
+            region_weights=region_weights,
         )

@@ -29,6 +29,7 @@ class InferenceEvaluatorAggregator:
         log_global_mean_norm_time_series: bool = True,
         time_mean_reference_data: xr.Dataset | None = None,
         channel_mean_names: list[str] | None = None,
+        region_weights: dict[str, torch.Tensor] | None = None,
     ):
         """
         Args:
@@ -45,6 +46,7 @@ class InferenceEvaluatorAggregator:
                 time series metrics.
             time_mean_reference_data: Reference time means for computing bias stats.
             channel_mean_names: List of channel names to compute the mean of.
+            region_weights: Area weights for logged regions (0 == not in region).
         """
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
@@ -59,6 +61,7 @@ class InferenceEvaluatorAggregator:
                 n_timesteps=n_timesteps,
                 metadata=metadata,
                 area_weights=area_weights,
+                region_weights=region_weights,
             )
         if log_global_mean_norm_time_series:
             self._aggregators["mean_norm"] = MeanAggregator(
@@ -66,6 +69,7 @@ class InferenceEvaluatorAggregator:
                 n_timesteps=n_timesteps,
                 metadata=metadata,
                 area_weights=area_weights,
+                region_weights=None,
             )
         if record_step_20:
             self._aggregators["mean_step_20"] = OneStepMeanAggregator(

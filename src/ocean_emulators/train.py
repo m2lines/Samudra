@@ -75,6 +75,7 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import LossFnWithMask
+from ocean_emulators.utils.regions import build_region_weights
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -195,6 +196,12 @@ class Trainer:
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
+        self.region_weights = build_region_weights(
+            cfg.metrics.regions,
+            lat=self.data.lat.values,
+            lon=self.data.lon.values,
+            area_weights=self.area_weights,
+        )
 
         self.normalize = Normalize.init_instance(
             self.src,
@@ -629,6 +636,7 @@ class Trainer:
             self.area_weights,
             self.src.masks.prognostic.to(self.device),
             self.num_out,
+            region_weights=self.region_weights,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -664,6 +672,7 @@ class Trainer:
                     self.src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,
+                    region_weights=self.region_weights,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;

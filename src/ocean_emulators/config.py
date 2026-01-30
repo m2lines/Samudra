@@ -241,6 +241,21 @@ class DataConfig(BaseConfig):
         )
 
 
+class RegionBoundsConfig(BaseConfig):
+    name: str = Field(description="Unique name for the region.")
+    lat_min: float = Field(description="Minimum latitude (inclusive).")
+    lat_max: float = Field(description="Maximum latitude (inclusive).")
+    lon_min: float = Field(description="Minimum longitude (inclusive).")
+    lon_max: float = Field(description="Maximum longitude (inclusive).")
+
+
+class MetricsConfig(BaseConfig):
+    regions: list[RegionBoundsConfig] = Field(
+        default_factory=list,
+        description="Regions to compute regional metrics for using lat/lon bounds.",
+    )
+
+
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "layer"]
@@ -804,6 +819,7 @@ class TrainConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig
+    metrics: MetricsConfig = Field(default_factory=MetricsConfig)
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
@@ -832,6 +848,7 @@ class EvalConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig = SamudraConfig()
+    metrics: MetricsConfig = Field(default_factory=MetricsConfig)
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

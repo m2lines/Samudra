@@ -77,7 +77,9 @@ def create_samudra_model():
             )
 
             # Create TrainData compatible with model dimensions
-            train_data = TrainData(num_prognostic_channels=1)
+            train_data = TrainData(
+                num_prognostic_channels=1, label_mask=masks.prognostic
+            )
             for step in range(4):
                 input_tensor = torch.randn(1, 2, h, w, requires_grad=True)
                 label_tensor = torch.randn(1, 1, h, w)

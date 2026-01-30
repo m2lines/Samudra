@@ -41,7 +41,9 @@ envs:
 
   OSN_KEY_ID: null
   OSN_KEY_SECRET: null
-  OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg  # Tip: Don't add a trailing `/`!
+  OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg # Tip: Don't add a trailing `/`!
+  # Comma-separated list of OSN paths. If unset, defaults to OSN_DATA_PATH.
+  OSN_DATA_PATHS: ""
 
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs
@@ -68,7 +70,29 @@ setup: |
   rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
 
   mkdir -p ~/data/
-  rclone copy --progress nyu-osn:${OSN_DATA_PATH}/ ~/data --ignore-existing --transfers=32
+
+  # Handle data copying with backwards compatibility:
+  # - OSN_DATA_PATH (singular): copies directly to ~/data/ (legacy single-source behavior)
+  # - OSN_DATA_PATHS (plural): copies each source to ~/data/$BASENAME/ subdirectories
+  if [ -z "$OSN_DATA_PATHS" ] || [ "$OSN_DATA_PATHS" = "null" ]; then
+    # Single-source mode: copy directly to ~/data/ for backwards compatibility
+    # Config paths like "OM4.zarr" will resolve to ~/data/OM4.zarr
+    echo "Copying single data source from $OSN_DATA_PATH to ~/data/"
+    rclone copy --progress nyu-osn:${OSN_DATA_PATH}/ ~/data/ --ignore-existing --transfers=32
+  else
+    # Multi-source mode: copy each source to its own subdirectory
+    # Config paths should include the basename, e.g., "om4_halfdeg/OM4.zarr"
+    IFS=',' read -r -a DATA_PATHS <<< "$OSN_DATA_PATHS"
+    for DATA_PATH in "${DATA_PATHS[@]}"; do
+      DATA_PATH=$(echo "$DATA_PATH" | xargs)
+      if [ -n "$DATA_PATH" ]; then
+        BASENAME=$(basename "$DATA_PATH")
+        echo "Copying data from $DATA_PATH to ~/data/$BASENAME"
+        mkdir -p ~/data/${BASENAME}
+        rclone copy --progress nyu-osn:${DATA_PATH}/ ~/data/${BASENAME} --ignore-existing --transfers=32
+      fi
+    done
+  fi
 
   mkdir -p ~/basins/
   rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins

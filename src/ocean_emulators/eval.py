@@ -93,7 +93,7 @@ class Eval:
             self.boundary_var_names,
         )
 
-        self.src = self.data_container.source_using_dask
+        self.src = self.data_container.inference_source
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)

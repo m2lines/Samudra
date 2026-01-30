@@ -34,10 +34,12 @@ class WandBLogger(Multiton):
         return self._enabled
 
     def _make_config(self, cfg: "AnyTopLevelConfig", data_container: "DataContainer"):
-        return {
-            "config": cfg.model_dump(),
-            "data/attrs": data_container.source.data.attrs,
+        config = {
+            f"data_{i}/attrs": src.data.attrs
+            for i, src in enumerate(data_container.sources)
         }
+        config.update(config=cfg.model_dump())
+        return config
 
     def setup_run(
         self,

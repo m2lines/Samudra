@@ -298,9 +298,8 @@ class InferenceDatasets(Dataset):
 
 
 class RawTrainData:
-    def __init__(self, dataset_id: "TorchTrainDataset.Id", label_mask: PrognosticMask):
+    def __init__(self, dataset_id: "TorchTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
-        self.label_mask = label_mask
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
@@ -485,9 +484,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             src.masks.prognostic for src in srcs
         ]
         self.wet_surface: GridMask = src.masks.boundary
-        self.wet_prognostic_label_with_hist = self._prognostic_srcs[
-            -1
-        ].masks.prognostic_with_hist(self.hist)
+        self.wet_prognostic_label_with_hist = (
+            self._prognostic_srcs[-1]
+            .masks.prognostic_with_hist(self.hist)
+            .to(get_device(), non_blocking=True)
+        )
 
         self.size: int = (
             time_.size
@@ -501,7 +502,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = RawTrainData(self.id, self.wet_prognostic_label_with_hist)
+        TD = RawTrainData(self.id)
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
@@ -565,8 +566,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        label_mask = raw_train_data.label_mask.to(device=device, non_blocking=True)
-        train_data = TrainData(self.num_prognostic_channels, label_mask)
+        train_data = TrainData(
+            self.num_prognostic_channels, self.wet_prognostic_label_with_hist
+        )
 
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(

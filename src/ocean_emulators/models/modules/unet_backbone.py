@@ -16,6 +16,10 @@ from ocean_emulators.utils.train import pairwise
 
 if TYPE_CHECKING:
     from ocean_emulators.config import Checkpointing  # noqa: F401
+    from ocean_emulators.models.modules.token_conditioning import (  # noqa: F401
+        DecoderFiLM,
+        TokenConditioner,
+    )
 
 
 class UNetBackbone(nn.Module):
@@ -58,8 +62,12 @@ class UNetBackbone(nn.Module):
         self.in_channels = in_channels
         self.out_channels = ch_width[0]
 
+        ch_width_full = [in_channels] + ch_width.copy()
+        self.bottleneck_channels = ch_width_full[-1]
+        self.decoder_film_channels = list(reversed(ch_width_full[1:]))
+
         # Create local copies of config lists that will be reversed
-        ch_width = [in_channels] + ch_width.copy()
+        ch_width = ch_width_full
         dilation = dilation.copy()
         n_layers = n_layers.copy()
         self.pad = pad
@@ -147,10 +155,31 @@ class UNetBackbone(nn.Module):
         self.num_steps = int(len(ch_width) - 1)
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
+        fts, _ = self._forward(fts, None, None, return_tokens=False)
+        return fts
+
+    def forward_with_tokens(
+        self,
+        fts: torch.Tensor,
+        token_conditioner: "TokenConditioner",
+        decoder_film: "DecoderFiLM | None",
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return self._forward(fts, token_conditioner, decoder_film, return_tokens=True)
+
+    def _forward(
+        self,
+        fts: torch.Tensor,
+        token_conditioner: "TokenConditioner | None",
+        decoder_film: "DecoderFiLM | None",
+        return_tokens: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor | None]:
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
         count = 0
+        decoder_block_idx = 0
+        tokens: torch.Tensor | None = None
+        tokens_concat: torch.Tensor | None = None
         for layer in self.layers:
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
@@ -166,6 +195,15 @@ class UNetBackbone(nn.Module):
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
             else:
                 fts = layer(fts)
+
+            if (
+                token_conditioner is not None
+                and tokens is None
+                and count == self.num_steps
+                and isinstance(layer, CoreBlock)
+            ):
+                tokens = token_conditioner(fts)
+                tokens_concat = tokens.reshape(tokens.shape[0], -1)
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:
@@ -191,6 +229,15 @@ class UNetBackbone(nn.Module):
                     ]
                     fts = nn.functional.pad(fts, pads)
                     fts += skip_inputs[int(2 * self.num_steps - count - 1)]
+                    if decoder_film is not None:
+                        if tokens_concat is None:
+                            raise RuntimeError(
+                                "decoder_film requires token_conditioner"
+                            )
+                        fts = decoder_film(decoder_block_idx, fts, tokens_concat)
+                    decoder_block_idx += 1
                     count += 1
 
-        return fts
+        if return_tokens:
+            return fts, tokens
+        return fts, None

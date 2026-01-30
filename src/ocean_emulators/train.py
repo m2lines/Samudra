@@ -211,6 +211,7 @@ class Trainer:
             static_data=self.static_data,
             lat=torch.from_numpy(self.data.lat.values),
             lon=torch.from_numpy(self.data.lon.values),
+            tensor_map=self.tensor_map,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir

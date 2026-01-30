@@ -20,6 +20,7 @@ from ocean_emulators.constants import (
     LoaderVersion,
     Lon,
     PrognosticVarNames,
+    TensorMap,
 )
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
@@ -524,8 +525,16 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         static_data: xr.Dataset | None,
         lat: Lat,
         lon: Lon,
+        tensor_map: TensorMap,
     ) -> BaseModel:
         pass
+
+
+class TokenConditioningConfig(BaseConfig):
+    enabled: bool = False
+    num_heads: int = 1
+    mlp_hidden_mult: int = 2
+    token_init_std: float = 1e-3
 
 
 class SamudraConfig(BaseModelConfig):
@@ -539,6 +548,7 @@ class SamudraConfig(BaseModelConfig):
         default=False,
         description="Use bfloat16 for most layers rather than float32.",
     )
+    token_conditioning: TokenConditioningConfig | None = None
 
     def build(
         self,
@@ -550,6 +560,7 @@ class SamudraConfig(BaseModelConfig):
         static_data: xr.Dataset | None,
         lat: Lat,
         lon: Lon,
+        tensor_map: TensorMap,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
@@ -579,6 +590,9 @@ class SamudraConfig(BaseModelConfig):
             static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            tensor_map=tensor_map,
+            token_conditioning=self.token_conditioning,
+            film_norm=self.unet.core_block.norm,
         )
 
 
@@ -598,6 +612,7 @@ class FOMOConfig(BaseModelConfig):
         static_data: xr.Dataset | None,
         lat: Lat,
         lon: Lon,
+        tensor_map: TensorMap,
     ) -> FOMO:
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = (

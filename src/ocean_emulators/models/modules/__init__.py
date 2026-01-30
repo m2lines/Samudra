@@ -12,6 +12,7 @@ from .blocks import (
     ZonallyPeriodicBilinearUpsample,
 )
 from .encoder import PerceiverEncoder
+from .token_conditioning import DecoderFiLM, TokenConditioner, build_norm
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -27,5 +28,8 @@ __all__ = [
     "MaxPool",
     "PerceiverEncoder",
     "ReLU",
+    "TokenConditioner",
+    "DecoderFiLM",
+    "build_norm",
     "UNetBackbone",
 ]

@@ -23,3 +23,9 @@ unet:
 corrector:
   non_negative_corrector_names: null
   ocean_heat_corrector: false
+
+token_conditioning:
+  enabled: true
+  num_heads: 1
+  mlp_hidden_mult: 2
+  token_init_std: 0.001

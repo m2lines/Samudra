@@ -100,7 +100,7 @@ class InferenceDataset(Dataset):
 
         self.wet: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
-        self.wet_label = src.masks.prognostic_with_hist(self.hist)
+        self.wet_label = src.masks.prognostic_with_hist(self.hist).to(self.device)
         self.size = len(self.rolling_indices)
 
         if using_gpu():

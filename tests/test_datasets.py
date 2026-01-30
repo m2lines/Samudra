@@ -707,6 +707,28 @@ def test_train_dataset_normalize_pre_fill(
         assert inference_dataset[0][0][0][0, 0, 0] == data
 
 
+@pytest.mark.parametrize("normalize_before_mask", [True, False])
+@pytest.mark.parametrize("masked_fill_value", [0.0, -1.0])
+def test_inference_dataset_histories_are_contiguous(
+    tiny_dataset_input, normalize_before_mask, masked_fill_value
+):
+    _, inference_dataset = tiny_dataset_input
+    input_tensor, _ = inference_dataset[0]
+
+    # Data is constructed so that each time step has value == time index.
+    # With hist=1 we expect the first inference input to contain t=0 and t=1.
+    expected_time0 = (0.0 - 0.5) / 1.0
+    expected_time1 = (1.0 - 0.5) / 1.0
+
+    # Prognostic channels are ordered by time then variable:
+    # [t0 var1, t0 var2, t1 var1, t1 var2, ...]
+    time0_value = input_tensor[0, 0, 0, 1]
+    time1_value = input_tensor[0, 2, 0, 1]
+
+    assert torch.isclose(time0_value, torch.tensor(expected_time0))
+    assert torch.isclose(time1_value, torch.tensor(expected_time1))
+
+
 @pytest.mark.manual
 @pytest.mark.parametrize(
     "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True

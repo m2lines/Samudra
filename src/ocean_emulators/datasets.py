@@ -90,6 +90,20 @@ class InferenceDataset(Dataset):
         )  # Skip indices based on history
         self.rolling_indices = self.rolling_indices.astype(int)
 
+        if self.hist > 0:
+            first_window = self.rolling_indices.isel(time=0).values
+            if len(first_window) > 1:
+                inferred_stride = int(first_window[1] - first_window[0])
+                if inferred_stride != 1:
+                    logger.warning(
+                        "InferenceDataset history uses stride=%d between history steps; "
+                        "expected contiguous history (stride=1). This means hist=%d "
+                        "samples t and t+%d for the first input window.",
+                        inferred_stride,
+                        self.hist,
+                        inferred_stride,
+                    )
+
         if long_rollout:
             logger.info(
                 f"Long rollout will use input at time {data.time.values[0]} and produce"

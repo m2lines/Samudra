@@ -53,7 +53,7 @@ def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
     )
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclasses.dataclass
 class Masks:
     """A collection of masks to expose the ocean and mask land."""
 

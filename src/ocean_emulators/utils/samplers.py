@@ -252,10 +252,13 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         else:
             # Pad to ensure divisibility (ceiling division)
             num_batches_per_rank = (total + self.num_replicas - 1) // self.num_replicas
-            # Pad by wrapping around from the beginning
+            # Pad by wrapping around from the beginning (may wrap multiple times
+            # if total < num_replicas)
             padding_size = num_batches_per_rank * self.num_replicas - total
             if padding_size > 0:
-                all_batches = all_batches + all_batches[:padding_size]
+                all_batches = all_batches + [
+                    all_batches[i % total] for i in range(padding_size)
+                ]
 
         # Each worker takes every num_replicas'th batch starting at rank
         for i in range(self.rank, len(all_batches), self.num_replicas):

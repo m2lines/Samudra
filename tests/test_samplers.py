@@ -338,6 +338,33 @@ class TestDistributedBatchSamplerDistribution:
             )
             assert len(sampler) == len(list(sampler)), f"len() mismatch for rank {rank}"
 
+    def test_fewer_batches_than_replicas_pads_correctly(self):
+        """When total batches < num_replicas, padding must wrap multiple times."""
+        # 2 samples with batch_size=2 gives 1 batch total
+        datasets = [MockDataset(2)]
+        num_replicas = 4
+
+        batch_counts = []
+        all_batches = []
+        for rank in range(num_replicas):
+            sampler = DistributedEquivalenceGroupBatchSampler(
+                datasets=datasets,  # type: ignore[arg-type]
+                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                batch_size=2,
+                num_replicas=num_replicas,
+                rank=rank,
+                shuffle=False,
+                drop_last=False,
+            )
+            batches = list(sampler)
+            batch_counts.append(len(batches))
+            all_batches.extend(batches)
+
+        # Critical: all workers must get exactly 1 batch each
+        assert batch_counts == [1, 1, 1, 1], f"Expected [1,1,1,1], got {batch_counts}"
+        # All 4 batches should be the same (the single batch, duplicated)
+        assert len(all_batches) == 4
+
     @pytest.mark.parametrize("rank", [-1, 3, 10])
     def test_invalid_rank_raises(self, rank):
         """Invalid rank should raise ValueError."""

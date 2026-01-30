@@ -3,7 +3,7 @@ import logging
 import re
 from collections import defaultdict
 from collections.abc import Callable
-from functools import cached_property, lru_cache
+from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Self
 
 import numpy as np
@@ -61,15 +61,12 @@ class Masks:
     boundary: GridMask
 
     @classmethod
-    def from_floating(cls, prognostic, boundary) -> Self:
+    def from_floating(cls, prognostic: Prognostic, boundary: Grid) -> Self:
         return cls(
             prognostic=prognostic.bool(),
             boundary=boundary.bool(),
         )
 
-    # NB(alxmrs): Since this dataclass is long-lived, functools cache decorators shouldn't cause additional
-    #  memory issues.
-    @lru_cache(maxsize=5)
     def prognostic_with_hist(
         self, hist: int
     ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:

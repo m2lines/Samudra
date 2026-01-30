@@ -443,7 +443,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         self.device = get_device()
         # If the src and dst DataSource are the same, we can do a lot less work.
-        srcs = [src] if src is dst else [src, dst]
+        srcs = [src] if src.name == dst.name else [src, dst]
 
         self.hist: int = hist
         self.steps: int = steps

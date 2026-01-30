@@ -484,10 +484,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             src.masks.prognostic for src in srcs
         ]
         self.wet_surface: GridMask = src.masks.boundary
-        self.label_mask = (
-            self._prognostic_srcs[-1]
-            .masks.prognostic_with_hist(self.hist)
-            .to(get_device(), non_blocking=True)
+        self.label_mask = self._prognostic_srcs[-1].masks.prognostic_with_hist(
+            self.hist
         )
 
         self.size: int = (
@@ -566,7 +564,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(self.num_prognostic_channels, self.label_mask)
+        train_data = TrainData(
+            self.num_prognostic_channels, self.label_mask.to(device, non_blocking=True)
+        )
 
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(

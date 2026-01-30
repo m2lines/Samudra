@@ -4,7 +4,7 @@ import logging
 
 import torch
 
-from ocean_emulators.constants import Auxiliary
+from ocean_emulators.constants import GridContext
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class BaseModel(torch.nn.Module):
         self.hist = hist
         self.gradient_detach_interval = gradient_detach_interval
 
-    def forward_once(self, fts, aux: Auxiliary):
+    def forward_once(self, fts, ctx: GridContext):
         raise NotImplementedError()
 
     def forward(
@@ -58,7 +58,7 @@ class BaseModel(torch.nn.Module):
                     prognostic=prev_output, step=step
                 )
 
-            decodings = self.forward_once(input_tensor, train_data.aux)
+            decodings = self.forward_once(input_tensor, train_data.ctx)
             if self.pred_residuals:
                 pred = (
                     input_tensor[
@@ -118,7 +118,7 @@ class BaseModel(torch.nn.Module):
                     prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
-            decodings = self.forward_once(input_tensor, dataset.aux)
+            decodings = self.forward_once(input_tensor, dataset.ctx)
             if self.pred_residuals:
                 pred = (
                     input_tensor[

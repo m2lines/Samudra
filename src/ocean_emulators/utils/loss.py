@@ -5,18 +5,18 @@ import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
-from ocean_emulators.constants import Auxiliary
+from ocean_emulators.constants import GridContext
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 LossFnCosWeighted = Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
 
 
-class LossFnWithAuxiliary(Protocol):
+class LossFnWithContext(Protocol):
     def __call__(
         self,
         pred: torch.Tensor,
         target: torch.Tensor,
-        aux: Auxiliary,
+        ctx: GridContext,
     ) -> torch.Tensor: ...
 
 
@@ -29,7 +29,7 @@ LossMetric = Literal[
 ]
 
 
-def loss_fn_from_metric(metric: LossMetric) -> LossFnWithAuxiliary:
+def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
     match metric:
         case "mse":
             loss_fn: LossFn | LossFnCosWeighted = decomposed_mse
@@ -44,17 +44,17 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithAuxiliary:
         case _:
             assert_never(metric)
 
-    def loss_fn_with_aux(
+    def loss_fn_with_ctx(
         pred: torch.Tensor,
         target: torch.Tensor,
-        aux: Auxiliary,
+        ctx: GridContext,
     ) -> torch.Tensor:
-        wet = aux.label_mask.to(device=pred.device)
+        wet = ctx.label_mask.to(device=pred.device)
         pred = pred * wet
         target = target * wet
         if (
             metric == "mse_cos_weighted"
-            and (lat := aux.input_resolution[0]) is not None
+            and (lat := ctx.input_resolution[0]) is not None
         ):
             area_weights = torch.sqrt(torch.cos(torch.deg2rad(lat))).to(
                 device=pred.device
@@ -62,7 +62,7 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithAuxiliary:
             return loss_fn(pred, target, cos=area_weights)  # type: ignore[call-arg]
         return loss_fn(pred, target)  # type: ignore[call-arg]
 
-    return loss_fn_with_aux
+    return loss_fn_with_ctx
 
 
 def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -177,7 +177,7 @@ class DynamicLoss:
 
     def __init__(
         self,
-        loss_fn: LossFnWithAuxiliary,
+        loss_fn: LossFnWithContext,
         *,
         limit: float | None,
         device: torch.device,
@@ -194,10 +194,10 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        aux: Auxiliary,
+        ctx: GridContext,
     ) -> Float[torch.Tensor, " hist*var"]:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
-            pred, target, aux
+            pred, target, ctx
         )
         # Channels are time-major: (hist+1) * var.
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
@@ -210,13 +210,13 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        aux: Auxiliary,
+        ctx: GridContext,
     ) -> None:
         """Given the prediction & target for this step, update the per-channel scale."""
         # Local import is needed to prevent a circular import error.
         from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
-        loss = self.loss_fn(pred, target, aux)
+        loss = self.loss_fn(pred, target, ctx)
         loss = torch.where(loss == 0, 1e-8, loss)
         new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels
@@ -262,7 +262,7 @@ class GradientLoss:
 
     def __init__(
         self,
-        loss_fn: LossFnWithAuxiliary,
+        loss_fn: LossFnWithContext,
         *,
         gradient_weight: float,
         pad_mode: str,
@@ -275,11 +275,11 @@ class GradientLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        aux: Auxiliary,
+        ctx: GridContext,
     ) -> Float[torch.Tensor, " hist*var"]:
-        base_loss = self.loss_fn(pred, target, aux)
+        base_loss = self.loss_fn(pred, target, ctx)
         # Ensure mask is on the same device as pred for gradient computation
-        wet = aux.label_mask.to(device=pred.device)
+        wet = ctx.label_mask.to(device=pred.device)
         pred = pred * wet
         target = target * wet
         grad_loss = gradient_l1_loss(pred=pred, target=target, pad_mode=self._pad_mode)

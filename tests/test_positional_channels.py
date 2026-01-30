@@ -3,7 +3,7 @@ import torch
 import xarray as xr
 
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
-from ocean_emulators.constants import Auxiliary, TensorMap
+from ocean_emulators.constants import GridContext, TensorMap
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
@@ -66,7 +66,7 @@ def test_positional_parameters_update():
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         x = torch.randn(1, 2, h, w)
         optimizer.zero_grad()
-        out = model.forward_once(x, Auxiliary(masks.prognostic, src.resolution))
+        out = model.forward_once(x, GridContext(masks.prognostic, src.resolution))
         loss = out.sum()
         loss.backward()
         before = model.positional_params.detach().clone()

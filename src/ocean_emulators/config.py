@@ -43,7 +43,7 @@ from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLoca
 from ocean_emulators.utils.loss import (
     DynamicLoss,
     GradientLoss,
-    LossFnWithAuxiliary,
+    LossFnWithContext,
     LossMetric,
     loss_fn_from_metric,
 )
@@ -714,7 +714,7 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
-) -> LossFnWithAuxiliary:
+) -> LossFnWithContext:
     match loss_cfg:
         case str():
             return loss_fn_from_metric(loss_cfg)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 
-from ocean_emulators.constants import Auxiliary
+from ocean_emulators.constants import GridContext
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.device import autocast
@@ -48,7 +48,7 @@ class Samudra(BaseModel):
         self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
 
-    def forward_once(self, fts: torch.Tensor, aux: Auxiliary) -> torch.Tensor:
+    def forward_once(self, fts: torch.Tensor, ctx: GridContext) -> torch.Tensor:
         if self.corrector is not None:
             fts_input = fts.clone().detach()
 
@@ -76,4 +76,4 @@ class Samudra(BaseModel):
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)
-        return torch.where(aux.label_mask, fts, 0.0)
+        return torch.where(ctx.label_mask, fts, 0.0)

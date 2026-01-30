@@ -13,9 +13,9 @@ from torch.utils.data import Dataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
-    Auxiliary,
     BoundaryVarNames,
     Example,
+    GridContext,
     GridMask,
     Input,
     LoaderVersion,
@@ -108,7 +108,7 @@ class InferenceDataset(Dataset):
             self.wet_surface = self.wet_surface.pin_memory()
             self.wet_label = self.wet_label.pin_memory()
 
-        self.aux = Auxiliary(self.wet_label, self.input_res)
+        self.ctx = GridContext(self.wet_label, self.input_res)
 
     def __len__(self):
         return self.size
@@ -351,9 +351,9 @@ class TrainData:
     remaining bottom channels are boundary forcings.
     """
 
-    def __init__(self, num_prognostic_channels: int, aux: Auxiliary):
+    def __init__(self, num_prognostic_channels: int, ctx: GridContext):
         self.num_prognostic_channels = num_prognostic_channels
-        self.aux = aux
+        self.ctx = ctx
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
 
@@ -490,7 +490,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         ]
         self.wet_surface: GridMask = src.masks.boundary
 
-        self.aux = Auxiliary(
+        self.ctx = GridContext(
             self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
             self.prognostic_srcs[0].resolution,
         ).to(device=get_device())
@@ -571,7 +571,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(self.num_prognostic_channels, self.aux)
+        train_data = TrainData(self.num_prognostic_channels, self.ctx)
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 OceanData.from_data_source(

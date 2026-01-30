@@ -237,18 +237,26 @@ class LoaderVersion(enum.Enum):
     OM4_TORCH = "om4-torch"
 
 
-# TODO(alxmrs,Claude): I need help naming this.
 @dataclasses.dataclass(frozen=True)
-class Auxiliary:
-    """Auxiliary data needed for both the model and loss_fn.
+class GridContext:
+    """Grid-level context for model forward passes and loss computation.
 
-    This is used in `forward_once` and the deferred loss function.
+    Bundles spatial metadata that travels alongside input tensors during training:
+    the ocean/land mask for excluding land cells from gradients, and the grid
+    resolution for latitude-weighted loss calculations.
+
+    Attributes:
+        label_mask: Boolean mask indicating valid ocean cells for each prognostic
+            variable. Shape: (num_prognostic_vars, lat, lon). Land cells are False.
+        input_resolution: Tuple of (latitude, longitude) coordinate tensors defining
+            the spatial grid. Used for cosine-latitude weighting in loss functions.
     """
 
     label_mask: PrognosticMask
     input_resolution: tuple[Lat, Lon]
 
     def to(self, device: torch.device) -> Self:
+        """Move the label mask to the specified device."""
         return dataclasses.replace(self, label_mask=self.label_mask.to(device))
 
 

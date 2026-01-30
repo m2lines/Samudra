@@ -9,7 +9,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
-from ocean_emulators.constants import Auxiliary
+from ocean_emulators.constants import GridContext
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
 from ocean_emulators.models.modules.encoder import patch_from
@@ -89,12 +89,12 @@ class FOMO(BaseModel):
                 ),
             )
 
-    def forward_once(self, fts: torch.Tensor, aux: Auxiliary) -> torch.Tensor:
+    def forward_once(self, fts: torch.Tensor, ctx: GridContext) -> torch.Tensor:
         _, _, H, W = fts.shape
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             fts = self.maybe_add_3d_coordinates(fts)
-            fts = self.encoder(fts, aux.input_resolution)
+            fts = self.encoder(fts, ctx.input_resolution)
             fts = self.processor(fts)
 
         # Convert back to float32 for decoder and unpatchify operations
@@ -116,4 +116,4 @@ class FOMO(BaseModel):
             w=w,
         )
 
-        return torch.where(aux.label_mask, fts, 0.0)
+        return torch.where(ctx.label_mask, fts, 0.0)

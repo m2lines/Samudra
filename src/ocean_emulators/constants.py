@@ -257,7 +257,9 @@ class GridContext:
 
     def to(self, device: torch.device) -> Self:
         """Move the label mask to the specified device."""
-        return dataclasses.replace(self, label_mask=self.label_mask.to(device))
+        return dataclasses.replace(
+            self, label_mask=self.label_mask.to(device, non_blocking=True)
+        )
 
 
 # TODO(#95): See if this can be removed and replaced.

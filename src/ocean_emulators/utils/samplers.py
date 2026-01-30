@@ -211,7 +211,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         self.num_replicas = num_replicas
         self.rank = rank
         self.shuffle = shuffle
-        self._drop_last = drop_last
+        self.drop_last = drop_last
         self.seed = seed
         self.epoch = 0
 
@@ -242,7 +242,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         # - drop_last=True: trim to largest multiple of num_replicas
         # - drop_last=False: pad by duplicating batches to reach next multiple
         total = len(all_batches)
-        if self._drop_last:
+        if self.drop_last:
             # Trim to ensure divisibility
             num_batches_per_rank = total // self.num_replicas
             total_batches_to_use = num_batches_per_rank * self.num_replicas
@@ -262,7 +262,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
     def __len__(self):
         """Number of batches for this worker (same for all ranks)."""
         total_batches = len(self._inner)
-        if self._drop_last:
+        if self.drop_last:
             return total_batches // self.num_replicas
         else:
             return (total_batches + self.num_replicas - 1) // self.num_replicas

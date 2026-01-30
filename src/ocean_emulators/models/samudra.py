@@ -60,7 +60,6 @@ class Samudra(BaseModel):
 
         self.add_3d_coordinates = add_3d_coordinates
         self.unet = unet
-        self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
         self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
@@ -72,6 +71,11 @@ class Samudra(BaseModel):
         self.token_conditioning_enabled = (
             self.token_conditioning is not None and self.token_conditioning.enabled
         )
+
+        if self.token_conditioning_enabled:
+            self.decoder = nn.Identity()
+        else:
+            self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
         if self.token_conditioning_enabled:
             num_prog = len(tensor_map.prognostic_var_names)

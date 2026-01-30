@@ -33,7 +33,7 @@ class FOMO(BaseModel):
         pred_residuals: bool,
         last_kernel_size: int,
         pad: str,
-        add_3d_coordinates: nn.Module,
+        add_3d_coordinates: nn.Module | None,
         encoder: PerceiverEncoder,
         processor: UNetBackbone,
         hist: int,
@@ -93,7 +93,8 @@ class FOMO(BaseModel):
         _, _, H, W = fts.shape
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
-            fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution)
+            if self.maybe_add_3d_coordinates is not None:
+                fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution)
             fts = self.encoder(fts, ctx.input_resolution)
             fts = self.processor(fts)
 

@@ -582,10 +582,7 @@ class FOMOConfig(BaseModelConfig):
         srcs: list[DataSource],
     ) -> FOMO:
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
-        # TODO(alxmrs): Is Identity OK, or should I use the `None` pattern?
-        add_3d_coordinates = (
-            Concat3dCoordinates() if self.add_3d_coordinates else nn.Identity()
-        )
+        add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         all_grids = [s.grid for s in srcs]
         max_lat, max_lon = (
             max(g[0] for g in all_grids),

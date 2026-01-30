@@ -179,6 +179,9 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
     - drop_last=True: trims to the largest multiple of num_replicas
     - drop_last=False: pads by duplicating batches from the beginning
 
+    > Note: Compared to the non-distributed sampler: this one won't shuffle
+    > _within_ batches, only between batches, when `shuffle=True`.
+
     Args:
         datasets: List of TorchTrainDataset instances to group
         group_key: Callable that extracts grouping key from a dataset

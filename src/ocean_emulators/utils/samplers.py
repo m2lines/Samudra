@@ -165,3 +165,112 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
             total_batches += len(sampler)
 
         return total_batches
+
+
+class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
+    """Distributed version of EquivalenceGroupBatchSampler for multi-GPU training.
+
+    Uses composition to delegate batching logic to EquivalenceGroupBatchSampler,
+    handling only the distribution and epoch-based shuffling.
+
+    Ensures uniform batch counts across all ranks to prevent DDP hangs at
+    collective sync points. When the total batch count isn't divisible by
+    num_replicas:
+    - drop_last=True: trims to the largest multiple of num_replicas
+    - drop_last=False: pads by duplicating batches from the beginning
+
+    > Note: Compared to the non-distributed sampler: this one won't shuffle
+    > _within_ batches, only between batches, when `shuffle=True`.
+
+    Args:
+        datasets: List of TorchTrainDataset instances to group
+        group_key: Callable that extracts grouping key from a dataset
+        batch_size: Number of samples per batch
+        num_replicas: Number of distributed workers (world size)
+        rank: Index of current worker (0 to num_replicas-1)
+        shuffle: Whether to shuffle batches
+        drop_last: Whether to drop incomplete batches within each group, and
+            whether to trim (vs pad) when distributing batches across ranks
+        seed: Random seed for shuffling (default: 0)
+    """
+
+    def __init__(
+        self,
+        datasets: list["TorchTrainDataset"],
+        group_key: Callable[["TorchTrainDataset"], Hashable],
+        batch_size: int,
+        num_replicas: int,
+        rank: int,
+        shuffle: bool = True,
+        drop_last: bool = False,
+        seed: int = 0,
+    ):
+        super().__init__()
+        if num_replicas <= 0:
+            raise ValueError(f"num_replicas must be positive, got {num_replicas}.")
+        if rank >= num_replicas or rank < 0:
+            raise ValueError(
+                f"Invalid rank {rank}, must be in range [0, {num_replicas})"
+            )
+
+        self.num_replicas = num_replicas
+        self.rank = rank
+        self.shuffle = shuffle
+        self.drop_last = drop_last
+        self.seed = seed
+        self.epoch = 0
+
+        # Delegate batching logic to inner sampler (without shuffle for determinism)
+        self._inner = EquivalenceGroupBatchSampler.from_datasets(
+            datasets=datasets,
+            group_key=group_key,
+            batch_size=batch_size,
+            shuffle=False,  # We handle shuffling with seeded RNG
+            drop_last=drop_last,
+        )
+
+    def set_epoch(self, epoch: int) -> None:
+        """Set the epoch for deterministic shuffling across workers."""
+        self.epoch = epoch
+
+    def __iter__(self):
+        # Get all batches from inner sampler (deterministic order)
+        all_batches = list(self._inner)
+
+        # Shuffle with seeded RNG so all workers get identical ordering
+        if self.shuffle:
+            rng = random.Random(self.seed + self.epoch)
+            rng.shuffle(all_batches)
+
+        # Ensure uniform batch count across all ranks to prevent DDP hangs.
+        # Similar to torch.utils.data.DistributedSampler behavior:
+        # - drop_last=True: trim to largest multiple of num_replicas
+        # - drop_last=False: pad by duplicating batches to reach next multiple
+        total = len(all_batches)
+        if self.drop_last:
+            # Trim to ensure divisibility
+            num_batches_per_rank = total // self.num_replicas
+            total_batches_to_use = num_batches_per_rank * self.num_replicas
+            all_batches = all_batches[:total_batches_to_use]
+        else:
+            # Pad to ensure divisibility (ceiling division)
+            num_batches_per_rank = (total + self.num_replicas - 1) // self.num_replicas
+            # Pad by wrapping around from the beginning (may wrap multiple times
+            # if total < num_replicas)
+            padding_size = num_batches_per_rank * self.num_replicas - total
+            if padding_size > 0:
+                all_batches = all_batches + [
+                    all_batches[i % total] for i in range(padding_size)
+                ]
+
+        # Each worker takes every num_replicas'th batch starting at rank
+        for i in range(self.rank, len(all_batches), self.num_replicas):
+            yield all_batches[i]
+
+    def __len__(self):
+        """Number of batches for this worker (same for all ranks)."""
+        total_batches = len(self._inner)
+        if self.drop_last:
+            return total_batches // self.num_replicas
+        else:
+            return (total_batches + self.num_replicas - 1) // self.num_replicas

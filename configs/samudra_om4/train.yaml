@@ -9,9 +9,7 @@ batch_size: 4
 learning_rate: 0.0006
 gradient_accumulation_steps: 1
 scheduler: { type: cosine }
-loss:
-  type: dynamic
-  metric: mse
+loss: mse
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
@@ -35,6 +33,13 @@ data_stride: [1]
 steps: [4]
 step_transition: []
 preemptible: false
+metrics:
+  regions:
+    - name: north_atlantic
+      lat_min: 24
+      lat_max: 46
+      lon_min: -51
+      lon_max: -18
 
 backend: auto
 

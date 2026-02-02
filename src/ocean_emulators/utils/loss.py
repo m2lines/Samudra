@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from functools import partial
-from typing import Literal, Protocol, assert_never
+from typing import Literal, Protocol, assert_never, cast
 
 import numpy as np
 import torch
@@ -61,10 +61,17 @@ def loss_fn_from_metric(
     ) -> torch.Tensor:
         wet = wet.to(device=pred.device)
         if expects_wet:
-            return loss_fn(pred, target, wet)
+            loss_fn_wet = cast(
+                Callable[[torch.Tensor, torch.Tensor, PrognosticMask], torch.Tensor],
+                loss_fn,
+            )
+            return loss_fn_wet(pred, target, wet)
         pred = pred * wet
         target = target * wet
-        return loss_fn(pred, target)
+        loss_fn_no_wet = cast(
+            Callable[[torch.Tensor, torch.Tensor], torch.Tensor], loss_fn
+        )
+        return loss_fn_no_wet(pred, target)
 
     loss_fn_with_mask._wet_normalized = wet_normalized  # type: ignore[attr-defined]
     return loss_fn_with_mask
@@ -225,9 +232,16 @@ class DynamicLoss:
             return loss_with_history_channels
         wet = wet.to(device=loss_with_history_channels.device)
         wet_fraction = wet.float().mean(dim=(1, 2)).clamp_min(1e-8)
-        loss_hist_var = loss_with_history_channels.reshape(
-            -1, self._per_channel_scale.shape[0]
-        )
+        num_channels = self._per_channel_scale.shape[0]
+        if wet_fraction.numel() != num_channels:
+            if wet_fraction.numel() % num_channels != 0:
+                raise ValueError(
+                    "Wet mask channel dimension must be either num_channels or "
+                    "a multiple of num_channels (for history), got "
+                    f"{wet_fraction.numel()} and num_channels={num_channels}"
+                )
+            wet_fraction = wet_fraction.reshape(-1, num_channels).mean(dim=0)
+        loss_hist_var = loss_with_history_channels.reshape(-1, num_channels)
         loss_hist_var = loss_hist_var / wet_fraction
         return loss_hist_var.reshape(-1)
 

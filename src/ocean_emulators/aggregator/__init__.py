@@ -5,5 +5,5 @@ from .loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
-from .main import Aggregator
+from .train import TrainAggregator
 from .validate import ValidateAggregator

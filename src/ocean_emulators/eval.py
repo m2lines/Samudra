@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 import torch
 
-from ocean_emulators.aggregator import Aggregator
+from ocean_emulators.aggregator import InferenceEvaluatorAggregator
 from ocean_emulators.backend import init_eval_backend
 from ocean_emulators.config import EvalConfig
 from ocean_emulators.constants import (
@@ -196,14 +196,17 @@ class Eval:
     @torch.no_grad()
     def standalone_inference(self):
         self.model.eval()
-        inf_aggregator = Aggregator.get_standalone_inference_aggregator(
-            self.num_time_steps,
-            self.metadata,
-            self.hist,
-            self.area_weights,
-            self.src.masks.prognostic.to(self.device),
-            self.num_out,
-            self.prognostic_var_names,
+        inf_aggregator = InferenceEvaluatorAggregator(
+            n_timesteps=self.num_time_steps,
+            metadata=self.metadata,
+            hist=self.hist,
+            area_weights=self.area_weights,
+            wet=self.src.masks.prognostic.to(self.device),
+            num_prognostic_channels=self.num_out,
+            record_step_20=(self.num_time_steps > 20),
+            log_global_mean_time_series=True,
+            log_global_mean_norm_time_series=True,
+            channel_mean_names=self.prognostic_var_names,
         )
 
         Stepper.inference(

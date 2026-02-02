@@ -25,7 +25,11 @@ from torch.utils.data import (
 )
 
 from ocean_emulators import config
-from ocean_emulators.aggregator import Aggregator
+from ocean_emulators.aggregator import (
+    InferenceEvaluatorAggregator,
+    TrainAggregator,
+    ValidateAggregator,
+)
 from ocean_emulators.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -459,7 +463,7 @@ class Trainer:
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
-        train_aggregator = Aggregator.get_train_aggregator()
+        train_aggregator = TrainAggregator()
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
@@ -610,12 +614,12 @@ class Trainer:
         self.model.eval()
 
         # TODO(alxmrs): Aggregator only supports a single scale.
-        val_aggregator = Aggregator.get_validation_aggregator(
-            self.primary_src.metadata,
-            self.hist,
-            self.primary_src.spherical_area_weights.to(self.device),
-            self.primary_src.masks.prognostic.to(self.device),
-            self.num_out,
+        val_aggregator = ValidateAggregator(
+            metadata=self.primary_src.metadata,
+            hist=self.hist,
+            area_weights=self.primary_src.spherical_area_weights.to(self.device),
+            wet=self.primary_src.masks.prognostic.to(self.device),
+            num_prognostic_channels=self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -644,14 +648,17 @@ class Trainer:
                 self.inference_loader
             ):
                 # TODO(alxmrs): Aggregator only supports a single scale.
-                inf_aggregator = Aggregator.get_inline_inference_aggregator(
-                    num_steps,
-                    self.primary_src.metadata,
-                    self.hist,
-                    self.primary_src.spherical_area_weights.to(self.device),
-                    self.primary_src.masks.prognostic.to(self.device),
-                    self.num_out,
-                    self.prognostic_var_names,
+                inf_aggregator = InferenceEvaluatorAggregator(
+                    n_timesteps=num_steps,
+                    metadata=self.primary_src.metadata,
+                    hist=self.hist,
+                    area_weights=self.primary_src.spherical_area_weights.to(self.device),
+                    wet=self.primary_src.masks.prognostic.to(self.device),
+                    num_prognostic_channels=self.num_out,
+                    record_step_20=(num_steps > 20),
+                    log_global_mean_time_series=False,
+                    log_global_mean_norm_time_series=False,
+                    channel_mean_names=self.prognostic_var_names,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;

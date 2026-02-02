@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769793254719,
+  "lastUpdate": 1770056092926,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7149,6 +7149,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.23014226470922589",
             "extra": "mean: 97.21960051399999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6ffb2cf50e93bd179d67e0f2d46a9debeb867a90",
+          "message": "Refresh the Agents file. (#566)\n\nFixes #431.",
+          "timestamp": "2026-02-02T17:49:18Z",
+          "tree_id": "51c82fcb62bac8d6587eaafa5a61d09cb9ae4c06",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/6ffb2cf50e93bd179d67e0f2d46a9debeb867a90"
+        },
+        "date": 1770056092086,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.9075338395868209,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017114465715029198",
+            "extra": "mean: 1.101887286599998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1929529239465481,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03562598610408041",
+            "extra": "mean: 5.1826112792000005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01129585458132406,
+            "unit": "iter/sec",
+            "range": "stddev: 0.27047984631988353",
+            "extra": "mean: 88.52805184419996 sec\nrounds: 5"
           }
         ]
       }

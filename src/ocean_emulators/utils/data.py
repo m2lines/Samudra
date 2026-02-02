@@ -88,6 +88,19 @@ class DataSource:
     stds: xr.Dataset
     masks: Masks
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, DataSource):
+            return False
+
+        try:
+            xr.testing.assert_allclose(self.data, other.data)
+            xr.testing.assert_allclose(self.means, other.means)
+            xr.testing.assert_allclose(self.stds, other.stds)
+        except AssertionError:
+            return False
+
+        return self.name == other.name and self.masks == other.masks
+
     @cached_property
     def is_compact(self) -> bool:
         """Check if the data source is compact."""

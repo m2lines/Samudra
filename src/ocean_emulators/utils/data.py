@@ -390,6 +390,24 @@ class OceanData:
         norm = norm.to(data.dtype)
         return norm
 
+    def unnormalize(
+        self,
+        data: Float[torch.Tensor, "batch time var lat lon"],
+        masked_fill_value: float | None = None,
+    ) -> torch.Tensor:
+        """Reverses normalization of data; if a `masked_fill_value` is provided, will apply the wetmask."""
+        expand_var = [1] * data.ndim
+        expand_var[-3] = -1
+        unnorm = data * self.stds.view(expand_var).to(data.device) + self.means.view(
+            expand_var
+        ).to(data.device)
+        if masked_fill_value is not None:
+            unnorm = torch.where(
+                self.mask.to(data.device) == 0, masked_fill_value, unnorm
+            )
+        unnorm = unnorm.to(data.dtype)
+        return unnorm
+
     def normalize_and_mask(
         self, normalize_before_mask: bool, masked_fill_value: float
     ) -> Float[torch.Tensor, "batch time var lat lon"]:
@@ -664,39 +682,47 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
 
 def get_aggregator_dicts(
     data: Prognostic | Input,
-    wet: torch.Tensor,
+    srcs: list[DataSource],
     long_rollout: bool,
     input_type: Literal["prognostic", "input"] = "prognostic",
     num_prognostic_channels: int = 0,
     hist: int = 1,
 ) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
-    normalize = Normalize.get_instance()
-    # Remove boundary data if input
-    if input_type == "input":
-        data = data[:, :num_prognostic_channels]
+    namespaced_normed: DictSingleChannelVar = {}
+    namespaced_unnormed: DictSingleChannelVar = {}
+    for src in srcs:
+        wet = src.masks.prognostic.to(data.device)
+        # Remove boundary data if input
+        if input_type == "input":
+            data = data[:, :num_prognostic_channels]
 
-    # Separate history from channels
-    data_reshaped: SingleTimeSeriesOutput | BatchTimeSeriesOutput
-    if long_rollout:
-        # All batches are part of the same rollout during inference
-        data_reshaped = rearrange(
-            data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
-        ).unsqueeze(0)  # add artificial batch dim
-    else:
-        # Batches are independent rollouts during validation
-        data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
+        # Separate history from channels
+        data_reshaped: SingleTimeSeriesOutput | BatchTimeSeriesOutput
+        if long_rollout:
+            # All batches are part of the same rollout during inference
+            data_reshaped = rearrange(
+                data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
+            ).unsqueeze(0)  # add artificial batch dim
+        else:
+            # Batches are independent rollouts during validation
+            data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
 
-    # Get normalized dict
-    data_normalized = data_reshaped.clone()
-    data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
-    data_dict = convert_tensor_out_to_dict(data_normalized)
-    # Unnormalize
-    data_unnorm = normalize.unnormalize_tensor_prognostic(
-        data_reshaped, fill_value=float("nan")
-    )
-    # Get unnormalized dict
-    data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
-    return data_dict, data_unnorm_dict
+        # Get normalized dict
+        data_normalized = data_reshaped.clone()
+        data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
+        data_dict = convert_tensor_out_to_dict(data_normalized)
+        for k, v in data_dict.items():
+            namespaced_normed[f"{k}_{gridstr(src)}"] = v
+        ocean_data = OceanData.from_data_source(data_normalized, wet, src)
+        # Unnormalize
+        data_unnorm = ocean_data.unnormalize(
+            data_reshaped, masked_fill_value=float("nan")
+        )
+        # Get unnormalized dict
+        data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
+        for k, v in data_unnorm_dict.items():
+            namespaced_unnormed[f"{k}_{gridstr(src)}"] = v
+    return namespaced_normed, namespaced_unnormed
 
 
 def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:
@@ -930,3 +956,9 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
         data = data.drop_vars(vars_)
 
     return data
+
+
+def gridstr(src: DataSource) -> str:
+    """Makes a human-readable string about the grid from a DataSource."""
+    grid = src.grid
+    return f"{grid[0]}-{grid[1]}"

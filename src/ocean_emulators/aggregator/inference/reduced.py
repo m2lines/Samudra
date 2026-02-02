@@ -14,6 +14,7 @@ from ocean_emulators.aggregator.metrics import (
     area_weighted_rmse,
     area_weighted_std,
 )
+from ocean_emulators.utils.data import DataSource, gridstr
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.distributed import all_reduce_mean
 from ocean_emulators.utils.wandb import Metrics
@@ -161,95 +162,103 @@ class AreaWeightedReducedMetric:
 class MeanAggregator:
     def __init__(
         self,
+        srcs: list[DataSource],
         target: Literal["norm", "denorm"],
         n_timesteps: int,
-        area_weights: torch.Tensor,
-        metadata: dict[str, dict[str, str]] | None = None,
     ):
+        self.srcs = srcs
         self._variable_metrics: dict[str, dict[str, MeanMetric]] | None = None
         self._shape_x = None
         self._shape_y = None
         self._target = target
         self._n_timesteps = n_timesteps
-        self._area_weights = area_weights
-
-        if metadata is None:
-            self._metadata: dict[str, dict[str, str]] = {}
-        else:
-            self._metadata = metadata
 
     def _get_variable_metrics(self, gen_data: dict[str, torch.Tensor]):
-        if self._variable_metrics is None:
-            self._variable_metrics = {}
+        for src in self.srcs:
+            if self._variable_metrics is None:
+                self._variable_metrics = {}
 
-            device = get_device()
-            self._variable_metrics["weighted_rmse"] = defaultdict(
-                lambda: AreaWeightedReducedMetric(
-                    device=device,
-                    compute_metric=partial(
-                        area_weighted_rmse, area_weights=self._area_weights
-                    ),
-                    n_timesteps=self._n_timesteps,
-                )
-            )
-            if self._target == "denorm":
-                self._variable_metrics["weighted_grad_mag_percent_diff"] = defaultdict(
+                device = get_device()
+                self._variable_metrics[f"weighted_rmse_{gridstr(src)}"] = defaultdict(
                     lambda: AreaWeightedReducedMetric(
                         device=device,
                         compute_metric=partial(
-                            area_weighted_gradient_magnitude_percent_diff,
-                            area_weights=self._area_weights,
-                        ),  # noqa: E501
+                            area_weighted_rmse,
+                            area_weights=src.area_weights,
+                        ),
                         n_timesteps=self._n_timesteps,
                     )
                 )
-            self._variable_metrics["weighted_mean_gen"] = defaultdict(
-                lambda: AreaWeightedReducedMetric(
-                    device=device,
-                    compute_metric=compute_metric_on(
-                        source="gen",
-                        metric=lambda tensor: (
-                            area_weighted_mean(tensor, area_weights=self._area_weights)
+                if self._target == "denorm":
+                    self._variable_metrics[
+                        f"weighted_grad_mag_percent_diff_{gridstr(src)}"
+                    ] = defaultdict(
+                        lambda: AreaWeightedReducedMetric(
+                            device=device,
+                            compute_metric=partial(
+                                area_weighted_gradient_magnitude_percent_diff,
+                                area_weights=src.area_weights,
+                            ),  # noqa: E501
+                            n_timesteps=self._n_timesteps,
+                        )
+                    )
+                self._variable_metrics[f"weighted_mean_gen_{gridstr(src)}"] = (
+                    defaultdict(
+                        lambda: AreaWeightedReducedMetric(
+                            device=device,
+                            compute_metric=compute_metric_on(
+                                source="gen",
+                                metric=lambda tensor: (
+                                    area_weighted_mean(
+                                        tensor, area_weights=src.area_weights
+                                    )
+                                ),
+                            ),
+                            n_timesteps=self._n_timesteps,
+                        )
+                    )
+                )
+                self._variable_metrics[f"weighted_mean_target_{gridstr(src)}"] = (
+                    defaultdict(
+                        lambda: AreaWeightedReducedMetric(
+                            device=device,
+                            compute_metric=compute_metric_on(
+                                source="target",
+                                metric=lambda tensor: (
+                                    area_weighted_mean(
+                                        tensor, area_weights=src.area_weights
+                                    )
+                                ),
+                            ),
+                            n_timesteps=self._n_timesteps,
+                        )
+                    )
+                )
+                self._variable_metrics[f"weighted_bias_{gridstr(src)}"] = defaultdict(
+                    lambda: AreaWeightedReducedMetric(
+                        device=device,
+                        compute_metric=partial(
+                            area_weighted_mean_bias, area_weights=src.area_weights
                         ),
-                    ),
-                    n_timesteps=self._n_timesteps,
+                        n_timesteps=self._n_timesteps,
+                    )
                 )
-            )
-            self._variable_metrics["weighted_mean_target"] = defaultdict(
-                lambda: AreaWeightedReducedMetric(
-                    device=device,
-                    compute_metric=compute_metric_on(
-                        source="target",
-                        metric=lambda tensor: (
-                            area_weighted_mean(tensor, area_weights=self._area_weights)
-                        ),
-                    ),
-                    n_timesteps=self._n_timesteps,
+                self._variable_metrics[f"weighted_std_gen_{gridstr(src)}"] = (
+                    defaultdict(
+                        lambda: AreaWeightedReducedMetric(
+                            device=device,
+                            compute_metric=compute_metric_on(
+                                source="gen",
+                                metric=(
+                                    lambda tensor: area_weighted_std(
+                                        tensor, area_weights=src.area_weights
+                                    )
+                                ),
+                            ),
+                            n_timesteps=self._n_timesteps,
+                        )
+                    )
                 )
-            )
-            self._variable_metrics["weighted_bias"] = defaultdict(
-                lambda: AreaWeightedReducedMetric(
-                    device=device,
-                    compute_metric=partial(
-                        area_weighted_mean_bias, area_weights=self._area_weights
-                    ),
-                    n_timesteps=self._n_timesteps,
-                )
-            )
-            self._variable_metrics["weighted_std_gen"] = defaultdict(
-                lambda: AreaWeightedReducedMetric(
-                    device=device,
-                    compute_metric=compute_metric_on(
-                        source="gen",
-                        metric=(
-                            lambda tensor: area_weighted_std(
-                                tensor, area_weights=self._area_weights
-                            )
-                        ),
-                    ),
-                    n_timesteps=self._n_timesteps,
-                )
-            )
         return self._variable_metrics
 
     @torch.no_grad()

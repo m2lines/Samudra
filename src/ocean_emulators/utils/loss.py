@@ -25,12 +25,15 @@ LossMetric = Literal[
     "mse_mae",
     "mse_diff_weighted",
     "mse_cos_weighted",
+    "mse_area_weighted",
 ]
 
 
 def loss_fn_from_metric(
     metric: LossMetric, *, y_coord: xr.DataArray, device: torch.device
 ) -> LossFnWithMask:
+    wet_normalized = False
+    expects_wet = False
     match metric:
         case "mse":
             loss_fn: LossFn = decomposed_mse
@@ -44,6 +47,12 @@ def loss_fn_from_metric(
             area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device=device)
             loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
+        case "mse_area_weighted":
+            area_weights = np.cos(np.deg2rad(y_coord)).to_numpy()
+            area_weights = torch.from_numpy(area_weights).to(device=device)
+            loss_fn = partial(decomposed_mse_area_weighted, area_weights=area_weights)
+            wet_normalized = True
+            expects_wet = True
         case _:
             assert_never(metric)
 
@@ -51,10 +60,13 @@ def loss_fn_from_metric(
         pred: torch.Tensor, target: torch.Tensor, wet: PrognosticMask
     ) -> torch.Tensor:
         wet = wet.to(device=pred.device)
+        if expects_wet:
+            return loss_fn(pred, target, wet)
         pred = pred * wet
         target = target * wet
         return loss_fn(pred, target)
 
+    loss_fn_with_mask._wet_normalized = wet_normalized  # type: ignore[attr-defined]
     return loss_fn_with_mask
 
 
@@ -98,6 +110,26 @@ def decomposed_mse_cos_weighted(
     mse = F.mse_loss(pred, target, reduction="none")
     weighted_mse = mse * weights
     return weighted_mse.mean(dim=(0, 2, 3))
+
+
+def decomposed_mse_area_weighted(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    area_weights: torch.Tensor,
+) -> torch.Tensor:
+    """Area-weighted MSE loss normalized over wet points per channel."""
+    wet = wet.to(device=pred.device)
+    area_weights = area_weights.to(device=pred.device)
+    # area_weights is latitude-only; broadcast to (var, lat, lon)
+    weights = area_weights.view(1, -1, 1)
+    weight_mask = wet.float() * weights
+    denom = weight_mask.sum(dim=(1, 2)).clamp_min(1e-8)
+
+    err2 = (pred - target) ** 2
+    err2_mean = err2.mean(dim=0)
+    numer = (err2_mean * weight_mask).sum(dim=(1, 2))
+    return numer / denom
 
 
 def decomposed_mse_scaled(
@@ -182,6 +214,22 @@ class DynamicLoss:
             num_channels, device=self._device
         )
         self._limit = limit
+        self._wet_normalized = getattr(loss_fn, "_wet_normalized", False)
+
+    def _normalize_by_wet(
+        self,
+        loss_with_history_channels: Float[torch.Tensor, " hist*var"],
+        wet: PrognosticMask,
+    ) -> Float[torch.Tensor, " hist*var"]:
+        if self._wet_normalized:
+            return loss_with_history_channels
+        wet = wet.to(device=loss_with_history_channels.device)
+        wet_fraction = wet.float().mean(dim=(1, 2)).clamp_min(1e-8)
+        loss_hist_var = loss_with_history_channels.reshape(
+            -1, self._per_channel_scale.shape[0]
+        )
+        loss_hist_var = loss_hist_var / wet_fraction
+        return loss_hist_var.reshape(-1)
 
     def __call__(
         self,
@@ -191,6 +239,9 @@ class DynamicLoss:
     ) -> Float[torch.Tensor, " hist*var"]:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
             pred, target, wet
+        )
+        loss_with_history_channels = self._normalize_by_wet(
+            loss_with_history_channels, wet
         )
         # Channels are time-major: (hist+1) * var.
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
@@ -210,6 +261,7 @@ class DynamicLoss:
         from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
         loss = self.loss_fn(pred, target, wet)
+        loss = self._normalize_by_wet(loss, wet)
         loss = torch.where(loss == 0, 1e-8, loss)
         new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels
@@ -263,6 +315,7 @@ class GradientLoss:
         self.loss_fn = loss_fn
         self._gradient_weight = gradient_weight
         self._pad_mode = pad_mode
+        self._wet_normalized = getattr(loss_fn, "_wet_normalized", False)
 
     def __call__(
         self,

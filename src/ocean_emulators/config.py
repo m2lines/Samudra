@@ -1,7 +1,7 @@
 import abc
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import Annotated, Literal, Optional, Self, assert_never
 
 import cftime
 import pydantic
@@ -700,6 +700,13 @@ class DynamicLossConfig(pydantic.BaseModel):
         default=None,
         ge=1.0,
     )
+    gradient: Optional["GradientLossConfig"] = Field(
+        description=(
+            "Optional gradient penalty configuration. When set, the dynamic loss "
+            "adds a gradient matching term scaled by alpha."
+        ),
+        default=None,
+    )
 
 
 class GradientLossConfig(pydantic.BaseModel):
@@ -729,8 +736,14 @@ def build_loss_fn(
     match loss_cfg:
         case str():
             return loss_fn_from_metric(loss_cfg, y_coord=y_coord, device=device)
-        case DynamicLossConfig(metric=metric, limit=limit):
+        case DynamicLossConfig(metric=metric, limit=limit, gradient=gradient):
             loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)
+            if gradient is not None:
+                loss_fn = GradientLoss(
+                    loss_fn=loss_fn,
+                    gradient_weight=gradient.alpha,
+                    pad_mode=pad_mode,
+                )
             return DynamicLoss(
                 loss_fn=loss_fn,
                 limit=limit,

@@ -396,11 +396,9 @@ class OceanData:
         masked_fill_value: float | None = None,
     ) -> torch.Tensor:
         """Reverses normalization of data; if a `masked_fill_value` is provided, will apply the wetmask."""
-        expand_var = [1] * data.ndim
-        expand_var[-3] = -1
-        unnorm = data * self.stds.view(expand_var).to(data.device) + self.means.view(
-            expand_var
-        ).to(data.device)
+        unnorm = data * self.stds.view(1, 1, -1, 1, 1).to(
+            data.device
+        ) + self.means.view(1, 1, -1, 1, 1).to(data.device)
         if masked_fill_value is not None:
             unnorm = torch.where(
                 self.mask.to(data.device) == 0, masked_fill_value, unnorm

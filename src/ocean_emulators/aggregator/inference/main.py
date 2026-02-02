@@ -24,7 +24,7 @@ class InferenceEvaluatorAggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
-        record_step_20: bool = True,
+        record_step_20: bool | None = None,
         log_global_mean_time_series: bool = True,
         log_global_mean_norm_time_series: bool = True,
         time_mean_reference_data: xr.Dataset | None = None,
@@ -46,6 +46,8 @@ class InferenceEvaluatorAggregator:
             time_mean_reference_data: Reference time means for computing bias stats.
             channel_mean_names: List of channel names to compute the mean of.
         """
+        if record_step_20 is None:
+            record_step_20 = n_timesteps > 20
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
         ] = {}

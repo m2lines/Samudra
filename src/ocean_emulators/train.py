@@ -655,7 +655,6 @@ class Trainer:
                     area_weights=self.primary_src.spherical_area_weights.to(self.device),
                     wet=self.primary_src.masks.prognostic.to(self.device),
                     num_prognostic_channels=self.num_out,
-                    record_step_20=(num_steps > 20),
                     log_global_mean_time_series=False,
                     log_global_mean_norm_time_series=False,
                     channel_mean_names=self.prognostic_var_names,

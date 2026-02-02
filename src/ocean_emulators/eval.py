@@ -203,7 +203,6 @@ class Eval:
             area_weights=self.area_weights,
             wet=self.src.masks.prognostic.to(self.device),
             num_prognostic_channels=self.num_out,
-            record_step_20=(self.num_time_steps > 20),
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,
             channel_mean_names=self.prognostic_var_names,

@@ -691,6 +691,7 @@ def get_aggregator_dicts(
     namespaced_normed: DictSingleChannelVar = {}
     namespaced_unnormed: DictSingleChannelVar = {}
     tensor_map = TensorMap.get_instance()
+    is_single_scale = len(srcs) == 1
     for src in srcs:
         src_prog = src.filter(tensor_map.prognostic_var_names, prefix="prog_src")
         wet = src_prog.masks.prognostic.to(data.device)
@@ -713,8 +714,11 @@ def get_aggregator_dicts(
         data_normalized = data_reshaped.clone()
         data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
         data_dict = convert_tensor_out_to_dict(data_normalized)
-        for k, v in data_dict.items():
-            namespaced_normed[f"{k}_{gridstr(src)}"] = v
+        if is_single_scale:
+            namespaced_normed = data_dict.copy()
+        else:
+            for k, v in data_dict.items():
+                namespaced_normed[f"{k}_{gridstr(src)}"] = v
         ocean_data = OceanData.from_data_source(data_normalized, wet, src_prog)
         # Unnormalize
         data_unnorm = ocean_data.unnormalize(
@@ -722,8 +726,11 @@ def get_aggregator_dicts(
         )
         # Get unnormalized dict
         data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
-        for k, v in data_unnorm_dict.items():
-            namespaced_unnormed[f"{k}_{gridstr(src)}"] = v
+        if is_single_scale:
+            namespaced_unnormed = data_unnorm_dict.copy()
+        else:
+            for k, v in data_unnorm_dict.items():
+                namespaced_unnormed[f"{k}_{gridstr(src)}"] = v
     return namespaced_normed, namespaced_unnormed
 
 

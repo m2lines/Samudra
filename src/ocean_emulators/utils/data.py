@@ -961,4 +961,4 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
 def gridstr(src: DataSource) -> str:
     """Makes a human-readable string about the grid from a DataSource."""
     grid = src.grid
-    return f"{grid[0]}-{grid[1]}"
+    return f"{grid[0]}x{grid[1]}"

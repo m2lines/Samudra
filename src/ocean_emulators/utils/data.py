@@ -88,21 +88,6 @@ class DataSource:
     stds: xr.Dataset
     masks: Masks
 
-    def __eq__(self, other) -> bool:
-        """Since we encode all data loading and transformations via name, we can use name to test for equality."""
-        return (
-            isinstance(other, DataSource)
-            and self.name == other.name
-            and all(
-                [
-                    self.data.equals(other.data),
-                    self.means.equals(other.means),
-                    self.stds.equals(other.stds),
-                ]
-            )
-            and self.masks == other.masks
-        )
-
     @cached_property
     def is_compact(self) -> bool:
         """Check if the data source is compact."""

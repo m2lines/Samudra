@@ -1,5 +1,3 @@
-from functools import cached_property
-
 import torch
 import xarray as xr
 
@@ -8,10 +6,6 @@ class TrainBatchOutput:
     def __init__(self, loss: torch.Tensor, loss_per_channel: torch.Tensor):
         self.loss = loss
         self.loss_per_channel = loss_per_channel
-
-    @cached_property
-    def grid(self) -> tuple[int, int]:
-        return self.loss.shape[-2], self.loss.shape[-1]
 
 
 class ValBatchOutput(TrainBatchOutput):

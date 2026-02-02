@@ -41,7 +41,7 @@ class InferenceEvaluatorAggregator:
             time_mean_reference_data: Reference time means for computing bias stats.
             channel_mean_names: List of channel names to compute the mean of.
         """
-        self.srcs = [primary_src]  # Inference only works on a single scale for now.
+        self.src = primary_src  # Inference only works on a single scale for now.
         metadata = primary_src.metadata
         if record_step_20 is None:
             record_step_20 = n_timesteps > 20
@@ -54,13 +54,13 @@ class InferenceEvaluatorAggregator:
         )
         if log_global_mean_time_series:
             self._aggregators["mean"] = MeanAggregator(
-                srcs=self.srcs,
+                srcs=[self.src],
                 target="denorm",
                 n_timesteps=n_timesteps,
             )
         if log_global_mean_norm_time_series:
             self._aggregators["mean_norm"] = MeanAggregator(
-                srcs=self.srcs,
+                srcs=[self.src],
                 target="norm",
                 n_timesteps=n_timesteps,
             )
@@ -108,7 +108,7 @@ class InferenceEvaluatorAggregator:
         assert data.prediction.shape[0] == total_len // (self.hist + 1)
         target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
-            self.srcs,
+            self.src,
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -116,7 +116,7 @@ class InferenceEvaluatorAggregator:
         )
         gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
-            self.srcs,
+            self.src,
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -158,7 +158,7 @@ class InferenceEvaluatorAggregator:
 
         data_norm_dict, data_unnorm_dict = get_aggregator_dicts(
             initial_prognostic,
-            self.srcs,
+            self.src,
             long_rollout=True,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,

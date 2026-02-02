@@ -54,15 +54,17 @@ class InferenceEvaluatorAggregator:
         )
         if log_global_mean_time_series:
             self._aggregators["mean"] = MeanAggregator(
-                srcs=[self.src],
                 target="denorm",
                 n_timesteps=n_timesteps,
+                area_weights=primary_src.area_weights,
+                metadata=primary_src.metadata,
             )
         if log_global_mean_norm_time_series:
             self._aggregators["mean_norm"] = MeanAggregator(
-                srcs=[self.src],
                 target="norm",
                 n_timesteps=n_timesteps,
+                area_weights=primary_src.area_weights,
+                metadata=primary_src.metadata,
             )
         if record_step_20:
             self._aggregators["mean_step_20"] = OneStepMeanAggregator(

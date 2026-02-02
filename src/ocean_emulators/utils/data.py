@@ -65,11 +65,11 @@ class Masks:
         self.boundary = self.boundary.bool()
 
     def __eq__(self, other) -> bool:
-        tol = 0.05
+        rtol = 0.05
         return (
             isinstance(other, Masks)
-            and torch.allclose(self.prognostic, other.prognostic, tol)
-            and torch.allclose(self.boundary, other.boundary, tol)
+            and torch.allclose(self.prognostic, other.prognostic, rtol)
+            and torch.allclose(self.boundary, other.boundary, rtol)
         )
 
     def prognostic_with_hist(

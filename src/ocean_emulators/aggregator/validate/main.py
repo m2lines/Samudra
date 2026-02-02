@@ -30,9 +30,9 @@ class ValidateAggregator(TrainAggregator):
         val_aggregators: dict[str, ValidateSubAggregator] = dict(
             *[
                 {
-                    f"snapshot_{gridstr(src)}": SnapshotAggregator(src.metadata, hist),
-                    f"mean_map_{gridstr(src)}": MapAggregator(src.metadata, hist),
-                    f"reduced_{gridstr(src)}": MeanAggregator(src.area_weights, hist),
+                    f"{gridstr(src)}/snapshot": SnapshotAggregator(src.metadata, hist),
+                    f"{gridstr(src)}/mean_map": MapAggregator(src.metadata, hist),
+                    f"{gridstr(src)}/reduced": MeanAggregator(src.area_weights, hist),
                 }
                 for src in srcs
             ]

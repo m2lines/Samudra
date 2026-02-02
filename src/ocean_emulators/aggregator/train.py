@@ -34,7 +34,7 @@ class TrainAggregator:
     def get_logs(self, label: str = "train") -> Metrics:
         meaned_logs = {}
         for grid in self._loss_per_grid.keys():
-            label_by_grid = f"{label}/{grid[0]}-{grid[1]}"
+            label_by_grid = f"{label}/{grid[0]}x{grid[1]}"
 
             loss = self._loss_per_grid[grid] / self._n_batches
             loss_per_channel = self._loss_per_channel_per_grid[grid] / self._n_batches

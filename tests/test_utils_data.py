@@ -251,38 +251,37 @@ def data_init(hist: int):
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
         )
-        yield normalize, val.masks.prognostic
+        yield normalize, val
 
 
 @pytest.mark.parametrize("input_type", ["input", "target"])
 @pytest.mark.parametrize("long_rollout", [True, False])
 @pytest.mark.parametrize("hist", [0, 1, 2])
 def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
-    normalize, wet = data_init
-    tensor_map: TensorMap = TensorMap.get_instance()
+    normalize, src = data_init
 
     num_prognostic_channels = normalize._prognostic_std_np.shape[0]
     num_boundary_channels = normalize._boundary_std_np.shape[0]
     if input_type == "target":
-        data = torch.randn([1, num_prognostic_channels * (hist + 1), *wet.shape[1:]])
+        data = torch.randn([1, num_prognostic_channels * (hist + 1), *src.grid])
     elif input_type == "input":
         data = torch.randn(
             [
                 6,
                 num_prognostic_channels * (hist + 1) + num_boundary_channels,
-                *wet.shape[1:],
+                *src.grid,
             ]
         )
     data_dict, data_unnorm_dict = get_aggregator_dicts(
         data,
-        wet,
+        [src],
         long_rollout,
         input_type=input_type,
         num_prognostic_channels=num_prognostic_channels * (hist + 1),
         hist=hist,
     )
 
-    var_name = tensor_map.prognostic_var_names[0]
+    var_name = list(data_dict.keys())[0]
     assert data_dict[var_name].shape == data_unnorm_dict[var_name].shape
 
     assert torch.isnan(data_dict[var_name][:, :, 0, 1]).all()

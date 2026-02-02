@@ -680,56 +680,40 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
 
 def get_aggregator_dicts(
     data: Prognostic | Input,
-    srcs: list[DataSource],
+    src: DataSource,
     long_rollout: bool,
     input_type: Literal["prognostic", "input"] = "prognostic",
     num_prognostic_channels: int = 0,
     hist: int = 1,
 ) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
-    namespaced_normed: DictSingleChannelVar = {}
-    namespaced_unnormed: DictSingleChannelVar = {}
     tensor_map = TensorMap.get_instance()
-    is_single_scale = len(srcs) == 1
-    for src in srcs:
-        src_prog = src.filter(tensor_map.prognostic_var_names, prefix="prog_src")
-        wet = src_prog.masks.prognostic.to(data.device)
-        # Remove boundary data if input
-        if input_type == "input":
-            data = data[:, :num_prognostic_channels]
+    src_prog = src.filter(tensor_map.prognostic_var_names, prefix="prog_src")
+    wet = src_prog.masks.prognostic.to(data.device)
+    # Remove boundary data if input
+    if input_type == "input":
+        data = data[:, :num_prognostic_channels]
 
-        # Separate history from channels
-        data_reshaped: SingleTimeSeriesOutput | BatchTimeSeriesOutput
-        if long_rollout:
-            # All batches are part of the same rollout during inference
-            data_reshaped = rearrange(
-                data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
-            ).unsqueeze(0)  # add artificial batch dim
-        else:
-            # Batches are independent rollouts during validation
-            data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
+    # Separate history from channels
+    data_reshaped: SingleTimeSeriesOutput | BatchTimeSeriesOutput
+    if long_rollout:
+        # All batches are part of the same rollout during inference
+        data_reshaped = rearrange(
+            data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
+        ).unsqueeze(0)  # add artificial batch dim
+    else:
+        # Batches are independent rollouts during validation
+        data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
 
-        # Get normalized dict
-        data_normalized = data_reshaped.clone()
-        data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
-        data_dict = convert_tensor_out_to_dict(data_normalized)
-        if is_single_scale:
-            namespaced_normed = data_dict.copy()
-        else:
-            for k, v in data_dict.items():
-                namespaced_normed[f"{k}_{gridstr(src)}"] = v
-        ocean_data = OceanData.from_data_source(data_normalized, wet, src_prog)
-        # Unnormalize
-        data_unnorm = ocean_data.unnormalize(
-            data_reshaped, masked_fill_value=float("nan")
-        )
-        # Get unnormalized dict
-        data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
-        if is_single_scale:
-            namespaced_unnormed = data_unnorm_dict.copy()
-        else:
-            for k, v in data_unnorm_dict.items():
-                namespaced_unnormed[f"{k}_{gridstr(src)}"] = v
-    return namespaced_normed, namespaced_unnormed
+    # Get normalized dict
+    data_normalized = data_reshaped.clone()
+    data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
+    data_dict = convert_tensor_out_to_dict(data_normalized)
+    ocean_data = OceanData.from_data_source(data_reshaped, wet, src_prog)
+    # Unnormalize
+    data_unnorm = ocean_data.unnormalize(data_reshaped, masked_fill_value=float("nan"))
+    # Get unnormalized dict
+    data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
+    return data_dict, data_unnorm_dict
 
 
 def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:

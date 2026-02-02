@@ -274,7 +274,7 @@ def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
         )
     data_dict, data_unnorm_dict = get_aggregator_dicts(
         data,
-        [src],
+        src,
         long_rollout,
         input_type=input_type,
         num_prognostic_channels=num_prognostic_channels * (hist + 1),

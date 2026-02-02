@@ -690,8 +690,10 @@ def get_aggregator_dicts(
 ) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
     namespaced_normed: DictSingleChannelVar = {}
     namespaced_unnormed: DictSingleChannelVar = {}
+    tensor_map = TensorMap.get_instance()
     for src in srcs:
-        wet = src.masks.prognostic.to(data.device)
+        src_prog = src.filter(tensor_map.prognostic_var_names, prefix="prog_src")
+        wet = src_prog.masks.prognostic.to(data.device)
         # Remove boundary data if input
         if input_type == "input":
             data = data[:, :num_prognostic_channels]
@@ -713,7 +715,7 @@ def get_aggregator_dicts(
         data_dict = convert_tensor_out_to_dict(data_normalized)
         for k, v in data_dict.items():
             namespaced_normed[f"{k}_{gridstr(src)}"] = v
-        ocean_data = OceanData.from_data_source(data_normalized, wet, src)
+        ocean_data = OceanData.from_data_source(data_normalized, wet, src_prog)
         # Unnormalize
         data_unnorm = ocean_data.unnormalize(
             data_reshaped, masked_fill_value=float("nan")

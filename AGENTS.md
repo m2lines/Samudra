@@ -23,42 +23,6 @@ When the proper S3 style credentials are passed into the local environment, you 
 
 ```
 >>> import xarray as xr
->>> # One degree data with guassian filtering, i.e. a "blur".
->>> ds = xr.open_zarr('s3://emulators/am16581/data/2025-11/om4_onedeg_blur_v8/OM4.zarr')
->>> ds
-<xarray.Dataset> Size: 98GB
-Dimensions:    (time: 4745, y: 180, x: 360)
-Coordinates:
-  * time       (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:00:00
-  * x          (x) float64 3kB 0.5 1.5 2.5 3.5 4.5 ... 356.5 357.5 358.5 359.5
-  * y          (y) float64 1kB -89.24 -88.25 -87.25 -86.26 ... 87.25 88.25 89.24
-Data variables: (12/99)
-    hfds       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    mask_0     (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_1     (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_10    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_11    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_12    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    ...         ...
-    vo_5       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_6       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_7       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_8       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_9       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    zos        (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-Attributes:
-    hfds:                              {'cell_measures': 'area: areacello', '...
-    m2lines/cli_args:                  /Users/alxmrs/git/ocean_emulators/ocea...
-    m2lines/date_created:              2025-12-03T10:10:28.215668
-    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/ocean_emula...
-    regrid_method:                     conservative
-    so:                                {'cell_measures': 'area: areacello', '...
-    tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
-    tauvo:                             {'cell_methods': 'yq:point xh:mean tim...
-    thetao:                            {'cell_measures': 'area: areacello', '...
-    uo:                                {'cell_methods': 'z_l:mean yh:mean xq:...
-    vo:                                {'cell_methods': 'z_l:mean yq:point xh...
-    zos:                               {'cell_measures': 'area: areacello', '...
 >>> # One degree data with _no_ gaussian filtering (no blur).
 >>> ds = xr.open_zarr('s3://emulators/am16581/data/2025-11/om4_onedeg_v3/OM4.zarr')
 >>> ds

@@ -64,6 +64,14 @@ class Masks:
         self.prognostic = self.prognostic.bool()
         self.boundary = self.boundary.bool()
 
+    def __eq__(self, other) -> bool:
+        tol = 0.05
+        return (
+            isinstance(other, Masks)
+            and torch.allclose(self.prognostic, other.prognostic, tol)
+            and torch.allclose(self.boundary, other.boundary, tol)
+        )
+
     def prognostic_with_hist(
         self, hist: int
     ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:
@@ -82,7 +90,18 @@ class DataSource:
 
     def __eq__(self, other) -> bool:
         """Since we encode all data loading and transformations via name, we can use name to test for equality."""
-        return isinstance(other, DataSource) and self.name == other.name
+        return (
+            isinstance(other, DataSource)
+            and self.name == other.name
+            and all(
+                [
+                    self.data.equals(other.data),
+                    self.means.equals(other.means),
+                    self.stds.equals(other.stds),
+                ]
+            )
+            and self.masks == other.masks
+        )
 
     @cached_property
     def is_compact(self) -> bool:

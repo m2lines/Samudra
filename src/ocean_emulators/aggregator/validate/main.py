@@ -5,12 +5,7 @@ from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import (
-    DataSource,
-    Normalize,
-    get_aggregator_dicts,
-    gridstr,
-)
+from ocean_emulators.utils.data import DataSource, get_aggregator_dicts, gridstr
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -39,7 +34,6 @@ class ValidateAggregator(TrainAggregator):
         )
 
         self._aggregators = val_aggregators
-        self.normalize = Normalize.get_instance()
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
 

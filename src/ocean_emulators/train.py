@@ -613,12 +613,9 @@ class Trainer:
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
-        # TODO(alxmrs): Aggregator only supports a single scale.
         val_aggregator = ValidateAggregator(
-            metadata=self.primary_src.metadata,
+            srcs=self.data_container.sources,
             hist=self.hist,
-            area_weights=self.primary_src.spherical_area_weights.to(self.device),
-            wet=self.primary_src.masks.prognostic.to(self.device),
             num_prognostic_channels=self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
@@ -643,11 +640,11 @@ class Trainer:
     def inference_one_epoch(self, epoch):
         self.model.eval()
 
+        # TODO(alxmrs): Inference only supports a single scale.
         with torch.no_grad(), self._test_context():
             for data_iter_step, (inference_dataset, num_steps) in enumerate(
                 self.inference_loader
             ):
-                # TODO(alxmrs): Aggregator only supports a single scale.
                 inf_aggregator = InferenceEvaluatorAggregator(
                     n_timesteps=num_steps,
                     metadata=self.primary_src.metadata,

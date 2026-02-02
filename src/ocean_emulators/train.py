@@ -646,11 +646,9 @@ class Trainer:
                 self.inference_loader
             ):
                 inf_aggregator = InferenceEvaluatorAggregator(
+                    primary_src=self.primary_src,
                     n_timesteps=num_steps,
-                    metadata=self.primary_src.metadata,
                     hist=self.hist,
-                    area_weights=self.primary_src.spherical_area_weights.to(self.device),
-                    wet=self.primary_src.masks.prognostic.to(self.device),
                     num_prognostic_channels=self.num_out,
                     log_global_mean_time_series=False,
                     log_global_mean_norm_time_series=False,

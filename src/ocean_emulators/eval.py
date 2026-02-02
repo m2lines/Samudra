@@ -197,11 +197,9 @@ class Eval:
     def standalone_inference(self):
         self.model.eval()
         inf_aggregator = InferenceEvaluatorAggregator(
+            primary_src=self.data_container.primary_source,
             n_timesteps=self.num_time_steps,
-            metadata=self.metadata,
             hist=self.hist,
-            area_weights=self.area_weights,
-            wet=self.src.masks.prognostic.to(self.device),
             num_prognostic_channels=self.num_out,
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,

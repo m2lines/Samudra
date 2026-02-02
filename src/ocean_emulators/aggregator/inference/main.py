@@ -2,7 +2,7 @@ import torch
 import wandb
 import xarray as xr
 
-from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
+from ocean_emulators.utils.data import DataSource, Normalize, get_aggregator_dicts
 from ocean_emulators.utils.output import ModelInferenceOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -18,11 +18,9 @@ class InferenceEvaluatorAggregator:
 
     def __init__(
         self,
+        primary_src: DataSource,
         n_timesteps: int,
-        metadata: dict[str, dict[str, str]],
         hist: int,
-        area_weights: torch.Tensor,
-        wet: torch.Tensor,
         num_prognostic_channels: int,
         record_step_20: bool | None = None,
         log_global_mean_time_series: bool = True,
@@ -32,12 +30,9 @@ class InferenceEvaluatorAggregator:
     ):
         """
         Args:
+            primary_src (DataSource): Data source for primary data.
             n_timesteps: Number of timesteps of inference that will be run.
-            metadata: Mapping of variable names their metadata that will
-                used in generating logged image captions.
             hist: Number of timesteps of history.
-            area_weights: Area weights for the data.
-            wet: Wet mask for the data.
             num_prognostic_channels: Number of prognostic channels in the data.
             record_step_20: Whether to record the mean of the 20th steps.
             log_global_mean_time_series: Whether to log global mean time series metrics.
@@ -46,6 +41,8 @@ class InferenceEvaluatorAggregator:
             time_mean_reference_data: Reference time means for computing bias stats.
             channel_mean_names: List of channel names to compute the mean of.
         """
+        self.srcs = [primary_src]  # Inference only works on a single scale for now.
+        metadata = primary_src.metadata
         if record_step_20 is None:
             record_step_20 = n_timesteps > 20
         self._aggregators: dict[
@@ -57,32 +54,30 @@ class InferenceEvaluatorAggregator:
         )
         if log_global_mean_time_series:
             self._aggregators["mean"] = MeanAggregator(
+                srcs=self.srcs,
                 target="denorm",
                 n_timesteps=n_timesteps,
-                metadata=metadata,
-                area_weights=area_weights,
             )
         if log_global_mean_norm_time_series:
             self._aggregators["mean_norm"] = MeanAggregator(
+                srcs=self.srcs,
                 target="norm",
                 n_timesteps=n_timesteps,
-                metadata=metadata,
-                area_weights=area_weights,
             )
         if record_step_20:
             self._aggregators["mean_step_20"] = OneStepMeanAggregator(
                 target_time=20,
-                area_weights=area_weights,
+                area_weights=primary_src.area_weights,
             )
         self._aggregators["time_mean"] = TimeMeanEvaluatorAggregator(
             metadata=metadata,
-            area_weights=area_weights,
+            area_weights=primary_src.area_weights,
             reference_means=time_mean_reference_data,
             channel_mean_names=channel_mean_names,
         )
         self._aggregators["time_mean_norm"] = TimeMeanEvaluatorAggregator(
             metadata=metadata,
-            area_weights=area_weights,
+            area_weights=primary_src.area_weights,
             target="norm",
             reference_means=time_mean_reference_data,
             channel_mean_names=channel_mean_names,
@@ -98,7 +93,6 @@ class InferenceEvaluatorAggregator:
         self._normalize = Normalize.get_instance()
         self.num_prognostic_channels = num_prognostic_channels
         self.hist = hist
-        self.wet = wet
 
     @property
     def log_time_series(self) -> bool:
@@ -114,7 +108,7 @@ class InferenceEvaluatorAggregator:
         assert data.prediction.shape[0] == total_len // (self.hist + 1)
         target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
-            wet=self.wet,
+            self.srcs,
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -122,7 +116,7 @@ class InferenceEvaluatorAggregator:
         )
         gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
-            wet=self.wet,
+            self.srcs,
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -164,7 +158,7 @@ class InferenceEvaluatorAggregator:
 
         data_norm_dict, data_unnorm_dict = get_aggregator_dicts(
             initial_prognostic,
-            wet=self.wet,
+            self.srcs,
             long_rollout=True,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,

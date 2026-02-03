@@ -9,9 +9,7 @@ batch_size: 4
 learning_rate: 0.0006
 gradient_accumulation_steps: 1
 scheduler: { type: cosine }
-loss:
-  type: dynamic
-  metric: mse
+loss: !include loss_fixed_dmse_fix.yaml
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []

@@ -246,6 +246,36 @@ class DynamicLoss:
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
 
 
+class FixedLossScale:
+    """A loss wrapper that applies a fixed per-channel scale."""
+
+    def __init__(
+        self,
+        loss_fn: LossFnWithMask,
+        *,
+        scale: Float[torch.Tensor, " var"],
+    ):
+        self.loss_fn = loss_fn
+        self._scale = scale
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+        wet: PrognosticMask,
+    ) -> Float[torch.Tensor, " hist*var"]:
+        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
+            pred, target, wet
+        )
+        scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
+            loss_with_history_channels.reshape(-1, self._scale.shape[0]) * self._scale
+        )
+        return scaled_loss_including_history_dimension.reshape(-1)
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        return self._scale
+
+
 class GradientLoss:
     """Combine a base loss with a gradient matching penalty.
 

@@ -20,6 +20,7 @@ from ocean_emulators.constants import (
     LoaderVersion,
     Lon,
     PrognosticVarNames,
+    TensorMap,
 )
 from ocean_emulators.models import FOMO, Samudra
 from ocean_emulators.models.base import BaseModel
@@ -43,6 +44,7 @@ from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
+    FixedLossScale,
     GradientLoss,
     LossFnWithMask,
     LossMetric,
@@ -702,6 +704,12 @@ class DynamicLossConfig(pydantic.BaseModel):
     )
 
 
+class FixedLossScaleConfig(pydantic.BaseModel):
+    type: Literal["fixed"] = "fixed"
+    metric: LossMetric = "mse"
+    scales: list[float] | dict[str, float]
+
+
 class GradientLossConfig(pydantic.BaseModel):
     type: Literal["gradient"] = "gradient"
     # at the moment this metric is only used for the non-gradient loss
@@ -716,7 +724,36 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+Loss = LossMetric | DynamicLossConfig | FixedLossScaleConfig | GradientLossConfig
+
+
+def _resolve_fixed_scales(
+    scales: list[float] | dict[str, float],
+    *,
+    num_channels: int,
+    device: torch.device,
+) -> torch.Tensor:
+    if isinstance(scales, dict):
+        tensor_map = TensorMap.get_instance()
+        ordered_names = tensor_map.prognostic_var_names
+        missing = [name for name in ordered_names if name not in scales]
+        extra = [name for name in scales.keys() if name not in ordered_names]
+        if missing or extra:
+            raise ValueError(
+                "Fixed loss scales must match prognostic channel names. "
+                f"Missing: {missing}. Extra: {extra}."
+            )
+        scale_list = [scales[name] for name in ordered_names]
+    else:
+        scale_list = scales
+
+    if len(scale_list) != num_channels:
+        raise ValueError(
+            "Fixed loss scales length must match number of prognostic channels. "
+            f"Expected {num_channels}, got {len(scale_list)}."
+        )
+
+    return torch.tensor(scale_list, device=device)
 
 
 def build_loss_fn(
@@ -736,6 +773,15 @@ def build_loss_fn(
                 limit=limit,
                 device=device,
                 num_channels=num_channels,
+            )
+        case FixedLossScaleConfig(metric=metric, scales=scales):
+            loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)
+            scale_tensor = _resolve_fixed_scales(
+                scales, num_channels=num_channels, device=device
+            )
+            return FixedLossScale(
+                loss_fn=loss_fn,
+                scale=scale_tensor,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)

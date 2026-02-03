@@ -10,7 +10,7 @@ from ocean_emulators.aggregator.metrics import (
     area_weighted_rmse,
 )
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import DataSource
+from ocean_emulators.utils.data import DataSource, gridstr
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.distributed import all_reduce_mean
 
@@ -63,39 +63,37 @@ class MeanAggregator(ValidateSubAggregator):
         self._variable_metrics: dict | None = None
         self._target_time = target_time
 
-    def _get_variable_metrics(self, gen_data, area_weights):
+    def _get_variable_metrics(self, gen_data, src: DataSource):
+        area_weights = src.area_weights
+        rmse_key = f"weighted_rmse/{gridstr(src)}"
+        bias_key = f"weighted_bias/{gridstr(src)}"
+        grad_diff_key = f"weighted_grad_mag_percent_diff/{gridstr(src)}"
         if self._variable_metrics is None:
             self._variable_metrics = {
-                "weighted_rmse": {},
-                "weighted_bias": {},
-                "weighted_grad_mag_percent_diff": {},
+                rmse_key: {},
+                bias_key: {},
+                grad_diff_key: {},
             }
             device = get_device()
             for key in gen_data:
-                self._variable_metrics["weighted_rmse"][key] = (
-                    AreaWeightedReducedMetric(
-                        device=device,
-                        compute_metric=partial(
-                            area_weighted_rmse, area_weights=area_weights
-                        ),
-                    )
+                self._variable_metrics[rmse_key][key] = AreaWeightedReducedMetric(
+                    device=device,
+                    compute_metric=partial(
+                        area_weighted_rmse, area_weights=area_weights
+                    ),
                 )
-                self._variable_metrics["weighted_bias"][key] = (
-                    AreaWeightedReducedMetric(
-                        device=device,
-                        compute_metric=partial(
-                            area_weighted_mean_bias, area_weights=area_weights
-                        ),
-                    )
+                self._variable_metrics[bias_key][key] = AreaWeightedReducedMetric(
+                    device=device,
+                    compute_metric=partial(
+                        area_weighted_mean_bias, area_weights=area_weights
+                    ),
                 )
-                self._variable_metrics["weighted_grad_mag_percent_diff"][key] = (
-                    AreaWeightedReducedMetric(
-                        device=device,
-                        compute_metric=partial(
-                            area_weighted_gradient_magnitude_percent_diff,
-                            area_weights=area_weights,
-                        ),  # noqa: E501
-                    )
+                self._variable_metrics[grad_diff_key][key] = AreaWeightedReducedMetric(
+                    device=device,
+                    compute_metric=partial(
+                        area_weighted_gradient_magnitude_percent_diff,
+                        area_weights=area_weights,
+                    ),  # noqa: E501
                 )
 
         return self._variable_metrics
@@ -116,11 +114,9 @@ class MeanAggregator(ValidateSubAggregator):
         # The label data shape will vary batch to batch during multi-scale training.
         # thus, we look up the relevant are weights for this batch.
         gen_date_grid = next(iter(gen_data.values())).shape[-2:]
-        area_weights = next(
-            s for s in self.srcs if s.grid == gen_date_grid
-        ).area_weights
+        src = next(s for s in self.srcs if s.grid == gen_date_grid)
 
-        variable_metrics = self._get_variable_metrics(gen_data, area_weights)
+        variable_metrics = self._get_variable_metrics(gen_data, src)
         time_dim = 1
         time_len = gen_data[list(gen_data.keys())[0]].shape[time_dim]
         target_time = self._target_time - i_time_start

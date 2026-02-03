@@ -357,10 +357,10 @@ def test_ocean_data_normalize_and_mask_values():
 
 
 def test_ocean_data_normalize_roundtrip():
-    batch, time, num_var, lat, lon = 1, 1, 2, 2, 2
+    batch, time, num_var, lat, lon = 3, 2, 3, 5, 8
     data = torch.rand(batch, time, num_var, lat, lon)
-    means = torch.tensor([5.0, 10.0])
-    stds = torch.tensor([5.0, 5.0])
+    means = data.mean(dim=(0, 1, 3, 4))
+    stds = data.std(dim=(0, 1, 3, 4))
     mask = torch.ones(num_var, lat, lon, dtype=torch.bool)
 
     ocean_data = OceanData(data=data, means=means, stds=stds, mask=mask)

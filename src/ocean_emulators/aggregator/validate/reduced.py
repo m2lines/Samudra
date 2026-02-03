@@ -116,7 +116,9 @@ class MeanAggregator(ValidateSubAggregator):
         # The label data shape will vary batch to batch during multi-scale training.
         # thus, we look up the relevant are weights for this batch.
         gen_date_grid = next(iter(gen_data.values())).shape[-2:]
-        area_weights = next(s for s in self.srcs if s.grid == gen_date_grid)
+        area_weights = next(
+            s for s in self.srcs if s.grid == gen_date_grid
+        ).area_weights
 
         variable_metrics = self._get_variable_metrics(gen_data, area_weights)
         time_dim = 1

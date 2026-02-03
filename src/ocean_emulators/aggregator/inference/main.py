@@ -2,7 +2,12 @@ import torch
 import wandb
 import xarray as xr
 
-from ocean_emulators.utils.data import DataSource, Normalize, get_aggregator_dicts
+from ocean_emulators.utils.data import (
+    DataSource,
+    Normalize,
+    get_aggregator_dicts,
+    gridstr,
+)
 from ocean_emulators.utils.output import ModelInferenceOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -45,6 +50,12 @@ class InferenceEvaluatorAggregator:
         metadata = primary_src.metadata
         if record_step_20 is None:
             record_step_20 = n_timesteps > 20
+        if channel_mean_names is not None:
+            # NB(alxmrs): We need the prefix in order to make the inference aggregator adapt to multiple scales,
+            # even if this only supports one scale now.
+            channel_mean_names = [
+                f"{k}/{gridstr(primary_src)}" for k in channel_mean_names
+            ]
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
         ] = {}
@@ -68,8 +79,8 @@ class InferenceEvaluatorAggregator:
             )
         if record_step_20:
             self._aggregators["mean_step_20"] = OneStepMeanAggregator(
+                [primary_src],
                 target_time=20,
-                area_weights=primary_src.area_weights,
             )
         self._aggregators["time_mean"] = TimeMeanEvaluatorAggregator(
             metadata=metadata,

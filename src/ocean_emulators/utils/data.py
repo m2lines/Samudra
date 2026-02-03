@@ -678,6 +678,12 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
     return out_dict
 
 
+def gridstr(src: DataSource) -> str:
+    """Makes a human-readable string about the grid from a DataSource."""
+    grid = src.grid
+    return f"{grid[0]}x{grid[1]}"
+
+
 def _suffix_grid(
     channel_vars: DictSingleChannelVar, src: DataSource
 ) -> DictSingleChannelVar:
@@ -957,9 +963,3 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
         data = data.drop_vars(vars_)
 
     return data
-
-
-def gridstr(src: DataSource) -> str:
-    """Makes a human-readable string about the grid from a DataSource."""
-    grid = src.grid
-    return f"{grid[0]}x{grid[1]}"

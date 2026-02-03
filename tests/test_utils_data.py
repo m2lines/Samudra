@@ -354,3 +354,19 @@ def test_ocean_data_normalize_and_mask_values():
 
     assert torch.allclose(result[:, :, 0, :, :], expected_var0)
     assert torch.allclose(result[:, :, 1, :, :], expected_var1)
+
+
+def test_ocean_data_normalize_roundtrip():
+    batch, time, num_var, lat, lon = 1, 1, 2, 2, 2
+    data = torch.rand(batch, time, num_var, lat, lon)
+    means = torch.tensor([5.0, 10.0])
+    stds = torch.tensor([5.0, 5.0])
+    mask = torch.ones(num_var, lat, lon, dtype=torch.bool)
+
+    ocean_data = OceanData(data=data, means=means, stds=stds, mask=mask)
+    middle = ocean_data.normalize_and_mask(
+        normalize_before_mask=True, masked_fill_value=0.0
+    )
+    end = ocean_data.unnormalize(middle, masked_fill_value=0.0)
+
+    assert torch.allclose(data, end)

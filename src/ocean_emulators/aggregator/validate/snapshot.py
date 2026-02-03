@@ -75,21 +75,25 @@ class SnapshotAggregator(ValidateSubAggregator):
         input_time = self.hist  # last input time step
         image_logs = {}
         for name in self._gen_data.keys():
+            images = {}
             # use first sample in batch
             gen = self._gen_data[name].select(dim=time_dim, index=target_time)[0].cpu()
             target = (
                 self._target_data[name].select(dim=time_dim, index=target_time)[0].cpu()
             )
-            input = (
-                self._input_data[name].select(dim=time_dim, index=input_time)[0].cpu()
-            )
-            images = {}
             images["error"] = [[(gen - target).numpy()]]
             images["full-field"] = [[gen.numpy()], [target.numpy()]]
             if self._is_single_scale:
+                # We can only even collect input data if there is a single scale because `name` comes from
+                # `get_data` keys, which often are suffixed with a different scale than the input data.
+                input_ = (
+                    self._input_data[name]
+                    .select(dim=time_dim, index=input_time)[0]
+                    .cpu()
+                )
                 images["residual"] = [
-                    [(gen - input).numpy()],
-                    [(target - input).numpy()],
+                    [(gen - input_).numpy()],
+                    [(target - input_).numpy()],
                 ]
             for key, data in images.items():
                 if key == "error" or key == "residual":

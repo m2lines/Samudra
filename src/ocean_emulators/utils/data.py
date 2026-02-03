@@ -678,6 +678,15 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
     return out_dict
 
 
+def _suffix_grid(
+    channel_vars: DictSingleChannelVar, src: DataSource
+) -> DictSingleChannelVar:
+    out = {}
+    for k, v in channel_vars.items():
+        out[f"{k}/{gridstr(src)}"] = v
+    return out
+
+
 def get_aggregator_dicts(
     data: Prognostic | Input,
     src: DataSource,
@@ -686,6 +695,7 @@ def get_aggregator_dicts(
     num_prognostic_channels: int = 0,
     hist: int = 1,
 ) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
+    # TODO(alxmrs): Should prog var names belong to the data source?
     tensor_map = TensorMap.get_instance()
     src_prog = src.filter(tensor_map.prognostic_var_names, prefix="prog_src")
     wet = src_prog.masks.prognostic.to(data.device)
@@ -713,7 +723,7 @@ def get_aggregator_dicts(
     data_unnorm = ocean_data.unnormalize(data_reshaped, masked_fill_value=float("nan"))
     # Get unnormalized dict
     data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
-    return data_dict, data_unnorm_dict
+    return _suffix_grid(data_dict, src), _suffix_grid(data_unnorm_dict, src)
 
 
 def get_anomalies_vars(var_names: BoundaryVarNames) -> tuple[str, ...]:

@@ -10,6 +10,7 @@ from ocean_emulators.aggregator.metrics import (
     area_weighted_rmse,
 )
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
+from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.distributed import all_reduce_mean
 
@@ -56,13 +57,13 @@ class MeanAggregator(ValidateSubAggregator):
     metrics across batches and processors.
     """
 
-    def __init__(self, area_weights: torch.Tensor, target_time: int):
+    def __init__(self, srcs: list[DataSource], target_time: int):
+        self.srcs = srcs
         self._n_batches = 0
         self._variable_metrics: dict | None = None
         self._target_time = target_time
-        self._area_weights = area_weights
 
-    def _get_variable_metrics(self, gen_data):
+    def _get_variable_metrics(self, gen_data, area_weights):
         if self._variable_metrics is None:
             self._variable_metrics = {
                 "weighted_rmse": {},
@@ -75,7 +76,7 @@ class MeanAggregator(ValidateSubAggregator):
                     AreaWeightedReducedMetric(
                         device=device,
                         compute_metric=partial(
-                            area_weighted_rmse, area_weights=self._area_weights
+                            area_weighted_rmse, area_weights=area_weights
                         ),
                     )
                 )
@@ -83,7 +84,7 @@ class MeanAggregator(ValidateSubAggregator):
                     AreaWeightedReducedMetric(
                         device=device,
                         compute_metric=partial(
-                            area_weighted_mean_bias, area_weights=self._area_weights
+                            area_weighted_mean_bias, area_weights=area_weights
                         ),
                     )
                 )
@@ -92,7 +93,7 @@ class MeanAggregator(ValidateSubAggregator):
                         device=device,
                         compute_metric=partial(
                             area_weighted_gradient_magnitude_percent_diff,
-                            area_weights=self._area_weights,
+                            area_weights=area_weights,
                         ),  # noqa: E501
                     )
                 )
@@ -112,12 +113,12 @@ class MeanAggregator(ValidateSubAggregator):
         input_data_norm: dict[str, torch.Tensor] | None = None,
         i_time_start: int = 0,
     ):
-        if input_data is None:
-            input_data = {}
-        if input_data_norm is None:
-            input_data_norm = {}
+        # The label data shape will vary batch to batch during multi-scale training.
+        # thus, we look up the relevant are weights for this batch.
+        gen_date_grid = next(iter(gen_data.values())).shape[-2:]
+        area_weights = next(s for s in self.srcs if s.grid == gen_date_grid)
 
-        variable_metrics = self._get_variable_metrics(gen_data)
+        variable_metrics = self._get_variable_metrics(gen_data, area_weights)
         time_dim = 1
         time_len = gen_data[list(gen_data.keys())[0]].shape[time_dim]
         target_time = self._target_time - i_time_start

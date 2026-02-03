@@ -58,6 +58,9 @@ class SnapshotAggregator(ValidateSubAggregator):
         self._gen_data_norm = gen_data_norm
         self._input_data = input_data
         self._input_data_norm = input_data_norm
+        label_shape = next(iter(target_data.values())).shape[-2:]
+        input_shape = next(iter(input_data.values())).shape[-2:]
+        self._is_single_scale = label_shape == input_shape
 
     @torch.no_grad()
     def get_logs(self, label: str) -> Metrics:
@@ -83,7 +86,11 @@ class SnapshotAggregator(ValidateSubAggregator):
             images = {}
             images["error"] = [[(gen - target).numpy()]]
             images["full-field"] = [[gen.numpy()], [target.numpy()]]
-            images["residual"] = [[(gen - input).numpy()], [(target - input).numpy()]]
+            if self._is_single_scale:
+                images["residual"] = [
+                    [(gen - input).numpy()],
+                    [(target - input).numpy()],
+                ]
             for key, data in images.items():
                 if key == "error" or key == "residual":
                     diverging = True

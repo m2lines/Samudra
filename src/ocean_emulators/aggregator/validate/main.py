@@ -5,7 +5,7 @@ from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import DataSource, get_aggregator_dicts, gridstr
+from ocean_emulators.utils.data import DataSource, get_aggregator_dicts
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -22,16 +22,11 @@ class ValidateAggregator(TrainAggregator):
         super().__init__()
         self.srcs = srcs
 
-        val_aggregators: dict[str, ValidateSubAggregator] = dict(
-            *[
-                {
-                    f"{gridstr(src)}/snapshot": SnapshotAggregator(src.metadata, hist),
-                    f"{gridstr(src)}/mean_map": MapAggregator(src.metadata, hist),
-                    f"{gridstr(src)}/reduced": MeanAggregator(src.area_weights, hist),
-                }
-                for src in srcs
-            ]
-        )
+        val_aggregators: dict[str, ValidateSubAggregator] = {
+            f"snapshot": SnapshotAggregator(srcs[0].metadata, hist),
+            f"mean_map": MapAggregator(srcs[0].metadata, hist),
+            f"reduced": MeanAggregator(srcs, hist),
+        }
 
         self._aggregators = val_aggregators
         self.hist = hist
@@ -54,18 +49,26 @@ class ValidateAggregator(TrainAggregator):
             raise ValueError("No data in gen_data")
 
         assert batch.target_data.shape[1] == self.num_prognostic_channels
+
+        # NB(alxmrs): For non-standard schedules, the input/label grids could change on every batch! Thus, we need
+        # to check this every time.
+        label_grid_src = next(
+            s for s in self.srcs if s.grid == batch.target_data.shape[-2:]
+        )
+        input_grid_src = next(
+            s for s in self.srcs if s.grid == batch.input_data.shape[-2:]
+        )
         target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(
             batch.target_data,
-            self.srcs,
+            label_grid_src,
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
             hist=self.hist,
         )
-
         gen_data_dict, gen_data_unnorm_dict = get_aggregator_dicts(
             batch.gen_data,
-            self.srcs,
+            label_grid_src,
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -73,7 +76,7 @@ class ValidateAggregator(TrainAggregator):
         )
         input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
             batch.input_data,
-            self.srcs,
+            input_grid_src,
             long_rollout=False,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,

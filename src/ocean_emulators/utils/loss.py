@@ -8,7 +8,6 @@ from jaxtyping import Float
 from ocean_emulators.constants import GridContext
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
-LossFnCosWeighted = Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor]
 
 
 class LossFnWithContext(Protocol):
@@ -25,22 +24,19 @@ LossMetric = Literal[
     "mae",
     "mse_mae",
     "mse_diff_weighted",
-    "mse_cos_weighted",
 ]
 
 
 def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
     match metric:
         case "mse":
-            loss_fn: LossFn | LossFnCosWeighted = decomposed_mse
+            loss_fn: LossFn = decomposed_mse
         case "mae":
             loss_fn = decomposed_mae
         case "mse_mae":
             loss_fn = decomposed_mse_mae
         case "mse_diff_weighted":
             loss_fn = decomposed_mse_diff_weighted
-        case "mse_cos_weighted":
-            loss_fn = decomposed_mse_cos_weighted
         case _:
             assert_never(metric)
 
@@ -52,15 +48,7 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
         wet = ctx.label_mask.to(device=pred.device)
         pred = pred * wet
         target = target * wet
-        if (
-            metric == "mse_cos_weighted"
-            and (lat := ctx.input_resolution[0]) is not None
-        ):
-            area_weights = torch.sqrt(torch.cos(torch.deg2rad(lat))).to(
-                device=pred.device
-            )
-            return loss_fn(pred, target, cos=area_weights)  # type: ignore[call-arg]
-        return loss_fn(pred, target)  # type: ignore[call-arg]
+        return loss_fn(pred, target)
 
     return loss_fn_with_ctx
 
@@ -95,16 +83,6 @@ def decomposed_mse_diff_weighted(
     # Combine losses
     combined_loss = torch.cat([mse[:, :1], diff_mse], dim=1)
     return combined_loss.mean(dim=(0, 2, 3))
-
-
-def decomposed_mse_cos_weighted(
-    pred: torch.Tensor, target: torch.Tensor, cos: torch.Tensor
-) -> torch.Tensor:
-    """MSE loss weighted by cosine of latitude."""
-    weights = cos.view(1, 1, -1, 1)  # Reshape for broadcasting
-    mse = F.mse_loss(pred, target, reduction="none")
-    weighted_mse = mse * weights
-    return weighted_mse.mean(dim=(0, 2, 3))
 
 
 def decomposed_mse_scaled(

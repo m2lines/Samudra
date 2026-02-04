@@ -102,7 +102,7 @@ class DataSource:
         return res[0].shape[0], res[1].shape[0]
 
     @cached_property
-    def area_weights(self) -> Grid:
+    def spherical_area_weights(self) -> Grid:
         return spherical_area_weights(self.data)
 
     @cached_property

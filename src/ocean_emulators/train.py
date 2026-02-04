@@ -613,7 +613,7 @@ class Trainer:
         val_aggregator = Aggregator.get_validation_aggregator(
             self.primary_src.metadata,
             self.hist,
-            self.primary_src.area_weights.to(self.device),
+            self.primary_src.spherical_area_weights.to(self.device),
             self.primary_src.masks.prognostic.to(self.device),
             self.num_out,
         )
@@ -648,7 +648,7 @@ class Trainer:
                     num_steps,
                     self.primary_src.metadata,
                     self.hist,
-                    self.primary_src.area_weights.to(self.device),
+                    self.primary_src.spherical_area_weights.to(self.device),
                     self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,

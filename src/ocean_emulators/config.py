@@ -536,7 +536,7 @@ class SamudraConfig(BaseModelConfig):
         src = srcs[0]
         if self.corrector is not None:
             corrector = self.corrector.build(
-                hist, src.area_weights, static_data_for_corrector
+                hist, src.spherical_area_weights, static_data_for_corrector
             )
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)

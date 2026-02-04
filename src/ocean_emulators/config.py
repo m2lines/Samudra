@@ -585,22 +585,32 @@ class FOMOConfig(BaseModelConfig):
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> FOMO:
-        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
-        add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         all_grid_sizes = [s.grid_size for s in srcs]
         max_lat_size, max_lon_size = (
             max(g[0] for g in all_grid_sizes),
             max(g[1] for g in all_grid_sizes),
         )
+        encoder = self.encoder.build(
+            in_channels, self.embedding_dim, max_lat_size, max_lon_size
+        )
+        if (
+            hasattr(encoder.perceiver, "use_flash_attn")
+            and encoder.perceiver.use_flash_attn
+            and not self.use_bfloat16
+        ):
+            raise ValueError(
+                "Encoder is configured to use flash attention. Please set `use_bfloat16=True`."
+            )
+
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return FOMO(
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(
-                in_channels, self.embedding_dim, max_lat_size, max_lon_size
-            ),
+            encoder=encoder,
             processor=self.processor.build(
                 self.embedding_dim,
                 self.pad,

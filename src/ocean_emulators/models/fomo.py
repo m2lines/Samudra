@@ -63,7 +63,9 @@ class FOMO(BaseModel):
             last_kernel_size,
             padding=last_kernel_size // 2,
         )
-        all_patches = [patch_from(self.encoder.extent, *grid) for grid in all_grids]
+        all_patches = [
+            patch_from(self.encoder.patch_extent, *grid) for grid in all_grids
+        ]
 
         self.unpatch = nn.ModuleDict(
             {
@@ -103,7 +105,7 @@ class FOMO(BaseModel):
         fts = self.decoder(fts)
 
         # Unpatchify: project to patch area, then reshape back to original spatial dimensions
-        patch_size = patch_from(self.encoder.extent, H, W)
+        patch_size = patch_from(self.encoder.patch_extent, H, W)
         _, _, h, w = fts.shape
         fts = rearrange(fts, "b l h w -> b h w l")
         fts = self.unpatch[str(patch_size)](fts)  # (b, h, w, out_channels * ph * pw)

@@ -393,7 +393,7 @@ class PerceiverConfig(BaseConfig):
 
 
 class EncoderConfig(BaseConfig):
-    spatial_extent: list[float] = Field(
+    patch_extent: list[float] = Field(
         default=[6.0, 10.0],
         description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
         "Patch sizes will be calculated to match this extent for each grid resolution.",
@@ -403,13 +403,13 @@ class EncoderConfig(BaseConfig):
     def build(
         self, in_channels: int, out_channels: int, max_lat: int, max_lon: int
     ) -> PerceiverEncoder:
-        assert len(self.spatial_extent) == 2, "spatial extent must be a pair of floats."
-        extent = self.spatial_extent[0], self.spatial_extent[1]
+        assert len(self.patch_extent) == 2, "spatial extents must be a pair of floats."
+        extent = self.patch_extent[0], self.patch_extent[1]
         max_patch_size = patch_from(extent, max_lat, max_lon)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
-            spatial_extent=extent,
+            patch_extent=extent,
             perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
         )
 

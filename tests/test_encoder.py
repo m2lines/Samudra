@@ -32,7 +32,7 @@ def test_makes_patches():
     patch_embed = PerceiverEncoder(
         in_channels=10,
         out_channels=4,
-        spatial_extent=(180, 180),
+        patch_extent=(180, 180),
         perceiver=make_perceiver(10, 4),
     )
 
@@ -47,7 +47,7 @@ def test_makes_rectangular_patches():
     patch_embed = PerceiverEncoder(
         in_channels=10,
         out_channels=4,
-        spatial_extent=(180, 90),
+        patch_extent=(180, 90),
         perceiver=make_perceiver(10, 4),
     )
 
@@ -67,7 +67,7 @@ def test_makes_patches__high_res():
     patch_embed = PerceiverEncoder(
         in_channels=10,
         out_channels=4,
-        spatial_extent=(90.0, 120.0),
+        patch_extent=(90.0, 120.0),
         perceiver=make_perceiver(10, 4),
     )
 
@@ -82,7 +82,7 @@ def test_makes_patches__more_variables():
     patch_embed = PerceiverEncoder(
         in_channels=20,
         out_channels=4,
-        spatial_extent=(180, 180),
+        patch_extent=(180, 180),
         perceiver=make_perceiver(20, 4),
     )
 

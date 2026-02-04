@@ -46,7 +46,7 @@ class PerceiverEncoder(nn.Module):
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         out_channels (int): size of the latent dimension (aka, the embedding dimension).
-        spatial_extent (tuple[float, float]): spatial extent of the lat/lon coordinates.
+        patch_extent (tuple[float, float]): spatial extent of each patch.
         perceiver (nn.Module): the perceiver module implementation to use.
 
     References:
@@ -58,13 +58,13 @@ class PerceiverEncoder(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        spatial_extent: tuple[float, float],
+        patch_extent: tuple[float, float],
         perceiver: nn.Module,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels: int = out_channels  # aka, `embed_dim`.
-        self.extent = spatial_extent
+        self.patch_extent = patch_extent
         self.perceiver = perceiver
         # TODO(#451): The input to these position and scale linear units could be a hparam.
         self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
@@ -75,7 +75,7 @@ class PerceiverEncoder(nn.Module):
     ) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
         _, V, H, W = x.shape
         lat, lon = resolution
-        patch_h, patch_w = patch_from(self.extent, H, W)
+        patch_h, patch_w = patch_from(self.patch_extent, H, W)
         # V is a cross product of variable, level (encoded in vars), and time (has history).
         assert V == self.in_channels
         # Ensure patch_size is appropriate for the data.

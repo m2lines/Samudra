@@ -37,10 +37,10 @@ class PerceiverEncoder(nn.Module):
     > Note: We assume that data along the lat/lon coordinates are positioned at the center of each grid point! Please
     > ensure this is the case at the data processing time.
 
-    This encoder is designed to make the same number of patches out of the same spatial extents across different scales
-    (each scale's patch will have a different lat/lon grid). To accomplish this with a single perceiver model, our
-    `forward` call requires supplementary information: the resolution (a pair of Lat/Lon tensors), which is used to make
-     consistent positional encodings for patches across different scales.
+    This encoder is designed to make the same number of patches with the same spatial extents across different scales
+    of input data (input data may vary in resolution of lat/lng grid). To accomplish this with a single perceiver model,
+    our `forward` call requires supplementary information: the resolution (a pair of Lat/Lon tensors), which is used to
+    make consistent positional encodings for patches across different scales.
 
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).

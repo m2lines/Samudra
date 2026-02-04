@@ -64,14 +64,6 @@ class Masks:
         self.prognostic = self.prognostic.bool()
         self.boundary = self.boundary.bool()
 
-    def __eq__(self, other) -> bool:
-        # Since mask data are boolean, we don't need tolerances in our equality.
-        return (
-            isinstance(other, Masks)
-            and torch.equal(self.prognostic, other.prognostic)
-            and torch.equal(self.boundary, other.boundary)
-        )
-
     def prognostic_with_hist(
         self, hist: int
     ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:

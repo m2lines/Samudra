@@ -19,6 +19,7 @@ from ocean_emulators.utils.multiton import Multiton
 Lat = Float[Tensor, "lat"]
 Lon = Float[Tensor, "lon"]
 Grid = Float[Tensor, "lat lon"]
+GridSize = tuple[int, int]
 Prognostic = Float[
     Grid, "*batch prognostic_vars"
 ]  # equivalent to "*batch prognostic_vars lat lon"

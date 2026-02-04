@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 
-from ocean_emulators.constants import GridContext
+from ocean_emulators.constants import GridContext, GridSize
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.device import autocast
@@ -21,7 +21,7 @@ class Samudra(BaseModel):
         pos_channels: int,
         add_3d_coordinates: nn.Module | None,
         hist: int,
-        grid: tuple[int, int],
+        grid_size: GridSize,
         gradient_detach_interval: int,
         use_bfloat16: bool,
     ):
@@ -36,7 +36,7 @@ class Samudra(BaseModel):
         )
 
         if pos_channels > 0:
-            self.positional_params = nn.Parameter(torch.empty(pos_channels, *grid))
+            self.positional_params = nn.Parameter(torch.empty(pos_channels, *grid_size))
             nn.init.normal_(self.positional_params, mean=0.0, std=1e-5)
         else:
             self.register_parameter("positional_params", None)

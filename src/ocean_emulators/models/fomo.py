@@ -9,7 +9,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
-from ocean_emulators.constants import GridContext
+from ocean_emulators.constants import GridContext, GridSize
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
 from ocean_emulators.models.modules.encoder import patch_from
@@ -39,7 +39,7 @@ class FOMO(BaseModel):
         hist: int,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
-        all_grids: list[tuple[int, int]],
+        grid_sizes: list[GridSize],
         use_bfloat16: bool,
     ):
         super().__init__(
@@ -64,7 +64,8 @@ class FOMO(BaseModel):
             padding=last_kernel_size // 2,
         )
         all_patches = [
-            patch_from(self.encoder.patch_extent, *grid) for grid in all_grids
+            patch_from(self.encoder.patch_extent, *grid_size)
+            for grid_size in grid_sizes
         ]
 
         self.unpatch = nn.ModuleDict(

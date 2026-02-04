@@ -24,6 +24,7 @@ from ocean_emulators.constants import (
     DictSingleChannelVar,
     Grid,
     GridMask,
+    GridSize,
     Input,
     Lat,
     LoaderVersion,
@@ -96,7 +97,7 @@ class DataSource:
         )
 
     @cached_property
-    def grid(self) -> tuple[int, int]:
+    def grid_size(self) -> GridSize:
         res = self.resolution
         return res[0].shape[0], res[1].shape[0]
 

@@ -557,7 +557,7 @@ class SamudraConfig(BaseModelConfig):
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
-            grid=src.grid,
+            grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
@@ -583,10 +583,10 @@ class FOMOConfig(BaseModelConfig):
     ) -> FOMO:
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
-        all_grids = [s.grid for s in srcs]
+        all_grid_sizes = [s.grid_size for s in srcs]
         max_lat, max_lon = (
-            max(g[0] for g in all_grids),
-            max(g[1] for g in all_grids),
+            max(g[0] for g in all_grid_sizes),
+            max(g[1] for g in all_grid_sizes),
         )
         return FOMO(
             in_channels=total_in_channels,
@@ -607,7 +607,7 @@ class FOMOConfig(BaseModelConfig):
             hist=hist,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
-            all_grids=all_grids,
+            grid_sizes=all_grid_sizes,
             use_bfloat16=self.use_bfloat16,
         )
 

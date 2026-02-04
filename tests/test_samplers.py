@@ -2,6 +2,7 @@ import random
 
 import pytest
 
+from ocean_emulators.constants import GridSize
 from ocean_emulators.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
@@ -11,11 +12,11 @@ from ocean_emulators.utils.samplers import (
 class MockDataset:
     """Simple mock dataset for testing samplers."""
 
-    def __init__(self, size: int, grid: tuple = (100, 100)):
+    def __init__(self, size: int, grid_size: GridSize = (100, 100)):
         self._size = size
         self.input_src = self
         self.label_src = self
-        self.grid = grid
+        self.grid_size = grid_size
 
     def __len__(self):
         return self._size
@@ -134,7 +135,7 @@ class TestSamplersFromDatasets:
         datasets = [MockDataset(10), MockDataset(10)]
         sampler = sampler_from_datasets(
             datasets=datasets,
-            group_key=lambda ds: ds.grid,
+            group_key=lambda ds: ds.grid_size,
             batch_size=2,
             shuffle=False,
             drop_last=False,
@@ -148,7 +149,7 @@ class TestSamplersFromDatasets:
         datasets = [MockDataset(10), MockDataset(10)]
         sampler = sampler_from_datasets(
             datasets=datasets,
-            group_key=lambda ds: ds.grid,
+            group_key=lambda ds: ds.grid_size,
             batch_size=3,
             shuffle=False,
             drop_last=False,
@@ -160,10 +161,13 @@ class TestSamplersFromDatasets:
     def test_respects_group_boundaries(self, sampler_from_datasets):
         """Batches should not mix indices from different groups."""
         # Two groups with different grids
-        datasets = [MockDataset(10, grid=(100, 100)), MockDataset(10, grid=(200, 200))]
+        datasets = [
+            MockDataset(10, grid_size=(100, 100)),
+            MockDataset(10, grid_size=(200, 200)),
+        ]
         sampler = sampler_from_datasets(
             datasets=datasets,
-            group_key=lambda ds: ds.grid,
+            group_key=lambda ds: ds.grid_size,
             batch_size=2,
             shuffle=False,
             drop_last=False,
@@ -188,7 +192,7 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -212,7 +216,7 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -234,7 +238,7 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -257,7 +261,7 @@ class TestDistributedBatchSamplerDistribution:
                 for rank in range(num_replicas):
                     sampler = DistributedEquivalenceGroupBatchSampler(
                         datasets=datasets,  # type: ignore[arg-type]
-                        group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                        group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                         batch_size=2,
                         num_replicas=num_replicas,
                         rank=rank,
@@ -281,7 +285,7 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -301,7 +305,7 @@ class TestDistributedBatchSamplerDistribution:
 
         sampler = DistributedEquivalenceGroupBatchSampler(
             datasets=datasets,  # type: ignore[arg-type]
-            group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
             batch_size=2,
             num_replicas=2,
             rank=0,
@@ -329,7 +333,7 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -349,7 +353,7 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -373,7 +377,7 @@ class TestDistributedBatchSamplerDistribution:
         with pytest.raises(ValueError, match="Invalid rank"):
             DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid,  # type: ignore[attr-defined]
+                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=3,
                 rank=rank,

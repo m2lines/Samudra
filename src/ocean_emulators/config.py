@@ -341,10 +341,10 @@ class PerceiverConfig(BaseConfig):
     )
 
     def build(
-        self, in_channels: int, out_channels: int, patch_size: tuple[int, int]
+        self, in_channels: int, out_channels: int, max_patch_size: tuple[int, int]
     ) -> nn.Module:
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
-        max_freq = max(*patch_size)
+        max_freq = max(*max_patch_size)
 
         # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
         #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?

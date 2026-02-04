@@ -533,6 +533,10 @@ class SamudraConfig(BaseModelConfig):
         srcs: list[DataSource],
     ) -> Samudra:
         corrector = None
+        if len(srcs) != 1:
+            raise ValueError(
+                'Samudra only supports training at a single scale! Please set `training_schedule="standard"`.'
+            )
         src = srcs[0]
         if self.corrector is not None:
             corrector = self.corrector.build(

@@ -15,7 +15,6 @@ from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 from ocean_emulators.constants import (
     BoundaryVarNames,
     Example,
-    GridContext,
     GridMask,
     Input,
     LoaderVersion,
@@ -23,6 +22,7 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import (
     DataSource,
     LoadStats,

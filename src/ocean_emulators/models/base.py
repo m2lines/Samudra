@@ -4,7 +4,7 @@ import logging
 
 import torch
 
-from ocean_emulators.constants import GridContext
+from ocean_emulators.utils.ctx import GridContext
 
 logger = logging.getLogger(__name__)
 

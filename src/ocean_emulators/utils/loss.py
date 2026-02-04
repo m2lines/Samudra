@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
-from ocean_emulators.constants import GridContext
+from ocean_emulators.utils.ctx import GridContext
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 

@@ -18,9 +18,9 @@ from torchinfo import summary
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from ocean_emulators.constants import GridContext
     from ocean_emulators.datasets import TrainData, TrainDataLoader
     from ocean_emulators.models.base import BaseModel
+    from ocean_emulators.utils.ctx import GridContext
 
 
 def handle_logging(debug: bool, output_dir: Path):

@@ -3,7 +3,8 @@ import torch
 import xarray as xr
 
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
-from ocean_emulators.constants import GridContext, TensorMap
+from ocean_emulators.constants import TensorMap
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 

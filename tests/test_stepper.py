@@ -3,9 +3,10 @@ import pytest
 import torch
 import xarray as xr
 
-from ocean_emulators.constants import DEPTH_LEVELS, GridContext, TensorMap
+from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 

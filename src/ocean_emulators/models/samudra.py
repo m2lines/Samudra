@@ -2,9 +2,10 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 
-from ocean_emulators.constants import GridContext, GridSize
+from ocean_emulators.constants import GridSize
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.device import autocast
 
 

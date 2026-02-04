@@ -6,9 +6,9 @@ import pytest
 import torch
 
 from ocean_emulators.config import DynamicLossConfig
-from ocean_emulators.constants import GridContext
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.loss import DynamicLoss
 from ocean_emulators.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, TrainPair

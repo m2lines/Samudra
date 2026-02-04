@@ -401,11 +401,11 @@ class EncoderConfig(BaseConfig):
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(
-        self, in_channels: int, out_channels: int, max_lat: int, max_lon: int
+        self, in_channels: int, out_channels: int, max_lat_size: int, max_lon_size: int
     ) -> PerceiverEncoder:
         assert len(self.patch_extent) == 2, "spatial extents must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
-        max_patch_size = patch_from(extent, max_lat, max_lon)
+        max_patch_size = patch_from(extent, max_lat_size, max_lon_size)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -584,7 +584,7 @@ class FOMOConfig(BaseModelConfig):
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         all_grid_sizes = [s.grid_size for s in srcs]
-        max_lat, max_lon = (
+        max_lat_size, max_lon_size = (
             max(g[0] for g in all_grid_sizes),
             max(g[1] for g in all_grid_sizes),
         )
@@ -595,7 +595,7 @@ class FOMOConfig(BaseModelConfig):
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=self.encoder.build(
-                in_channels, self.embedding_dim, max_lat, max_lon
+                in_channels, self.embedding_dim, max_lat_size, max_lon_size
             ),
             processor=self.processor.build(
                 self.embedding_dim,

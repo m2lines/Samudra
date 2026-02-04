@@ -40,7 +40,8 @@ class PerceiverEncoder(nn.Module):
     This encoder is designed to make the same number of patches with the same spatial extents across different scales
     of input data (input data may vary in resolution of lat/lng grid). To accomplish this with a single perceiver model,
     our `forward` call requires supplementary information: the resolution (a pair of Lat/Lon tensors), which is used to
-    make consistent positional encodings for patches across different scales.
+    make consistent positional encodings for patches across different scales. While higher resolution scales will
+    contain more data per patch, the patch will refer to the same physical area on earth as all other scales.
 
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).

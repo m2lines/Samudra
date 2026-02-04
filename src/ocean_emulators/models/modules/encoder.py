@@ -13,13 +13,16 @@ from torch import nn
 from ocean_emulators.constants import Input, Lat, Lon
 
 
-def patch_from(extent: tuple[float, float], height: int, width: int) -> tuple[int, int]:
-    lat_spacing = 180.0 / height  # Full sphere is 180 degrees (pole to pole)
-    lon_spacing = 360.0 / width  # Full circle is 360 degrees
+def patch_from(
+    patch_extent: tuple[float, float], input_height: int, input_width: int
+) -> tuple[int, int]:
+    """Calculate the patch size in lat/lng pixels (or coords) from the patch spatial extent and input grid size."""
+    lat_spacing = 180.0 / input_height  # Full sphere is 180 degrees (pole to pole)
+    lon_spacing = 360.0 / input_width  # Full circle is 360 degrees
 
     # Calculate patch size to match target extent
-    patch_h = int(round(extent[0] / lat_spacing))
-    patch_w = int(round(extent[1] / lon_spacing))
+    patch_h = int(round(patch_extent[0] / lat_spacing))
+    patch_w = int(round(patch_extent[1] / lon_spacing))
 
     return patch_h, patch_w
 

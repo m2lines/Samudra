@@ -93,13 +93,17 @@ def test_makes_patches__more_variables():
 
 def test_patch_from__full_globe():
     # Full globe extent should equal grid dimensions
-    patch_h, patch_w = patch_from(extent=(180.0, 360.0), height=4, width=8)
+    patch_h, patch_w = patch_from(
+        patch_extent=(180.0, 360.0), input_height=4, input_width=8
+    )
     assert patch_h == 4
     assert patch_w == 8
 
 
 def test_patch_from__half_extent():
     # Half the extent should give half the patch size
-    patch_h, patch_w = patch_from(extent=(90.0, 180.0), height=4, width=8)
+    patch_h, patch_w = patch_from(
+        patch_extent=(90.0, 180.0), input_height=4, input_width=8
+    )
     assert patch_h == 2
     assert patch_w == 4

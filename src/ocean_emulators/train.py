@@ -714,7 +714,9 @@ class Trainer:
         scales = self.data_container.sources
         match self.train_schedule:
             case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [(scales[0], None)]
+                srcs: Iterable[tuple[DataSource, DataSource | None]] = [
+                    (scales[0], None)
+                ]
             case "match":
                 srcs = [(s, s) for s in scales]
             case "mix":

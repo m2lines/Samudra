@@ -29,7 +29,7 @@ from ocean_emulators.utils.data import (
     OceanData,
     conditional_rearrange,
 )
-from ocean_emulators.utils.device import get_device, using_gpu
+from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.logging import elapsed
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,9 @@ class InferenceDataset(Dataset):
         long_rollout,
     ):
         super().__init__()
-        self.device = get_device()
+        # NOTE: Keep tensors on CPU during initialization. This allows the dataset
+        # to be passed between DataLoader worker processes. Call to(device) before
+        # using the dataset for inference.
 
         self.hist = hist
 
@@ -100,7 +102,7 @@ class InferenceDataset(Dataset):
 
         self.wet: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
-        self.wet_label = src.masks.prognostic_with_hist(self.hist).to(self.device)
+        self.wet_label = src.masks.prognostic_with_hist(self.hist)
         self.size = len(self.rolling_indices)
 
         if using_gpu():
@@ -111,6 +113,16 @@ class InferenceDataset(Dataset):
 
     def __len__(self):
         return self.size
+
+    def to(self, device: torch.device) -> "InferenceDataset":
+        """Move the dataset's context tensors to the specified device.
+
+        Call this before using the dataset for inference to ensure tensors
+        are on the correct device (GPU).
+        """
+        self.ctx = self.ctx.to(device)
+        self.wet_label = self.wet_label.to(device, non_blocking=True)
+        return self
 
     @property
     def initial_prognostic(self):

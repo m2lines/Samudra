@@ -97,6 +97,9 @@ class BaseModel(torch.nn.Module):
         num_steps=None,
         epoch=None,
     ) -> ModelInferenceOutput:
+        # Ensure dataset tensors are on the correct device
+        dataset.to(get_device())
+
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())

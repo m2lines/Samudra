@@ -116,7 +116,7 @@ class Stepper:
                 f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
                 f"Stepping {num_steps} steps forward."
             )
-            dataset.ctx.to(get_device())
+            dataset.to(get_device())
             IO: ModelInferenceOutput = model.inference(
                 dataset,
                 initial_prognostic=initial_prognostic,

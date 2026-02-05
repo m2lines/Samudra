@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770056093989,
+  "lastUpdate": 1770313614798,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7194,6 +7194,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.27047984631988353",
             "extra": "mean: 88.52805184419996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7c5b0c222e05b172e1f0a27734999193ef329e03",
+          "message": "Subtle equality fix allows us to take advantage of performance fix. (#564)\n\nThe suggestion to use `is` over `==` was valid, but it didn't account\nfor the fact that since we `slice()` each DataSource, we inevitably make\ntwo different references for the same data. Thus, we weren't actually\nmaking use of the performance optimization that was implemented. This PR\nuses a better test (if `dst` is the same as `src`, we pass it as None\nand do a null check). With this small change, we actually get to take\nadvantage of the previous attempt to fix performance. This perf gain\nworks by simply making less IO operations by only loading one dataset\nfor the input and label prognostic.\n\nPerformance data collected by Claude via our contrib guide: \n\n```\n Results                                                                                                                                                                  \n  ┌────────────┬────────────┬───────────┬───────────────┐                                                                                                                  \n  │   Metric   │ Before Fix │ After Fix │ Original Fast │                                                                                                                  \n  ├────────────┼────────────┼───────────┼───────────────┤                                                                                                                  \n  │ Mean time  │ ~815ms     │ ~450ms    │ ~440ms        │                                                                                                                  \n  ├────────────┼────────────┼───────────┼───────────────┤                                                                                                                  \n  │ OPS        │ ~1.23      │ ~2.22     │ ~2.28         │                                                                                                                  \n  ├────────────┼────────────┼───────────┼───────────────┤                                                                                                                  \n  │ Zarr calls │ 585        │ 312       │ 312           │                                                                                                                  \n  └────────────┴────────────┴───────────┴───────────────┘                                                                                                                  \n```",
+          "timestamp": "2026-02-05T17:21:28Z",
+          "tree_id": "400a9849413ecfe1a430471e7786d607deaddc0a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/7c5b0c222e05b172e1f0a27734999193ef329e03"
+        },
+        "date": 1770313613950,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.694935742850381,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04346952980863979",
+            "extra": "mean: 589.992867999996 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19089137128219247,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05821900388732194",
+            "extra": "mean: 5.238581467999995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011386411897708353,
+            "unit": "iter/sec",
+            "range": "stddev: 0.22368203352605867",
+            "extra": "mean: 87.82397905359998 sec\nrounds: 5"
           }
         ]
       }

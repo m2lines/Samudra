@@ -107,7 +107,7 @@ def make_loader(
 
         match schedule:
             case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource]] = [(src, src)]
+                srcs: Iterable[tuple[DataSource, DataSource | None]] = [(src, None)]
             case "match":
                 coarsened_src = src.map_data(coarsen_data, suffix="half-size")
                 coarsened_src = dataclasses.replace(
@@ -130,7 +130,7 @@ def make_loader(
                 dataset_list = [
                     TorchTrainDataset(
                         src=src.slice(time_config),
-                        dst=dst.slice(time_config),
+                        dst=dst.slice(time_config) if dst else None,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -628,7 +628,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         )
         torch_train_dataset = TorchTrainDataset(
             src=test,
-            dst=test,
+            dst=None,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             hist=1,

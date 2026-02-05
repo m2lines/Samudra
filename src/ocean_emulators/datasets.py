@@ -115,16 +115,6 @@ class InferenceDataset(Dataset):
     def __len__(self):
         return self.size
 
-    def to(self, device: torch.device) -> "InferenceDataset":
-        """Move the dataset's context tensors to the specified device.
-
-        Call this before using the dataset for inference to ensure tensors
-        are on the correct device (GPU).
-        """
-        self.ctx = self.ctx.to(device)
-        self.wet_label = self.wet_label.to(device, non_blocking=True)
-        return self
-
     @property
     def initial_prognostic(self):
         x_index = self._get_x_index(0)

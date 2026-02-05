@@ -50,10 +50,10 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --dev --extra cuda
 
-      # The tests run with a 5 minute timeout. The `-x` flag will stop on the first failure or hang.
+      # Each test runs with a 5-minute timeout. The `-x` flag will stop on the first failure or hang.
       - name: Run pytest
-        run: uv run --locked pytest -v -m "not manual and cuda" -x
-        timeout-minutes: 5
+        run: uv run --with pytest-timeout --locked pytest -v -m "not manual and cuda" --timeout=300 --timeout-method=signal -x
+        timeout-minutes: 30
 
   # This exists beacuse the run-tests job will be skipped if the ec2 job fails,
   # and that skip will not block merging the PR.

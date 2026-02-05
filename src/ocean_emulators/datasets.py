@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import time
 from concurrent.futures import wait
@@ -26,6 +27,7 @@ from ocean_emulators.utils.data import (
     DataSource,
     LoadStats,
     OceanData,
+    _flatten,
     conditional_rearrange,
 )
 from ocean_emulators.utils.device import get_device, using_gpu
@@ -400,6 +402,16 @@ class TrainData:
         return self
 
 
+@dataclasses.dataclass
+class _NormCache:
+    prognostic_means: list[torch.Tensor]
+    prognostic_stds: list[torch.Tensor]
+    boundary_means: torch.Tensor
+    boundary_stds: torch.Tensor
+    wet_prognostic: list[PrognosticMask]
+    wet_surface: GridMask
+
+
 @final
 class TorchTrainDataset(Dataset[RawTrainData]):
     """
@@ -480,11 +492,17 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             indices_da + stride * window_dim
         )
 
-        # NB(alxmrs): Keep masks on CPU - will be moved to GPU in to_train_data()
-        self.wet_prognostic: list[PrognosticMask] = [
-            src.masks.prognostic for src in srcs
-        ]
-        self.wet_surface: GridMask = src.masks.boundary
+        # Cache masks and normalization stats on CPU (device transfer is lazy).
+        self._cpu_cache = _NormCache(
+            prognostic_means=[_flatten(src.means) for src in self._prognostic_srcs],
+            prognostic_stds=[_flatten(src.stds) for src in self._prognostic_srcs],
+            boundary_means=_flatten(self._boundary_src.means),
+            boundary_stds=_flatten(self._boundary_src.stds),
+            wet_prognostic=[src.masks.prognostic for src in srcs],
+            wet_surface=src.masks.boundary,
+        )
+        self._device_cache: _NormCache | None = None
+        self._device_cache_device: torch.device | None = None
 
         self.size: int = (
             time_.size
@@ -566,25 +584,58 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         """
         train_data = TrainData(self.num_prognostic_channels, raw_train_data.label_mask)
 
+        cache = self._get_norm_cache(device)
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
-                OceanData.from_data_source(
+                OceanData(
                     input_,
-                    self.wet_prognostic[0],
-                    self._prognostic_srcs[0],
+                    cache.prognostic_means[0],
+                    cache.prognostic_stds[0],
+                    cache.wet_prognostic[0],
                 ).to(device=device, non_blocking=True),
-                OceanData.from_data_source(
+                OceanData(
                     boundary,
-                    self.wet_surface,
-                    self._boundary_src,
+                    cache.boundary_means,
+                    cache.boundary_stds,
+                    cache.wet_surface,
                 ).to(device=device, non_blocking=True),
-                OceanData.from_data_source(
-                    label, self.wet_prognostic[-1], self._prognostic_srcs[-1]
+                OceanData(
+                    label,
+                    cache.prognostic_means[-1],
+                    cache.prognostic_stds[-1],
+                    cache.wet_prognostic[-1],
                 ).to(device=device, non_blocking=True),
             )
             train_data.append(input_, label)
         train_data.load_stats = raw_train_data.load_stats
         return train_data
+
+    def _get_norm_cache(self, device: torch.device) -> _NormCache:
+        if self._device_cache is not None and self._device_cache_device == device:
+            return self._device_cache
+
+        if device.type == "cpu":
+            self._device_cache = self._cpu_cache
+            self._device_cache_device = device
+            return self._device_cache
+
+        self._device_cache = _NormCache(
+            prognostic_means=[
+                t.to(device, non_blocking=True)
+                for t in self._cpu_cache.prognostic_means
+            ],
+            prognostic_stds=[
+                t.to(device, non_blocking=True) for t in self._cpu_cache.prognostic_stds
+            ],
+            boundary_means=self._cpu_cache.boundary_means.to(device, non_blocking=True),
+            boundary_stds=self._cpu_cache.boundary_stds.to(device, non_blocking=True),
+            wet_prognostic=[
+                t.to(device, non_blocking=True) for t in self._cpu_cache.wet_prognostic
+            ],
+            wet_surface=self._cpu_cache.wet_surface.to(device, non_blocking=True),
+        )
+        self._device_cache_device = device
+        return self._device_cache
 
     def _to_example(
         self,

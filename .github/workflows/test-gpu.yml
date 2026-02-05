@@ -51,7 +51,7 @@ jobs:
         run: uv sync --locked --dev --extra cuda
 
       - name: Run pytest
-        run: uv run --locked pytest -n 2 -v -m "not manual and cuda"
+        run: uv run --locked pytest -v -m "not manual and cuda"
 
   # This exists beacuse the run-tests job will be skipped if the ec2 job fails,
   # and that skip will not block merging the PR.

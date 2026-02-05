@@ -138,9 +138,7 @@ class Trainer:
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
-            # Use fork only when data supports it AND not using GPU.
-            # Fork doesn't work with CUDA - child processes inherit corrupted CUDA context.
-            if self.data_container.supports_fork and not using_gpu():
+            if self.data_container.supports_fork:
                 self.mp_context = multiprocessing.get_context("fork")
             else:
                 self.mp_context = multiprocessing.get_context("spawn")

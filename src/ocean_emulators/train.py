@@ -722,10 +722,10 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        srcs: Iterable[tuple[DataSource, DataSource]] = []
+        srcs: Iterable[tuple[DataSource, DataSource | None]] = []
         match self.train_schedule:
             case "standard":
-                srcs = [(self.src, self.src)]
+                srcs = [(self.src, None)]
             case "match" | "mix":
                 raise ValueError(f"{self.train_schedule} is not supported (yet).")
             case _:
@@ -734,7 +734,7 @@ class Trainer:
         train_datasets = [
             TorchTrainDataset(
                 src=src.slice(self.train_time),
-                dst=dst.slice(self.train_time),
+                dst=dst.slice(self.train_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -751,7 +751,7 @@ class Trainer:
         val_datasets = [
             TorchTrainDataset(
                 src=src.slice(self.val_time),
-                dst=dst.slice(self.val_time),
+                dst=dst.slice(self.val_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,

@@ -429,7 +429,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __init__(
         self,
         src: DataSource,
-        dst: DataSource,
+        dst: DataSource | None,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         hist: int,
@@ -443,7 +443,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         self.device = get_device()
         # If the src and dst DataSource are the same, we can do a lot less work.
-        srcs = [src] if src.name == dst.name else [src, dst]
+        srcs = [src, dst] if dst else [src]
 
         self.hist: int = hist
         self.steps: int = steps
@@ -453,7 +453,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self._executor = executor
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        assert np.array_equal(src.data.time, dst.data.time), (
+        assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
             "src and dst DataSource have different time slices!"
         )
         time_ = src.data.time

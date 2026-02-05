@@ -310,7 +310,7 @@ class RawTrainData:
         boundary: torch.Tensor,
         label: torch.Tensor,
     ):
-        """Add a prognostic input, boundary, and prognostic label as the last step."""
+        """Add past input/boundary and future label for the last step."""
         self.raw_data.append((input_, boundary, label))
 
     def to(self, device: torch.device):
@@ -504,49 +504,65 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
-            prognostic_selected = [
-                src.data.isel(time=x_index) for src in self._prognostic_srcs
-            ]
-            boundary_selected = self._boundary_src.data.isel(time=x_index)
+            past_index = x_index.isel(time=slice(0, self.hist + 1))
+            future_index = x_index.isel(time=slice(self.hist + 1, None))
+
+            # Only materialize the time ranges we actually use to reduce memory.
+            input_selected = self._prognostic_srcs[0].data.isel(time=past_index)
+            label_selected = self._prognostic_srcs[-1].data.isel(time=future_index)
+            boundary_selected = self._boundary_src.data.isel(time=past_index)
 
             if self._executor is not None:
-                datasets = prognostic_selected + [boundary_selected]
                 concurrent_compute(
-                    *datasets,
+                    input_selected,
+                    boundary_selected,
+                    label_selected,
                     executor=self._executor,
                 )
 
-            if "lev" in prognostic_selected[0].dims:
-                prognostics = [
-                    torch.from_numpy(
-                        conditional_rearrange(
-                            selected,
-                            "time (variable lev)=var lat lon",
-                            concat_dim="var",
-                        )
-                        .rename({"var": "variable"})
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
+            if "lev" in input_selected.dims:
+                input_ = torch.from_numpy(
+                    conditional_rearrange(
+                        input_selected,
+                        "time (variable lev)=var lat lon",
+                        concat_dim="var",
                     )
-                    for selected in prognostic_selected
-                ]
+                    .rename({"var": "variable"})
+                    .to_numpy()
+                    .astype(np.float32, copy=False)
+                )
             else:
-                prognostics = [
-                    torch.from_numpy(
-                        selected.to_array()
-                        .transpose("time", "variable", "lat", "lon")
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
+                input_ = torch.from_numpy(
+                    input_selected.to_array()
+                    .transpose("time", "variable", "lat", "lon")
+                    .to_numpy()
+                    .astype(np.float32, copy=False)
+                )
+
+            if "lev" in label_selected.dims:
+                label = torch.from_numpy(
+                    conditional_rearrange(
+                        label_selected,
+                        "time (variable lev)=var lat lon",
+                        concat_dim="var",
                     )
-                    for selected in prognostic_selected
-                ]
+                    .rename({"var": "variable"})
+                    .to_numpy()
+                    .astype(np.float32, copy=False)
+                )
+            else:
+                label = torch.from_numpy(
+                    label_selected.to_array()
+                    .transpose("time", "variable", "lat", "lon")
+                    .to_numpy()
+                    .astype(np.float32, copy=False)
+                )
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
                 .astype(np.float32, copy=False)
             )
-            input_, label = prognostics[0], prognostics[-1]
             TD.insert(input_, boundary, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
@@ -588,21 +604,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
     def _to_example(
         self,
-        # time includes (self.hist + 1) past steps and the (label) future steps
         input_: OceanData,
         boundary: OceanData,
         label: OceanData,
     ) -> tuple[Input, Prognostic]:
-        # Move normalization parameters to the same device as input data
-        # grab past steps and prep for model
-        total_input = self._prep_tensor_steps(
-            input_.with_time(slice(0, self.hist + 1)),
-            boundary.with_time(slice(0, self.hist + 1)),
-        )
-        # grab future steps, repeat as we do for input
-        label_tensor = self._prep_tensor_steps(
-            label.with_time(slice(self.hist + 1, None))
-        )
+        # input/boundary include only past steps; label includes only future steps
+        total_input = self._prep_tensor_steps(input_, boundary)
+        label_tensor = self._prep_tensor_steps(label)
         return total_input, label_tensor
 
     def _prep_tensor_steps(

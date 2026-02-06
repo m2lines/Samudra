@@ -263,13 +263,13 @@ def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
     num_prognostic_channels = normalize._prognostic_std_np.shape[0]
     num_boundary_channels = normalize._boundary_std_np.shape[0]
     if input_type == "target":
-        data = torch.randn([1, num_prognostic_channels * (hist + 1), *src.grid])
+        data = torch.randn([1, num_prognostic_channels * (hist + 1), *src.grid_size])
     elif input_type == "input":
         data = torch.randn(
             [
                 6,
                 num_prognostic_channels * (hist + 1) + num_boundary_channels,
-                *src.grid,
+                *src.grid_size,
             ]
         )
     data_dict, data_unnorm_dict = get_aggregator_dicts(

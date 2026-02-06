@@ -158,7 +158,7 @@ class TestMeanAggregator:
         target_time = 5  # Data only has 1 time step, so this won't match
         agg = MeanAggregator(srcs, target_time=target_time)
 
-        h, w = mock_data_source.grid
+        h, w = mock_data_source.grid_size
         gen_data = {"var1/8x8": torch.randn(2, 1, h, w)}
         target_data = {"var1/8x8": torch.randn(2, 1, h, w)}
 
@@ -179,7 +179,7 @@ class TestMeanAggregator:
         agg = MeanAggregator(srcs, target_time=target_time)
 
         # Use the large grid
-        h, w = mock_data_source_large.grid
+        h, w = mock_data_source_large.grid_size
         gen_data = {"var1/16x16": torch.randn(2, 1, h, w)}
         target_data = {"var1/16x16": torch.randn(2, 1, h, w)}
 
@@ -202,7 +202,7 @@ class TestMeanAggregator:
         target_time = 0
         agg = MeanAggregator(srcs, target_time=target_time)
 
-        h, w = mock_data_source.grid
+        h, w = mock_data_source.grid_size
         gen_data = {"var1/8x8": torch.randn(2, 1, h, w)}
         target_data = {"var1/8x8": torch.randn(2, 1, h, w)}
 

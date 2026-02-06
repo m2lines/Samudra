@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770406510113,
+  "lastUpdate": 1770406511629,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -14577,6 +14577,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14670316197174973",
             "extra": "mean: 75.13578499200003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9fc390a263b09db084dab59050bd9d8e3cf91407",
+          "message": "FOMO supports training at multiple scales of OM4 data. (#532)\n\nRefactors the logic around training to support multiple scales. Updates\nthe FOMO model to support multi-scale training. Adds a proof-of-concept\nconfig for multi-scale training. This change introduces the\n`GridContext` class, which holds data necessary for training in the\nforward passes and loss function. Grid context is necessary since the\nassumptions we have about the grid is no longer fixed.\n\n### TODO: \n- [x] Refactor the add_3d_coords module to use on-the-fly lat/lon\nvalues.\n- [ ] Fix logging / wandb plots (Implemented in #569).\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-02-06T19:09:10Z",
+          "tree_id": "236bed0bb23b6ae460f4366a47fbec961ce6702d",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/9fc390a263b09db084dab59050bd9d8e3cf91407"
+        },
+        "date": 1770406511282,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.6627313844150626,
+            "unit": "iter/sec",
+            "range": "stddev: 0.020012112189557923",
+            "extra": "mean: 601.4200545999756 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19448221637749896,
+            "unit": "iter/sec",
+            "range": "stddev: 0.030315517538261855",
+            "extra": "mean: 5.141858307799998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012937481517702467,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13618073287267957",
+            "extra": "mean: 77.2947964124 sec\nrounds: 5"
           }
         ]
       }

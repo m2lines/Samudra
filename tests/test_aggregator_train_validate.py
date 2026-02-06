@@ -138,7 +138,7 @@ class TestMeanAggregator:
         target_time = 0
         agg = MeanAggregator(srcs, target_time=target_time)
 
-        h, w = mock_data_source.grid
+        h, w = mock_data_source.grid_size
         gen_data = {"var1/8x8": torch.randn(2, 1, h, w)}
         target_data = {"var1/8x8": torch.randn(2, 1, h, w)}
 

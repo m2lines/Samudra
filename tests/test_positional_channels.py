@@ -4,6 +4,7 @@ import xarray as xr
 
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
 from ocean_emulators.constants import TensorMap
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
@@ -14,18 +15,18 @@ def test_positional_parameters_update():
     with MultitonScope():
         # Create some tiny data
         TensorMap.init_instance("thetao_1", "hfds")
-        coords = {"lev": [0], "y": np.arange(h), "x": np.arange(w)}
+        coords = {"lev": [0], "lat": np.arange(h), "lon": np.arange(w)}
         data = xr.Dataset(
             {
-                "thetao": (("lev", "y", "x"), np.zeros((1, h, w))),
-                "hfds": (("y", "x"), np.zeros((h, w))),
+                "thetao": (("lev", "lat", "lon"), np.zeros((1, h, w))),
+                "hfds": (("lat", "lon"), np.zeros((h, w))),
             },
             coords=coords,
         )
         ones = xr.Dataset(
             {
-                "thetao": (("lev", "y", "x"), np.ones((1, h, w))),
-                "hfds": (("y", "x"), np.ones((h, w))),
+                "thetao": (("lev", "lat", "lon"), np.ones((1, h, w))),
+                "hfds": (("lat", "lon"), np.ones((h, w))),
             },
             coords=coords,
         )
@@ -50,11 +51,8 @@ def test_positional_parameters_update():
             in_channels=2,
             out_channels=1,
             hist=0,
-            wet=torch.ones(1, h, w, dtype=torch.bool),
-            area_weights=torch.ones(h, w),
-            static_data=None,
-            lat=torch.from_numpy(src.data.y.values),
-            lon=torch.from_numpy(src.data.x.values),
+            static_data_for_corrector=None,
+            srcs=[src],
         )
 
         # Verify we have created the positional embeddings
@@ -69,7 +67,7 @@ def test_positional_parameters_update():
         optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
         x = torch.randn(1, 2, h, w)
         optimizer.zero_grad()
-        out = model.forward_once(x)
+        out = model.forward_once(x, GridContext(masks.prognostic, src.resolution))
         loss = out.sum()
         loss.backward()
         before = model.positional_params.detach().clone()

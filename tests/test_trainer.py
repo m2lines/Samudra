@@ -8,6 +8,7 @@ import torch
 from ocean_emulators.config import DynamicLossConfig
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.train import Trainer
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.loss import DynamicLoss
 from ocean_emulators.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, TrainPair
@@ -93,6 +94,10 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
 
+    hist = trainer.hist
+    resolution = trainer.inference_src.resolution
+    wet = trainer.inference_src.masks.prognostic_with_hist(hist)
+    ctx = GridContext(wet, resolution).to(trainer.device)
     data = trainer.inference_loader.dataset[0]
     X, y = data
     trainer.best_val_loss = 10
@@ -100,13 +105,13 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
 
     model = trainer.model
     assert isinstance(model, BaseModel)
-    out = model.forward_once(X[0][0].to(trainer.device))
+    out = model.forward_once(X[0][0].to(trainer.device), ctx)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         trainer.save_checkpoint(1, Path(tmpdir) / "test.pt")
         trainer.load_checkpoint(Path(tmpdir) / "test.pt")
 
-    out2 = model.forward_once(X[0][0].to(trainer.device))
+    out2 = model.forward_once(X[0][0].to(trainer.device), ctx)
 
     assert torch.allclose(out, out2)
 

@@ -6,6 +6,7 @@ import xarray as xr
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.datasets import TrainData
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
@@ -69,16 +70,14 @@ def create_samudra_model():
                 in_channels=2,
                 out_channels=1,
                 hist=1,
-                wet=torch.ones(1, h, w, dtype=torch.bool),
-                area_weights=torch.ones(h, w),
-                static_data=None,
-                lat=torch.from_numpy(data.lat.values),
-                lon=torch.from_numpy(data.lon.values),
+                static_data_for_corrector=None,
+                srcs=[src],
             )
 
             # Create TrainData compatible with model dimensions
             train_data = TrainData(
-                num_prognostic_channels=1, label_mask=masks.prognostic
+                num_prognostic_channels=1,
+                ctx=GridContext(masks.prognostic, src.resolution),
             )
             for step in range(4):
                 input_tensor = torch.randn(1, 2, h, w, requires_grad=True)

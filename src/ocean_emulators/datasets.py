@@ -22,13 +22,14 @@ from ocean_emulators.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import (
     DataSource,
     LoadStats,
     OceanData,
     conditional_rearrange,
 )
-from ocean_emulators.utils.device import get_device, using_gpu
+from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.logging import elapsed
 
 logger = logging.getLogger(__name__)
@@ -60,12 +61,15 @@ class InferenceDataset(Dataset):
         long_rollout,
     ):
         super().__init__()
-        self.device = get_device()
+        # NOTE: Keep tensors on CPU during initialization. This allows the dataset
+        # to be passed between DataLoader worker processes. Call to(device) before
+        # using the dataset for inference.
 
         self.hist = hist
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
         data = src.data
+        self.input_res = src.resolution
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
@@ -98,14 +102,28 @@ class InferenceDataset(Dataset):
 
         self.wet: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
+        self.wet_label = src.masks.prognostic_with_hist(self.hist)
         self.size = len(self.rolling_indices)
 
         if using_gpu():
             self.wet = self.wet.pin_memory()
             self.wet_surface = self.wet_surface.pin_memory()
+            self.wet_label = self.wet_label.pin_memory()
+
+        self.ctx = GridContext(self.wet_label, self.input_res)
 
     def __len__(self):
         return self.size
+
+    def to(self, device: torch.device) -> "InferenceDataset":
+        """Move the dataset's context tensors to the specified device.
+
+        Call this before using the dataset for inference to ensure tensors
+        are on the correct device (GPU).
+        """
+        self.ctx = self.ctx.to(device)
+        self.wet_label = self.wet_label.to(device, non_blocking=True)
+        return self
 
     @property
     def initial_prognostic(self):
@@ -298,9 +316,8 @@ class InferenceDatasets(Dataset):
 
 
 class RawTrainData:
-    def __init__(self, dataset_id: "TorchTrainDataset.Id", label_mask: PrognosticMask):
+    def __init__(self, dataset_id: "TorchTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
-        self.label_mask = label_mask
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
 
@@ -346,9 +363,9 @@ class TrainData:
     remaining bottom channels are boundary forcings.
     """
 
-    def __init__(self, num_prognostic_channels: int, label_mask: PrognosticMask):
+    def __init__(self, num_prognostic_channels: int, ctx: GridContext):
         self.num_prognostic_channels = num_prognostic_channels
-        self.label_mask = label_mask
+        self.ctx = ctx
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
 
@@ -441,7 +458,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
-        self.device = get_device()
         # If the src and dst DataSource are the same, we can do a lot less work.
         srcs = [src, dst] if dst else [src]
 
@@ -457,10 +473,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             "src and dst DataSource have different time slices!"
         )
         time_ = src.data.time
-        self._prognostic_srcs = [
+        self.prognostic_srcs = [
             src.filter(prognostic_var_names, prefix="prog") for src in srcs
         ]
-        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -486,6 +502,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         ]
         self.wet_surface: GridMask = src.masks.boundary
 
+        self.ctx = GridContext(
+            self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
+            self.prognostic_srcs[0].resolution,
+        )
+
         self.size: int = (
             time_.size
             - self.steps * (self.hist + 1) * self.stride
@@ -498,16 +519,14 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = RawTrainData(
-            self.id, self._prognostic_srcs[-1].masks.prognostic_with_hist(self.hist)
-        )
+        TD = RawTrainData(self.id)
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
             prognostic_selected = [
-                src.data.isel(time=x_index) for src in self._prognostic_srcs
+                src.data.isel(time=x_index) for src in self.prognostic_srcs
             ]
-            boundary_selected = self._boundary_src.data.isel(time=x_index)
+            boundary_selected = self.boundary_src.data.isel(time=x_index)
 
             if self._executor is not None:
                 datasets = prognostic_selected + [boundary_selected]
@@ -564,22 +583,21 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(self.num_prognostic_channels, raw_train_data.label_mask)
-
+        train_data = TrainData(self.num_prognostic_channels, self.ctx.to(device))
         for input_, boundary, label in raw_train_data.raw_data:
             input_, label = self._to_example(
                 OceanData.from_data_source(
                     input_,
                     self.wet_prognostic[0],
-                    self._prognostic_srcs[0],
+                    self.prognostic_srcs[0],
                 ).to(device=device, non_blocking=True),
                 OceanData.from_data_source(
                     boundary,
                     self.wet_surface,
-                    self._boundary_src,
+                    self.boundary_src,
                 ).to(device=device, non_blocking=True),
                 OceanData.from_data_source(
-                    label, self.wet_prognostic[-1], self._prognostic_srcs[-1]
+                    label, self.wet_prognostic[-1], self.prognostic_srcs[-1]
                 ).to(device=device, non_blocking=True),
             )
             train_data.append(input_, label)

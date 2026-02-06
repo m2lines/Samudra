@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import itertools
 import logging
 import multiprocessing
 import os
@@ -38,10 +39,8 @@ from ocean_emulators.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
-    Grid,
     PrognosticVarNames,
     TensorMap,
-    construct_metadata,
 )
 from ocean_emulators.datasets import (
     InferenceDataset,
@@ -53,12 +52,7 @@ from ocean_emulators.datasets import (
 )
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
-from ocean_emulators.utils.data import (
-    DataSource,
-    Normalize,
-    get_inference_steps,
-    spherical_area_weights,
-)
+from ocean_emulators.utils.data import DataSource, Normalize, get_inference_steps
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
     all_reduce_mean,
@@ -74,7 +68,11 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
-from ocean_emulators.utils.loss import LossFnWithMask
+from ocean_emulators.utils.loss import LossFnWithContext
+from ocean_emulators.utils.samplers import (
+    DistributedEquivalenceGroupBatchSampler,
+    EquivalenceGroupBatchSampler,
+)
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -137,9 +135,6 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
-        assert self.train_schedule == "standard", (
-            "Mix and Match schedulers are not ready yet!"
-        )
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -179,9 +174,7 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
 
-        self.src = self.data_container.primary_source
-        self.data = self.src.data
-        self.static_data = self.data_container.static_data
+        self.primary_src = self.data_container.primary_source
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
@@ -190,14 +183,9 @@ class Trainer:
 
         self.loader_version = self.data_container.loader_version
 
-        self.metadata = construct_metadata(self.data)
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
-        self.area_weights: Grid = spherical_area_weights(self.data)
-
-        self.area_weights = self.area_weights.to(self.device)
-
+        # This is used by both the aggregator and corrector. It only works at a single scale.
         self.normalize = Normalize.init_instance(
-            self.src,
+            self.primary_src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
@@ -206,20 +194,17 @@ class Trainer:
             in_channels=self.num_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            wet=self.wet,
-            area_weights=self.area_weights,
-            static_data=self.static_data,
-            lat=torch.from_numpy(self.data.lat.values),
-            lon=torch.from_numpy(self.data.lon.values),
+            # TODO(559): This won't work at multiple scales. Refactor as part of src.
+            static_data_for_corrector=self.data_container.static_data,
+            srcs=self.data_container.sources,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
         self.network = self.model.__class__.__name__
 
         # Loss function
-        self.loss_fn: LossFnWithMask = build_loss_fn(
+        self.loss_fn: LossFnWithContext = build_loss_fn(
             cfg.loss,
-            y_coord=self.data.lat,  # TODO(alxmrs): Needs to be label lat vals. Remove?
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
@@ -335,8 +320,12 @@ class Trainer:
             self.init_inference_stores()
 
         # Add type annotations for samplers
-        self.train_sampler: DistributedSampler | RandomSampler
-        self.val_sampler: DistributedSampler | RandomSampler
+        self.train_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
+        self.val_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
@@ -610,23 +599,22 @@ class Trainer:
         # This is a separate function to ensure locals are dropped immediately after use
         if update := getattr(self.loss_fn, "update", None):
             with torch.no_grad():
-                single_step_data = TrainData(
-                    data.num_prognostic_channels, data.label_mask
-                )
+                single_step_data = TrainData(data.num_prognostic_channels, data.ctx)
                 # Each entry in data is one step in a rollout.
                 input, label = data[0]
                 single_step_data.append(input, label)
                 pred = self.model(single_step_data)
-                update(pred[0], label, wet=data.label_mask)
+                update(pred[0], label, ctx=data.ctx)
 
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
+        # TODO(alxmrs): Aggregator only supports a single scale.
         val_aggregator = Aggregator.get_validation_aggregator(
-            self.metadata,
+            self.primary_src.metadata,
             self.hist,
-            self.area_weights,
-            self.src.masks.prognostic.to(self.device),
+            self.primary_src.spherical_area_weights.to(self.device),
+            self.primary_src.masks.prognostic.to(self.device),
             self.num_out,
         )
         metric_logger = MetricLogger(delimiter="  ")
@@ -655,12 +643,13 @@ class Trainer:
             for data_iter_step, (inference_dataset, num_steps) in enumerate(
                 self.inference_loader
             ):
+                # TODO(alxmrs): Aggregator only supports a single scale.
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
-                    self.metadata,
+                    self.primary_src.metadata,
                     self.hist,
-                    self.area_weights,
-                    self.src.masks.prognostic.to(self.device),
+                    self.primary_src.spherical_area_weights.to(self.device),
+                    self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,
                 )
@@ -722,12 +711,16 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        srcs: Iterable[tuple[DataSource, DataSource | None]] = []
+        scales = self.data_container.sources
         match self.train_schedule:
             case "standard":
-                srcs = [(self.src, None)]
-            case "match" | "mix":
-                raise ValueError(f"{self.train_schedule} is not supported (yet).")
+                srcs: Iterable[tuple[DataSource, DataSource | None]] = [
+                    (scales[0], None)
+                ]
+            case "match":
+                srcs = [(s, s) for s in scales]
+            case "mix":
+                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
             case _:
                 assert_never(self.train_schedule)
 
@@ -783,13 +776,6 @@ class Trainer:
 
         logger.info("Instantiating torch loaders")
 
-        if self.distributed is not None:
-            self.train_sampler = DistributedSampler(train_data, shuffle=True)
-            self.val_sampler = DistributedSampler(val_data, shuffle=False)
-        else:
-            self.train_sampler = RandomSampler(train_data)  # type: ignore
-            self.val_sampler = RandomSampler(val_data)  # type: ignore
-
         match self.loader_version:
             case TorchTrainDataset.FLAG:
                 collate_fn = collate_raw_train_data
@@ -799,25 +785,72 @@ class Trainer:
                     f"{self.loader_version}"
                 )
 
-        # Create data loaders
+        # Create batch samplers - branch on distributed vs non-distributed
+        # Group by input AND label resolution to handle all training schedules
+        def group_key(ds):
+            return tuple(prog.grid_size for prog in ds.prognostic_srcs)
+
+        if self.distributed is not None:
+            # Distributed training
+            assert self.distributed.world_size is not None
+            assert self.distributed.rank is not None
+            train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
+                datasets=train_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                num_replicas=self.distributed.world_size,
+                rank=self.distributed.rank,
+                shuffle=True,
+                drop_last=True,
+            )
+
+            val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
+                datasets=val_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                num_replicas=self.distributed.world_size,
+                rank=self.distributed.rank,
+                shuffle=False,
+                drop_last=False,
+            )
+        else:
+            # Non-distributed training
+            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+                datasets=train_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                shuffle=True,
+                drop_last=True,
+            )
+
+            val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+                datasets=val_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                shuffle=True,
+                drop_last=False,
+            )
+
+        # Store samplers for set_epoch calls
+        self.train_sampler = train_batch_sampler
+        self.val_sampler = val_batch_sampler
+
+        # Create data loaders (same for both distributed and non-distributed)
+        # When using batch_sampler, don't specify batch_size or sampler
         train_dataloader = DataLoader(
             train_data,
-            batch_size=self.batch_size,
-            sampler=self.train_sampler,
+            batch_sampler=train_batch_sampler,
             num_workers=self.num_workers,
             pin_memory=self.pin_mem,
-            drop_last=True,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
         )
 
         val_dataloader = DataLoader(
             val_data,
-            batch_size=self.batch_size,
-            sampler=self.val_sampler,
+            batch_sampler=val_batch_sampler,
             num_workers=self.num_workers,
             pin_memory=self.pin_mem,
-            drop_last=False,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
         )

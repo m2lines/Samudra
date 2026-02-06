@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
-import xarray as xr
 
-from ocean_emulators.constants import Grid
+from ocean_emulators.constants import GridSize
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.device import autocast
 
 
@@ -22,27 +22,22 @@ class Samudra(BaseModel):
         pos_channels: int,
         add_3d_coordinates: nn.Module | None,
         hist: int,
-        wet: Grid,
-        static_data: xr.Dataset | None,
+        grid_size: GridSize,
         gradient_detach_interval: int,
         use_bfloat16: bool,
     ):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
-            wet=wet,
             hist=hist,
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,
-            static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
         )
 
         if pos_channels > 0:
-            self.positional_params = nn.Parameter(
-                torch.empty(pos_channels, *wet.shape[-2:])
-            )
+            self.positional_params = nn.Parameter(torch.empty(pos_channels, *grid_size))
             nn.init.normal_(self.positional_params, mean=0.0, std=1e-5)
         else:
             self.register_parameter("positional_params", None)
@@ -54,7 +49,7 @@ class Samudra(BaseModel):
         self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
 
-    def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward_once(self, fts: torch.Tensor, ctx: GridContext) -> torch.Tensor:
         if self.corrector is not None:
             fts_input = fts.clone().detach()
 
@@ -66,7 +61,7 @@ class Samudra(BaseModel):
                 fts = torch.cat([fts, pos], dim=1)
 
             if self.add_3d_coordinates is not None:
-                fts = self.add_3d_coordinates(fts)
+                fts = self.add_3d_coordinates(fts, ctx.input_resolution)
 
             fts = self.unet(fts)
             fts = torch.nn.functional.pad(
@@ -82,4 +77,4 @@ class Samudra(BaseModel):
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)
-        return torch.where(self.wet, fts, 0.0)
+        return torch.where(ctx.label_mask, fts, 0.0)

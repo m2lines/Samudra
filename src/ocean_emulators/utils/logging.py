@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from ocean_emulators.datasets import TrainData, TrainDataLoader
     from ocean_emulators.models.base import BaseModel
+    from ocean_emulators.utils.ctx import GridContext
 
 
 def handle_logging(debug: bool, output_dir: Path):
@@ -220,13 +221,18 @@ class MetricLogger:
 class _ForwardOnceWrapper(torch.nn.Module):
     """Wrapper that redirects forward() to forward_once() for torchinfo summary."""
 
-    def __init__(self, model: "BaseModel | DistributedDataParallel") -> None:
+    def __init__(
+        self,
+        model: "BaseModel | DistributedDataParallel",
+        ctx: "GridContext",
+    ) -> None:
         super().__init__()
         self._underlying: BaseModel = getattr(model, "module", model)  # type: ignore
+        self._ctx = ctx
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Get the underlying model (handles DDP wrapping)
-        return self._underlying.forward_once(x)
+        return self._underlying.forward_once(x, self._ctx)
 
 
 def get_model_summary(
@@ -242,7 +248,7 @@ def get_model_summary(
         # Extract the initial tensor and wrap the model to use forward_once.
         input_tensor = data.get_initial_input()
         # Wrap model to use forward_once for the summary
-        wrapper = _ForwardOnceWrapper(model)
+        wrapper = _ForwardOnceWrapper(model, data.ctx)
         logger.info(
             summary(
                 wrapper,

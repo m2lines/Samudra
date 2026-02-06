@@ -1,21 +1,21 @@
 from collections.abc import Callable
-from functools import partial
 from typing import Literal, Protocol, assert_never
 
-import numpy as np
 import torch
 import torch.nn.functional as F
-import xarray as xr
 from jaxtyping import Float
 
-from ocean_emulators.constants import PrognosticMask
+from ocean_emulators.utils.ctx import GridContext
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
 
-class LossFnWithMask(Protocol):
+class LossFnWithContext(Protocol):
     def __call__(
-        self, pred: torch.Tensor, target: torch.Tensor, wet: PrognosticMask
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        ctx: GridContext,
     ) -> torch.Tensor: ...
 
 
@@ -24,13 +24,10 @@ LossMetric = Literal[
     "mae",
     "mse_mae",
     "mse_diff_weighted",
-    "mse_cos_weighted",
 ]
 
 
-def loss_fn_from_metric(
-    metric: LossMetric, *, y_coord: xr.DataArray, device: torch.device
-) -> LossFnWithMask:
+def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
     match metric:
         case "mse":
             loss_fn: LossFn = decomposed_mse
@@ -40,22 +37,20 @@ def loss_fn_from_metric(
             loss_fn = decomposed_mse_mae
         case "mse_diff_weighted":
             loss_fn = decomposed_mse_diff_weighted
-        case "mse_cos_weighted":
-            area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
-            area_weights = torch.from_numpy(area_weights).to(device=device)
-            loss_fn = partial(decomposed_mse_cos_weighted, cos=area_weights)
         case _:
             assert_never(metric)
 
-    def loss_fn_with_mask(
-        pred: torch.Tensor, target: torch.Tensor, wet: PrognosticMask
+    def loss_fn_with_ctx(
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        ctx: GridContext,
     ) -> torch.Tensor:
-        wet = wet.to(device=pred.device)
+        wet = ctx.label_mask.to(device=pred.device)
         pred = pred * wet
         target = target * wet
         return loss_fn(pred, target)
 
-    return loss_fn_with_mask
+    return loss_fn_with_ctx
 
 
 def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
@@ -88,16 +83,6 @@ def decomposed_mse_diff_weighted(
     # Combine losses
     combined_loss = torch.cat([mse[:, :1], diff_mse], dim=1)
     return combined_loss.mean(dim=(0, 2, 3))
-
-
-def decomposed_mse_cos_weighted(
-    pred: torch.Tensor, target: torch.Tensor, cos: torch.Tensor
-) -> torch.Tensor:
-    """MSE loss weighted by cosine of latitude."""
-    weights = cos.view(1, 1, -1, 1)  # Reshape for broadcasting
-    mse = F.mse_loss(pred, target, reduction="none")
-    weighted_mse = mse * weights
-    return weighted_mse.mean(dim=(0, 2, 3))
 
 
 def decomposed_mse_scaled(
@@ -170,7 +155,7 @@ class DynamicLoss:
 
     def __init__(
         self,
-        loss_fn: LossFnWithMask,
+        loss_fn: LossFnWithContext,
         *,
         limit: float | None,
         device: torch.device,
@@ -187,10 +172,10 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        wet: PrognosticMask,
+        ctx: GridContext,
     ) -> Float[torch.Tensor, " hist*var"]:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
-            pred, target, wet
+            pred, target, ctx
         )
         # Channels are time-major: (hist+1) * var.
         scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
@@ -203,13 +188,13 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        wet: PrognosticMask,
+        ctx: GridContext,
     ) -> None:
         """Given the prediction & target for this step, update the per-channel scale."""
         # Local import is needed to prevent a circular import error.
         from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
 
-        loss = self.loss_fn(pred, target, wet)
+        loss = self.loss_fn(pred, target, ctx)
         loss = torch.where(loss == 0, 1e-8, loss)
         new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
         # Reshape from channels * history to channels
@@ -255,7 +240,7 @@ class GradientLoss:
 
     def __init__(
         self,
-        loss_fn: LossFnWithMask,
+        loss_fn: LossFnWithContext,
         *,
         gradient_weight: float,
         pad_mode: str,
@@ -268,11 +253,11 @@ class GradientLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        wet: PrognosticMask,
+        ctx: GridContext,
     ) -> Float[torch.Tensor, " hist*var"]:
-        base_loss = self.loss_fn(pred, target, wet)
+        base_loss = self.loss_fn(pred, target, ctx)
         # Ensure mask is on the same device as pred for gradient computation
-        wet = wet.to(device=pred.device)
+        wet = ctx.label_mask.to(device=pred.device)
         pred = pred * wet
         target = target * wet
         grad_loss = gradient_l1_loss(pred=pred, target=target, pad_mode=self._pad_mode)

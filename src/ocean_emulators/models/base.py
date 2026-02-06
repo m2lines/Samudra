@@ -4,6 +4,8 @@ import logging
 
 import torch
 
+from ocean_emulators.utils.ctx import GridContext
+
 logger = logging.getLogger(__name__)
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
@@ -16,27 +18,23 @@ class BaseModel(torch.nn.Module):
         self,
         in_channels,
         out_channels,
-        wet,
         hist,
         pred_residuals,
         last_kernel_size,
         pad,
-        static_data,
         gradient_detach_interval: int,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.wet = wet.bool()
         self.N_pad = int((last_kernel_size - 1) / 2)
-        self.pad = pad
+        self.pad: str = pad
         self.pred_residuals = pred_residuals
         self.hist = hist
-        self.static_data = static_data
         self.gradient_detach_interval = gradient_detach_interval
 
-    def forward_once(self, fts):
+    def forward_once(self, fts, ctx: GridContext):
         raise NotImplementedError()
 
     def forward(
@@ -60,7 +58,7 @@ class BaseModel(torch.nn.Module):
                     prognostic=prev_output, step=step
                 )
 
-            decodings = self.forward_once(input_tensor)
+            decodings = self.forward_once(input_tensor, train_data.ctx)
             if self.pred_residuals:
                 pred = (
                     input_tensor[
@@ -120,8 +118,7 @@ class BaseModel(torch.nn.Module):
                     prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
-
-            decodings = self.forward_once(input_tensor)
+            decodings = self.forward_once(input_tensor, dataset.ctx)
             if self.pred_residuals:
                 pred = (
                     input_tensor[

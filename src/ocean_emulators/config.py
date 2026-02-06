@@ -16,9 +16,7 @@ from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import (
     BoundaryVarNames,
     Grid,
-    Lat,
     LoaderVersion,
-    Lon,
     PrognosticVarNames,
 )
 from ocean_emulators.models import FOMO, Samudra
@@ -39,12 +37,13 @@ from ocean_emulators.models.modules import (
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
+from ocean_emulators.models.modules.encoder import patch_from
 from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
     GradientLoss,
-    LossFnWithMask,
+    LossFnWithContext,
     LossMetric,
     loss_fn_from_metric,
 )
@@ -342,10 +341,10 @@ class PerceiverConfig(BaseConfig):
     )
 
     def build(
-        self, in_channels: int, out_channels: int, patch_size: tuple[int, int]
+        self, in_channels: int, out_channels: int, max_patch_size: tuple[int, int]
     ) -> nn.Module:
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
-        max_freq = max(*patch_size)
+        max_freq = max(*max_patch_size)
 
         # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
         #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
@@ -394,36 +393,24 @@ class PerceiverConfig(BaseConfig):
 
 
 class EncoderConfig(BaseConfig):
-    patch_size: int | list[int] = Field(
-        default=4,
-        description="Either a square patch (int) or a rectangular patch of [height: int, width: int]. It must evenly divide the grid size.",
+    patch_extent: list[float] = Field(
+        default=[6.0, 10.0],
+        description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
+        "Patch sizes will be calculated to match this extent for each grid resolution.",
     )
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(
-        self, in_channels: int, out_channels: int, lat: Lat, lon: Lon
+        self, in_channels: int, out_channels: int, max_lat_size: int, max_lon_size: int
     ) -> PerceiverEncoder:
-        if (
-            isinstance(self.patch_size, list)
-            and len(self.patch_size) == 2
-            and isinstance(self.patch_size[0], int)
-            and isinstance(self.patch_size[1], int)
-        ):
-            patch_size: tuple[int, int] = self.patch_size[0], self.patch_size[1]
-        elif isinstance(self.patch_size, int):
-            patch_size = self.patch_size, self.patch_size
-        else:
-            raise ValueError(
-                "`patch_size` must be either a scalar integer or a two-tuple of integers (height: int, width: int)."
-            )
-
+        assert len(self.patch_extent) == 2, "spatial extents must be a pair of floats."
+        extent = self.patch_extent[0], self.patch_extent[1]
+        max_patch_size = patch_from(extent, max_lat_size, max_lon_size)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
-            patch_size=patch_size,
-            perceiver=self.perceiver.build(in_channels, out_channels, patch_size),
-            lat=lat,
-            lon=lon,
+            patch_extent=extent,
+            perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
         )
 
 
@@ -519,11 +506,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         in_channels: int,
         out_channels: int,
         hist: int,
-        wet: Grid,
-        area_weights: Grid,
-        static_data: xr.Dataset | None,
-        lat: Lat,
-        lon: Lon,
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[DataSource],
     ) -> BaseModel:
         pass
 
@@ -545,21 +529,23 @@ class SamudraConfig(BaseModelConfig):
         in_channels: int,
         out_channels: int,
         hist: int,
-        wet: Grid,
-        area_weights: Grid,
-        static_data: xr.Dataset | None,
-        lat: Lat,
-        lon: Lon,
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[DataSource],
     ) -> Samudra:
         corrector = None
+        if len(srcs) != 1:
+            raise ValueError(
+                'Samudra only supports training at a single scale! Please set `training_schedule="standard"`.'
+            )
+        src = srcs[0]
         if self.corrector is not None:
-            corrector = self.corrector.build(hist, area_weights, static_data)
+            corrector = self.corrector.build(
+                hist, src.spherical_area_weights, static_data_for_corrector
+            )
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
-        add_3d_coordinates = (
-            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else None
-        )
+        add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -575,8 +561,7 @@ class SamudraConfig(BaseModelConfig):
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
-            wet=wet,
-            static_data=static_data,
+            grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
@@ -587,29 +572,45 @@ class FOMOConfig(BaseModelConfig):
     processor: UNetBackboneConfig = UNetBackboneConfig()
     # decoder will go here.
     embedding_dim: int = 128
+    use_bfloat16: bool = Field(
+        default=True,
+        description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
+    )
 
     def build(
         self,
         in_channels: int,
         out_channels: int,
         hist: int,
-        wet: Grid,
-        area_weights: Grid,
-        static_data: xr.Dataset | None,
-        lat: Lat,
-        lon: Lon,
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[DataSource],
     ) -> FOMO:
-        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
-        add_3d_coordinates = (
-            Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
+        all_grid_sizes = [s.grid_size for s in srcs]
+        max_lat_size, max_lon_size = (
+            max(g[0] for g in all_grid_sizes),
+            max(g[1] for g in all_grid_sizes),
         )
+        encoder = self.encoder.build(
+            in_channels, self.embedding_dim, max_lat_size, max_lon_size
+        )
+        if (
+            hasattr(encoder.perceiver, "use_flash_attn")
+            and encoder.perceiver.use_flash_attn
+            and not self.use_bfloat16
+        ):
+            raise ValueError(
+                "Encoder is configured to use flash attention. Please set `use_bfloat16=True`."
+            )
+
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return FOMO(
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
-            encoder=self.encoder.build(in_channels, self.embedding_dim, lat, lon),
+            encoder=encoder,
             processor=self.processor.build(
                 self.embedding_dim,
                 self.pad,
@@ -618,10 +619,10 @@ class FOMOConfig(BaseModelConfig):
             # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
-            wet=wet,
-            static_data=static_data,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
+            grid_sizes=all_grid_sizes,
+            use_bfloat16=self.use_bfloat16,
         )
 
 
@@ -721,16 +722,15 @@ Loss = LossMetric | DynamicLossConfig | GradientLossConfig
 
 def build_loss_fn(
     loss_cfg: Loss,
-    y_coord: xr.DataArray,
     device: torch.device,
     num_channels: int,
     pad_mode: str,
-) -> LossFnWithMask:
+) -> LossFnWithContext:
     match loss_cfg:
         case str():
-            return loss_fn_from_metric(loss_cfg, y_coord=y_coord, device=device)
+            return loss_fn_from_metric(loss_cfg)
         case DynamicLossConfig(metric=metric, limit=limit):
-            loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)
+            loss_fn = loss_fn_from_metric(metric)
             return DynamicLoss(
                 loss_fn=loss_fn,
                 limit=limit,
@@ -738,7 +738,7 @@ def build_loss_fn(
                 num_channels=num_channels,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
-            loss_fn = loss_fn_from_metric(metric, y_coord=y_coord, device=device)
+            loss_fn = loss_fn_from_metric(metric)
             return GradientLoss(
                 loss_fn=loss_fn,
                 gradient_weight=alpha,

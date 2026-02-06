@@ -4,17 +4,17 @@ pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"
-embedding_dim: 280
+embedding_dim: 128  # Reduced from 280
 
 encoder:
-  patch_size: [12, 20]
   perceiver:
-    depth: 3
-    latent_dim: 64
-    num_latents: 256
+    implementation: "naive"
+    depth: 2  # Reduced from 3
+    latent_dim: 48  # Reduced from 64
+    num_latents: 128  # Reduced from 256
 
 processor:
-  ch_width: [380, 480, 520]
+  ch_width: [200, 256, 320]  # Reduced from [380, 480, 520]
   dilation: [1, 1, 1]
   n_layers: [1, 1, 1]
 

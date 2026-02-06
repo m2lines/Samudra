@@ -46,7 +46,7 @@ class PerceiverEncoder(nn.Module):
     Args:
         in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
         out_channels (int): size of the latent dimension (aka, the embedding dimension).
-        patch_extent (tuple[float, float]): spatial extent of each patch.
+        patch_extent (tuple[float, float]): spatial extent of each patch measured in degrees of lat/lon.
         perceiver (nn.Module): the perceiver module implementation to use.
 
     References:

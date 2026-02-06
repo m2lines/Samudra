@@ -178,6 +178,8 @@ class Trainer:
                 max_workers=None, thread_name_prefix="concurrent_compute"
             )
 
+        self.primary_src = self.data_container.primary_source
+
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
@@ -185,9 +187,9 @@ class Trainer:
 
         self.loader_version = self.data_container.loader_version
 
-        # This is only used by the inference aggregator and corrector. It only works at a single scale.
+        # This is used by both the aggregator and corrector. It only works at a single scale.
         self.normalize = Normalize.init_instance(
-            self.data_container.primary_source,
+            self.primary_src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )

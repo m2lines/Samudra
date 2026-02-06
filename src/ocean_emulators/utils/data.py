@@ -680,7 +680,7 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
 
 def gridstr(src: DataSource) -> str:
     """Makes a human-readable string about the grid from a DataSource."""
-    grid = src.grid
+    grid = src.grid_size
     return f"{grid[0]}x{grid[1]}"
 
 

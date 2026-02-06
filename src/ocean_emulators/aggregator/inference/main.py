@@ -67,14 +67,14 @@ class InferenceEvaluatorAggregator:
             self._aggregators["mean"] = MeanAggregator(
                 target="denorm",
                 n_timesteps=n_timesteps,
-                area_weights=primary_src.area_weights,
+                area_weights=primary_src.spherical_area_weights,
                 metadata=primary_src.metadata,
             )
         if log_global_mean_norm_time_series:
             self._aggregators["mean_norm"] = MeanAggregator(
                 target="norm",
                 n_timesteps=n_timesteps,
-                area_weights=primary_src.area_weights,
+                area_weights=primary_src.spherical_area_weights,
                 metadata=primary_src.metadata,
             )
         if record_step_20:
@@ -84,13 +84,13 @@ class InferenceEvaluatorAggregator:
             )
         self._aggregators["time_mean"] = TimeMeanEvaluatorAggregator(
             metadata=metadata,
-            area_weights=primary_src.area_weights,
+            area_weights=primary_src.spherical_area_weights,
             reference_means=time_mean_reference_data,
             channel_mean_names=channel_mean_names,
         )
         self._aggregators["time_mean_norm"] = TimeMeanEvaluatorAggregator(
             metadata=metadata,
-            area_weights=primary_src.area_weights,
+            area_weights=primary_src.spherical_area_weights,
             target="norm",
             reference_means=time_mean_reference_data,
             channel_mean_names=channel_mean_names,

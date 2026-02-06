@@ -64,7 +64,7 @@ class MeanAggregator(ValidateSubAggregator):
         self._target_time = target_time
 
     def _get_variable_metrics(self, gen_data, src: DataSource):
-        area_weights = src.area_weights
+        area_weights = src.spherical_area_weights
         rmse_key = f"weighted_rmse/{gridstr(src)}"
         bias_key = f"weighted_bias/{gridstr(src)}"
         grad_diff_key = f"weighted_grad_mag_percent_diff/{gridstr(src)}"
@@ -114,7 +114,7 @@ class MeanAggregator(ValidateSubAggregator):
         # The label data shape will vary batch to batch during multi-scale training.
         # thus, we look up the relevant are weights for this batch.
         gen_date_grid = next(iter(gen_data.values())).shape[-2:]
-        src = next(s for s in self.srcs if s.grid == gen_date_grid)
+        src = next(s for s in self.srcs if s.grid_size == gen_date_grid)
 
         variable_metrics = self._get_variable_metrics(gen_data, src)
         time_dim = 1

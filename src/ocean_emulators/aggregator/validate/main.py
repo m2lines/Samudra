@@ -53,10 +53,10 @@ class ValidateAggregator(TrainAggregator):
         # NB(alxmrs): For non-standard schedules, the input/label grids could change on every batch! Thus, we need
         # to check this every time.
         label_grid_src = next(
-            s for s in self.srcs if s.grid == batch.target_data.shape[-2:]
+            s for s in self.srcs if s.grid_size == batch.target_data.shape[-2:]
         )
         input_grid_src = next(
-            s for s in self.srcs if s.grid == batch.input_data.shape[-2:]
+            s for s in self.srcs if s.grid_size == batch.input_data.shape[-2:]
         )
         target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(
             batch.target_data,

@@ -54,16 +54,16 @@ class Samudra(BaseModel):
             fts_input = fts.clone().detach()
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            pos: torch.Tensor | None = None
             if self.positional_params is not None:
                 pos = self.positional_params.unsqueeze(0).expand(
                     fts.shape[0], -1, -1, -1
                 )
-                fts = torch.cat([fts, pos], dim=1)
 
             if self.add_3d_coordinates is not None:
                 fts = self.add_3d_coordinates(fts, ctx.input_resolution)
 
-            fts = self.unet(fts)
+            fts = self.unet(fts, pos=pos)
             fts = torch.nn.functional.pad(
                 fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
             )

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1770677924836,
+  "lastUpdate": 1770677926005,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -14667,6 +14667,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.13618073287267957",
             "extra": "mean: 77.2947964124 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6c9ba0a439432602006ac9842de4fb50d7061965",
+          "message": "Renaming ctx variable to make it clear that it always stays on the CPU. (#577)\n\nThis was one of the remaining notes of feedback from the big multi-scale\nPR. I thought I pushed it before the auto-merge, but I had to click one\nadditional \"push\" button on my IDE for it to have actually gone through!\nThis tine PR addresses the suggestion and applies a rename.",
+          "timestamp": "2026-02-09T14:33:00-08:00",
+          "tree_id": "a730ac1ffb0d1ad680260fc10de4053783e52ae1",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/6c9ba0a439432602006ac9842de4fb50d7061965"
+        },
+        "date": 1770677925686,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.683368799955676,
+            "unit": "iter/sec",
+            "range": "stddev: 0.029356963323718076",
+            "extra": "mean: 594.0468897999835 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19504410468364702,
+            "unit": "iter/sec",
+            "range": "stddev: 0.019204173786077448",
+            "extra": "mean: 5.127045504000011 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013396863428933464,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1375176479662882",
+            "extra": "mean: 74.64433785599999 sec\nrounds: 5"
           }
         ]
       }

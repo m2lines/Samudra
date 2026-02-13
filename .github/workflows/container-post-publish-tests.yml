@@ -102,6 +102,7 @@ jobs:
         timeout-minutes: 90
         run: |
           docker run --rm \
+            --ipc=host \
             -v "${GITHUB_WORKSPACE}:/repo" \
             --workdir /repo \
             --entrypoint bash \
@@ -116,6 +117,7 @@ jobs:
         timeout-minutes: 90
         run: |
           docker run --rm --gpus all \
+            --ipc=host \
             -v "${GITHUB_WORKSPACE}:/repo" \
             --workdir /repo \
             --entrypoint bash \

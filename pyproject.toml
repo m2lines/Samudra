@@ -1,12 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-
 requires = [ "setuptools", "wheel" ]
 
 [project]
 name = "ocean-emulators"
 version = "1.0"
-
 description = "Train and evaluate ocean model emulators"
 readme = "README.md"
 keywords = [ "climate", "emulation", "machine learning", "ocean" ]
@@ -41,7 +39,7 @@ dependencies = [
   "scipy>=1.15.2",
   "skypilot[aws,lambda]>=0.10",
   "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
-  "torch>=2.9.0a0,<2.10",          # Matches PhysicsNeMo 25.11 torch baseline
+  "torch>=2.9.0a0,<2.10",         # Matches PhysicsNeMo 25.11 torch baseline
   "torchinfo>=1.8",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
@@ -49,7 +47,6 @@ dependencies = [
   "xesmf>=0.8.10",
   "zarr==3.*",
 ]
-
 optional-dependencies.cuda = [
   "flash-attn>=2.7.4.post1,<3",
   "flash-perceiver>=0.2",
@@ -107,26 +104,22 @@ lint.per-file-ignores."test_*.py" = [ "D" ]
 lint.isort.split-on-trailing-comma = false
 lint.pydocstyle.convention = "google"
 
-[tool.pytest.ini_options]
-markers = [
+[tool.pytest]
+ini_options.markers = [
   "manual: marks tests as manually run (deselect with '-m \"not manual\"').",
   "cuda: marks tests that need a CUDA-enabled device to run (deselect with '-m \"not cuda\"').",
   "only_configs: used to mark tests that only run on specific configs (not used on command line)",
   "all_configs: used to mark tests that run on all configs (not used on command line)",
 ]
-pythonpath = [ "src" ]
-testpaths = [ "tests" ]
-addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers"
+ini_options.pythonpath = [ "src" ]
+ini_options.testpaths = [ "tests" ]
+ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers"
 
 [tool.mypy]
 check_untyped_defs = true
+overrides = [
+  { module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*", "aurora.*" ], follow_untyped_imports = true },
+]
 
-[[tool.mypy.overrides]]
-module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*", "aurora.*" ]
-follow_untyped_imports = true
-
-[tool.uv.extra-build-dependencies]
-flash-attn = [ { requirement = "torch", match-runtime = true } ]
-
-[tool.uv.extra-build-variables]
-flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
+[tool.uv]
+extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime = true } ]

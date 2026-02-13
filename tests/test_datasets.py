@@ -429,8 +429,10 @@ def test_loader__data_shape__across_schedules(
                     ((90, 180), (90, 180)),  # (1,1): half-res input, half-res label
                 }
                 observed_patterns = set(example_resolutions)
-                # All observed patterns must be valid
-                assert observed_patterns == valid_patterns, (
+                # With drop_last and grouped sampling, not every cartesian-pair
+                # is guaranteed to appear in a finite sample, but any observed
+                # pair must still be valid for mix mode.
+                assert observed_patterns.issubset(valid_patterns), (
                     f"All resolutions must be valid members of the cartesian product for 'mix' schedule. "
                     f"Valid patterns: {valid_patterns}, got {observed_patterns}, "
                     f"invalid patterns: {observed_patterns - valid_patterns}"

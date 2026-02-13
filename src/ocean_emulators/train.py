@@ -29,6 +29,7 @@ from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
+    get_channel_loss_scale_std_dict,
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
@@ -497,7 +498,11 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
+            if start_batch := getattr(self.loss_fn, "start_batch", None):
+                start_batch()
             TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
+            if end_batch := getattr(self.loss_fn, "end_batch", None):
+                end_batch()
 
             # Scale loss by the actual number of microbatches that will be accumulated
             scaled_loss = TO.loss / r
@@ -551,23 +556,72 @@ class Trainer:
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
                     loss_scale_per_channel = loss_scale_per_channel_fn()
-                    # Reshape from time-major channels to [hist, var] and
-                    # average along the history dimension.
-                    loss_per_channel = TO.loss_per_channel.reshape(
-                        -1, loss_scale_per_channel.shape[0]
-                    ).mean(dim=0)
+                    loss_scale_std_per_channel_fn = getattr(
+                        self.loss_fn, "loss_scale_std_per_channel", None
+                    )
+                    loss_scale_std_per_channel = (
+                        loss_scale_std_per_channel_fn()
+                        if loss_scale_std_per_channel_fn
+                        else None
+                    )
 
-                    unscaled_loss_per_channel = (
-                        loss_per_channel / loss_scale_per_channel
+                    if unscaled_loss_per_channel_fn := getattr(
+                        self.loss_fn, "last_unscaled_loss_per_channel", None
+                    ):
+                        unscaled_loss_per_channel = unscaled_loss_per_channel_fn()
+                        if unscaled_loss_per_channel is None:
+                            # If unavailable, fall back to rescaling approximation.
+                            loss_per_channel = TO.loss_per_channel.reshape(
+                                -1, loss_scale_per_channel.shape[0]
+                            ).mean(dim=0)
+                            unscaled_loss_per_channel = (
+                                loss_per_channel / loss_scale_per_channel
+                            )
+                    else:
+                        # DynamicLoss uses a channel-only scale, so this is exact.
+                        loss_per_channel = TO.loss_per_channel.reshape(
+                            -1, loss_scale_per_channel.shape[0]
+                        ).mean(dim=0)
+                        unscaled_loss_per_channel = (
+                            loss_per_channel / loss_scale_per_channel
+                        )
+
+                    unscaled_loss_per_channel = all_reduce_mean(
+                        unscaled_loss_per_channel.detach()
                     )
                     unscaled_loss = torch.mean(unscaled_loss_per_channel)
 
+                    scale_metrics: dict[str, torch.Tensor] = {
+                        **get_channel_loss_scale_dict(
+                            label="train",
+                            loss_scale_per_channel=loss_scale_per_channel,
+                        ),
+                        "train/batch/loss_scale/channel_mean": (
+                            loss_scale_per_channel.mean()
+                        ),
+                        "train/batch/loss_scale/channel_std": loss_scale_per_channel.std(
+                            unbiased=False
+                        ),
+                    }
+                    if loss_scale_std_per_channel is not None:
+                        scale_metrics.update(
+                            {
+                                **get_channel_loss_scale_std_dict(
+                                    label="train",
+                                    loss_scale_std_per_channel=loss_scale_std_per_channel,
+                                ),
+                                "train/batch/loss_scale_spatial_std/channel_mean": (
+                                    loss_scale_std_per_channel.mean()
+                                ),
+                                "train/batch/loss_scale_spatial_std/channel_std": loss_scale_std_per_channel.std(
+                                    unbiased=False
+                                ),
+                            }
+                        )
+
+                    metrics.update(scale_metrics)
                     metrics.update(
                         {
-                            **get_channel_loss_scale_dict(
-                                label="train",
-                                loss_scale_per_channel=loss_scale_per_channel,
-                            ),
                             **get_channel_loss_dict(
                                 label="train",
                                 loss_per_channel=unscaled_loss_per_channel,

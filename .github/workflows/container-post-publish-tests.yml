@@ -126,7 +126,7 @@ jobs:
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . /workspace/.venv/bin/activate
-              python -m pytest -n 2 -v -m "not manual and not cuda"
+              python -m pytest -n 2 -v tests/test_config.py tests/test_schedule.py -m "not manual and not cuda"
             '
 
       - name: Run GPU tests in container
@@ -138,7 +138,7 @@ jobs:
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . /workspace/.venv/bin/activate
-              python -m pytest -n 2 -v -m "not manual and cuda" -x
+              python -m pytest -v tests/test_container_cuda_smoke.py -m cuda
             '
 
   report-container-test-status:

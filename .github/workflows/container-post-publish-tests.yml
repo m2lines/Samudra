@@ -1,6 +1,11 @@
 name: Container Post-Publish Tests
 
 on:
+  push:
+    branches:
+      - u/jder/nemo-docker
+    paths:
+      - ".github/workflows/container-post-publish-tests.yml"
   workflow_run:
     workflows:
       - Container PhysicsNeMo 25.11
@@ -28,7 +33,7 @@ concurrency:
 
 jobs:
   resolve-target:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.resolve.outputs.image }}
@@ -44,6 +49,9 @@ jobs:
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             image_tag="${{ github.event.inputs.image_tag }}"
             checkout_ref="${{ github.event.inputs.checkout_ref }}"
+          elif [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            image_tag="25.11-latest"
+            checkout_ref="${GITHUB_SHA}"
           else
             image_tag="25.11-${{ github.event.workflow_run.head_sha }}"
             checkout_ref="${{ github.event.workflow_run.head_sha }}"

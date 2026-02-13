@@ -68,7 +68,6 @@ jobs:
     runs-on: ${{ needs.ec2.outputs.id }}
     env:
       IMAGE: ${{ needs.resolve-target.outputs.image }}
-      LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-postpublish-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -93,28 +92,11 @@ jobs:
           df -h
           docker system df || true
 
-      - name: Acquire test image (pull with fallback build)
+      - name: Pull published image
         run: |
           set -euo pipefail
-
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            pull_timeout_minutes=5
-          else
-            pull_timeout_minutes=20
-          fi
-
-          if timeout "${pull_timeout_minutes}m" docker pull "${IMAGE}"; then
-            echo "Using published image: ${IMAGE}"
-            echo "TEST_IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
-          else
-            echo "Published image pull failed or timed out after ${pull_timeout_minutes} minutes."
-            echo "Falling back to a local build for this test run."
-            BUILDKIT_PROGRESS=plain docker build \
-              -f containers/Dockerfile.physicsnemo-25.11 \
-              -t "${LOCAL_IMAGE_TAG}" \
-              .
-            echo "TEST_IMAGE=${LOCAL_IMAGE_TAG}" >> "${GITHUB_ENV}"
-          fi
+          docker pull "${IMAGE}"
+          echo "TEST_IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
 
       - name: Run CPU tests in container
         timeout-minutes: 90

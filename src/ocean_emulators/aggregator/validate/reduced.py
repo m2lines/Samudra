@@ -68,7 +68,9 @@ class MeanAggregator(ValidateSubAggregator):
         rmse_key = f"weighted_rmse/{src.grid_str}"
         bias_key = f"weighted_bias/{src.grid_str}"
         grad_diff_key = f"weighted_grad_mag_percent_diff/{src.grid_str}"
-        if self._variable_metrics is None:
+        if self._variable_metrics is None or not all(
+            k in self._variable_metrics for k in [rmse_key, bias_key, grad_diff_key]
+        ):
             self._variable_metrics = {
                 rmse_key: {},
                 bias_key: {},

@@ -102,6 +102,11 @@ class DataSource:
         return res[0].shape[0], res[1].shape[0]
 
     @cached_property
+    def grid_str(self) -> str:
+        grid = self.grid_size
+        return f"{grid[0]}x{grid[1]}"
+
+    @cached_property
     def spherical_area_weights(self) -> Grid:
         return spherical_area_weights(self.data)
 
@@ -678,18 +683,12 @@ def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar
     return out_dict
 
 
-def gridstr(src: DataSource) -> str:
-    """Makes a human-readable string about the grid from a DataSource."""
-    grid = src.grid_size
-    return f"{grid[0]}x{grid[1]}"
-
-
 def _suffix_grid(
     channel_vars: DictSingleChannelVar, src: DataSource
 ) -> DictSingleChannelVar:
     out = {}
     for k, v in channel_vars.items():
-        out[f"{k}/{gridstr(src)}"] = v
+        out[f"{k}/{src.grid_str}"] = v
     return out
 
 

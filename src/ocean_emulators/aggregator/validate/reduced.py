@@ -10,7 +10,7 @@ from ocean_emulators.aggregator.metrics import (
     area_weighted_rmse,
 )
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import DataSource, gridstr
+from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.distributed import all_reduce_mean
 
@@ -65,9 +65,9 @@ class MeanAggregator(ValidateSubAggregator):
 
     def _get_variable_metrics(self, gen_data, src: DataSource):
         area_weights = src.spherical_area_weights
-        rmse_key = f"weighted_rmse/{gridstr(src)}"
-        bias_key = f"weighted_bias/{gridstr(src)}"
-        grad_diff_key = f"weighted_grad_mag_percent_diff/{gridstr(src)}"
+        rmse_key = f"weighted_rmse/{src.grid_str}"
+        bias_key = f"weighted_bias/{src.grid_str}"
+        grad_diff_key = f"weighted_grad_mag_percent_diff/{src.grid_str}"
         if self._variable_metrics is None:
             self._variable_metrics = {
                 rmse_key: {},

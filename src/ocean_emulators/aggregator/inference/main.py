@@ -2,12 +2,7 @@ import torch
 import wandb
 import xarray as xr
 
-from ocean_emulators.utils.data import (
-    DataSource,
-    Normalize,
-    get_aggregator_dicts,
-    gridstr,
-)
+from ocean_emulators.utils.data import DataSource, Normalize, get_aggregator_dicts
 from ocean_emulators.utils.output import ModelInferenceOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -54,7 +49,7 @@ class InferenceEvaluatorAggregator:
             # NB(alxmrs): We need the prefix in order to make the inference aggregator adapt to multiple scales,
             # even if this only supports one scale now.
             channel_mean_names = [
-                f"{k}/{gridstr(primary_src)}" for k in channel_mean_names
+                f"{k}/{primary_src.grid_str}" for k in channel_mean_names
             ]
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator

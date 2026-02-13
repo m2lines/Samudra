@@ -77,6 +77,7 @@ jobs:
     runs-on: ${{ needs.ec2.outputs.id }}
     env:
       IMAGE: ${{ needs.resolve-target.outputs.image }}
+      LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-postpublish-test-${{ github.sha }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -101,8 +102,20 @@ jobs:
           df -h
           docker system df || true
 
-      - name: Pull image
-        run: docker pull "${IMAGE}"
+      - name: Pull published image
+        if: github.event_name != 'push'
+        run: |
+          docker pull "${IMAGE}"
+          echo "TEST_IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
+
+      - name: Build image for branch test trigger
+        if: github.event_name == 'push'
+        run: |
+          BUILDKIT_PROGRESS=plain docker build \
+            -f containers/Dockerfile.physicsnemo-25.11 \
+            -t "${LOCAL_IMAGE_TAG}" \
+            .
+          echo "TEST_IMAGE=${LOCAL_IMAGE_TAG}" >> "${GITHUB_ENV}"
 
       - name: Run CPU tests in container
         run: |
@@ -110,7 +123,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/repo" \
             --workdir /repo \
             --entrypoint bash \
-            "${IMAGE}" -lc '
+            "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . /workspace/.venv/bin/activate
               python -m pytest -n 2 -v -m "not manual and not cuda"
@@ -122,7 +135,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}:/repo" \
             --workdir /repo \
             --entrypoint bash \
-            "${IMAGE}" -lc '
+            "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . /workspace/.venv/bin/activate
               python -m pytest -n 2 -v -m "not manual and cuda" -x

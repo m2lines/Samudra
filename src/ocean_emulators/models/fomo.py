@@ -98,8 +98,8 @@ class FOMO(BaseModel):
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             if self.maybe_add_3d_coordinates is not None:
-                fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution)
-            fts = self.encoder(fts, ctx.input_resolution)
+                fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
+            fts = self.encoder(fts, ctx.input_resolution_cpu)
             fts = self.processor(fts)
 
         # Convert back to float32 for decoder and unpatchify operations

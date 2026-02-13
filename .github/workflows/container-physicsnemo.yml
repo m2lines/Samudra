@@ -59,6 +59,13 @@ jobs:
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/local/share/boost
           sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /usr/lib/jvm
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/share/vcpkg
+          sudo swapoff -a || true
+          sudo rm -f /swapfile || true
 
           # Move Docker root to the larger ephemeral mount on GitHub runners.
           if [ -d /mnt ]; then
@@ -73,7 +80,7 @@ jobs:
 
       - name: Build container
         run: |
-          docker build --pull \
+          BUILDKIT_PROGRESS=plain docker build --pull \
             -f containers/Dockerfile.physicsnemo-25.11 \
             -t "${LOCAL_IMAGE_TAG}" \
             .

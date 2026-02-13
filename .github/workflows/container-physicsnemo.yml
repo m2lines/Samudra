@@ -58,12 +58,18 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /usr/local/share/boost
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /opt/hostedtoolcache
 
-          docker system prune -af || true
+          # Move Docker root to the larger ephemeral mount on GitHub runners.
+          if [ -d /mnt ]; then
+            sudo mkdir -p /mnt/docker-data
+            echo '{"data-root":"/mnt/docker-data"}' | sudo tee /etc/docker/daemon.json >/dev/null
+            sudo systemctl restart docker
+          fi
 
           echo "Disk usage after cleanup:"
           df -h
+          docker info | grep "Docker Root Dir"
 
       - name: Build container
         run: |

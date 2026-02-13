@@ -1,0 +1,16 @@
+.git
+.github
+.LOCAL
+.benchmarks
+.data_cache
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.uv-cache
+.venv
+.secrets.baseline
+dist
+tmp
+*.sif
+*.zarr
+notebooks

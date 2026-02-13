@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "xarray[io]",
-#   "zarr<3",
+#   "zarr==3.*",
 #   "dask",
 #   "requests",
 #   "aiohttp",

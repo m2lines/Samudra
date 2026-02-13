@@ -41,19 +41,19 @@ dependencies = [
   "scipy>=1.15.2",
   "skypilot[aws,lambda]>=0.10",
   "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
-  "torch~=2.8.0",
+  "torch>=2.9.0a0,<2.10",          # Matches PhysicsNeMo 25.11 torch baseline
   "torchinfo>=1.8",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",
   "xesmf>=0.8.10",
-  "zarr<3",
+  "zarr==3.*",
 ]
 
 optional-dependencies.cuda = [
-  "flash-attn>=2.2.5,<3",
+  "flash-attn>=2.7.4.post1,<3",
   "flash-perceiver>=0.2",
-  "torchvision>=0.23",
+  "torchvision>=0.24.0a0",
 ]
 
 [dependency-groups]

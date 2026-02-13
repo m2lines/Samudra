@@ -1,0 +1,72 @@
+# Build and validate the PhysicsNeMo-based container on x86 Linux.
+name: Container PhysicsNeMo 25.11
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/container-physicsnemo.yml"
+      - "containers/**"
+      - "scripts/container/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "src/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Confirm x86_64 runner
+        run: |
+          arch="$(uname -m)"
+          echo "runner arch=${arch}"
+          test "${arch}" = "x86_64"
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build container
+        env:
+          IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
+        run: |
+          OWNER_LOWER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          REMOTE_IMAGE_TAG="ghcr.io/${OWNER_LOWER}/${IMAGE_TAG}"
+          REMOTE_IMAGE_TAG_LATEST="ghcr.io/${OWNER_LOWER}/ocean-emulator:latest"
+          docker build --pull \
+            -f containers/Dockerfile.physicsnemo-25.11 \
+            -t "${IMAGE_TAG}" \
+            -t "${REMOTE_IMAGE_TAG}" \
+            -t "${REMOTE_IMAGE_TAG_LATEST}" \
+            .
+          if [ "${{ github.event_name }}" = "push" ]; then
+            docker push "${REMOTE_IMAGE_TAG}"
+            docker push "${REMOTE_IMAGE_TAG_LATEST}"
+          fi
+
+      - name: Run version and smoke checks
+        env:
+          IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
+        run: |
+          docker run --rm --entrypoint bash "${IMAGE_TAG}" -lc '
+            . .venv/bin/activate
+            python scripts/container/verify_image_packages.py
+            python scripts/container/smoke_test.py
+          '

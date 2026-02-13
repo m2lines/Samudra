@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.7
+FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
+
+WORKDIR /workspace
+
+COPY LICENSE README.md pyproject.toml uv.lock ./
+COPY src ./src
+COPY scripts/container ./scripts/container
+
+# Ensure image-provided heavy deps satisfy this project's declared requirements.
+RUN python scripts/container/verify_image_packages.py
+
+# Reuse image-provided torch stack via system site-packages at runtime.
+RUN uv venv .venv --python /usr/bin/python3 --system-site-packages
+
+# Keep torch/torchvision/flash-attn/zarr from the base image; install the rest with uv.
+# This is a development container, so include dev dependencies too.
+RUN . .venv/bin/activate \
+    && uv sync --frozen --active --extra cuda \
+        --no-install-package torch \
+        --no-install-package torchvision \
+        --no-install-package flash-attn \
+        --no-install-package zarr
+
+RUN . .venv/bin/activate \
+    && python scripts/container/smoke_test.py
+
+CMD ["/bin/bash"]

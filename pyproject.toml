@@ -123,3 +123,4 @@ overrides = [
 
 [tool.uv]
 extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime = true } ]
+extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }

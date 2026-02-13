@@ -45,6 +45,7 @@ from ocean_emulators.utils.loss import (
     GradientLoss,
     LossFnWithContext,
     LossMetric,
+    SpatialDynamicLoss,
     loss_fn_from_metric,
 )
 from ocean_emulators.utils.profiler import Profiler
@@ -703,6 +704,26 @@ class DynamicLossConfig(pydantic.BaseModel):
     )
 
 
+class SpatialDynamicLossConfig(pydantic.BaseModel):
+    type: Literal["dynamic_spatial"] = "dynamic_spatial"
+    metric: LossMetric = "mse"
+    limit: float | None = Field(
+        description="The ratio of the largest weight to the smallest weight across all channels and pooled spatial locations which we'll allow. Default of None means no limit.",
+        default=None,
+        ge=1.0,
+    )
+    ema_window: int = Field(
+        description="EMA window length for updating spatial dynamic loss scales.",
+        default=100,
+        ge=1,
+    )
+    spatial_resolution_lat: float = Field(
+        description="Target pooled latitude resolution in degrees used to maintain spatial loss scales. Longitude bins are inferred from the data aspect ratio.",
+        default=2.0,
+        gt=0.0,
+    )
+
+
 class GradientLossConfig(pydantic.BaseModel):
     type: Literal["gradient"] = "gradient"
     # at the moment this metric is only used for the non-gradient loss
@@ -717,7 +738,7 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+Loss = LossMetric | DynamicLossConfig | SpatialDynamicLossConfig | GradientLossConfig
 
 
 def build_loss_fn(
@@ -736,6 +757,20 @@ def build_loss_fn(
                 limit=limit,
                 device=device,
                 num_channels=num_channels,
+            )
+        case SpatialDynamicLossConfig(
+            metric=metric,
+            limit=limit,
+            ema_window=ema_window,
+            spatial_resolution_lat=spatial_resolution_lat,
+        ):
+            return SpatialDynamicLoss(
+                metric=metric,
+                limit=limit,
+                device=device,
+                num_channels=num_channels,
+                ema_window=ema_window,
+                spatial_resolution_lat=spatial_resolution_lat,
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(metric)

@@ -5,7 +5,16 @@ on:
   push:
     branches:
       - main
-      - u/jder/nemo-docker
+    paths:
+      - ".github/workflows/container-physicsnemo.yml"
+      - "containers/**"
+      - "scripts/container/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "src/**"
+  pull_request:
+    branches:
+      - main
     paths:
       - ".github/workflows/container-physicsnemo.yml"
       - "containers/**"
@@ -26,6 +35,8 @@ concurrency:
 jobs:
   build-and-smoke:
     runs-on: ubuntu-24.04
+    env:
+      LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -36,38 +47,49 @@ jobs:
           echo "runner arch=${arch}"
           test "${arch}" = "x86_64"
 
-      - name: Log in to GitHub Container Registry
-        if: github.event_name == 'push'
-        uses: docker/login-action@v4
+      - name: Build container
+        run: |
+          docker build --pull \
+            -f containers/Dockerfile.physicsnemo-25.11 \
+            -t "${LOCAL_IMAGE_TAG}" \
+            .
+
+      - name: Run version and smoke checks
+        run: |
+          docker run --rm --entrypoint bash "${LOCAL_IMAGE_TAG}" -lc '
+            . .venv/bin/activate
+            python scripts/container/verify_image_packages.py
+            python scripts/container/smoke_test.py
+          '
+
+      - name: Log in to GHCR
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build container
-        env:
-          IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
+      - name: Publish image
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
-          OWNER_LOWER="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
-          REMOTE_IMAGE_TAG="ghcr.io/${OWNER_LOWER}/${IMAGE_TAG}"
-          REMOTE_IMAGE_TAG_LATEST="ghcr.io/${OWNER_LOWER}/ocean-emulator:latest"
-          docker build --pull \
-            -f containers/Dockerfile.physicsnemo-25.11 \
-            -t "${IMAGE_TAG}" \
-            -t "${REMOTE_IMAGE_TAG}" \
-            -t "${REMOTE_IMAGE_TAG_LATEST}" \
-            .
-          if [ "${{ github.event_name }}" = "push" ]; then
-            docker push "${REMOTE_IMAGE_TAG}"
-            docker push "${REMOTE_IMAGE_TAG_LATEST}"
+          set -euo pipefail
+
+          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          ghcr_image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo"
+
+          sha_tag="${ghcr_image}:25.11-${GITHUB_SHA}"
+          docker tag "${LOCAL_IMAGE_TAG}" "${sha_tag}"
+          docker push "${sha_tag}"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            ref_tag="${ghcr_image}:25.11-manual-${GITHUB_REF_NAME//\//-}"
+            docker tag "${LOCAL_IMAGE_TAG}" "${ref_tag}"
+            docker push "${ref_tag}"
           fi
 
-      - name: Run version and smoke checks
-        env:
-          IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
-        run: |
-          docker run --rm --entrypoint bash "${IMAGE_TAG}" -lc '
-            . .venv/bin/activate
-            python scripts/container/verify_image_packages.py
-            python scripts/container/smoke_test.py
-          '
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            latest_tag="${ghcr_image}:25.11-latest"
+            docker tag "${LOCAL_IMAGE_TAG}" "${latest_tag}"
+            docker push "${latest_tag}"
+          fi

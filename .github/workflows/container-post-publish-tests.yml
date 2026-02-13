@@ -98,6 +98,7 @@ jobs:
           echo "TEST_IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
 
       - name: Run CPU tests in container
+        timeout-minutes: 90
         run: |
           docker run --rm \
             -v "${GITHUB_WORKSPACE}:/repo" \
@@ -106,10 +107,12 @@ jobs:
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . /workspace/.venv/bin/activate
-              python -m pytest -n 2 -v tests/test_config.py tests/test_schedule.py -m "not manual and not cuda"
+              export PYTHONPATH="/repo/src:${PYTHONPATH:-}"
+              python -m pytest -n 2 -v -m "not manual and not cuda"
             '
 
       - name: Run GPU tests in container
+        timeout-minutes: 90
         run: |
           docker run --rm --gpus all \
             -v "${GITHUB_WORKSPACE}:/repo" \
@@ -118,7 +121,8 @@ jobs:
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . /workspace/.venv/bin/activate
-              python -m pytest -v tests/test_container_cuda_smoke.py -m cuda
+              export PYTHONPATH="/repo/src:${PYTHONPATH:-}"
+              python -m pytest -n 2 -v -m "not manual and cuda" -x
             '
 
   report-container-test-status:

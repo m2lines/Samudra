@@ -20,9 +20,7 @@ def _block_flash_perceiver_import(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_perceiver_auto_falls_back_to_naive_when_flash_unavailable(monkeypatch):
     _block_flash_perceiver_import(monkeypatch)
-    monkeypatch.setattr(
-        "ocean_emulators.config.torch.cuda.is_available", lambda: True
-    )
+    monkeypatch.setattr("ocean_emulators.config.torch.cuda.is_available", lambda: True)
 
     cfg = PerceiverConfig(implementation="auto", depth=1, latent_dim=8, num_latents=16)
     with pytest.warns(UserWarning, match="Falling back to `naive`"):
@@ -33,9 +31,7 @@ def test_perceiver_auto_falls_back_to_naive_when_flash_unavailable(monkeypatch):
 
 def test_perceiver_flash_raises_when_flash_unavailable(monkeypatch):
     _block_flash_perceiver_import(monkeypatch)
-    monkeypatch.setattr(
-        "ocean_emulators.config.torch.cuda.is_available", lambda: True
-    )
+    monkeypatch.setattr("ocean_emulators.config.torch.cuda.is_available", lambda: True)
 
     cfg = PerceiverConfig(implementation="flash", depth=1, latent_dim=8, num_latents=16)
     with pytest.raises(ValueError, match="implementation==flash"):

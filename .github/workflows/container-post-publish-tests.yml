@@ -67,7 +67,7 @@ jobs:
     with:
       ec2_instance_type: g6.xlarge
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
-      ec2_root_device_size: "+20" # extra headroom for docker image pull + test artifacts
+      ec2_root_device_size: 200 # large image pull + test data/cache need substantial headroom
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
@@ -95,6 +95,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show disk before pull
+        run: |
+          df -h
+          docker system df || true
 
       - name: Pull image
         run: docker pull "${IMAGE}"

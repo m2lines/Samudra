@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - u/jder/nemo-docker
     paths:
       - ".github/workflows/container-physicsnemo.yml"
       - "containers/**"

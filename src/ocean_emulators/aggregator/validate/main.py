@@ -21,10 +21,11 @@ class ValidateAggregator(TrainAggregator):
     ):
         super().__init__()
         self.srcs = srcs
+        primary_src = max(srcs, key=lambda s: s.grid_size)
 
         val_aggregators: dict[str, ValidateSubAggregator] = {
-            f"snapshot": SnapshotAggregator(srcs[0].metadata, hist),
-            f"mean_map": MapAggregator(srcs[0].metadata, hist),
+            f"snapshot": SnapshotAggregator(primary_src.metadata, hist),
+            f"mean_map": MapAggregator(primary_src.metadata, hist),
             f"reduced": MeanAggregator(srcs, hist),
         }
 

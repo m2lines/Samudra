@@ -50,7 +50,8 @@ jobs:
             image_tag="${{ github.event.inputs.image_tag }}"
             checkout_ref="${{ github.event.inputs.checkout_ref }}"
           elif [ "${GITHUB_EVENT_NAME}" = "push" ]; then
-            image_tag="25.11-latest"
+            # Temporary branch-testing path: use a known published manual tag.
+            image_tag="25.11-manual-u-jder-nemo-docker"
             checkout_ref="${GITHUB_SHA}"
           else
             image_tag="25.11-${{ github.event.workflow_run.head_sha }}"

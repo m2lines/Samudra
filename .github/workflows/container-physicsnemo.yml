@@ -47,6 +47,24 @@ jobs:
           echo "runner arch=${arch}"
           test "${arch}" = "x86_64"
 
+      - name: Reclaim runner disk space
+        run: |
+          set -euo pipefail
+          echo "Disk usage before cleanup:"
+          df -h
+
+          # Remove large preinstalled SDKs that are not used by this workflow.
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+          docker system prune -af || true
+
+          echo "Disk usage after cleanup:"
+          df -h
+
       - name: Build container
         run: |
           docker build --pull \

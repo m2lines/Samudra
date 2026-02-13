@@ -53,6 +53,48 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
     return loss_fn_with_ctx
 
 
+def _elementwise_loss_from_metric(
+    metric: LossMetric,
+    pred: torch.Tensor,
+    target: torch.Tensor,
+) -> torch.Tensor:
+    match metric:
+        case "mse":
+            return F.mse_loss(pred, target, reduction="none")
+        case "mae":
+            return F.l1_loss(pred, target, reduction="none")
+        case "mse_mae":
+            mse = F.mse_loss(pred, target, reduction="none")
+            mae = F.l1_loss(pred, target, reduction="none")
+            return (mse + mae) / 2
+        case "mse_diff_weighted":
+            mse = F.mse_loss(pred, target, reduction="none")
+            diff_weight = 2.0
+            diff_mse = (
+                F.mse_loss(
+                    pred[:, 1:] - pred[:, :-1],
+                    target[:, 1:] - target[:, :-1],
+                    reduction="none",
+                )
+                * diff_weight
+            )
+            return torch.cat([mse[:, :1], diff_mse], dim=1)
+        case _:
+            assert_never(metric)
+
+
+def _masked_elementwise_loss_from_metric(
+    metric: LossMetric,
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    ctx: GridContext,
+) -> torch.Tensor:
+    wet = ctx.label_mask.to(device=pred.device)
+    pred = pred * wet
+    target = target * wet
+    return _elementwise_loss_from_metric(metric, pred, target)
+
+
 def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """Standard MSE loss (l2) computed per channel."""
     return F.mse_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
@@ -229,6 +271,192 @@ class DynamicLoss:
         """Load state from ``state_dict``."""
         if "per_channel_scale" in state:
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
+
+
+class SpatialDynamicLoss:
+    """Dynamic loss scaling with per-channel spatial scale maps.
+
+    Scales each channel by a learned spatial map that is updated from inverse loss
+    estimates with an EMA. Scale maps are maintained at pooled spatial resolution
+    and interpolated to current resolution at runtime.
+    """
+
+    def __init__(
+        self,
+        *,
+        metric: LossMetric,
+        limit: float | None,
+        device: torch.device,
+        num_channels: int,
+        ema_window: int,
+        spatial_resolution_lat: float,
+    ):
+        self._metric = metric
+        self._limit = limit
+        self._device = device
+        self._num_channels = num_channels
+        self._ema_window = ema_window
+        self._spatial_resolution_lat = spatial_resolution_lat
+        self._epsilon = 1e-8
+        self._per_channel_scale_map: Float[torch.Tensor, "var lat lon"] | None = None
+
+        self._collect_batch_unscaled = False
+        self._batch_unscaled_loss_with_history: torch.Tensor | None = None
+        self._last_unscaled_loss_with_history: torch.Tensor | None = None
+
+    def _initialize_scale_map(self, lat: int, lon: int) -> None:
+        if self._per_channel_scale_map is not None:
+            return
+        pooled_lat = max(1, int(round(180.0 / self._spatial_resolution_lat)))
+        pooled_lat = min(pooled_lat, lat)
+        pooled_lon = max(1, int(round(pooled_lat * lon / lat)))
+        pooled_lon = min(pooled_lon, lon)
+        self._per_channel_scale_map = torch.ones(
+            (self._num_channels, pooled_lat, pooled_lon),
+            device=self._device,
+        )
+
+    def _loss_with_history_and_maps(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+        ctx: GridContext,
+    ) -> tuple[
+        Float[torch.Tensor, "batch hist var lat lon"],
+        Float[torch.Tensor, "batch hist var lat lon"],
+    ]:
+        batch, channels, lat, lon = pred.shape
+        self._initialize_scale_map(lat=lat, lon=lon)
+        assert self._per_channel_scale_map is not None
+        if channels % self._num_channels != 0:
+            raise ValueError(
+                f"Expected channels to be divisible by {self._num_channels}, "
+                f"got {channels}"
+            )
+        hist = channels // self._num_channels
+
+        loss_map = _masked_elementwise_loss_from_metric(
+            self._metric,
+            pred=pred,
+            target=target,
+            ctx=ctx,
+        )
+        loss_map = loss_map.reshape(batch, hist, self._num_channels, lat, lon)
+
+        scale_map = F.interpolate(
+            self._per_channel_scale_map.unsqueeze(0),
+            size=(lat, lon),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(0)
+        scale_map = scale_map.to(dtype=loss_map.dtype)
+        scaled_loss_map = loss_map * scale_map.unsqueeze(0).unsqueeze(0)
+
+        return loss_map, scaled_loss_map
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+        ctx: GridContext,
+    ) -> Float[torch.Tensor, " hist*var"]:
+        unscaled_loss_map, scaled_loss_map = self._loss_with_history_and_maps(
+            pred, target, ctx
+        )
+        unscaled_loss_with_history = unscaled_loss_map.mean(dim=(0, 3, 4)).reshape(-1)
+        scaled_loss_with_history = scaled_loss_map.mean(dim=(0, 3, 4)).reshape(-1)
+
+        if self._collect_batch_unscaled:
+            if self._batch_unscaled_loss_with_history is None:
+                self._batch_unscaled_loss_with_history = (
+                    unscaled_loss_with_history.detach().clone()
+                )
+            else:
+                self._batch_unscaled_loss_with_history += (
+                    unscaled_loss_with_history.detach()
+                )
+
+        return scaled_loss_with_history
+
+    def start_batch(self) -> None:
+        self._collect_batch_unscaled = True
+        self._batch_unscaled_loss_with_history = None
+
+    def end_batch(self) -> None:
+        self._collect_batch_unscaled = False
+        self._last_unscaled_loss_with_history = self._batch_unscaled_loss_with_history
+        self._batch_unscaled_loss_with_history = None
+
+    def update(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+        ctx: GridContext,
+    ) -> None:
+        from ocean_emulators.utils.distributed import all_reduce_mean, get_world_size
+
+        loss_map, _ = self._loss_with_history_and_maps(pred, target, ctx)
+        assert self._per_channel_scale_map is not None
+
+        mean_loss_map = loss_map.mean(dim=(0, 1))
+        pooled_hw = (
+            int(self._per_channel_scale_map.shape[-2]),
+            int(self._per_channel_scale_map.shape[-1]),
+        )
+        pooled_loss_map = F.adaptive_avg_pool2d(
+            mean_loss_map.unsqueeze(0), pooled_hw
+        ).squeeze(0)
+        pooled_loss_map = pooled_loss_map.clamp_min(self._epsilon)
+
+        new_target_weights = 1.0 / pooled_loss_map
+
+        if get_world_size() > 1:
+            all_reduce_mean(new_target_weights)
+
+        if self._limit is not None:
+            min_scale = new_target_weights.min()
+            max_scale = min_scale * self._limit
+            new_target_weights = new_target_weights.clamp(min_scale, max_scale)
+
+        self._per_channel_scale_map = (
+            self._per_channel_scale_map * (self._ema_window - 1) + new_target_weights
+        ) / self._ema_window
+
+    def last_unscaled_loss_per_channel(self) -> Float[torch.Tensor, " var"] | None:
+        if self._last_unscaled_loss_with_history is None:
+            return None
+        return self._last_unscaled_loss_with_history.reshape(
+            -1, self._num_channels
+        ).mean(dim=0)
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        if self._per_channel_scale_map is None:
+            return torch.ones(self._num_channels, device=self._device)
+        return self._per_channel_scale_map.mean(dim=(1, 2))
+
+    def loss_scale_std_per_channel(self) -> Float[torch.Tensor, " var"]:
+        if self._per_channel_scale_map is None:
+            return torch.zeros(self._num_channels, device=self._device)
+        return self._per_channel_scale_map.std(dim=(1, 2), unbiased=False)
+
+    def state_dict(self) -> dict[str, torch.Tensor]:
+        state: dict[str, torch.Tensor] = {
+            "ema_window": torch.tensor(self._ema_window),
+            "spatial_resolution_lat": torch.tensor(self._spatial_resolution_lat),
+        }
+        if self._per_channel_scale_map is not None:
+            state["per_channel_scale_map"] = self._per_channel_scale_map.detach().cpu()
+        return state
+
+    def load_state_dict(self, state: dict[str, torch.Tensor]) -> None:
+        if "ema_window" in state:
+            self._ema_window = int(state["ema_window"].item())
+        if "spatial_resolution_lat" in state:
+            self._spatial_resolution_lat = float(state["spatial_resolution_lat"].item())
+        if "per_channel_scale_map" in state:
+            self._per_channel_scale_map = state["per_channel_scale_map"].to(
+                self._device
+            )
 
 
 class GradientLoss:

@@ -127,7 +127,7 @@ class MeanAggregator(ValidateSubAggregator):
         time_dim = 1
         time_len = gen_data[list(gen_data.keys())[0]].shape[time_dim]
         target_time = self._target_time - i_time_start
-        if target_time >= 0 and time_len > target_time:
+        if 0 <= target_time < time_len:
             for name in gen_data.keys():
                 target = target_data[name].select(dim=time_dim, index=target_time)
                 gen = gen_data[name].select(dim=time_dim, index=target_time)

@@ -529,6 +529,10 @@ def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     our_cache_dir = cache_dir(pytestconfig)
     data_type = request.param
+    if not _ENABLE_REMOTE_TEST_DATA and data_type in {"remote-om4", "compact"}:
+        pytest.skip(
+            "Remote test data disabled (set OE_ENABLE_REMOTE_TEST_DATA=1 to enable)."
+        )
     with filelock.FileLock(our_cache_dir / f"{data_type}.lock"):
         # Use cached data if available.
         if cached_data := _maybe_read_cache(our_cache_dir, data_type):

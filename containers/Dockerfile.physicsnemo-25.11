@@ -20,7 +20,6 @@ RUN . .venv/bin/activate \
         --no-install-package torch \
         --no-install-package torchvision \
         --no-install-package flash-attn \
-        --no-install-package zarr \
         --no-install-package nvidia-cublas-cu12 \
         --no-install-package nvidia-cuda-cupti-cu12 \
         --no-install-package nvidia-cuda-nvrtc-cu12 \

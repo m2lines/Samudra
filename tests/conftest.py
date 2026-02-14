@@ -282,9 +282,21 @@ def cache_dir(pytestconfig: pytest.Config) -> pathlib.Path:
 
 
 def retry_with_backoff(
-    func, max_retries: int = 5, catch: type[Exception] = ServerDisconnectedError
+    func,
+    max_retries: int = 8,
+    catch: type[Exception] | tuple[type[Exception], ...] = ServerDisconnectedError,
 ):
     """Retry a function with exponential backoff."""
+    # Some backends (fsspec/http/aiohttp) can raise transient read errors that
+    # are not ServerDisconnectedError but are still worth retrying in tests.
+    try:
+        from aiohttp.client_exceptions import ClientPayloadError  # type: ignore
+    except Exception:  # pragma: no cover
+        ClientPayloadError = None  # type: ignore
+
+    if ClientPayloadError is not None and catch is ServerDisconnectedError:
+        catch = (ServerDisconnectedError, ClientPayloadError)
+
     for attempt in range(max_retries):
         try:
             return func()

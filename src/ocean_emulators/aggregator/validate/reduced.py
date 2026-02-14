@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Callable
 from functools import partial
 
@@ -59,7 +60,7 @@ class MeanAggregator(ValidateSubAggregator):
 
     def __init__(self, srcs: list[DataSource], target_time: int):
         self.srcs = srcs
-        self._n_batches = 0
+        self._n_batches: dict[str, int] = defaultdict(int)
         self._variable_metrics: dict | None = None
         self._target_time = target_time
 
@@ -138,16 +139,18 @@ class MeanAggregator(ValidateSubAggregator):
                             gen=gen,
                         )
             # only increment n_batches if we actually recorded a batch
-            self._n_batches += 1
+            self._n_batches[src.grid_str] += 1
 
     def _get_data(self):
-        if self._variable_metrics is None or self._n_batches == 0:
+        if self._variable_metrics is None or not self._n_batches:
             raise ValueError("No batches have been recorded.")
         data: dict[str, torch.Tensor] = {}
         for metric in self._variable_metrics:
+            batch_key = metric.split("/")[-1]
             for key in self._variable_metrics[metric]:
                 data[f"{metric}/{key}"] = (
-                    self._variable_metrics[metric][key].get() / self._n_batches
+                    self._variable_metrics[metric][key].get()
+                    / self._n_batches[batch_key]
                 )
         meaned_data: dict[str, float] = {}
         for key in sorted(data.keys()):

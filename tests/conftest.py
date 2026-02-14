@@ -1,4 +1,5 @@
 import dataclasses
+import os
 import pathlib
 import random
 import time
@@ -31,6 +32,17 @@ FOMO_CONFIG = "test/train_fomo.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", FOMO_CONFIG]
 
 TrainPair = tuple[TrainConfig, Trainer]
+
+
+def _truthy_env(name: str, default: str) -> bool:
+    val = os.getenv(name, default).strip().lower()
+    return val not in {"0", "false", "no", "off"}
+
+
+_ENABLE_REMOTE_TEST_DATA = _truthy_env("OE_ENABLE_REMOTE_TEST_DATA", "1")
+_DATA_SOURCE_PARAMS = ["mock"] + (
+    ["remote-om4", "compact"] if _ENABLE_REMOTE_TEST_DATA else []
+)
 
 
 @dataclasses.dataclass
@@ -512,7 +524,7 @@ def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
     data_source.stds.to_netcdf(ds)
 
 
-@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
+@pytest.fixture(scope="session", params=_DATA_SOURCE_PARAMS)
 def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     our_cache_dir = cache_dir(pytestconfig)

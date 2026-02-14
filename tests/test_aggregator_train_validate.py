@@ -149,7 +149,7 @@ class TestMeanAggregator:
             gen_data_norm={},
         )
 
-        assert agg._n_batches == 1
+        assert agg._n_batches["8x8"] == 1
         assert agg._variable_metrics is not None
 
     def test_record_batch_skips_non_matching_target_time(self, mock_data_source):
@@ -170,7 +170,7 @@ class TestMeanAggregator:
         )
 
         # Should not have recorded because target_time > time_len
-        assert agg._n_batches == 0
+        assert agg._n_batches["8x8"] == 0
 
     def test_multiscale_grid_selection(self, mock_data_source, mock_data_source_large):
         """Verify that the correct grid is selected for multi-scale training."""
@@ -190,7 +190,7 @@ class TestMeanAggregator:
             gen_data_norm={},
         )
 
-        assert agg._n_batches == 1
+        assert agg._n_batches["16x16"] == 1
         # Verify metrics were created with correct grid key
         assert agg._variable_metrics is not None
         keys = list(agg._variable_metrics.keys())
@@ -212,6 +212,12 @@ class TestMeanAggregator:
             target_data_norm={},
             gen_data_norm={},
         )
+        agg.record_batch(
+            target_data=target_data,
+            gen_data=gen_data,
+            target_data_norm={},
+            gen_data_norm={},
+        )
 
         logs = agg.get_logs(label="reduced")
 
@@ -219,6 +225,8 @@ class TestMeanAggregator:
         assert any("weighted_rmse" in k for k in logs.keys())
         assert any("weighted_bias" in k for k in logs.keys())
         assert any("weighted_grad_mag_percent_diff" in k for k in logs.keys())
+
+        assert agg._n_batches["8x8"] == 2
 
     def test_raises_when_no_batches_recorded(self, mock_data_source):
         """Verify _get_data raises when no batches have been recorded."""

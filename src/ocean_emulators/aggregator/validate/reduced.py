@@ -132,7 +132,7 @@ class MeanAggregator(ValidateSubAggregator):
                 target = target_data[name].select(dim=time_dim, index=target_time)
                 gen = gen_data[name].select(dim=time_dim, index=target_time)
                 for metric in variable_metrics:
-                    if src.grid_size in metric:
+                    if src.grid_str in metric:
                         variable_metrics[metric][name].record(
                             target=target,
                             gen=gen,

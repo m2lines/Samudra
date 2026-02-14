@@ -132,10 +132,11 @@ class MeanAggregator(ValidateSubAggregator):
                 target = target_data[name].select(dim=time_dim, index=target_time)
                 gen = gen_data[name].select(dim=time_dim, index=target_time)
                 for metric in variable_metrics:
-                    variable_metrics[metric][name].record(
-                        target=target,
-                        gen=gen,
-                    )
+                    if src.grid_size in metric:
+                        variable_metrics[metric][name].record(
+                            target=target,
+                            gen=gen,
+                        )
             # only increment n_batches if we actually recorded a batch
             self._n_batches += 1
 

@@ -81,14 +81,13 @@ if command -v nvidia-smi >/dev/null 2>&1; then
 fi
 
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${CONTAINER_TAG}}"
+mkdir -p "${DATA_CACHE_DIR}"
 PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-not manual and cuda}"
 PYTEST_WORKERS="${PYTEST_WORKERS:-2}"
 PYTEST_ARGS="${PYTEST_ARGS:--x}"
 
 binds=("${REPO_DIR}:/repo")
-if [[ -d "${DATA_CACHE_DIR}" ]]; then
-  binds+=("${DATA_CACHE_DIR}:/repo/.data_cache")
-fi
+binds+=("${DATA_CACHE_DIR}:/repo/.data_cache")
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
 echo "Running CUDA tests with marker: ${PYTEST_MARK_EXPR}"

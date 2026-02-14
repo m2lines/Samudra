@@ -2,12 +2,13 @@
 #SBATCH --job-name=oe-apptainer-gpu-tests
 #SBATCH --output=slurm-%j.out
 #SBATCH --account=torch_pr_347_courant
+#SBATCH --partition=rtx6000_lzanna
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=1000GB
+#SBATCH --mem=128GB
 #SBATCH --gres=gpu:rtx6000:1
-#SBATCH --time=02:00:00
+#SBATCH --time=00:30:00
 
 set -euo pipefail
 
@@ -79,7 +80,7 @@ if command -v nvidia-smi >/dev/null 2>&1; then
   nvidia-smi || true
 fi
 
-DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache}"
+DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${CONTAINER_TAG}}"
 PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-not manual and cuda}"
 PYTEST_WORKERS="${PYTEST_WORKERS:-2}"
 PYTEST_ARGS="${PYTEST_ARGS:--x}"

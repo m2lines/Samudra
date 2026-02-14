@@ -420,6 +420,9 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
 
     The caller must ensure concurrent processes/threads do not change this cache.
     """
+    import shutil
+    import warnings
+
     cache = cache_root / cache_name
     try:
         data = xr.open_zarr(cache / "data.zarr")
@@ -457,6 +460,19 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
             boundary_var_names=boundary_vars,
         )
     except (FileNotFoundError, PermissionError):
+        return None
+    except Exception as e:
+        # Cache should be best-effort: if an old cache was written with an
+        # incompatible xarray/zarr version, treat it as a miss and rebuild.
+        #
+        # This matters for long-lived caches (e.g. shared scratch dirs on Slurm),
+        # where a container upgrade can otherwise make cached Zarr metadata
+        # unreadable.
+        warnings.warn(
+            f"Failed to read cached DataSource at {cache!s}; rebuilding cache. ({type(e).__name__}: {e})",
+            RuntimeWarning,
+        )
+        shutil.rmtree(cache, ignore_errors=True)
         return None
 
 

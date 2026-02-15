@@ -5,7 +5,12 @@ WORKDIR /workspace
 
 COPY LICENSE README.md pyproject.toml uv.lock ./
 COPY src ./src
+COPY configs ./configs
 COPY scripts/container ./scripts/container
+
+# Bind-mount targets used by Slurm harnesses (ensure they exist in the image so
+# Apptainer --bind doesn't fail when mounting into subpaths).
+RUN mkdir -p /workspace/.data_cache
 
 # Ensure image-provided heavy deps satisfy this project's declared requirements.
 RUN python scripts/container/verify_image_packages.py

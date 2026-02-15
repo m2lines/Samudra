@@ -24,12 +24,12 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --account=torch_pr_347_courant
 #SBATCH --partition=rtx6000_lzanna
-#SBATCH --nodes=8
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128GB
 #SBATCH --gres=gpu:rtx6000:8
-#SBATCH --time=12:00:00
+#SBATCH --time=02:00:00
 
 set -euo pipefail
 
@@ -173,4 +173,3 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         --backend=\"nccl\" \
         ${ARGS}
     "
-

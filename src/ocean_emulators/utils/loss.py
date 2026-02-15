@@ -299,6 +299,12 @@ class SpatialDynamicLoss:
         self._spatial_resolution_lat = spatial_resolution_lat
         self._epsilon = 1e-8
         self._per_channel_scale_map: Float[torch.Tensor, "var lat lon"] | None = None
+        # Fraction of wet cells per pooled bin, per channel. Used to (a) compute
+        # wet-only pooled loss statistics and (b) do mask-aware interpolation so
+        # land-only bins don't bleed into coastal ocean bins.
+        self._per_channel_pooled_wet_frac: Float[torch.Tensor, "var lat lon"] | None = (
+            None
+        )
 
         self._collect_batch_unscaled = False
         self._batch_unscaled_loss_with_history: torch.Tensor | None = None
@@ -315,6 +321,44 @@ class SpatialDynamicLoss:
             (self._num_channels, pooled_lat, pooled_lon),
             device=self._device,
         )
+        self._per_channel_pooled_wet_frac = None
+
+    def _wet_per_channel(
+        self, ctx: GridContext, *, lat: int, lon: int, hist: int
+    ) -> Float[torch.Tensor, "var lat lon"]:
+        wet_full = ctx.label_mask.to(device=self._device)
+        wet_full = wet_full.to(dtype=torch.float32)
+        if wet_full.shape[-2:] != (lat, lon):
+            raise ValueError(
+                f"Expected ctx.label_mask spatial dims {(lat, lon)}, got {tuple(wet_full.shape[-2:])}"
+            )
+        if wet_full.shape[0] == self._num_channels:
+            wet = wet_full
+        else:
+            if wet_full.shape[0] != hist * self._num_channels:
+                raise ValueError(
+                    f"Expected ctx.label_mask channels to be {self._num_channels} or {hist}*{self._num_channels}={hist * self._num_channels}, "
+                    f"got {wet_full.shape[0]}"
+                )
+            wet = wet_full.reshape(hist, self._num_channels, lat, lon).mean(dim=0)
+        return wet.to(device=self._device)
+
+    def _pooled_wet_frac(
+        self, ctx: GridContext, *, lat: int, lon: int, hist: int
+    ) -> Float[torch.Tensor, "var lat_p lon_p"]:
+        if self._per_channel_scale_map is None:
+            raise RuntimeError("Scale map must be initialized before pooling wet mask.")
+        if self._per_channel_pooled_wet_frac is not None:
+            return self._per_channel_pooled_wet_frac
+
+        pooled_hw = (
+            int(self._per_channel_scale_map.shape[-2]),
+            int(self._per_channel_scale_map.shape[-1]),
+        )
+        wet = self._wet_per_channel(ctx, lat=lat, lon=lon, hist=hist)
+        pooled_wet = F.adaptive_avg_pool2d(wet.unsqueeze(0), pooled_hw).squeeze(0)
+        self._per_channel_pooled_wet_frac = pooled_wet.to(device=self._device)
+        return self._per_channel_pooled_wet_frac
 
     def _loss_with_history_and_maps(
         self,
@@ -343,12 +387,23 @@ class SpatialDynamicLoss:
         )
         loss_map = loss_map.reshape(batch, hist, self._num_channels, lat, lon)
 
-        scale_map = F.interpolate(
-            self._per_channel_scale_map.unsqueeze(0),
+        pooled_wet = self._pooled_wet_frac(ctx, lat=lat, lon=lon, hist=hist)
+        # Mask-aware interpolation: interpolate numerator and denominator separately
+        # so land-only bins (pooled_wet=0) don't bleed into ocean bins.
+        scale_num = F.interpolate(
+            (self._per_channel_scale_map * pooled_wet).unsqueeze(0),
             size=(lat, lon),
             mode="bilinear",
             align_corners=False,
         ).squeeze(0)
+        wet_den = F.interpolate(
+            pooled_wet.unsqueeze(0),
+            size=(lat, lon),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(0)
+        scale_map = scale_num / wet_den.clamp_min(self._epsilon)
+        scale_map = torch.where(wet_den > 0, scale_map, torch.ones_like(scale_map))
         scale_map = scale_map.to(dtype=loss_map.dtype)
         scaled_loss_map = loss_map * scale_map.unsqueeze(0).unsqueeze(0)
 
@@ -403,15 +458,29 @@ class SpatialDynamicLoss:
             int(self._per_channel_scale_map.shape[-2]),
             int(self._per_channel_scale_map.shape[-1]),
         )
-        pooled_loss_map = F.adaptive_avg_pool2d(
-            mean_loss_map.unsqueeze(0), pooled_hw
-        ).squeeze(0)
-        pooled_loss_map = pooled_loss_map.clamp_min(self._epsilon)
-
-        new_target_weights = 1.0 / pooled_loss_map
+        pooled_loss_map = F.adaptive_avg_pool2d(mean_loss_map.unsqueeze(0), pooled_hw)
+        pooled_loss_map = pooled_loss_map.squeeze(0)
 
         if get_world_size() > 1:
-            all_reduce_mean(new_target_weights)
+            # Reduce the (linear) pooled loss statistics before inversion. This avoids
+            # biasing the update toward ranks with unusually small/large losses.
+            all_reduce_mean(pooled_loss_map)
+
+        # Convert pooled masked loss (mean over all cells) into wet-only mean by
+        # dividing out the wet-cell fraction per pooled bin.
+        hist = int(loss_map.shape[1])
+        pooled_wet = self._pooled_wet_frac(
+            ctx, lat=mean_loss_map.shape[-2], lon=mean_loss_map.shape[-1], hist=hist
+        )
+        pooled_loss_wet_mean = pooled_loss_map / pooled_wet.clamp_min(self._epsilon)
+        pooled_loss_wet_mean = pooled_loss_wet_mean.clamp_min(self._epsilon)
+
+        new_target_weights = 1.0 / pooled_loss_wet_mean
+        # For fully-dry pooled bins, keep a neutral scale to prevent blow-ups and
+        # avoid introducing extreme values that can leak via interpolation.
+        new_target_weights = torch.where(
+            pooled_wet > 0, new_target_weights, torch.ones_like(new_target_weights)
+        )
 
         if self._limit is not None:
             min_scale = new_target_weights.min()

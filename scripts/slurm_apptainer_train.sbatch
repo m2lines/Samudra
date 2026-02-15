@@ -159,7 +159,11 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
       set -euo pipefail
       . /workspace/.venv/bin/activate
       export PYTHONPATH=/repo/src:\${PYTHONPATH:-}
-      uv run torchrun \
+      if ! command -v torchrun >/dev/null 2>&1; then
+        echo \"ERROR: torchrun not found on PATH inside container\" >&2
+        exit 1
+      fi
+      torchrun \
         --nnodes=${SLURM_NNODES} \
         --nproc_per_node=${GPUS_PER_NODE} \
         --master_addr=${MASTER_ADDR} \

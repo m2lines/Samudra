@@ -140,7 +140,21 @@ if [[ -z "${GPUS_PER_NODE}" ]]; then
   fi
 fi
 
-export OMP_NUM_THREADS="${OMP_NUM_THREADS:-${SLURM_CPUS_PER_TASK:-1}}"
+# Avoid oversubscribing CPU threads when torchrun spawns one process per GPU.
+if [[ -z "${OMP_NUM_THREADS:-}" ]]; then
+  if [[ -n "${SLURM_CPUS_PER_TASK:-}" ]]; then
+    t="$(( SLURM_CPUS_PER_TASK / GPUS_PER_NODE ))"
+    if (( t < 1 )); then
+      t=1
+    fi
+    export OMP_NUM_THREADS="$t"
+  else
+    export OMP_NUM_THREADS=1
+  fi
+fi
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${OMP_NUM_THREADS}}"
+export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
+export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
 
 # Bind mounts.

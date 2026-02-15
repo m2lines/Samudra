@@ -5,7 +5,7 @@
 #   export CONFIG=configs/.../train.yaml
 #   export NAME=my_run
 #   export ARGS="--epochs=2 --batch_size=1"
-#   export WANDB_API_KEY=...   # optional; if unset, wandb runs offline
+#   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled
 #   sbatch --nodes=1 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
 # Multi-node example (requires the partition to actually have >=N nodes available):
@@ -56,14 +56,18 @@ OUTPUT_BASE="${OUTPUT_BASE:-/scratch/jr7309/runs}"
 
 mkdir -p "${OUTPUT_BASE}/${NAME}"
 
-# W&B mode defaults: online if key provided, else offline.
+# W&B mode defaults: online if key provided, else disabled.
 WANDB_MODE="${WANDB_MODE:-}"
 if [[ -z "${WANDB_MODE}" ]]; then
   if [[ -n "${WANDB_API_KEY:-}" ]]; then
     WANDB_MODE="online"
   else
-    WANDB_MODE="offline"
+    WANDB_MODE="disabled"
   fi
+fi
+if [[ "${WANDB_MODE}" == "offline" ]]; then
+  # TrainConfig.experiment.wandb.mode only accepts "online" or "disabled".
+  WANDB_MODE="disabled"
 fi
 
 # Container selection (same conventions as scripts/slurm_apptainer_gpu_tests.sbatch).

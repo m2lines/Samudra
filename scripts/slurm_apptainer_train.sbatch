@@ -54,7 +54,14 @@ fi
 DATA_ROOT="${DATA_ROOT:-/scratch/jr7309/data/om4_onedeg_v3}"
 OUTPUT_BASE="${OUTPUT_BASE:-/scratch/jr7309/runs}"
 
-mkdir -p "${OUTPUT_BASE}/${NAME}"
+mkdir -p "${OUTPUT_BASE}"
+RUN_DIR="${OUTPUT_BASE}/${NAME}"
+if [[ -e "${RUN_DIR}" ]]; then
+  echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
+  echo "Pick a unique NAME (we recommend a date prefix)." >&2
+  exit 4
+fi
+mkdir -p "${RUN_DIR}"
 
 # W&B mode defaults: online if key provided, else disabled.
 WANDB_MODE="${WANDB_MODE:-}"
@@ -68,6 +75,11 @@ fi
 if [[ "${WANDB_MODE}" == "offline" ]]; then
   # TrainConfig.experiment.wandb.mode only accepts "online" or "disabled".
   WANDB_MODE="disabled"
+fi
+
+# If WANDB_DIR is set, ensure it's writable on the host before entering the container.
+if [[ -n "${WANDB_DIR:-}" ]]; then
+  mkdir -p "${WANDB_DIR}"
 fi
 
 # Container selection (same conventions as scripts/slurm_apptainer_gpu_tests.sbatch).

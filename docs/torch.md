@@ -38,9 +38,15 @@ Main script:
 
 - `scripts/slurm_apptainer_train.sbatch`
 
+By default, the harness runs against the **code and configs baked into the container**
+(under `/workspace/src` and `/workspace/configs`). It does **not** bind-mount your
+host checkout into the container for training. This keeps runs pinned to a container
+tag (and avoids accidental drift from host edits).
+
 It expects environment variables:
 
-- `CONFIG` (required): config file path, e.g. `configs/samudra_om4/train.yaml`
+- `CONFIG` (required): config path inside the container image. Relative paths are
+  resolved under `/workspace/`, e.g. `configs/samudra_om4/train.yaml`.
 - `NAME` (required): run name (used as `--experiment.name` and output folder name)
 - `ARGS` (optional): extra CLI overrides, e.g. `--loss.type=dynamic_spatial`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
@@ -49,6 +55,8 @@ Key behavior:
 
 - Refuses to run if `/scratch/.../runs/$NAME` already exists (forces unique run names).
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
+- To change training code or YAML configs, rebuild/publish a new container tag and
+  point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
 - Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
 
 ### Name Convention (Date Prefix)
@@ -169,4 +177,3 @@ export GHCR_TOKEN=...
 ```
 
 The harness maps these to the environment variables Apptainer uses for registry auth.
-

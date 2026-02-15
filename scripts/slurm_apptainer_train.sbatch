@@ -50,6 +50,14 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   exit 2
 fi
 
+# Config path inside the container image. We keep the env var as-is for
+# backwards compatibility, but resolve relative paths under /workspace/
+# (the image's working directory where configs/ is copied).
+CONFIG_IN_CONTAINER="${CONFIG}"
+if [[ "${CONFIG_IN_CONTAINER}" != /* ]]; then
+  CONFIG_IN_CONTAINER="/workspace/${CONFIG_IN_CONTAINER}"
+fi
+
 # Data + outputs (host paths; will be bind-mounted into the container at same paths).
 DATA_ROOT="${DATA_ROOT:-/scratch/jr7309/data/om4_onedeg_v3}"
 OUTPUT_BASE="${OUTPUT_BASE:-/scratch/jr7309/runs}"
@@ -117,7 +125,7 @@ if [[ -n "${GHCR_TOKEN:-}" ]] && [[ -z "${APPTAINER_DOCKER_PASSWORD:-}" ]]; then
 fi
 
 echo "Repo dir:   ${REPO_DIR}"
-echo "Config:     ${CONFIG}"
+echo "Config:     ${CONFIG_IN_CONTAINER}"
 echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
@@ -173,24 +181,28 @@ export PYTHONUNBUFFERED=1
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
 mkdir -p "${DATA_CACHE_DIR}"
 binds=(
-  "${REPO_DIR}:/repo"
   "${DATA_ROOT}:${DATA_ROOT}"
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
-  "${DATA_CACHE_DIR}:/repo/.data_cache"
+  "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
     --bind "${BIND_ARG}" \
-    --pwd /repo \
+    --pwd /workspace \
     "${SIF_PATH}" \
     bash -lc "
       set -euo pipefail
-      export PYTHONPATH=/repo/src:\${PYTHONPATH:-}
+      export PYTHONPATH=/workspace/src:\${PYTHONPATH:-}
       if [[ ! -x /workspace/.venv/bin/python ]]; then
         echo \"ERROR: /workspace/.venv/bin/python not found inside container\" >&2
         exit 1
+      fi
+      if [[ ! -f \"${CONFIG_IN_CONTAINER}\" ]]; then
+        echo \"ERROR: config not found inside container: ${CONFIG_IN_CONTAINER}\" >&2
+        echo \"Hint: rebuild/pull a container tag that includes /workspace/configs.\" >&2
+        exit 2
       fi
       /workspace/.venv/bin/python -m torch.distributed.run \
         --nnodes=${SLURM_NNODES} \
@@ -198,7 +210,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         --master_addr=${MASTER_ADDR} \
         --master_port=${MASTER_PORT} \
         --node_rank=\${SLURM_PROCID} \
-        -m ocean_emulators.train \"${CONFIG}\" \
+        -m ocean_emulators.train \"${CONFIG_IN_CONTAINER}\" \
         --experiment.name=\"${NAME}\" \
         --experiment.data_root=\"${DATA_ROOT}\" \
         --experiment.base_output_dir=\"${OUTPUT_BASE}\" \

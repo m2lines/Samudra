@@ -135,3 +135,34 @@ def test_dynamic_spatial_state_dict_roundtrip():
     assert torch.allclose(
         loss.loss_scale_std_per_channel(), restored.loss_scale_std_per_channel()
     )
+
+
+def test_dynamic_spatial_update_ignores_fully_dry_pooled_bins():
+    # Regression test: pooled land-only bins used to yield near-zero pooled loss,
+    # which would invert to huge weights and explode the scale map.
+    num_channels = 2
+    hist = 1
+    lat = 8
+    lon = 8
+    channels_with_history = hist * num_channels
+
+    loss = SpatialDynamicLoss(
+        metric="mse",
+        limit=None,
+        device=torch.device("cpu"),
+        num_channels=num_channels,
+        ema_window=100,
+        spatial_resolution_lat=90.0,  # pooled_lat=2 for lat=8
+    )
+
+    ctx = _make_ctx(channels_with_history, lat, lon)
+    # Make one pooled quadrant fully dry for all channels.
+    ctx.label_mask[:, : lat // 2, : lon // 2] = 0
+
+    pred = torch.ones(1, channels_with_history, lat, lon)
+    target = torch.zeros_like(pred)
+
+    loss.update(pred, target, ctx)
+    scales = loss.loss_scale_per_channel()
+    assert torch.isfinite(scales).all()
+    assert scales.max() < 10.0

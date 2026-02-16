@@ -7,7 +7,7 @@ import importlib
 import importlib.metadata as metadata
 
 import torch
-import zarr
+import zarr  # type: ignore
 
 
 def require_import(module_name: str) -> None:
@@ -24,7 +24,6 @@ def main() -> int:
     require_import("ocean_emulators.models.samudra")
     require_import("flash_attn")
     require_import("flash_perceiver")
-    require_import("zarr.testing")
 
     sample = torch.randn(2, 2)
     result = sample @ sample

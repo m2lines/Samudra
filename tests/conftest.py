@@ -514,8 +514,7 @@ def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
     data_source.data.to_zarr(
         dz,
         encoding={dv: {"compressor": None} for dv in data_source.data.data_vars},
-        # Force Zarr v2 for test caches to avoid xarray/zarr v3 dtype / _FillValue
-        # compatibility issues across environments.
+        # Keep cache format consistent across environments.
         zarr_format=2,
     )
     assert not (dm := cache / "means.nc").exists(), "Means already exists in cache"

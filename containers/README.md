@@ -34,12 +34,12 @@ PYTEST_ARGS="-k test_trainer"
 
 Notes:
 
-- The Docker build keeps `torch`, `torchvision`, `flash-attn`, and `zarr` from the base image.
+- The Docker build keeps `torch`, `torchvision`, and `flash-attn` from the base image.
 - The build creates `.venv` with `--system-site-packages`, then uses `uv sync` for
   the rest of the dependencies (including dev dependencies; this is a dev container).
 - If `apptainer` (or `singularity`) is installed locally, the wrapper script also
   exports a SIF from the built Docker image.
 - CUDA tests are run with Docker GPU runtime flags plus `--ipc=host` and raised
   ulimits to avoid DataLoader shared-memory failures.
-- The project is pinned to `zarr==3.*`, matching the base image and avoiding pytest
-  plugin conflicts.
+- `zarr` is installed from this repo's lockfile rather than inherited from the
+  base image.

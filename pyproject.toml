@@ -45,7 +45,7 @@ dependencies = [
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",
   "xesmf>=0.8.10",
-  "zarr==3.*",
+  "zarr<3",
 ]
 optional-dependencies.cuda = [
   "flash-attn>=2.7.4.post1,<3",

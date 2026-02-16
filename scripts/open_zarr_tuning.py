@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "xarray[io]",
-#   "zarr==3.*",   # Change this if you want to compare alternate Zarr major versions.
+#   "zarr<3",  # Change this if you want to compare alternate Zarr major versions.
 #   "dask",
 #   "requests",
 #   "aiohttp",

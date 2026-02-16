@@ -18,7 +18,7 @@ RUN python scripts/container/verify_image_packages.py
 # Reuse image-provided torch stack via system site-packages at runtime.
 RUN uv venv .venv --python /usr/bin/python3 --system-site-packages
 
-# Keep torch/torchvision/flash-attn/zarr from the base image; install the rest with uv.
+# Keep torch/torchvision/flash-attn from the base image; install the rest with uv.
 # This is a development container, so include dev dependencies too.
 RUN . .venv/bin/activate \
     && uv sync --frozen --active --extra cuda \

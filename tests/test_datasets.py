@@ -8,6 +8,7 @@ from collections.abc import Generator, Iterable
 from typing import assert_never
 
 import cftime
+import filelock
 import numpy as np
 import pytest
 import torch
@@ -35,7 +36,15 @@ from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.samplers import EquivalenceGroupBatchSampler
 from ocean_emulators.utils.train import collate_raw_train_data
-from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
+from tests.conftest import (
+    DEFAULT_CONFIG,
+    DataSourceDims,
+    TrainPair,
+    _maybe_read_cache,
+    _uncached_data_source,
+    _write_cache,
+    cache_dir,
+)
 
 
 @pytest.fixture
@@ -520,7 +529,8 @@ def assert_equal_samples(original_samples, new_samples):
 # to a local directory of cached data.
 @pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
 def test_compact_loader__equals_flat_loader(
-    data_source: DataSource, pytestconfig: pytest.Config
+    data_source: DataSource,
+    pytestconfig: pytest.Config,
 ):
     cache = cache_dir(pytestconfig)
     default_config = str(pytestconfig.rootpath / "configs" / DEFAULT_CONFIG)
@@ -536,9 +546,12 @@ def test_compact_loader__equals_flat_loader(
 
     flat_config = make_config(data_source)
 
-    # Now, we get the compact data from its local data cache! We can do this just by
-    # passing in the correct name. The cache will already have been set up by the test
-    # fixture.
+    # Ensure compact cache exists in case this test runs before any compact-parametrized
+    # data_source test on the same xdist run.
+    with filelock.FileLock(cache / "compact.lock"):
+        if _maybe_read_cache(cache, "compact") is None:
+            _write_cache(cache, _uncached_data_source("compact"))
+
     compact_source = dataclasses.replace(data_source, name="compact")
     compact_config = make_config(compact_source)
 

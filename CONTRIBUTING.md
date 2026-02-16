@@ -83,6 +83,14 @@ git push --force-with-lease
 
    For more details on how to run specific tests, please see the section below.
 
+   To validate the PhysicsNeMo-based container locally:
+   ```shell
+   scripts/container/build_physicsnemo_25_11.sh
+   scripts/container/run_cuda_tests_in_image.sh
+   ```
+   The corresponding CI workflow is `Container PhysicsNeMo 25.11` in
+   `.github/workflows/container-physicsnemo.yml` (x86 build + smoke checks).
+
    **Recommended**: For convenience, we've collected lint checks as a [pre-commit](https://pre-commit.com/)
    hook.
 
@@ -403,6 +411,36 @@ pytest -m "not manual"
 
 ```bash
 pytest -m "not manual and not cuda"
+```
+
+### Running tests in the PhysicsNeMo container
+
+If you want to run tests using the PhysicsNeMo 25.11-based image, build it first:
+
+```bash
+BUILD_APPTAINER=0 scripts/container/build_physicsnemo_25_11.sh
+```
+
+Run the CPU test set (same marker expression as CPU CI) inside the built image:
+
+```bash
+docker run --rm \
+  -v "$PWD":/repo \
+  -w /workspace \
+  ocean-emulator:physicsnemo-25.11 \
+  bash -lc '. .venv/bin/activate && cd /repo && python -m pytest -m "not manual and not cuda"'
+```
+
+Run CUDA tests in the built image:
+
+```bash
+scripts/container/run_cuda_tests_in_image.sh
+```
+
+You can pass custom pytest arguments for CUDA runs, for example:
+
+```bash
+PYTEST_ARGS="-k test_trainer" scripts/container/run_cuda_tests_in_image.sh
 ```
 
 ### Testing with Multitons

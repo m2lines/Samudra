@@ -50,6 +50,40 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --dev --extra cuda
 
+      # pytest-timeout enforces a per-test timeout, which can trip on the first
+      # run after a cache miss (remote OM4 data download + local cache write).
+      # Warm the cache up-front so dataset tests stay fast and deterministic.
+      - name: Warm remote test data cache
+        run: |
+          uv run --locked python - <<'PY'
+          from __future__ import annotations
+
+          import shutil
+          from pathlib import Path
+
+          from tests.conftest import _uncached_data_source, _write_cache
+
+          cache_root = Path(".data_cache")
+          cache_root.mkdir(parents=True, exist_ok=True)
+
+          for name in ("remote-om4", "compact"):
+              cache = cache_root / name
+              if (
+                  (cache / "data.zarr").exists()
+                  and (cache / "means.nc").exists()
+                  and (cache / "stds.nc").exists()
+              ):
+                  print(f"{name}: cache hit")
+                  continue
+
+              print(f"{name}: building cache...")
+              # Ensure we don't leave a partial cache around after a failure.
+              shutil.rmtree(cache, ignore_errors=True)
+              src = _uncached_data_source(name)
+              _write_cache(cache_root, src)
+              print(f"{name}: done")
+          PY
+
       # Each test runs with a 5-minute timeout. The `-x` flag will stop on the first failure or hang.
       - name: Run pytest
         run: uv run --with pytest-timeout --locked pytest -n 2 -v -m "not manual and cuda" --timeout=300 --timeout-method=signal -x

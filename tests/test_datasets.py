@@ -527,7 +527,11 @@ def assert_equal_samples(original_samples, new_samples):
 # details of the caches used in `data_source`. For example, this only works for the
 # constants "remote-om4" and "compact", which this tests uses to create specific paths
 # to a local directory of cached data.
-@pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source",
+    [pytest.param("remote-om4", marks=pytest.mark.manual)],
+    indirect=True,
+)
 def test_compact_loader__equals_flat_loader(
     data_source: DataSource,
     pytestconfig: pytest.Config,
@@ -567,7 +571,11 @@ def test_compact_loader__equals_flat_loader(
     assert_equal_samples(original_samples, new_samples)
 
 
-@pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source",
+    [pytest.param("remote-om4", marks=pytest.mark.manual)],
+    indirect=True,
+)
 def test_mixed_schedule__has_consistent_collated_batches(
     train_config: TrainConfig, schedule: TrainSchedule
 ):

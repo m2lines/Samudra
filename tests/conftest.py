@@ -41,7 +41,12 @@ def _truthy_env(name: str, default: str) -> bool:
 
 _ENABLE_REMOTE_TEST_DATA = _truthy_env("OE_ENABLE_REMOTE_TEST_DATA", "1")
 _DATA_SOURCE_PARAMS = ["mock"] + (
-    ["remote-om4", "compact"] if _ENABLE_REMOTE_TEST_DATA else []
+    [
+        pytest.param("remote-om4", marks=pytest.mark.manual),
+        pytest.param("compact", marks=pytest.mark.manual),
+    ]
+    if _ENABLE_REMOTE_TEST_DATA
+    else []
 )
 
 

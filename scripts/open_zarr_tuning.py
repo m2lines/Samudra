@@ -2,7 +2,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "xarray[io]",
-#   "zarr<3",   # Zarr v2 --> change to `zarr<3`; Zarr v3 --> change to `zarr>=3`.
+#   "zarr<3",  # Change this if you want to compare alternate Zarr major versions.
 #   "dask",
 #   "requests",
 #   "aiohttp",
@@ -15,7 +15,7 @@ Using techniques from this blog post:
 - https://earthmover.io/blog/xarray-open-zarr-improvements
 
 How to run experiments:
-- Change the Zarr version (above) to compare ZarrV2 vs ZarrV3.
+- Change the Zarr version (above) to compare alternate Zarr versions.
 - Configure: `uv run scripts/open_zarr_tuning.py --help`
 """
 

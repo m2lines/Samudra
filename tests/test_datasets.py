@@ -8,6 +8,7 @@ from collections.abc import Generator, Iterable
 from typing import assert_never
 
 import cftime
+import filelock
 import numpy as np
 import pytest
 import torch
@@ -35,7 +36,15 @@ from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.samplers import EquivalenceGroupBatchSampler
 from ocean_emulators.utils.train import collate_raw_train_data
-from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
+from tests.conftest import (
+    DEFAULT_CONFIG,
+    DataSourceDims,
+    TrainPair,
+    _maybe_read_cache,
+    _uncached_data_source,
+    _write_cache,
+    cache_dir,
+)
 
 
 @pytest.fixture
@@ -429,8 +438,10 @@ def test_loader__data_shape__across_schedules(
                     ((90, 180), (90, 180)),  # (1,1): half-res input, half-res label
                 }
                 observed_patterns = set(example_resolutions)
-                # All observed patterns must be valid
-                assert observed_patterns == valid_patterns, (
+                # With drop_last and grouped sampling, not every cartesian-pair
+                # is guaranteed to appear in a finite sample, but any observed
+                # pair must still be valid for mix mode.
+                assert observed_patterns.issubset(valid_patterns), (
                     f"All resolutions must be valid members of the cartesian product for 'mix' schedule. "
                     f"Valid patterns: {valid_patterns}, got {observed_patterns}, "
                     f"invalid patterns: {observed_patterns - valid_patterns}"
@@ -516,9 +527,14 @@ def assert_equal_samples(original_samples, new_samples):
 # details of the caches used in `data_source`. For example, this only works for the
 # constants "remote-om4" and "compact", which this tests uses to create specific paths
 # to a local directory of cached data.
-@pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source",
+    [pytest.param("remote-om4", marks=pytest.mark.manual)],
+    indirect=True,
+)
 def test_compact_loader__equals_flat_loader(
-    data_source: DataSource, pytestconfig: pytest.Config
+    data_source: DataSource,
+    pytestconfig: pytest.Config,
 ):
     cache = cache_dir(pytestconfig)
     default_config = str(pytestconfig.rootpath / "configs" / DEFAULT_CONFIG)
@@ -534,9 +550,12 @@ def test_compact_loader__equals_flat_loader(
 
     flat_config = make_config(data_source)
 
-    # Now, we get the compact data from its local data cache! We can do this just by
-    # passing in the correct name. The cache will already have been set up by the test
-    # fixture.
+    # Ensure compact cache exists in case this test runs before any compact-parametrized
+    # data_source test on the same xdist run.
+    with filelock.FileLock(cache / "compact.lock"):
+        if _maybe_read_cache(cache, "compact") is None:
+            _write_cache(cache, _uncached_data_source("compact"))
+
     compact_source = dataclasses.replace(data_source, name="compact")
     compact_config = make_config(compact_source)
 
@@ -552,7 +571,11 @@ def test_compact_loader__equals_flat_loader(
     assert_equal_samples(original_samples, new_samples)
 
 
-@pytest.mark.parametrize("data_source", ["remote-om4"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source",
+    [pytest.param("remote-om4", marks=pytest.mark.manual)],
+    indirect=True,
+)
 def test_mixed_schedule__has_consistent_collated_batches(
     train_config: TrainConfig, schedule: TrainSchedule
 ):

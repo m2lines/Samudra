@@ -1,4 +1,5 @@
 import dataclasses
+import os
 import pathlib
 import random
 import time
@@ -31,6 +32,22 @@ FOMO_CONFIG = "test/train_fomo.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", FOMO_CONFIG]
 
 TrainPair = tuple[TrainConfig, Trainer]
+
+
+def _truthy_env(name: str, default: str) -> bool:
+    val = os.getenv(name, default).strip().lower()
+    return val not in {"0", "false", "no", "off"}
+
+
+_ENABLE_REMOTE_TEST_DATA = _truthy_env("OE_ENABLE_REMOTE_TEST_DATA", "1")
+_DATA_SOURCE_PARAMS = ["mock"] + (
+    [
+        pytest.param("remote-om4", marks=pytest.mark.manual),
+        pytest.param("compact", marks=pytest.mark.manual),
+    ]
+    if _ENABLE_REMOTE_TEST_DATA
+    else []
+)
 
 
 @dataclasses.dataclass
@@ -282,9 +299,21 @@ def cache_dir(pytestconfig: pytest.Config) -> pathlib.Path:
 
 
 def retry_with_backoff(
-    func, max_retries: int = 5, catch: type[Exception] = ServerDisconnectedError
+    func,
+    max_retries: int = 8,
+    catch: type[Exception] | tuple[type[Exception], ...] = ServerDisconnectedError,
 ):
     """Retry a function with exponential backoff."""
+    # Some backends (fsspec/http/aiohttp) can raise transient read errors that
+    # are not ServerDisconnectedError but are still worth retrying in tests.
+    try:
+        from aiohttp.client_exceptions import ClientPayloadError  # type: ignore
+    except Exception:  # pragma: no cover
+        ClientPayloadError = None  # type: ignore
+
+    if ClientPayloadError is not None and catch is ServerDisconnectedError:
+        catch = (ServerDisconnectedError, ClientPayloadError)
+
     for attempt in range(max_retries):
         try:
             return func()
@@ -420,6 +449,9 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
 
     The caller must ensure concurrent processes/threads do not change this cache.
     """
+    import shutil
+    import warnings
+
     cache = cache_root / cache_name
     try:
         data = xr.open_zarr(cache / "data.zarr")
@@ -458,6 +490,19 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         )
     except (FileNotFoundError, PermissionError):
         return None
+    except Exception as e:
+        # Cache should be best-effort: if an old cache was written with an
+        # incompatible xarray/zarr version, treat it as a miss and rebuild.
+        #
+        # This matters for long-lived caches (e.g. shared scratch dirs on Slurm),
+        # where a container upgrade can otherwise make cached Zarr metadata
+        # unreadable.
+        warnings.warn(
+            f"Failed to read cached DataSource at {cache!s}; rebuilding cache. ({type(e).__name__}: {e})",
+            RuntimeWarning,
+        )
+        shutil.rmtree(cache, ignore_errors=True)
+        return None
 
 
 def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
@@ -472,7 +517,10 @@ def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
     #  See https://github.com/m2lines/ocean_emulators/blob/main/ocean_emulators/__main__.py#L240
     assert not (dz := cache / "data.zarr").exists(), "Data already exists in cache"
     data_source.data.to_zarr(
-        dz, encoding={dv: {"compressor": None} for dv in data_source.data.data_vars}
+        dz,
+        encoding={dv: {"compressor": None} for dv in data_source.data.data_vars},
+        # Keep cache format consistent across environments.
+        zarr_format=2,
     )
     assert not (dm := cache / "means.nc").exists(), "Means already exists in cache"
     data_source.means.to_netcdf(dm)
@@ -480,11 +528,15 @@ def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
     data_source.stds.to_netcdf(ds)
 
 
-@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
+@pytest.fixture(scope="session", params=_DATA_SOURCE_PARAMS)
 def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     our_cache_dir = cache_dir(pytestconfig)
     data_type = request.param
+    if not _ENABLE_REMOTE_TEST_DATA and data_type in {"remote-om4", "compact"}:
+        pytest.skip(
+            "Remote test data disabled (set OE_ENABLE_REMOTE_TEST_DATA=1 to enable)."
+        )
     with filelock.FileLock(our_cache_dir / f"{data_type}.lock"):
         # Use cached data if available.
         if cached_data := _maybe_read_cache(our_cache_dir, data_type):

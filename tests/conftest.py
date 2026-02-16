@@ -26,15 +26,7 @@ from ocean_emulators.train import Trainer
 from ocean_emulators.utils.data import DataSource, _is_compact, compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
 
-# Prefer the OSN S3 API over direct HTTP. The HTTP gateway has been observed to
-# truncate responses under load, which makes remote test data downloads flaky.
-REMOTE_DATA = "s3://m2lines-pubs/Samudra/"
-REMOTE_DATA_STORAGE_OPTIONS = {
-    "anon": True,
-    "client_kwargs": {"endpoint_url": "https://nyu1.osn.mghpcc.org"},
-    # OSN uses path-style bucket addressing (bucket name appears in the URL path).
-    "config_kwargs": {"s3": {"addressing_style": "path"}},
-}
+REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "test/train_default.yaml"
 FOMO_CONFIG = "test/train_fomo.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", FOMO_CONFIG]
@@ -404,28 +396,18 @@ def _uncached_data_source(name: str) -> DataSource:
             # matches the mock data) is about 30 items.
 
             data = retry_with_backoff(
-                lambda: xr.open_zarr(
-                    REMOTE_DATA + "OM4",
-                    chunks=dict(time=50),
-                    storage_options=REMOTE_DATA_STORAGE_OPTIONS,
-                )
-                .sel(time=slice("1975-08-05", "1975-12-31"))
+                lambda: xr.open_zarr(REMOTE_DATA + "OM4", chunks=dict(time=50))
+                .sel(time=slice("1975-08-05", "1976-03-31"))
                 .compute()
             )
             means = retry_with_backoff(
                 lambda: xr.open_dataset(
-                    REMOTE_DATA + "OM4_means",
-                    engine="zarr",
-                    chunks={},
-                    storage_options=REMOTE_DATA_STORAGE_OPTIONS,
+                    REMOTE_DATA + "OM4_means", engine="zarr", chunks={}
                 ).compute()
             )
             stds = retry_with_backoff(
                 lambda: xr.open_dataset(
-                    REMOTE_DATA + "OM4_stds",
-                    engine="zarr",
-                    chunks={},
-                    storage_options=REMOTE_DATA_STORAGE_OPTIONS,
+                    REMOTE_DATA + "OM4_stds", engine="zarr", chunks={}
                 ).compute()
             )
 

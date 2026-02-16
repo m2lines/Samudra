@@ -1,4 +1,5 @@
 import abc
+import warnings
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
@@ -345,33 +346,40 @@ class PerceiverConfig(BaseConfig):
     ) -> nn.Module:
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*max_patch_size)
+        use_auto = self.implementation == "auto"
+        use_flash = self.implementation == "flash"
+        wants_flash_impl = use_flash or (use_auto and torch.cuda.is_available())
 
         # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
         #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
-        if (
-            self.implementation == "auto" and torch.cuda.is_available()
-        ) or self.implementation == "flash":
+        if wants_flash_impl:
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ModuleNotFoundError as e:
-                raise ValueError(
-                    "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
-                ) from e
-            perceiver = FlashPerceiver(
-                latent_rotary_emb_dim=max_freq,
-                depth=self.depth,
-                input_dim=in_channels,
-                output_dim=out_channels,
-                output_mode="average",
-                latent_dim=self.latent_dim,
-                num_latents=self.num_latents,
-                use_flash_attn=True,
-                weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
-                self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
-            )
-        elif (
-            self.implementation == "auto" and not torch.cuda.is_available()
-        ) or self.implementation == "naive":
+                if use_flash:
+                    raise ValueError(
+                        "`implementation==flash` was requested, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
+                    ) from e
+                warnings.warn(
+                    "`implementation='auto'` chose flash attention on CUDA, but flash dependencies were not importable. Falling back to `naive` implementation.",
+                    stacklevel=2,
+                )
+            else:
+                perceiver = FlashPerceiver(
+                    latent_rotary_emb_dim=max_freq,
+                    depth=self.depth,
+                    input_dim=in_channels,
+                    output_dim=out_channels,
+                    output_mode="average",
+                    latent_dim=self.latent_dim,
+                    num_latents=self.num_latents,
+                    use_flash_attn=True,
+                    weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
+                    self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
+                )
+                return perceiver
+
+        if use_auto or self.implementation == "naive":
             perceiver = NaivePerceiver(
                 num_freq_bands=4,
                 max_freq=max_freq,

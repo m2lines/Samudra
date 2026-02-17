@@ -78,8 +78,9 @@ class MapAggregator(ValidateSubAggregator):
         target_time = self.hist  # Use latest time step
         image_logs = {}
         sorted_names = sorted(list(self._gen_data.keys()))
-        grid = sorted_names[0].split("/")[-1]
         for name in sorted_names:
+            # Get grid every time just in case it changes (but it shouldn't).
+            grid = name.split("/")[-1]
             # use first sample in batch
             gen = (
                 all_reduce_mean(

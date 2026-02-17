@@ -523,10 +523,16 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
-            prognostic_selected = [
-                src.data.isel(time=x_index) for src in self.prognostic_srcs
-            ]
-            boundary_selected = self.boundary_src.data.isel(time=x_index)
+            current_x_index = x_index.isel(time=slice(0, self.hist + 1))
+            forecast_x_index = x_index.isel(time=slice(self.hist + 1, None))
+
+            # Only materialize the time ranges we actually use to reduce memory.
+            input_selected = self.prognostic_srcs[0].data.isel(time=current_x_index)
+            boundary_selected = self.boundary_src.data.isel(time=current_x_index)
+            label_selected = self.prognostic_srcs[-1].data.isel(
+                time=forecast_x_index
+            )  # forecasted data
+            prognostic_selected = [input_selected, label_selected]
 
             if self._executor is not None:
                 datasets = prognostic_selected + [boundary_selected]
@@ -605,22 +611,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         return train_data
 
     def _to_example(
-        self,
-        # time includes (self.hist + 1) past steps and the (label) future steps
-        input_: OceanData,
-        boundary: OceanData,
-        label: OceanData,
+        self, input_: OceanData, boundary: OceanData, label: OceanData
     ) -> tuple[Input, Prognostic]:
-        # Move normalization parameters to the same device as input data
-        # grab past steps and prep for model
-        total_input = self._prep_tensor_steps(
-            input_.with_time(slice(0, self.hist + 1)),
-            boundary.with_time(slice(0, self.hist + 1)),
-        )
-        # grab future steps, repeat as we do for input
-        label_tensor = self._prep_tensor_steps(
-            label.with_time(slice(self.hist + 1, None))
-        )
+        # Input/boundary only include current steps; label only includes forecasted steps.
+        total_input = self._prep_tensor_steps(input_, boundary)
+        label_tensor = self._prep_tensor_steps(label)
         return total_input, label_tensor
 
     def _prep_tensor_steps(

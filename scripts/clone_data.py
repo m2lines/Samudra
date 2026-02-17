@@ -1,6 +1,6 @@
 """Script to clone remote Oceans Emulator data locally."""
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.12"
 # dependencies = [
 #   "xarray[io]",
 #   "zarr<3",

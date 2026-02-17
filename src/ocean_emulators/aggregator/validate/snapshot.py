@@ -36,8 +36,7 @@ class SnapshotAggregator(ValidateSubAggregator):
         """
         if metadata is None:
             metadata = {}
-        else:
-            self._metadata = metadata
+        self._metadata = metadata
         self.hist = hist
 
     @torch.no_grad()

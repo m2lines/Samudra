@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
@@ -31,9 +33,8 @@ class MapAggregator(ValidateSubAggregator):
         """
         if metadata is None:
             metadata = {}
-        else:
-            self._metadata = metadata
-        self._n_batches = 0
+        self._metadata = metadata
+        self._n_batches: dict[str, int] = defaultdict(int)
         self._target_data: dict[str, torch.Tensor] = {}
         self._gen_data: dict[str, torch.Tensor] = {}
         self.hist = hist
@@ -60,7 +61,10 @@ class MapAggregator(ValidateSubAggregator):
                 self._gen_data[name] += gen_data[name].mean(dim=0)
             else:
                 self._gen_data[name] = gen_data[name].mean(dim=0)
-        self._n_batches += 1
+        name = next(iter(target_data.keys()))
+        grid = name.split("/")[-1]
+        assert "x" in grid, "Input record batches must be suffixed with a grid!"
+        self._n_batches[grid] += 1
 
     @torch.no_grad()
     def get_logs(self, label: str):
@@ -74,19 +78,20 @@ class MapAggregator(ValidateSubAggregator):
         target_time = self.hist  # Use latest time step
         image_logs = {}
         sorted_names = sorted(list(self._gen_data.keys()))
+        grid = sorted_names[0].split("/")[-1]
         for name in sorted_names:
             # use first sample in batch
             gen = (
                 all_reduce_mean(
                     self._gen_data[name].select(dim=time_dim, index=target_time)
                 )
-                / self._n_batches
+                / self._n_batches[grid]
             )
             target = (
                 all_reduce_mean(
                     self._target_data[name].select(dim=time_dim, index=target_time)
                 )
-                / self._n_batches
+                / self._n_batches[grid]
             )
             image_logs[f"image-error/{name}"] = plot_paneled_data(
                 [[(gen - target).cpu().numpy()]],

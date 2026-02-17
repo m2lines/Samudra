@@ -13,6 +13,7 @@ from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.ensemble import (
     compute_crps_loss_for_ensemble,
     compute_ensemble_metrics,
+    compute_physical_ensemble_metrics,
     generate_ensemble_predictions,
     members_for_rank,
 )
@@ -45,6 +46,9 @@ class Stepper:
         ensemble_size: int,
         distributed: bool,
         global_step: int = 0,
+        prog_mean: torch.Tensor | None = None,
+        prog_std: torch.Tensor | None = None,
+        area_weights: torch.Tensor | None = None,
     ) -> TrainBatchOutput:
         """Training step with ensemble generation."""
         # Generate ensemble predictions (sharded across GPUs if distributed)
@@ -62,9 +66,16 @@ class Stepper:
 
         # Compute ensemble metrics for logging (no grad needed)
         with torch.no_grad():
-            spread, skill, spread_skill_ratio = compute_ensemble_metrics(
+            spread, skill, spread_skill_ratio, per_step_metrics = compute_ensemble_metrics(
                 ensemble_preds, targets
             )
+
+            # Compute physical (denormalized) metrics if normalization params provided
+            if prog_mean is not None and prog_std is not None and area_weights is not None:
+                physical_metrics = compute_physical_ensemble_metrics(
+                    ensemble_preds, targets, prog_mean, prog_std, area_weights
+                )
+                per_step_metrics.update(physical_metrics)
 
         return TrainBatchOutput(
             loss,
@@ -72,6 +83,7 @@ class Stepper:
             ensemble_spread=spread,
             ensemble_skill=skill,
             spread_skill_ratio=spread_skill_ratio,
+            per_step_metrics=per_step_metrics,
         )
 
     @staticmethod
@@ -310,7 +322,14 @@ class Stepper:
         model_path: str | PathLike | None = None,
         num_model_steps_forward: int = 200,
         save_zarr: bool = False,
+        ensemble_size: int = 1,
     ) -> None:
+        """Run inference with optional ensemble averaging.
+        
+        Args:
+            ensemble_size: Number of ensemble members to generate at each step.
+                If > 1, uses ensemble mean as input to next step (prevents noise compounding).
+        """
         if save_zarr:
             if output_dir is None or model_path is None:
                 raise ValueError(
@@ -367,6 +386,7 @@ class Stepper:
                 steps_completed=step,
                 num_steps=num_steps,
                 epoch=epoch,
+                ensemble_size=ensemble_size,
             )
             # Setting initial prognostic for next loop
             initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()

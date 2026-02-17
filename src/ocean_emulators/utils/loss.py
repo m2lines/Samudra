@@ -222,6 +222,10 @@ class CrpsDynamic:
     channel's loss, discouraging the model from focusing on only a few channels.
 
     Similar to MseDynamic but for ensemble CRPS loss.
+    
+    Optionally includes a spread regularizer that encourages diversity early in training:
+        L = CRPS - λ * spread_regularizer
+    where λ ramps down from spread_reg_lambda to 0 over spread_reg_steps.
     """
 
     N_WINDOW = 25
@@ -234,6 +238,8 @@ class CrpsDynamic:
         limit: float | None,
         num_channels: int,
         var_names: list[str] | None = None,
+        spread_reg_lambda: float = 0.0,
+        spread_reg_steps: int = 10000,
     ):
         self._wet: Grid = wet
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
@@ -243,6 +249,13 @@ class CrpsDynamic:
         self._var_names = var_names or [f"var_{i}" for i in range(num_channels)]
         # Store last clamping stats for WandB logging
         self._last_clamp_stats: dict[str, float] | None = None
+        
+        # Spread regularizer parameters
+        self._spread_reg_lambda = spread_reg_lambda
+        self._spread_reg_steps = spread_reg_steps
+        self._step = 0
+        self._last_spread_reg_lambda: float = spread_reg_lambda
+        self._last_spread_bonus: float = 0.0
 
     def get_clamp_stats(self) -> dict[str, float] | None:
         """Return last clamping statistics for WandB logging."""
@@ -270,7 +283,56 @@ class CrpsDynamic:
             loss_with_history_channels.reshape(-1, self._per_channel_scale.shape[0])
             * self._per_channel_scale
         )
-        return scaled_loss_including_history_dimension.reshape(-1)
+        scaled_loss = scaled_loss_including_history_dimension.reshape(-1)
+        
+        # Add spread regularizer bonus (negative = encourages spread)
+        # λ ramps down from spread_reg_lambda to 0 over spread_reg_steps
+        if self._spread_reg_lambda > 0 and self._step < self._spread_reg_steps:
+            # Current lambda (linear cooldown)
+            progress = self._step / self._spread_reg_steps
+            current_lambda = self._spread_reg_lambda * (1.0 - progress)
+            self._last_spread_reg_lambda = current_lambda
+            
+            # Compute spread bonus: mean pairwise L1 distance
+            # pred shape: (ensemble, batch, hist*var, lat, lon)
+            ensemble_size = pred.shape[0]
+            wet_float = self._wet.to(device=pred.device, dtype=pred.dtype)
+            if wet_float.ndim == 2:
+                wet_float = wet_float.unsqueeze(0)
+            
+            # Compute pairwise differences
+            pred_i = pred.unsqueeze(1)  # (E, 1, B, C, H, W)
+            pred_j = pred.unsqueeze(0)  # (1, E, B, C, H, W)
+            pairwise_l1 = torch.abs(pred_i - pred_j)  # (E, E, B, C, H, W)
+            
+            # Mean over all pairs (excluding diagonal), batch, and spatial dims
+            # Sum over ensemble pairs, normalize by M*(M-1)
+            spread_per_channel = pairwise_l1.sum(dim=(0, 1)) / (ensemble_size * (ensemble_size - 1))
+            spread_per_channel = (spread_per_channel * wet_float.unsqueeze(0)).mean(dim=(0, 2, 3))
+            
+            # Spread bonus (negative because we minimize loss)
+            spread_bonus = current_lambda * spread_per_channel.mean()
+            self._last_spread_bonus = spread_bonus.item()
+            
+            # Subtract spread bonus (encourages more spread)
+            scaled_loss = scaled_loss - spread_bonus
+        else:
+            self._last_spread_reg_lambda = 0.0
+            self._last_spread_bonus = 0.0
+        
+        return scaled_loss
+
+    def step(self) -> None:
+        """Increment step counter for spread regularizer cooldown."""
+        self._step += 1
+
+    def get_spread_reg_stats(self) -> dict[str, float]:
+        """Return spread regularizer stats for WandB logging."""
+        return {
+            "spread_reg/lambda": self._last_spread_reg_lambda,
+            "spread_reg/bonus": self._last_spread_bonus,
+            "spread_reg/step": self._step,
+        }
 
     def update(
         self,

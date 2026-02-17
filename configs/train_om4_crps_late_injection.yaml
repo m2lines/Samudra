@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=schemas/TrainConfig.json
+# CRPS with Late Noise Injection (SDL-style)
+# Uses fixed-scale noise injection after UNet that cannot be suppressed by training
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 70
+batch_size: 1
+learning_rate: 0.0002
+scheduler: { type: cosine }
+loss: crps_dynamic  # Dynamic CRPS with limiting enabled
+ensemble_size_train: 4  # 4 ensemble members
+ensemble_parallel: true  # Distribute ensemble across GPUs (1 member per GPU with 4 GPUs)
+val_freq_steps: 500
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_percent: 1.0
+
+# Training and validation time periods
+train_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+val_time:
+  start: "2013-10-05"
+  end: "2014-10-05"
+
+# Inference periods for evaluation
+inference_times:
+  - start: "1975-01-03"
+    end: "1976-01-03"
+  - start: "1985-01-03"
+    end: "1986-01-03"
+  - start: "1995-01-03"
+    end: "1996-01-03"
+  - start: "2004-10-05"
+    end: "2005-10-05"
+
+data_stride: [1]
+steps: [4]
+step_transition: []
+
+# Spread regularizer - now that noise is working, we may not need this
+# Set to 0 to disable, or use small value if spread still needs encouragement
+spread_reg_lambda: 0.0  # Disabled - pure noise injection is working
+spread_reg_steps: 20000  # Cool down over 20k steps (unused when lambda=0)
+
+backend: auto
+
+experiment:
+  name: local_om4_crps_sdl_val_fix
+  rand_seed: 15
+  base_output_dir: /scratch/ag11542/models
+  wandb:
+    mode: online
+    project: ocean-emulators
+    entity: m2lines
+    group: samudra-train-om4
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds_hfds_anom
+
+data: !include data/public.yaml
+
+model:
+  # SDL-style late noise injection with warmup schedule
+  # Noise ramps up over training so model can't learn to suppress it early
+  noise_mode: late_injection
+  noise_alpha: 0.5  # Increased from 0.1 - needs to be significant relative to output
+  noise_warmup_steps: 10000  # Ramp noise scale from 0.3 to 1.0 over 10k steps
+  noise_warmup_start: 0.3  # Start with 30% of full noise (was 0.1)
+  noise_warmup_schedule: linear
+  
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: "circular"
+
+  unet:
+    ch_width: [200, 250, 300, 400]
+    dilation: [1, 2, 4, 8]
+    n_layers: [1, 1, 1, 1]
+
+    core_block:
+      block_type: "conv_next_block"
+      kernel_size: 3
+      activation: "capped_gelu"
+      upscale_factor: 4
+      norm: "batch"
+
+    down_sampling_block: "avg_pool"
+    up_sampling_block: "bilinear_upsample"
+
+  corrector:
+    non_negative_corrector_names: null
+    ocean_heat_corrector: false

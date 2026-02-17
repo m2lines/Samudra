@@ -160,6 +160,8 @@ class Eval:
         self.model_path = cfg.ckpt_path
         self.normalize_before_mask = cfg.data.normalize_before_mask
         self.masked_fill_value = cfg.data.masked_fill_value
+        self.ensemble_size_inference = cfg.ensemble_size_inference
+        self.noise_enabled = cfg.noise_enabled
         self.init_inference_store()
 
     def load_checkpoint(self, ckpt_path: str):
@@ -170,6 +172,10 @@ class Eval:
             name = k.removeprefix("module.")
             new_state_dict[name] = v
         self.model.load_state_dict(new_state_dict)
+        
+        # Configure noise after loading checkpoint
+        if hasattr(self.model, 'set_noise_enabled'):
+            self.model.set_noise_enabled(self.noise_enabled)
 
     def init_inference_store(self):
         sliced_src = self.src.slice(self.inference_time)
@@ -229,6 +235,7 @@ class Eval:
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
             save_zarr=self.save_zarr,
+            ensemble_size=self.ensemble_size_inference,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

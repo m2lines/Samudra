@@ -1,5 +1,8 @@
+import math
+
 import torch
 import torch.nn as nn
+import torch.distributed as dist
 
 
 class NoiseMLP(nn.Module):
@@ -17,6 +20,9 @@ class NoiseMLP(nn.Module):
         hidden_dim: Hidden dimension of the MLP
         output_dim: Output dimension (conditioning embedding size)
         noise_shape: Tuple of (height, width) matching the model's processor grid resolution
+        warmup_steps: Number of steps to ramp noise scale from warmup_start to 1.0
+        warmup_start: Initial noise scale multiplier (default: 0.1)
+        warmup_schedule: 'linear' or 'cosine'
     """
 
     def __init__(
@@ -25,10 +31,20 @@ class NoiseMLP(nn.Module):
         hidden_dim: int,
         output_dim: int,
         noise_shape: tuple[int, int],
+        warmup_steps: int = 10000,
+        warmup_start: float = 0.1,
+        warmup_schedule: str = "linear",
     ):
         super().__init__()
         self.noise_channels = noise_channels
         self.noise_shape = noise_shape
+
+        # Warmup schedule parameters
+        self.warmup_steps = warmup_steps
+        self.warmup_start = warmup_start
+        self.warmup_schedule = warmup_schedule
+        self.register_buffer('_step', torch.tensor(0, dtype=torch.long))
+        self._last_scale: float = warmup_start
 
         # Input size is noise_channels * num_noise_grid_points
         input_size = noise_channels * noise_shape[0] * noise_shape[1]
@@ -42,6 +58,28 @@ class NoiseMLP(nn.Module):
 
         # Layer normalization on the output
         self.layer_norm = nn.LayerNorm(output_dim)
+
+    def get_noise_scale(self) -> float:
+        """Get current noise scale based on warmup schedule."""
+        step = self._step.item()
+        if step >= self.warmup_steps:
+            return 1.0
+        
+        progress = step / self.warmup_steps
+        
+        if self.warmup_schedule == "linear":
+            scale = self.warmup_start + (1.0 - self.warmup_start) * progress
+        elif self.warmup_schedule == "cosine":
+            # Cosine annealing from warmup_start to 1.0
+            scale = self.warmup_start + (1.0 - self.warmup_start) * (1 - math.cos(math.pi * progress)) / 2
+        else:
+            raise ValueError(f"Unknown warmup schedule: {self.warmup_schedule}")
+        
+        return scale
+
+    def step(self):
+        """Increment step counter (call once per training step)."""
+        self._step += 1
 
     def generate_noise(
         self,
@@ -62,6 +100,16 @@ class NoiseMLP(nn.Module):
         Returns:
             Noise tensor
         """
+        # CRITICAL: Use rank-aware generator to ensure different noise per GPU
+        # Without this, ensemble_parallel=true gives identical members because
+        # all ranks have synchronized global RNG from set_seed()
+        rank = dist.get_rank() if (dist.is_available() and dist.is_initialized()) else 0
+        
+        generator = torch.Generator(device=device)
+        # Seed combines: rank (for cross-GPU diversity) + random int (for per-call diversity)
+        seed = rank * 1000000 + torch.randint(0, 1000000, (1,), device=device).item()
+        generator.manual_seed(seed)
+        
         return torch.randn(
             batch_size,
             self.noise_channels,
@@ -69,6 +117,7 @@ class NoiseMLP(nn.Module):
             self.noise_shape[1],
             device=device,
             dtype=dtype,
+            generator=generator,
         )
 
     def forward(self, noise: torch.Tensor) -> torch.Tensor:
@@ -96,8 +145,21 @@ class NoiseMLP(nn.Module):
 
         # Apply layer normalization
         conditioning = self.layer_norm(embedding)
+        
+        # Apply warmup scale to the conditioning embeddings
+        # This scales gamma/beta effectively since they're linear projections of conditioning
+        scale = self.get_noise_scale()
+        self._last_scale = scale
+        conditioning = scale * conditioning
 
         return conditioning
+
+    def get_stats(self) -> dict[str, float]:
+        """Get warmup stats for wandb logging."""
+        return {
+            "noise_scale": self._last_scale,
+            "step": self._step.item(),
+        }
 
 
 class ConditionalBatchNorm2d(nn.Module):

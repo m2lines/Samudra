@@ -84,7 +84,7 @@ def generate_ensemble_predictions(
 def compute_ensemble_metrics(
     ensemble_predictions: torch.Tensor,
     targets: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, dict[str, torch.Tensor]]:
     """Compute spread, skill (RMSE), and spread/skill ratio for ensemble predictions.
 
     Args:
@@ -92,26 +92,115 @@ def compute_ensemble_metrics(
         targets: (steps, batch, channels, lat, lon)
 
     Returns:
-        spread: scalar, mean std across ensemble members
-        skill: scalar, RMSE of ensemble mean vs targets
-        spread_skill_ratio: scalar, spread / skill
+        spread: scalar, mean std across ensemble members (last step)
+        skill: scalar, RMSE of ensemble mean vs targets (last step)
+        spread_skill_ratio: scalar, spread / skill (last step)
+        per_step_metrics: dict with per-step spread, skill, spread_skill_ratio
     """
-    # Use last step for metrics (most relevant for autoregressive)
+    num_steps = targets.shape[0]
+    per_step_metrics: dict[str, torch.Tensor] = {}
+
+    # Compute per-step metrics
+    for step in range(num_steps):
+        preds_step = ensemble_predictions[:, step]  # (E, B, C, H, W)
+        target_step = targets[step]  # (B, C, H, W)
+
+        # Spread: std across ensemble members, averaged over spatial dims
+        step_spread = preds_step.std(dim=0).mean()  # scalar
+
+        # Skill: RMSE of ensemble mean vs target
+        ensemble_mean = preds_step.mean(dim=0)  # (B, C, H, W)
+        mse = ((ensemble_mean - target_step) ** 2).mean()
+        step_skill = torch.sqrt(mse)  # scalar
+
+        # Spread/skill ratio (avoid div by zero)
+        step_ss_ratio = step_spread / step_skill.clamp(min=1e-12)
+
+        per_step_metrics[f"spread_step{step}"] = step_spread
+        per_step_metrics[f"skill_step{step}"] = step_skill
+        per_step_metrics[f"spread_skill_ratio_step{step}"] = step_ss_ratio
+
+    # Return last step as the main metrics (for backward compatibility)
+    spread = per_step_metrics[f"spread_step{num_steps - 1}"]
+    skill = per_step_metrics[f"skill_step{num_steps - 1}"]
+    spread_skill_ratio = per_step_metrics[f"spread_skill_ratio_step{num_steps - 1}"]
+
+    return spread, skill, spread_skill_ratio, per_step_metrics
+
+
+def compute_physical_ensemble_metrics(
+    ensemble_predictions: torch.Tensor,
+    targets: torch.Tensor,
+    prog_mean: torch.Tensor,
+    prog_std: torch.Tensor,
+    area_weights: torch.Tensor,
+) -> dict[str, torch.Tensor]:
+    """Compute spread/skill in physical (denormalized) units with area weighting.
+
+    Args:
+        ensemble_predictions: (ensemble_size, steps, batch, channels, lat, lon) - NORMALIZED
+        targets: (steps, batch, channels, lat, lon) - NORMALIZED
+        prog_mean: (num_vars,) - mean for denormalization (single timestep)
+        prog_std: (num_vars,) - std for denormalization (single timestep)
+        area_weights: (lat, lon) - area weights (e.g., cos(lat))
+
+    Returns:
+        dict with physical_spread, physical_skill, physical_spread_skill_ratio
+    """
+    # Use last step only (like validation)
     preds_last = ensemble_predictions[:, -1]  # (E, B, C, H, W)
     target_last = targets[-1]  # (B, C, H, W)
 
-    # Spread: std across ensemble members, averaged over spatial dims
-    spread = preds_last.std(dim=0).mean()  # scalar
+    E, B, C, H, W = preds_last.shape
+    device = preds_last.device
+    dtype = preds_last.dtype
 
-    # Skill: RMSE of ensemble mean vs target
-    ensemble_mean = preds_last.mean(dim=0)  # (B, C, H, W)
-    mse = ((ensemble_mean - target_last) ** 2).mean()
-    skill = torch.sqrt(mse)  # scalar
+    # Handle stacked timesteps: C = num_vars * (hist + 1)
+    # prog_mean/std are (num_vars,) so we need to tile them
+    num_vars = prog_mean.shape[0]
+    hist_plus_1 = C // num_vars
+    
+    if C != num_vars * hist_plus_1:
+        raise ValueError(f"Channels {C} not divisible by num_vars {num_vars}")
+    
+    # Tile normalization params to match stacked channels
+    prog_mean_tiled = prog_mean.repeat(hist_plus_1)  # (C,)
+    prog_std_tiled = prog_std.repeat(hist_plus_1)  # (C,)
 
-    # Spread/skill ratio (avoid div by zero)
-    spread_skill_ratio = spread / skill.clamp(min=1e-12)
+    # Move normalization params to device and reshape
+    prog_mean_tiled = prog_mean_tiled.to(device=device, dtype=dtype).view(1, C, 1, 1)
+    prog_std_tiled = prog_std_tiled.to(device=device, dtype=dtype).view(1, C, 1, 1)
 
-    return spread, skill, spread_skill_ratio
+    # Denormalize predictions and targets
+    preds_phys = preds_last * prog_std_tiled + prog_mean_tiled  # (E, B, C, H, W)
+    target_phys = target_last * prog_std_tiled + prog_mean_tiled  # (B, C, H, W)
+
+    # Normalize area weights
+    w_hw = area_weights.to(device=device, dtype=dtype)
+    w_hw = w_hw / w_hw.sum().clamp_min(1e-12)  # (H, W)
+
+    # Compute spread per channel with area weighting
+    # std across ensemble: (B, C, H, W)
+    preds_std = preds_phys.std(dim=0)  # (B, C, H, W)
+    # weighted mean over spatial dims
+    spread_per_channel = (preds_std * w_hw.unsqueeze(0).unsqueeze(0)).sum(dim=(-2, -1))  # (B, C)
+    spread = spread_per_channel.mean()  # scalar
+
+    # Compute skill (RMSE) with area weighting
+    ensemble_mean = preds_phys.mean(dim=0)  # (B, C, H, W)
+    diff_sq = (ensemble_mean - target_phys) ** 2  # (B, C, H, W)
+    mse_per_channel = (diff_sq * w_hw.unsqueeze(0).unsqueeze(0)).sum(dim=(-2, -1))  # (B, C)
+    rmse_per_channel = torch.sqrt(mse_per_channel.mean(dim=0))  # (C,)
+    skill = rmse_per_channel.mean()  # scalar
+
+    # Spread/skill ratio
+    ss_ratio = spread / skill.clamp(min=1e-12)
+
+    return {
+        "physical_spread": spread,
+        "physical_skill": skill,
+        "physical_spread_skill_ratio": ss_ratio,
+    }
 
 
 def compute_crps_loss_for_ensemble(

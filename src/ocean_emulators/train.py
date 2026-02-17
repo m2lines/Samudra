@@ -294,12 +294,14 @@ class Trainer:
                 self.loss_fn = partial(crps_ensemble, wet=self.wet)
             case "crps_dynamic" | "crps_dynamic_no_limit":
                 limit = 10.0 if cfg.loss == "crps_dynamic" else None
-                logger.info(f"Using dynamic CRPS loss (limit = {limit})")
+                logger.info(f"Using dynamic CRPS loss (limit = {limit}, spread_reg_lambda = {cfg.spread_reg_lambda})")
                 self.loss_fn = CrpsDynamic(
                     wet=self.wet,
                     limit=limit,
                     num_channels=len(self.prognostic_var_names),
                     var_names=self.prognostic_var_names,
+                    spread_reg_lambda=cfg.spread_reg_lambda,
+                    spread_reg_steps=cfg.spread_reg_steps,
                 )
             case _:
                 assert_never(cfg.loss)
@@ -554,8 +556,8 @@ class Trainer:
         self.finish()
 
     def _get_conditional_bn_stats(self) -> dict[str, float]:
-        """Collect gamma/beta stats from ConditionalBatchNorm2d modules for logging."""
-        from ocean_emulators.models.modules.noise_conditioning import ConditionalBatchNorm2d
+        """Collect gamma/beta stats from ConditionalBatchNorm2d and NoiseMLP modules for logging."""
+        from ocean_emulators.models.modules.noise_conditioning import ConditionalBatchNorm2d, NoiseMLP
 
         model = (
             self.model.module
@@ -570,6 +572,7 @@ class Trainer:
         normalized_stds = []
         modulated_stds = []
         modulation_effects = []
+        noise_mlp_stats = None
 
         for module in model.modules():
             if isinstance(module, ConditionalBatchNorm2d):
@@ -581,12 +584,14 @@ class Trainer:
                 normalized_stds.append(stats["normalized_std"])
                 modulated_stds.append(stats["modulated_std"])
                 modulation_effects.append(stats["modulation_effect"])
+            elif isinstance(module, NoiseMLP):
+                noise_mlp_stats = module.get_stats()
 
         if not gamma_stds:
             return {}
 
         n = len(gamma_stds)
-        return {
+        result = {
             "train/noise/gamma_std": sum(gamma_stds) / n,
             "train/noise/gamma_mean": sum(gamma_means) / n,
             "train/noise/beta_std": sum(beta_stds) / n,
@@ -595,6 +600,57 @@ class Trainer:
             "train/noise/modulated_std": sum(modulated_stds) / n,
             "train/noise/modulation_effect": sum(modulation_effects) / n,
         }
+        
+        # Add NoiseMLP warmup stats if present
+        if noise_mlp_stats:
+            result["train/noise/warmup_scale"] = noise_mlp_stats["noise_scale"]
+            result["train/noise/warmup_step"] = noise_mlp_stats["step"]
+        
+        return result
+
+    def _step_sdl_warmup(self) -> None:
+        """Step the SDL and NoiseMLP warmup schedules if present."""
+        from ocean_emulators.models.modules.noise_conditioning import NoiseMLP
+        from ocean_emulators.models.modules.sdl import StochasticDecompositionLayer
+
+        model = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+
+        for module in model.modules():
+            if isinstance(module, StochasticDecompositionLayer):
+                module.step()
+            elif isinstance(module, NoiseMLP):
+                module.step()
+
+    def _get_sdl_stats(self) -> dict[str, float]:
+        """Collect stats from StochasticDecompositionLayer modules for logging."""
+        from ocean_emulators.models.modules.sdl import StochasticDecompositionLayer
+
+        model = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+
+        sdl_stats_list = []
+        for module in model.modules():
+            if isinstance(module, StochasticDecompositionLayer):
+                sdl_stats_list.append(module.get_stats())
+
+        if not sdl_stats_list:
+            return {}
+
+        # Average stats across all SDL layers (usually just 1)
+        n = len(sdl_stats_list)
+        result = {}
+        for key in sdl_stats_list[0].keys():
+            avg_val = sum(s[key] for s in sdl_stats_list) / n
+            result[f"train/sdl/{key}"] = avg_val
+
+        return result
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
@@ -629,6 +685,10 @@ class Trainer:
             # Training step
             TO: TrainBatchOutput
             if self.use_ensemble:
+                # Get normalization params for physical metrics
+                prog_mean = torch.from_numpy(self.normalize._prognostic_mean_np)
+                prog_std = torch.from_numpy(self.normalize._prognostic_std_np)
+                
                 TO = Stepper.train_batch_ensemble(
                     self.model,
                     data,
@@ -636,6 +696,9 @@ class Trainer:
                     self.ensemble_size,
                     distributed=(self.distributed is not None),
                     global_step=self.num_batches_seen,
+                    prog_mean=prog_mean,
+                    prog_std=prog_std,
+                    area_weights=self.area_weights,
                 )
             else:
                 TO = Stepper.train_batch(self.model, data, self.loss_fn)
@@ -651,6 +714,13 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
 
             self.optimizer.step()
+            
+            # Step SDL warmup schedule if present
+            self._step_sdl_warmup()
+            
+            # Step spread regularizer cooldown if using CrpsDynamic
+            if isinstance(self.loss_fn, CrpsDynamic):
+                self.loss_fn.step()
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -683,24 +753,39 @@ class Trainer:
                     ].value,
                 }
 
-                # Log ensemble metrics if available
+                # Log ensemble metrics if available (normalized = in normalized data space, no area weighting)
                 if TO.ensemble_spread is not None:
                     spread_reduce = all_reduce_mean(TO.ensemble_spread.detach())
                     skill_reduce = all_reduce_mean(TO.ensemble_skill.detach())
                     ss_ratio_reduce = all_reduce_mean(TO.spread_skill_ratio.detach())
                     metrics.update(
                         {
-                            "train/ensemble/spread": spread_reduce,
-                            "train/ensemble/skill": skill_reduce,
-                            "train/ensemble/spread_skill_ratio": ss_ratio_reduce,
+                            "train/ensemble/normalized_spread": spread_reduce,
+                            "train/ensemble/normalized_skill": skill_reduce,
+                            "train/ensemble/normalized_spread_skill_ratio": ss_ratio_reduce,
                         }
                     )
 
-                # Log conditional batch norm gamma/beta stats (for noise debugging)
+                    # Log per-step ensemble metrics and physical metrics
+                    if TO.per_step_metrics is not None:
+                        for key, value in TO.per_step_metrics.items():
+                            reduced_value = all_reduce_mean(value.detach())
+                            # Physical metrics get logged without "normalized_" prefix
+                            if key.startswith("physical_"):
+                                metrics[f"train/ensemble/{key}"] = reduced_value
+                            else:
+                                metrics[f"train/ensemble/normalized_{key}"] = reduced_value
+
+                # Log noise injection stats (for noise debugging)
                 if self.use_ensemble:
+                    # ConditionalBatchNorm stats (for conditional_norm mode)
                     cbn_stats = self._get_conditional_bn_stats()
                     if cbn_stats:
                         metrics.update(cbn_stats)
+                    # SDL stats (for late_injection mode)
+                    sdl_stats = self._get_sdl_stats()
+                    if sdl_stats:
+                        metrics.update(sdl_stats)
 
                 if loss_scale_per_channel_fn := getattr(
                     self.loss_fn, "loss_scale_per_channel", None
@@ -761,6 +846,11 @@ class Trainer:
             if clamp_stats_fn := getattr(self.loss_fn, "get_clamp_stats", None):
                 if clamp_stats := clamp_stats_fn():
                     self.wandb_logger.log(clamp_stats, step=self.num_batches_seen)
+            
+            # Log spread regularizer stats if available
+            if spread_reg_stats_fn := getattr(self.loss_fn, "get_spread_reg_stats", None):
+                spread_reg_stats = spread_reg_stats_fn()
+                self.wandb_logger.log(spread_reg_stats, step=self.num_batches_seen)
 
             self.profiler.after_batch(self.num_batches_seen)
 
@@ -964,7 +1054,7 @@ class Trainer:
                 wet=self.wet_without_hist_cpu,
                 wet_surface=self.wet_surface,
                 hist=self.hist,
-                steps=1,  # current_step set to 1 for validation
+                steps=1,  # validation uses single step (denormalized metrics)
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,

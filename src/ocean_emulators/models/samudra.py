@@ -6,6 +6,7 @@ import xarray as xr
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.noise_conditioning import NoiseMLP
+from ocean_emulators.models.modules.sdl import StochasticDecompositionLayer
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 
@@ -28,6 +29,10 @@ class Samudra(BaseModel):
         noise_channels: int | None = None,
         noise_embed_dim: int | None = None,
         noise_shape: tuple[int, int] | None = None,
+        noise_alpha: float | None = None,
+        noise_warmup_steps: int | None = None,
+        noise_warmup_start: float | None = None,
+        noise_warmup_schedule: str | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -43,6 +48,22 @@ class Samudra(BaseModel):
 
         self.noise_channels = noise_channels
         self.noise_embed_dim = noise_embed_dim
+        self._noise_enabled = True  # Can be disabled for deterministic inference
+        
+        # SDL for output-level noise injection with warmup schedule
+        # Noise scale ramps up during training so model can't learn to suppress early
+        self.noise_alpha = noise_alpha
+        if noise_alpha is not None:
+            self.sdl = StochasticDecompositionLayer(
+                num_channels=out_channels,  # Inject at output level
+                latent_dim=64,
+                alpha=noise_alpha,
+                warmup_steps=noise_warmup_steps or 10000,
+                warmup_start=noise_warmup_start or 0.1,
+                warmup_schedule=noise_warmup_schedule or "linear",
+            )
+        else:
+            self.sdl = None
 
         if pos_channels > 0:
             self.positional_params = nn.Parameter(
@@ -64,6 +85,9 @@ class Samudra(BaseModel):
                 hidden_dim=noise_embed_dim * 2,  # Hidden dim is 2x output
                 output_dim=noise_embed_dim,
                 noise_shape=noise_shape,
+                warmup_steps=noise_warmup_steps or 10000,
+                warmup_start=noise_warmup_start or 0.1,
+                warmup_schedule=noise_warmup_schedule or "linear",
             )
         else:
             self.noise_mlp = None
@@ -82,12 +106,23 @@ class Samudra(BaseModel):
         self.layers = nn.ModuleList(layers)
         self.corrector = corrector
 
+    def set_noise_enabled(self, enabled: bool) -> None:
+        """Enable or disable noise injection.
+        
+        When disabled, the model runs deterministically (no uncertainty estimation).
+        Useful for stable autoregressive rollouts during inference.
+        """
+        self._noise_enabled = enabled
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Noise injection {'enabled' if enabled else 'disabled'}")
+
     def forward_once(self, fts: torch.Tensor) -> torch.Tensor:
         fts_input = fts.clone().detach()
 
-        # Generate and process noise if noise conditioning is enabled
+        # Generate and process noise if noise conditioning is enabled AND noise is not disabled
         cond = None
-        if self.noise_mlp is not None:
+        if self.noise_mlp is not None and self._noise_enabled:
             noise = self.noise_mlp.generate_noise(
                 batch_size=fts.shape[0],
                 device=fts.device,
@@ -121,4 +156,14 @@ class Samudra(BaseModel):
 
         if self.corrector is not None:
             fts = self.corrector(fts_input, fts)
-        return torch.where(self.wet, fts, 0.0)
+        
+        # Apply wet mask first
+        fts = torch.where(self.wet, fts, 0.0)
+        
+        # SDL noise injection at OUTPUT level (after everything)
+        # Applied during both training and eval to enable ensemble generation
+        # Skip if noise is disabled for deterministic inference
+        if self.sdl is not None and self._noise_enabled:
+            fts = self.sdl(fts)
+        
+        return fts

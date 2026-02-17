@@ -481,9 +481,29 @@ class BaseModelConfig(BaseConfig, abc.ABC):
     )
 
     # Noise conditioning for ensemble generation (shared by Samudra and FOMO)
-    noise_mode: Literal["conditional_norm"] | None = Field(
+    noise_mode: Literal["conditional_norm", "late_injection"] | None = Field(
         default=None,
-        description="How to condition on noise: 'conditional_norm' uses noise embeddings in conditional layer norms (AIFS approach), None for deterministic",
+        description="How to condition on noise: 'conditional_norm' uses noise embeddings in conditional layer norms (AIFS approach), 'late_injection' adds fixed-scale noise after UNet (SDL approach), None for deterministic",
+    )
+    noise_alpha: float = Field(
+        default=0.1,
+        ge=0.0,
+        description="Fixed (non-trainable) scale for late noise injection. Only used when noise_mode='late_injection'.",
+    )
+    noise_warmup_steps: int = Field(
+        default=10000,
+        ge=0,
+        description="Number of steps to ramp noise scale from noise_warmup_start to 1.0. Only used when noise_mode='late_injection'.",
+    )
+    noise_warmup_start: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=1.0,
+        description="Initial noise scale multiplier at start of warmup. Only used when noise_mode='late_injection'.",
+    )
+    noise_warmup_schedule: Literal["linear", "cosine"] = Field(
+        default="linear",
+        description="Warmup schedule type. 'linear' or 'cosine'. Only used when noise_mode='late_injection'.",
     )
     noise_channels: int = Field(
         default=4,
@@ -559,6 +579,12 @@ class SamudraConfig(BaseModelConfig):
         noise_resolution = (
             self.noise_resolution if self.noise_mode == "conditional_norm" else None
         )
+        # Late injection mode: pass alpha (fixed scale)
+        noise_alpha = self.noise_alpha if self.noise_mode == "late_injection" else None
+        # Warmup params apply to both modes
+        noise_warmup_steps = self.noise_warmup_steps if self.noise_mode is not None else None
+        noise_warmup_start = self.noise_warmup_start if self.noise_mode is not None else None
+        noise_warmup_schedule = self.noise_warmup_schedule if self.noise_mode is not None else None
 
         return Samudra(
             in_channels=total_in_channels,
@@ -582,6 +608,10 @@ class SamudraConfig(BaseModelConfig):
             noise_channels=noise_channels,
             noise_embed_dim=noise_embed_dim,
             noise_shape=noise_resolution,
+            noise_alpha=noise_alpha,
+            noise_warmup_steps=noise_warmup_steps,
+            noise_warmup_start=noise_warmup_start,
+            noise_warmup_schedule=noise_warmup_schedule,
         )
 
 
@@ -739,6 +769,19 @@ class TrainConfig(TopLevelConfig):
         "Each GPU computes ensemble_size/world_size members. Requires ensemble_size >= world_size. "
         "This reduces memory per GPU but requires all GPUs to process the same batch.",
     )
+    
+    # Spread regularizer for CRPS (bootstraps diversity before CRPS spread term kicks in)
+    spread_reg_lambda: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Initial strength of spread regularizer. Set to ~1e-3 to 1e-2 to encourage diversity. "
+        "Ramps down to 0 over spread_reg_steps. Only used with crps_dynamic loss.",
+    )
+    spread_reg_steps: int = Field(
+        default=10000,
+        ge=1,
+        description="Number of steps to ramp spread regularizer from spread_reg_lambda to 0.",
+    )
 
     # Profiling parameters
     profiler: ProfilerConfig = ProfilerConfig()
@@ -781,6 +824,16 @@ class EvalConfig(TopLevelConfig):
     ckpt_path: str | None = None
     num_model_steps_forward: int = 200
     backend: EvalBackendConfig = "auto"
+    ensemble_size_inference: int = Field(
+        default=1,
+        description="Number of ensemble members at each inference step. "
+        "If > 1, uses ensemble mean as input to next step (prevents noise compounding).",
+    )
+    noise_enabled: bool = Field(
+        default=True,
+        description="Whether to enable noise injection during inference. "
+        "Set to false for deterministic rollout (no uncertainty estimation).",
+    )
 
     # Config components
     inference_time: TimeConfig = TimeConfig(

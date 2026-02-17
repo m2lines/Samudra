@@ -308,19 +308,19 @@ class EnsembleAggregator(ValidateSubAggregator):
         mean_spread = (
             all_reduce_mean(torch.tensor(mean_spread, device=device)).cpu().item()
         )
-        logs[f"{label}/ensemble_spread"] = mean_spread
+        logs[f"{label}/physical_ensemble_spread"] = mean_spread
 
         mean_rmse = self._rmse_sum / nb
         mean_rmse = all_reduce_mean(torch.tensor(mean_rmse, device=device)).cpu().item()
-        logs[f"{label}/ensemble_mean_rmse"] = mean_rmse
+        logs[f"{label}/physical_ensemble_mean_rmse"] = mean_rmse
 
         mean_mae = self._mae_sum / nb
         mean_mae = all_reduce_mean(torch.tensor(mean_mae, device=device)).cpu().item()
-        logs[f"{label}/ensemble_mean_mae"] = mean_mae
+        logs[f"{label}/physical_ensemble_mean_mae"] = mean_mae
 
         mean_ss = self._spread_skill_sum / nb
         mean_ss = all_reduce_mean(torch.tensor(mean_ss, device=device)).cpu().item()
-        logs[f"{label}/spread_skill_ratio"] = mean_ss
+        logs[f"{label}/physical_spread_skill_ratio"] = mean_ss
 
         # Per-member RMSE (averaged over variables and batches)
         if self._member_rmse_sum:

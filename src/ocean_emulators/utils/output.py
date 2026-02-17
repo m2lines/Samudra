@@ -10,6 +10,7 @@ class TrainBatchOutput:
         ensemble_spread: torch.Tensor | None = None,
         ensemble_skill: torch.Tensor | None = None,
         spread_skill_ratio: torch.Tensor | None = None,
+        per_step_metrics: dict[str, torch.Tensor] | None = None,
     ):
         self.loss = loss
         self.loss_per_channel = loss_per_channel
@@ -17,6 +18,8 @@ class TrainBatchOutput:
         self.ensemble_spread = ensemble_spread
         self.ensemble_skill = ensemble_skill
         self.spread_skill_ratio = spread_skill_ratio
+        # Per-step ensemble metrics (spread, skill, spread_skill_ratio for each rollout step)
+        self.per_step_metrics = per_step_metrics
 
 
 class ValBatchOutput(TrainBatchOutput):

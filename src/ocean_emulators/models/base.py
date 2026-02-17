@@ -98,7 +98,18 @@ class BaseModel(torch.nn.Module):
         steps_completed=0,
         num_steps=None,
         epoch=None,
+        ensemble_size: int = 1,
     ) -> ModelInferenceOutput:
+        """Run inference with optional ensemble mean for autoregressive input.
+        
+        When ensemble_size > 1:
+        - Generate ensemble_size predictions at each step
+        - Use ensemble MEAN as input to next step (stable rollout)
+        - Store ensemble mean as the prediction (individual members not saved)
+        
+        This prevents noise from compounding through the autoregressive rollout
+        while still benefiting from ensemble averaging.
+        """
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
@@ -121,19 +132,38 @@ class BaseModel(torch.nn.Module):
                     step=steps_completed + step,
                 )
 
-            decodings = self.forward_once(input_tensor)
-            if self.pred_residuals:
-                pred = (
-                    input_tensor[
-                        0,
-                        : self.out_channels,
-                    ].to(  # Residuals on last state in input
-                        device=get_device()
-                    )
-                    + decodings
-                )
+            if ensemble_size > 1:
+                # Generate ensemble predictions and use mean
+                ensemble_preds = []
+                for _ in range(ensemble_size):
+                    decodings = self.forward_once(input_tensor)
+                    if self.pred_residuals:
+                        pred = (
+                            input_tensor[
+                                0,
+                                : self.out_channels,
+                            ].to(device=get_device())
+                            + decodings
+                        )
+                    else:
+                        pred = decodings
+                    ensemble_preds.append(pred)
+                
+                # Use ensemble mean as the prediction (and input to next step)
+                pred = torch.stack(ensemble_preds, dim=0).mean(dim=0)
             else:
-                pred = decodings
+                # Single deterministic prediction
+                decodings = self.forward_once(input_tensor)
+                if self.pred_residuals:
+                    pred = (
+                        input_tensor[
+                            0,
+                            : self.out_channels,
+                        ].to(device=get_device())
+                        + decodings
+                    )
+                else:
+                    pred = decodings
 
             pred_tensor[step] = pred
 

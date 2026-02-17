@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=schemas/VizConfig.json
+# Viz config for eval_om4_crps_dynamic_big (conditional_norm mode)
+
+base_output_dir: "/scratch/ag11542/viz_outputs"
+name: "viz_om4_crps_dynamic_big_mean"
+dataset_name: "OM4"
+groundtruth_location: "OM4.zarr"
+basins_location:
+  type: s3
+  bucket: "emulators"
+  path: "jr7309/basins/basin_masks_original.zarr"
+  endpoint_url: "https://nyu1.osn.mghpcc.org"
+groundtruth_time_range:
+  start: "2014-10-20"
+  end: "2022-12-24"
+runs:
+  - name: "crps_dynamic_big"
+    location: "/scratch/ag11542/eval_outputs/eval_om4_crps_dynamic_big_ensemble_mean/predictions.zarr"

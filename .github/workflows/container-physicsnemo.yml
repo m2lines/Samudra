@@ -5,23 +5,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - ".github/workflows/container-physicsnemo.yml"
-      - "containers/**"
-      - "scripts/container/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - "src/**"
   pull_request:
     branches:
-      - main
-    paths:
-      - ".github/workflows/container-physicsnemo.yml"
-      - "containers/**"
-      - "scripts/container/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - "src/**"
+      - "**"
   workflow_dispatch:
 
 permissions:

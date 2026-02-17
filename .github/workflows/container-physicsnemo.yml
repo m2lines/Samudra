@@ -74,6 +74,7 @@ jobs:
       - name: Run version and smoke checks
         run: |
           docker run --rm --entrypoint bash "${LOCAL_IMAGE_TAG}" -lc '
+            set -euo pipefail
             . .venv/bin/activate
             python scripts/container/verify_image_packages.py
             python scripts/container/smoke_test.py

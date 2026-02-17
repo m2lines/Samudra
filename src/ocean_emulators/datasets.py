@@ -2,7 +2,7 @@ import logging
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import TypeAlias, final
+from typing import final
 
 import numpy as np
 import torch
@@ -438,7 +438,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             step=3->[[9, 10, 11], [12, 13, 14]]
     """
 
-    Id: TypeAlias = str
+    type Id = str
 
     FLAG = LoaderVersion.OM4_TORCH
 

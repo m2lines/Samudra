@@ -45,7 +45,6 @@ class Aggregator:
         metadata: dict[str, dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
-        wet: torch.Tensor,
         num_prognostic_channels: int,
         channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
@@ -54,7 +53,6 @@ class Aggregator:
             metadata=metadata,
             hist=hist,
             area_weights=area_weights,
-            wet=wet,
             num_prognostic_channels=num_prognostic_channels,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=False,
@@ -68,7 +66,6 @@ class Aggregator:
         metadata: dict[str, dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
-        wet: torch.Tensor,
         num_prognostic_channels: int,
         channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
@@ -77,7 +74,6 @@ class Aggregator:
             metadata=metadata,
             hist=hist,
             area_weights=area_weights,
-            wet=wet,
             num_prognostic_channels=num_prognostic_channels,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=True,

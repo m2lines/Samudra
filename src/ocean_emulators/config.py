@@ -546,6 +546,8 @@ class UNetBackboneConfig(BaseConfig):
         in_channels: int,
         pad: str,
         checkpointing: Checkpointing | None,
+        *,
+        pos_channels: int = 0,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
@@ -584,6 +586,7 @@ class UNetBackboneConfig(BaseConfig):
             downsampling_block=downsampling_block,
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
+            pos_channels=pos_channels,
         )
 
 
@@ -654,9 +657,9 @@ class SamudraConfig(BaseModelConfig):
             corrector = self.corrector.build(
                 hist, src.spherical_area_weights, static_data_for_corrector
             )
-        total_in_channels = (
-            in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
-        )
+        # Learned positional embeddings are injected additively inside the UNet
+        # (encoder + bottleneck), so they should not increase the model input channels.
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return Samudra(
             in_channels=total_in_channels,
@@ -668,6 +671,7 @@ class SamudraConfig(BaseModelConfig):
                 in_channels=total_in_channels,
                 pad=self.pad,
                 checkpointing=self.checkpointing,
+                pos_channels=self.pos_channels,
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,

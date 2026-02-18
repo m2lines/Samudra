@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, assert_never
 import numpy as np
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
@@ -53,10 +54,13 @@ class UNetBackbone(nn.Module):
         downsampling_block: nn.Module,
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
+        *,
+        pos_channels: int = 0,
     ):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels: int = ch_width[0]
+        self.pos_channels = pos_channels
 
         # Create local copies of config lists that will be reversed
         ch_width = [in_channels] + ch_width.copy()
@@ -79,7 +83,9 @@ class UNetBackbone(nn.Module):
 
         # going down
         layers: list[nn.Module] = []
+        encoder_in_channels: list[int] = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
+            encoder_in_channels.append(a)
             # Core block
             layers.append(
                 create_block(
@@ -93,6 +99,23 @@ class UNetBackbone(nn.Module):
             )
             # Down sampling block
             layers.append(downsampling_block)
+
+        # Optional learned positional injection: add a projected, downsampled pos map
+        # to the activations at each encoder CoreBlock input, plus the bottleneck.
+        if pos_channels > 0:
+            # One per encoder CoreBlock, plus one for the bottleneck CoreBlock.
+            pos_proj_out_channels = encoder_in_channels + [b]
+            self.pos_projs: nn.ModuleList | None = nn.ModuleList(
+                [
+                    nn.Conv2d(pos_channels, c, kernel_size=1, bias=False)
+                    for c in pos_proj_out_channels
+                ]
+            )
+            # Keep scale at 1.0; positional_params are initialized very small.
+            self.pos_scales = nn.Parameter(torch.ones(len(self.pos_projs)))
+        else:
+            self.pos_projs = None
+            self.register_parameter("pos_scales", None)
 
         # Middle block
         layers.append(
@@ -146,12 +169,41 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def _inject_pos(
+        self, fts: torch.Tensor, pos: torch.Tensor, idx: int
+    ) -> torch.Tensor:
+        assert self.pos_projs is not None
+        assert self.pos_scales is not None
+        pos_rs = F.interpolate(
+            pos,
+            size=fts.shape[-2:],
+            mode="bilinear",
+            align_corners=False,
+        ).to(device=fts.device, dtype=fts.dtype)
+        return fts + self.pos_scales[idx] * self.pos_projs[idx](pos_rs)
+
+    def forward(
+        self, fts: torch.Tensor, *, pos: torch.Tensor | None = None
+    ) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
         count = 0
+        injected_bottleneck = False
         for layer in self.layers:
+            if (
+                pos is not None
+                and self.pos_projs is not None
+                and isinstance(layer, CoreBlock)
+            ):
+                # Encoder: inject before each encoder CoreBlock (count = stage index).
+                if count < self.num_steps:
+                    fts = self._inject_pos(fts, pos, idx=count)
+                # Bottleneck: inject before the middle CoreBlock exactly once.
+                elif count == self.num_steps and not injected_bottleneck:
+                    fts = self._inject_pos(fts, pos, idx=self.num_steps)
+                    injected_bottleneck = True
+
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(

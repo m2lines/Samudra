@@ -620,7 +620,7 @@ class Trainer:
         else:
             # Create a validation aggregator that handles multiple scales.
             val_aggregator = ValidateAggregator(
-                {},  # Currently, don't aggregate anything besides training aggregations.
+                {},  # Currently, don't do anything else besides record the training loss.
                 self.hist,
                 self.num_out,
             )

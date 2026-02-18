@@ -26,7 +26,6 @@ from dask.diagnostics.progress import ProgressBar
 from matplotlib import colors
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
-from xarrayutils.plotting import box_plot, linear_piecewise_scale  # type: ignore
 
 from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
 from ocean_emulators.utils.data import (
@@ -1466,6 +1465,9 @@ class Viz:
 
     def step_ocean_temperature_profile_plots(self):
         def ocean_temperature_profile(datasets, titles, plot_title):
+            # We import here to avoid importing tk unconditionally above
+            from xarrayutils.plotting import linear_piecewise_scale  # type: ignore
+
             fig, axs = plt.subplots(
                 2,
                 3,
@@ -1492,6 +1494,7 @@ class Viz:
 
                 im = data.plot(ax=ax[i], cmap="bwr", norm=norm, add_colorbar=False)
                 ax[i].invert_yaxis()
+
                 linear_piecewise_scale(1000, 5, ax=ax[i])
                 ax[i].axhline(1000, color="0.5", ls="--")
                 ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
@@ -2226,6 +2229,9 @@ class Viz:
         axs["map"].stock_img()
         axs["map"].coastlines(color="0.3", lw=0.5)
         axs["map"].gridlines(draw_labels=True, color="0.4")
+        # We import here to avoid importing tk unconditionally above
+        from xarrayutils.plotting import box_plot  # type: ignore
+
         box_plot(
             [bound_east, bound_west, bound_south, bound_north],
             ax=axs["map"],

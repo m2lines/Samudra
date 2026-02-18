@@ -646,16 +646,17 @@ class Trainer:
     def inference_one_epoch(self, epoch):
         self.model.eval()
 
-        # TODO(alxmrs): Aggregator only supports a single scale.
         with torch.no_grad(), self._test_context():
             for data_iter_step, (inference_dataset, num_steps) in enumerate(
                 self.inference_loader
             ):
+                # TODO(alxmrs): Aggregator only supports a single scale.
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
                     self.primary_src.metadata,
                     self.hist,
                     self.primary_src.spherical_area_weights.to(self.device),
+                    self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,
                 )

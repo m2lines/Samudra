@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771454820661,
+  "lastUpdate": 1771455599491,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7419,6 +7419,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2340247384550409",
             "extra": "mean: 87.43364034259997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "05167d3a76b656a7f188b4c5e7ad1fcea4a8d4d1",
+          "message": "build(deps): align torch and flash-attn constraints with PhysicsNeMo 25.11 (#582)\n\nStack 3/6.\n\nAligns project dependency constraints and lockfile with the PhysicsNeMo\n25.11 baseline (torch/torchvision/flash-attn).\n\nBase: u/jder/nemo-docker-stack/remote-data-test-hardening.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-02-18T22:34:13Z",
+          "tree_id": "8cafe436abcc545187b6a6de29c28b33bf7d59b8",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/05167d3a76b656a7f188b4c5e7ad1fcea4a8d4d1"
+        },
+        "date": 1771455598617,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1692405160485027,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006530653684854644",
+            "extra": "mean: 855.2560283999924 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18829325408103725,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02174605901428292",
+            "extra": "mean: 5.310864719399996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011149968444242608,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19298373801616844",
+            "extra": "mean: 89.68635247720002 sec\nrounds: 5"
           }
         ]
       }

@@ -34,8 +34,10 @@ class ModelInferenceOutput:
         prediction: torch.Tensor,
         target: torch.Tensor,
         time: xr.DataArray,
+        ctx: GridContext,
     ):
         assert prediction.shape == target.shape
         self.prediction = prediction
         self.target = target
         self.time = time
+        self.ctx = ctx

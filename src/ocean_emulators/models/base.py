@@ -138,5 +138,5 @@ class BaseModel(torch.nn.Module):
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
 
-        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time, dataset.ctx)
+        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
         return IO

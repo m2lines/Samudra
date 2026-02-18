@@ -22,6 +22,7 @@ class InferenceEvaluatorAggregator:
         metadata: dict[str, dict[str, str]],
         hist: int,
         area_weights: torch.Tensor,
+        wet: torch.Tensor,
         num_prognostic_channels: int,
         record_step_20: bool = True,
         log_global_mean_time_series: bool = True,
@@ -95,6 +96,7 @@ class InferenceEvaluatorAggregator:
         self._normalize = Normalize.get_instance()
         self.num_prognostic_channels = num_prognostic_channels
         self.hist = hist
+        self.wet = wet
 
     @property
     def log_time_series(self) -> bool:
@@ -110,7 +112,7 @@ class InferenceEvaluatorAggregator:
         assert data.prediction.shape[0] == total_len // (self.hist + 1)
         target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
-            wet=data.ctx.label_mask,
+            wet=self.wet,
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -118,7 +120,7 @@ class InferenceEvaluatorAggregator:
         )
         gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
-            wet=data.ctx.label_mask,
+            wet=self.wet,
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -151,7 +153,6 @@ class InferenceEvaluatorAggregator:
     def record_initial_prognostic(
         self,
         initial_prognostic: torch.Tensor,
-        wet: torch.Tensor,
     ):
         if self._n_timesteps_seen != 0:
             raise RuntimeError(
@@ -161,7 +162,7 @@ class InferenceEvaluatorAggregator:
 
         data_norm_dict, data_unnorm_dict = get_aggregator_dicts(
             initial_prognostic,
-            wet=wet,
+            wet=self.wet,
             long_rollout=True,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,

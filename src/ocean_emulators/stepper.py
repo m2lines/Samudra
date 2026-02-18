@@ -89,7 +89,6 @@ class Stepper:
         logger.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
         logs = inf_aggregator.record_initial_prognostic(
             initial_prognostic=dataset.initial_prognostic.to(get_device()),
-            wet=dataset.wet_label,
         )
         record_logs(logs)
         num_model_steps = len(dataset)

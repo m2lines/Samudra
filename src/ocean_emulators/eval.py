@@ -201,6 +201,7 @@ class Eval:
             self.metadata,
             self.hist,
             self.area_weights,
+            self.src.masks.prognostic.to(self.device),
             self.num_out,
             self.prognostic_var_names,
         )

@@ -618,12 +618,8 @@ class Trainer:
             if scale_fn := getattr(self.loss_fn, "loss_scale_per_channel", None):
                 scale = scale_fn()
                 raw_loss = (
-                    loss_per_channel.detach().reshape(-1, scale.shape[0]).mean(dim=0)
-                    / scale
-                )
-                # Expand back to the full hist*var shape expected by update.
-                n_hist = self.hist + 1
-                raw_loss = raw_loss.repeat(n_hist)
+                    loss_per_channel.detach().reshape(-1, scale.shape[0]) / scale
+                ).reshape(-1)
             else:
                 raw_loss = loss_per_channel.detach()
             update(raw_loss)

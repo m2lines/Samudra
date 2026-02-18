@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771348489807,
+  "lastUpdate": 1771454819467,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7374,6 +7374,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.665704780919039",
             "extra": "mean: 91.8789474548 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c53851bea5c963bb6b425bb044081d22c24d31fd",
+          "message": "CI: run PR checks for any base branch (#588)\n\n## Summary\n- update CI pull_request branch filters in CPU test, GPU test, and\npre-commit workflows\n- allow checks to run when PRs target non-main branches\n- keep push triggers scoped to main\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-02-18T17:21:45-05:00",
+          "tree_id": "2f269cd8696a00bf15f2962a822ef0fa1e723334",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/c53851bea5c963bb6b425bb044081d22c24d31fd"
+        },
+        "date": 1771454818688,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.2522289647397293,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007471214644890851",
+            "extra": "mean: 798.5760017999951 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1926206992845287,
+            "unit": "iter/sec",
+            "range": "stddev: 0.007335065625397749",
+            "extra": "mean: 5.191550044799987 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011437245390694017,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2340247384550409",
+            "extra": "mean: 87.43364034259997 sec\nrounds: 5"
           }
         ]
       }

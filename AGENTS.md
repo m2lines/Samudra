@@ -1,6 +1,7 @@
 # AGENTS.md
 
 This file provides guidance to automated agents when working with code in this repository.
+For PR review conventions and `:sheep:` nit categorization, see `docs/review_guidelines.md`.
 
 ## Overview
 

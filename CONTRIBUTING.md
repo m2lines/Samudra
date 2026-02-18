@@ -11,6 +11,8 @@ This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/p
 
 ## Contributing code with pull requests
 
+For review standards and a reusable reviewer checklist, see `docs/review_guidelines.md`.
+
 <details>
 <summary><strong>TL;DR</strong></summary>
 

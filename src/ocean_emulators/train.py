@@ -599,7 +599,7 @@ class Trainer:
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
-            self._call_loss_update(data)
+            self._call_loss_update(TO.loss_per_channel)
 
             self.profiler.after_batch(self.num_batches_seen)
 
@@ -609,16 +609,24 @@ class Trainer:
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
 
-    def _call_loss_update(self, data: TrainData):
-        # This is a separate function to ensure locals are dropped immediately after use
+    def _call_loss_update(self, loss_per_channel: torch.Tensor):
+        # Use the already-computed per-channel loss from the training rollout
+        # to update DynamicLoss scales, avoiding an second forward pass.
+        # This introduces delayed estimate but should be more efficient
         if update := getattr(self.loss_fn, "update", None):
-            with torch.no_grad():
-                single_step_data = TrainData(data.num_prognostic_channels, data.ctx)
-                # Each entry in data is one step in a rollout.
-                input, label = data[0]
-                single_step_data.append(input, label)
-                pred = self.model(single_step_data)
-                update(pred[0], label, ctx=data.ctx)
+            # Undo the dynamic scaling to recover the raw per-channel loss.
+            if scale_fn := getattr(self.loss_fn, "loss_scale_per_channel", None):
+                scale = scale_fn()
+                raw_loss = (
+                    loss_per_channel.detach().reshape(-1, scale.shape[0]).mean(dim=0)
+                    / scale
+                )
+                # Expand back to the full hist*var shape expected by update.
+                n_hist = self.hist + 1
+                raw_loss = raw_loss.repeat(n_hist)
+            else:
+                raw_loss = loss_per_channel.detach()
+            update(raw_loss)
 
     def validate_one_epoch(self, epoch):
         self.model.eval()

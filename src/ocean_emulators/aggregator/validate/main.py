@@ -2,7 +2,7 @@ import torch
 
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
+from ocean_emulators.utils.data import get_aggregator_dicts
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -18,7 +18,6 @@ class ValidateAggregator(TrainAggregator):
     ):
         super().__init__()
         self._aggregators = aggregators
-        self.normalize = Normalize.get_instance()
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
 

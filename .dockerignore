@@ -8,6 +8,10 @@
 .ruff_cache
 .uv-cache
 .venv
+*.egg-info
+*.env
+.claude
+.pytype
 .secrets.baseline
 dist
 tmp

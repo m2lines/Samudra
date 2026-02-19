@@ -682,9 +682,11 @@ def get_aggregator_dicts(
         data_reshaped = rearrange(
             data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
         ).unsqueeze(0)  # add artificial batch dim
-    else:
+    elif data.ndim != 5:
         # Batches are independent rollouts during validation
         data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
+    else:
+        data_reshaped = data
 
     # Get normalized dict
     data_normalized = data_reshaped.clone()

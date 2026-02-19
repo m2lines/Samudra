@@ -9,6 +9,7 @@ import cftime
 import filelock
 import numpy as np
 import pytest
+import torch
 import xarray as xr
 from aiohttp import ServerDisconnectedError
 from numpy.typing import ArrayLike, NDArray
@@ -22,7 +23,13 @@ from ocean_emulators.config import (
 )
 from ocean_emulators.constants import BOUNDARY_VARS
 from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import DataSource, _is_compact, compact_dataset
+from ocean_emulators.utils.data import (
+    DataSource,
+    Masks,
+    Normalize,
+    _is_compact,
+    compact_dataset,
+)
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -559,3 +566,33 @@ def trainer_pair(
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
         yield train_config, trainer
+
+
+@pytest.fixture
+def dummy_src():
+    h, w = 4, 8
+    with MultitonScope():
+        # Create some tiny data
+        c.TensorMap.init_instance("thetao_1", "hfds")
+        coords = {"lev": [0], "lat": np.arange(h), "lon": np.arange(w)}
+        data = xr.Dataset(
+            {
+                "thetao": (("lev", "lat", "lon"), np.zeros((1, h, w))),
+                "hfds": (("lat", "lon"), np.zeros((h, w))),
+            },
+            coords=coords,
+        )
+        masks = Masks(torch.ones(1, h, w), torch.ones(h, w))
+        src = DataSource(
+            name="dummy",
+            data=data,
+            means=data.mean(dim=["lat", "lon"]),
+            stds=data.std(dim=["lat", "lon"]),
+            masks=masks,
+        )
+        Normalize.init_instance(
+            src,
+            c.TensorMap.get_instance().prognostic_var_names,
+            c.TensorMap.get_instance().boundary_var_names,
+        )
+        yield src

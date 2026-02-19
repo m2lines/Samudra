@@ -78,7 +78,6 @@ def test_val_aggregator__no_op__is_same_as_train_aggregator(val_batch: ValBatchO
 def test_train_val_aggregator__with_fake_subagg__is_added_to_logs(
     val_batch: ValBatchOutput, dummy_src: DataSource
 ):
-    _ = dummy_src
     val_agg = ValidateAggregator(
         {"fake": FakeSubAggregator()}, hist=1, num_prognostic_channels=1
     )

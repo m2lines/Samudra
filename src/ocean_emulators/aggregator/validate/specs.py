@@ -1,9 +1,6 @@
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Literal
 
 import torch
-from wandb.data_types import WBValue
 
 from ocean_emulators.aggregator.metrics import (
     area_weighted_gradient_magnitude_percent_diff,
@@ -11,9 +8,13 @@ from ocean_emulators.aggregator.metrics import (
     area_weighted_rmse,
 )
 from ocean_emulators.aggregator.plotting import plot_paneled_data
+from ocean_emulators.aggregator.spec_engine import (
+    MetricData,
+    MetricSpec,
+    last_metric,
+    mean_metric,
+)
 from ocean_emulators.constants import TensorMap
-from ocean_emulators.utils.distributed import all_reduce_mean
-from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 _MAP_CAPTIONS = {
     "full-field": (
@@ -37,12 +38,6 @@ _SNAPSHOT_CAPTIONS = {
     ),
 }
 
-MetricData = (
-    torch.Tensor
-    | tuple[torch.Tensor, torch.Tensor]
-    | tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-)
-
 
 @dataclass
 class ValidationBatchMetricsInput:
@@ -54,55 +49,6 @@ class ValidationBatchMetricsInput:
     target_data_norm: dict[str, torch.Tensor]
     gen_data_norm: dict[str, torch.Tensor]
     input_data_norm: dict[str, torch.Tensor]
-
-
-@dataclass
-class MetricSpec:
-    path: str
-    reduce: Literal["mean", "last"]
-    compute: Callable[[ValidationBatchMetricsInput], MetricData]
-    render: Callable[[MetricData], float | torch.Tensor | WBValue]
-    distributed_mean: bool = False
-    total: MetricData | None = None
-    count: int = 0
-    last: MetricData | None = None
-
-
-def _tree_add(left: MetricData, right: MetricData) -> MetricData:
-    if isinstance(left, torch.Tensor):
-        assert isinstance(right, torch.Tensor)
-        return left + right
-    if len(left) == 2:
-        right_pair = right
-        assert isinstance(right_pair, tuple) and len(right_pair) == 2
-        return (left[0] + right_pair[0], left[1] + right_pair[1])
-    right_triplet = right
-    assert isinstance(right_triplet, tuple) and len(right_triplet) == 3
-    return (
-        left[0] + right_triplet[0],
-        left[1] + right_triplet[1],
-        left[2] + right_triplet[2],
-    )
-
-
-def _tree_div(value: MetricData, divisor: int) -> MetricData:
-    if isinstance(value, torch.Tensor):
-        return value / divisor
-    if len(value) == 2:
-        return (value[0] / divisor, value[1] / divisor)
-    return (value[0] / divisor, value[1] / divisor, value[2] / divisor)
-
-
-def _tree_all_reduce_mean(value: MetricData) -> MetricData:
-    if isinstance(value, torch.Tensor):
-        return all_reduce_mean(value)
-    if len(value) == 2:
-        return (all_reduce_mean(value[0]), all_reduce_mean(value[1]))
-    return (
-        all_reduce_mean(value[0]),
-        all_reduce_mean(value[1]),
-        all_reduce_mean(value[2]),
-    )
 
 
 def _to_scalar(value: MetricData) -> float:
@@ -194,26 +140,6 @@ def _image_mean_map_full(
     )
 
 
-def _mean_path(path: str, compute, render) -> MetricSpec:
-    return MetricSpec(
-        path=path,
-        reduce="mean",
-        compute=compute,
-        render=render,
-        distributed_mean=True,
-    )
-
-
-def _last_path(path: str, compute, render) -> MetricSpec:
-    return MetricSpec(
-        path=path,
-        reduce="last",
-        compute=compute,
-        render=render,
-        distributed_mean=False,
-    )
-
-
 def build_validation_metric_specs(
     *,
     metadata: dict[str, dict[str, str]],
@@ -225,10 +151,10 @@ def build_validation_metric_specs(
     specs: list[MetricSpec] = []
 
     def define_mean(path, compute, render):
-        specs.append(_mean_path(path, compute, render))
+        specs.append(mean_metric(path, compute, render))
 
     def define_last(path, compute, render):
-        specs.append(_last_path(path, compute, render))
+        specs.append(last_metric(path, compute, render))
 
     define_mean("mean/loss", lambda batch: batch.loss, _to_scalar)
     for depth in tensor_map.DEPTH_SET:
@@ -329,40 +255,3 @@ def build_validation_metric_specs(
         )
 
     return specs
-
-
-class ValidationMetricEngine:
-    def __init__(self, specs: list[MetricSpec]):
-        self._specs = specs
-
-    def record(self, batch: ValidationBatchMetricsInput):
-        for spec in self._specs:
-            value = spec.compute(batch)
-            if spec.reduce == "last":
-                spec.last = value
-                continue
-            if spec.total is None:
-                spec.total = value
-            else:
-                spec.total = _tree_add(spec.total, value)
-            spec.count += 1
-
-    def get_logs(self) -> Metrics:
-        logs: MetricsDict = {}
-        for spec in self._specs:
-            if spec.reduce == "last":
-                if spec.last is None:
-                    raise ValueError(
-                        f"No values recorded for metric path '{spec.path}'."
-                    )
-                value = spec.last
-            else:
-                if spec.total is None or spec.count == 0:
-                    raise ValueError(
-                        f"No values recorded for metric path '{spec.path}'."
-                    )
-                value = _tree_div(spec.total, spec.count)
-                if spec.distributed_mean:
-                    value = _tree_all_reduce_mean(value)
-            logs[spec.path] = spec.render(value)
-        return logs

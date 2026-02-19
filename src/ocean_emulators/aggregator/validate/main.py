@@ -1,8 +1,8 @@
 import torch
 
+from ocean_emulators.aggregator.spec_engine import MetricEngine
 from ocean_emulators.aggregator.validate.specs import (
     ValidationBatchMetricsInput,
-    ValidationMetricEngine,
     build_validation_metric_specs,
 )
 from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
@@ -21,7 +21,7 @@ class ValidateAggregator:
         wet: torch.Tensor,
         num_prognostic_channels: int,
     ):
-        self._metric_engine: ValidationMetricEngine | None = None
+        self._metric_engine: MetricEngine | None = None
         self.normalize = Normalize.get_instance()
         self.metadata = metadata
         self.hist = hist
@@ -69,7 +69,7 @@ class ValidateAggregator:
         )
 
         if self._metric_engine is None:
-            self._metric_engine = ValidationMetricEngine(
+            self._metric_engine = MetricEngine(
                 build_validation_metric_specs(
                     metadata=self.metadata,
                     hist=self.hist,

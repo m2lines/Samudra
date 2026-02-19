@@ -686,6 +686,7 @@ def get_aggregator_dicts(
         # Batches are independent rollouts during validation
         data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
     else:
+        # This case comes up in tests; typically, data is not in the desired shape automatically.
         data_reshaped = data
 
     # Get normalized dict

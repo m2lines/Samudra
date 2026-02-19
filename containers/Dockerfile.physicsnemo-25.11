@@ -6,6 +6,7 @@ WORKDIR /workspace
 COPY LICENSE README.md pyproject.toml uv.lock ./
 COPY src ./src
 COPY configs ./configs
+COPY tests ./tests
 COPY scripts/container ./scripts/container
 
 # Bind-mount targets used by Slurm harnesses (ensure they exist in the image so

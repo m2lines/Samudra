@@ -103,13 +103,12 @@ jobs:
         run: |
           docker run --rm \
             --ipc=host \
-            -v "${GITHUB_WORKSPACE}:/repo" \
-            --workdir /repo \
+            -v "${GITHUB_WORKSPACE}/.data_cache:/workspace/.data_cache" \
+            --workdir /workspace \
             --entrypoint bash \
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
-              . /workspace/.venv/bin/activate
-              export PYTHONPATH="/repo/src:${PYTHONPATH:-}"
+              . .venv/bin/activate
               python -m pytest -n 2 -v -m "not manual and not cuda"
             '
 
@@ -118,13 +117,12 @@ jobs:
         run: |
           docker run --rm --gpus all \
             --ipc=host \
-            -v "${GITHUB_WORKSPACE}:/repo" \
-            --workdir /repo \
+            -v "${GITHUB_WORKSPACE}/.data_cache:/workspace/.data_cache" \
+            --workdir /workspace \
             --entrypoint bash \
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
-              . /workspace/.venv/bin/activate
-              export PYTHONPATH="/repo/src:${PYTHONPATH:-}"
+              . .venv/bin/activate
               python -m pytest -n 2 -v -m "not manual and cuda" -x
             '
 

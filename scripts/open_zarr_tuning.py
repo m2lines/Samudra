@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.11"
+# requires-python = ">=3.12"
 # dependencies = [
 #   "xarray[io]",
 #   "zarr<3",   # Zarr v2 --> change to `zarr<3`; Zarr v3 --> change to `zarr>=3`.

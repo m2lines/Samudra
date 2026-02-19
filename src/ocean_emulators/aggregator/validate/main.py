@@ -1,16 +1,38 @@
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
 import torch
 
 from ocean_emulators.aggregator.train import TrainAggregator
-from ocean_emulators.aggregator.validate.map import MapAggregator
-from ocean_emulators.aggregator.validate.reduced import MeanAggregator
-from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
-from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
+from ocean_emulators.aggregator.validate.map import (
+    get_map_logs,
+    init_map_state,
+    record_map_batch,
+)
+from ocean_emulators.aggregator.validate.reduced import (
+    get_reduced_logs,
+    init_reduced_state,
+    record_reduced_batch,
+)
+from ocean_emulators.aggregator.validate.snapshot import (
+    get_snapshot_logs,
+    init_snapshot_state,
+    record_snapshot_batch,
+)
 from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 
-class ValidateAggregator(TrainAggregator):
+@dataclass
+class _ValidateAggregation:
+    state: Any
+    record_batch: Callable[..., None]
+    get_logs: Callable[..., Metrics]
+
+
+class ValidateAggregator:
     """Aggregates Validation Statistics."""
 
     def __init__(
@@ -21,21 +43,29 @@ class ValidateAggregator(TrainAggregator):
         wet: torch.Tensor,
         num_prognostic_channels: int,
     ):
-        super().__init__()
-
-        val_aggregators: dict[str, ValidateSubAggregator] = {
-            "snapshot": SnapshotAggregator(metadata, hist),
-            "mean_map": MapAggregator(metadata, hist),
-            "reduced": MeanAggregator(area_weights, hist),
+        self._train_aggregator = TrainAggregator()
+        self._aggregations: dict[str, _ValidateAggregation] = {
+            "snapshot": _ValidateAggregation(
+                state=init_snapshot_state(metadata, hist),
+                record_batch=record_snapshot_batch,
+                get_logs=get_snapshot_logs,
+            ),
+            "mean_map": _ValidateAggregation(
+                state=init_map_state(metadata, hist),
+                record_batch=record_map_batch,
+                get_logs=get_map_logs,
+            ),
+            "reduced": _ValidateAggregation(
+                state=init_reduced_state(area_weights, hist),
+                record_batch=record_reduced_batch,
+                get_logs=get_reduced_logs,
+            ),
         }
-        self._aggregators = val_aggregators
         self.normalize = Normalize.get_instance()
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
         self.wet = wet
 
-    # TODO(jder): we could remove this by moving from inheritance
-    # to composition with the TrainAggregator functionality.
     def record_batch(self, batch):
         raise NotImplementedError(
             "Call record_validation_batch instead of record_batch"
@@ -43,7 +73,7 @@ class ValidateAggregator(TrainAggregator):
 
     @torch.no_grad()
     def record_validation_batch(self, batch: ValBatchOutput):
-        super().record_batch(batch)  # Record losses
+        self._train_aggregator.record_batch(batch)  # Record losses
 
         if len(batch.target_data) == 0:
             raise ValueError("No data in target_data")
@@ -77,8 +107,9 @@ class ValidateAggregator(TrainAggregator):
             hist=self.hist,
         )
 
-        for agg in self._aggregators.values():
+        for agg in self._aggregations.values():
             agg.record_batch(
+                agg.state,
                 loss=batch.loss,
                 target_data=target_data_unnorm_dict,
                 gen_data=gen_data_unnorm_dict,
@@ -90,9 +121,9 @@ class ValidateAggregator(TrainAggregator):
 
     @torch.no_grad()
     def get_logs(self, label: str = "train") -> Metrics:
-        logs: MetricsDict = dict(super().get_logs(label))
-        for agg_label in self._aggregators:
-            for k, v in self._aggregators[agg_label].get_logs(label=agg_label).items():
+        logs: MetricsDict = dict(self._train_aggregator.get_logs(label))
+        for agg_label, agg in self._aggregations.items():
+            for k, v in agg.get_logs(agg.state, label=agg_label).items():
                 logs[f"{label}/{k}"] = v
 
         return logs

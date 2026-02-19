@@ -78,6 +78,7 @@ dev = [
   "s3fs>=2025.3",
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
+  "syrupy>=5.1",
   "tenacity>=9",
   "tqdm>=4.67.1",
   "types-pyyaml>=6.0.12.20241230",

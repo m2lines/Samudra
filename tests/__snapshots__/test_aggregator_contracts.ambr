@@ -1,0 +1,2235 @@
+# serializer version: 1
+# name: test_inference_evaluator_aggregator_contract
+  dict({
+    'init_logs': list([
+      dict({
+        'mean/forecast_step': 0,
+        'mean/weighted_bias/ocean_heat_content': 0.0,
+        'mean/weighted_bias/thetao_0': 0.0,
+        'mean/weighted_grad_mag_percent_diff/ocean_heat_content': 0.0,
+        'mean/weighted_grad_mag_percent_diff/thetao_0': 0.0,
+        'mean/weighted_mean_gen/ocean_heat_content': 51646500.0,
+        'mean/weighted_mean_gen/thetao_0': 2.5,
+        'mean/weighted_mean_target/ocean_heat_content': 51646500.0,
+        'mean/weighted_mean_target/thetao_0': 2.5,
+        'mean/weighted_rmse/ocean_heat_content': 0.0,
+        'mean/weighted_rmse/thetao_0': 0.0,
+        'mean/weighted_std_gen/ocean_heat_content': 23097016.0,
+        'mean/weighted_std_gen/thetao_0': 1.118,
+        'mean_norm/forecast_step': 0,
+        'mean_norm/weighted_bias/ocean_heat_content': 0.0,
+        'mean_norm/weighted_bias/thetao_0': 0.0,
+        'mean_norm/weighted_mean_gen/ocean_heat_content': 51646500.0,
+        'mean_norm/weighted_mean_gen/thetao_0': 2.5,
+        'mean_norm/weighted_mean_target/ocean_heat_content': 51646500.0,
+        'mean_norm/weighted_mean_target/thetao_0': 2.5,
+        'mean_norm/weighted_rmse/ocean_heat_content': 0.0,
+        'mean_norm/weighted_rmse/thetao_0': 0.0,
+        'mean_norm/weighted_std_gen/ocean_heat_content': 23097016.0,
+        'mean_norm/weighted_std_gen/thetao_0': 1.118,
+      }),
+    ]),
+    'step_logs': list([
+      dict({
+        'mean/forecast_step': 1,
+        'mean/weighted_bias/ocean_heat_content': 516464.0,
+        'mean/weighted_bias/thetao_0': 0.025,
+        'mean/weighted_grad_mag_percent_diff/ocean_heat_content': 8.269,
+        'mean/weighted_grad_mag_percent_diff/thetao_0': 8.269,
+        'mean/weighted_mean_gen/ocean_heat_content': 71788632.0,
+        'mean/weighted_mean_gen/thetao_0': 3.475,
+        'mean/weighted_mean_target/ocean_heat_content': 71272176.0,
+        'mean/weighted_mean_target/thetao_0': 3.45,
+        'mean/weighted_rmse/ocean_heat_content': 2732876.75,
+        'mean/weighted_rmse/thetao_0': 0.132,
+        'mean/weighted_std_gen/ocean_heat_content': 22506262.0,
+        'mean/weighted_std_gen/thetao_0': 1.089,
+        'mean_norm/forecast_step': 1,
+        'mean_norm/weighted_bias/ocean_heat_content': 516464.0,
+        'mean_norm/weighted_bias/thetao_0': 0.025,
+        'mean_norm/weighted_mean_gen/ocean_heat_content': 71788632.0,
+        'mean_norm/weighted_mean_gen/thetao_0': 3.475,
+        'mean_norm/weighted_mean_target/ocean_heat_content': 71272176.0,
+        'mean_norm/weighted_mean_target/thetao_0': 3.45,
+        'mean_norm/weighted_rmse/ocean_heat_content': 2732876.75,
+        'mean_norm/weighted_rmse/thetao_0': 0.132,
+        'mean_norm/weighted_std_gen/ocean_heat_content': 22506262.0,
+        'mean_norm/weighted_std_gen/thetao_0': 1.089,
+      }),
+      dict({
+        'mean/forecast_step': 2,
+        'mean/weighted_bias/ocean_heat_content': 1549393.0,
+        'mean/weighted_bias/thetao_0': 0.075,
+        'mean/weighted_grad_mag_percent_diff/ocean_heat_content': -1.063,
+        'mean/weighted_grad_mag_percent_diff/thetao_0': -1.063,
+        'mean/weighted_mean_gen/ocean_heat_content': 93480160.0,
+        'mean/weighted_mean_gen/thetao_0': 4.525,
+        'mean/weighted_mean_target/ocean_heat_content': 91930768.0,
+        'mean/weighted_mean_target/thetao_0': 4.45,
+        'mean/weighted_rmse/ocean_heat_content': 3724284.25,
+        'mean/weighted_rmse/thetao_0': 0.18,
+        'mean/weighted_std_gen/ocean_heat_content': 22506262.0,
+        'mean/weighted_std_gen/thetao_0': 1.089,
+        'mean_norm/forecast_step': 2,
+        'mean_norm/weighted_bias/ocean_heat_content': 1549393.0,
+        'mean_norm/weighted_bias/thetao_0': 0.075,
+        'mean_norm/weighted_mean_gen/ocean_heat_content': 93480160.0,
+        'mean_norm/weighted_mean_gen/thetao_0': 4.525,
+        'mean_norm/weighted_mean_target/ocean_heat_content': 91930768.0,
+        'mean_norm/weighted_mean_target/thetao_0': 4.45,
+        'mean_norm/weighted_rmse/ocean_heat_content': 3724284.25,
+        'mean_norm/weighted_rmse/thetao_0': 0.18,
+        'mean_norm/weighted_std_gen/ocean_heat_content': 22506262.0,
+        'mean_norm/weighted_std_gen/thetao_0': 1.089,
+      }),
+    ]),
+    'summary_logs': dict({
+      'time_mean/bias/ocean_heat_content': 1032930.0,
+      'time_mean/bias/thetao_0': 0.05,
+      'time_mean/bias_map/ocean_heat_content': dict({
+        '__type': 'wandb.Image',
+        'caption': 'ocean_heat_content time-mean bias (generated - target) [unknown_units] vmin=-4.132e+06, vmax=4.132e+06.',
+        'pixels': list([
+          list([
+            list([
+              41,
+              113,
+              177,
+              255,
+            ]),
+            list([
+              103,
+              0,
+              31,
+              255,
+            ]),
+            list([
+              247,
+              246,
+              246,
+              255,
+            ]),
+            list([
+              103,
+              0,
+              31,
+              255,
+            ]),
+          ]),
+          list([
+            list([
+              247,
+              246,
+              246,
+              255,
+            ]),
+            list([
+              187,
+              42,
+              51,
+              255,
+            ]),
+            list([
+              247,
+              246,
+              246,
+              255,
+            ]),
+            list([
+              5,
+              48,
+              97,
+              255,
+            ]),
+          ]),
+        ]),
+        'shape': list([
+          2,
+          4,
+          4,
+        ]),
+      }),
+      'time_mean/bias_map/thetao_0': dict({
+        '__type': 'wandb.Image',
+        'caption': 'Sea Water Potential Temperature time-mean bias (generated - target) [\\degree C] vmin=-0.2, vmax=0.2.',
+        'pixels': list([
+          list([
+            list([
+              40,
+              111,
+              176,
+              255,
+            ]),
+            list([
+              103,
+              0,
+              31,
+              255,
+            ]),
+            list([
+              247,
+              246,
+              246,
+              255,
+            ]),
+            list([
+              103,
+              0,
+              31,
+              255,
+            ]),
+          ]),
+          list([
+            list([
+              247,
+              246,
+              246,
+              255,
+            ]),
+            list([
+              185,
+              39,
+              50,
+              255,
+            ]),
+            list([
+              247,
+              246,
+              246,
+              255,
+            ]),
+            list([
+              5,
+              48,
+              97,
+              255,
+            ]),
+          ]),
+        ]),
+        'shape': list([
+          2,
+          4,
+          4,
+        ]),
+      }),
+      'time_mean/gen_map/ocean_heat_content': dict({
+        '__type': 'wandb.Image',
+        'caption': 'ocean_heat_content time-mean generated [unknown_units] vmin=5.165e+07, vmax=1.136e+08.',
+        'pixels': list([
+          list([
+            list([
+              37,
+              171,
+              129,
+              255,
+            ]),
+            list([
+              253,
+              231,
+              36,
+              255,
+            ]),
+            list([
+              255,
+              255,
+              255,
+              255,
+            ]),
+            list([
+              253,
+              231,
+              36,
+              255,
+            ]),
+          ]),
+          list([
+            list([
+              68,
+              1,
+              84,
+              255,
+            ]),
+            list([
+              43,
+              116,
+              142,
+              255,
+            ]),
+            list([
+              255,
+              255,
+              255,
+              255,
+            ]),
+            list([
+              68,
+              1,
+              84,
+              255,
+            ]),
+          ]),
+        ]),
+        'shape': list([
+          2,
+          4,
+          4,
+        ]),
+      }),
+      'time_mean/gen_map/thetao_0': dict({
+        '__type': 'wandb.Image',
+        'caption': 'Sea Water Potential Temperature time-mean generated [\\degree C] vmin=2.5, vmax=5.5.',
+        'pixels': list([
+          list([
+            list([
+              37,
+              171,
+              129,
+              255,
+            ]),
+            list([
+              253,
+              231,
+              36,
+              255,
+            ]),
+            list([
+              255,
+              255,
+              255,
+              255,
+            ]),
+            list([
+              253,
+              231,
+              36,
+              255,
+            ]),
+          ]),
+          list([
+            list([
+              68,
+              1,
+              84,
+              255,
+            ]),
+            list([
+              43,
+              116,
+              142,
+              255,
+            ]),
+            list([
+              255,
+              255,
+              255,
+              255,
+            ]),
+            list([
+              68,
+              1,
+              84,
+              255,
+            ]),
+          ]),
+        ]),
+        'shape': list([
+          2,
+          4,
+          4,
+        ]),
+      }),
+      'time_mean/rmse/ocean_heat_content': 3011484.25,
+      'time_mean/rmse/thetao_0': 0.146,
+      'time_mean_norm/gen_map/ocean_heat_content': dict({
+        '__type': 'wandb.Image',
+        'caption': 'ocean_heat_content time-mean generated [unknown_units] vmin=5.165e+07, vmax=1.136e+08.',
+        'pixels': list([
+          list([
+            list([
+              37,
+              171,
+              129,
+              255,
+            ]),
+            list([
+              253,
+              231,
+              36,
+              255,
+            ]),
+            list([
+              255,
+              255,
+              255,
+              255,
+            ]),
+            list([
+              253,
+              231,
+              36,
+              255,
+            ]),
+          ]),
+          list([
+            list([
+              68,
+              1,
+              84,
+              255,
+            ]),
+            list([
+              43,
+              116,
+              142,
+              255,
+            ]),
+            list([
+              255,
+              255,
+              255,
+              255,
+            ]),
+            list([
+              68,
+              1,
+              84,
+              255,
+            ]),
+          ]),
+        ]),
+        'shape': list([
+          2,
+          4,
+          4,
+        ]),
+      }),
+      'time_mean_norm/gen_map/thetao_0': dict({
+        '__type': 'wandb.Image',
+        'caption': 'Sea Water Potential Temperature time-mean generated [\\degree C] vmin=2.5, vmax=5.5.',
+        'pixels': list([
+          list([
+            list([
+              37,
+              171,
+              129,
+              255,
+            ]),
+            list([
+              253,
+              231,
+              36,
+              255,
+            ]),
+            list([
+              255,
+              255,
+              255,
+              255,
+            ]),
+            list([
+              253,
+              231,
+              36,
+              255,
+            ]),
+          ]),
+          list([
+            list([
+              68,
+              1,
+              84,
+              255,
+            ]),
+            list([
+              43,
+              116,
+              142,
+              255,
+            ]),
+            list([
+              255,
+              255,
+              255,
+              255,
+            ]),
+            list([
+              68,
+              1,
+              84,
+              255,
+            ]),
+          ]),
+        ]),
+        'shape': list([
+          2,
+          4,
+          4,
+        ]),
+      }),
+      'time_mean_norm/rmse/channel_mean': 0.146,
+      'time_mean_norm/rmse/ocean_heat_content': 3011484.25,
+      'time_mean_norm/rmse/thetao_0': 0.146,
+    }),
+  })
+# ---
+# name: test_inference_reduced_aggregator_table_contract
+  dict({
+    'mean/series': dict({
+      '__type': 'wandb.Table',
+      'columns': list([
+        'forecast_step',
+        'weighted_bias/thetao_0',
+        'weighted_grad_mag_percent_diff/thetao_0',
+        'weighted_mean_gen/thetao_0',
+        'weighted_mean_target/thetao_0',
+        'weighted_rmse/thetao_0',
+        'weighted_std_gen/thetao_0',
+      ]),
+      'data': list([
+        list([
+          1,
+          0.1,
+          -0.0,
+          2.6,
+          2.5,
+          0.1,
+          1.118,
+        ]),
+        list([
+          2,
+          0.175,
+          -0.929,
+          3.675,
+          3.5,
+          0.18,
+          1.108,
+        ]),
+      ]),
+    }),
+  })
+# ---
+# name: test_map_aggregator_get_logs_contract
+  dict({
+    'mean_map/image-error/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'theta one step mean full field error (generated - target) [K] vmin=-0.15, vmax=0.15.',
+      'pixels': list([
+        list([
+          list([
+            247,
+            183,
+            153,
+            255,
+          ]),
+          list([
+            167,
+            207,
+            228,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        2,
+        4,
+        4,
+      ]),
+    }),
+    'mean_map/image-full-field/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'theta one step mean full field; (top) generated and (bottom) target [K] vmin=1.5, vmax=4.5.',
+      'pixels': list([
+        list([
+          list([
+            59,
+            186,
+            117,
+            255,
+          ]),
+          list([
+            243,
+            229,
+            30,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            71,
+            18,
+            101,
+            255,
+          ]),
+          list([
+            43,
+            116,
+            142,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            94,
+            201,
+            97,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            32,
+            144,
+            140,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            53,
+            183,
+            120,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            58,
+            82,
+            139,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            48,
+            103,
+            141,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+  })
+# ---
+# name: test_snapshot_aggregator_get_logs_contract
+  dict({
+    'snapshot/image-error/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'theta one step full field error (generated - target) for last sample [K] vmin=-0.2, vmax=0.2.',
+      'pixels': list([
+        list([
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            228,
+            128,
+            101,
+            255,
+          ]),
+          list([
+            107,
+            172,
+            208,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        2,
+        4,
+        4,
+      ]),
+    }),
+    'snapshot/image-full-field/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'theta one step full field for last sample; (top) generated and (bottom) target [K] vmin=1, vmax=4.2.',
+      'pixels': list([
+        list([
+          list([
+            30,
+            159,
+            136,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            70,
+            12,
+            95,
+            255,
+          ]),
+          list([
+            54,
+            90,
+            140,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            94,
+            201,
+            97,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            32,
+            144,
+            140,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            40,
+            174,
+            127,
+            255,
+          ]),
+          list([
+            215,
+            226,
+            25,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            58,
+            82,
+            139,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            50,
+            98,
+            141,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+    'snapshot/image-residual/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'theta one step residual (prediction - previous time) for last sample; (top) generated and (bottom) target [K] vmin=-1.2, vmax=1.2.',
+      'pixels': list([
+        list([
+          list([
+            201,
+            70,
+            65,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            132,
+            9,
+            35,
+            255,
+          ]),
+          list([
+            185,
+            39,
+            50,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            228,
+            128,
+            101,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            164,
+            19,
+            40,
+            255,
+          ]),
+          list([
+            164,
+            19,
+            40,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            107,
+            172,
+            208,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            164,
+            19,
+            40,
+            255,
+          ]),
+          list([
+            164,
+            19,
+            40,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+  })
+# ---
+# name: test_to_inference_logs_expands_wandb_tables
+  list([
+    dict({
+      'mean/forecast_step': 0,
+      'mean/metric': 1.5,
+    }),
+    dict({
+      'mean/forecast_step': 1,
+      'mean/metric': 2.5,
+      'time_mean/rmse': 0.5,
+    }),
+  ])
+# ---
+# name: test_train_aggregator_get_logs_contract
+  dict({
+    'train/loss/channel/so_0_loss': 16.0,
+    'train/loss/channel/so_1_loss': 17.0,
+    'train/loss/channel/so_2_loss': 18.0,
+    'train/loss/channel/so_3_loss': 19.0,
+    'train/loss/channel/so_4_loss': 20.0,
+    'train/loss/channel/thetao_0_loss': 11.0,
+    'train/loss/channel/thetao_1_loss': 12.0,
+    'train/loss/channel/thetao_2_loss': 13.0,
+    'train/loss/channel/thetao_3_loss': 14.0,
+    'train/loss/channel/thetao_4_loss': 15.0,
+    'train/loss/channel/uo_0_loss': 1.0,
+    'train/loss/channel/uo_1_loss': 2.0,
+    'train/loss/channel/uo_2_loss': 3.0,
+    'train/loss/channel/uo_3_loss': 4.0,
+    'train/loss/channel/uo_4_loss': 5.0,
+    'train/loss/channel/vo_0_loss': 6.0,
+    'train/loss/channel/vo_1_loss': 7.0,
+    'train/loss/channel/vo_2_loss': 8.0,
+    'train/loss/channel/vo_3_loss': 9.0,
+    'train/loss/channel/vo_4_loss': 10.0,
+    'train/loss/channel/zos_loss': 21.0,
+    'train/loss/depth/depth_0_loss': 11.0,
+    'train/loss/depth/depth_1_loss': 9.5,
+    'train/loss/depth/depth_2_loss': 10.5,
+    'train/loss/depth/depth_3_loss': 11.5,
+    'train/loss/depth/depth_4_loss': 12.5,
+    'train/loss/variable/so_loss': 18.0,
+    'train/loss/variable/thetao_loss': 13.0,
+    'train/loss/variable/uo_loss': 3.0,
+    'train/loss/variable/vo_loss': 8.0,
+    'train/loss/variable/zos_loss': 21.0,
+    'train/mean/loss': 3.0,
+  })
+# ---
+# name: test_validate_aggregator_orchestration_contract
+  dict({
+    'val/loss/channel/thetao_0_loss': 1.7,
+    'val/loss/depth/depth_0_loss': 1.7,
+    'val/loss/variable/thetao_loss': 1.7,
+    'val/mean/loss': 1.7,
+    'val/mean_map/image-error/ocean_heat_content': dict({
+      '__type': 'wandb.Image',
+      'caption': 'ocean_heat_content one step mean full field error (generated - target) [unknown_units] vmin=-2.066e+06, vmax=2.066e+06.',
+      'pixels': list([
+        list([
+          list([
+            194,
+            221,
+            235,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        2,
+        4,
+        4,
+      ]),
+    }),
+    'val/mean_map/image-error/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'Sea Water Potential Temperature one step mean full field error (generated - target) [\\degree C] vmin=-0.1, vmax=0.1.',
+      'pixels': list([
+        list([
+          list([
+            191,
+            220,
+            235,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        2,
+        4,
+        4,
+      ]),
+    }),
+    'val/mean_map/image-full-field/ocean_heat_content': dict({
+      '__type': 'wandb.Image',
+      'caption': 'ocean_heat_content one step mean full field; (top) generated and (bottom) target [unknown_units] vmin=5.165e+07, vmax=1.157e+08.',
+      'pixels': list([
+        list([
+          list([
+            43,
+            177,
+            125,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            49,
+            100,
+            141,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            94,
+            201,
+            97,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            32,
+            144,
+            140,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            46,
+            178,
+            124,
+            255,
+          ]),
+          list([
+            233,
+            228,
+            25,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            58,
+            82,
+            139,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            49,
+            100,
+            141,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+    'val/mean_map/image-full-field/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'Sea Water Potential Temperature one step mean full field; (top) generated and (bottom) target [\\degree C] vmin=2.5, vmax=5.6.',
+      'pixels': list([
+        list([
+          list([
+            43,
+            177,
+            125,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            49,
+            100,
+            141,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            94,
+            201,
+            97,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            32,
+            144,
+            140,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            46,
+            178,
+            124,
+            255,
+          ]),
+          list([
+            233,
+            228,
+            25,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            58,
+            82,
+            139,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            49,
+            100,
+            141,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+    'val/reduced/weighted_bias/ocean_heat_content': 387348.0,
+    'val/reduced/weighted_bias/thetao_0': 0.019,
+    'val/reduced/weighted_grad_mag_percent_diff/ocean_heat_content': 3.428,
+    'val/reduced/weighted_grad_mag_percent_diff/thetao_0': 3.428,
+    'val/reduced/weighted_rmse/ocean_heat_content': 3183172.5,
+    'val/reduced/weighted_rmse/thetao_0': 0.154,
+    'val/snapshot/image-error/ocean_heat_content': dict({
+      '__type': 'wandb.Image',
+      'caption': 'ocean_heat_content one step full field error (generated - target) for last sample [unknown_units] vmin=-4.132e+06, vmax=4.132e+06.',
+      'pixels': list([
+        list([
+          list([
+            228,
+            128,
+            101,
+            255,
+          ]),
+          list([
+            228,
+            128,
+            101,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            104,
+            170,
+            207,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        2,
+        4,
+        4,
+      ]),
+    }),
+    'val/snapshot/image-error/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'Sea Water Potential Temperature one step full field error (generated - target) for last sample [\\degree C] vmin=-0.2, vmax=0.2.',
+      'pixels': list([
+        list([
+          list([
+            229,
+            131,
+            104,
+            255,
+          ]),
+          list([
+            229,
+            131,
+            104,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            107,
+            172,
+            208,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        2,
+        4,
+        4,
+      ]),
+    }),
+    'val/snapshot/image-full-field/ocean_heat_content': dict({
+      '__type': 'wandb.Image',
+      'caption': 'ocean_heat_content one step full field for last sample; (top) generated and (bottom) target [unknown_units] vmin=4.958e+07, vmax=1.157e+08.',
+      'pixels': list([
+        list([
+          list([
+            62,
+            188,
+            115,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            41,
+            121,
+            142,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            94,
+            201,
+            97,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            32,
+            144,
+            140,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            48,
+            180,
+            122,
+            255,
+          ]),
+          list([
+            236,
+            228,
+            26,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            58,
+            82,
+            139,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            70,
+            12,
+            95,
+            255,
+          ]),
+          list([
+            47,
+            106,
+            141,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+    'val/snapshot/image-full-field/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'Sea Water Potential Temperature one step full field for last sample; (top) generated and (bottom) target [\\degree C] vmin=2.4, vmax=5.6.',
+      'pixels': list([
+        list([
+          list([
+            61,
+            187,
+            116,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            253,
+            231,
+            36,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            40,
+            122,
+            142,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            94,
+            201,
+            97,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            32,
+            144,
+            140,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            50,
+            181,
+            122,
+            255,
+          ]),
+          list([
+            236,
+            228,
+            26,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            58,
+            82,
+            139,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            70,
+            11,
+            94,
+            255,
+          ]),
+          list([
+            47,
+            105,
+            141,
+            255,
+          ]),
+          list([
+            255,
+            255,
+            255,
+            255,
+          ]),
+          list([
+            68,
+            1,
+            84,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+    'val/snapshot/image-residual/ocean_heat_content': dict({
+      '__type': 'wandb.Image',
+      'caption': 'ocean_heat_content one step residual (prediction - previous time) for last sample; (top) generated and (bottom) target [unknown_units] vmin=-1.446e+07, vmax=1.446e+07.',
+      'pixels': list([
+        list([
+          list([
+            155,
+            16,
+            39,
+            255,
+          ]),
+          list([
+            155,
+            16,
+            39,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            217,
+            104,
+            83,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            228,
+            128,
+            101,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            192,
+            53,
+            56,
+            255,
+          ]),
+          list([
+            192,
+            53,
+            56,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            107,
+            172,
+            208,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            192,
+            53,
+            56,
+            255,
+          ]),
+          list([
+            192,
+            53,
+            56,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+    'val/snapshot/image-residual/thetao_0': dict({
+      '__type': 'wandb.Image',
+      'caption': 'Sea Water Potential Temperature one step residual (prediction - previous time) for last sample; (top) generated and (bottom) target [\\degree C] vmin=-0.7, vmax=0.7.',
+      'pixels': list([
+        list([
+          list([
+            155,
+            16,
+            39,
+            255,
+          ]),
+          list([
+            155,
+            16,
+            39,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            217,
+            104,
+            83,
+            255,
+          ]),
+          list([
+            103,
+            0,
+            31,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            228,
+            128,
+            101,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            192,
+            53,
+            56,
+            255,
+          ]),
+          list([
+            192,
+            53,
+            56,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            107,
+            172,
+            208,
+            255,
+          ]),
+        ]),
+        list([
+          list([
+            192,
+            53,
+            56,
+            255,
+          ]),
+          list([
+            192,
+            53,
+            56,
+            255,
+          ]),
+          list([
+            247,
+            246,
+            246,
+            255,
+          ]),
+          list([
+            5,
+            48,
+            97,
+            255,
+          ]),
+        ]),
+      ]),
+      'shape': list([
+        5,
+        4,
+        4,
+      ]),
+    }),
+  })
+# ---
+# name: test_validate_reduced_aggregator_get_logs_contract
+  dict({
+    'reduced/weighted_bias/thetao_0': 0.075,
+    'reduced/weighted_grad_mag_percent_diff/thetao_0': -6.938,
+    'reduced/weighted_rmse/thetao_0': 0.158,
+  })
+# ---

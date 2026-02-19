@@ -13,7 +13,6 @@ from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import Normalize
 
 
 class Aggregator:
@@ -28,9 +27,6 @@ class Aggregator:
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
     ) -> ValidateAggregator:
-        # Probably not needed, but maintaining previous functionality.
-        Normalize.get_instance()
-
         val_aggregators: dict[str, ValidateSubAggregator] = {
             "snapshot": SnapshotAggregator(metadata, hist),
             "mean_map": MapAggregator(metadata, hist),

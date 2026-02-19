@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771528308449,
+  "lastUpdate": 1771528309611,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -15027,6 +15027,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3471391177504177",
             "extra": "mean: 76.6518639202 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cfe1108963c99ac07331df8b80488cf14211b697",
+          "message": "ci(container): add PhysicsNeMo build and smoke-test workflow (#583)\n\nStack 4/6.\n\nAdds PhysicsNeMo container assets (Dockerfile, scripts, docs) and CI\nworkflow for image build, smoke validation, and publish path.\n\nBase: u/jder/nemo-docker-stack/physicsnemo-deps.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-02-19T18:46:21Z",
+          "tree_id": "ef17849d1d3a5b1e91643258b7f5ff492d3e51f6",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/cfe1108963c99ac07331df8b80488cf14211b697"
+        },
+        "date": 1771528309256,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1836974527795057,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001600746831642174",
+            "extra": "mean: 844.810468799983 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19204509471278694,
+            "unit": "iter/sec",
+            "range": "stddev: 0.020272550578259475",
+            "extra": "mean: 5.20711034819999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013383705270216862,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07258844019582064",
+            "extra": "mean: 74.71772426319998 sec\nrounds: 5"
           }
         ]
       }

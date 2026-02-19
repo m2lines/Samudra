@@ -33,6 +33,13 @@ class ValidateAggregator(TrainAggregator):
     def record_validation_batch(self, batch: ValBatchOutput):
         super().record_batch(batch)  # Record losses
 
+        # If there are no log aggregators, omit doing any extra work.
+        if not self._aggregators:
+            return
+
+        # Translate the GridContext mask by removing history.
+        wet = batch.ctx.label_mask[: (self.hist + 1)]
+
         if len(batch.target_data) == 0:
             raise ValueError("No data in target_data")
         if len(batch.gen_data) == 0:
@@ -41,7 +48,7 @@ class ValidateAggregator(TrainAggregator):
         assert batch.target_data.shape[1] == self.num_prognostic_channels
         target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(
             batch.target_data,
-            wet=batch.ctx.label_mask,
+            wet=wet,
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -50,7 +57,7 @@ class ValidateAggregator(TrainAggregator):
 
         gen_data_dict, gen_data_unnorm_dict = get_aggregator_dicts(
             batch.gen_data,
-            wet=batch.ctx.label_mask,
+            wet=wet,
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -58,7 +65,7 @@ class ValidateAggregator(TrainAggregator):
         )
         input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
             batch.input_data,
-            wet=batch.ctx.label_mask,
+            wet=wet,
             long_rollout=False,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,

@@ -28,6 +28,7 @@ class Aggregator:
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
     ) -> ValidateAggregator:
+        # Probably not needed, but maintaining previous functionality.
         Normalize.get_instance()
 
         val_aggregators: dict[str, ValidateSubAggregator] = {

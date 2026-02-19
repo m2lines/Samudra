@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE_TAG="${IMAGE_TAG:-ocean-emulator:physicsnemo-25.11}"
+PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-cuda and not manual}"
+PYTEST_ARGS="${PYTEST_ARGS:-}"
+
+docker_cmd=(docker)
+if ! docker version >/dev/null 2>&1; then
+  if command -v sudo >/dev/null 2>&1 && sudo docker version >/dev/null 2>&1; then
+    docker_cmd=(sudo docker)
+  else
+    echo "Docker is required but not available to the current user." >&2
+    exit 1
+  fi
+fi
+
+echo "==> Running CUDA tests in ${IMAGE_TAG}"
+"${docker_cmd[@]}" run --rm \
+  --gpus all \
+  --ipc=host \
+  --ulimit memlock=-1 \
+  --ulimit stack=67108864 \
+  -v "$PWD":/repo \
+  -w /workspace \
+  "${IMAGE_TAG}" \
+  bash -lc "
+    . .venv/bin/activate
+    cd /repo
+    python -m pytest -q -m \"${PYTEST_MARK_EXPR}\" ${PYTEST_ARGS}
+  "

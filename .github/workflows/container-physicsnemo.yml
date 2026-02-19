@@ -1,0 +1,113 @@
+# Build and validate the PhysicsNeMo-based container on x86 Linux.
+name: Container PhysicsNeMo 25.11
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-24.04
+    env:
+      LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Confirm x86_64 runner
+        run: |
+          arch="$(uname -m)"
+          echo "runner arch=${arch}"
+          test "${arch}" = "x86_64"
+
+      - name: Reclaim runner disk space
+        run: |
+          set -euo pipefail
+          echo "Disk usage before cleanup:"
+          df -h
+
+          # Remove large preinstalled SDKs that are not used by this workflow.
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /usr/lib/jvm
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/share/vcpkg
+          sudo swapoff -a || true
+          sudo rm -f /swapfile || true
+
+          # Move Docker root to the larger ephemeral mount on GitHub runners.
+          if [ -d /mnt ]; then
+            sudo mkdir -p /mnt/docker-data
+            echo '{"data-root":"/mnt/docker-data"}' | sudo tee /etc/docker/daemon.json >/dev/null
+            sudo systemctl restart docker
+          fi
+
+          echo "Disk usage after cleanup:"
+          df -h
+          docker info | grep "Docker Root Dir"
+
+      - name: Build container
+        run: |
+          BUILDKIT_PROGRESS=plain docker build --pull \
+            -f containers/Dockerfile.physicsnemo-25.11 \
+            -t "${LOCAL_IMAGE_TAG}" \
+            .
+
+      - name: Run version and smoke checks
+        run: |
+          docker run --rm --entrypoint bash "${LOCAL_IMAGE_TAG}" -lc '
+            set -euo pipefail
+            . .venv/bin/activate
+            python scripts/container/verify_image_packages.py
+            python scripts/container/smoke_test.py
+          '
+
+      - name: Log in to GHCR
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish image
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          set -euo pipefail
+
+          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          ghcr_image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo"
+
+          sha_tag="${ghcr_image}:25.11-${GITHUB_SHA}"
+          docker tag "${LOCAL_IMAGE_TAG}" "${sha_tag}"
+          docker push "${sha_tag}"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            ref_tag="${ghcr_image}:25.11-manual-${GITHUB_REF_NAME//\//-}"
+            docker tag "${LOCAL_IMAGE_TAG}" "${ref_tag}"
+            docker push "${ref_tag}"
+          fi
+
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            latest_tag="${ghcr_image}:25.11-latest"
+            docker tag "${LOCAL_IMAGE_TAG}" "${latest_tag}"
+            docker push "${latest_tag}"
+          fi

@@ -27,7 +27,7 @@ jobs:
     runs-on: ${{ needs.ec2.outputs.id }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
         # Invalidate the data cache every time the data source changes.
         # If an exact cache isn't found, fall back to previous cache.

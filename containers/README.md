@@ -13,13 +13,14 @@ Run CUDA tests in the built image:
 scripts/container/run_cuda_tests_in_image.sh
 ```
 
-On CI (x86 only for now), GitHub Actions builds and validates this image via:
+On CI, GitHub Actions builds and validates this image via:
 
 ```text
 .github/workflows/container-physicsnemo.yml
 ```
 
-The CI workflow does not push images; it only builds and runs version/smoke checks.
+The CI workflow publishes images on `main` pushes and manual dispatches, then runs
+CPU/GPU tests from the published image on an EC2 GPU runner.
 
 Useful environment variables:
 

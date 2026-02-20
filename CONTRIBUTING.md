@@ -89,7 +89,7 @@ git push --force-with-lease
    scripts/container/run_cuda_tests_in_image.sh
    ```
    The corresponding CI workflow is `Container PhysicsNeMo 25.11` in
-   `.github/workflows/container-physicsnemo.yml` (x86 build + smoke checks).
+   `.github/workflows/container-physicsnemo.yml` (x86 build + smoke checks, publish, and containerized CPU/GPU tests).
 
    **Recommended**: For convenience, we've collected lint checks as a [pre-commit](https://pre-commit.com/)
    hook.

@@ -30,7 +30,7 @@ On torch, `scripts/slurm_apptainer_train.sbatch` can pull by:
 
 - `CONTAINER_HASH=<git_sha>` (expands to tag `25.11-<git_sha>`), or
 - `CONTAINER_TAG=25.11-manual-...`, or
-- `IMAGE_REF=ghcr.io/...:<tag>`
+- `IMAGE_REF=ghcr.io/...:<tag>` (takes precedence over the two above)
 
 ## Training Harness
 
@@ -38,19 +38,19 @@ Main script:
 
 - `scripts/slurm_apptainer_train.sbatch`
 
-By default, the harness runs against the **code and configs baked into the container**
-(under `/workspace/src` and `/workspace/configs`). It does **not** bind-mount your
-host checkout into the container for training. This keeps runs pinned to a container
-tag (and avoids accidental drift from host edits).
+Typically you will have this repo cloned on a scratch space so you
+can use this script. But note that the actual training run will use the
+**code and configs baked into the container** (under `/workspace/src` and
+`/workspace/configs`). It does **not** bind-mount your host checkout into the container
+for training. This keeps runs pinned to a container tag (and avoids accidental
+drift from host edits).
 
 It expects environment variables:
 
 - `CONFIG` (required): config path inside the container image. Relative paths are
   resolved under `/workspace/`, e.g. `configs/samudra_om4/train.yaml`.
-- `NAME` (required unless `NAME_SUFFIX` is set): run name (used as
-  `--experiment.name` and output folder name)
-- `NAME_SUFFIX` (recommended): if `NAME` is unset, the harness generates
-  `NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"`
+- `NAME_SUFFIX` (required): populates the run name by prepending the current date;
+  you can also set `NAME` directly if you prefer.
 - `DATA_ROOT` (optional): host data path passed to
   `--experiment.data_root` (default:
   `/scratch/<current_user>/data/om4_onedeg_v3`)
@@ -71,18 +71,7 @@ Key behavior:
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
 - Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
 
-### Name Convention (Date Prefix)
-
-We recommend setting a suffix and letting the harness add the date prefix:
-
-```bash
-export NAME_SUFFIX=om4_samudra_baseline
-# NAME will resolve to: $(date +%Y-%m-%d)-om4_samudra_baseline
-```
-
-Because the harness bails if the output directory exists, the date prefix helps keep names unique and searchable.
-
-### Example: 1 Node, 8x RTX6000
+### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
@@ -99,7 +88,6 @@ export CONTAINER_HASH=<git_sha>
 
 sbatch \
   --account=torch_pr_347_courant \
-  --partition=rtx6000_lzanna \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=16 \
@@ -130,27 +118,6 @@ GPU status inside an allocation:
 srun --overlap --jobid=<jobid> -N1 -n1 nvidia-smi
 ```
 
-## W&B
-
-The training config only accepts:
-
-- `--experiment.wandb.mode=online`
-- `--experiment.wandb.mode=disabled`
-
-Notes:
-
-- If `WANDB_API_KEY` is set and `WANDB_MODE` is unset, the harness chooses `online`.
-- If `WANDB_MODE=offline`, the harness maps it to `disabled` (there is no `offline` mode in config).
-- If you set `WANDB_DIR`, the harness will `mkdir -p` it on the host before running.
-
-Example:
-
-```bash
-export WANDB_MODE=online
-export WANDB_API_KEY=...
-export WANDB_DIR="${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/wandb"
-```
-
 ## NCCL Gotcha On RTX6000 Nodes
 
 On `rtx6000_lzanna` we observed NCCL hangs for 8-GPU single-node training unless P2P is disabled.
@@ -170,16 +137,13 @@ Symptom without the above:
 
 ## Apptainer Caching / Pulling
 
-Defaults in the harness:
+By default the harness will cache pulled SIFs in SIF_DIR, which
+defaults to `${REPO_DIR}/.apptainer-images`. using a unqiue name
+based on the container you've specified.
 
-- SIF directory: `${REPO_DIR}/.apptainer-images`
-- SIF path: `${SIF_DIR}/ocean-emulator-physicsnemo-<tag>.sif`
-
-You can override:
-
-- `SIF_DIR` or `SIF_PATH`
-
-The harness will pull from GHCR if the SIF is missing or empty.
+You can also point it directly to a SIF_PATH. If the SIF_PATH does
+not exist, the harness will pull your specified container from GHCR
+to that path.
 
 ## Private GHCR Images
 

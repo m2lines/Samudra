@@ -108,22 +108,26 @@ CONTAINER_ORG="${CONTAINER_ORG:-open-athena}"
 CONTAINER_REPO="${CONTAINER_REPO:-ocean-emulator-physicsnemo}"
 CONTAINER_HASH="${CONTAINER_HASH:-}"
 CONTAINER_TAG="${CONTAINER_TAG:-}"
-if [[ -z "${CONTAINER_TAG}" ]]; then
-  if [[ -n "${CONTAINER_HASH}" ]]; then
-    CONTAINER_TAG="25.11-${CONTAINER_HASH}"
-  else
-    CONTAINER_TAG="25.11-latest"
+IMAGE_REF="${IMAGE_REF:-}"
+if [[ -z "${IMAGE_REF}" ]]; then
+  if [[ -z "${CONTAINER_TAG}" ]]; then
+    if [[ -n "${CONTAINER_HASH}" ]]; then
+      CONTAINER_TAG="25.11-${CONTAINER_HASH}"
+    else
+      CONTAINER_TAG="25.11-latest"
+    fi
   fi
+  IMAGE_REF="${CONTAINER_REGISTRY}/${CONTAINER_ORG}/${CONTAINER_REPO}:${CONTAINER_TAG}"
 fi
-IMAGE_REF="${IMAGE_REF:-${CONTAINER_REGISTRY}/${CONTAINER_ORG}/${CONTAINER_REPO}:${CONTAINER_TAG}}"
 
 REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 cd "${REPO_DIR}"
 
 SIF_DIR="${SIF_DIR:-${REPO_DIR}/.apptainer-images}"
 mkdir -p "${SIF_DIR}"
-TAG_SAFE="$(echo "${CONTAINER_TAG}" | tr '/:@' '---')"
-SIF_PATH="${SIF_PATH:-${SIF_DIR}/${CONTAINER_REPO}-${TAG_SAFE}.sif}"
+# Default cache name keys off IMAGE_REF so distinct refs never collide.
+IMAGE_REF_SAFE="$(echo "${IMAGE_REF}" | tr '/:@' '---')"
+SIF_PATH="${SIF_PATH:-${SIF_DIR}/${IMAGE_REF_SAFE}.sif}"
 
 # Apptainer tmp: keep on node-local /tmp to avoid scratch filesystems that don't support xattrs.
 export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-/tmp}"

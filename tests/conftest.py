@@ -382,10 +382,13 @@ def _uncached_data_source(name: str) -> DataSource:
             coords = dims.to_coords()
             lev, lat, lon = coords["lev"], coords["lat"], coords["lon"]
 
+            # Use a fixed seed so "remote-om4" and "compact" produce identical
+            # wetmasks (they are cached independently).
+            rng = np.random.RandomState(42)
             coords.update(
                 wetmask=xr.DataArray(
                     np.where(
-                        np.random.normal(size=(len(lev), len(lat), len(lon))) > 0.5,
+                        rng.normal(size=(len(lev), len(lat), len(lon))) > 0.5,
                         1,
                         0,
                     ),

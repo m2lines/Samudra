@@ -3,7 +3,7 @@
 #
 # Submit with env vars (example):
 #   export CONFIG=configs/.../train.yaml
-#   export NAME=my_run
+#   export NAME_SUFFIX=om4_samudra_baseline   # NAME becomes YYYY-MM-DD-<suffix>
 #   export ARGS="--epochs=2 --batch_size=1"
 #   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled
 #   sbatch --nodes=1 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
@@ -43,10 +43,16 @@ else
 fi
 
 CONFIG="${CONFIG:-}"
-NAME="${NAME:-${RUN_NAME:-}}"
+NAME="${NAME:-}"
+NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
+if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
+  NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
+fi
 if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
-  echo "Missing required env vars. Need CONFIG and NAME (or RUN_NAME)." >&2
+  echo "Missing required env vars. Need CONFIG and NAME." >&2
+  echo "Tip: set NAME_SUFFIX to auto-generate NAME as YYYY-MM-DD-<suffix>." >&2
+  echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
   exit 2
 fi
 
@@ -59,14 +65,29 @@ if [[ "${CONFIG_IN_CONTAINER}" != /* ]]; then
 fi
 
 # Data + outputs (host paths; will be bind-mounted into the container at same paths).
-DATA_ROOT="${DATA_ROOT:-/scratch/jr7309/data/om4_onedeg_v3}"
-OUTPUT_BASE="${OUTPUT_BASE:-/scratch/jr7309/runs}"
+CURRENT_USER="${USER:-$(id -un)}"
+DATA_ROOT_DEFAULT="/scratch/${CURRENT_USER}/data/om4_onedeg_v3"
+OUTPUT_BASE_DEFAULT="/scratch/${CURRENT_USER}/runs"
+DATA_ROOT="${DATA_ROOT:-${DATA_ROOT_DEFAULT}}"
+OUTPUT_BASE="${OUTPUT_BASE:-${OUTPUT_BASE_DEFAULT}}"
 
-mkdir -p "${OUTPUT_BASE}"
+if [[ ! -d "${DATA_ROOT}" ]]; then
+  echo "DATA_ROOT directory does not exist: ${DATA_ROOT}" >&2
+  echo "Set DATA_ROOT to an existing data directory." >&2
+  echo "Example: export DATA_ROOT=${DATA_ROOT_DEFAULT}" >&2
+  exit 5
+fi
+if [[ ! -d "${OUTPUT_BASE}" ]]; then
+  echo "OUTPUT_BASE directory does not exist: ${OUTPUT_BASE}" >&2
+  echo "Set OUTPUT_BASE to an existing output directory." >&2
+  echo "Example: export OUTPUT_BASE=${OUTPUT_BASE_DEFAULT}" >&2
+  exit 6
+fi
+
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
 if [[ -e "${RUN_DIR}" ]]; then
   echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
-  echo "Pick a unique NAME (we recommend a date prefix)." >&2
+  echo "Pick a unique NAME_SUFFIX." >&2
   exit 4
 fi
 mkdir -p "${RUN_DIR}"
@@ -79,15 +100,6 @@ if [[ -z "${WANDB_MODE}" ]]; then
   else
     WANDB_MODE="disabled"
   fi
-fi
-if [[ "${WANDB_MODE}" == "offline" ]]; then
-  # TrainConfig.experiment.wandb.mode only accepts "online" or "disabled".
-  WANDB_MODE="disabled"
-fi
-
-# If WANDB_DIR is set, ensure it's writable on the host before entering the container.
-if [[ -n "${WANDB_DIR:-}" ]]; then
-  mkdir -p "${WANDB_DIR}"
 fi
 
 # Container selection (same conventions as scripts/slurm_apptainer_gpu_tests.sbatch).

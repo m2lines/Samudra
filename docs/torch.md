@@ -47,13 +47,25 @@ It expects environment variables:
 
 - `CONFIG` (required): config path inside the container image. Relative paths are
   resolved under `/workspace/`, e.g. `configs/samudra_om4/train.yaml`.
-- `NAME` (required): run name (used as `--experiment.name` and output folder name)
+- `NAME` (required unless `NAME_SUFFIX` is set): run name (used as
+  `--experiment.name` and output folder name)
+- `NAME_SUFFIX` (recommended): if `NAME` is unset, the harness generates
+  `NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"`
+- `DATA_ROOT` (optional): host data path passed to
+  `--experiment.data_root` (default:
+  `/scratch/<current_user>/data/om4_onedeg_v3`)
+- `OUTPUT_BASE` (optional): host output base dir passed to
+  `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
+- `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
+  whether `WANDB_API_KEY` is present)
 
 Key behavior:
 
-- Refuses to run if `/scratch/.../runs/$NAME` already exists (forces unique run names).
+- Refuses to run if `${OUTPUT_BASE}/$NAME` already exists (forces unique run names).
+- Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
+  instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
 - To change training code or YAML configs, rebuild/publish a new container tag and
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
@@ -61,10 +73,11 @@ Key behavior:
 
 ### Name Convention (Date Prefix)
 
-We recommend prefixing run names with a date, similar to the legacy workflow:
+We recommend setting a suffix and letting the harness add the date prefix:
 
 ```bash
-export NAME="$(date +%Y-%m-%d)-om4_samudra_baseline"
+export NAME_SUFFIX=om4_samudra_baseline
+# NAME will resolve to: $(date +%Y-%m-%d)-om4_samudra_baseline
 ```
 
 Because the harness bails if the output directory exists, the date prefix helps keep names unique and searchable.
@@ -73,10 +86,11 @@ Because the harness bails if the output directory exists, the date prefix helps 
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
-export NAME="$(date +%Y-%m-%d)-om4_samudra_baseline"
+export NAME_SUFFIX=om4_samudra_baseline
 export ARGS="--batch_size=1"
-export DATA_ROOT=/scratch/jr7309/data/om4_onedeg_v3
-export OUTPUT_BASE=/scratch/jr7309/runs
+# Optional overrides (defaults are /scratch/$USER/data/om4_onedeg_v3 and /scratch/$USER/runs)
+# export DATA_ROOT=/scratch/$USER/data/om4_onedeg_v3
+# export OUTPUT_BASE=/scratch/$USER/runs
 
 # Container selection (pick one)
 export CONTAINER_HASH=<git_sha>
@@ -100,14 +114,14 @@ sbatch \
 After submission:
 
 - Slurm stdout: `slurm-<jobid>.out` in the submission directory (usually the repo root on torch).
-- Training log: `${OUTPUT_BASE}/${NAME}/experiment.log`
+- Training log: `${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log`
 
 Useful commands:
 
 ```bash
 squeue -j <jobid> -o '%.18i %.2t %.10M %R'
 tail -f slurm-<jobid>.out
-tail -f /scratch/jr7309/runs/$NAME/experiment.log
+tail -f "${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log"
 ```
 
 GPU status inside an allocation:
@@ -134,7 +148,7 @@ Example:
 ```bash
 export WANDB_MODE=online
 export WANDB_API_KEY=...
-export WANDB_DIR="/scratch/jr7309/runs/$NAME/wandb"
+export WANDB_DIR="${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/wandb"
 ```
 
 ## NCCL Gotcha On RTX6000 Nodes

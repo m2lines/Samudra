@@ -2,6 +2,7 @@ import torch
 import wandb
 import xarray as xr
 
+from ocean_emulators.aggregator.spectra import SpectraLocation, SpectraLogger
 from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
 from ocean_emulators.utils.output import ModelInferenceOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
@@ -29,6 +30,10 @@ class InferenceEvaluatorAggregator:
         log_global_mean_norm_time_series: bool = True,
         time_mean_reference_data: xr.Dataset | None = None,
         channel_mean_names: list[str] | None = None,
+        spectra_locations: list[SpectraLocation] | None = None,
+        lat: torch.Tensor | None = None,
+        lon: torch.Tensor | None = None,
+        prognostic_var_names: list[str] | None = None,
     ):
         """
         Args:
@@ -45,6 +50,10 @@ class InferenceEvaluatorAggregator:
                 time series metrics.
             time_mean_reference_data: Reference time means for computing bias stats.
             channel_mean_names: List of channel names to compute the mean of.
+            spectra_locations: Optional lat/lon boxes for spectra logging.
+            lat: Latitude coordinates for selecting spectra boxes.
+            lon: Longitude coordinates for selecting spectra boxes.
+            prognostic_var_names: Prognostic variable names to include in spectra logs.
         """
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
@@ -97,6 +106,13 @@ class InferenceEvaluatorAggregator:
         self.num_prognostic_channels = num_prognostic_channels
         self.hist = hist
         self.wet = wet
+        self._spectra_logger = SpectraLogger(
+            lat=lat,
+            lon=lon,
+            locations=spectra_locations,
+            prognostic_var_names=prognostic_var_names,
+            metadata=metadata,
+        )
 
     @property
     def log_time_series(self) -> bool:
@@ -147,6 +163,14 @@ class InferenceEvaluatorAggregator:
         logs = self._get_inference_logs_slice(
             step_slice=slice(self._n_timesteps_seen, self._n_timesteps_seen + n_times),
         )
+        spectra_logs = self._spectra_logger.get_logs_for_all_steps(
+            target_data=target_unnorm_dict,
+            gen_data=gen_unnorm_dict,
+            sample_index=0,
+            key_prefix="snapshot/",
+            forecast_step_offset=self._n_timesteps_seen,
+        )
+        logs = _merge_step_logs(logs, spectra_logs)
         self._n_timesteps_seen += n_times
         return logs
 
@@ -222,19 +246,39 @@ class InferenceEvaluatorAggregator:
         for name, aggregator in self._aggregators.items():
             if isinstance(aggregator, MeanAggregator):
                 logs.update(aggregator.get_logs(label=name, step_slice=step_slice))
-        return to_inference_logs(logs)
+        if step_slice.start is None or step_slice.stop is None:
+            expected_rows = 1
+        else:
+            expected_rows = max(1, step_slice.stop - step_slice.start)
+        return to_inference_logs(logs, n_rows_hint=expected_rows)
 
 
-def to_inference_logs(log):
+def _merge_step_logs(
+    base_logs: list[MetricsDict],
+    extra_logs: list[MetricsDict],
+) -> list[MetricsDict]:
+    n_logs = max(len(base_logs), len(extra_logs))
+    merged_logs: list[MetricsDict] = []
+    for i in range(n_logs):
+        current: MetricsDict = {}
+        if i < len(base_logs):
+            current.update(base_logs[i])
+        if i < len(extra_logs):
+            current.update(extra_logs[i])
+        merged_logs.append(current)
+    return merged_logs
+
+
+def to_inference_logs(log, n_rows_hint: int | None = None):
     # we have a dictionary which contains WandB tables
     # which we will convert to a list of dictionaries, one for each
     # row in the tables. Any scalar values will be reported in the last
     # dictionary.
-    n_rows = 0
+    n_rows = 0 if n_rows_hint is None else n_rows_hint
     for val in log.values():
         if isinstance(val, wandb.Table):
             n_rows = max(n_rows, len(val.data))
-    logs: list[dict[str, float | int]] = []
+    logs: list[MetricsDict] = []
     for i in range(max(1, n_rows)):  # need at least one for non-series values
         logs.append({})
     for key, val in log.items():

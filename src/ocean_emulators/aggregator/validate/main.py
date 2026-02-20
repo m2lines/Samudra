@@ -1,5 +1,6 @@
 import torch
 
+from ocean_emulators.aggregator.spectra import SpectraLocation
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
@@ -20,11 +21,22 @@ class ValidateAggregator(TrainAggregator):
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        prognostic_var_names: list[str] | None = None,
+        spectra_locations: list[SpectraLocation] | None = None,
+        lat: torch.Tensor | None = None,
+        lon: torch.Tensor | None = None,
     ):
         super().__init__()
 
         val_aggregators: dict[str, ValidateSubAggregator] = {
-            "snapshot": SnapshotAggregator(metadata, hist),
+            "snapshot": SnapshotAggregator(
+                metadata=metadata,
+                hist=hist,
+                lat=lat,
+                lon=lon,
+                spectra_locations=spectra_locations,
+                prognostic_var_names=prognostic_var_names,
+            ),
             "mean_map": MapAggregator(metadata, hist),
             "reduced": MeanAggregator(area_weights, hist),
         }

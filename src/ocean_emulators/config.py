@@ -127,6 +127,22 @@ class TimeConfig(BaseConfig):
         return f"{self.start} to {self.end}"
 
 
+class SpectraLocationConfig(BaseConfig):
+    """Named lat/lon region for spectra logging."""
+
+    name: str = Field(description="Alias used in spectra log keys.")
+    lon: tuple[float, float] = Field(description="Longitude bounds in degrees.")
+    lat: tuple[float, float] = Field(description="Latitude bounds in degrees.")
+
+    @pydantic.model_validator(mode="after")
+    def validate_bounds(self) -> Self:
+        if self.lon[0] == self.lon[1]:
+            raise ValueError("lon bounds must not be equal")
+        if self.lat[0] == self.lat[1]:
+            raise ValueError("lat bounds must not be equal")
+        return self
+
+
 LOCATION_DOCS = (
     "Use a string relative to the `data_root` or use a structured location "
     "see location.py for possible types."
@@ -784,6 +800,7 @@ class TrainConfig(TopLevelConfig):
         start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
     )
     inference_times: list[TimeConfig] = []
+    spectra_locations: list[SpectraLocationConfig] = Field(default_factory=list)
 
     # Config components
     experiment: ExperimentConfig
@@ -809,6 +826,7 @@ class EvalConfig(TopLevelConfig):
     ckpt_path: str | None = None
     num_model_steps_forward: int = 200
     backend: EvalBackendConfig = "auto"
+    spectra_locations: list[SpectraLocationConfig] = Field(default_factory=list)
 
     # Config components
     inference_time: TimeConfig = TimeConfig(

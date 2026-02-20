@@ -1,6 +1,7 @@
 import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
+from ocean_emulators.aggregator.spectra import SpectraLocation, SpectraLogger
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.wandb import Metrics
 
@@ -26,19 +27,33 @@ class SnapshotAggregator(ValidateSubAggregator):
     }
 
     def __init__(
-        self, metadata: dict[str, dict[str, str]] | None = None, hist: int = 0
+        self,
+        metadata: dict[str, dict[str, str]] | None = None,
+        hist: int = 0,
+        lat: torch.Tensor | None = None,
+        lon: torch.Tensor | None = None,
+        spectra_locations: list[SpectraLocation] | None = None,
+        prognostic_var_names: list[str] | None = None,
     ):
         """
         Args:
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
             hist: Number of history steps to include in the snapshot.
+            lat: Latitude coordinates for selecting spectra boxes.
+            lon: Longitude coordinates for selecting spectra boxes.
+            spectra_locations: Optional lat/lon boxes for spectra logging.
+            prognostic_var_names: Prognostic variable names to include in spectra logs.
         """
-        if metadata is None:
-            metadata = {}
-        else:
-            self._metadata = metadata
+        self._metadata = metadata or {}
         self.hist = hist
+        self._spectra_logger = SpectraLogger(
+            lat=lat,
+            lon=lon,
+            locations=spectra_locations,
+            prognostic_var_names=prognostic_var_names,
+            metadata=self._metadata,
+        )
 
     @torch.no_grad()
     def record_batch(
@@ -92,6 +107,14 @@ class SnapshotAggregator(ValidateSubAggregator):
                 caption = self._get_caption(key, name)
                 wandb_image = plot_paneled_data(data, diverging, caption=caption)
                 image_logs[f"image-{key}/{name}"] = wandb_image
+        image_logs.update(
+            self._spectra_logger.get_logs_for_single_step(
+                target_data=self._target_data,
+                gen_data=self._gen_data,
+                time_index=target_time,
+                sample_index=0,
+            )
+        )
         image_logs = {f"{label}/{key}": image_logs[key] for key in image_logs}
         return image_logs
 

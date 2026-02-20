@@ -7,6 +7,7 @@ See the original repository at: https://github.com/ai2cm/ace/tree/39133c18524cda
 import torch
 
 from ocean_emulators.aggregator.inference import InferenceEvaluatorAggregator
+from ocean_emulators.aggregator.spectra import SpectraLocation
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate import ValidateAggregator
 
@@ -23,6 +24,10 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        prognostic_var_names: list[str] | None = None,
+        spectra_locations: list[SpectraLocation] | None = None,
+        lat: torch.Tensor | None = None,
+        lon: torch.Tensor | None = None,
     ) -> ValidateAggregator:
         return ValidateAggregator(
             metadata=metadata,
@@ -30,6 +35,10 @@ class Aggregator:
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
+            prognostic_var_names=prognostic_var_names,
+            spectra_locations=spectra_locations,
+            lat=lat,
+            lon=lon,
         )
 
     @staticmethod
@@ -41,6 +50,10 @@ class Aggregator:
         wet: torch.Tensor,
         num_prognostic_channels: int,
         channel_mean_names: list[str] | None = None,
+        spectra_locations: list[SpectraLocation] | None = None,
+        lat: torch.Tensor | None = None,
+        lon: torch.Tensor | None = None,
+        prognostic_var_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
@@ -53,6 +66,10 @@ class Aggregator:
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
             channel_mean_names=channel_mean_names,
+            spectra_locations=spectra_locations,
+            lat=lat,
+            lon=lon,
+            prognostic_var_names=prognostic_var_names,
         )
 
     @staticmethod
@@ -64,6 +81,10 @@ class Aggregator:
         wet: torch.Tensor,
         num_prognostic_channels: int,
         channel_mean_names: list[str] | None = None,
+        spectra_locations: list[SpectraLocation] | None = None,
+        lat: torch.Tensor | None = None,
+        lon: torch.Tensor | None = None,
+        prognostic_var_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
@@ -76,4 +97,8 @@ class Aggregator:
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,
             channel_mean_names=channel_mean_names,
+            spectra_locations=spectra_locations,
+            lat=lat,
+            lon=lon,
+            prognostic_var_names=prognostic_var_names,
         )

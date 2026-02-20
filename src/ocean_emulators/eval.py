@@ -6,6 +6,7 @@ from collections import OrderedDict
 import torch
 
 from ocean_emulators.aggregator import Aggregator
+from ocean_emulators.aggregator.spectra import SpectraLocation
 from ocean_emulators.backend import init_eval_backend
 from ocean_emulators.config import EvalConfig
 from ocean_emulators.constants import (
@@ -94,6 +95,15 @@ class Eval:
         )
 
         self.src = self.data_container.inference_source
+        self.lat, self.lon = self.src.resolution
+        self.spectra_locations: list[SpectraLocation] = [
+            (
+                loc.name,
+                (float(loc.lon[0]), float(loc.lon[1])),
+                (float(loc.lat[0]), float(loc.lat[1])),
+            )
+            for loc in cfg.spectra_locations
+        ]
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)
@@ -204,6 +214,10 @@ class Eval:
             self.src.masks.prognostic.to(self.device),
             self.num_out,
             self.prognostic_var_names,
+            spectra_locations=self.spectra_locations,
+            lat=self.lat,
+            lon=self.lon,
+            prognostic_var_names=self.prognostic_var_names,
         )
 
         Stepper.inference(

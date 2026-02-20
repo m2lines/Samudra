@@ -32,6 +32,7 @@ from ocean_emulators.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
+from ocean_emulators.aggregator.spectra import SpectraLocation
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig, TrainSchedule, build_loss_fn
 from ocean_emulators.constants import (
@@ -175,6 +176,15 @@ class Trainer:
             )
 
         self.primary_src = self.data_container.primary_source
+        self.lat, self.lon = self.primary_src.resolution
+        self.spectra_locations: list[SpectraLocation] = [
+            (
+                loc.name,
+                (float(loc.lon[0]), float(loc.lon[1])),
+                (float(loc.lat[0]), float(loc.lat[1])),
+            )
+            for loc in cfg.spectra_locations
+        ]
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
@@ -616,6 +626,10 @@ class Trainer:
             self.primary_src.spherical_area_weights.to(self.device),
             self.primary_src.masks.prognostic.to(self.device),
             self.num_out,
+            prognostic_var_names=self.prognostic_var_names,
+            spectra_locations=self.spectra_locations,
+            lat=self.lat,
+            lon=self.lon,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -652,6 +666,10 @@ class Trainer:
                     self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,
+                    spectra_locations=self.spectra_locations,
+                    lat=self.lat,
+                    lon=self.lon,
+                    prognostic_var_names=self.prognostic_var_names,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;

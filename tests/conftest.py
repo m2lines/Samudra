@@ -367,25 +367,52 @@ def _uncached_data_source(name: str) -> DataSource:
             )
 
         case "remote-om4" | "compact":
-            # The chunk-size should be about the same as the size of the time slice
-            # for optimal download time. In local experiments, this time range (which
-            # matches the mock data) is about 30 items.
+            # Create an accurate mock of the remote-om4 data (and compact data).
 
-            data = retry_with_backoff(
-                lambda: xr.open_zarr(REMOTE_DATA + "OM4", chunks=dict(time=50))
-                .sel(time=slice("1975-08-05", "1976-03-31"))
-                .compute()
+            time_range = xr.cftime_range(
+                "1975-08-05",
+                "1976-03-31",
+                freq="5D",
+                calendar="julian",  # 48 time slices.
             )
-            means = retry_with_backoff(
-                lambda: xr.open_dataset(
-                    REMOTE_DATA + "OM4_means", engine="zarr", chunks={}
-                ).compute()
+            dims = DataSourceDims()
+            dims.set_time_range(time_range)
+
+            # The original remote OM4 data uses y/x, not lat/lon,
+            coords = dims.to_coords()
+            lev, lat, lon = coords["lev"], coords["lat"], coords["lon"]
+
+            coords.update(
+                wetmask=xr.DataArray(
+                    np.where(
+                        np.random.normal(size=(len(lev), len(lat), len(lon))) > 0.5,
+                        1,
+                        0,
+                    ),
+                    coords=[lev, lat, lon],
+                )
             )
-            stds = retry_with_backoff(
-                lambda: xr.open_dataset(
-                    REMOTE_DATA + "OM4_stds", engine="zarr", chunks={}
-                ).compute()
-            )
+
+            def _fmtl(lev: float) -> str:
+                lev_str = str(lev)
+                return lev_str.replace(".", "_")
+
+            vars_2d = {
+                var: dims.encode(i)
+                for i, var in enumerate(
+                    ["hfds", "hfds_anomalies", "tauuo", "tauvo", "zos"]
+                )
+            }
+            vars_3d = {
+                f"{var}_lev_{_fmtl(lev)}": dims.encode(len(vars_2d) + i + j * 10)
+                for i, var in enumerate(["so", "thetao", "uo", "vo"])
+                for j, lev in enumerate(c.DEPTH_LEVELS)
+            }
+            data = xr.Dataset(vars_2d | vars_3d, coords=coords)
+
+            # This should be equivalent to what the remote means and stds were.
+            means = data.mean(dim=["time", "lat", "lon"])
+            stds = data.std(dim=["time", "lat", "lon"])
 
             # Keep the original flat data for variable name extraction
             data_for_vars = data

@@ -1,4 +1,4 @@
-# Build and validate the PhysicsNeMo-based container on x86 Linux.
+# Build (and for main/manual runs, publish and test) the PhysicsNeMo-based container on x86 Linux.
 name: Container PhysicsNeMo 25.11
 
 on:
@@ -11,6 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  id-token: write
   contents: read
   packages: write
 
@@ -25,7 +26,7 @@ jobs:
       LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Confirm x86_64 runner
         run: |
@@ -111,3 +112,88 @@ jobs:
             docker tag "${LOCAL_IMAGE_TAG}" "${latest_tag}"
             docker push "${latest_tag}"
           fi
+
+  ec2:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: build-and-smoke
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    with:
+      ec2_instance_type: g6.xlarge
+      ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
+      ec2_root_device_size: 200 # large image pull + test data/cache need substantial headroom
+      aws_tags: '[{"Key": "project", "Value": "fomo"}]'
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+
+  test-container-cpu-gpu:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [build-and-smoke, ec2]
+    runs-on: ${{ needs.ec2.outputs.id }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Cache test data
+        uses: actions/cache@v3
+        with:
+          path: .data_cache/
+          key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show disk before pull
+        run: |
+          df -h
+          docker system df || true
+
+      - name: Pull published image
+        run: |
+          set -euo pipefail
+          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo:25.11-${GITHUB_SHA}"
+          docker pull "${image}"
+          echo "TEST_IMAGE=${image}" >> "${GITHUB_ENV}"
+
+      - name: Run CPU tests in container
+        timeout-minutes: 90
+        run: |
+          docker run --rm \
+            --ipc=host \
+            -v "${GITHUB_WORKSPACE}/.data_cache:/workspace/.data_cache" \
+            --workdir /workspace \
+            --entrypoint bash \
+            "${TEST_IMAGE}" -lc '
+              set -euo pipefail
+              . .venv/bin/activate
+              python -m pytest -n 2 -v -m "not manual and not cuda"
+            '
+
+      - name: Run GPU tests in container
+        timeout-minutes: 90
+        run: |
+          docker run --rm --gpus all \
+            --ipc=host \
+            -v "${GITHUB_WORKSPACE}/.data_cache:/workspace/.data_cache" \
+            --workdir /workspace \
+            --entrypoint bash \
+            "${TEST_IMAGE}" -lc '
+              set -euo pipefail
+              . .venv/bin/activate
+              python -m pytest -n 2 -v -m "not manual and cuda" -x
+            '
+
+  report-container-test-status:
+    if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    needs: [build-and-smoke, ec2, test-container-cpu-gpu]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1

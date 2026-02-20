@@ -162,15 +162,10 @@ class InferenceEvaluatorAggregator:
         n_times = target_unnorm_dict[key].shape[1]
         logs = self._get_inference_logs_slice(
             step_slice=slice(self._n_timesteps_seen, self._n_timesteps_seen + n_times),
-        )
-        spectra_logs = self._spectra_logger.get_logs_for_all_steps(
             target_data=target_unnorm_dict,
             gen_data=gen_unnorm_dict,
             sample_index=0,
-            key_prefix="snapshot/",
-            forecast_step_offset=self._n_timesteps_seen,
         )
-        logs = _merge_step_logs(logs, spectra_logs)
         self._n_timesteps_seen += n_times
         return logs
 
@@ -231,13 +226,22 @@ class InferenceEvaluatorAggregator:
         return logs
 
     @torch.no_grad()
-    def _get_inference_logs_slice(self, step_slice: slice):
+    def _get_inference_logs_slice(
+        self,
+        step_slice: slice,
+        target_data: dict[str, torch.Tensor] | None = None,
+        gen_data: dict[str, torch.Tensor] | None = None,
+        sample_index: int = 0,
+    ):
         """
         Returns a subset of the time series for applicable metrics
         for a specific slice of as can be reported to WandB.
 
         Args:
             step_slice: Timestep slice to determine the time series subset.
+            target_data: Optional unnormalized target data keyed by variable.
+            gen_data: Optional unnormalized generated data keyed by variable.
+            sample_index: Batch sample index used for spectra plotting.
 
         Returns:
             Tuple of start index and list of logs.
@@ -250,23 +254,28 @@ class InferenceEvaluatorAggregator:
             expected_rows = 1
         else:
             expected_rows = max(1, step_slice.stop - step_slice.start)
-        return to_inference_logs(logs, n_rows_hint=expected_rows)
+        inference_logs = to_inference_logs(logs, n_rows_hint=expected_rows)
 
+        if target_data is None or gen_data is None:
+            return inference_logs
 
-def _merge_step_logs(
-    base_logs: list[MetricsDict],
-    extra_logs: list[MetricsDict],
-) -> list[MetricsDict]:
-    n_logs = max(len(base_logs), len(extra_logs))
-    merged_logs: list[MetricsDict] = []
-    for i in range(n_logs):
-        current: MetricsDict = {}
-        if i < len(base_logs):
-            current.update(base_logs[i])
-        if i < len(extra_logs):
-            current.update(extra_logs[i])
-        merged_logs.append(current)
-    return merged_logs
+        forecast_step_offset = 0 if step_slice.start is None else step_slice.start
+        spectra_logs = self._spectra_logger.get_logs_for_all_steps(
+            target_data=target_data,
+            gen_data=gen_data,
+            sample_index=sample_index,
+            key_prefix="snapshot/",
+            forecast_step_offset=forecast_step_offset,
+        )
+
+        if len(spectra_logs) > len(inference_logs):
+            inference_logs.extend(
+                {} for _ in range(len(spectra_logs) - len(inference_logs))
+            )
+
+        for i_step, step_logs in enumerate(spectra_logs):
+            inference_logs[i_step].update(step_logs)
+        return inference_logs
 
 
 def to_inference_logs(log, n_rows_hint: int | None = None):

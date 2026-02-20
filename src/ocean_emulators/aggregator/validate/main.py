@@ -37,7 +37,8 @@ class ValidateAggregator(TrainAggregator):
             return
 
         # Translate the GridContext mask by removing history.
-        wet = batch.ctx.label_mask[: (self.hist + 1)]
+        first_hist_chunk = batch.ctx.label_mask.shape[0] // (self.hist + 1)
+        wet = batch.ctx.label_mask[:first_hist_chunk]
 
         if len(batch.target_data) == 0:
             raise ValueError("No data in target_data")

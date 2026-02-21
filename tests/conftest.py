@@ -341,84 +341,69 @@ def _uncached_data_source(name: str) -> DataSource:
                 ds.mean(),
                 ds.std(),
                 name=name,
-                prognostic_var_names=[str(var) for var in ds if "_" in str(var)],
-                boundary_var_names=[str(var) for var in ds if "_" not in str(var)],
+                prognostic_var_names=list(vars_3d.keys()),
+                boundary_var_names=list(vars_2d.keys()),
             )
 
         case "mock-om4" | "compact":
-            # Create an accurate mock of the mock-om4 data (and compact data).
+            # Create an accurate mock of the om4 data (and compact data).
 
+            # 48 time slices.
             time_range = xr.cftime_range(
-                "1975-08-05",
-                "1976-03-31",
-                freq="5D",
-                calendar="julian",  # 48 time slices.
+                "1975-08-05", "1976-03-31", freq="5D", calendar="julian"
             )
             dims = DataSourceDims()
             dims.set_time_range(time_range)
 
-            # The original remote OM4 data uses y/x, not lat/lon,
+            # The original remote OM4 data uses y/x, not lat/lon. This should be ok for our tests.
             coords = dims.to_coords()
             lev, lat, lon = coords["lev"], coords["lat"], coords["lon"]
 
-            # Use a fixed seed so "mock-om4" and "compact" produce identical
-            # wetmasks (they are cached independently).
+            # Use a fixed seed so "mock-om4" and "compact" produce identical wetmasks
+            # (they are cached independently).
             rng = np.random.RandomState(42)
+            norm = rng.normal(size=(len(lev), len(lat), len(lon)))
             coords.update(
                 wetmask=xr.DataArray(
-                    np.where(
-                        rng.normal(size=(len(lev), len(lat), len(lon))) > 0.5,
-                        1,
-                        0,
-                    ),
+                    np.where(norm > 0.5, 1, 0),
                     coords=[lev, lat, lon],
                 )
             )
 
-            def _fmtl(lev: float) -> str:
-                lev_str = str(lev)
-                return lev_str.replace(".", "_")
+            var_names_2d = ["hfds", "hfds_anomalies", "tauuo", "tauvo", "zos"]
+            var_names_3d = ["so", "thetao", "uo", "vo"]
 
-            vars_2d = {
-                var: dims.encode(i)
-                for i, var in enumerate(
-                    ["hfds", "hfds_anomalies", "tauuo", "tauvo", "zos"]
-                )
-            }
+            def _fmtl(lev: float) -> str:
+                return str(lev).replace(".", "_")
+
+            vars_2d = {var: dims.encode(i) for i, var in enumerate(var_names_2d)}
             vars_3d = {
                 f"{var}_lev_{_fmtl(lev)}": dims.encode(len(vars_2d) + i + j * 10)
-                for i, var in enumerate(["so", "thetao", "uo", "vo"])
+                for i, var in enumerate(var_names_3d)
                 for j, lev in enumerate(c.DEPTH_LEVELS)
             }
             data = xr.Dataset(vars_2d | vars_3d, coords=coords)
 
-            # This should be equivalent to what the remote means and stds were.
+            # This should be equivalent to what the remote om4 means and stds are.
             means = data.mean(dim=["time", "lat", "lon"])
             stds = data.std(dim=["time", "lat", "lon"])
 
-            # Keep the original flat data for variable name extraction
-            data_for_vars = data
-
+            prognostic_var_names = list(vars_3d.keys())
+            boundary_var_names = list(vars_2d.keys())
             if name == "compact":
                 data = compact_dataset(data)
                 means = compact_dataset(means)
                 stds = compact_dataset(stds)
+                prognostic_var_names = var_names_3d
+                boundary_var_names = var_names_2d
 
             return DataSource.from_datasets(
                 data=data,
                 means=means,
                 stds=stds,
                 name=name,
-                prognostic_var_names=[
-                    str(v)
-                    for v in data_for_vars
-                    if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
-                ],
-                boundary_var_names=[
-                    str(var)
-                    for var in data_for_vars
-                    if var in BOUNDARY_VARS["tau_hfds_hfds_anom"]
-                ],
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
             )
         case _:
             raise ValueError(f"Unknown data source: {name}.")

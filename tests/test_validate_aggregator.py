@@ -10,14 +10,13 @@ from ocean_emulators.utils.output import TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics
 
 
-def src_to_val_batch(src: DataSource) -> ValBatchOutput:
+def val_batch_of(h: int, w: int) -> ValBatchOutput:
     """Create a dummy Validation Batch loss / data from a DataSource."""
     # If we can consume a DataSource, then TensorMap has to be initialized.
     tm = TensorMap.get_instance()
     n_prog = len(tm.prognostic_var_names)
     n_boundary = len(tm.boundary_var_names)
 
-    h, w = src.grid_size
     loss_per_channel = torch.ones(n_prog) * 1.5
     loss = loss_per_channel.sum()
 
@@ -68,7 +67,7 @@ class FakeSubAggregator(ValidateSubAggregator):
 
 
 def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: DataSource):
-    val_batch = src_to_val_batch(dummy_src)
+    val_batch = val_batch_of(*dummy_src.grid_size)
     num_prog_channels = val_batch.loss_per_channel.shape[0]
     val_agg = ValidateAggregator({}, hist=0, num_prognostic_channels=num_prog_channels)
     val_agg.record_validation_batch(val_batch)
@@ -87,7 +86,7 @@ def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: DataSourc
 def test_train_val_aggregator__with_fake_subagg__is_added_to_logs(
     dummy_src: DataSource,
 ):
-    val_batch = src_to_val_batch(dummy_src)
+    val_batch = val_batch_of(*dummy_src.grid_size)
     num_prog_channels = val_batch.loss_per_channel.shape[0]
     val_agg = ValidateAggregator(
         {"fake": FakeSubAggregator()}, hist=0, num_prognostic_channels=num_prog_channels

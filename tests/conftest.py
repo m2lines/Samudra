@@ -366,8 +366,8 @@ def _uncached_data_source(name: str) -> DataSource:
                 boundary_var_names=[str(var) for var in ds if "_" not in str(var)],
             )
 
-        case "remote-om4" | "compact":
-            # Create an accurate mock of the remote-om4 data (and compact data).
+        case "mock-om4" | "compact":
+            # Create an accurate mock of the mock-om4 data (and compact data).
 
             time_range = xr.cftime_range(
                 "1975-08-05",
@@ -382,7 +382,7 @@ def _uncached_data_source(name: str) -> DataSource:
             coords = dims.to_coords()
             lev, lat, lon = coords["lev"], coords["lat"], coords["lon"]
 
-            # Use a fixed seed so "remote-om4" and "compact" produce identical
+            # Use a fixed seed so "mock-om4" and "compact" produce identical
             # wetmasks (they are cached independently).
             rng = np.random.RandomState(42)
             coords.update(
@@ -510,7 +510,7 @@ def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
     data_source.stds.to_netcdf(ds)
 
 
-@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
+@pytest.fixture(scope="session", params=["mock", "mock-om4", "compact"])
 def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     our_cache_dir = cache_dir(pytestconfig)

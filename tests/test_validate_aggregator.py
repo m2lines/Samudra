@@ -6,7 +6,7 @@ from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggreg
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource
-from ocean_emulators.utils.output import TrainBatchOutput, ValBatchOutput
+from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics
 
 
@@ -35,14 +35,6 @@ def val_batch_of(h: int, w: int) -> ValBatchOutput:
         ),
     )
     return batch
-
-
-def val_to_train_batch(val_batch: ValBatchOutput) -> TrainBatchOutput:
-    """Ensures the TrainBatch loss is the same as the ValBatch loss."""
-    return TrainBatchOutput(
-        loss=val_batch.loss,
-        loss_per_channel=val_batch.loss_per_channel,
-    )
 
 
 class FakeSubAggregator(ValidateSubAggregator):
@@ -74,8 +66,8 @@ def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: DataSourc
     val_agg.record_validation_batch(val_batch)
 
     train_agg = TrainAggregator()
-    train_agg.record_batch(val_to_train_batch(val_batch))
-    train_agg.record_batch(val_to_train_batch(val_batch))
+    train_agg.record_batch(val_batch)
+    train_agg.record_batch(val_batch)
 
     val_logs = val_agg.get_logs(label="test")
     train_logs = train_agg.get_logs(label="test")
@@ -95,8 +87,8 @@ def test_train_val_aggregator__with_fake_subagg__is_added_to_logs(
     val_agg.record_validation_batch(val_batch)
 
     train_agg = TrainAggregator()
-    train_agg.record_batch(val_to_train_batch(val_batch))
-    train_agg.record_batch(val_to_train_batch(val_batch))
+    train_agg.record_batch(val_batch)
+    train_agg.record_batch(val_batch)
 
     val_logs = val_agg.get_logs(label="test")
     train_logs = train_agg.get_logs(label="test")

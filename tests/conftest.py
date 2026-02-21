@@ -1,7 +1,5 @@
 import dataclasses
 import pathlib
-import random
-import time
 from collections.abc import Generator
 from typing import ClassVar, Self
 
@@ -10,7 +8,6 @@ import filelock
 import numpy as np
 import pytest
 import xarray as xr
-from aiohttp import ServerDisconnectedError
 from numpy.typing import ArrayLike, NDArray
 
 import ocean_emulators.constants as c
@@ -279,24 +276,6 @@ def cache_dir(pytestconfig: pytest.Config) -> pathlib.Path:
     dir = pytestconfig.rootpath / ".data_cache"
     dir.mkdir(parents=True, exist_ok=True)
     return dir
-
-
-def retry_with_backoff(
-    func, max_retries: int = 5, catch: type[Exception] = ServerDisconnectedError
-):
-    """Retry a function with exponential backoff."""
-    for attempt in range(max_retries):
-        try:
-            return func()
-        except catch:
-            if attempt == max_retries - 1:
-                raise
-            wait_time = (2**attempt) + random.uniform(0, 1)
-            print(
-                f"{catch}. Retrying in {wait_time:.2f}s "
-                f"(attempt {attempt + 1}/{max_retries})"
-            )
-            time.sleep(wait_time)
 
 
 @pytest.fixture(scope="session", params=ALL_CONFIGS)

@@ -370,7 +370,7 @@ def _uncached_data_source(name: str) -> DataSource:
                 )
             )
 
-            var_names_2d = ["hfds", "hfds_anomalies", "tauuo", "tauvo", "zos"]
+            var_names_2d = ["hfds", "hfds_anomalies", "tauuo", "tauvo"]
             var_names_3d = ["so", "thetao", "uo", "vo"]
 
             def _fmtl(lev: float) -> str:
@@ -382,6 +382,11 @@ def _uncached_data_source(name: str) -> DataSource:
                 for i, var in enumerate(var_names_3d)
                 for j, lev in enumerate(c.DEPTH_LEVELS)
             }
+
+            # zos is an edge case 3d var.
+            vars_3d.update(zos=dims.encode(len(vars_2d) + len(vars_3d) + 21))
+            var_names_3d += ["zos"]
+
             data = xr.Dataset(vars_2d | vars_3d, coords=coords)
 
             # This should be equivalent to what the remote om4 means and stds are.

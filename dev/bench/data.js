@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771881667628,
+  "lastUpdate": 1771881668840,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -15477,6 +15477,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18400634471458138",
             "extra": "mean: 78.055921245 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e62f2dcbb5348f516664493e5b3b33502366f844",
+          "message": "Using fake data for \"remote-om4\" (#596)\n\nThis is a quick PR to try to get flaky CI tests to pass. It does this my\nmocking the OM4 data instead of loading it from a remote source. I made\nsure to mimic the remote Xarray Dataset closely; I've noted in comments\nwhere we differ.",
+          "timestamp": "2026-02-23T15:54:28-05:00",
+          "tree_id": "e8f3818931b48559686dc538608474902f45a819",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e62f2dcbb5348f516664493e5b3b33502366f844"
+        },
+        "date": 1771881668495,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1607150665024168,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008564676459419069",
+            "extra": "mean: 861.537882000016 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18624943651182815,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02418278564727268",
+            "extra": "mean: 5.369143760800012 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01315433905166701,
+            "unit": "iter/sec",
+            "range": "stddev: 2.729332993239751",
+            "extra": "mean: 76.02054318899991 sec\nrounds: 5"
           }
         ]
       }

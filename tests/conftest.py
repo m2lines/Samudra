@@ -1,7 +1,5 @@
 import dataclasses
 import pathlib
-import random
-import time
 from collections.abc import Generator
 from typing import ClassVar, Self
 
@@ -10,7 +8,6 @@ import filelock
 import numpy as np
 import pytest
 import xarray as xr
-from aiohttp import ServerDisconnectedError
 from numpy.typing import ArrayLike, NDArray
 
 import ocean_emulators.constants as c
@@ -281,24 +278,6 @@ def cache_dir(pytestconfig: pytest.Config) -> pathlib.Path:
     return dir
 
 
-def retry_with_backoff(
-    func, max_retries: int = 5, catch: type[Exception] = ServerDisconnectedError
-):
-    """Retry a function with exponential backoff."""
-    for attempt in range(max_retries):
-        try:
-            return func()
-        except catch:
-            if attempt == max_retries - 1:
-                raise
-            wait_time = (2**attempt) + random.uniform(0, 1)
-            print(
-                f"{catch}. Retrying in {wait_time:.2f}s "
-                f"(attempt {attempt + 1}/{max_retries})"
-            )
-            time.sleep(wait_time)
-
-
 @pytest.fixture(scope="session", params=ALL_CONFIGS)
 def config_name(request: pytest.FixtureRequest) -> str:
     return request.param
@@ -362,54 +341,74 @@ def _uncached_data_source(name: str) -> DataSource:
                 ds.mean(),
                 ds.std(),
                 name=name,
-                prognostic_var_names=[str(var) for var in ds if "_" in str(var)],
-                boundary_var_names=[str(var) for var in ds if "_" not in str(var)],
+                prognostic_var_names=list(vars_3d.keys()),
+                boundary_var_names=list(vars_2d.keys()),
             )
 
-        case "remote-om4" | "compact":
-            # The chunk-size should be about the same as the size of the time slice
-            # for optimal download time. In local experiments, this time range (which
-            # matches the mock data) is about 30 items.
+        case "mock-om4" | "compact":
+            # Create an accurate mock of the om4 data (and compact data).
 
-            data = retry_with_backoff(
-                lambda: xr.open_zarr(REMOTE_DATA + "OM4", chunks=dict(time=50))
-                .sel(time=slice("1975-08-05", "1976-03-31"))
-                .compute()
+            # 48 time slices.
+            time_range = xr.cftime_range(
+                "1975-08-05", "1976-03-31", freq="5D", calendar="julian"
             )
-            means = retry_with_backoff(
-                lambda: xr.open_dataset(
-                    REMOTE_DATA + "OM4_means", engine="zarr", chunks={}
-                ).compute()
-            )
-            stds = retry_with_backoff(
-                lambda: xr.open_dataset(
-                    REMOTE_DATA + "OM4_stds", engine="zarr", chunks={}
-                ).compute()
+            dims = DataSourceDims()
+            dims.set_time_range(time_range)
+
+            # The original remote OM4 data uses y/x, not lat/lon. This should be ok for our tests.
+            coords = dims.to_coords()
+            lev, lat, lon = coords["lev"], coords["lat"], coords["lon"]
+
+            # Use a fixed seed so "mock-om4" and "compact" produce identical wetmasks
+            # (they are cached independently).
+            rng = np.random.RandomState(42)
+            norm = rng.normal(size=(len(lev), len(lat), len(lon)))
+            coords.update(
+                wetmask=xr.DataArray(
+                    np.where(norm > 0.5, 1, 0),
+                    coords=[lev, lat, lon],
+                )
             )
 
-            # Keep the original flat data for variable name extraction
-            data_for_vars = data
+            var_names_2d = ["hfds", "hfds_anomalies", "tauuo", "tauvo"]
+            var_names_3d = ["so", "thetao", "uo", "vo"]
 
+            def _fmtl(lev: float) -> str:
+                return str(lev).replace(".", "_")
+
+            vars_2d = {var: dims.encode(i) for i, var in enumerate(var_names_2d)}
+            vars_3d = {
+                f"{var}_lev_{_fmtl(lev)}": dims.encode(len(vars_2d) + i + j * 10)
+                for i, var in enumerate(var_names_3d)
+                for j, lev in enumerate(c.DEPTH_LEVELS)
+            }
+
+            # zos is an edge case 3d var.
+            vars_3d.update(zos=dims.encode(len(vars_2d) + len(vars_3d) + 21))
+            var_names_3d += ["zos"]
+
+            data = xr.Dataset(vars_2d | vars_3d, coords=coords)
+
+            # This should be equivalent to what the remote om4 means and stds are.
+            means = data.mean(dim=["time", "lat", "lon"])
+            stds = data.std(dim=["time", "lat", "lon"])
+
+            prognostic_var_names = list(vars_3d.keys())
+            boundary_var_names = list(vars_2d.keys())
             if name == "compact":
                 data = compact_dataset(data)
                 means = compact_dataset(means)
                 stds = compact_dataset(stds)
+                prognostic_var_names = var_names_3d
+                boundary_var_names = var_names_2d
 
             return DataSource.from_datasets(
                 data=data,
                 means=means,
                 stds=stds,
                 name=name,
-                prognostic_var_names=[
-                    str(v)
-                    for v in data_for_vars
-                    if v not in BOUNDARY_VARS["tau_hfds_hfds_anom"]
-                ],
-                boundary_var_names=[
-                    str(var)
-                    for var in data_for_vars
-                    if var in BOUNDARY_VARS["tau_hfds_hfds_anom"]
-                ],
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
             )
         case _:
             raise ValueError(f"Unknown data source: {name}.")
@@ -480,7 +479,7 @@ def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
     data_source.stds.to_netcdf(ds)
 
 
-@pytest.fixture(scope="session", params=["mock", "remote-om4", "compact"])
+@pytest.fixture(scope="session", params=["mock", "mock-om4", "compact"])
 def data_source(request, pytestconfig) -> DataSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     our_cache_dir = cache_dir(pytestconfig)

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771863441929,
+  "lastUpdate": 1771863443332,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -15207,6 +15207,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3246092892512396",
             "extra": "mean: 75.39032353939997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "620a9b58124e9860838fba84e5ac1fb6e1fc6527",
+          "message": "Avoid getting OOM killed during container build with larger runner (#597)\n\nI am pretty sure that [eg\nthis](https://github.com/Open-Athena/Ocean_Emulator/actions/runs/22228379616/job/64301000021)\nis an OOM-kill. This instance has twice as much ram as the standard\nrunners.",
+          "timestamp": "2026-02-23T15:49:47Z",
+          "tree_id": "d7ad294090b19beb85fca6c03cf94803f1b763f4",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/620a9b58124e9860838fba84e5ac1fb6e1fc6527"
+        },
+        "date": 1771863442920,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1605333202928043,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002366597336412722",
+            "extra": "mean: 861.6728037999792 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.187505361711132,
+            "unit": "iter/sec",
+            "range": "stddev: 0.016281237070807045",
+            "extra": "mean: 5.333180826799958 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012175340677833473,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11981829843995447",
+            "extra": "mean: 82.13322538240004 sec\nrounds: 5"
           }
         ]
       }

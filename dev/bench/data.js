@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771890418013,
+  "lastUpdate": 1771890419214,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -15657,6 +15657,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08777262417766608",
             "extra": "mean: 74.58162379199999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5acf49cb15178d006007b1d2cbcaa3cf3fbee947",
+          "message": "NoOp the validate aggregator for the multiscale case. (#591)\n\nI was starting to go in a different direction in a refactor when I took\na step back and realized that we could minimally modify the current\naggregator interfaces to effectively \"no op\" in the multi-scale case in\n`train.py`.\n\nThis PR introduces a clean way to do nothing (except log training loss)\nduring the validate log aggregation. It also adds some tests for the val\naggregator (interface). This required some refactoring.",
+          "timestamp": "2026-02-23T23:21:58Z",
+          "tree_id": "0a7e3228814725f25dadc04751930be6ff1e77c7",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/5acf49cb15178d006007b1d2cbcaa3cf3fbee947"
+        },
+        "date": 1771890418860,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1735685225489887,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002435479527830773",
+            "extra": "mean: 852.101927400031 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19225480357320537,
+            "unit": "iter/sec",
+            "range": "stddev: 0.015384413610199503",
+            "extra": "mean: 5.201430504799987 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013447253782896703,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1991595785935295",
+            "extra": "mean: 74.36462612700002 sec\nrounds: 5"
           }
         ]
       }

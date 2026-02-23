@@ -52,7 +52,7 @@ class Stepper:
         outs = model.forward_once(input, batch.ctx)
         loss_per_channel = loss_fn(outs, label, batch.ctx)
         loss = torch.mean(loss_per_channel)
-        return ValBatchOutput(loss, loss_per_channel, input, label, outs)
+        return ValBatchOutput(loss, loss_per_channel, input, label, outs, batch.ctx)
 
     @staticmethod
     @torch.no_grad()

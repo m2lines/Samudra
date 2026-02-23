@@ -25,7 +25,7 @@ from torch.utils.data import (
 )
 
 from ocean_emulators import config
-from ocean_emulators.aggregator import Aggregator
+from ocean_emulators.aggregator import Aggregator, ValidateAggregator
 from ocean_emulators.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -609,14 +609,21 @@ class Trainer:
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
-        # TODO(alxmrs): Aggregator only supports a single scale.
-        val_aggregator = Aggregator.get_validation_aggregator(
-            self.primary_src.metadata,
-            self.hist,
-            self.primary_src.spherical_area_weights.to(self.device),
-            self.primary_src.masks.prognostic.to(self.device),
-            self.num_out,
-        )
+        if self.train_schedule == "standard":
+            # The standard val aggregator only supports a single scale.
+            val_aggregator = Aggregator.get_validation_aggregator(
+                self.primary_src.metadata,
+                self.hist,
+                self.primary_src.spherical_area_weights.to(self.device),
+                self.num_out,
+            )
+        else:
+            # Create a validation aggregator that handles multiple scales.
+            val_aggregator = ValidateAggregator(
+                {},  # Currently, don't do anything else besides record the training loss.
+                self.hist,
+                self.num_out,
+            )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 

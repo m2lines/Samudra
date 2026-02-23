@@ -1,6 +1,8 @@
 import torch
 import xarray as xr
 
+from ocean_emulators.utils.ctx import GridContext
+
 
 class TrainBatchOutput:
     def __init__(self, loss: torch.Tensor, loss_per_channel: torch.Tensor):
@@ -16,12 +18,14 @@ class ValBatchOutput(TrainBatchOutput):
         input_data: torch.Tensor,
         target_data: torch.Tensor,
         gen_data: torch.Tensor,
+        ctx: GridContext,
     ):
         super().__init__(loss, loss_per_channel)
         assert target_data.shape == gen_data.shape
         self.input_data = input_data
         self.target_data = target_data
         self.gen_data = gen_data
+        self.ctx = ctx
 
 
 class ModelInferenceOutput:

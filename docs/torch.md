@@ -114,6 +114,26 @@ tail -f slurm-<jobid>.out
 tail -f "${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log"
 ```
 
+## Batch-First Guidance On Torch
+
+In general, interactive allocations and TTY-driven `srun` sessions are flaky on Torch.
+For routine checks and probes, prefer short `sbatch` jobs and inspect their outputs.
+
+Example hostname probe:
+
+```bash
+sbatch \
+  --account=torch_pr_347_courant \
+  --nodes=1 \
+  --ntasks=1 \
+  --time=00:01:00 \
+  --output="$HOME/oe-hostname-%j.out" \
+  --wrap="/bin/hostname"
+
+sacct -j <jobid> --format=JobID,State,Partition,NodeList%40,Elapsed,ExitCode -n
+cat "$HOME/oe-hostname-<jobid>.out"
+```
+
 GPU status inside an allocation:
 
 ```bash

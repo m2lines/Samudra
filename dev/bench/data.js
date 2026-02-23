@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771863443332,
+  "lastUpdate": 1771867540904,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7599,6 +7599,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14610611206428642",
             "extra": "mean: 95.8697706634 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a38f6a30ca73137c4ff96ae732b133982aee070",
+          "message": "Fix container pytest crash from zarr plugin autoload (#598)\n\n## Summary\n- diagnose failure in run `22313615433` job `64553523472`\n(`test-container-cpu-gpu`)\n- prevent pytest from loading the incompatible `zarr` plugin in\ncontainer test invocations\n- keep local helper script behavior aligned with CI container test\nbehavior\n\n## Root cause\nThe container image combines packages from two places:\n- base image system site-packages (PhysicsNeMo image)\n- project-managed `.venv` packages (`uv sync`, pinned by this repo)\n\n`pytest` auto-discovers plugins by scanning `pytest11` entry points in\ninstalled distribution metadata. In this environment, it finds a `zarr`\nplugin entry point (`zarr = zarr.testing`) from the base-image side.\n\nHowever, imports resolve against the active environment package set,\nwhere this project pins `zarr==2.18.7`. That version does not provide\n`zarr.testing`. So plugin autoload fails during pytest startup before\ntest collection with:\n\n`ModuleNotFoundError: No module named 'zarr.testing'`\n\n## What the zarr plugin is (and why we do not need it here)\nThe `zarr` pytest plugin is test infrastructure for Zarr\nitself/downstream Zarr-store implementers (marker registration and\nreusable Zarr testing helpers). Our CI jobs here run Ocean Emulator\ntests and do not rely on Zarr's plugin-provided fixtures or hooks.\n\nBecause we do not depend on that plugin for these tests, disabling it\nexplicitly (`-p no:zarr`) is the smallest safe fix: it avoids the\nmixed-environment autoload/import mismatch without changing our test\nselection or application behavior.\n\n## Validation\n- `bash -n scripts/container/run_cuda_tests_in_image.sh`\n- reviewed updated pytest commands in workflow and helper script",
+          "timestamp": "2026-02-23T12:00:00-05:00",
+          "tree_id": "3fed8c284aa476981d1fbeb7d627fc733d3ebafa",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/1a38f6a30ca73137c4ff96ae732b133982aee070"
+        },
+        "date": 1771867539978,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1836562545424079,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0029655487231416513",
+            "extra": "mean: 844.8398732000044 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18973007363681932,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014053356528685472",
+            "extra": "mean: 5.270645717000019 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011427872846413487,
+            "unit": "iter/sec",
+            "range": "stddev: 0.16471533202182365",
+            "extra": "mean: 87.50534884660001 sec\nrounds: 5"
           }
         ]
       }

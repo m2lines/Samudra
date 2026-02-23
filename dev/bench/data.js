@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771887437372,
+  "lastUpdate": 1771887438552,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -15567,6 +15567,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.729332993239751",
             "extra": "mean: 76.02054318899991 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "acde82ecc1c47dfa7ea95ff8745ef01b09f3f3f9",
+          "message": "Document batch-first Torch hostname probes (#601)\n\n## Summary\n- add a durable Torch workflow note to `AGENTS.md`\n- document that hostname checks should prefer a batch probe (`sbatch\n--wrap '/bin/hostname'`) over interactive/TTY `srun` probing\n- capture that this avoids recurring failures seen with interactive/TTY\njobs on Torch\n\n## Validation\n- submitted probe job on Torch:\n- `sbatch --account=torch_pr_347_courant --nodes=1 --ntasks=1\n--time=00:01:00 --output=$HOME/oe-hostname-%j.out --wrap /bin/hostname`\n- observed completion and hostname output:\n- `sacct -j 2610080\n--format=JobID,State,Partition,NodeList%40,Elapsed,ExitCode -n`\n  - output file contained `cs681.hpc.nyu.edu`",
+          "timestamp": "2026-02-23T22:31:48Z",
+          "tree_id": "70585feb2d3677f0fb7c1116c12a51ea234009af",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/acde82ecc1c47dfa7ea95ff8745ef01b09f3f3f9"
+        },
+        "date": 1771887438230,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.165758451924119,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0017024379341770881",
+            "extra": "mean: 857.8106367999908 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19145608938505654,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017751654026473853",
+            "extra": "mean: 5.22312976940002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013408128559776212,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08777262417766608",
+            "extra": "mean: 74.58162379199999 sec\nrounds: 5"
           }
         ]
       }

@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build-and-smoke:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-4-core
     env:
       LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
     steps:

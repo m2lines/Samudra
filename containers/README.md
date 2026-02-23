@@ -19,9 +19,6 @@ On CI, GitHub Actions builds and validates this image via:
 .github/workflows/container-physicsnemo.yml
 ```
 
-Both local and CI flows use `scripts/container/build_physicsnemo_25_11.sh`
-for the Docker build so image metadata and validation behavior stay aligned.
-
 The CI workflow publishes images on `main` pushes and manual dispatches, then runs
 CPU/GPU tests from the published image on an EC2 GPU runner.
 

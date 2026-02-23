@@ -67,20 +67,11 @@ jobs:
 
       - name: Build container
         run: |
+          BUILDKIT_PROGRESS=plain \
           IMAGE_TAG="${LOCAL_IMAGE_TAG}" \
           DOCKERFILE=containers/Dockerfile.physicsnemo-25.11 \
           BUILD_APPTAINER=0 \
-          RUN_SMOKE_TEST=0 \
           bash scripts/container/build_physicsnemo_25_11.sh
-
-      - name: Run version and smoke checks
-        run: |
-          docker run --rm --entrypoint bash "${LOCAL_IMAGE_TAG}" -lc '
-            set -euo pipefail
-            . .venv/bin/activate
-            python scripts/container/verify_image_packages.py
-            python scripts/container/smoke_test.py
-          '
 
       - name: Log in to GHCR
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')

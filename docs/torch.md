@@ -7,7 +7,7 @@ This repo includes Slurm harness scripts that run training inside the published 
 - You have access to the torch cluster and can submit Slurm jobs.
 - `apptainer` (or `singularity`) is available on the cluster.
 - Data is available on the cluster filesystem (no S3/OSN copying in this workflow).
-- You have a container published to GHCR (or you use an existing tag).
+- You have a container published to [GitHub Container Registry (GHCR)](https://ghcr.io) (or you use an existing tag).
 
 ## Container Build/Publish (GitHub Actions)
 
@@ -44,6 +44,8 @@ can use this script. But note that the actual training run will use the
 `/workspace/configs`). It does **not** bind-mount your host checkout into the container
 for training. This keeps runs pinned to a container tag (and avoids accidental
 drift from host edits).
+This means host-side config file edits are ignored unless they are baked into a new
+container image; for quick, run-specific tweaks, use CLI overrides via `ARGS`.
 
 It expects environment variables:
 

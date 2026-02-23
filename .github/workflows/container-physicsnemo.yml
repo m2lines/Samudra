@@ -191,7 +191,7 @@ jobs:
             '
 
   report-container-test-status:
-    if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    if: always()
     needs: [build-and-smoke, ec2, test-container-cpu-gpu]
     runs-on: ubuntu-latest
     steps:

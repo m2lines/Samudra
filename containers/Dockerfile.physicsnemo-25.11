@@ -3,6 +3,18 @@ FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
 
 WORKDIR /workspace
 
+ARG VCS_REF=unknown
+ARG VCS_URL=unknown
+ARG BUILD_DATE=unknown
+
+LABEL org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.source="${VCS_URL}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
+ENV WANDB_GIT_COMMIT="${VCS_REF}" \
+    WANDB_GIT_REMOTE_URL="${VCS_URL}" \
+    WANDB_DISABLE_GIT=true
+
 COPY LICENSE README.md pyproject.toml uv.lock ./
 COPY src ./src
 COPY configs ./configs

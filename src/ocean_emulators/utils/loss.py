@@ -95,6 +95,15 @@ def _masked_elementwise_loss_from_metric(
     return _elementwise_loss_from_metric(metric, pred, target)
 
 
+def _normalize_scale_to_unit_mean(
+    scale: torch.Tensor,
+    *,
+    epsilon: float = 1e-8,
+) -> torch.Tensor:
+    """Rescale ``scale`` so its arithmetic mean is exactly 1."""
+    return scale / scale.mean().clamp_min(epsilon)
+
+
 def decomposed_mse(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """Standard MSE loss (l2) computed per channel."""
     return F.mse_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
@@ -255,6 +264,7 @@ class DynamicLoss:
             max_scale = min_scale * self._limit
             new_target_weights = new_target_weights.clamp(min_scale, max_scale)
 
+        new_target_weights = _normalize_scale_to_unit_mean(new_target_weights)
         self._per_channel_scale = (
             self._per_channel_scale * (DynamicLoss.N_WINDOW - 1) + new_target_weights
         ) / DynamicLoss.N_WINDOW
@@ -271,6 +281,9 @@ class DynamicLoss:
         """Load state from ``state_dict``."""
         if "per_channel_scale" in state:
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
+            self._per_channel_scale = _normalize_scale_to_unit_mean(
+                self._per_channel_scale
+            )
 
 
 class SpatialDynamicLoss:
@@ -487,6 +500,9 @@ class SpatialDynamicLoss:
             max_scale = min_scale * self._limit
             new_target_weights = new_target_weights.clamp(min_scale, max_scale)
 
+        new_target_weights = _normalize_scale_to_unit_mean(
+            new_target_weights, epsilon=self._epsilon
+        )
         self._per_channel_scale_map = (
             self._per_channel_scale_map * (self._ema_window - 1) + new_target_weights
         ) / self._ema_window
@@ -525,6 +541,9 @@ class SpatialDynamicLoss:
         if "per_channel_scale_map" in state:
             self._per_channel_scale_map = state["per_channel_scale_map"].to(
                 self._device
+            )
+            self._per_channel_scale_map = _normalize_scale_to_unit_mean(
+                self._per_channel_scale_map, epsilon=self._epsilon
             )
 
 

@@ -96,6 +96,9 @@ def test_dynamic_spatial_update_creates_channel_spread_stats():
 
     assert torch.isfinite(scale_mean).all()
     assert torch.isfinite(scale_std).all()
+    assert torch.isclose(
+        scale_mean.mean(), torch.tensor(1.0, dtype=scale_mean.dtype), atol=1e-6
+    )
     assert (scale_std > 0).any()
 
 

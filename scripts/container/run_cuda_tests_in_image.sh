@@ -27,5 +27,5 @@ echo "==> Running CUDA tests in ${IMAGE_TAG}"
   bash -lc "
     . .venv/bin/activate
     cd /repo
-    python -m pytest -q -m \"${PYTEST_MARK_EXPR}\" ${PYTEST_ARGS}
+    python -m pytest -p no:zarr -q -m \"${PYTEST_MARK_EXPR}\" ${PYTEST_ARGS}
   "

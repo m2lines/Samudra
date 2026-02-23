@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build-and-smoke:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-4-core
     env:
       LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
     steps:
@@ -190,7 +190,7 @@ jobs:
             '
 
   report-container-test-status:
-    if: always() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    if: always()
     needs: [build-and-smoke, ec2, test-container-cpu-gpu]
     runs-on: ubuntu-latest
     steps:

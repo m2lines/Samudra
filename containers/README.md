@@ -38,6 +38,8 @@ Notes:
 - The Docker build keeps `torch`, `torchvision`, and `flash-attn` from the base image.
 - The build creates `.venv` with `--system-site-packages`, then uses `uv sync` for
   the rest of the dependencies (including dev dependencies; this is a dev container).
+- The build script refuses to run from a dirty git checkout (including untracked files);
+  commit and push first so baked git metadata matches image contents.
 - If `apptainer` (or `singularity`) is installed locally, the wrapper script also
   exports a SIF from the built Docker image.
 - CUDA tests are run with Docker GPU runtime flags plus `--ipc=host` and raised

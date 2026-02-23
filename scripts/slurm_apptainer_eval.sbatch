@@ -92,7 +92,6 @@ if [[ -e "${RUN_DIR}" ]]; then
   echo "Pick a unique NAME_SUFFIX." >&2
   exit 5
 fi
-mkdir -p "${RUN_DIR}"
 
 # Resolve checkpoint path.
 TARGET_CHECKPOINT="${TARGET_CHECKPOINT:-}"
@@ -217,6 +216,10 @@ case "${CKPT_PATH_HOST}" in
 esac
 
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
+
+# Create the run directory after preflight validation so early failures are
+# retryable with the same NAME.
+mkdir -p "${RUN_DIR}"
 
 srun --ntasks=1 --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \

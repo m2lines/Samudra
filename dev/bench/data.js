@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771870916483,
+  "lastUpdate": 1771881667628,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7689,6 +7689,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4798178669684405",
             "extra": "mean: 91.19599421000001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e62f2dcbb5348f516664493e5b3b33502366f844",
+          "message": "Using fake data for \"remote-om4\" (#596)\n\nThis is a quick PR to try to get flaky CI tests to pass. It does this my\nmocking the OM4 data instead of loading it from a remote source. I made\nsure to mimic the remote Xarray Dataset closely; I've noted in comments\nwhere we differ.",
+          "timestamp": "2026-02-23T15:54:28-05:00",
+          "tree_id": "e8f3818931b48559686dc538608474902f45a819",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e62f2dcbb5348f516664493e5b3b33502366f844"
+        },
+        "date": 1771881666720,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1592990232793123,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005526102141369535",
+            "extra": "mean: 862.5902203999942 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18486392970255697,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02633249541720496",
+            "extra": "mean: 5.409384089200006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010646205331859684,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5180648704776669",
+            "extra": "mean: 93.93018158380002 sec\nrounds: 5"
           }
         ]
       }

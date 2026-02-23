@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771867542301,
+  "lastUpdate": 1771870915367,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7644,6 +7644,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.16471533202182365",
             "extra": "mean: 87.50534884660001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9b498d00b93a2465bd395baae1191c515f0aa9a1",
+          "message": "docs(torch): add Apptainer Slurm train/test harness and usage guide (#585)\n\nStack 6/6.\n\nAdds Slurm Apptainer harness scripts and Torch-cluster usage\ndocumentation.\n\nBase: u/jder/nemo-docker-stack/container-post-publish-tests.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-02-23T17:55:32Z",
+          "tree_id": "0297e21067ad4c555fafdd128c55c88aa17d07d7",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/9b498d00b93a2465bd395baae1191c515f0aa9a1"
+        },
+        "date": 1771870914422,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1821679414858668,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005511848658684954",
+            "extra": "mean: 845.9035006000079 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18743755956072874,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014076942964253089",
+            "extra": "mean: 5.335110008599986 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.0109653939151896,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4798178669684405",
+            "extra": "mean: 91.19599421000001 sec\nrounds: 5"
           }
         ]
       }

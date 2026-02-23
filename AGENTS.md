@@ -167,6 +167,9 @@ For vizualization or other long-running tasks:
 * Run with `PYTHONUNBUFFERED=1 uv run ... > /tmp/logfile.txt 2>&1`
 * Wait for a while with `timeout $time tail --pid=$pid -f /tmp/logfile.txt`
 * You may need to run this repeatedly.
+* On NYU Torch, prefer batch probes over interactive/TTY probes for host checks:
+  submit `sbatch --wrap '/bin/hostname'` and inspect `slurm-<jobid>.out`, rather than
+  relying on `srun`/TTY sessions, which can fail on this cluster setup.
 
 ## High-Level Architecture
 

@@ -81,17 +81,14 @@ request all GPUs on a node, also request the node's full CPU and memory.
 Current `gr102` capacity:
 - `8` GPUs (`rtx6000`)
 - `128` CPUs total
-- `1,545,000M` memory total
+- `1,400G` memory available via SLURM
 
-Per-GPU proportional share on this node:
-- `16` CPUs per GPU (`128 / 8`)
-- `193,125M` memory per GPU (`1,545,000M / 8`)
-
-Sizing rule for this node:
+So, sizing rule for this node when using our sbatch script which spawns a process
+per GPU within a task:
 - `--cpus-per-task=16 * <num_gpus>`
-- memory is physically proportional, but Slurm QOS currently caps requestable memory at `1400G` for this partition/account
+- `--mem=175G * <num_gpus>`
 
-For an 8-GPU run, use `--cpus-per-task=128 --mem=1400G`.
+ie for an 8-GPU run, use `--cpus-per-task=128 --mem=1400G`.
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml

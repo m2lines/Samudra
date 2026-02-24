@@ -75,6 +75,25 @@ Key behavior:
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
+For Torch RTX6000 nodes, size CPU and memory proportionally to GPUs. If you
+request all GPUs on a node, also request the node's full CPU and memory.
+
+Current `gr102` capacity:
+- `8` GPUs (`rtx6000`)
+- `128` CPUs total
+- `1,400G` memory available via SLURM
+
+So, sizing rule for this node when using our sbatch script which spawns a process
+per GPU within a task:
+- `--cpus-per-task=16 * <num_gpus>`
+- `--mem=175G * <num_gpus>`
+
+ie for an 8-GPU run, use `--cpus-per-task=128 --mem=1400G`.
+
+Partition guidance:
+- Do not set `--partition` by default.
+- Let Slurm place the job unless you have a specific partition requirement.
+
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
 export NAME_SUFFIX=om4_samudra_baseline
@@ -92,8 +111,8 @@ sbatch \
   --account=torch_pr_347_courant \
   --nodes=1 \
   --ntasks-per-node=1 \
-  --cpus-per-task=16 \
-  --mem=1000GB \
+  --cpus-per-task=128 \
+  --mem=1400G \
   --gres=gpu:rtx6000:8 \
   --time=24:00:00 \
   scripts/slurm_apptainer_train.sbatch
@@ -142,7 +161,7 @@ srun --overlap --jobid=<jobid> -N1 -n1 nvidia-smi
 
 ## NCCL Gotcha On RTX6000 Nodes
 
-On `rtx6000_lzanna` we observed NCCL hangs for 8-GPU single-node training unless P2P is disabled.
+On Torch RTX6000 nodes we observed NCCL hangs for 8-GPU single-node training unless P2P is disabled.
 
 Recommended env vars:
 

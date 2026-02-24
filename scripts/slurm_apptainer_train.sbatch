@@ -8,7 +8,7 @@
 #   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled
 #   sbatch --nodes=1 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
-# Multi-node example (requires the partition to actually have >=N nodes available):
+# Multi-node example (requires enough nodes available):
 #   sbatch --nodes=2 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
 # Container selection (pick one):
@@ -23,11 +23,11 @@
 #SBATCH --job-name=oe-train
 #SBATCH --output=slurm-%j.out
 #SBATCH --account=torch_pr_347_courant
-#SBATCH --partition=rtx6000_lzanna
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=128GB
+# For 8-GPU runs on gr102, request full-node CPUs and QOS-capped memory.
+#SBATCH --cpus-per-task=128
+#SBATCH --mem=1400G
 #SBATCH --gres=gpu:rtx6000:8
 #SBATCH --time=02:00:00
 

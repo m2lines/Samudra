@@ -75,7 +75,7 @@ Key behavior:
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
-For `rtx6000_lzanna`, size CPU and memory proportionally to GPUs. If you
+For Torch RTX6000 nodes, size CPU and memory proportionally to GPUs. If you
 request all GPUs on a node, also request the node's full CPU and memory.
 
 Current `gr102` capacity:
@@ -89,6 +89,10 @@ per GPU within a task:
 - `--mem=175G * <num_gpus>`
 
 ie for an 8-GPU run, use `--cpus-per-task=128 --mem=1400G`.
+
+Partition guidance:
+- Do not set `--partition` by default.
+- Let Slurm place the job unless you have a specific partition requirement.
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
@@ -157,7 +161,7 @@ srun --overlap --jobid=<jobid> -N1 -n1 nvidia-smi
 
 ## NCCL Gotcha On RTX6000 Nodes
 
-On `rtx6000_lzanna` we observed NCCL hangs for 8-GPU single-node training unless P2P is disabled.
+On Torch RTX6000 nodes we observed NCCL hangs for 8-GPU single-node training unless P2P is disabled.
 
 Recommended env vars:
 

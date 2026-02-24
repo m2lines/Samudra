@@ -6,6 +6,8 @@ WORKDIR /workspace
 ARG VCS_REF=unknown
 ARG VCS_URL=unknown
 ARG BUILD_DATE=unknown
+ARG NSYS_CLI_VERSION=2026.1.1.204-3717666
+ARG NSYS_CLI_DEB_URL="https://developer.download.nvidia.com/devtools/nsight-systems/NsightSystems-linux-cli-public-${NSYS_CLI_VERSION}.deb"
 
 LABEL org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.source="${VCS_URL}" \
@@ -14,6 +16,16 @@ LABEL org.opencontainers.image.revision="${VCS_REF}" \
 ENV WANDB_GIT_COMMIT="${VCS_REF}" \
     WANDB_GIT_REMOTE_URL="${VCS_URL}" \
     WANDB_DISABLE_GIT=true
+
+# Upgrade to a newer Nsight Systems CLI build so `--trace=nccl` is available.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && curl -fsSL "${NSYS_CLI_DEB_URL}" -o /tmp/nsight-systems-cli.deb \
+    && apt-get install -y --no-install-recommends /tmp/nsight-systems-cli.deb \
+    && rm -f /tmp/nsight-systems-cli.deb \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/local/bin/nsys /usr/local/cuda/bin/nsys \
+    && nsys --version
 
 COPY LICENSE README.md pyproject.toml uv.lock ./
 COPY src ./src

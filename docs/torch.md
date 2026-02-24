@@ -75,9 +75,23 @@ Key behavior:
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
-For `rtx6000_lzanna` nodes, request CPUs at the node's full CPU:GPU ratio
-(`128 CPU / 8 GPU = 16 CPU per GPU`). For an 8-GPU run, set
-`--cpus-per-task=128`.
+For `rtx6000_lzanna`, size CPU and memory proportionally to GPUs. If you
+request all GPUs on a node, also request the node's full CPU and memory.
+
+Current `gr102` capacity:
+- `8` GPUs (`rtx6000`)
+- `128` CPUs total
+- `1,545,000M` memory total
+
+Per-GPU proportional share on this node:
+- `16` CPUs per GPU (`128 / 8`)
+- `193,125M` memory per GPU (`1,545,000M / 8`)
+
+Sizing rule for this node:
+- `--cpus-per-task=16 * <num_gpus>`
+- `--mem=193125M * <num_gpus>`
+
+For an 8-GPU run, use `--cpus-per-task=128 --mem=1545000M`.
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
@@ -97,7 +111,7 @@ sbatch \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=128 \
-  --mem=1000GB \
+  --mem=1545000M \
   --gres=gpu:rtx6000:8 \
   --time=24:00:00 \
   scripts/slurm_apptainer_train.sbatch

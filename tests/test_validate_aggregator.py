@@ -27,7 +27,7 @@ def val_batch_of(h: int, w: int) -> ValBatchOutput:
         target_data=torch.randn(1, n_prog, 1, h, w),
         gen_data=torch.randn(1, n_prog, 1, h, w),
         ctx=GridContext(
-            label_mask=torch.ones(1, n_prog, 1, h, w),
+            label_mask=torch.ones(n_prog, 1, h, w),
             input_resolution_cpu=(
                 torch.linspace(-90, 90, steps=h),
                 torch.linspace(-180, 180, steps=w),

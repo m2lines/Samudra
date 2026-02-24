@@ -299,3 +299,49 @@ notebooks/                # Analysis and preprocessing notebooks
 6. **Noisy Failure**: Do not swallow errors. If something goes wrong, let it fail loudly.
 7. **Avoid Hacks**: Don't accommodate bad designs by adding more cruft -- refactor separately first then make the nice change.
 8. **Multi-Scale Support**: FOMO model supports training on multiple data resolutions simultaneously with "mix" or "match" scheduling
+
+## Torch HPC (NYU SLURM Cluster)
+
+When asked to submit or monitor training jobs on the NYU Torch HPC cluster:
+
+### Quick Reference
+
+- **SSH host**: `torch` (configured in user's `~/.ssh/config`)
+- **SLURM account**: `torch_pr_347_courant`
+- **Partition**: Do not set `--partition` by default; let SLURM place the job
+- **Sizing rule**: 16 CPUs and 175G per GPU. Full 8-GPU node: `--cpus-per-task=128 --mem=1400G`
+- **Data on cluster**: `/scratch/$USER/data/` with subdirs `om4_onedeg_v3/`, `om4_halfdeg_v4/`, `om4_quarterdeg_v2/`
+- **Repo on cluster**: `/scratch/$USER/Ocean_Emulator/` (shallow clone, only needed for sbatch script)
+- **Helper script**: `scripts/torch_submit.sh` reads a `.env` file and submits the job
+
+### Submission Workflow
+
+1. Ensure a `.env` file exists on torch (copy from `torch.env.example`, fill in secrets)
+2. Ensure the container is built: `gh workflow run "Container PhysicsNeMo 25.11" --ref <branch>`
+   - **PR builds do NOT push to GHCR** -- must use `workflow_dispatch`
+   - Wait for `build-and-smoke` job to finish (publishes image); the test jobs are optional
+3. Submit: `ssh torch "cd /scratch/\$USER/Ocean_Emulator && ./scripts/torch_submit.sh torch.env"`
+4. Or construct sbatch manually per `docs/torch.md`
+
+### Critical: CLI Override for data.sources
+
+The dot-indexed override `--data.sources.0.data_location=...` does **NOT** work.
+Pass the full sources list as JSON via the `DATA_SOURCES_JSON` env var in your `.env`:
+
+```
+DATA_SOURCES_JSON=[{"data_location":"om4_halfdeg_v4/OM4.zarr","data_means_location":"om4_halfdeg_v4/OM4_means.zarr","data_stds_location":"om4_halfdeg_v4/OM4_stds.zarr"},{"data_location":"om4_onedeg_v3/OM4.zarr","data_means_location":"om4_onedeg_v3/OM4_means.zarr","data_stds_location":"om4_onedeg_v3/OM4_stds.zarr"}]
+```
+
+### Monitoring
+
+Interactive `srun` is flaky on Torch. Prefer `sbatch` for probes and inspect output files.
+
+```bash
+ssh torch "squeue -u \$USER -o '%.18i %.2t %.10M %R'"
+ssh torch "tail -50 /scratch/\$USER/Ocean_Emulator/slurm-<jobid>.out"
+ssh torch "sacct -j <jobid> --format=JobID,State,ExitCode,Elapsed"
+```
+
+### Full Documentation
+
+See `docs/torch.md` for first-time setup checklist, data staging, and troubleshooting.

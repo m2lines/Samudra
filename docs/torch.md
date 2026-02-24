@@ -196,3 +196,178 @@ export GHCR_TOKEN=...
 ```
 
 The harness maps these to the environment variables Apptainer uses for registry auth.
+
+## Submission Helper Script
+
+`scripts/torch_submit.sh` is a thin wrapper that sources a `.env` file and submits
+the sbatch job with the right env vars and SLURM flags. See `torch.env.example` for
+the full list of supported variables.
+
+```bash
+# Preview what will be submitted:
+./scripts/torch_submit.sh torch.env --dry-run
+
+# Submit:
+./scripts/torch_submit.sh torch.env
+```
+
+The helper handles the `DATA_SOURCES_JSON` → `--data.sources '<json>'` translation
+automatically (see "CLI Override Syntax" below).
+
+## First-Time Setup Checklist
+
+### 1. Clone the repo on torch scratch
+
+```bash
+ssh torch
+cd /scratch/$USER
+git clone --depth=1 git@github.com:open-athena/Ocean_Emulator.git
+cd Ocean_Emulator
+```
+
+You need an SSH key on torch registered with GitHub (`ssh-keyscan github.com >> ~/.ssh/known_hosts` first).
+The clone is only needed for the sbatch script -- training code runs from the container.
+
+### 2. Verify your SLURM account
+
+```bash
+sacctmgr show associations where user=$USER format=Account%30,Partition%20
+```
+
+The expected account is `torch_pr_347_courant`.
+
+### 3. Stage data (symlinks)
+
+Data lives under a shared scratch directory. Create symlinks:
+
+```bash
+mkdir -p /scratch/$USER/data
+ln -s /scratch/jr7309/data/om4_onedeg_v3 /scratch/$USER/data/om4_onedeg_v3
+ln -s /scratch/jr7309/data/om4_halfdeg_v4 /scratch/$USER/data/om4_halfdeg_v4
+ln -s /scratch/jr7309/data/om4_quarterdeg_v2 /scratch/$USER/data/om4_quarterdeg_v2
+```
+
+Verify:
+
+```bash
+ls /scratch/$USER/data/om4_onedeg_v3/OM4.zarr/.zmetadata
+```
+
+### 4. Build the container
+
+PR builds do NOT push to GHCR. Trigger `workflow_dispatch` manually:
+
+```bash
+gh workflow run "Container PhysicsNeMo 25.11" --ref <your-branch>
+# Wait for the build-and-smoke job to complete (publishes the image).
+gh run list --workflow=container-physicsnemo.yml --limit=3
+```
+
+Use the git SHA or branch tag in your `.env`:
+- `CONTAINER_HASH=<sha>` (expands to `25.11-<sha>`)
+- `CONTAINER_TAG=25.11-manual-<branch-name>`
+
+### 5. Create your .env file
+
+```bash
+cp torch.env.example torch.env
+# Edit torch.env with your secrets and paths
+```
+
+### 6. Create output directory
+
+```bash
+ssh torch "mkdir -p /scratch/$USER/runs"
+```
+
+## Data Layout on Torch
+
+```
+/scratch/$USER/data/              # DATA_ROOT for multi-scale
+├── om4_onedeg_v3/                # 1-degree
+│   ├── OM4.zarr/
+│   ├── OM4_means.zarr/
+│   └── OM4_stds.zarr/
+├── om4_halfdeg_v4/               # 1/2-degree
+│   ├── OM4.zarr/
+│   ├── OM4_means.zarr/
+│   └── OM4_stds.zarr/
+└── om4_quarterdeg_v2/            # 1/4-degree
+    ├── OM4.zarr/
+    ├── OM4_means.zarr/
+    └── OM4_stds.zarr/
+```
+
+The config's `data.sources[].data_location` paths are resolved relative to `DATA_ROOT`
+(passed as `--experiment.data_root`). For example, with `DATA_ROOT=/scratch/$USER/data`
+and `data_location=om4_halfdeg_v4/OM4.zarr`, the resolved path is
+`/scratch/$USER/data/om4_halfdeg_v4/OM4.zarr`.
+
+## CLI Override Syntax for data.sources
+
+The dot-indexed syntax does **not** work for list items:
+
+```bash
+# BROKEN:
+--data.sources.0.data_location=om4_halfdeg_v4/OM4.zarr
+
+# CORRECT -- pass the entire list as a JSON blob:
+--data.sources '[{"data_location":"om4_halfdeg_v4/OM4.zarr","data_means_location":"om4_halfdeg_v4/OM4_means.zarr","data_stds_location":"om4_halfdeg_v4/OM4_stds.zarr"},{"data_location":"om4_onedeg_v3/OM4.zarr","data_means_location":"om4_onedeg_v3/OM4_means.zarr","data_stds_location":"om4_onedeg_v3/OM4_stds.zarr"}]'
+```
+
+The `scripts/torch_submit.sh` helper handles this automatically via the
+`DATA_SOURCES_JSON` variable in your `.env` file.
+
+## Troubleshooting
+
+### OOM / DataLoader workers killed (signal 9)
+
+**Symptom**: Job exits with `RuntimeError: DataLoader worker is killed by signal: Killed`
+or `sacct` shows `OUT_OF_MEMO+`.
+
+**Fix**: Request full-node memory. The sizing rule is 175G per GPU (1400G for 8 GPUs).
+If you requested less, increase `--mem` or set `MEM=1400G` in your `.env`.
+
+### W&B runs not tracked
+
+**Symptom**: Training completes but no run appears in W&B.
+
+**Fix**: Set `WANDB_API_KEY` in your `.env`. The harness auto-sets `WANDB_MODE=online`
+when the key is present.
+
+### Container pull fails (403 / unauthorized)
+
+**Symptom**: `apptainer pull` fails with `unable to retrieve auth token: unauthorized`.
+
+**Fix**: The GHCR image is private. Set `GHCR_USERNAME` and `GHCR_TOKEN` in your `.env`.
+Generate a PAT at https://github.com/settings/tokens with `read:packages` scope.
+
+### Partition unavailable / nodes down
+
+**Symptom**: Job stays pending with reason `Nodes required for job are DOWN/DRAINED`.
+
+**Fix**: By default, don't set `--partition` and let SLURM place the job. If you
+pinned a partition, check its status and consider removing the constraint:
+
+```bash
+sinfo -N -o '%.15N %.6t %.10e %.10m %.20P'
+
+# Remove PARTITION from your .env to let SLURM auto-place.
+# Or set a specific fallback: PARTITION=l40s_courant  GPUS=gpu:l40s:4
+```
+
+### Run directory already exists
+
+**Symptom**: `Refusing to run: output dir already exists`.
+
+**Fix**: Pick a unique `NAME_SUFFIX` or remove the old directory:
+```bash
+ssh torch "rm -rf /scratch/$USER/runs/<old-run-name>"
+```
+
+### Config not found inside container
+
+**Symptom**: `ERROR: config not found inside container: /workspace/configs/...`
+
+**Fix**: The container bakes in configs at build time. Rebuild the container with
+your config changes, or adjust `CONFIG` to match what's in the image.

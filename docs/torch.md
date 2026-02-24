@@ -89,9 +89,9 @@ Per-GPU proportional share on this node:
 
 Sizing rule for this node:
 - `--cpus-per-task=16 * <num_gpus>`
-- `--mem=193125M * <num_gpus>`
+- memory is physically proportional, but Slurm QOS currently caps requestable memory at `1400G` for this partition/account
 
-For an 8-GPU run, use `--cpus-per-task=128 --mem=1545000M`.
+For an 8-GPU run, use `--cpus-per-task=128 --mem=1400G`.
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
@@ -111,7 +111,7 @@ sbatch \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=128 \
-  --mem=1545000M \
+  --mem=1400G \
   --gres=gpu:rtx6000:8 \
   --time=24:00:00 \
   scripts/slurm_apptainer_train.sbatch

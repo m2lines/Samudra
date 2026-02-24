@@ -75,6 +75,10 @@ Key behavior:
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
+For `rtx6000_lzanna` nodes, request CPUs at the node's full CPU:GPU ratio
+(`128 CPU / 8 GPU = 16 CPU per GPU`). For an 8-GPU run, set
+`--cpus-per-task=128`.
+
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
 export NAME_SUFFIX=om4_samudra_baseline
@@ -92,7 +96,7 @@ sbatch \
   --account=torch_pr_347_courant \
   --nodes=1 \
   --ntasks-per-node=1 \
-  --cpus-per-task=16 \
+  --cpus-per-task=128 \
   --mem=1000GB \
   --gres=gpu:rtx6000:8 \
   --time=24:00:00 \

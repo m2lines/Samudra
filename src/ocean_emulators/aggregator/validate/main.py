@@ -37,20 +37,25 @@ class ValidateAggregator(TrainAggregator):
             return
 
         # Translate the GridContext mask by removing history.
-        first_wetmask_chunk = batch.ctx.label_mask.shape[0] // (self.hist + 1)
-        wet = batch.ctx.label_mask[:first_wetmask_chunk].unsqueeze(0)
-        assert wet.shape == batch.target_data.shape, (
-            "The wetmask must match the target data shape."
+        target_data = batch.target_data  # [B, C*(hist+1), H, W]
+        wet = batch.ctx.label_mask  # [C*(hist+1), H, W]
+        assert wet.shape == target_data.shape[1:], (
+            "The wetmask must match the target data shape excluding batch."
         )
+        assert wet.shape[0] % (self.hist + 1) == 0, (
+            "The wetmask channel count must be divisible by history size."
+        )
+        first_wetmask_chunk = wet.shape[0] // (self.hist + 1)
+        wet = wet[:first_wetmask_chunk]  # [C, H, W]
 
-        if len(batch.target_data) == 0:
+        if len(target_data) == 0:
             raise ValueError("No data in target_data")
         if len(batch.gen_data) == 0:
             raise ValueError("No data in gen_data")
 
-        assert batch.target_data.shape[1] == self.num_prognostic_channels
+        assert target_data.shape[1] == self.num_prognostic_channels
         target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(
-            batch.target_data,
+            target_data,
             wet=wet,
             long_rollout=False,
             input_type="prognostic",

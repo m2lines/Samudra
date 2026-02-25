@@ -178,7 +178,7 @@ jobs:
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . .venv/bin/activate
-              python -m pytest -p no:zarr -n 2 -v -m "not manual and cuda" -x
+              python -m pytest -p no:zarr -n 1 -v -m "not manual and cuda" -x
             '
 
   report-container-test-status:

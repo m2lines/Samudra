@@ -8,7 +8,6 @@ from aurora.model.fourier import pos_expansion, scale_expansion
 from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange
 from jaxtyping import Float
-from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward, PreNorm
 from torch import nn
 
 from ocean_emulators.constants import Lat, Lon
@@ -46,18 +45,8 @@ class PerceiverDecoder(nn.Module):
         out_channels: Number of output channels per spatial position.
         patch_extent: Spatial extent of each patch in degrees (lat, lon).
             Used for computing positional and scale encodings.
-        num_queries: Number of learned output queries (should equal h * w of
-            the latent grid, e.g. 30 * 36 = 1080 for default patch extents).
+        perceiver: The underlying perceiver decoder.
         latent_dim: Dimension of the decoder's internal latent space.
-        depth: Number of cross-attention + self-attention layer blocks.
-        cross_heads: Number of attention heads for cross-attention.
-        latent_heads: Number of attention heads for self-attention.
-        cross_dim_head: Dimension per head for cross-attention.
-        latent_dim_head: Dimension per head for self-attention.
-        self_per_cross_attn: Number of self-attention blocks per cross-attention block.
-        weight_tie_layers: Whether to share weights across depth layers.
-        attn_dropout: Dropout rate for attention weights.
-        ff_dropout: Dropout rate for feedforward layers.
 
     References:
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
@@ -68,26 +57,15 @@ class PerceiverDecoder(nn.Module):
         in_channels: int,
         out_channels: int,
         patch_extent: tuple[float, float],
-        num_queries: int,
+        perceiver: nn.Module,
         latent_dim: int = 128,
-        depth: int = 6,
-        cross_heads: int = 1,
-        latent_heads: int = 8,
-        cross_dim_head: int = 64,
-        latent_dim_head: int = 64,
-        self_per_cross_attn: int = 2,
-        weight_tie_layers: bool = True,
-        attn_dropout: float = 0.0,
-        ff_dropout: float = 0.0,
     ) -> None:
         super().__init__()
         self.out_channels = out_channels
         self.patch_extent = patch_extent
 
-        # Learned output queries — one per spatial position in the latent grid.
-        # These learn to represent "what information to extract" for each output position.
-        self.queries = nn.Parameter(torch.randn(num_queries, latent_dim))
-
+        # TODO(claude) I don't think we need to project to a latent space; the output
+        #  of the processor will be a latent space.
         # Project processor output channels to decoder latent dimension
         self.input_proj = nn.Linear(in_channels, latent_dim)
 
@@ -95,63 +73,7 @@ class PerceiverDecoder(nn.Module):
         self.pos_embed = nn.Linear(latent_dim, latent_dim)
         self.scale_embed = nn.Linear(latent_dim, latent_dim)
 
-        # Build cross-attention and self-attention layers, following the
-        # same pattern as perceiver_pytorch.Perceiver.
-        def get_cross_attn():
-            return PreNorm(
-                latent_dim,
-                Attention(
-                    latent_dim,
-                    latent_dim,
-                    heads=cross_heads,
-                    dim_head=cross_dim_head,
-                    dropout=attn_dropout,
-                ),
-                context_dim=latent_dim,
-            )
-
-        def get_cross_ff():
-            return PreNorm(latent_dim, FeedForward(latent_dim, dropout=ff_dropout))
-
-        def get_latent_attn():
-            return PreNorm(
-                latent_dim,
-                Attention(
-                    latent_dim,
-                    heads=latent_heads,
-                    dim_head=latent_dim_head,
-                    dropout=attn_dropout,
-                ),
-            )
-
-        def get_latent_ff():
-            return PreNorm(latent_dim, FeedForward(latent_dim, dropout=ff_dropout))
-
-        # Optionally share weights across depth layers (weight tying)
-        if weight_tie_layers:
-            # Create one set of layers and reuse references
-            cross_attn = get_cross_attn()
-            cross_ff = get_cross_ff()
-            latent_attn = get_latent_attn()
-            latent_ff = get_latent_ff()
-
-            self.layers = nn.ModuleList([])
-            for _ in range(depth):
-                self_attns = nn.ModuleList([])
-                for _ in range(self_per_cross_attn):
-                    self_attns.append(nn.ModuleList([latent_attn, latent_ff]))
-                self.layers.append(nn.ModuleList([cross_attn, cross_ff, self_attns]))
-        else:
-            self.layers = nn.ModuleList([])
-            for _ in range(depth):
-                self_attns = nn.ModuleList([])
-                for _ in range(self_per_cross_attn):
-                    self_attns.append(
-                        nn.ModuleList([get_latent_attn(), get_latent_ff()])
-                    )
-                self.layers.append(
-                    nn.ModuleList([get_cross_attn(), get_cross_ff(), self_attns])
-                )
+        self.perceiver = perceiver
 
         # Final projection from latent_dim to out_channels
         self.to_out = nn.Sequential(
@@ -192,17 +114,20 @@ class PerceiverDecoder(nn.Module):
         ).unsqueeze(0)
         context = context + pos_encoding + scale_encoding
 
-        # Initialize output queries: (B, num_queries, latent_dim)
-        queries = self.queries.unsqueeze(0).expand(B, -1, -1)
+        # # Initialize output queries: (B, num_queries, latent_dim)
+        # queries = self.queries.unsqueeze(0).expand(B, -1, -1)
+        #
+        # # Cross-attention + self-attention layers
+        # for cross_attn, cross_ff, self_attns in self.layers:  # type: ignore
+        #     queries = cross_attn(queries, context=context) + queries  # type: ignore
+        #     queries = cross_ff(queries) + queries  # type: ignore
+        #
+        #     for self_attn, self_ff in self_attns:  # type: ignore
+        #         queries = self_attn(queries) + queries
+        #         queries = self_ff(queries) + queries
+        #
 
-        # Cross-attention + self-attention layers
-        for cross_attn, cross_ff, self_attns in self.layers:  # type: ignore
-            queries = cross_attn(queries, context=context) + queries  # type: ignore
-            queries = cross_ff(queries) + queries  # type: ignore
-
-            for self_attn, self_ff in self_attns:  # type: ignore
-                queries = self_attn(queries) + queries
-                queries = self_ff(queries) + queries
+        queries = self.perceiver(context)
 
         # Project to output channels: (B, h*w, out_channels)
         out = self.to_out(queries)

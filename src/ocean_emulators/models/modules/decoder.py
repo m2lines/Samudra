@@ -51,8 +51,8 @@ class PerceiverDecoder(nn.Module):
         in_channels: int,
         out_channels: int,
         patch_extent: tuple[float, float],
+        latent_dim: int,
         perceiver: nn.Module,
-        latent_dim: int = 128,
     ) -> None:
         super().__init__()
         self.out_channels = out_channels
@@ -66,7 +66,7 @@ class PerceiverDecoder(nn.Module):
 
         # Final projection from latent_dim to out_channels
         self.to_out = nn.Sequential(
-            nn.LayerNorm(latent_dim),
+            nn.LayerNorm(latent_dim),  # TODO(alxmrs): This norm is probably redundant.
             nn.Linear(latent_dim, out_channels),
         )
 

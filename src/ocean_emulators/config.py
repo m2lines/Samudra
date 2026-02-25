@@ -430,10 +430,6 @@ class DecoderConfig(BaseConfig):
         "Should match the encoder's patch_extent for consistent spatial semantics.",
     )
     perceiver: PerceiverConfig = PerceiverConfig()
-    latent_dim: int = Field(
-        default=128,
-        description="Internal latent dimension for decoder queries and attention.",
-    )
 
     def build(
         self,
@@ -445,13 +441,11 @@ class DecoderConfig(BaseConfig):
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
         max_patch_size = patch_from(extent, max_lat_size, max_lon_size)
-        perceiver = self.perceiver.build(in_channels, self.latent_dim, max_patch_size)
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=extent,
-            perceiver=perceiver,
-            latent_dim=self.latent_dim,
+            perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
         )
 
 

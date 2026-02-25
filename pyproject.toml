@@ -110,7 +110,7 @@ ini_options.markers = [
   "only_configs: used to mark tests that only run on specific configs (not used on command line)",
   "all_configs: used to mark tests that run on all configs (not used on command line)",
 ]
-ini_options.pythonpath = [ "src" ]
+ini_options.pythonpath = [ "src", "tests" ]
 ini_options.testpaths = [ "tests" ]
 ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers"
 

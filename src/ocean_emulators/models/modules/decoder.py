@@ -11,7 +11,6 @@ from jaxtyping import Float
 from torch import nn
 
 from ocean_emulators.constants import Lat, Lon
-from ocean_emulators.models.modules.encoder import patch_from
 
 
 class PerceiverDecoder(nn.Module):
@@ -38,9 +37,9 @@ class PerceiverDecoder(nn.Module):
         out_channels: Number of output channels per spatial position.
         patch_extent: Spatial extent of each patch in degrees (lat, lon).
             Used for computing positional and scale encodings.
-        perceiver: The underlying perceiver decoder.
-        latent_dim: Dimension of the decoder's internal latent space. The output
-            channel dimension of the perceiver.
+        perceiver: The underlying perceiver decoder. Must project to
+            ``out_channels`` internally (e.g. via ``num_classes=out_channels``
+            in the NaivePerceiver).
 
     References:
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
@@ -51,7 +50,6 @@ class PerceiverDecoder(nn.Module):
         in_channels: int,
         out_channels: int,
         patch_extent: tuple[float, float],
-        latent_dim: int,
         perceiver: nn.Module,
     ) -> None:
         super().__init__()
@@ -64,21 +62,20 @@ class PerceiverDecoder(nn.Module):
 
         self.perceiver = perceiver
 
-        # Final projection from latent_dim to out_channels
-        self.to_out = nn.Sequential(
-            nn.LayerNorm(latent_dim),  # TODO(alxmrs): This norm is probably redundant.
-            nn.Linear(latent_dim, out_channels),
-        )
-
     def forward(
         self, x: Float[torch.Tensor, "batch channels h w"], resolution: tuple[Lat, Lon]
     ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
         B, C, h, w = x.shape  # h = input H // patch_h; w = input W // patch_w
         lat, lon = resolution
 
-        # Compute patch sizes from the original resolution for pos/scale encoding.
-        H, W = len(lat), len(lon)  # Target H and W.
-        patch_h, patch_w = patch_from(self.patch_extent, H, W)
+        # Derive the effective patch size from the original resolution and the
+        # decoder's spatial grid.  In the full FOMO pipeline the processor output
+        # (h, w) equals (H // patch_h, W // patch_w), but we compute the patch
+        # size from the tensor itself so the pos/scale encodings always produce
+        # exactly h*w tokens — even in unit tests where h, w may differ from the
+        # patch-reduced grid.
+        H, W = len(lat), len(lon)  # Original (physical) resolution.
+        patch_h, patch_w = H // h, W // w
 
         # Reshape processor output to token sequence: (B, h*w, C)
         context = rearrange(x, "b c h w -> b (h w) c")
@@ -103,11 +100,8 @@ class PerceiverDecoder(nn.Module):
         context = rearrange(context, "b (h w) c -> (b h w) c", h=h, w=w)
         context = context.unsqueeze(1)
 
-        # (B*h*w, 1, channels) -> (B*h*w, latent_dim)
-        queries = self.perceiver(context)
-
-        # Project to output channels: (B*h*w, out_channels)
-        out = self.to_out(queries)
+        # (B*h*w, 1, channels) -> (B*h*w, out_channels)
+        out = self.perceiver(context)
 
         # Reshape back to spatial grid
         out = rearrange(out, "(b h w) c -> b c h w", h=h, w=w)

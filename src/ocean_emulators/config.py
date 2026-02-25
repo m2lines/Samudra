@@ -394,23 +394,21 @@ class PerceiverConfig(BaseConfig):
 
 
 class EncoderConfig(BaseConfig):
-    patch_extent: list[float] = Field(
-        default=[6.0, 10.0],
-        description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
-        "Patch sizes will be calculated to match this extent for each grid resolution.",
-    )
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(
-        self, in_channels: int, out_channels: int, max_lat_size: int, max_lon_size: int
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+        max_lat_size: int,
+        max_lon_size: int,
     ) -> PerceiverEncoder:
-        assert len(self.patch_extent) == 2, "spatial extents must be a pair of floats."
-        extent = self.patch_extent[0], self.patch_extent[1]
-        max_patch_size = patch_from(extent, max_lat_size, max_lon_size)
+        max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
-            patch_extent=extent,
+            patch_extent=patch_extent,
             perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
         )
 
@@ -424,27 +422,21 @@ class DecoderConfig(BaseConfig):
     cross-attention from learned output queries.
     """
 
-    patch_extent: list[float] = Field(
-        default=[6.0, 10.0],
-        description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
-        "Should match the encoder's patch_extent for consistent spatial semantics.",
-    )
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(
         self,
         in_channels: int,
         out_channels: int,
+        patch_extent: tuple[float, float],
         max_lat_size: int,
         max_lon_size: int,
     ) -> PerceiverDecoder:
-        assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
-        extent = self.patch_extent[0], self.patch_extent[1]
-        max_patch_size = patch_from(extent, max_lat_size, max_lon_size)
+        max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
-            patch_extent=extent,
+            patch_extent=patch_extent,
             perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
         )
 
@@ -606,6 +598,11 @@ class FOMOConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
     decoder: DecoderConfig = DecoderConfig()
+    patch_extent: list[float] = Field(
+        default=[6.0, 10.0],
+        description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
+        "Shared by the encoder and decoder for consistent spatial semantics.",
+    )
     embedding_dim: int = 128
     use_bfloat16: bool = Field(
         default=True,
@@ -620,13 +617,16 @@ class FOMOConfig(BaseModelConfig):
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> FOMO:
+        assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
+        extent = self.patch_extent[0], self.patch_extent[1]
+
         all_grid_sizes = [s.grid_size for s in srcs]
         max_lat_size, max_lon_size = (
             max(g[0] for g in all_grid_sizes),
             max(g[1] for g in all_grid_sizes),
         )
         encoder = self.encoder.build(
-            in_channels, self.embedding_dim, max_lat_size, max_lon_size
+            in_channels, self.embedding_dim, extent, max_lat_size, max_lon_size
         )
         if (
             hasattr(encoder.perceiver, "use_flash_attn")
@@ -645,6 +645,7 @@ class FOMOConfig(BaseModelConfig):
         decoder = self.decoder.build(
             processor.out_channels,
             out_channels,
+            extent,
             max_lat_size,
             max_lon_size,
         )

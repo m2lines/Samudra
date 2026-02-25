@@ -30,6 +30,7 @@ from ocean_emulators.models.modules import (
     CoreBlock,
     CoreBlockBuilder,
     MaxPool,
+    PerceiverDecoder,
     PerceiverEncoder,
     ReLU,
     TransposedConvUpsample,
@@ -414,6 +415,83 @@ class EncoderConfig(BaseConfig):
         )
 
 
+class DecoderConfig(BaseConfig):
+    """Configuration for the PerceiverDecoder.
+
+    The decoder mirrors the encoder: while the encoder compresses per-patch
+    data into latent tokens via perceiver cross-attention, the decoder expands
+    the processor's latent grid back to output channels via perceiver
+    cross-attention from learned output queries.
+    """
+
+    patch_extent: list[float] = Field(
+        default=[6.0, 10.0],
+        description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
+        "Should match the encoder's patch_extent for consistent spatial semantics.",
+    )
+    depth: int = Field(
+        default=6,
+        description="Number of cross-attention + self-attention layer blocks.",
+    )
+    latent_dim: int = Field(
+        default=128,
+        description="Internal latent dimension for decoder queries and attention.",
+    )
+    cross_heads: int = Field(
+        default=1,
+        description="Number of attention heads for cross-attention (queries to context).",
+    )
+    latent_heads: int = Field(
+        default=8,
+        description="Number of attention heads for self-attention between output queries.",
+    )
+    cross_dim_head: int = Field(
+        default=64,
+        description="Dimension per head for cross-attention.",
+    )
+    latent_dim_head: int = Field(
+        default=64,
+        description="Dimension per head for self-attention.",
+    )
+    self_per_cross_attn: int = Field(
+        default=2,
+        description="Number of self-attention blocks per cross-attention block.",
+    )
+    weight_tie_layers: bool = Field(
+        default=True,
+        description="Share weights across depth layers (reduces parameters).",
+    )
+
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        max_lat_size: int,
+        max_lon_size: int,
+    ) -> PerceiverDecoder:
+        assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
+        extent = self.patch_extent[0], self.patch_extent[1]
+        max_patch_size = patch_from(extent, max_lat_size, max_lon_size)
+        # Number of spatial positions in the latent grid (same across all resolutions).
+        num_queries = (max_lat_size // max_patch_size[0]) * (
+            max_lon_size // max_patch_size[1]
+        )
+        return PerceiverDecoder(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            patch_extent=extent,
+            num_queries=num_queries,
+            latent_dim=self.latent_dim,
+            depth=self.depth,
+            cross_heads=self.cross_heads,
+            latent_heads=self.latent_heads,
+            cross_dim_head=self.cross_dim_head,
+            latent_dim_head=self.latent_dim_head,
+            self_per_cross_attn=self.self_per_cross_attn,
+            weight_tie_layers=self.weight_tie_layers,
+        )
+
+
 DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal[
     "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
@@ -570,7 +648,7 @@ class SamudraConfig(BaseModelConfig):
 class FOMOConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
-    # decoder will go here.
+    decoder: DecoderConfig = DecoderConfig()
     embedding_dim: int = 128
     use_bfloat16: bool = Field(
         default=True,
@@ -602,6 +680,18 @@ class FOMOConfig(BaseModelConfig):
                 "Encoder is configured to use flash attention. Please set `use_bfloat16=True`."
             )
 
+        processor = self.processor.build(
+            self.embedding_dim,
+            self.pad,
+            self.checkpointing,
+        )
+        decoder = self.decoder.build(
+            processor.out_channels,
+            out_channels,
+            max_lat_size,
+            max_lon_size,
+        )
+
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return FOMO(
@@ -611,12 +701,8 @@ class FOMOConfig(BaseModelConfig):
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
-            processor=self.processor.build(
-                self.embedding_dim,
-                self.pad,
-                self.checkpointing,
-            ),
-            # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
+            processor=processor,
+            decoder=decoder,
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             checkpointing=self.checkpointing,

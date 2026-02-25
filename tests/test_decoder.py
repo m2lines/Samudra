@@ -179,6 +179,28 @@ def test_windowed_matches_non_windowed(resolution, latent_input, decoder_kwargs)
         full, window_patches=2, context_patches=None
     )
 
+    x = torch.randn(2, 12, 2, 4)
+    pio = make_decoder_perceiver_io(12, 24)
+
+    kwargs = dict(
+        in_channels=12,
+        out_channels=24,
+        patch_extent=(90, 90),
+        queries_dim=QUERIES_DIM,
+        perceiver_io=pio,
+    )
+
+    full = PerceiverDecoder(**kwargs)
+    # window_patches=4 covers the full 2x4 latent grid in one call,
+    # so the windowed path should produce identical results to global.
+    windowed = PerceiverDecoder(**kwargs, window_patches=4, context_patches=0)
+
+    full.eval()
+    windowed.eval()
+
+    # Share the same parameters (same pio and same query_embed/pos/scale).
+    windowed.load_state_dict(full.state_dict())
+
     with torch.no_grad():
         y_full = full(latent_input, resolution)
         y_windowed = windowed(latent_input, resolution)
@@ -196,6 +218,10 @@ def test_full_context_matches_non_windowed(resolution, latent_input, decoder_kwa
     windowed_full_ctx = make_decoder_with_shared_weights(
         full, window_patches=1, context_patches=None
     )
+
+    full.eval()
+    windowed_full_ctx.eval()
+    windowed_full_ctx.load_state_dict(full.state_dict())
 
     with torch.no_grad():
         y_full = full(latent_input, resolution)

@@ -235,6 +235,8 @@ class PerceiverDecoder(nn.Module):
                 local_queries = rearrange(local_queries, "h w d -> (h w) d")
 
                 local_out = self.perceiver_io(local_data, queries=local_queries)
+                qh_size = qi_end - qi_start
+                qw_size = qj_end - qj_start
                 local_out = rearrange(
                     local_out, "b (h w) c -> b h w c", h=block_ph, w=block_pw
                 )

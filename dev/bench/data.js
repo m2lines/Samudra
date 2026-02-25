@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772040629707,
+  "lastUpdate": 1772040631221,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -15837,6 +15837,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.09012568498347022",
             "extra": "mean: 81.48962108620007 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8c5cbf83e22886acd273925bf8ad6c6acba1718d",
+          "message": "Fix validate aggregator wetmask regression for hist>0 (#604)\n\n## Context\nA recent refactor in commit `5acf49cb15178d006007b1d2cbcaa3cf3fbee947`\nchanged how `ValidateAggregator` derives wetmask data from\n`GridContext`.\n\nOn Torch run `oe-nsys-full8` (job `2673683`), validation failed after\nepoch 1 with:\n\n- `AssertionError: The wetmask must match the target data shape.`\n- stack at `src/ocean_emulators/aggregator/validate/main.py` from\n`record_validation_batch`.\n\n## Root Cause\nThe refactor added:\n\n- `wet = batch.ctx.label_mask[:first_wetmask_chunk].unsqueeze(0)`\n- `assert wet.shape == batch.target_data.shape`\n\nFor normal single-resolution training with `hist > 0` and batch size >\n1, that equality is invalid.\nExample pattern:\n\n- `wet`: `[1, C, H, W]` (after `unsqueeze`)\n- `target_data`: `[B, (hist+1)*C, H, W]`\n\nThis assertion fails even though the prior behavior (pre-refactor)\nworked and `get_aggregator_dicts` expects a per-prognostic wet mask.\n\n## Fix\n- Restore a strict shape assertion, but with corrected semantics:\n  - `assert wet.shape == batch.target_data.shape[1:]`\n- Keep a channel-history consistency assertion:\n  - `assert wet.shape[0] % (hist + 1) == 0`\n- Then reduce wetmask to per-prognostic channels (legacy behavior\nexpected by aggregation path):\n  - `wet = wet[: first_wetmask_chunk]`\n\nThis keeps explicit validation while avoiding the incorrect\nbatch-dimension requirement.\n\n## Tests\nUpdated `tests/test_validate_aggregator.py`:\n\n- Extend helper batch factory to support realistic `hist` and\n`batch_size` shapes.\n- Add regression test:\n-\n`test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match`\n\nValidation performed:\n\n1. Confirmed regression test **fails** with broken code (restored old\nassert temporarily):\n- `uv run pytest\ntests/test_validate_aggregator.py::test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match\n-q`\n- fails at `AssertionError: The wetmask must match the target data\nshape.`\n2. Re-applied fix and verified tests pass:\n   - `uv run pytest tests/test_validate_aggregator.py -q`\n   - `3 passed`",
+          "timestamp": "2026-02-25T09:03:24-08:00",
+          "tree_id": "909126edcf7935f354a630477ce9768d63cedeae",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/8c5cbf83e22886acd273925bf8ad6c6acba1718d"
+        },
+        "date": 1772040630879,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1492485556492524,
+            "unit": "iter/sec",
+            "range": "stddev: 0.009960020049581719",
+            "extra": "mean: 870.1337887999898 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18653469340987847,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04784794726454599",
+            "extra": "mean: 5.360933034599998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012390472234630955,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1408278109135144",
+            "extra": "mean: 80.70717411440005 sec\nrounds: 5"
           }
         ]
       }

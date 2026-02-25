@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771978258532,
+  "lastUpdate": 1771978259590,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -15747,6 +15747,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1991595785935295",
             "extra": "mean: 74.36462612700002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0fd747f3d321ce1e93fe810fa9f7582a3436ee4f",
+          "message": "container: upgrade nsys CLI for nccl trace support (#602)\n\nI wanted to do some profiling but the version of nsight systems in the\nNVIDIA image by default is a bit old, so we now install a new one. The\nimage from\nhttps://github.com/Open-Athena/Ocean_Emulator/actions/runs/22362970435/job/64721289520\n(this branch) successfully ran on torch with `nsys profile\n--trace=cuda,nvtx,osrt,nccl --sample=cpu` which is what we were using\nbefore (and did not work on the version installed by default).\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-02-24T15:43:51-08:00",
+          "tree_id": "d7b45d8a96b84aac49f7f3b4a4f7537ac6919a3b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/0fd747f3d321ce1e93fe810fa9f7582a3436ee4f"
+        },
+        "date": 1771978259282,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.154904465033424,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0073153722873026536",
+            "extra": "mean: 865.8724857999914 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18579227983232935,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018324773405257216",
+            "extra": "mean: 5.382354966000003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01227150140926776,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09012568498347022",
+            "extra": "mean: 81.48962108620007 sec\nrounds: 5"
           }
         ]
       }

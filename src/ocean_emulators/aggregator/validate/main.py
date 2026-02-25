@@ -37,12 +37,15 @@ class ValidateAggregator(TrainAggregator):
             return
 
         # Translate the GridContext mask by removing history.
-        if batch.ctx.label_mask.shape[0] % (self.hist + 1) != 0:
-            raise ValueError(
-                "The wetmask shape does not divide cleanly by history size."
-            )
-        first_wetmask_chunk = batch.ctx.label_mask.shape[0] // (self.hist + 1)
-        wet = batch.ctx.label_mask[:first_wetmask_chunk]
+        wet = batch.ctx.label_mask
+        assert wet.shape == batch.target_data.shape[1:], (
+            "The wetmask must match the target data shape excluding batch."
+        )
+        assert wet.shape[0] % (self.hist + 1) == 0, (
+            "The wetmask channel count must be divisible by history size."
+        )
+        first_wetmask_chunk = wet.shape[0] // (self.hist + 1)
+        wet = wet[:first_wetmask_chunk]
 
         if len(batch.target_data) == 0:
             raise ValueError("No data in target_data")

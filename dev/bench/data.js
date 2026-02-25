@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772040631221,
+  "lastUpdate": 1772041888393,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -7914,6 +7914,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.8623300978487293",
             "extra": "mean: 93.40727282260002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d869dd0d207e0e3bff4d395264d9951cc197d0e",
+          "message": "ci(container): stabilize GPU container tests with single worker (#605)\n\n## Summary\n- run container GPU tests with a single pytest worker in\n`container-physicsnemo.yml`\n- avoid intermittent CUDA/NVML initialization flake observed with `-n 2`\nin the PhysicsNeMo 25.11 container\n\n## Validation\n- Triggered workflow dispatch on this branch: `Container PhysicsNeMo\n25.11`\n- Run succeeded end-to-end, including `test-container-cpu-gpu` and `Run\nGPU tests in container`\n- https://github.com/Open-Athena/Ocean_Emulator/actions/runs/22402675229",
+          "timestamp": "2026-02-25T12:25:47-05:00",
+          "tree_id": "71675cb063aa3d1bf842805f775faabba24ace39",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/5d869dd0d207e0e3bff4d395264d9951cc197d0e"
+        },
+        "date": 1772041887507,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1841778254944397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004022163058316215",
+            "extra": "mean: 844.4677635999994 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18993588795964292,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027574258934996",
+            "extra": "mean: 5.264934450999999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011504243858255526,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19566576704358443",
+            "extra": "mean: 86.92444391139996 sec\nrounds: 5"
           }
         ]
       }

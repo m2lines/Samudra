@@ -97,10 +97,10 @@ class FOMO(BaseModel):
                 fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
             fts = self.encoder(fts, ctx.input_resolution_cpu)
             fts = self.processor(fts)
+            fts = self.decoder(fts, ctx.input_resolution_cpu)
 
-        # Convert back to float32 for decoder and unpatchify operations
+        # Convert back to float32 for unpatchify operations
         fts = fts.to(torch.float32)
-        fts = self.decoder(fts, ctx.input_resolution_cpu)
 
         # Unpatchify: project to patch area, then reshape back to original spatial dimensions
         patch_size = patch_from(self.encoder.patch_extent, H, W)

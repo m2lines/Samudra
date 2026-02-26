@@ -102,7 +102,7 @@ class PerceiverDecoder(nn.Module):
         # It assumes that `input_axis=2`.
         context = context.unsqueeze(1).unsqueeze(1)
 
-        # (B*h*w, 1, channels) -> (B*h*w, out_channels)
+        # (B*h*w, 1, 1, channels) -> (B*h*w, out_channels)
         out = self.perceiver(context)
 
         # Reshape back to spatial grid

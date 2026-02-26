@@ -98,7 +98,9 @@ class PerceiverDecoder(nn.Module):
         context = context + pos_encoding + scale_encoding
 
         context = rearrange(context, "b (h w) c -> (b h w) c", h=h, w=w)
-        context = context.unsqueeze(1)
+        # We add these middle singleton dimensions to make this perceiver consistent with the encoder's perceiver.
+        # It assumes that `input_axis=2`.
+        context = context.unsqueeze(1).unsqueeze(1)
 
         # (B*h*w, 1, channels) -> (B*h*w, out_channels)
         out = self.perceiver(context)

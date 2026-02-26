@@ -414,14 +414,6 @@ class EncoderConfig(BaseConfig):
 
 
 class DecoderConfig(BaseConfig):
-    """Configuration for the PerceiverDecoder.
-
-    The decoder mirrors the encoder: while the encoder compresses per-patch
-    data into latent tokens via perceiver cross-attention, the decoder expands
-    the processor's latent grid back to output channels via perceiver
-    cross-attention from learned output queries.
-    """
-
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(

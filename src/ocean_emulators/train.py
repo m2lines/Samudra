@@ -275,9 +275,23 @@ class Trainer:
 
         # Modify DDP setup based on device
         if self.distributed is not None:
+            # Multiscale models (e.g. FOMO with multiple grid sizes) have
+            # per-resolution unpatch layers.  Under a "match" or "mix" schedule
+            # only one resolution's unpatch layer participates in each batch,
+            # so the others have no gradients.  DDP must be told about this.
+            match self.train_schedule:
+                case "standard":
+                    has_unused = False
+                case "mix":
+                    has_unused = True
+                case "match":
+                    has_unused = True
+                case _:
+                    assert_never(self.train_schedule)
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
+                find_unused_parameters=has_unused,
             )
 
         # EMA (must come after DDP setup so parameter names match final self.model)

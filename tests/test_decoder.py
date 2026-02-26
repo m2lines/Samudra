@@ -16,17 +16,18 @@ def test_roundtrip():
 
     patches = patch_embed(x, make_resolution(x))
 
+    # Perceiver input_channels = in_channels + 2 (latent + 2D pixel query)
     decode = PerceiverDecoder(
         in_channels=4,
         out_channels=10,
         patch_extent=(180, 180),
-        perceiver=make_perceiver(4, 10, num_latents=6),
+        perceiver=make_perceiver(4 + 2, 10, num_latents=6),
     )
 
     y_hat = decode(patches, make_resolution(x))
 
     assert y_hat.shape[-2:] == patches.shape[-2:], (
-        "The decoder preservers the input grid."
+        "The decoder preserves the input grid."
     )
     assert y_hat.shape[1] == 10, (
         "The decoder outputs the desired number of output channels."
@@ -44,16 +45,17 @@ def test_decode():
         torch.linspace(0, 360, steps=16),
     )
 
+    # Perceiver input_channels = in_channels + 2 (latent + 2D pixel query)
     decode = PerceiverDecoder(
         in_channels=12,
         out_channels=24,
         patch_extent=(90, 90),
-        perceiver=make_perceiver(12, 24, num_latents=6),
+        perceiver=make_perceiver(12 + 2, 24, num_latents=6),
     )
 
     y_hat = decode(x, resolution)
 
-    assert y_hat.shape[-2:] == x.shape[-2:], "The decoder preservers the input grid."
+    assert y_hat.shape[-2:] == x.shape[-2:], "The decoder preserves the input grid."
     assert y_hat.shape[1] == 24, (
         "The decoder outputs the desired number of output channels."
     )

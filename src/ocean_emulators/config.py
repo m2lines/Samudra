@@ -425,11 +425,15 @@ class DecoderConfig(BaseConfig):
         max_lon_size: int,
     ) -> PerceiverDecoder:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
+        # The perceiver sees (C + 2)-dim tokens: latent channels + 2D pixel query.
+        perceiver_in_channels = in_channels + 2
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
-            perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
+            perceiver=self.perceiver.build(
+                perceiver_in_channels, out_channels, max_patch_size
+            ),
         )
 
 

@@ -102,13 +102,6 @@ class FOMO(BaseModel):
         # Convert back to float32 for unpatchify operations
         fts = fts.to(torch.float32)
 
-        # Decoder goes from (per patch) latent --> out_channels x ph x pw (ph is the patch height)
-        #
-        # another solution: a shared perciver that works across output res
-        # simplest possible version is the perceiver gets the latent vector + some query verctor  (contact together)
-        # where the query just says (I want the 0x0 pixel), then we run this perceiver for the pixel output space
-        # (patch output space).
-
         # Unpatchify: project to patch area, then reshape back to original spatial dimensions
         patch_size = patch_from(self.encoder.patch_extent, H, W)
         _, _, h, w = fts.shape

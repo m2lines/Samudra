@@ -20,7 +20,7 @@ def test_roundtrip():
         in_channels=4,
         out_channels=10,
         patch_extent=(180, 180),
-        perceiver=make_perceiver(4, 10, num_latents=6, input_axis=1),
+        perceiver=make_perceiver(4, 10, num_latents=6),
     )
 
     y_hat = decode(patches, make_resolution(x))
@@ -48,7 +48,7 @@ def test_decode():
         in_channels=12,
         out_channels=24,
         patch_extent=(90, 90),
-        perceiver=make_perceiver(12, 24, num_latents=6, input_axis=1),
+        perceiver=make_perceiver(12, 24, num_latents=6),
     )
 
     y_hat = decode(x, resolution)

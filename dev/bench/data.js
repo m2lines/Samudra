@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772067532520,
+  "lastUpdate": 1772067533495,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -16017,6 +16017,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.13027979815638052",
             "extra": "mean: 74.03776728060002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "08364d3827534aff29c7e03ff34a2c38b8572bee",
+          "message": "Multi-scale models need to allow unused parameters in DDP training. (#606)\n\nIn Multi-scale FOMO, we now include a ModuleDict of linear projections\nafter decoding. These are treated as unused parameters during DDP\ntraining. It's expected that they should be unused since we only want to\nproject for the current scale the batch is training on. Thus, to get\nmulti-scale training to work, we need to conditionally pass a flag to\nturn this check off.",
+          "timestamp": "2026-02-26T00:32:14Z",
+          "tree_id": "7ee0f751f8b2dcd86274eb8f981158fc24e64009",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/08364d3827534aff29c7e03ff34a2c38b8572bee"
+        },
+        "date": 1772067533206,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.159763853996269,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004798153846306433",
+            "extra": "mean: 862.2444962000145 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.187755726874403,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01221392097753523",
+            "extra": "mean: 5.3260692317999885 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012721389790277432,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2584287842377285",
+            "extra": "mean: 78.60776349799998 sec\nrounds: 5"
           }
         ]
       }

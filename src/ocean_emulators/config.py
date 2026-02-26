@@ -625,18 +625,10 @@ class FOMOConfig(BaseModelConfig):
             max(g[0] for g in all_grid_sizes),
             max(g[1] for g in all_grid_sizes),
         )
+
         encoder = self.encoder.build(
             in_channels, self.embedding_dim, extent, max_lat_size, max_lon_size
         )
-        if (
-            hasattr(encoder.perceiver, "use_flash_attn")
-            and encoder.perceiver.use_flash_attn
-            and not self.use_bfloat16
-        ):
-            raise ValueError(
-                "Encoder is configured to use flash attention. Please set `use_bfloat16=True`."
-            )
-
         processor = self.processor.build(
             self.embedding_dim,
             self.pad,
@@ -649,6 +641,16 @@ class FOMOConfig(BaseModelConfig):
             max_lat_size,
             max_lon_size,
         )
+
+        if any(
+            hasattr(layer.perceiver, "use_flash_attn")
+            and layer.perceiver.use_flash_attn
+            and not self.use_bfloat16
+            for layer in [encoder, decoder]
+        ):
+            raise ValueError(
+                "Encoder/decoder is configured to use flash attention. Please set `use_bfloat16=True`."
+            )
 
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None

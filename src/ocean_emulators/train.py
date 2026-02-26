@@ -279,7 +279,15 @@ class Trainer:
             # per-resolution unpatch layers.  Under a "match" or "mix" schedule
             # only one resolution's unpatch layer participates in each batch,
             # so the others have no gradients.  DDP must be told about this.
-            has_unused = self.train_schedule != "standard"
+            match self.train_schedule:
+                case "standard":
+                    has_unused = False
+                case "mix":
+                    has_unused = True
+                case "match":
+                    has_unused = True
+                case _:
+                    assert_never(self.train_schedule)
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],

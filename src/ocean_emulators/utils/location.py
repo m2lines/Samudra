@@ -1,6 +1,7 @@
 import contextlib
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 from urllib.parse import quote, urljoin, urlparse
@@ -42,7 +43,7 @@ def _zarr_gpu_decode_context(
 
 def _local_gds_store(path: Path) -> Any | None:
     try:
-        from kvikio.zarr import GDSStore  # type: ignore[import-not-found]
+        import kvikio.zarr as kvikio_zarr  # type: ignore[import-not-found,import-untyped]
     except ModuleNotFoundError:
         logger.warning(
             "kvikio is not installed; falling back to standard zarr reads for %s",
@@ -51,7 +52,7 @@ def _local_gds_store(path: Path) -> Any | None:
         return None
 
     try:
-        return GDSStore(str(path))
+        return kvikio_zarr.GDSStore(str(path))
     except Exception as exc:
         logger.warning(
             "Failed to initialize kvikio GDSStore for %s; falling back to standard "
@@ -60,6 +61,28 @@ def _local_gds_store(path: Path) -> Any | None:
             exc,
         )
         return None
+
+
+def _open_with_optional_gpu_decode(
+    *,
+    use_gpu_zarr_decode: bool,
+    location: str,
+    open_dataset: Callable[[], xr.Dataset],
+) -> xr.Dataset:
+    try:
+        with _zarr_gpu_decode_context(use_gpu_zarr_decode):
+            return open_dataset()
+    except Exception as exc:
+        if not use_gpu_zarr_decode:
+            raise
+
+        raise RuntimeError(
+            "GPU zarr decode failed while opening "
+            f"{location} with xarray. "
+            "This usually means xarray/zarr GPU-buffer integration is incompatible "
+            "with the current store or environment. "
+            "Set data.zarr_gpu_decode=false to continue on the CPU path."
+        ) from exc
 
 
 class UnresolvedLocation(BaseModel):
@@ -135,16 +158,16 @@ class S3Location(ResolvedLocation, BaseModel):
     ) -> xr.Dataset:
         # TODO(jder): could consider passing credentials here
         # rather than relying on the environment
-
-        with _zarr_gpu_decode_context(use_gpu_zarr_decode):
-            return xr.open_dataset(
+        return _open_with_optional_gpu_decode(
+            use_gpu_zarr_decode=use_gpu_zarr_decode,
+            location=self.url(),
+            open_dataset=lambda: xr.open_dataset(
                 self.url(),
-                backend_kwargs={
-                    "storage_options": {"endpoint_url": self.endpoint_url}
-                },
+                backend_kwargs={"storage_options": {"endpoint_url": self.endpoint_url}},
                 engine="zarr",
                 chunks=chunks,
-            )
+            ),
+        )
 
     def url(self) -> str:
         path = quote(self.path.lstrip("/"))
@@ -206,8 +229,15 @@ class LocalLocation(ResolvedLocation, BaseModel):
         if use_gpu_zarr_decode and (gds_store := _local_gds_store(self.path)):
             path_or_store = gds_store
 
-        with _zarr_gpu_decode_context(use_gpu_zarr_decode):
-            return xr.open_dataset(path_or_store, engine=engine, chunks=chunks)
+        return _open_with_optional_gpu_decode(
+            use_gpu_zarr_decode=use_gpu_zarr_decode,
+            location=str(self.path),
+            open_dataset=lambda: xr.open_dataset(
+                path_or_store,
+                engine=engine,
+                chunks=chunks,
+            ),
+        )
 
     def resolve(self, location: "Location") -> "ResolvedLocation":
         if isinstance(location, UnresolvedLocation):

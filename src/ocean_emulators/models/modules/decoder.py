@@ -1,7 +1,4 @@
 # Perceiver-based decoder, complementary to encoder.py
-# Sources:
-# - https://ar5iv.labs.arxiv.org/html/2405.13063 (Aurora paper, Appendix B.3: 3D Perceiver Decoder)
-# - https://github.com/lucidrains/perceiver-pytorch
 
 import torch
 from aurora.model.fourier import pos_expansion, scale_expansion
@@ -15,7 +12,7 @@ from ocean_emulators.models.modules.encoder import patch_from
 
 
 class PerceiverDecoder(nn.Module):
-    """A perceiver-based decoder that maps latent patch tokens to full-resolution output.
+    """A perceiver-based[0] decoder that maps latent patch tokens to full-resolution output.
 
     For each patch position on the latent grid, the decoder:
 
@@ -49,6 +46,7 @@ class PerceiverDecoder(nn.Module):
             ``in_channels + 2`` (latent dim + 2D pixel query).
 
     References:
+        [0]: https://github.com/lucidrains/perceiver-pytorch
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
         [2]: https://ar5iv.labs.arxiv.org/html/2309.16588
     """

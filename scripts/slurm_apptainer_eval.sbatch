@@ -1,35 +1,37 @@
 #!/bin/bash
-# Slurm + Apptainer harness for distributed training, modeled after `skypilot/train.sky.yaml`.
+# Slurm + Apptainer harness for single-node evaluation, modeled after
+# `skypilot/eval.sky.yaml` and `scripts/slurm_apptainer_train.sbatch`.
 #
 # Submit with env vars (example):
-#   export CONFIG=configs/.../train.yaml
-#   export NAME_SUFFIX=om4_samudra_baseline   # NAME becomes YYYY-MM-DD-<suffix>
-#   export ARGS="--epochs=2 --batch_size=1"
-#   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled
-#   sbatch --nodes=1 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
-#
-# Multi-node example (requires enough nodes available):
-#   sbatch --nodes=2 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
+#   export CONFIG=configs/samudra_om4/eval.yaml
+#   export NAME_SUFFIX=om4_samudra_baseline_eval  # NAME becomes YYYY-MM-DD-<suffix>
+#   export TARGET_CHECKPOINT=2026-02-22-om4_samudra_baseline/saved_nets/ema_ckpt.pt
+#   export ARGS="--num_model_steps_forward=25"
+#   sbatch --gres=gpu:rtx6000:1 scripts/slurm_apptainer_eval.sbatch
 #
 # Container selection (pick one):
 #   export IMAGE_REF=ghcr.io/open-athena/ocean-emulator-physicsnemo:25.11-<hash>
 #   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
 #   export CONTAINER_TAG=25.11-latest
 #
+# Checkpoint selection (pick one):
+#   export TARGET_CHECKPOINT=<path-relative-to-OUTPUT_BASE>
+#   export CKPT_PATH=/absolute/path/to/ema_ckpt.pt
+#
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
 #   export GHCR_TOKEN=...
 
-#SBATCH --job-name=oe-train
+#SBATCH --job-name=oe-eval
 #SBATCH --output=slurm-%j.out
 #SBATCH --account=torch_pr_347_courant
+#SBATCH --partition=rtx6000_lzanna
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-# For 8-GPU runs on gr102, request full-node CPUs and QOS-capped memory.
-#SBATCH --cpus-per-task=128
-#SBATCH --mem=1400G
-#SBATCH --gres=gpu:rtx6000:8
-#SBATCH --time=02:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=128GB
+#SBATCH --gres=gpu:rtx6000:1
+#SBATCH --time=04:00:00
 
 set -euo pipefail
 
@@ -46,18 +48,18 @@ CONFIG="${CONFIG:-}"
 NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
+BACKEND="${BACKEND:-cuda}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
 if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Missing required env vars. Need CONFIG and NAME." >&2
   echo "Tip: set NAME_SUFFIX to auto-generate NAME as YYYY-MM-DD-<suffix>." >&2
-  echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
+  echo "Example: export NAME_SUFFIX=om4_samudra_baseline_eval" >&2
   exit 2
 fi
 
-# Config path inside the container image. We keep the env var as-is for
-# backwards compatibility, but resolve relative paths under /workspace/
+# Config path inside the container image. Resolve relative paths under /workspace/
 # (the image's working directory where configs/ is copied).
 CONFIG_IN_CONTAINER="${CONFIG}"
 if [[ "${CONFIG_IN_CONTAINER}" != /* ]]; then
@@ -75,20 +77,49 @@ if [[ ! -d "${DATA_ROOT}" ]]; then
   echo "DATA_ROOT directory does not exist: ${DATA_ROOT}" >&2
   echo "Set DATA_ROOT to an existing data directory." >&2
   echo "Example: export DATA_ROOT=${DATA_ROOT_DEFAULT}" >&2
-  exit 5
+  exit 3
 fi
 if [[ ! -d "${OUTPUT_BASE}" ]]; then
   echo "OUTPUT_BASE directory does not exist: ${OUTPUT_BASE}" >&2
   echo "Set OUTPUT_BASE to an existing output directory." >&2
   echo "Example: export OUTPUT_BASE=${OUTPUT_BASE_DEFAULT}" >&2
-  exit 6
+  exit 4
 fi
 
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
 if [[ -e "${RUN_DIR}" ]]; then
   echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
   echo "Pick a unique NAME_SUFFIX." >&2
-  exit 4
+  exit 5
+fi
+
+# Resolve checkpoint path.
+TARGET_CHECKPOINT="${TARGET_CHECKPOINT:-}"
+CKPT_PATH="${CKPT_PATH:-}"
+if [[ -n "${TARGET_CHECKPOINT}" && -n "${CKPT_PATH}" ]]; then
+  echo "Specify only one of TARGET_CHECKPOINT or CKPT_PATH." >&2
+  exit 6
+fi
+if [[ -n "${CKPT_PATH}" ]]; then
+  if [[ "${CKPT_PATH}" = /* ]]; then
+    CKPT_PATH_HOST="${CKPT_PATH}"
+  else
+    CKPT_PATH_HOST="$(realpath -m "${CKPT_PATH}")"
+  fi
+elif [[ -n "${TARGET_CHECKPOINT}" ]]; then
+  if [[ "${TARGET_CHECKPOINT}" = /* ]]; then
+    CKPT_PATH_HOST="${TARGET_CHECKPOINT}"
+  else
+    CKPT_PATH_HOST="${OUTPUT_BASE}/${TARGET_CHECKPOINT}"
+  fi
+else
+  echo "Missing checkpoint. Set TARGET_CHECKPOINT (relative to OUTPUT_BASE) or CKPT_PATH." >&2
+  exit 7
+fi
+
+if [[ ! -f "${CKPT_PATH_HOST}" ]]; then
+  echo "Checkpoint not found: ${CKPT_PATH_HOST}" >&2
+  exit 8
 fi
 
 # W&B mode defaults: online if key provided, else disabled.
@@ -101,7 +132,7 @@ if [[ -z "${WANDB_MODE}" ]]; then
   fi
 fi
 
-# Container selection (same conventions as scripts/slurm_apptainer_gpu_tests.sbatch).
+# Container selection (same conventions as scripts/slurm_apptainer_train.sbatch).
 CONTAINER_REGISTRY="${CONTAINER_REGISTRY:-ghcr.io}"
 CONTAINER_ORG="${CONTAINER_ORG:-open-athena}"
 CONTAINER_REPO="${CONTAINER_REPO:-ocean-emulator-physicsnemo}"
@@ -144,7 +175,9 @@ echo "Config:     ${CONFIG_IN_CONTAINER}"
 echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
+echo "Checkpoint: ${CKPT_PATH_HOST}"
 echo "W&B mode:   ${WANDB_MODE}"
+echo "Backend:    ${BACKEND}"
 echo "Image ref:  ${IMAGE_REF}"
 echo "SIF path:   ${SIF_PATH}"
 
@@ -155,37 +188,8 @@ else
   echo "Using existing SIF."
 fi
 
-# Distributed rendezvous info (shared by all nodes).
-MASTER_ADDR="$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)"
-MASTER_PORT="${MASTER_PORT:-8008}"
-export MASTER_ADDR MASTER_PORT
-
-# This harness launches one torchrun per node via srun. Each torchrun spawns one
-# process per GPU on that node, and sets RANK/LOCAL_RANK/WORLD_SIZE via env://.
-#
-# Resource requests must match reality:
-# - If you request 8 GPUs per node, torchrun will use 8 processes per node.
-GPUS_PER_NODE="${GPUS_PER_NODE:-${SLURM_GPUS_ON_NODE:-}}"
-if [[ -z "${GPUS_PER_NODE}" ]]; then
-  if command -v nvidia-smi >/dev/null 2>&1; then
-    GPUS_PER_NODE="$(nvidia-smi -L | wc -l | tr -d ' ')"
-  else
-    echo "Could not determine GPUS_PER_NODE (SLURM_GPUS_ON_NODE unset and nvidia-smi missing)." >&2
-    exit 3
-  fi
-fi
-
-# Avoid oversubscribing CPU threads when torchrun spawns one process per GPU.
 if [[ -z "${OMP_NUM_THREADS:-}" ]]; then
-  if [[ -n "${SLURM_CPUS_PER_TASK:-}" ]]; then
-    t="$(( SLURM_CPUS_PER_TASK / GPUS_PER_NODE ))"
-    if (( t < 1 )); then
-      t=1
-    fi
-    export OMP_NUM_THREADS="$t"
-  else
-    export OMP_NUM_THREADS=1
-  fi
+  export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK:-1}"
 fi
 export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
@@ -200,13 +204,24 @@ binds=(
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
+
+# If checkpoint lives outside DATA_ROOT/OUTPUT_BASE, bind its parent path too.
+case "${CKPT_PATH_HOST}" in
+  "${OUTPUT_BASE}"|"${OUTPUT_BASE}"/*|"${DATA_ROOT}"|"${DATA_ROOT}"/*)
+    ;;
+  *)
+    CKPT_DIR="$(dirname "${CKPT_PATH_HOST}")"
+    binds+=("${CKPT_DIR}:${CKPT_DIR}")
+    ;;
+esac
+
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
 
-srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
+srun --ntasks=1 --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
     --bind "${BIND_ARG}" \
     --pwd /workspace \
@@ -223,17 +238,12 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo \"Hint: rebuild/pull a container tag that includes /workspace/configs.\" >&2
         exit 2
       fi
-      /workspace/.venv/bin/python -m torch.distributed.run \
-        --nnodes=${SLURM_NNODES} \
-        --nproc_per_node=${GPUS_PER_NODE} \
-        --master_addr=${MASTER_ADDR} \
-        --master_port=${MASTER_PORT} \
-        --node_rank=\${SLURM_PROCID} \
-        -m ocean_emulators.train \"${CONFIG_IN_CONTAINER}\" \
+      /workspace/.venv/bin/python -m ocean_emulators.eval \"${CONFIG_IN_CONTAINER}\" \
+        --ckpt_path=\"${CKPT_PATH_HOST}\" \
         --experiment.name=\"${NAME}\" \
         --experiment.data_root=\"${DATA_ROOT}\" \
         --experiment.base_output_dir=\"${OUTPUT_BASE}\" \
         --experiment.wandb.mode=\"${WANDB_MODE}\" \
-        --backend=\"nccl\" \
+        --backend=\"${BACKEND}\" \
         ${ARGS}
     "

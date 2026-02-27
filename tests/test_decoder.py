@@ -108,7 +108,7 @@ def test_windowed_decode():
         torch.linspace(0, 360, steps=W),
     )
 
-    # patch_from((90, 90), 8, 16) -> patch_h=4, patch_w=4 -> 16 pixels per patch
+    # H*W = 128 pixels total, window_size=32 -> 4 PerceiverIO calls.
     x = torch.randn(2, 12, 2, 4)
 
     decode = PerceiverDecoder(
@@ -117,11 +117,48 @@ def test_windowed_decode():
         patch_extent=(90, 90),
         queries_dim=QUERIES_DIM,
         perceiver_io=make_decoder_perceiver_io(12, 24),
-        window_size=4,  # 16 pixels split into 4 windows of 4
+        window_size=32,
     )
 
     y_hat = decode(x, resolution)
 
     assert y_hat.shape == (2, 24, H, W), (
         f"Windowed decoder should produce full-resolution output, got {y_hat.shape}."
+    )
+
+
+def test_windowed_matches_non_windowed():
+    """Windowed and non-windowed decoding should produce identical results."""
+    H, W = 4, 8
+    resolution = (
+        torch.linspace(-90, 90, steps=H),
+        torch.linspace(0, 360, steps=W),
+    )
+
+    x = torch.randn(2, 12, 2, 4)
+    pio = make_decoder_perceiver_io(12, 24)
+
+    kwargs = dict(
+        in_channels=12,
+        out_channels=24,
+        patch_extent=(90, 90),
+        queries_dim=QUERIES_DIM,
+        perceiver_io=pio,
+    )
+
+    full = PerceiverDecoder(**kwargs)
+    windowed = PerceiverDecoder(**kwargs, window_size=8)
+
+    full.eval()
+    windowed.eval()
+
+    # Share the same parameters (same pio and same query_embed/pos/scale).
+    windowed.load_state_dict(full.state_dict())
+
+    with torch.no_grad():
+        y_full = full(x, resolution)
+        y_windowed = windowed(x, resolution)
+
+    assert torch.allclose(y_full, y_windowed, atol=1e-5), (
+        "Windowed and non-windowed results should match."
     )

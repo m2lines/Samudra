@@ -1,4 +1,4 @@
-# Mirrors the encoder structure in encoder.py
+# Perceiver-based decoder, complementary to encoder.py
 # Sources:
 # - https://ar5iv.labs.arxiv.org/html/2405.13063 (Aurora paper, Appendix B.3: 3D Perceiver Decoder)
 # - https://github.com/lucidrains/perceiver-pytorch
@@ -67,7 +67,8 @@ class PerceiverDecoder(nn.Module):
         self.patch_extent = patch_extent
 
         # TODO(#451): The input to these position and scale linear units could be a hparam.
-        # Positional and scale encoding (mirrors encoder's post-perceiver encoding)
+        # Same pos/scale linear layers as the encoder, but applied *before* the
+        # perceiver (the encoder applies them after).
         self.pos_embed = nn.Linear(in_channels, in_channels)
         self.scale_embed = nn.Linear(in_channels, in_channels)
 
@@ -96,7 +97,7 @@ class PerceiverDecoder(nn.Module):
         # but in unit tests the input grid may not match, so derive from tensor.
         pos_patch_h, pos_patch_w = H // nh, W // nw
 
-        # --- Add pos/scale encoding to latent tokens (mirrors encoder) ---
+        # --- Add pos/scale encoding to latent tokens (before perceiver, unlike encoder) ---
         tokens = rearrange(x, "b c nh nw -> b (nh nw) c")
 
         pos_encode, scale_encode = pos_scale_enc(
@@ -135,7 +136,8 @@ class PerceiverDecoder(nn.Module):
         perceiver_input = torch.cat([tokens, query], dim=-1)
 
         # --- Run perceiver without mean-pooling ---
-        # return_embeddings=True skips the perceiver's to_logits (which mean-pools).
+        # return_embeddings=True skips the output head (which mean-pools) in both
+        # NaivePerceiver and FlashPerceiver, returning raw latent embeddings.
         # Returns: (B*nh*nw, num_latents, latent_dim)
         embeddings = self.perceiver(perceiver_input, return_embeddings=True)
 

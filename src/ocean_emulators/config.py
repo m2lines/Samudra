@@ -347,8 +347,6 @@ class PerceiverConfig(BaseConfig):
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*max_patch_size)
 
-        # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
-        #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
         if (
             self.implementation == "auto" and torch.cuda.is_available()
         ) or self.implementation == "flash":
@@ -358,7 +356,7 @@ class PerceiverConfig(BaseConfig):
                 raise ValueError(
                     "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
                 ) from e
-            perceiver = FlashPerceiver(
+            perceiver: nn.Module = FlashPerceiver(
                 latent_rotary_emb_dim=max_freq,
                 depth=self.depth,
                 input_dim=in_channels,
@@ -431,6 +429,7 @@ class DecoderConfig(BaseConfig):
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
+            latent_dim=self.perceiver.latent_dim,
             perceiver=self.perceiver.build(
                 perceiver_in_channels, out_channels, max_patch_size
             ),
@@ -663,7 +662,6 @@ class FOMOConfig(BaseModelConfig):
             hist=hist,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
-            grid_sizes=all_grid_sizes,
             use_bfloat16=self.use_bfloat16,
         )
 

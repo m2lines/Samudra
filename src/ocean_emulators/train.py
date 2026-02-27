@@ -615,10 +615,10 @@ class Trainer:
         # This introduces delayed estimate but should be more efficient
         if update := getattr(self.loss_fn, "update", None):
             # Undo the dynamic scaling to recover the raw per-channel loss.
-            if scale_fn := getattr(self.loss_fn, "loss_scale_per_channel", None):
-                scale = scale_fn()
+            if get_scales := getattr(self.loss_fn, "loss_scale_per_channel", None):
+                per_channel_scale = get_scales()
                 raw_loss = (
-                    loss_per_channel.detach().reshape(-1, scale.shape[0]) / scale
+                    loss_per_channel.detach().reshape(-1, scale.shape[0]) / per_channel_scale
                 ).reshape(-1)
             else:
                 raw_loss = loss_per_channel.detach()

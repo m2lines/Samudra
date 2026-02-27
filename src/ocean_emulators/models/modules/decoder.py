@@ -65,6 +65,7 @@ class PerceiverDecoder(nn.Module):
         self.out_channels = out_channels
         self.patch_extent = patch_extent
 
+        # TODO(#451): The input to these position and scale linear units could be a hparam.
         # Positional and scale encoding (mirrors encoder's post-perceiver encoding)
         self.pos_embed = nn.Linear(in_channels, in_channels)
         self.scale_embed = nn.Linear(in_channels, in_channels)
@@ -142,7 +143,17 @@ class PerceiverDecoder(nn.Module):
         out = self.proj(self.norm(embeddings))
 
         # --- Reassemble into full-resolution output ---
+        # num_latents should be as large as the biggest patch. For smaller patches,
+        # num_latents includes "extra" information beyond the pixel count.
+        #
+        # The additional output space could actually be useful for transformer
+        # architectures to use even if they aren't used in the output.
+        # Transformers can use these as "scratch" space, check out this paper
+        # for more on this topic: https://arxiv.org/pdf/2309.16588.
+        #
         # num_latents >= patch_h * patch_w; take only the pixels we need.
+        # TODO(alxmrs,Claude): Consider using a learned selection of the latents or pooling over the latents
+        #  (more complex)
         num_pixels = patch_h * patch_w
         out = out[:, :num_pixels, :]  # (B*nh*nw, patch_h*patch_w, out_channels)
 

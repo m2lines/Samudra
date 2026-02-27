@@ -17,29 +17,36 @@ from ocean_emulators.models.modules.encoder import patch_from
 class PerceiverDecoder(nn.Module):
     """A perceiver-based decoder that maps latent patch tokens to full-resolution output.
 
-    For each patch position on the latent grid, the decoder broadcasts the
-    pos/scale-encoded latent vector to every output pixel within the patch,
-    concatenates a normalized 2D pixel-position query, and runs a shared
-    perceiver over the ``(patch_h, patch_w)`` grid of ``(C + 2)``-dim tokens.
+    For each patch position on the latent grid, the decoder:
 
-    The perceiver's learned latents cross-attend to these pixel tokens and
-    the output is mean-pooled to ``out_channels`` — producing one prediction
-    per patch.  This is then reassembled into ``(B, out_channels, nh, nw)``.
-    FOMO's ``unpatch`` linear handles the final expansion to full resolution.
+    1. Adds Aurora-style pos/scale encoding to the latent vector (telling the
+       perceiver *where on the globe* this patch is).
+    2. Broadcasts the encoded latent vector to every pixel within the patch and
+       concatenates a normalized 2D pixel-position query (telling the perceiver
+       *where within the patch* each output pixel is).
+    3. Feeds the ``(patch_h, patch_w, C + 2)``-dim token grid through a shared
+       perceiver whose ``num_latents`` equals ``patch_h * patch_w``.
+    4. The decoder calls the perceiver with ``return_embeddings=True`` to skip
+       the default mean-pooling, getting back per-latent embeddings
+       ``(batch, num_latents, latent_dim)``.  It then projects each latent
+       independently via ``LayerNorm + Linear`` to ``out_channels``.
+    5. The per-pixel outputs are reassembled into ``(B, out_channels, H, W)``.
 
     Because pixel queries are normalized to ``[0, 1)``, the same perceiver
     generalizes across resolutions: a 1-degree patch queries a coarse grid
     while a 0.25-degree patch queries a finer grid over the same coordinate
-    space.
+    space.  Higher-resolution grids simply have more pixels per patch, and
+    the perceiver's ``num_latents`` is set to accommodate the largest patch.
 
     Args:
         in_channels: Number of input channels from the processor.
-        out_channels: Number of output channels per patch position.
+        out_channels: Number of output channels per pixel.
         patch_extent: Spatial extent of each patch in degrees (lat, lon).
             Used for computing positional and scale encodings.
+        latent_dim: The perceiver's latent dimension.  Used to build the
+            per-latent ``LayerNorm + Linear`` projection.
         perceiver: Shared perceiver module.  ``input_channels`` must equal
             ``in_channels + 2`` (latent dim + 2D pixel query).
-            ``num_classes`` must equal ``out_channels``.
 
     References:
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
@@ -50,6 +57,7 @@ class PerceiverDecoder(nn.Module):
         in_channels: int,
         out_channels: int,
         patch_extent: tuple[float, float],
+        latent_dim: int,
         perceiver: nn.Module,
     ) -> None:
         super().__init__()
@@ -63,11 +71,16 @@ class PerceiverDecoder(nn.Module):
 
         self.perceiver = perceiver
 
+        # Per-latent projection: replaces the perceiver's default mean-pool + linear.
+        # Each learned latent corresponds to one output pixel.
+        self.norm = nn.LayerNorm(latent_dim)
+        self.proj = nn.Linear(latent_dim, out_channels)
+
     def forward(
         self,
         x: Float[torch.Tensor, "batch channels nh nw"],
         resolution: tuple[Lat, Lon],
-    ) -> Float[torch.Tensor, "batch {self.out_channels} nh nw"]:
+    ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
         # nh, nw: number of patches along height and width (the latent grid dims).
         # Not to be confused with patch_h, patch_w which are each patch's pixel size.
         B, C, nh, nw = x.shape
@@ -119,13 +132,28 @@ class PerceiverDecoder(nn.Module):
         # Concat: (B*nh*nw, patch_h, patch_w, C+2)
         perceiver_input = torch.cat([tokens, query], dim=-1)
 
-        # --- Run shared perceiver ---
-        # The perceiver cross-attends its learned latents to the (patch_h, patch_w)
-        # grid of (C+2)-dim tokens, then mean-pools to (out_channels,).
-        # (B*nh*nw, patch_h, patch_w, C+2) -> (B*nh*nw, out_channels)
-        out = self.perceiver(perceiver_input)
+        # --- Run perceiver without mean-pooling ---
+        # return_embeddings=True skips the perceiver's to_logits (which mean-pools).
+        # Returns: (B*nh*nw, num_latents, latent_dim)
+        embeddings = self.perceiver(perceiver_input, return_embeddings=True)
 
-        # --- Reshape back to latent grid ---
-        out = rearrange(out, "(b nh nw) c -> b c nh nw", b=B, nh=nh, nw=nw)
+        # --- Per-latent projection to out_channels ---
+        # (B*nh*nw, num_latents, latent_dim) -> (B*nh*nw, num_latents, out_channels)
+        out = self.proj(self.norm(embeddings))
+
+        # --- Reassemble into full-resolution output ---
+        # num_latents >= patch_h * patch_w; take only the pixels we need.
+        num_pixels = patch_h * patch_w
+        out = out[:, :num_pixels, :]  # (B*nh*nw, patch_h*patch_w, out_channels)
+
+        out = rearrange(
+            out,
+            "(b nh nw) (ph pw) c -> b c (nh ph) (nw pw)",
+            b=B,
+            nh=nh,
+            nw=nw,
+            ph=patch_h,
+            pw=patch_w,
+        )
 
         return out

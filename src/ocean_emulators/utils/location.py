@@ -166,6 +166,8 @@ class S3Location(ResolvedLocation, BaseModel):
                 backend_kwargs={"storage_options": {"endpoint_url": self.endpoint_url}},
                 engine="zarr",
                 chunks=chunks,
+                decode_cf=not use_gpu_zarr_decode,
+                create_default_indexes=not use_gpu_zarr_decode,
             ),
         )
 
@@ -236,6 +238,8 @@ class LocalLocation(ResolvedLocation, BaseModel):
                 path_or_store,
                 engine=engine,
                 chunks=chunks,
+                decode_cf=not use_gpu_zarr_decode,
+                create_default_indexes=not use_gpu_zarr_decode,
             ),
         )
 

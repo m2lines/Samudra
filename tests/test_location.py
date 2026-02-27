@@ -172,6 +172,34 @@ class TestLocalLocation:
             assert isinstance(opened_ds, xr.Dataset)
             assert "temperature" in opened_ds.data_vars
 
+    def test_open_zarr_file_with_gpu_decode_disables_xarray_cf_indexing(
+        self, monkeypatch
+    ):
+        import ocean_emulators.utils.location as location_mod
+
+        captured_kwargs: dict[str, object] = {}
+
+        @contextlib.contextmanager
+        def fake_gpu_context(use_gpu_zarr_decode: bool):
+            assert use_gpu_zarr_decode is True
+            yield
+
+        def fake_open_dataset(*args, **kwargs):
+            del args
+            captured_kwargs.update(kwargs)
+            return xr.Dataset({"temperature": (["x"], [1])})
+
+        monkeypatch.setattr(location_mod, "_zarr_gpu_decode_context", fake_gpu_context)
+        monkeypatch.setattr(location_mod, "_local_gds_store", lambda _: None)
+        monkeypatch.setattr(location_mod.xr, "open_dataset", fake_open_dataset)
+
+        loc = LocalLocation(path=Path("/tmp/test.zarr"))
+        opened_ds = loc.open(use_gpu_zarr_decode=True)
+
+        assert isinstance(opened_ds, xr.Dataset)
+        assert captured_kwargs["decode_cf"] is False
+        assert captured_kwargs["create_default_indexes"] is False
+
 
 class TestS3Location:
     """Test cases for S3Location class."""

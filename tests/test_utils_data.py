@@ -6,6 +6,7 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
+from ocean_emulators.config import TimeConfig
 from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
 from ocean_emulators.utils.data import (
     DataSource,
@@ -197,6 +198,61 @@ def test_data_source_normalize_with_preserves_dtype_and_device():
 
     assert normalized.dtype == tensor.dtype
     assert normalized.device == tensor.device
+
+
+def test_data_source_slice_without_time_index(data_source):
+    data_without_index = data_source.data.drop_indexes("time")
+    source = DataSource(
+        name=f"{data_source.name}-no-time-index",
+        data=data_without_index,
+        means=data_source.means,
+        stds=data_source.stds,
+        masks=data_source.masks,
+    )
+
+    time_cfg = TimeConfig.model_validate({"start": "1975-08-10", "end": "1975-09-30"})
+    sliced = source.slice(time_cfg)
+
+    values = data_without_index.time.values
+    expected_indices = np.nonzero(
+        (values >= time_cfg.start.datetime) & (values < time_cfg.end.datetime)
+    )[0]
+    expected = data_without_index.isel(time=expected_indices)
+    xr.testing.assert_identical(sliced.data, expected)
+
+
+def test_data_source_slice_with_numeric_time_coords():
+    time_values = np.array([2, 7, 12, 17], dtype=np.float64)
+    time_coord = xr.Variable(
+        "time",
+        time_values,
+        attrs={
+            "units": "days since 1958-01-01 12:00:00",
+            "calendar": "julian",
+        },
+    )
+    data = xr.Dataset(
+        {"temperature": ("time", np.array([10.0, 20.0, 30.0, 40.0]))},
+        coords={"time": time_coord},
+    )
+    source = DataSource(
+        "numeric-time",
+        data,
+        xr.Dataset(),
+        xr.Dataset(),
+        Masks(
+            prognostic=torch.ones((1, 1, 1), dtype=torch.bool),
+            boundary=torch.ones((1, 1), dtype=torch.bool),
+        ),
+    )
+
+    sliced = source.slice(
+        TimeConfig.model_validate({"start": "1958-01-08", "end": "1958-01-18"})
+    )
+    np.testing.assert_array_equal(sliced.data.time.values, np.array([7.0, 12.0]))
+    np.testing.assert_array_equal(
+        sliced.data["temperature"].values, np.array([20.0, 30.0])
+    )
 
 
 @pytest.mark.parametrize("fill_value", [float("nan"), 0.0])

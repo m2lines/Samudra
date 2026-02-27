@@ -57,7 +57,7 @@ def test_direct_zarr_gpu_decode_roundtrip_v3():
 def test_local_location_open_with_gpu_decode_reports_xarray_failure():
     _require_cuda()
     pytest.importorskip("zarr")
-    pytest.importorskip("cupy")
+    cupy = pytest.importorskip("cupy")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         zarr_path = Path(tmp_dir) / "tiny_v2.zarr"
@@ -93,8 +93,16 @@ def test_local_location_open_with_gpu_decode_reports_xarray_failure():
 
         # If xarray+GPU decoding becomes compatible in the environment,
         # still validate the data path.
+        loaded = opened["temp"].data
+        compute = getattr(loaded, "compute", None)
+        if callable(compute):
+            loaded = loaded.compute()
+        if isinstance(loaded, cupy.ndarray):
+            loaded = cupy.asnumpy(loaded)
+        else:
+            loaded = np.asarray(loaded)
         np.testing.assert_array_equal(
-            opened["temp"].values,
+            loaded,
             ds["temp"].values,
         )
 

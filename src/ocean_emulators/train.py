@@ -68,7 +68,7 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
-from ocean_emulators.utils.loss import LossFnWithContext
+from ocean_emulators.utils.loss import DynamicLoss, LossFnWithContext
 from ocean_emulators.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
@@ -325,6 +325,7 @@ class Trainer:
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
+        self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
 
@@ -599,7 +600,7 @@ class Trainer:
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
-            self._maybe_update_loss(TO)
+            self._maybe_update_loss(TO, data)
 
             self.profiler.after_batch(self.num_batches_seen)
 
@@ -609,11 +610,14 @@ class Trainer:
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
 
-    def _maybe_update_loss(self, output: TrainBatchOutput):
-        # Use the already-computed per-channel loss from the training rollout
-        # to update DynamicLoss scales, avoiding a second forward pass.
-        # This introduces delayed estimate but should be more efficient
-        if update := getattr(self.loss_fn, "update", None):
+    def _maybe_update_loss(self, output: TrainBatchOutput, data: TrainData):
+        if (update := getattr(self.loss_fn, "update", None)) is None:
+            return
+
+        if self.delayed_loss_estimate:
+            # Use the already-computed per-channel loss from the training
+            # rollout to update DynamicLoss scales, avoiding a second forward
+            # pass.  This introduces a delayed estimate but is more efficient.
             loss_per_channel = output.loss_per_channel
             # Undo the dynamic scaling to recover the raw per-channel loss.
             if get_scales := getattr(self.loss_fn, "loss_scale_per_channel", None):
@@ -624,8 +628,22 @@ class Trainer:
                 ).reshape(-1)
             else:
                 raise RuntimeError(
-                    f"no `loss_scale_per_channel` — cannot recover unscaled per-channel loss."
+                    "no `loss_scale_per_channel` — cannot recover unscaled per-channel loss."
                 )
+            update(raw_loss)
+        else:
+            # Run a fresh single-step forward pass so DynamicLoss sees an
+            # up-to-date, unscaled loss signal
+            with torch.no_grad():
+                single_step_data = TrainData(data.num_prognostic_channels, data.ctx)
+                input_, label = data[0]
+                single_step_data.append(input_, label)
+                pred = self.model(single_step_data)
+                # Compute the raw (unscaled) per-channel loss via the inner
+                # loss function, bypassing DynamicLoss scaling.
+                if not isinstance(self.loss_fn, DynamicLoss):
+                    raise TypeError(f"Expected loss_fn to be DynamicLoss")
+                raw_loss = self.loss_fn.loss_fn(pred[0], label, ctx=data.ctx)
             update(raw_loss)
 
     def validate_one_epoch(self, epoch):

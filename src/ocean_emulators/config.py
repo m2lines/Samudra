@@ -160,6 +160,7 @@ class DataConfig(BaseConfig):
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+    zarr_gpu_decode: bool = False
 
     def build(
         self,
@@ -167,6 +168,13 @@ class DataConfig(BaseConfig):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
+        if self.zarr_gpu_decode and self.num_workers != 0:
+            raise ValueError(
+                "data.zarr_gpu_decode=true requires data.num_workers=0 "
+                "because GPU-backed zarr buffers cannot be passed across "
+                "DataLoader worker processes."
+            )
+
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
@@ -187,6 +195,7 @@ class DataConfig(BaseConfig):
                 boundary_var_names=boundary_var_names,
                 static_data_vars=self.static_data_vars,
                 use_dask=turn_on_dask,
+                zarr_gpu_decode=self.zarr_gpu_decode,
             )
 
             return data_source, all(

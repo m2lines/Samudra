@@ -1,3 +1,4 @@
+import contextlib
 import tempfile
 from pathlib import Path
 
@@ -141,6 +142,35 @@ class TestLocalLocation:
             assert isinstance(opened_ds, xr.Dataset)
             assert "temperature" in opened_ds.data_vars
             assert opened_ds.temperature.chunks == ((2,), (2,))
+
+    def test_open_zarr_file_with_gpu_decode_context(self, monkeypatch):
+        """Test opening a zarr file with GPU decode enabled."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            zarr_path = Path(tmp_dir) / "test.zarr"
+            ds = xr.Dataset({"temperature": (["x", "y"], [[1, 2], [3, 4]])})
+            ds.to_zarr(zarr_path)
+
+            import ocean_emulators.utils.location as location_mod
+
+            entered_gpu_context = {"entered": False}
+
+            @contextlib.contextmanager
+            def fake_gpu_context(use_gpu_zarr_decode: bool):
+                assert use_gpu_zarr_decode is True
+                entered_gpu_context["entered"] = True
+                yield
+
+            monkeypatch.setattr(
+                location_mod, "_zarr_gpu_decode_context", fake_gpu_context
+            )
+            monkeypatch.setattr(location_mod, "_local_gds_store", lambda _: None)
+
+            loc = LocalLocation(path=zarr_path)
+            opened_ds = loc.open(use_gpu_zarr_decode=True)
+
+            assert entered_gpu_context["entered"] is True
+            assert isinstance(opened_ds, xr.Dataset)
+            assert "temperature" in opened_ds.data_vars
 
 
 class TestS3Location:

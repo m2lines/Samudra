@@ -259,6 +259,8 @@ class DataSource:
 
         means = torch.from_numpy(means_np).reshape(reshape_vars)
         stds = torch.from_numpy(stds_np).reshape(reshape_vars)
+        means = means.to(data.device, dtype=data.dtype, non_blocking=True)
+        stds = stds.to(data.device, dtype=data.dtype, non_blocking=True)
 
         norm = (data - means) / stds
         if fill_nan:
@@ -277,9 +279,10 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None,
         use_dask: bool,
+        zarr_gpu_decode: bool = False,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
-        data = data_location.open(chunks)
+        data = data_location.open(chunks, use_gpu_zarr_decode=zarr_gpu_decode)
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
 

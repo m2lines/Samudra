@@ -8,6 +8,7 @@ from collections.abc import Generator, Iterable
 from typing import assert_never
 
 import cftime
+import dask.array as da
 import numpy as np
 import pytest
 import torch
@@ -30,12 +31,23 @@ from ocean_emulators.datasets import (
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
+    _dataarray_to_torch_float32,
 )
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.samplers import EquivalenceGroupBatchSampler
 from ocean_emulators.utils.train import collate_raw_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
+
+
+def test_dataarray_to_torch_float32_handles_dask_arrays():
+    data = np.arange(6, dtype=np.float64).reshape(2, 3)
+    xarr = xr.DataArray(da.from_array(data, chunks=(1, 3)), dims=["x", "y"])
+
+    tensor = _dataarray_to_torch_float32(xarr)
+
+    assert tensor.dtype == torch.float32
+    assert torch.equal(tensor, torch.tensor(data, dtype=torch.float32))
 
 
 @pytest.fixture

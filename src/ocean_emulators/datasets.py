@@ -2,7 +2,7 @@ import logging
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import final
+from typing import Any, final
 
 import numpy as np
 import torch
@@ -33,6 +33,33 @@ from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.logging import elapsed
 
 logger = logging.getLogger(__name__)
+
+
+def _to_torch_float32(array_like: Any) -> torch.Tensor:
+    if hasattr(array_like, "compute"):
+        array_like = array_like.compute()
+
+    if isinstance(array_like, np.ndarray):
+        return torch.from_numpy(array_like.astype(np.float32, copy=False))
+
+    if hasattr(array_like, "__dlpack__"):
+        return torch.from_dlpack(array_like).to(dtype=torch.float32)
+
+    if hasattr(array_like, "get"):
+        array_like = array_like.get()
+        return torch.from_numpy(np.asarray(array_like, dtype=np.float32))
+
+    return torch.as_tensor(array_like, dtype=torch.float32)
+
+
+def _dataarray_to_torch_float32(array: xr.DataArray) -> torch.Tensor:
+    return _to_torch_float32(array.data)
+
+
+def _mask_on_tensor_device(mask: torch.Tensor, tensor: torch.Tensor) -> torch.Tensor:
+    if mask.device == tensor.device:
+        return mask
+    return mask.to(tensor.device, non_blocking=tensor.device.type == "cuda")
 
 
 class InferenceDataset(Dataset):
@@ -205,23 +232,22 @@ class InferenceDataset(Dataset):
             data_in_ds = data_in_src.data
 
         if "lev" in data_in_ds.dims:
-            data_in_np: np.ndarray = (
+            data_in_da = (
                 conditional_rearrange(
                     data_in_ds,
                     "window_dim time (variable lev)=var lat lon",
                     concat_dim="var",
                 )
                 .rename({"var": "variable"})
-                .to_numpy()
             )
         else:
-            data_in_np = (
+            data_in_da = (
                 data_in_ds.to_array()
                 .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
             )
-        data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
-        data_in = torch.where(self.wet, data_in, self.masked_fill_value)
+        data_in = _dataarray_to_torch_float32(data_in_da)
+        wet = _mask_on_tensor_device(self.wet, data_in)
+        data_in = torch.where(wet, data_in, self.masked_fill_value)
         if not self.normalize_before_mask:
             data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
         data_in = rearrange(
@@ -244,14 +270,16 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_np: np.ndarray = (
+        data_in_boundary_da = (
             data_in_boundary_ds.to_array()
             .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
         )
-        data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
+        data_in_boundary = _dataarray_to_torch_float32(data_in_boundary_da)
+        wet_surface = _mask_on_tensor_device(self.wet_surface, data_in_boundary)
         data_in_boundary = torch.where(
-            self.wet_surface, data_in_boundary, self.masked_fill_value
+            wet_surface,
+            data_in_boundary,
+            self.masked_fill_value,
         )
         if not self.normalize_before_mask:
             data_in_boundary = self._boundary_src.normalize_with(
@@ -272,23 +300,22 @@ class InferenceDataset(Dataset):
         else:
             label_ds = label_src.data
         if "lev" in label_ds.dims:
-            label_np: np.ndarray = (
+            label_da = (
                 conditional_rearrange(
                     label_ds,
                     "window_dim time (variable lev)=var lat lon",
                     concat_dim="var",
                 )
                 .rename({"var": "variable"})
-                .to_numpy()
             )
         else:
-            label_np = (
+            label_da = (
                 label_ds.to_array()
                 .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
             )
-        label: torch.Tensor = torch.from_numpy(label_np).float()
-        label = torch.where(self.wet, label, self.masked_fill_value)
+        label = _dataarray_to_torch_float32(label_da)
+        wet = _mask_on_tensor_device(self.wet, label)
+        label = torch.where(wet, label, self.masked_fill_value)
         if not self.normalize_before_mask:
             label = self._prognostic_src.normalize_with(label, variable_axis=2)
         label = rearrange(
@@ -543,33 +570,27 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
             if "lev" in prognostic_selected[0].dims:
                 prognostics = [
-                    torch.from_numpy(
+                    _dataarray_to_torch_float32(
                         conditional_rearrange(
                             selected,
                             "time (variable lev)=var lat lon",
                             concat_dim="var",
                         )
                         .rename({"var": "variable"})
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
                     )
                     for selected in prognostic_selected
                 ]
             else:
                 prognostics = [
-                    torch.from_numpy(
+                    _dataarray_to_torch_float32(
                         selected.to_array()
                         .transpose("time", "variable", "lat", "lon")
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
                     )
                     for selected in prognostic_selected
                 ]
-            boundary = torch.from_numpy(
+            boundary = _dataarray_to_torch_float32(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-                .astype(np.float32, copy=False)
             )
             input_, label = prognostics[0], prognostics[-1]
             TD.insert(input_, boundary, label)

@@ -28,7 +28,7 @@ dependencies = [
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
   "microsoft-aurora>=1.8",
-  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
+  "numpy>=1.26.4",
   "perceiver-pytorch>=0.8.8",
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",
@@ -44,7 +44,7 @@ dependencies = [
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",
   "xesmf>=0.8.10",
-  "zarr<3",
+  "zarr @ git+https://github.com/Open-Athena/zarr-python.git@96e2f752b9483ac36cc891eb7390f8af9556c0d9",
 ]
 optional-dependencies.cuda = [
   "flash-attn>=2.7.4.post1,<3",

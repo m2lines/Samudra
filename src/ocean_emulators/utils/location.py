@@ -1,3 +1,5 @@
+import contextlib
+import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
@@ -11,6 +13,53 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _zarr_gpu_decode_context(
+    use_gpu_zarr_decode: bool,
+) -> contextlib.AbstractContextManager[Any]:
+    if not use_gpu_zarr_decode:
+        return contextlib.nullcontext()
+
+    try:
+        import zarr
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "data.zarr_gpu_decode=true requires the zarr package to be installed."
+        ) from exc
+
+    config = getattr(zarr, "config", None)
+    enable_gpu = getattr(config, "enable_gpu", None)
+    if enable_gpu is None:
+        raise RuntimeError(
+            "data.zarr_gpu_decode=true requires a zarr build that provides "
+            "`zarr.config.enable_gpu()`."
+        )
+    return enable_gpu()
+
+
+def _local_gds_store(path: Path) -> Any | None:
+    try:
+        from kvikio.zarr import GDSStore  # type: ignore[import-not-found]
+    except ModuleNotFoundError:
+        logger.warning(
+            "kvikio is not installed; falling back to standard zarr reads for %s",
+            path,
+        )
+        return None
+
+    try:
+        return GDSStore(str(path))
+    except Exception as exc:
+        logger.warning(
+            "Failed to initialize kvikio GDSStore for %s; falling back to standard "
+            "zarr reads (%s)",
+            path,
+            exc,
+        )
+        return None
 
 
 class UnresolvedLocation(BaseModel):
@@ -41,7 +90,12 @@ class ResolvedLocation(ABC):
     """A location which is ready to be opened or resolved against."""
 
     @abstractmethod
-    def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
+    def open(
+        self,
+        chunks: dict[str, int] | None = None,
+        *,
+        use_gpu_zarr_decode: bool = False,
+    ) -> xr.Dataset:
         pass
 
     @abstractmethod
@@ -73,16 +127,24 @@ class S3Location(ResolvedLocation, BaseModel):
     bucket: str
     path: str
 
-    def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
+    def open(
+        self,
+        chunks: dict[str, int] | None = None,
+        *,
+        use_gpu_zarr_decode: bool = False,
+    ) -> xr.Dataset:
         # TODO(jder): could consider passing credentials here
         # rather than relying on the environment
 
-        return xr.open_dataset(
-            self.url(),
-            backend_kwargs={"storage_options": {"endpoint_url": self.endpoint_url}},
-            engine="zarr",
-            chunks=chunks,
-        )
+        with _zarr_gpu_decode_context(use_gpu_zarr_decode):
+            return xr.open_dataset(
+                self.url(),
+                backend_kwargs={
+                    "storage_options": {"endpoint_url": self.endpoint_url}
+                },
+                engine="zarr",
+                chunks=chunks,
+            )
 
     def url(self) -> str:
         path = quote(self.path.lstrip("/"))
@@ -130,9 +192,22 @@ class LocalLocation(ResolvedLocation, BaseModel):
             )
         return self
 
-    def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
+    def open(
+        self,
+        chunks: dict[str, int] | None = None,
+        *,
+        use_gpu_zarr_decode: bool = False,
+    ) -> xr.Dataset:
         engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"
-        return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+        if engine == "netcdf4":
+            return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+
+        path_or_store: Path | Any = self.path
+        if use_gpu_zarr_decode and (gds_store := _local_gds_store(self.path)):
+            path_or_store = gds_store
+
+        with _zarr_gpu_decode_context(use_gpu_zarr_decode):
+            return xr.open_dataset(path_or_store, engine=engine, chunks=chunks)
 
     def resolve(self, location: "Location") -> "ResolvedLocation":
         if isinstance(location, UnresolvedLocation):

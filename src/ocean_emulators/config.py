@@ -336,7 +336,7 @@ class PerceiverConfig(BaseConfig):
         description="The small, latent dimension of the Perceiver. This is the `N` dimension for the Perceiver's `O(M*N)` complexity",
     )
     num_latents: int = Field(
-        default=512,
+        default=1024,
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
 

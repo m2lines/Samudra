@@ -325,12 +325,8 @@ PerceiverImpl = Literal["auto", "naive", "flash"]
 
 
 class PerceiverConfig(BaseConfig):
-    """A standard config interface to various perceiver implementations.
+    """A standard config interface to various perceiver implementations."""
 
-    The `implementation="auto"` option will guess what is the best implementation given the runtime environment.
-    """
-
-    implementation: PerceiverImpl = "auto"
     depth: int = 6
     latent_dim: int = Field(
         default=128,
@@ -342,14 +338,18 @@ class PerceiverConfig(BaseConfig):
     )
 
     def build(
-        self, in_channels: int, out_channels: int, max_patch_size: tuple[int, int]
+        self,
+        in_channels: int,
+        out_channels: int,
+        max_patch_size: tuple[int, int],
+        implementation: PerceiverImpl,
     ) -> nn.Module:
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*max_patch_size)
 
         if (
-            self.implementation == "auto" and torch.cuda.is_available()
-        ) or self.implementation == "flash":
+            implementation == "auto" and torch.cuda.is_available()
+        ) or implementation == "flash":
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ModuleNotFoundError as e:
@@ -369,8 +369,8 @@ class PerceiverConfig(BaseConfig):
                 self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
             )
         elif (
-            self.implementation == "auto" and not torch.cuda.is_available()
-        ) or self.implementation == "naive":
+            implementation == "auto" and not torch.cuda.is_available()
+        ) or implementation == "naive":
             perceiver = NaivePerceiver(
                 num_freq_bands=4,
                 max_freq=max_freq,
@@ -384,9 +384,7 @@ class PerceiverConfig(BaseConfig):
                 self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
             )
         else:
-            raise ValueError(
-                f"Unknown perceiver implementation: {self.implementation}."
-            )
+            raise ValueError(f"Unknown perceiver implementation: {implementation}.")
 
         return perceiver
 
@@ -401,13 +399,16 @@ class EncoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         max_lat_size: int,
         max_lon_size: int,
+        implementation: PerceiverImpl,
     ) -> PerceiverEncoder:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
-            perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
+            perceiver=self.perceiver.build(
+                in_channels, out_channels, max_patch_size, implementation
+            ),
         )
 
 
@@ -433,6 +434,7 @@ class DecoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         max_lat_size: int,
         max_lon_size: int,
+        implementation: PerceiverImpl,
     ) -> PerceiverDecoder:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
         # The perceiver sees (C + 2)-dim tokens: latent channels + 2D pixel query.
@@ -443,7 +445,7 @@ class DecoderConfig(BaseConfig):
             patch_extent=patch_extent,
             latent_dim=self.perceiver.latent_dim,
             perceiver=self.perceiver.build(
-                perceiver_in_channels, out_channels, max_patch_size
+                perceiver_in_channels, out_channels, max_patch_size, implementation
             ),
         )
 
@@ -605,6 +607,11 @@ class FOMOConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
     decoder: DecoderConfig = DecoderConfig()
+    perceiver_implementation: PerceiverImpl = Field(
+        default="auto",
+        description="Perceiver attention implementation shared by the encoder and decoder. "
+        "'auto' selects flash attention when CUDA is available, otherwise naive.",
+    )
     patch_extent: list[float] = Field(
         default=[6.0, 10.0],
         description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
@@ -633,8 +640,16 @@ class FOMOConfig(BaseModelConfig):
             max(g[1] for g in all_grid_sizes),
         )
 
+        impl = self.perceiver_implementation
+        uses_flash = impl == "flash" or (impl == "auto" and torch.cuda.is_available())
+        if uses_flash and not self.use_bfloat16:
+            raise ValueError(
+                "Perceiver implementation resolves to flash attention. "
+                "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
+            )
+
         encoder = self.encoder.build(
-            in_channels, self.embedding_dim, extent, max_lat_size, max_lon_size
+            in_channels, self.embedding_dim, extent, max_lat_size, max_lon_size, impl
         )
         processor = self.processor.build(
             self.embedding_dim,
@@ -647,17 +662,8 @@ class FOMOConfig(BaseModelConfig):
             extent,
             max_lat_size,
             max_lon_size,
+            impl,
         )
-
-        if any(
-            hasattr(layer.perceiver, "use_flash_attn")
-            and layer.perceiver.use_flash_attn
-            and not self.use_bfloat16
-            for layer in [encoder, decoder]
-        ):
-            raise ValueError(
-                "Encoder/decoder is configured to use flash attention. Please set `use_bfloat16=True`."
-            )
 
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None

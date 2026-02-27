@@ -5,10 +5,10 @@ last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"
 embedding_dim: 128  # Reduced from 280
+perceiver_implementation: "naive"
 
 encoder:
   perceiver:
-    implementation: "naive"
     depth: 2  # Reduced from 3
     latent_dim: 48  # Reduced from 64
     num_latents: 128  # Reduced from 256

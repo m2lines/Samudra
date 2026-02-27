@@ -25,7 +25,7 @@ class PerceiverDecoder(nn.Module):
        concatenates a normalized 2D pixel-position query (telling the perceiver
        *where within the patch* each output pixel is).
     3. Feeds the ``(patch_h, patch_w, C + 2)``-dim token grid through a shared
-       perceiver whose ``num_latents`` equals ``patch_h * patch_w``.
+       perceiver whose ``num_latents`` equals (or exceeds[2]) ``patch_h * patch_w``.
     4. The decoder calls the perceiver with ``return_embeddings=True`` to skip
        the default mean-pooling, getting back per-latent embeddings
        ``(batch, num_latents, latent_dim)``.  It then projects each latent
@@ -50,6 +50,7 @@ class PerceiverDecoder(nn.Module):
 
     References:
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
+        [2]: https://ar5iv.labs.arxiv.org/html/2309.16588
     """
 
     def __init__(
@@ -143,17 +144,17 @@ class PerceiverDecoder(nn.Module):
         out = self.proj(self.norm(embeddings))
 
         # --- Reassemble into full-resolution output ---
+        # num_latents >= patch_h * patch_w; take only the pixels we need.
+        # TODO(alxmrs,Claude): Consider using a learned selection of the latents or pooling over the latents
+        #  (more complex)
+        #
         # num_latents should be as large as the biggest patch. For smaller patches,
         # num_latents includes "extra" information beyond the pixel count.
         #
         # The additional output space could actually be useful for transformer
         # architectures to use even if they aren't used in the output.
-        # Transformers can use these as "scratch" space, check out this paper
-        # for more on this topic: https://arxiv.org/pdf/2309.16588.
-        #
-        # num_latents >= patch_h * patch_w; take only the pixels we need.
-        # TODO(alxmrs,Claude): Consider using a learned selection of the latents or pooling over the latents
-        #  (more complex)
+        # Transformers can use these as "scratch" space, check out [2]  for more
+        # on this topic.
         num_pixels = patch_h * patch_w
         out = out[:, :num_pixels, :]  # (B*nh*nw, patch_h*patch_w, out_channels)
 

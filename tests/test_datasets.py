@@ -284,8 +284,8 @@ def vector_of(max_vec_size: int, min_vec_size=1):
 @settings(deadline=1000)
 def test_test_util__data_source_roundtrip(
     data_var_index: int,
-    lat: NDArray[np.floating],
-    lng: NDArray[np.floating],
+    lat: NDArray[np.float64],
+    lng: NDArray[np.float64],
     days_since_start: NDArray[np.uint32],
     start_day: datetime.date,
 ) -> None:

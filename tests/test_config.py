@@ -1,16 +1,16 @@
 import pytest
 
 from ocean_emulators.config import DataConfig, DataSourceConfig
-from ocean_emulators.utils.location import LocalLocation
+from ocean_emulators.utils.location import LocalLocation, UnresolvedLocation
 
 
 def test_data_config_requires_zero_workers_for_gpu_zarr_decode(tmp_path):
     cfg = DataConfig(
         sources=[
             DataSourceConfig(
-                data_location="data.zarr",
-                data_means_location="means.zarr",
-                data_stds_location="stds.zarr",
+                data_location=UnresolvedLocation(path="data.zarr"),
+                data_means_location=UnresolvedLocation(path="means.zarr"),
+                data_stds_location=UnresolvedLocation(path="stds.zarr"),
             )
         ],
         num_workers=1,

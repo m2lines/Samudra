@@ -54,7 +54,7 @@ else:
 
 cp: Any | None
 try:
-    import cupy as _cp  # type: ignore[import-untyped]
+    import cupy as _cp  # type: ignore[import-not-found,import-untyped]
 except ImportError:
     cp = None
 else:

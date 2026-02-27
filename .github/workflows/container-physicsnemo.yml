@@ -178,8 +178,7 @@ jobs:
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . .venv/bin/activate
-              python -m pytest -p no:zarr -v -m "cuda" tests/test_gpu_zarr_decode.py -x
-              python -m pytest -p no:zarr -v -m "not manual and cuda" -x --ignore=tests/test_gpu_zarr_decode.py
+              python -m pytest -p no:zarr -v -m "not manual and cuda" -x
             '
 
   report-container-test-status:

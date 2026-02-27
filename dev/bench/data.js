@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772067533495,
+  "lastUpdate": 1772219474828,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8004,6 +8004,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.31123005745546306",
             "extra": "mean: 91.65701176520001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a2461f7db73d08d06a91548c4a4040a536bc664",
+          "message": "slurm: add Apptainer eval harness script and docs (#587)\n\n## Summary\n- add a dedicated `scripts/slurm_apptainer_eval.sbatch` harness for\nsingle-node eval on torch\n- document eval harness usage in `docs/torch.md` alongside the existing\ntrain harness docs\n- document default-config + CLI override flow for dynamic spatial eval\nruns\n\n## Stack\n- base: #586 (`u/jder/nemo-docker-stack/dynamic-spatial-loss`)\n\n## Validation\n- `bash -n scripts/slurm_apptainer_eval.sbatch`\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-02-27T18:44:39Z",
+          "tree_id": "a8114291bf04a3f4408fafb644f46b3448d5ab92",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/2a2461f7db73d08d06a91548c4a4040a536bc664"
+        },
+        "date": 1772219473932,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1531175929513047,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006488907226313125",
+            "extra": "mean: 867.2142425999994 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18252707011875816,
+            "unit": "iter/sec",
+            "range": "stddev: 0.049352954785363605",
+            "extra": "mean: 5.478639411400001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010865719383626236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.41156524670223926",
+            "extra": "mean: 92.03256265820002 sec\nrounds: 5"
           }
         ]
       }

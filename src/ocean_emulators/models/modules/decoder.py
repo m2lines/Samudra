@@ -145,8 +145,6 @@ class PerceiverDecoder(nn.Module):
 
         # --- Reassemble into full-resolution output ---
         # num_latents >= patch_h * patch_w; take only the pixels we need.
-        # TODO(alxmrs,Claude): Consider using a learned selection of the latents or pooling over the latents
-        #  (more complex)
         #
         # num_latents should be as large as the biggest patch. For smaller patches,
         # num_latents includes "extra" information beyond the pixel count.
@@ -155,6 +153,9 @@ class PerceiverDecoder(nn.Module):
         # architectures to use even if they aren't used in the output.
         # Transformers can use these as "scratch" space, check out [2]  for more
         # on this topic.
+        #
+        # TODO(alxmrs,Claude): Consider using a learned selection of the latents
+        #  or pooling over the latents (more complex).
         num_pixels = patch_h * patch_w
         out = out[:, :num_pixels, :]  # (B*nh*nw, patch_h*patch_w, out_channels)
 

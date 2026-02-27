@@ -437,6 +437,13 @@ class DecoderConfig(BaseConfig):
         implementation: PerceiverImpl,
     ) -> PerceiverDecoder:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
+        max_pixels = max_patch_size[0] * max_patch_size[1]
+        if self.perceiver.num_latents < max_pixels:
+            raise ValueError(
+                f"Decoder perceiver num_latents ({self.perceiver.num_latents}) must be "
+                f">= the largest patch pixel count ({max_patch_size[0]} * {max_patch_size[1]} = {max_pixels}). "
+                f"Increase decoder.perceiver.num_latents or reduce patch_extent."
+            )
         # The perceiver sees (C + 2)-dim tokens: latent channels + 2D pixel query.
         perceiver_in_channels = in_channels + 2
         return PerceiverDecoder(

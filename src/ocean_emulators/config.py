@@ -412,6 +412,18 @@ class EncoderConfig(BaseConfig):
 
 
 class DecoderConfig(BaseConfig):
+    """A perceiver-based decoder configuration.
+
+    This consumes a latent representation from the processor and outputs a phyiscal
+    prediction of the Ocean.
+
+    NB: the `num_latents` of the perceiver in the decoder must be greater than
+    the size (patch_h * patch_w) of the biggest patch.
+
+    Futhermore, there could be a benefit to tuning `num_latents` to be somewhat
+    larger than the max patch pixel count, see: https://arxiv.org/pdf/2309.16588.
+    """
+
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(

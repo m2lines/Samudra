@@ -232,18 +232,14 @@ class InferenceDataset(Dataset):
             data_in_ds = data_in_src.data
 
         if "lev" in data_in_ds.dims:
-            data_in_da = (
-                conditional_rearrange(
-                    data_in_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-            )
+            data_in_da = conditional_rearrange(
+                data_in_ds,
+                "window_dim time (variable lev)=var lat lon",
+                concat_dim="var",
+            ).rename({"var": "variable"})
         else:
-            data_in_da = (
-                data_in_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
+            data_in_da = data_in_ds.to_array().transpose(
+                "window_dim", "time", "variable", "lat", "lon"
             )
         data_in = _dataarray_to_torch_float32(data_in_da)
         wet = _mask_on_tensor_device(self.wet, data_in)
@@ -270,9 +266,8 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_da = (
-            data_in_boundary_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
+        data_in_boundary_da = data_in_boundary_ds.to_array().transpose(
+            "window_dim", "time", "variable", "lat", "lon"
         )
         data_in_boundary = _dataarray_to_torch_float32(data_in_boundary_da)
         wet_surface = _mask_on_tensor_device(self.wet_surface, data_in_boundary)
@@ -300,18 +295,14 @@ class InferenceDataset(Dataset):
         else:
             label_ds = label_src.data
         if "lev" in label_ds.dims:
-            label_da = (
-                conditional_rearrange(
-                    label_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-            )
+            label_da = conditional_rearrange(
+                label_ds,
+                "window_dim time (variable lev)=var lat lon",
+                concat_dim="var",
+            ).rename({"var": "variable"})
         else:
-            label_da = (
-                label_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
+            label_da = label_ds.to_array().transpose(
+                "window_dim", "time", "variable", "lat", "lon"
             )
         label = _dataarray_to_torch_float32(label_da)
         wet = _mask_on_tensor_device(self.wet, label)
@@ -575,22 +566,19 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                             selected,
                             "time (variable lev)=var lat lon",
                             concat_dim="var",
-                        )
-                        .rename({"var": "variable"})
+                        ).rename({"var": "variable"})
                     )
                     for selected in prognostic_selected
                 ]
             else:
                 prognostics = [
                     _dataarray_to_torch_float32(
-                        selected.to_array()
-                        .transpose("time", "variable", "lat", "lon")
+                        selected.to_array().transpose("time", "variable", "lat", "lon")
                     )
                     for selected in prognostic_selected
                 ]
             boundary = _dataarray_to_torch_float32(
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
+                boundary_selected.to_array().transpose("time", "variable", "lat", "lon")
             )
             input_, label = prognostics[0], prognostics[-1]
             TD.insert(input_, boundary, label)

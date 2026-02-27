@@ -599,7 +599,7 @@ class Trainer:
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
-            self._call_loss_update(TO.loss_per_channel)
+            self._maybe_update_loss(TO)
 
             self.profiler.after_batch(self.num_batches_seen)
 
@@ -609,19 +609,23 @@ class Trainer:
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
 
-    def _call_loss_update(self, loss_per_channel: torch.Tensor):
+    def _maybe_update_loss(self, output: TrainBatchOutput):
         # Use the already-computed per-channel loss from the training rollout
-        # to update DynamicLoss scales, avoiding an second forward pass.
+        # to update DynamicLoss scales, avoiding a second forward pass.
         # This introduces delayed estimate but should be more efficient
         if update := getattr(self.loss_fn, "update", None):
+            loss_per_channel = output.loss_per_channel
             # Undo the dynamic scaling to recover the raw per-channel loss.
             if get_scales := getattr(self.loss_fn, "loss_scale_per_channel", None):
                 per_channel_scale = get_scales()
                 raw_loss = (
-                    loss_per_channel.detach().reshape(-1, scale.shape[0]) / per_channel_scale
+                    loss_per_channel.detach().reshape(-1, per_channel_scale.shape[0])
+                    / per_channel_scale
                 ).reshape(-1)
             else:
-                raw_loss = loss_per_channel.detach()
+                raise RuntimeError(
+                    f"no `loss_scale_per_channel` — cannot recover unscaled per-channel loss."
+                )
             update(raw_loss)
 
     def validate_one_epoch(self, epoch):

@@ -309,7 +309,7 @@ class TensorMap(Multiton):
                 self.DP_3D_IDX[self.DEPTH_SET[0]],
                 torch.tensor([self.VAR_3D_IDX[var_2D] for var_2D in self.VAR_SET_2D]),
             ]
-        )
+        ).to(torch.int32)
 
     def _populate_boundary_idx(self):
         """

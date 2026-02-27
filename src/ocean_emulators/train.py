@@ -25,7 +25,7 @@ from torch.utils.data import (
 )
 
 from ocean_emulators import config
-from ocean_emulators.aggregator import Aggregator
+from ocean_emulators.aggregator import Aggregator, ValidateAggregator
 from ocean_emulators.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -275,9 +275,23 @@ class Trainer:
 
         # Modify DDP setup based on device
         if self.distributed is not None:
+            # Multiscale models (e.g. FOMO with multiple grid sizes) have
+            # per-resolution unpatch layers.  Under a "match" or "mix" schedule
+            # only one resolution's unpatch layer participates in each batch,
+            # so the others have no gradients.  DDP must be told about this.
+            match self.train_schedule:
+                case "standard":
+                    has_unused = False
+                case "mix":
+                    has_unused = True
+                case "match":
+                    has_unused = True
+                case _:
+                    assert_never(self.train_schedule)
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
+                find_unused_parameters=has_unused,
             )
 
         # EMA (must come after DDP setup so parameter names match final self.model)
@@ -609,14 +623,21 @@ class Trainer:
     def validate_one_epoch(self, epoch):
         self.model.eval()
 
-        # TODO(alxmrs): Aggregator only supports a single scale.
-        val_aggregator = Aggregator.get_validation_aggregator(
-            self.primary_src.metadata,
-            self.hist,
-            self.primary_src.spherical_area_weights.to(self.device),
-            self.primary_src.masks.prognostic.to(self.device),
-            self.num_out,
-        )
+        if self.train_schedule == "standard":
+            # The standard val aggregator only supports a single scale.
+            val_aggregator = Aggregator.get_validation_aggregator(
+                self.primary_src.metadata,
+                self.hist,
+                self.primary_src.spherical_area_weights.to(self.device),
+                self.num_out,
+            )
+        else:
+            # Create a validation aggregator that handles multiple scales.
+            val_aggregator = ValidateAggregator(
+                {},  # Currently, don't do anything else besides record the training loss.
+                self.hist,
+                self.num_out,
+            )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 

@@ -1,11 +1,8 @@
 import torch
 
 from ocean_emulators.aggregator.train import TrainAggregator
-from ocean_emulators.aggregator.validate.map import MapAggregator
-from ocean_emulators.aggregator.validate.reduced import MeanAggregator
-from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
+from ocean_emulators.utils.data import get_aggregator_dicts
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -15,24 +12,14 @@ class ValidateAggregator(TrainAggregator):
 
     def __init__(
         self,
-        metadata: dict[str, dict[str, str]],
+        aggregators: dict[str, ValidateSubAggregator],
         hist: int,
-        area_weights: torch.Tensor,
-        wet: torch.Tensor,
         num_prognostic_channels: int,
     ):
         super().__init__()
-
-        val_aggregators: dict[str, ValidateSubAggregator] = {
-            "snapshot": SnapshotAggregator(metadata, hist),
-            "mean_map": MapAggregator(metadata, hist),
-            "reduced": MeanAggregator(area_weights, hist),
-        }
-        self._aggregators = val_aggregators
-        self.normalize = Normalize.get_instance()
+        self._aggregators = aggregators
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
-        self.wet = wet
 
     # TODO(jder): we could remove this by moving from inheritance
     # to composition with the TrainAggregator functionality.
@@ -45,15 +32,31 @@ class ValidateAggregator(TrainAggregator):
     def record_validation_batch(self, batch: ValBatchOutput):
         super().record_batch(batch)  # Record losses
 
-        if len(batch.target_data) == 0:
+        # If there are no log aggregators, omit doing any extra work.
+        if not self._aggregators:
+            return
+
+        # Translate the GridContext mask by removing history.
+        target_data = batch.target_data  # [B, C*(hist+1), H, W]
+        wet = batch.ctx.label_mask  # [C*(hist+1), H, W]
+        assert wet.shape == target_data.shape[1:], (
+            "The wetmask must match the target data shape excluding batch."
+        )
+        assert wet.shape[0] % (self.hist + 1) == 0, (
+            "The wetmask channel count must be divisible by history size."
+        )
+        first_wetmask_chunk = wet.shape[0] // (self.hist + 1)
+        wet = wet[:first_wetmask_chunk]  # [C, H, W]
+
+        if len(target_data) == 0:
             raise ValueError("No data in target_data")
         if len(batch.gen_data) == 0:
             raise ValueError("No data in gen_data")
 
-        assert batch.target_data.shape[1] == self.num_prognostic_channels
+        assert target_data.shape[1] == self.num_prognostic_channels
         target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(
-            batch.target_data,
-            wet=self.wet,
+            target_data,
+            wet=wet,
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -62,7 +65,7 @@ class ValidateAggregator(TrainAggregator):
 
         gen_data_dict, gen_data_unnorm_dict = get_aggregator_dicts(
             batch.gen_data,
-            wet=self.wet,
+            wet=wet,
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
@@ -70,7 +73,7 @@ class ValidateAggregator(TrainAggregator):
         )
         input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
             batch.input_data,
-            wet=self.wet,
+            wet=wet,
             long_rollout=False,
             input_type="input",
             num_prognostic_channels=self.num_prognostic_channels,

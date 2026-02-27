@@ -8,54 +8,54 @@ from jaxtyping import Float
 from torch import nn
 
 from ocean_emulators.constants import Lat, Lon
-from ocean_emulators.models.modules.encoder import patch_from
 
 
 class PerceiverDecoder(nn.Module):
-    """A PerceiverIO-based[0] decoder that maps latent patch tokens to full-resolution output.
+    """A PerceiverIO-based decoder that maps a latent patch grid to full-resolution output.
 
-    Unlike the encoder's regular Perceiver (which compresses spatial input into
-    a fixed-size latent), the decoder uses **PerceiverIO**[3] — a variant with
-    an explicit query mechanism.  Queries represent output pixel positions, and
-    the PerceiverIO cross-attends from those queries to the encoded latent
-    representation, producing one prediction per query.
+    Unlike the previous per-patch decoder, this operates over the **full latent
+    grid** at once.  All ``nh * nw`` pos/scale-encoded latent tokens are passed
+    as **data** to the PerceiverIO, and every output pixel position is a
+    **query**.  Each query cross-attends to the full latent representation,
+    giving it global spatial context — pixels near patch boundaries can attend
+    to neighboring patches, and the model can learn smooth inter-patch
+    transitions.
 
-    For each patch position on the latent grid, the decoder:
+    Concretely:
 
-    1. Adds Aurora-style pos/scale encoding to the latent vector (telling the
-       model *where on the globe* this patch is).
-    2. Passes the encoded latent as **data** to the PerceiverIO — the single
-       token that the model's internal latents cross-attend to during encoding.
-    3. Builds normalized 2D pixel-position **queries** for every output pixel
-       within the patch, embeds them via a learned linear layer into
-       ``queries_dim``, and feeds them to the PerceiverIO's decoder head.
-    4. The PerceiverIO's decoder cross-attends from the queries to the encoded
-       latents, producing ``(num_pixels, out_channels)`` — one output per pixel.
-    5. The per-pixel outputs are reassembled into ``(B, out_channels, H, W)``.
+    1. Add Aurora-style pos/scale encoding to the ``nh * nw`` latent tokens
+       (telling the model *where on the globe* each patch is).
+    2. Pass all encoded latents as **data** to the PerceiverIO:
+       ``(B, nh * nw, C)``.
+    3. Build normalized 2D **queries** for every output pixel ``(i/H, j/W)``
+       in ``[0, 1)``, embed them via a learned linear layer, and feed them
+       to the PerceiverIO decoder head.
+    4. The PerceiverIO's decoder cross-attends from queries to the internal
+       latents (which themselves cross-attended to all patch tokens),
+       producing ``(B, H * W, out_channels)``.
+    5. Reshape to ``(B, out_channels, H, W)``.
 
-    **Multi-scale windowing**: At higher resolutions, each patch contains more
-    pixels and therefore more queries.  To keep per-call cost bounded, when the
-    number of pixels exceeds ``window_size`` the decoder splits queries into
-    fixed-size windows and calls the PerceiverIO once per window.  Each window
-    re-encodes the same latent data (cheap — it's a single token) but only
-    decodes its subset of pixel queries.
+    **Multi-scale windowing**: At higher resolutions ``H * W`` grows, making
+    the full query set expensive.  When ``window_size`` is set, the decoder
+    splits pixel queries into fixed-size chunks and calls the PerceiverIO once
+    per chunk.  Each call re-encodes the same latent data (the ``nh * nw``
+    tokens — cheap for small latent grids) and only decodes its subset of
+    pixel queries, keeping per-call cost bounded.
 
     Because pixel queries are normalized to ``[0, 1)``, the same PerceiverIO
-    generalizes across resolutions: a 1-degree patch queries a coarse grid
-    while a 0.25-degree patch queries a finer grid over the same coordinate
-    space.
+    generalizes across resolutions.
 
     Args:
         in_channels: Number of input channels from the processor.
         out_channels: Number of output channels per pixel.
         patch_extent: Spatial extent of each patch in degrees (lat, lon).
-            Used for computing positional and scale encodings.
+            Used for computing positional and scale encodings on latent tokens.
         queries_dim: Embedding dimension for pixel-position queries.
         perceiver_io: A PerceiverIO module.  ``dim`` must equal ``in_channels``,
             ``queries_dim`` must match this decoder's ``queries_dim``, and
             ``logits_dim`` must equal ``out_channels``.
         window_size: Maximum number of pixel queries per PerceiverIO call.
-            If ``None``, all pixels in a patch are decoded in one call.
+            If ``None``, all ``H * W`` pixels are decoded in one call.
             Set this to cap memory/compute at high resolutions.
 
     References:
@@ -97,12 +97,10 @@ class PerceiverDecoder(nn.Module):
         resolution: tuple[Lat, Lon],
     ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
         # nh, nw: number of patches along height and width (the latent grid dims).
-        # Not to be confused with patch_h, patch_w which are each patch's pixel size.
         B, C, nh, nw = x.shape
         lat, lon = resolution
 
         H, W = len(lat), len(lon)
-        patch_h, patch_w = patch_from(self.patch_extent, H, W)
 
         # For pos/scale encoding we need a patch size that produces exactly
         # nh*nw tokens.  In the full pipeline patch_from gives the same result,
@@ -127,33 +125,22 @@ class PerceiverDecoder(nn.Module):
             scale_encode.to(dtype=tokens.dtype, device=tokens.device)
         ).unsqueeze(0)
         tokens = tokens + pos_encoding + scale_encoding
+        # tokens: (B, nh*nw, C) — full latent grid as data for PerceiverIO.
 
-        # --- Data for PerceiverIO: one latent token per patch ---
-        # (B, nh*nw, C) -> (B*nh*nw, 1, C)
-        data = rearrange(tokens, "b (nh nw) c -> (b nh nw) 1 c", nh=nh, nw=nw)
-
-        # --- Build pixel-position queries ---
-        # Normalized 2D coords in [0, 1), embedded into queries_dim.
-        qh = torch.arange(patch_h, dtype=x.dtype, device=x.device) / patch_h
-        qw = torch.arange(patch_w, dtype=x.dtype, device=x.device) / patch_w
+        # --- Build global pixel-position queries ---
+        # Normalized 2D coords in [0, 1) for every output pixel.
+        qh = torch.arange(H, dtype=x.dtype, device=x.device) / H
+        qw = torch.arange(W, dtype=x.dtype, device=x.device) / W
         grid_h, grid_w = torch.meshgrid(qh, qw, indexing="ij")
-        coords = torch.stack([grid_h, grid_w], dim=-1)  # (patch_h, patch_w, 2)
-        coords = rearrange(coords, "ph pw d -> (ph pw) d")  # (num_pixels, 2)
-        queries = self.query_embed(coords)  # (num_pixels, queries_dim)
+        coords = torch.stack([grid_h, grid_w], dim=-1)  # (H, W, 2)
+        coords = rearrange(coords, "h w d -> (h w) d")  # (H*W, 2)
+        queries = self.query_embed(coords)  # (H*W, queries_dim)
 
         # --- Decode via PerceiverIO with optional windowing ---
-        out = self._decode(data, queries)  # (B*nh*nw, num_pixels, out_channels)
+        out = self._decode(tokens, queries)  # (B, H*W, out_channels)
 
-        # --- Reassemble into full-resolution output ---
-        out = rearrange(
-            out,
-            "(b nh nw) (ph pw) c -> b c (nh ph) (nw pw)",
-            b=B,
-            nh=nh,
-            nw=nw,
-            ph=patch_h,
-            pw=patch_w,
-        )
+        # --- Reshape to spatial ---
+        out = rearrange(out, "b (h w) c -> b c h w", h=H, w=W)
 
         return out
 
@@ -165,12 +152,12 @@ class PerceiverDecoder(nn.Module):
         """Run PerceiverIO, windowing over queries if they exceed window_size.
 
         Args:
-            data: Encoded latent tokens, shape ``(batch, 1, C)``.
-            queries: Embedded pixel queries, shape ``(num_pixels, queries_dim)``.
+            data: Pos/scale-encoded latent tokens, shape ``(B, nh*nw, C)``.
+            queries: Embedded pixel queries, shape ``(H*W, queries_dim)``.
                 Shared across the batch (PerceiverIO broadcasts internally).
 
         Returns:
-            Output predictions, shape ``(batch, num_pixels, out_channels)``.
+            Output predictions, shape ``(B, H*W, out_channels)``.
         """
         num_pixels = queries.shape[0]
 
@@ -178,8 +165,8 @@ class PerceiverDecoder(nn.Module):
             return self.perceiver_io(data, queries=queries)
 
         # Split queries into fixed-size windows to cap memory at high resolutions.
-        # Each window re-encodes the same data (one latent token, cheap) but only
-        # decodes its subset of pixel queries.
+        # Each window re-encodes the same latent data and only decodes its
+        # subset of pixel queries.
         chunks = []
         for i in range(0, num_pixels, self.window_size):
             q_window = queries[i : i + self.window_size]

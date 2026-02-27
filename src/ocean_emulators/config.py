@@ -416,19 +416,27 @@ class EncoderConfig(BaseConfig):
 
 
 class DecoderConfig(BaseConfig):
-    """A perceiver-based decoder configuration.
+    """A PerceiverIO-based decoder configuration.
 
-    This consumes a latent representation from the processor and outputs a phyiscal
-    prediction of the Ocean.
+    Uses PerceiverIO (with an explicit query mechanism) rather than a regular
+    Perceiver.  Output pixel positions are encoded as queries, so the output
+    size is determined by the query count — not by ``num_latents``.
 
-    NB: the `num_latents` of the perceiver in the decoder must be greater than
-    the size (patch_h * patch_w) of the biggest patch.
-
-    Futhermore, there could be a benefit to tuning `num_latents` to be somewhat
-    larger than the max patch pixel count, see: https://arxiv.org/pdf/2309.16588.
+    The ``window_size`` parameter caps the number of queries per PerceiverIO
+    call.  At higher resolutions each patch has more pixels (= more queries);
+    windowing keeps per-call cost bounded by splitting them into chunks.
     """
 
     perceiver: PerceiverConfig = PerceiverConfig()
+    queries_dim: int = Field(
+        default=64,
+        description="Embedding dimension for pixel-position queries in the PerceiverIO decoder head.",
+    )
+    window_size: int | None = Field(
+        default=None,
+        description="Max pixel queries per PerceiverIO call.  None = decode all pixels at once.  "
+        "Set this to cap memory/compute at high resolutions.",
+    )
 
     def build(
         self,
@@ -437,26 +445,26 @@ class DecoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         max_lat_size: int,
         max_lon_size: int,
-        implementation: PerceiverImpl,
     ) -> PerceiverDecoder:
-        max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
-        max_pixels = max_patch_size[0] * max_patch_size[1]
-        if self.perceiver.num_latents < max_pixels:
-            raise ValueError(
-                f"Decoder perceiver num_latents ({self.perceiver.num_latents}) must be "
-                f">= the largest patch pixel count ({max_patch_size[0]} * {max_patch_size[1]} = {max_pixels}). "
-                f"Increase decoder.perceiver.num_latents or reduce patch_extent."
-            )
-        # The perceiver sees (C + 2)-dim tokens: latent channels + 2D pixel query.
-        perceiver_in_channels = in_channels + 2
+        from perceiver_pytorch.perceiver_io import PerceiverIO
+
+        perceiver_io = PerceiverIO(
+            depth=self.perceiver.depth,
+            dim=in_channels,
+            queries_dim=self.queries_dim,
+            logits_dim=out_channels,
+            num_latents=self.perceiver.num_latents,
+            latent_dim=self.perceiver.latent_dim,
+            weight_tie_layers=True,
+            decoder_ff=True,
+        )
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
-            latent_dim=self.perceiver.latent_dim,
-            perceiver=self.perceiver.build(
-                perceiver_in_channels, out_channels, max_patch_size, implementation
-            ),
+            queries_dim=self.queries_dim,
+            perceiver_io=perceiver_io,
+            window_size=self.window_size,
         )
 
 
@@ -672,7 +680,6 @@ class FOMOConfig(BaseModelConfig):
             extent,
             max_lat_size,
             max_lon_size,
-            impl,
         )
 
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)

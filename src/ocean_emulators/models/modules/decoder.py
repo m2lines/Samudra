@@ -144,19 +144,10 @@ class PerceiverDecoder(nn.Module):
 
     def _decode(
         self,
-        data: torch.Tensor,
-        queries: torch.Tensor,
-    ) -> torch.Tensor:
-        """Run PerceiverIO, windowing over queries if they exceed window_size.
-
-        Args:
-            data: Pos/scale-encoded latent tokens, shape ``(B, nh*nw, C)``.
-            queries: Embedded pixel queries, shape ``(H*W, queries_dim)``.
-                Shared across the batch (PerceiverIO broadcasts internally).
-
-        Returns:
-            Output predictions, shape ``(B, H*W, out_channels)``.
-        """
+        data: Float[torch.Tensor, "batch num_patches channels"],
+        queries: Float[torch.Tensor, "num_pixels queries_dim"],
+    ) -> Float[torch.Tensor, "batch num_pixels {self.out_channels}"]:
+        """Run PerceiverIO, windowing over queries if they exceed window_size."""
         num_pixels = queries.shape[0]
 
         if self.window_size is None or num_pixels <= self.window_size:

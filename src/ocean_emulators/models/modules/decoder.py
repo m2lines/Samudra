@@ -13,13 +13,11 @@ from ocean_emulators.constants import Lat, Lon
 class PerceiverDecoder(nn.Module):
     """A PerceiverIO-based decoder that maps a latent patch grid to full-resolution output.
 
-    Unlike the previous per-patch decoder, this operates over the **full latent
-    grid** at once.  All ``nh * nw`` pos/scale-encoded latent tokens are passed
-    as **data** to the PerceiverIO, and every output pixel position is a
-    **query**.  Each query cross-attends to the full latent representation,
-    giving it global spatial context — pixels near patch boundaries can attend
-    to neighboring patches, and the model can learn smooth inter-patch
-    transitions.
+    All ``nh * nw`` pos/scale-encoded latent tokens are passed as **data** to
+    the PerceiverIO[3], and every output pixel position is a **query**.  Each
+    query cross-attends to the full latent representation, giving it global
+    spatial context — pixels near patch boundaries can attend to neighboring
+    patches, and the model can learn smooth inter-patch transitions.
 
     Concretely:
 

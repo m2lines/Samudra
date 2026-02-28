@@ -117,7 +117,14 @@ ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --st
 [tool.mypy]
 check_untyped_defs = true
 overrides = [
-  { module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*", "aurora.*" ], follow_untyped_imports = true },
+  { module = [
+    "cftime.*",
+    "scipy.*",
+    "fsspec.*",
+    "perceiver_pytorch.*",
+    "aurora.*",
+    "flash_perceiver.*",
+  ], follow_untyped_imports = true },
 ]
 
 [tool.uv]

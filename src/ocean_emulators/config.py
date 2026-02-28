@@ -327,7 +327,9 @@ PerceiverImpl = Literal["auto", "naive", "flash"]
 class PerceiverConfig(BaseConfig):
     """A standard config interface to various perceiver implementations.
 
-    The `implementation="auto"` option will guess what is the best implementation given the runtime environment.
+    Builds either a regular Perceiver (for the encoder, via ``build``) or a
+    PerceiverIO (for the decoder, via ``build_io``).  Both respect the shared
+    ``implementation`` setting from ``FOMOConfig.perceiver_implementation``.
     """
 
     depth: int = 6
@@ -336,7 +338,7 @@ class PerceiverConfig(BaseConfig):
         description="The small, latent dimension of the Perceiver. This is the `N` dimension for the Perceiver's `O(M*N)` complexity",
     )
     num_latents: int = Field(
-        default=1024,
+        default=512,
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
 
@@ -347,18 +349,15 @@ class PerceiverConfig(BaseConfig):
         max_patch_size: tuple[int, int],
         implementation: PerceiverImpl,
     ) -> nn.Module:
+        """Build a regular Perceiver (used by the encoder)."""
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*max_patch_size)
 
-        if (
-            implementation == "auto" and torch.cuda.is_available()
-        ) or implementation == "flash":
+        if _use_flash(implementation):
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ModuleNotFoundError as e:
-                raise ValueError(
-                    "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
-                ) from e
+                raise _flash_import_error() from e
             perceiver: nn.Module = FlashPerceiver(
                 latent_rotary_emb_dim=max_freq,
                 depth=self.depth,
@@ -368,28 +367,89 @@ class PerceiverConfig(BaseConfig):
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,
                 use_flash_attn=True,
-                weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
-                self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
+                weight_tie_layers=True,
+                self_per_cross_attn=2,
             )
-        elif (
-            implementation == "auto" and not torch.cuda.is_available()
-        ) or implementation == "naive":
+        elif _use_naive(implementation):
             perceiver = NaivePerceiver(
                 num_freq_bands=4,
                 max_freq=max_freq,
                 depth=self.depth,
-                input_axis=2,  # Number of positional dims before token dim
+                input_axis=2,
                 input_channels=in_channels,
                 num_classes=out_channels,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,
-                weight_tie_layers=True,  # share weights of cross-attn blocks
-                self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+                weight_tie_layers=True,
+                self_per_cross_attn=2,
             )
         else:
             raise ValueError(f"Unknown perceiver implementation: {implementation}.")
 
         return perceiver
+
+    def build_io(
+        self,
+        in_channels: int,
+        queries_dim: int,
+        out_channels: int,
+        implementation: PerceiverImpl,
+    ) -> nn.Module:
+        """Build a PerceiverIO (used by the decoder)."""
+        if _use_flash(implementation):
+            try:
+                from flash_perceiver.perceiver import (  # type: ignore
+                    PerceiverIO as FlashPerceiverIO,  # type: ignore
+                )
+            except ModuleNotFoundError as e:
+                raise _flash_import_error() from e
+            perceiver_io: nn.Module = FlashPerceiverIO(
+                depth=self.depth,
+                input_dim=in_channels,
+                query_dim=queries_dim,
+                proj_dim=out_channels,
+                num_latents=self.num_latents,
+                latent_dim=self.latent_dim,
+                use_flash_attn=True,
+                weight_tie_layers=True,
+            )
+        elif _use_naive(implementation):
+            from perceiver_pytorch.perceiver_io import PerceiverIO as NaivePerceiverIO
+
+            perceiver_io = NaivePerceiverIO(
+                depth=self.depth,
+                dim=in_channels,
+                queries_dim=queries_dim,
+                logits_dim=out_channels,
+                num_latents=self.num_latents,
+                latent_dim=self.latent_dim,
+                weight_tie_layers=True,
+                decoder_ff=True,
+            )
+        else:
+            raise ValueError(f"Unknown perceiver implementation: {implementation}.")
+
+        return perceiver_io
+
+
+def _use_flash(implementation: PerceiverImpl) -> bool:
+    return (
+        implementation == "auto" and torch.cuda.is_available()
+    ) or implementation == "flash"
+
+
+def _use_naive(implementation: PerceiverImpl) -> bool:
+    return (
+        implementation == "auto" and not torch.cuda.is_available()
+    ) or implementation == "naive"
+
+
+def _flash_import_error() -> ValueError:
+    return ValueError(
+        "`implementation==flash` or flash was automatically chosen for `implementation==auto`, "
+        "but the flash attention dependencies could not be imported. "
+        "Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
+    )
 
 
 class EncoderConfig(BaseConfig):
@@ -445,25 +505,16 @@ class DecoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         max_lat_size: int,
         max_lon_size: int,
+        implementation: PerceiverImpl,
     ) -> PerceiverDecoder:
-        from perceiver_pytorch.perceiver_io import PerceiverIO
-
-        perceiver_io = PerceiverIO(
-            depth=self.perceiver.depth,
-            dim=in_channels,
-            queries_dim=self.queries_dim,
-            logits_dim=out_channels,
-            num_latents=self.perceiver.num_latents,
-            latent_dim=self.perceiver.latent_dim,
-            weight_tie_layers=True,
-            decoder_ff=True,
-        )
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
             queries_dim=self.queries_dim,
-            perceiver_io=perceiver_io,
+            perceiver_io=self.perceiver.build_io(
+                in_channels, self.queries_dim, out_channels, implementation
+            ),
             window_size=self.window_size,
         )
 
@@ -680,6 +731,7 @@ class FOMOConfig(BaseModelConfig):
             extent,
             max_lat_size,
             max_lon_size,
+            impl,
         )
 
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)

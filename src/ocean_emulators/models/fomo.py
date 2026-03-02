@@ -81,6 +81,7 @@ class FOMO(BaseModel):
             fts = self.decoder(fts, ctx.input_resolution_cpu)
 
         # Convert back to float32
+        # TODO(alxmrs): We actually only support float16 when turned on; this kind of tricks us.
         fts = fts.to(torch.float32)
 
         return torch.where(ctx.label_mask, fts, 0.0)

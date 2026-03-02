@@ -14,7 +14,7 @@ class PerceiverDecoder(nn.Module):
     """A PerceiverIO-based decoder that maps a latent patch grid to full-resolution output.
 
     All ``nh * nw`` pos/scale-encoded latent tokens are passed as **data** to
-    the PerceiverIO[3], and every output pixel position is a **query**.  Each
+    the PerceiverIO[2], and every output pixel position is a **query**.  Each
     query cross-attends to the full latent representation, giving it global
     spatial context — pixels near patch boundaries can attend to neighboring
     patches, and the model can learn smooth inter-patch transitions.
@@ -39,7 +39,8 @@ class PerceiverDecoder(nn.Module):
     tokens — plus ``context_patches`` extra rings of neighbors — are passed
     as data.  This bounds both query count and data count per PerceiverIO
     call, keeping cost manageable even when the latent grid is large (i.e.
-    fine ``patch_extent``).
+    fine ``patch_extent``).  Setting ``context_patches=None`` gives each
+    window full access to all latent tokens (windowed queries, global data).
 
     Because pixel queries are normalized to ``[0, 1)``, the same PerceiverIO
     generalizes across resolutions.
@@ -66,8 +67,7 @@ class PerceiverDecoder(nn.Module):
     References:
         [0]: https://github.com/lucidrains/perceiver-pytorch
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
-        [2]: https://ar5iv.labs.arxiv.org/html/2309.16588
-        [3]: https://ar5iv.labs.arxiv.org/html/2107.14795
+        [2]: https://ar5iv.labs.arxiv.org/html/2107.14795
     """
 
     def __init__(

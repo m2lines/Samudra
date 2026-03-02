@@ -164,6 +164,15 @@ class PerceiverDecoder(nn.Module):
         When ``window_patches`` is None, all data and queries are passed in one
         call (global attention).  Otherwise, the output grid is tiled into
         spatial blocks and each block attends only to nearby latent tokens.
+
+        Note: the windowed loop below is structurally equivalent to
+        ``nn.Unfold`` / ``im2col`` — strided extraction of overlapping 2D
+        patches.  We use explicit indexing instead because (1) ``unfold``
+        requires pre-padding and produces fixed-size windows, adding edge-
+        handling complexity for grids not evenly divisible by
+        ``window_patches``, and (2) the bottleneck is the PerceiverIO forward
+        pass per window, not the Python index arithmetic, so there is no
+        performance benefit to fusing the extraction.
         """
         B, nh, nw, C = data_grid.shape
         H, W, _ = queries_grid.shape

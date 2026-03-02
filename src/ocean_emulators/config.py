@@ -495,7 +495,7 @@ class DecoderConfig(BaseConfig):
         description="Embedding dimension for pixel-position queries in the PerceiverIO decoder head.",
     )
     window_patches: int | None = Field(
-        default=None,
+        default=4096,
         description="Side length (in patches) of each spatial decode window. "
         "None = decode all patches at once (global attention). "
         "E.g. window_patches=8 means each PerceiverIO call covers an 8x8 block of patches.",

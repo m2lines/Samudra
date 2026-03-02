@@ -9,7 +9,9 @@
 ## Sea Surface Temperature (SST) Emulation
 
 <p align="center">
-  <img src="docs/assets/sst_tropical_pacific_fivedays.gif" alt="Comparison of ground truth and Ocean Emulator SST predictions in the tropical Pacific over a 5-day rollout" width="800">
+  <video width="800" autoplay loop muted playsinline>
+    <source src="docs/assets/sst_tropical_pacific_ultra.mp4" type="video/mp4">
+  </video>
 </p>
 
 > Ground truth (left) vs. Ocean Emulator prediction (right) for sea surface temperature in the tropical Pacific.

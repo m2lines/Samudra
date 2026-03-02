@@ -29,9 +29,11 @@ class PerceiverDecoder(nn.Module):
     3. Build 3D unit-sphere **queries** ``(x, y, z)`` for every output pixel
        from its lat/lon, embed them via a learned linear layer, and feed
        them to the PerceiverIO decoder head.
-    4. The PerceiverIO's decoder cross-attends from queries to the internal
-       latents (which themselves cross-attended to all patch tokens),
-       producing ``(B, H * W, out_channels)``.
+    4. Inside the PerceiverIO:
+       a. Internal latents cross-attend to the ``nh * nw`` data tokens.
+       b. The latents refine through several rounds of self-attention.
+       c. A final cross-attention maps from queries to the refined latents,
+          producing ``(B, H * W, out_channels)``.
     5. Reshape to ``(B, out_channels, H, W)``.
 
     **Spatial windowing**: When ``window_patches`` is set, the decoder tiles

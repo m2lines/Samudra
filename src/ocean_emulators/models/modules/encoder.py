@@ -92,6 +92,10 @@ class PerceiverEncoder(nn.Module):
             ph=patch_h,
             pw=patch_w,
         )
+        # Flash perceiver expects (batch, seq_len, dim) — flatten spatial dims.
+        # Naive perceiver handles (batch, ph, pw, v) natively via input_axis=2.
+        if getattr(self.perceiver, "use_flash_attn", False):
+            x = rearrange(x, "b ph pw v -> b (ph pw) v")
         # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
         x = self.perceiver(x)  # (B_H_W, ..., V) -> (B_H_W, out_channels)
 

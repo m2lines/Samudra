@@ -8,6 +8,7 @@ from jaxtyping import Float
 from torch import nn
 
 from ocean_emulators.constants import Lat, Lon
+from ocean_emulators.models.modules.augment_input import make_3d_coordinate_grid
 
 
 class PerceiverDecoder(nn.Module):
@@ -25,9 +26,9 @@ class PerceiverDecoder(nn.Module):
        (telling the model *where on the globe* each patch is).
     2. Pass all encoded latents as **data** to the PerceiverIO:
        ``(B, nh * nw, C)``.
-    3. Build normalized 2D **queries** for every output pixel ``(i/H, j/W)``
-       in ``[0, 1)``, embed them via a learned linear layer, and feed them
-       to the PerceiverIO decoder head.
+    3. Build 3D unit-sphere **queries** ``(x, y, z)`` for every output pixel
+       from its lat/lon, embed them via a learned linear layer, and feed
+       them to the PerceiverIO decoder head.
     4. The PerceiverIO's decoder cross-attends from queries to the internal
        latents (which themselves cross-attended to all patch tokens),
        producing ``(B, H * W, out_channels)``.
@@ -42,7 +43,8 @@ class PerceiverDecoder(nn.Module):
     fine ``patch_extent``).  Setting ``context_patches=None`` gives each
     window full access to all latent tokens (windowed queries, global data).
 
-    Because pixel queries are normalized to ``[0, 1)``, the same PerceiverIO
+    Because pixel queries are unit-sphere coordinates — continuous values
+    determined by lat/lon, not grid indices — the same PerceiverIO
     generalizes across resolutions.
 
     Args:
@@ -93,8 +95,8 @@ class PerceiverDecoder(nn.Module):
         self.pos_embed = nn.Linear(in_channels, in_channels)
         self.scale_embed = nn.Linear(in_channels, in_channels)
 
-        # Embed 2D pixel coordinates into queries_dim for the PerceiverIO decoder head.
-        self.query_embed = nn.Linear(2, queries_dim)
+        # Embed 3D unit-sphere coordinates into queries_dim for the PerceiverIO decoder head.
+        self.query_embed = nn.Linear(3, queries_dim)
 
         self.perceiver_io = perceiver_io
 
@@ -134,11 +136,11 @@ class PerceiverDecoder(nn.Module):
         tokens = tokens + pos_encoding + scale_encoding
 
         # --- Build global pixel-position queries ---
-        # Normalized 2D coords in [0, 1) for every output pixel.
-        qh = torch.arange(H, dtype=x.dtype, device=x.device) / H
-        qw = torch.arange(W, dtype=x.dtype, device=x.device) / W
-        grid_h, grid_w = torch.meshgrid(qh, qw, indexing="ij")
-        coords = torch.stack([grid_h, grid_w], dim=-1)  # (H, W, 2)
+        # 3D unit-sphere coordinates for every output pixel.
+        coords = make_3d_coordinate_grid(lat, lon)  # (3, H, W)
+        coords = rearrange(coords, "d h w -> h w d").to(
+            dtype=x.dtype, device=x.device
+        )  # (H, W, 3)
         queries = self.query_embed(
             rearrange(coords, "h w d -> (h w) d")
         )  # (H*W, queries_dim)

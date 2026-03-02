@@ -7,7 +7,11 @@ from ocean_emulators.constants import Lat, Lon
 
 
 def make_3d_coordinate_grid(lat, lon) -> torch.Tensor:
-    """Makes a 3d Cartesian Coordinates on a unit sphere."""
+    """Make 3D Cartesian coordinates on a unit sphere.
+
+    Returns:
+        ``(3, H, W)`` tensor of ``(x, y, z)`` unit-sphere coordinates.
+    """
     lat_lon_grid = lat_lon_meshgrid(lat, lon)  # [2, H, W]
     lat_rad = torch.deg2rad(lat_lon_grid[0])  # [H, W]
     lon_rad = torch.deg2rad(lat_lon_grid[1])  # [H, W]
@@ -16,8 +20,7 @@ def make_3d_coordinate_grid(lat, lon) -> torch.Tensor:
     y = torch.cos(lat_rad) * torch.sin(lon_rad)
     z = torch.sin(lat_rad)
 
-    grid = torch.stack([x, y, z], dim=0)  # [3, H, W]
-    return grid.float().unsqueeze(0)
+    return torch.stack([x, y, z], dim=0).float()  # [3, H, W]
 
 
 class Concat3dCoordinates(nn.Module):
@@ -50,6 +53,7 @@ class Concat3dCoordinates(nn.Module):
     ) -> Float[torch.Tensor, "batch channel+3 height width"]:
         grid = (
             make_3d_coordinate_grid(*resolution)
+            .unsqueeze(0)
             .to(fts.device)
             .expand(fts.shape[0], -1, -1, -1)
         )

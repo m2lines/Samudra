@@ -493,7 +493,7 @@ class DecoderConfig(BaseConfig):
         description="Embedding dimension for pixel-position queries in the PerceiverIO decoder head.",
     )
     window_size: int | None = Field(
-        default=None,
+        default=8192,
         description="Max pixel queries per PerceiverIO call.  None = decode all pixels at once.  "
         "Set this to cap memory/compute at high resolutions.",
     )
@@ -503,8 +503,6 @@ class DecoderConfig(BaseConfig):
         in_channels: int,
         out_channels: int,
         patch_extent: tuple[float, float],
-        max_lat_size: int,
-        max_lon_size: int,
         implementation: PerceiverImpl,
     ) -> PerceiverDecoder:
         return PerceiverDecoder(
@@ -729,8 +727,6 @@ class FOMOConfig(BaseModelConfig):
             processor.out_channels,
             out_channels,
             extent,
-            max_lat_size,
-            max_lon_size,
             impl,
         )
 

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import TYPE_CHECKING, assert_never
 
 import numpy as np
@@ -53,6 +54,7 @@ class UNetBackbone(nn.Module):
         downsampling_block: nn.Module,
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
+        create_attention_block: Callable[[int], nn.Module] | None = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -105,6 +107,10 @@ class UNetBackbone(nn.Module):
                 checkpoint_simple=checkpoint_simple,
             )
         )
+
+        # Axial attention at bottleneck
+        if create_attention_block is not None:
+            layers.append(create_attention_block(b))
 
         # First upsampling
         layers.append(create_upsampling_block(in_channels=b, out_channels=b))

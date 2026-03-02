@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Protocol
+from typing import Literal, Protocol
 
 import torch
 import torch.nn as nn
@@ -317,6 +317,263 @@ class ConvNeXtBlock(CoreBlock):
             else:
                 x = layer(x)
         return skip + x
+
+
+class AxialAttention(nn.Module):
+    """Multi-head self-attention along a single spatial axis.
+
+    For an input of shape ``(B, C, H, W)``:
+
+    - ``axis='height'``: treats each column position independently, attends along H
+    - ``axis='width'``: treats each row position independently, attends along W
+
+    This decomposes full 2D attention :math:`O((HW)^2)` into two sequential 1D
+    operations :math:`O(H^2 + W^2)`, making it tractable for large spatial grids.
+
+    References:
+        Axial Attention in Multidimensional Transformers (Ho et al., 2019)
+        https://arxiv.org/abs/1912.12180
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int = 8,
+        qkv_bias: bool = True,
+        attn_drop: float = 0.0,
+        proj_drop: float = 0.0,
+        axis: Literal["height", "width"] = "height",
+    ):
+        super().__init__()
+        if dim % num_heads != 0:
+            raise ValueError(
+                f"dim {dim} must be divisible by num_heads {num_heads}"
+            )
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.axis = axis
+        self.attn_drop_p = attn_drop
+
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+        # When True, the next forward pass stores attention weights in
+        # ``self.last_attn_weights`` for visualization / debugging.
+        self.capture_weights = False
+        self.last_attn_weights: torch.Tensor | None = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, C, H, W = x.shape
+
+        if self.axis == "height":
+            # (B, C, H, W) -> (B*W, H, C): attend along height for each column
+            x = x.permute(0, 3, 2, 1).reshape(B * W, H, C)
+        else:
+            # (B, C, H, W) -> (B*H, W, C): attend along width for each row
+            x = x.permute(0, 2, 3, 1).reshape(B * H, W, C)
+
+        batch_size, seq_len, _ = x.shape
+
+        qkv = self.qkv(x).reshape(
+            batch_size, seq_len, 3, self.num_heads, self.head_dim
+        )
+        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, batch, heads, seq, head_dim)
+        q, k, v = qkv.unbind(0)
+
+        # Use scaled_dot_product_attention (supports flash / memory-efficient kernels)
+        out = torch.nn.functional.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            dropout_p=self.attn_drop_p if self.training else 0.0,
+        )
+
+        if self.capture_weights:
+            # Compute attention weights explicitly for visualization.
+            # Detach and move to CPU to avoid holding GPU memory.
+            scale = self.head_dim**-0.5
+            attn_weights = (q @ k.transpose(-2, -1)) * scale
+            attn_weights = attn_weights.softmax(dim=-1)
+            # Average over heads: (batch_size, seq, seq)
+            attn_avg = attn_weights.mean(dim=1).detach().cpu()
+            if self.axis == "height":
+                # Reshape back to (B, W, H, H) then average over batch and W
+                self.last_attn_weights = attn_avg.reshape(B, W, H, H).mean(dim=(0, 1))
+            else:
+                # Reshape back to (B, H, W, W) then average over batch and H
+                self.last_attn_weights = attn_avg.reshape(B, H, W, W).mean(dim=(0, 1))
+
+        out = out.transpose(1, 2).reshape(batch_size, seq_len, C)
+        out = self.proj(out)
+        out = self.proj_drop(out)
+
+        if self.axis == "height":
+            out = out.reshape(B, W, H, C).permute(0, 3, 2, 1)
+        else:
+            out = out.reshape(B, H, W, C).permute(0, 3, 1, 2)
+
+        return out
+
+
+class AxialAttentionBlock(nn.Module):
+    """Applies axial self-attention: height-axis followed by width-axis attention.
+
+    Uses pre-normalization (GroupNorm with ``num_groups=1``, equivalent to
+    LayerNorm for spatial feature maps) and residual connections for each axis.
+
+    This block can be inserted into any position in a U-Net to add global
+    context aggregation while keeping computational cost manageable.
+
+    Args:
+        channels: Number of input/output channels.
+        num_heads: Number of attention heads.  Must divide *channels* evenly.
+        attn_drop: Dropout rate for attention weights.
+        proj_drop: Dropout rate for output projection.
+    """
+
+    def __init__(
+        self,
+        channels: int,
+        num_heads: int = 8,
+        attn_drop: float = 0.0,
+        proj_drop: float = 0.0,
+    ):
+        super().__init__()
+        self.norm_h = nn.GroupNorm(1, channels)
+        self.attn_h = AxialAttention(
+            channels,
+            num_heads,
+            axis="height",
+            attn_drop=attn_drop,
+            proj_drop=proj_drop,
+        )
+        self.norm_w = nn.GroupNorm(1, channels)
+        self.attn_w = AxialAttention(
+            channels,
+            num_heads,
+            axis="width",
+            attn_drop=attn_drop,
+            proj_drop=proj_drop,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Height-axis attention with residual
+        x = x + self.attn_h(self.norm_h(x))
+        # Width-axis attention with residual
+        x = x + self.attn_w(self.norm_w(x))
+        return x
+
+
+class FullAttention(nn.Module):
+    """Full 2D multi-head self-attention over spatial dimensions.
+
+    Flattens ``(H, W)`` into a single sequence of length ``H * W`` and applies
+    standard scaled dot-product attention for low-resolution
+    feature maps where the quadratic cost is negligible.
+
+    Supports the same ``capture_weights`` / ``last_attn_weights`` interface
+    for visualization.
+
+    Args:
+        dim: Number of input channels.
+        num_heads: Number of attention heads.  Must divide *dim* evenly.
+        qkv_bias: Whether to include bias in QKV projection.
+        attn_drop: Dropout rate for attention weights.
+        proj_drop: Dropout rate for output projection.
+    """
+
+    def __init__(
+        self,
+        dim: int,
+        num_heads: int = 8,
+        qkv_bias: bool = True,
+        attn_drop: float = 0.0,
+        proj_drop: float = 0.0,
+    ):
+        super().__init__()
+        if dim % num_heads != 0:
+            raise ValueError(
+                f"dim {dim} must be divisible by num_heads {num_heads}"
+            )
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.attn_drop_p = attn_drop
+
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.proj = nn.Linear(dim, dim)
+        self.proj_drop = nn.Dropout(proj_drop)
+
+        self.capture_weights = False
+        self.last_attn_weights: torch.Tensor | None = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, C, H, W = x.shape
+        seq_len = H * W
+
+        # (B, C, H, W) -> (B, H*W, C)
+        x = x.permute(0, 2, 3, 1).reshape(B, seq_len, C)
+
+        qkv = self.qkv(x).reshape(B, seq_len, 3, self.num_heads, self.head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, heads, seq, head_dim)
+        q, k, v = qkv.unbind(0)
+
+        out = torch.nn.functional.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            dropout_p=self.attn_drop_p if self.training else 0.0,
+        )
+
+        if self.capture_weights:
+            scale = self.head_dim**-0.5
+            attn_weights = (q @ k.transpose(-2, -1)) * scale
+            attn_weights = attn_weights.softmax(dim=-1)
+            # Average over heads and batch: (H*W, H*W)
+            self.last_attn_weights = (
+                attn_weights.mean(dim=1).mean(dim=0).detach().cpu()
+            )
+
+        out = out.transpose(1, 2).reshape(B, seq_len, C)
+        out = self.proj(out)
+        out = self.proj_drop(out)
+
+        # (B, H*W, C) -> (B, C, H, W)
+        out = out.reshape(B, H, W, C).permute(0, 3, 1, 2)
+        return out
+
+
+class FullAttentionBlock(nn.Module):
+    """Full 2D self-attention block with pre-norm and residual connection.
+
+    Mirrors :class:`AxialAttentionBlock` in interface so either can be
+    used interchangeably in the UNet backbone.
+
+    Args:
+        channels: Number of input/output channels.
+        num_heads: Number of attention heads.  Must divide *channels* evenly.
+        attn_drop: Dropout rate for attention weights.
+        proj_drop: Dropout rate for output projection.
+    """
+
+    def __init__(
+        self,
+        channels: int,
+        num_heads: int = 8,
+        attn_drop: float = 0.0,
+        proj_drop: float = 0.0,
+    ):
+        super().__init__()
+        self.norm = nn.GroupNorm(1, channels)
+        self.attn = FullAttention(
+            channels,
+            num_heads,
+            attn_drop=attn_drop,
+            proj_drop=proj_drop,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x + self.attn(self.norm(x))
 
 
 class CoreBlockBuilder(Protocol):

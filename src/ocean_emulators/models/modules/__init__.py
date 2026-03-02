@@ -1,6 +1,7 @@
 from .activations import CappedGELU, CappedLeakyReLU, ReLU
 from .blocks import (
     AvgPool,
+    AxialAttentionBlock,
     BilinearUpsample,
     ConvBlock,
     ConvNeXtBlock,
@@ -17,6 +18,7 @@ from .unet_backbone import UNetBackbone
 
 __all__ = [
     "AvgPool",
+    "AxialAttentionBlock",
     "BilinearUpsample",
     "ZonallyPeriodicBilinearUpsample",
     "ConvBlock",

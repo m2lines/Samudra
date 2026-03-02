@@ -482,9 +482,11 @@ class DecoderConfig(BaseConfig):
     Perceiver.  Output pixel positions are encoded as queries, so the output
     size is determined by the query count — not by ``num_latents``.
 
-    The ``window_size`` parameter caps the number of queries per PerceiverIO
-    call.  At higher resolutions each patch has more pixels (= more queries);
-    windowing keeps per-call cost bounded by splitting them into chunks.
+    When ``window_patches`` is set, the decoder tiles the output grid into
+    spatial blocks of that many patches per side.  Each block's PerceiverIO
+    call receives only the overlapping latent tokens plus ``context_patches``
+    extra rings of neighbors, keeping cost bounded even when the latent grid
+    is large (i.e. fine ``patch_extent``).
     """
 
     perceiver: PerceiverConfig = PerceiverConfig()
@@ -492,10 +494,16 @@ class DecoderConfig(BaseConfig):
         default=64,
         description="Embedding dimension for pixel-position queries in the PerceiverIO decoder head.",
     )
-    window_size: int | None = Field(
-        default=8192,
-        description="Max pixel queries per PerceiverIO call.  None = decode all pixels at once.  "
-        "Set this to cap memory/compute at high resolutions.",
+    window_patches: int | None = Field(
+        default=None,
+        description="Side length (in patches) of each spatial decode window. "
+        "None = decode all patches at once (global attention). "
+        "E.g. window_patches=8 means each PerceiverIO call covers an 8x8 block of patches.",
+    )
+    context_patches: int | None = Field(
+        default=1,
+        description="Number of extra patch rings around each window to include as data context. "
+        "Only used when window_patches is set. None = full context (every window sees all latent tokens).",
     )
 
     def build(
@@ -513,7 +521,8 @@ class DecoderConfig(BaseConfig):
             perceiver_io=self.perceiver.build_io(
                 in_channels, self.queries_dim, out_channels, implementation
             ),
-            window_size=self.window_size,
+            window_patches=self.window_patches,
+            context_patches=self.context_patches,
         )
 
 

@@ -33,12 +33,13 @@ class PerceiverDecoder(nn.Module):
        producing ``(B, H * W, out_channels)``.
     5. Reshape to ``(B, out_channels, H, W)``.
 
-    **Multi-scale windowing**: At higher resolutions ``H * W`` grows, making
-    the full query set expensive.  When ``window_size`` is set, the decoder
-    splits pixel queries into fixed-size chunks and calls the PerceiverIO once
-    per chunk.  Each call re-encodes the same latent data (the ``nh * nw``
-    tokens — cheap for small latent grids) and only decodes its subset of
-    pixel queries, keeping per-call cost bounded.
+    **Spatial windowing**: When ``window_patches`` is set, the decoder tiles
+    the output grid into spatial blocks, each covering ``window_patches``
+    patches along each axis.  For each block, only the overlapping latent
+    tokens — plus ``context_patches`` extra rings of neighbors — are passed
+    as data.  This bounds both query count and data count per PerceiverIO
+    call, keeping cost manageable even when the latent grid is large (i.e.
+    fine ``patch_extent``).
 
     Because pixel queries are normalized to ``[0, 1)``, the same PerceiverIO
     generalizes across resolutions.
@@ -52,9 +53,15 @@ class PerceiverDecoder(nn.Module):
         perceiver_io: A PerceiverIO module.  ``dim`` must equal ``in_channels``,
             ``queries_dim`` must match this decoder's ``queries_dim``, and
             ``logits_dim`` must equal ``out_channels``.
-        window_size: Maximum number of pixel queries per PerceiverIO call.
-            If ``None``, all ``H * W`` pixels are decoded in one call.
-            Set this to cap memory/compute at high resolutions.
+        window_patches: Side length (in patches) of each spatial decode window.
+            If ``None``, all patches are used globally (no windowing).
+            E.g. ``window_patches=8`` means each PerceiverIO call covers an
+            8x8 block of patches.
+        context_patches: Number of extra patch rings around each window to
+            include as data context.  Only used when ``window_patches`` is set.
+            Default 1 gives each window one ring of neighboring patches beyond
+            its own block.  ``None`` means full context — every window sees all
+            latent tokens (windowed queries but global data attention).
 
     References:
         [0]: https://github.com/lucidrains/perceiver-pytorch
@@ -70,13 +77,15 @@ class PerceiverDecoder(nn.Module):
         patch_extent: tuple[float, float],
         queries_dim: int,
         perceiver_io: nn.Module,
-        window_size: int | None = None,
+        window_patches: int | None = None,
+        context_patches: int | None = 1,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.patch_extent = patch_extent
-        self.window_size = window_size
+        self.window_patches = window_patches
+        self.context_patches = context_patches
 
         # TODO(#451): The input to these position and scale linear units could be a hparam.
         # Same pos/scale linear layers as the encoder, but applied *before* the
@@ -123,7 +132,6 @@ class PerceiverDecoder(nn.Module):
             scale_encode.to(dtype=tokens.dtype, device=tokens.device)
         ).unsqueeze(0)
         tokens = tokens + pos_encoding + scale_encoding
-        # tokens: (B, nh*nw, C) — full latent grid as data for PerceiverIO.
 
         # --- Build global pixel-position queries ---
         # Normalized 2D coords in [0, 1) for every output pixel.
@@ -131,33 +139,85 @@ class PerceiverDecoder(nn.Module):
         qw = torch.arange(W, dtype=x.dtype, device=x.device) / W
         grid_h, grid_w = torch.meshgrid(qh, qw, indexing="ij")
         coords = torch.stack([grid_h, grid_w], dim=-1)  # (H, W, 2)
-        coords = rearrange(coords, "h w d -> (h w) d")  # (H*W, 2)
-        queries = self.query_embed(coords)  # (H*W, queries_dim)
+        queries = self.query_embed(
+            rearrange(coords, "h w d -> (h w) d")
+        )  # (H*W, queries_dim)
+        queries = rearrange(
+            queries, "(h w) d -> h w d", h=H, w=W
+        )  # (H, W, queries_dim)
 
-        # --- Decode via PerceiverIO with optional windowing ---
-        out = self._decode(tokens, queries)  # (B, H*W, out_channels)
-
-        # --- Reshape to spatial ---
-        out = rearrange(out, "b (h w) c -> b c h w", h=H, w=W)
+        # --- Decode via PerceiverIO with optional spatial windowing ---
+        data_grid = rearrange(tokens, "b (nh nw) c -> b nh nw c", nh=nh, nw=nw)
+        out = self._decode(data_grid, queries, pos_patch_h, pos_patch_w)
 
         return out
 
     def _decode(
         self,
-        data: Float[torch.Tensor, "batch num_patches channels"],
-        queries: Float[torch.Tensor, "num_pixels queries_dim"],
-    ) -> Float[torch.Tensor, "batch num_pixels {self.out_channels}"]:
-        """Run PerceiverIO, windowing over queries if they exceed window_size."""
-        num_pixels = queries.shape[0]
+        data_grid: Float[torch.Tensor, "batch nh nw channels"],
+        queries_grid: Float[torch.Tensor, "H W queries_dim"],
+        patch_h: int,
+        patch_w: int,
+    ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
+        """Run PerceiverIO, optionally tiling into spatial windows.
 
-        if self.window_size is None or num_pixels <= self.window_size:
-            return self.perceiver_io(data, queries=queries)
+        When ``window_patches`` is None, all data and queries are passed in one
+        call (global attention).  Otherwise, the output grid is tiled into
+        spatial blocks and each block attends only to nearby latent tokens.
+        """
+        B, nh, nw, C = data_grid.shape
+        H, W, _ = queries_grid.shape
 
-        # Split queries into fixed-size windows to cap memory at high resolutions.
-        # Each window re-encodes the same latent data and only decodes its
-        # subset of pixel queries.
-        chunks = []
-        for i in range(0, num_pixels, self.window_size):
-            q_window = queries[i : i + self.window_size]
-            chunks.append(self.perceiver_io(data, queries=q_window))
-        return torch.cat(chunks, dim=1)
+        if self.window_patches is None:
+            data = rearrange(data_grid, "b nh nw c -> b (nh nw) c")
+            queries = rearrange(queries_grid, "h w d -> (h w) d")
+            out = self.perceiver_io(data, queries=queries)  # (B, H*W, out_channels)
+            return rearrange(out, "b (h w) c -> b c h w", h=H, w=W)
+
+        wp = self.window_patches
+        cp = self.context_patches
+
+        out = data_grid.new_zeros(B, H, W, self.out_channels)
+
+        # Flatten full data once when context_patches is None (full context).
+        full_data = (
+            rearrange(data_grid, "b nh nw c -> b (nh nw) c") if cp is None else None
+        )
+
+        for pi in range(0, nh, wp):
+            for pj in range(0, nw, wp):
+                pi_end = min(pi + wp, nh)
+                pj_end = min(pj + wp, nw)
+
+                if cp is None:
+                    # Full context: every window sees all latent tokens.
+                    local_data = full_data
+                else:
+                    # Expand data region by context_patches, clamped to grid bounds.
+                    di_start = max(pi - cp, 0)
+                    di_end = min(pi_end + cp, nh)
+                    dj_start = max(pj - cp, 0)
+                    dj_end = min(pj_end + cp, nw)
+
+                    local_data = data_grid[:, di_start:di_end, dj_start:dj_end, :]
+                    local_data = rearrange(local_data, "b h w c -> b (h w) c")
+
+                # Pixel region covered by this patch block.
+                qi_start = pi * patch_h
+                qi_end = pi_end * patch_h
+                qj_start = pj * patch_w
+                qj_end = pj_end * patch_w
+
+                local_queries = queries_grid[qi_start:qi_end, qj_start:qj_end, :]
+                local_queries = rearrange(local_queries, "h w d -> (h w) d")
+
+                local_out = self.perceiver_io(local_data, queries=local_queries)
+                qh_size = qi_end - qi_start
+                qw_size = qj_end - qj_start
+                local_out = rearrange(
+                    local_out, "b (h w) c -> b h w c", h=qh_size, w=qw_size
+                )
+
+                out[:, qi_start:qi_end, qj_start:qj_end, :] = local_out
+
+        return rearrange(out, "b h w c -> b c h w")

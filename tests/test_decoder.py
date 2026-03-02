@@ -108,7 +108,7 @@ def test_windowed_decode():
         torch.linspace(0, 360, steps=W),
     )
 
-    # H*W = 128 pixels total, window_size=32 -> 4 PerceiverIO calls.
+    # nh=2, nw=4 latent grid, window_patches=1 -> 2*4=8 PerceiverIO calls.
     x = torch.randn(2, 12, 2, 4)
 
     decode = PerceiverDecoder(
@@ -117,7 +117,7 @@ def test_windowed_decode():
         patch_extent=(90, 90),
         queries_dim=QUERIES_DIM,
         perceiver_io=make_decoder_perceiver_io(12, 24),
-        window_size=32,
+        window_patches=1,  # 1 patch per window side → 1x1 blocks of patches
     )
 
     y_hat = decode(x, resolution)
@@ -147,7 +147,9 @@ def test_windowed_matches_non_windowed():
     )
 
     full = PerceiverDecoder(**kwargs)
-    windowed = PerceiverDecoder(**kwargs, window_size=8)
+    # window_patches=4 covers the full 2x4 latent grid in one call,
+    # so the windowed path should produce identical results to global.
+    windowed = PerceiverDecoder(**kwargs, window_patches=4, context_patches=0)
 
     full.eval()
     windowed.eval()
@@ -161,4 +163,43 @@ def test_windowed_matches_non_windowed():
 
     assert torch.allclose(y_full, y_windowed, atol=1e-5), (
         "Windowed and non-windowed results should match."
+    )
+
+
+def test_full_context_matches_non_windowed():
+    """context_patches=None (full context) with windowed queries matches global."""
+    H, W = 4, 8
+    resolution = (
+        torch.linspace(-90, 90, steps=H),
+        torch.linspace(0, 360, steps=W),
+    )
+
+    x = torch.randn(2, 12, 2, 4)
+    pio = make_decoder_perceiver_io(12, 24)
+
+    kwargs = dict(
+        in_channels=12,
+        out_channels=24,
+        patch_extent=(90, 90),
+        queries_dim=QUERIES_DIM,
+        perceiver_io=pio,
+    )
+
+    full = PerceiverDecoder(**kwargs)
+    # window_patches=1 with context_patches=None: windowed queries but every
+    # window sees the full latent grid as data.
+    windowed_full_ctx = PerceiverDecoder(
+        **kwargs, window_patches=1, context_patches=None
+    )
+
+    full.eval()
+    windowed_full_ctx.eval()
+    windowed_full_ctx.load_state_dict(full.state_dict())
+
+    with torch.no_grad():
+        y_full = full(x, resolution)
+        y_windowed = windowed_full_ctx(x, resolution)
+
+    assert torch.allclose(y_full, y_windowed, atol=1e-5), (
+        "Full-context windowed and non-windowed results should match."
     )

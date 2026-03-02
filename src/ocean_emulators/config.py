@@ -717,8 +717,7 @@ class FOMOConfig(BaseModelConfig):
         )
 
         impl = self.perceiver_implementation
-        uses_flash = impl == "flash" or (impl == "auto" and torch.cuda.is_available())
-        if uses_flash and not self.use_bfloat16:
+        if _use_flash(impl) and not self.use_bfloat16:
             raise ValueError(
                 "Perceiver implementation resolves to flash attention. "
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."

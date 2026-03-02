@@ -6,7 +6,7 @@ from torch import nn
 from ocean_emulators.constants import Lat, Lon
 
 
-def make_3d_coordinate_grid(lat, lon) -> torch.Tensor:
+def make_3d_coordinate_grid(lat: Lat, lon: Lon) -> Float[torch.Tensor, "3 H W"]:
     """Make 3D Cartesian coordinates on a unit sphere.
 
     Returns:

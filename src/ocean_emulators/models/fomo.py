@@ -17,6 +17,29 @@ from ocean_emulators.utils.device import autocast
 if TYPE_CHECKING:
     from ocean_emulators.config import Checkpointing
 
+_checkpoint_types: tuple[type, ...] = (
+    nn.LayerNorm,
+    FeedForward,
+    nn.Linear,
+    Perceiver,
+    PerceiverDecoder,
+    PerceiverEncoder,
+    UNetBackbone,
+    Attention,
+)
+
+try:
+    from flash_attn.modules.block import (
+        Block as FlashBlock,  # type: ignore[import-not-found]
+    )
+    from flash_perceiver.perceiver import (
+        PerceiverBase as FlashPerceiverBase,  # type: ignore[import-not-found]
+    )
+
+    _checkpoint_types = _checkpoint_types + (FlashPerceiverBase, FlashBlock)
+except ImportError:
+    pass
+
 
 class FOMO(BaseModel):
     """FOMO: A Foundation Model for the Oceans + Observations.
@@ -59,17 +82,7 @@ class FOMO(BaseModel):
         if checkpointing == "all":
             apply_activation_checkpointing(
                 self,
-                check_fn=lambda m: isinstance(
-                    m,
-                    nn.LayerNorm
-                    | FeedForward
-                    | nn.Linear
-                    | Perceiver
-                    | PerceiverDecoder
-                    | PerceiverEncoder
-                    | UNetBackbone
-                    | Attention,
-                ),
+                check_fn=lambda m: isinstance(m, _checkpoint_types),
             )
 
     def forward_once(self, fts: torch.Tensor, ctx: GridContext) -> torch.Tensor:

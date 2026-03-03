@@ -123,8 +123,11 @@ overrides = [
     "fsspec.*",
     "perceiver_pytorch.*",
     "aurora.*",
-    "flash_perceiver.*",
   ], follow_untyped_imports = true },
+  { module = [
+    "flash_perceiver.*",
+    "flash_attn.*",
+  ], ignore_missing_imports = true, follow_untyped_imports = true },
 ]
 
 [tool.uv]

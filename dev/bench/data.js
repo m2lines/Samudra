@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772553048099,
+  "lastUpdate": 1772553049352,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -16197,6 +16197,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18071195016646927",
             "extra": "mean: 78.32702788140004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5359d23f9968b701f427dfdac2c5ae2417ed0c4b",
+          "message": "docs(torch): update interactive srun guidance (#618)\n\n## Summary\n- remove stale warning that interactive/TTY `srun` sessions are flaky on\nTorch\n- document current interactive probe command alongside the existing\nbatch probe option\n- keep guidance that `sbatch` remains useful for reproducible checks\nwith saved logs\n\n## Verification\n- `ssh -tt torch \"srun --account=torch_pr_347_courant --nodes=1\n--ntasks=1 --time=00:02:00 --pty bash -lc 'hostname'\"`\n- observed job `3163275` allocated and returned hostname\n`cs602.hpc.nyu.edu`\n- `ssh torch \"srun --account=torch_pr_347_courant --nodes=1 --ntasks=1\n--time=00:02:00 /bin/hostname\"`\n- observed job `3163414` allocated and returned hostname\n`cs602.hpc.nyu.edu`\n\nSlack conversation:\nhttps://openathena.slack.com/archives/C0AAEE8RGTV/p1772549799547619",
+          "timestamp": "2026-03-03T15:24:24Z",
+          "tree_id": "b59f19b1fb90f533115c4a8fb2f0b73f1d98c51f",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/5359d23f9968b701f427dfdac2c5ae2417ed0c4b"
+        },
+        "date": 1772553048972,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.157560909094365,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0038156030040615587",
+            "extra": "mean: 863.8854268000159 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19240914287741,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04347296584168402",
+            "extra": "mean: 5.197258222999994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013097562694788366,
+            "unit": "iter/sec",
+            "range": "stddev: 0.20456531745843176",
+            "extra": "mean: 76.35008308819997 sec\nrounds: 5"
           }
         ]
       }

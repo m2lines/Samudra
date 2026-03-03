@@ -39,7 +39,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: samudra_om4
+  name: samudra_om4_v2
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

@@ -14,4 +14,4 @@ groundtruth_time_range:
   end: "2022-12-24"
 runs:
   - name: "samudra_om4_v2_eval"
-    location: ".LOCAL/samudra_om4_eval/predictions.zarr"
+    location: ".LOCAL/samudra_om4_v2_eval/predictions.zarr"

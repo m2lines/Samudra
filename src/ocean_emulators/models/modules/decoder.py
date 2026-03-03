@@ -9,6 +9,7 @@ from torch import nn
 
 from ocean_emulators.constants import Lat, Lon
 from ocean_emulators.models.modules.augment_input import make_3d_coordinate_grid
+from ocean_emulators.models.modules.encoder import patch_from
 
 
 class PerceiverDecoder(nn.Module):
@@ -117,10 +118,7 @@ class PerceiverDecoder(nn.Module):
 
         H, W = len(lat), len(lon)
 
-        # For pos/scale encoding we need a patch size that produces exactly
-        # nh*nw tokens.  In the full pipeline patch_from gives the same result,
-        # but in unit tests the input grid may not match, so derive from tensor.
-        pos_patch_h, pos_patch_w = H // nh, W // nw
+        pos_patch_h, pos_patch_w = patch_from(self.patch_extent, H, W)
 
         # --- Add pos/scale encoding to latent tokens (before perceiver, unlike encoder) ---
         tokens = rearrange(x, "b c nh nw -> b (nh nw) c")

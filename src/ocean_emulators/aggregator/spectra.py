@@ -51,8 +51,8 @@ class _LocationSelection:
     name: str
     lon_bounds: tuple[float, float]
     lat_bounds: tuple[float, float]
-    lon_mask: torch.Tensor
-    lat_mask: torch.Tensor
+    lon_indices: torch.Tensor
+    lat_indices: torch.Tensor
     dx_km: float
     dy_km: float
 
@@ -72,6 +72,8 @@ class SpectraLogger:
     ):
         self._metadata = metadata or {}
         self._prognostic_var_names = list(prognostic_var_names or [])
+        # Keep means on CPU and move selected patches per call to avoid pinning
+        # full mean fields on GPU memory.
         self._temporal_means = {
             name: value.detach().cpu().float()
             for name, value in (temporal_means or {}).items()
@@ -136,8 +138,10 @@ class SpectraLogger:
                 # Allow wrap-around boxes, e.g. (350, 20).
                 lon_mask = (lon_cpu >= lon_lo) | (lon_cpu <= lon_hi)
 
-            lat_sel = lat_cpu[lat_mask]
-            lon_sel = lon_cpu[lon_mask]
+            lat_indices = torch.nonzero(lat_mask, as_tuple=False).squeeze(-1)
+            lon_indices = torch.nonzero(lon_mask, as_tuple=False).squeeze(-1)
+            lat_sel = lat_cpu.index_select(0, lat_indices)
+            lon_sel = lon_cpu.index_select(0, lon_indices)
             if lat_sel.numel() < 4 or lon_sel.numel() < 4:
                 logger.warning(
                     "Skipping spectra location '%s': selected box is too small.",
@@ -169,8 +173,8 @@ class SpectraLogger:
                     name=name,
                     lon_bounds=(lon_lo, lon_hi),
                     lat_bounds=(lat_lo, lat_hi),
-                    lon_mask=lon_mask,
-                    lat_mask=lat_mask,
+                    lon_indices=lon_indices,
+                    lat_indices=lat_indices,
                     dx_km=dx_km,
                     dy_km=dy_km,
                 )
@@ -183,11 +187,15 @@ class SpectraLogger:
         var_name: str,
         selection: _LocationSelection,
     ) -> tuple[torch.Tensor, torch.Tensor] | None:
-        patch = data.detach().cpu().float()
-        patch = patch[selection.lat_mask][:, selection.lon_mask]
+        patch = data.detach().float()
+        lat_indices = selection.lat_indices.to(patch.device)
+        lon_indices = selection.lon_indices.to(patch.device)
+        patch = patch.index_select(0, lat_indices).index_select(1, lon_indices)
         temporal_mean = self._temporal_means.get(var_name)
         if temporal_mean is not None and temporal_mean.ndim == 2:
-            mean_patch = temporal_mean[selection.lat_mask][:, selection.lon_mask]
+            mean_patch = temporal_mean.index_select(0, selection.lat_indices)
+            mean_patch = mean_patch.index_select(1, selection.lon_indices)
+            mean_patch = mean_patch.to(device=patch.device, dtype=patch.dtype)
             patch = patch - mean_patch
 
         finite = torch.isfinite(patch)
@@ -244,8 +252,18 @@ class SpectraLogger:
         k_pred, s_pred = pred_spec
 
         fig, ax = plt.subplots(figsize=(6, 4))
-        ax.loglog(k_target.numpy(), s_target.numpy(), label="target", linewidth=2)
-        ax.loglog(k_pred.numpy(), s_pred.numpy(), label="prediction", linewidth=2)
+        ax.loglog(
+            k_target.detach().cpu().numpy(),
+            s_target.detach().cpu().numpy(),
+            label="target",
+            linewidth=2,
+        )
+        ax.loglog(
+            k_pred.detach().cpu().numpy(),
+            s_pred.detach().cpu().numpy(),
+            label="prediction",
+            linewidth=2,
+        )
         ax.set_xlabel("angular wavenumber [rad/km]")
         ax.set_ylabel("k * P(k)")
         ax.grid(True, which="both", alpha=0.3)

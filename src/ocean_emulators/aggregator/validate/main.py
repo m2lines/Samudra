@@ -25,6 +25,7 @@ class ValidateAggregator(TrainAggregator):
         spectra_locations: list[SpectraLocation] | None = None,
         lat: torch.Tensor | None = None,
         lon: torch.Tensor | None = None,
+        spectra_temporal_means: dict[str, torch.Tensor] | None = None,
     ):
         super().__init__()
 
@@ -36,6 +37,7 @@ class ValidateAggregator(TrainAggregator):
                 lon=lon,
                 spectra_locations=spectra_locations,
                 prognostic_var_names=prognostic_var_names,
+                temporal_means=spectra_temporal_means,
             ),
             "mean_map": MapAggregator(metadata, hist),
             "reduced": MeanAggregator(area_weights, hist),

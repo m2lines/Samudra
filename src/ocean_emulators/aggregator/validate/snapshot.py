@@ -34,6 +34,7 @@ class SnapshotAggregator(ValidateSubAggregator):
         lon: torch.Tensor | None = None,
         spectra_locations: list[SpectraLocation] | None = None,
         prognostic_var_names: list[str] | None = None,
+        temporal_means: dict[str, torch.Tensor] | None = None,
     ):
         """
         Args:
@@ -44,6 +45,7 @@ class SnapshotAggregator(ValidateSubAggregator):
             lon: Longitude coordinates for selecting spectra boxes.
             spectra_locations: Optional lat/lon boxes for spectra logging.
             prognostic_var_names: Prognostic variable names to include in spectra logs.
+            temporal_means: Optional temporal means used for anomaly spectra logging.
         """
         self._metadata = metadata or {}
         self.hist = hist
@@ -53,6 +55,7 @@ class SnapshotAggregator(ValidateSubAggregator):
             locations=spectra_locations,
             prognostic_var_names=prognostic_var_names,
             metadata=self._metadata,
+            temporal_means=temporal_means,
         )
 
     @torch.no_grad()

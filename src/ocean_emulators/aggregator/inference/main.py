@@ -34,6 +34,7 @@ class InferenceEvaluatorAggregator:
         lat: torch.Tensor | None = None,
         lon: torch.Tensor | None = None,
         prognostic_var_names: list[str] | None = None,
+        spectra_temporal_means: dict[str, torch.Tensor] | None = None,
     ):
         """
         Args:
@@ -54,6 +55,7 @@ class InferenceEvaluatorAggregator:
             lat: Latitude coordinates for selecting spectra boxes.
             lon: Longitude coordinates for selecting spectra boxes.
             prognostic_var_names: Prognostic variable names to include in spectra logs.
+            spectra_temporal_means: Optional temporal means used for anomaly spectra logging.
         """
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
@@ -112,6 +114,7 @@ class InferenceEvaluatorAggregator:
             locations=spectra_locations,
             prognostic_var_names=prognostic_var_names,
             metadata=metadata,
+            temporal_means=spectra_temporal_means,
         )
 
     @property

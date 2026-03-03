@@ -32,7 +32,10 @@ from ocean_emulators.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
-from ocean_emulators.aggregator.spectra import SpectraLocation
+from ocean_emulators.aggregator.spectra import (
+    SpectraLocation,
+    precompute_spatial_temporal_means,
+)
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig, TrainSchedule, build_loss_fn
 from ocean_emulators.constants import (
@@ -190,6 +193,14 @@ class Trainer:
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
         self.inference_src = self.data_container.inference_source
+        self.spectra_temporal_means: dict[str, torch.Tensor] = (
+            precompute_spatial_temporal_means(
+                self.inference_src,
+                self.prognostic_var_names,
+            )
+            if self.spectra_locations
+            else {}
+        )
 
         self.loader_version = self.data_container.loader_version
 
@@ -630,6 +641,7 @@ class Trainer:
             spectra_locations=self.spectra_locations,
             lat=self.lat,
             lon=self.lon,
+            spectra_temporal_means=self.spectra_temporal_means,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -670,6 +682,7 @@ class Trainer:
                     lat=self.lat,
                     lon=self.lon,
                     prognostic_var_names=self.prognostic_var_names,
+                    spectra_temporal_means=self.spectra_temporal_means,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;

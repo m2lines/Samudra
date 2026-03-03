@@ -6,7 +6,10 @@ from collections import OrderedDict
 import torch
 
 from ocean_emulators.aggregator import Aggregator
-from ocean_emulators.aggregator.spectra import SpectraLocation
+from ocean_emulators.aggregator.spectra import (
+    SpectraLocation,
+    precompute_spatial_temporal_means,
+)
 from ocean_emulators.backend import init_eval_backend
 from ocean_emulators.config import EvalConfig
 from ocean_emulators.constants import (
@@ -104,6 +107,14 @@ class Eval:
             )
             for loc in cfg.spectra_locations
         ]
+        self.spectra_temporal_means: dict[str, torch.Tensor] = (
+            precompute_spatial_temporal_means(
+                self.src,
+                self.prognostic_var_names,
+            )
+            if self.spectra_locations
+            else {}
+        )
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)
@@ -218,6 +229,7 @@ class Eval:
             lat=self.lat,
             lon=self.lon,
             prognostic_var_names=self.prognostic_var_names,
+            spectra_temporal_means=self.spectra_temporal_means,
         )
 
         Stepper.inference(

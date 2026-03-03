@@ -1,136 +1,49 @@
 import dataclasses
 import logging
+import math
+from collections.abc import Iterable
 
 import matplotlib.pyplot as plt
 import torch
 import wandb
 
+from ocean_emulators.utils import spectrum as spectrum_utils
+from ocean_emulators.utils.data import DataSource
 from ocean_emulators.utils.wandb import MetricsDict, WandBLogger
 
 logger = logging.getLogger(__name__)
 
 type SpectraLocation = tuple[str, tuple[float, float], tuple[float, float]]
 
+_KM_PER_DEGREE = 111.32
 
-def _detrend_linear_torch(data: torch.Tensor) -> torch.Tensor:
-    """Remove a best-fit linear plane from 4D tensors shaped (B, C, H, W)."""
-    b, c, h, w = data.shape
-    device = data.device
-    dtype = data.dtype
 
-    y_coords = torch.linspace(-1, 1, h, device=device, dtype=dtype)
-    x_coords = torch.linspace(-1, 1, w, device=device, dtype=dtype)
-    y_grid, x_grid = torch.meshgrid(y_coords, x_coords, indexing="ij")
+def precompute_spatial_temporal_means(
+    source: DataSource,
+    prognostic_var_names: Iterable[str],
+) -> dict[str, torch.Tensor]:
+    """
+    Precompute mean fields over the full available time axis for spectra anomalies.
 
-    a = torch.stack(
-        [x_grid.flatten(), y_grid.flatten(), torch.ones_like(x_grid).flatten()], dim=1
+    This is intentionally scoped to the currently-used spatial spectra algorithm.
+    Temporal trend/cycle precomputes are not needed until temporal PSD logging is added.
+    """
+    available_var_names = [
+        name for name in prognostic_var_names if name in source.data.variables
+    ]
+    if not available_var_names:
+        return {}
+
+    logger.info(
+        "Precomputing spectra temporal means for %d variables from %s",
+        len(available_var_names),
+        source.name,
     )
-    bc = b * c
-    data_flat = data.reshape(bc, h * w)
-    coeffs, _, _, _ = torch.linalg.lstsq(a, data_flat.T)
-    plane = (a @ coeffs.permute(1, 0).unsqueeze(-1)).reshape(bc, h, w)
-    detrended = data.reshape(bc, h, w) - plane
-    return detrended.reshape(b, c, h, w)
-
-
-def compute_isotropic_spectrum_torch(
-    data: torch.Tensor,
-    dx: float = 1.0,
-    dy: float = 1.0,
-    num_bins: int | None = None,
-    n_factor: int = 4,
-    remove_mean: bool = True,
-    detrend: str | None = None,
-    window: str | None = "Hann",
-    truncate: bool = True,
-    cutoff_before_bins: bool = True,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Compute isotropic 1D spectrum from 2D/3D/4D fields."""
-    device = data.device
-    dtype = data.dtype
-    orig_dim = data.dim()
-
-    if orig_dim == 2:
-        data = data.reshape(1, 1, *data.shape)
-    elif orig_dim == 3:
-        data = data.unsqueeze(1)
-    elif orig_dim != 4:
-        raise ValueError("Input data must be 2D, 3D, or 4D (B, C, H, W)")
-
-    b, c, h, w = data.shape
-    bc = b * c
-    lx = w * dx
-    ly = h * dy
-
-    if num_bins is None:
-        num_bins = min(h, w) // n_factor
-
-    if detrend == "linear":
-        data = _detrend_linear_torch(data)
-    elif detrend == "constant" or remove_mean:
-        data = data - torch.mean(data, dim=(-2, -1), keepdim=True)
-
-    if window and window.lower() == "hann":
-        win_y = torch.hann_window(h, device=device, dtype=dtype).unsqueeze(1)
-        win_x = torch.hann_window(w, device=device, dtype=dtype).unsqueeze(0)
-        win_2d = (win_y * win_x).reshape(1, 1, h, w)
-        window_correction = torch.mean(win_2d**2).item()
-        data = data * win_2d
-    else:
-        window_correction = 1.0
-
-    fft_2d = torch.fft.rfft2(data, norm="forward")
-    power_2d = torch.abs(fft_2d) ** 2
-    power_2d = power_2d / window_correction
-    psd_2d = power_2d * (lx * ly)
-
-    k_x = torch.fft.rfftfreq(w, d=dx, device=device, dtype=dtype)
-    k_y = torch.fft.fftfreq(h, d=dy, device=device, dtype=dtype)
-    k_x_nyq = 1.0 / (2.0 * dx)
-    k_y_nyq = 1.0 / (2.0 * dy)
-
-    k_y_grid, k_x_grid = torch.meshgrid(k_y, k_x, indexing="ij")
-    k_mag = torch.sqrt(k_x_grid**2 + k_y_grid**2)
-    k_max_domain = float(k_mag.max().item())
-
-    if truncate and cutoff_before_bins:
-        k_max_cutoff = min(k_x_nyq, k_y_nyq)
-        k_max = min(k_max_domain, k_max_cutoff)
-    else:
-        k_max = k_max_domain
-
-    k_bins = torch.linspace(0.0, k_max, num_bins + 1, device=device, dtype=dtype)
-    if truncate and not cutoff_before_bins:
-        k_max_cutoff = min(k_x_nyq, k_y_nyq)
-        k_max = min(k_max_domain, k_max_cutoff)
-        k_bins = k_bins[k_bins < k_max_cutoff]
-        num_bins = k_bins.numel() - 1
-    k_bins_centers = (k_bins[:-1] + k_bins[1:]) / 2
-
-    k_mag_flat = k_mag.flatten()
-    bin_edges = k_bins[1:-1]
-    bin_indices = torch.bucketize(k_mag_flat, bin_edges, right=True)
-
-    n_flat = k_mag_flat.shape[0]
-    psd_flat_batched = psd_2d.reshape(bc, n_flat)
-    bin_indices_batched = bin_indices.expand(bc, -1)
-    binned_psd_sum = torch.zeros(bc, num_bins, device=device, dtype=dtype)
-    binned_psd_sum.scatter_add_(dim=1, index=bin_indices_batched, src=psd_flat_batched)
-
-    binned_counts = torch.bincount(bin_indices, minlength=num_bins).float()
-    binned_counts[binned_counts == 0] = torch.nan
-
-    iso_psd_binned = binned_psd_sum / binned_counts.unsqueeze(0)
-    iso_spectrum = iso_psd_binned * k_bins_centers.unsqueeze(0)
-    iso_spectrum = iso_spectrum.reshape(b, c, num_bins)
-    iso_spectrum[..., 0] = torch.nan
-
-    if orig_dim == 2:
-        iso_spectrum = iso_spectrum.squeeze(0).squeeze(0)
-    elif orig_dim == 3:
-        iso_spectrum = iso_spectrum.squeeze(1)
-
-    return k_bins_centers, iso_spectrum
+    means_ds = source.data[available_var_names].mean(dim="time").compute()
+    return {
+        name: torch.as_tensor(means_ds[name].values, dtype=torch.float32)
+        for name in available_var_names
+    }
 
 
 @dataclasses.dataclass(frozen=True)
@@ -140,8 +53,8 @@ class _LocationSelection:
     lat_bounds: tuple[float, float]
     lon_mask: torch.Tensor
     lat_mask: torch.Tensor
-    dx: float
-    dy: float
+    dx_km: float
+    dy_km: float
 
 
 class SpectraLogger:
@@ -155,9 +68,14 @@ class SpectraLogger:
         locations: list[SpectraLocation] | None,
         prognostic_var_names: list[str] | None,
         metadata: dict[str, dict[str, str]] | None = None,
+        temporal_means: dict[str, torch.Tensor] | None = None,
     ):
         self._metadata = metadata or {}
         self._prognostic_var_names = list(prognostic_var_names or [])
+        self._temporal_means = {
+            name: value.detach().cpu().float()
+            for name, value in (temporal_means or {}).items()
+        }
         self._locations = self._build_locations(lat, lon, locations or [])
 
     @property
@@ -180,6 +98,16 @@ class SpectraLogger:
 
             return (to_signed(lo), to_signed(hi))
         return lo, hi
+
+    @staticmethod
+    def _deg_lon_to_km(delta_deg: float, lat_deg: float) -> float:
+        return abs(delta_deg) * _KM_PER_DEGREE * max(
+            abs(math.cos(math.radians(lat_deg))), 1e-6
+        )
+
+    @staticmethod
+    def _deg_lat_to_km(delta_deg: float) -> float:
+        return abs(delta_deg) * _KM_PER_DEGREE
 
     def _build_locations(
         self,
@@ -215,11 +143,21 @@ class SpectraLogger:
                 )
                 continue
 
-            dy = float(torch.diff(lat_sel).abs().mean().item())
-            dx = float(torch.diff(lon_sel).abs().mean().item())
-            if dx == 0.0 or dy == 0.0:
+            lat_diff = torch.diff(lat_sel).abs()
+            lon_diff = torch.diff(lon_sel).abs()
+            if lat_diff.numel() == 0 or lon_diff.numel() == 0:
                 logger.warning(
                     "Skipping spectra location '%s': zero grid spacing in selected box.",
+                    name,
+                )
+                continue
+
+            dy_km = self._deg_lat_to_km(float(lat_diff.median().item()))
+            lat_mid = float(lat_sel.mean().item())
+            dx_km = self._deg_lon_to_km(float(lon_diff.median().item()), lat_mid)
+            if dx_km == 0.0 or dy_km == 0.0:
+                logger.warning(
+                    "Skipping spectra location '%s': zero km spacing in selected box.",
                     name,
                 )
                 continue
@@ -231,42 +169,43 @@ class SpectraLogger:
                     lat_bounds=(lat_lo, lat_hi),
                     lon_mask=lon_mask,
                     lat_mask=lat_mask,
-                    dx=dx,
-                    dy=dy,
+                    dx_km=dx_km,
+                    dy_km=dy_km,
                 )
             )
         return selections
 
-    @staticmethod
-    def _prep_field_for_fft(data: torch.Tensor) -> torch.Tensor | None:
-        finite = torch.isfinite(data)
+    def _compute_spectrum(
+        self,
+        data: torch.Tensor,
+        var_name: str,
+        selection: _LocationSelection,
+    ) -> tuple[torch.Tensor, torch.Tensor] | None:
+        patch = data.detach().cpu().float()
+        patch = patch[selection.lat_mask][:, selection.lon_mask]
+        temporal_mean = self._temporal_means.get(var_name)
+        if temporal_mean is not None and temporal_mean.ndim == 2:
+            mean_patch = temporal_mean[selection.lat_mask][:, selection.lon_mask]
+            patch = patch - mean_patch
+
+        finite = torch.isfinite(patch)
         if finite.sum() < 4:
             return None
-        centered = data - torch.nanmean(data)
-        return torch.nan_to_num(centered, nan=0.0, posinf=0.0, neginf=0.0)
-
-    def _compute_spectrum(
-        self, data: torch.Tensor, selection: _LocationSelection
-    ) -> tuple[torch.Tensor, torch.Tensor] | None:
-        patch = data.detach().cpu()
-        patch = patch[selection.lat_mask][:, selection.lon_mask]
-        prepared_patch = self._prep_field_for_fft(patch)
-        if prepared_patch is None:
-            return None
-        patch = prepared_patch
-        k, spectrum = compute_isotropic_spectrum_torch(
+        patch = torch.nan_to_num(patch, nan=0.0, posinf=0.0, neginf=0.0)
+        k, spectrum = spectrum_utils.compute_isotropic_spectrum_torch(
             patch,
-            dx=selection.dx,
-            dy=selection.dy,
-            remove_mean=False,
-            detrend="constant",
+            dx=selection.dx_km,
+            dy=selection.dy_km,
+            n_factor=2,
+            detrend="linear",
             window="hann",
             truncate=True,
         )
         valid = torch.isfinite(k) & torch.isfinite(spectrum) & (k > 0) & (spectrum > 0)
         if valid.sum() < 1:
             return None
-        return k[valid], spectrum[valid]
+        k_rad_per_km = k[valid] * (2.0 * torch.pi)
+        return k_rad_per_km, spectrum[valid]
 
     def _get_caption(
         self, *, var_name: str, selection: _LocationSelection, forecast_step: int | None
@@ -294,8 +233,8 @@ class SpectraLogger:
         selection: _LocationSelection,
         forecast_step: int | None,
     ):
-        target_spec = self._compute_spectrum(target, selection)
-        pred_spec = self._compute_spectrum(prediction, selection)
+        target_spec = self._compute_spectrum(target, var_name, selection)
+        pred_spec = self._compute_spectrum(prediction, var_name, selection)
         if target_spec is None or pred_spec is None:
             return None
 
@@ -305,7 +244,7 @@ class SpectraLogger:
         fig, ax = plt.subplots(figsize=(6, 4))
         ax.loglog(k_target.numpy(), s_target.numpy(), label="target", linewidth=2)
         ax.loglog(k_pred.numpy(), s_pred.numpy(), label="prediction", linewidth=2)
-        ax.set_xlabel("wavenumber [cycles/degree]")
+        ax.set_xlabel("angular wavenumber [rad/km]")
         ax.set_ylabel("k * P(k)")
         ax.grid(True, which="both", alpha=0.3)
         ax.legend()

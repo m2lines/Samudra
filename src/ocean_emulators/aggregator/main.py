@@ -28,6 +28,7 @@ class Aggregator:
         spectra_locations: list[SpectraLocation] | None = None,
         lat: torch.Tensor | None = None,
         lon: torch.Tensor | None = None,
+        spectra_temporal_means: dict[str, torch.Tensor] | None = None,
     ) -> ValidateAggregator:
         return ValidateAggregator(
             metadata=metadata,
@@ -39,6 +40,7 @@ class Aggregator:
             spectra_locations=spectra_locations,
             lat=lat,
             lon=lon,
+            spectra_temporal_means=spectra_temporal_means,
         )
 
     @staticmethod
@@ -54,6 +56,7 @@ class Aggregator:
         lat: torch.Tensor | None = None,
         lon: torch.Tensor | None = None,
         prognostic_var_names: list[str] | None = None,
+        spectra_temporal_means: dict[str, torch.Tensor] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
@@ -70,6 +73,7 @@ class Aggregator:
             lat=lat,
             lon=lon,
             prognostic_var_names=prognostic_var_names,
+            spectra_temporal_means=spectra_temporal_means,
         )
 
     @staticmethod
@@ -85,6 +89,7 @@ class Aggregator:
         lat: torch.Tensor | None = None,
         lon: torch.Tensor | None = None,
         prognostic_var_names: list[str] | None = None,
+        spectra_temporal_means: dict[str, torch.Tensor] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
@@ -101,4 +106,5 @@ class Aggregator:
             lat=lat,
             lon=lon,
             prognostic_var_names=prognostic_var_names,
+            spectra_temporal_means=spectra_temporal_means,
         )

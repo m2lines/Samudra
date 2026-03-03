@@ -81,13 +81,17 @@ class PerceiverDecoder(nn.Module):
         patch_extent: tuple[float, float],
         queries_dim: int,
         perceiver_io: nn.Module,
-        window_patches: int | None = None,
-        context_patches: int | None = 1,
+        window_patches: int | None,
+        context_patches: int | None,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.patch_extent = patch_extent
+        if window_patches is None and context_patches is not None:
+            raise ValueError(
+                "window_patches must be set in order for context_patches to be set."
+            )
         self.window_patches = window_patches
         self.context_patches = context_patches
 

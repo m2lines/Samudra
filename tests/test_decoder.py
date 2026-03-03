@@ -62,6 +62,8 @@ def test_roundtrip():
         patch_extent=(180, 180),
         queries_dim=QUERIES_DIM,
         perceiver_io=make_decoder_perceiver_io(4, 10),
+        window_patches=None,
+        context_patches=None,
     )
 
     y_hat = decode(patches, resolution)
@@ -91,6 +93,8 @@ def test_decode():
         patch_extent=(90, 90),
         queries_dim=QUERIES_DIM,
         perceiver_io=make_decoder_perceiver_io(12, 24),
+        window_patches=None,
+        context_patches=None,
     )
 
     y_hat = decode(x, resolution)
@@ -118,6 +122,7 @@ def test_windowed_decode():
         queries_dim=QUERIES_DIM,
         perceiver_io=make_decoder_perceiver_io(12, 24),
         window_patches=1,  # 1 patch per window side → 1x1 blocks of patches
+        context_patches=None,
     )
 
     y_hat = decode(x, resolution)
@@ -146,7 +151,7 @@ def test_windowed_matches_non_windowed():
         perceiver_io=pio,
     )
 
-    full = PerceiverDecoder(**kwargs)
+    full = PerceiverDecoder(**kwargs, window_patches=None, context_patches=None)
     # window_patches=4 covers the full 2x4 latent grid in one call,
     # so the windowed path should produce identical results to global.
     windowed = PerceiverDecoder(**kwargs, window_patches=4, context_patches=0)
@@ -185,7 +190,7 @@ def test_full_context_matches_non_windowed():
         perceiver_io=pio,
     )
 
-    full = PerceiverDecoder(**kwargs)
+    full = PerceiverDecoder(**kwargs, window_patches=None, context_patches=None)
     # window_patches=1 with context_patches=None: windowed queries but every
     # window sees the full latent grid as data.
     windowed_full_ctx = PerceiverDecoder(

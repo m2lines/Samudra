@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772553049352,
+  "lastUpdate": 1772571565779,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8094,6 +8094,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4190722723293688",
             "extra": "mean: 90.21895761679998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8dc7d81700ceeb6e0462986c98eaaf667ca817e8",
+          "message": "Adding a perceiver-based decoder that complements the encoder. (#603)\n\nHere is a PerceiverIO-based decoder. It consumes latent information and\nproduces the physical output grid with a single perceiver-transformer.\nIt accomplishes this by arranging tensors to take in the latent input\ntokens and \"query\" channels, which are points on a 3D unit sphere that\ncorrespond to the area on Earth. Because the output dimension is large\nand involves expensive cross attentions, we provide a `window_size`\nargument to the decoder that will only process a chunk of output\ninformation at a time. This should bound peak memory during decoding.\n\nWhen the input patch extent is fine grained, attending over the whole\ninput -- even when composed of latent information -- will likely explode\nmemory during decoding. To address this, we provide the decoder with a\n`context_patches` that builds off the `window_size` argument: it adds a\nnumber of patches of `window_size` around the target patch as the only\ncontext (i.e. a local context) for the PerceiverIO call.\n\nFixes #395.",
+          "timestamp": "2026-03-03T12:32:59-08:00",
+          "tree_id": "4d4fa87b1995f289bdf516935d707158002b598c",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/8dc7d81700ceeb6e0462986c98eaaf667ca817e8"
+        },
+        "date": 1772571564882,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.150034860293689,
+            "unit": "iter/sec",
+            "range": "stddev: 0.007165850962040992",
+            "extra": "mean: 869.5388588000071 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1865777549381562,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02330068578183783",
+            "extra": "mean: 5.359695749000002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.011063122752873548,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1072479256968355",
+            "extra": "mean: 90.39039178519997 sec\nrounds: 5"
           }
         ]
       }

@@ -170,12 +170,13 @@ def test_windowed_decode(resolution, latent_input, decoder_kwargs):
 
 
 def test_windowed_matches_non_windowed(resolution, latent_input, decoder_kwargs):
-    """Windowed and non-windowed decoding should produce identical results."""
+    """Windowed with full context should match non-windowed decoding."""
     full = PerceiverDecoder(**decoder_kwargs, window_patches=None, context_patches=None)
-    # window_patches=4 covers the full 2x4 latent grid in one call,
-    # so the windowed path should produce identical results to global.
+    # window_patches=2 divides nh=2 and nw=4; context_patches=None gives
+    # every window the full latent grid as data, so the only difference
+    # from global is that queries are tiled into blocks.
     windowed = make_decoder_with_shared_weights(
-        full, window_patches=4, context_patches=0
+        full, window_patches=2, context_patches=None
     )
 
     with torch.no_grad():

@@ -358,17 +358,25 @@ class PerceiverConfig(BaseConfig):
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ModuleNotFoundError as e:
                 raise _flash_import_error() from e
-            perceiver: nn.Module = FlashPerceiver(
-                latent_rotary_emb_dim=max_freq,
-                depth=self.depth,
-                input_dim=in_channels,
-                output_dim=out_channels,
-                output_mode="average",
-                latent_dim=self.latent_dim,
-                num_latents=self.num_latents,
-                use_flash_attn=True,
-                weight_tie_layers=True,
-                self_per_cross_attn=2,
+            from einops.layers.torch import Rearrange
+
+            # Flash perceiver expects (batch, seq_len, dim); naive handles
+            # (batch, ph, pw, dim) natively via input_axis=2.  Bake the
+            # spatial-flatten into the module so callers don't need to care.
+            perceiver: nn.Module = nn.Sequential(
+                Rearrange("b ph pw v -> b (ph pw) v"),
+                FlashPerceiver(
+                    latent_rotary_emb_dim=max_freq,
+                    depth=self.depth,
+                    input_dim=in_channels,
+                    output_dim=out_channels,
+                    output_mode="average",
+                    latent_dim=self.latent_dim,
+                    num_latents=self.num_latents,
+                    use_flash_attn=True,
+                    weight_tie_layers=True,
+                    self_per_cross_attn=2,
+                ),
             )
         elif _use_naive(implementation):
             perceiver = NaivePerceiver(

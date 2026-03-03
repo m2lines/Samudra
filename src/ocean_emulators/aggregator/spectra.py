@@ -23,7 +23,7 @@ def precompute_spatial_temporal_means(
     prognostic_var_names: Iterable[str],
 ) -> dict[str, torch.Tensor]:
     """
-    Precompute mean fields over the full available time axis for spectra anomalies.
+    Precompute mean fields over the provided source time axis for spectra anomalies.
 
     This is intentionally scoped to the currently-used spatial spectra algorithm.
     Temporal trend/cycle precomputes are not needed until temporal PSD logging is added.
@@ -101,8 +101,10 @@ class SpectraLogger:
 
     @staticmethod
     def _deg_lon_to_km(delta_deg: float, lat_deg: float) -> float:
-        return abs(delta_deg) * _KM_PER_DEGREE * max(
-            abs(math.cos(math.radians(lat_deg))), 1e-6
+        return (
+            abs(delta_deg)
+            * _KM_PER_DEGREE
+            * max(abs(math.cos(math.radians(lat_deg))), 1e-6)
         )
 
     @staticmethod

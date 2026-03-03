@@ -32,10 +32,6 @@ from ocean_emulators.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
-from ocean_emulators.aggregator.spectra import (
-    SpectraLocation,
-    precompute_spatial_temporal_means,
-)
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig, TrainSchedule, build_loss_fn
 from ocean_emulators.constants import (
@@ -179,28 +175,11 @@ class Trainer:
             )
 
         self.primary_src = self.data_container.primary_source
-        self.lat, self.lon = self.primary_src.resolution
-        self.spectra_locations: list[SpectraLocation] = [
-            (
-                loc.name,
-                (float(loc.lon[0]), float(loc.lon[1])),
-                (float(loc.lat[0]), float(loc.lat[1])),
-            )
-            for loc in cfg.spectra_locations
-        ]
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
         self.inference_src = self.data_container.inference_source
-        self.spectra_temporal_means: dict[str, torch.Tensor] = (
-            precompute_spatial_temporal_means(
-                self.inference_src,
-                self.prognostic_var_names,
-            )
-            if self.spectra_locations
-            else {}
-        )
 
         self.loader_version = self.data_container.loader_version
 
@@ -638,10 +617,6 @@ class Trainer:
             self.primary_src.masks.prognostic.to(self.device),
             self.num_out,
             prognostic_var_names=self.prognostic_var_names,
-            spectra_locations=self.spectra_locations,
-            lat=self.lat,
-            lon=self.lon,
-            spectra_temporal_means=self.spectra_temporal_means,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -678,11 +653,6 @@ class Trainer:
                     self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.prognostic_var_names,
-                    spectra_locations=self.spectra_locations,
-                    lat=self.lat,
-                    lon=self.lon,
-                    prognostic_var_names=self.prognostic_var_names,
-                    spectra_temporal_means=self.spectra_temporal_means,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;

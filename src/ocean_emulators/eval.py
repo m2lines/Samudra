@@ -107,14 +107,7 @@ class Eval:
             )
             for loc in cfg.spectra_locations
         ]
-        self.spectra_temporal_means: dict[str, torch.Tensor] = (
-            precompute_spatial_temporal_means(
-                self.src,
-                self.prognostic_var_names,
-            )
-            if self.spectra_locations
-            else {}
-        )
+        self.spectra_temporal_means: dict[str, torch.Tensor] = {}
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)
@@ -182,6 +175,14 @@ class Eval:
 
     def init_inference_store(self):
         sliced_src = self.src.slice(self.inference_time)
+        self.spectra_temporal_means = (
+            precompute_spatial_temporal_means(
+                sliced_src,
+                self.prognostic_var_names,
+            )
+            if self.spectra_locations
+            else {}
+        )
         self.num_time_steps = get_inference_steps(
             sliced_src,
             hist=self.hist,

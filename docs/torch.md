@@ -133,12 +133,24 @@ tail -f slurm-<jobid>.out
 tail -f "${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log"
 ```
 
-## Batch-First Guidance On Torch
+## Interactive And Batch Checks On Torch
 
-In general, interactive allocations and TTY-driven `srun` sessions are flaky on Torch.
-For routine checks and probes, prefer short `sbatch` jobs and inspect their outputs.
+Interactive allocations and TTY-driven `srun` sessions are available on Torch.
+For quick probes, use a short interactive `srun` command. For reproducible checks
+with saved logs, prefer short `sbatch` jobs and inspect their outputs.
 
-Example hostname probe:
+Example interactive hostname probe:
+
+```bash
+srun \
+  --account=torch_pr_347_courant \
+  --nodes=1 \
+  --ntasks=1 \
+  --time=00:02:00 \
+  --pty bash -lc 'hostname'
+```
+
+Equivalent batch hostname probe:
 
 ```bash
 sbatch \

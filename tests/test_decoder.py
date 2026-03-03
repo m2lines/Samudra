@@ -1,3 +1,4 @@
+import pytest
 import torch
 from perceiver_pytorch.perceiver_io import PerceiverIO
 from test_encoder import make_resolution  # type: ignore
@@ -208,3 +209,102 @@ def test_full_context_matches_non_windowed():
     assert torch.allclose(y_full, y_windowed, atol=1e-5), (
         "Full-context windowed and non-windowed results should match."
     )
+
+
+def test_context_patches_affects_output():
+    """Different context_patches values should produce different outputs."""
+    H, W = 8, 16
+    resolution = (
+        torch.linspace(-90, 90, steps=H),
+        torch.linspace(0, 360, steps=W),
+    )
+
+    # nh=2, nw=4 latent grid with window_patches=1.
+    x = torch.randn(2, 12, 2, 4)
+    pio = make_decoder_perceiver_io(12, 24)
+
+    kwargs = dict(
+        in_channels=12,
+        out_channels=24,
+        patch_extent=(90, 90),
+        queries_dim=QUERIES_DIM,
+        perceiver_io=pio,
+    )
+
+    cp0 = PerceiverDecoder(**kwargs, window_patches=1, context_patches=0)
+    cp1 = PerceiverDecoder(**kwargs, window_patches=1, context_patches=1)
+
+    cp0.eval()
+    cp1.eval()
+    cp1.load_state_dict(cp0.state_dict())
+
+    with torch.no_grad():
+        y_cp0 = cp0(x, resolution)
+        y_cp1 = cp1(x, resolution)
+
+    # context_patches=0 sees only the local 1x1 patch per window,
+    # context_patches=1 sees a 3x3 neighborhood — different data means
+    # different cross-attention, so outputs must differ.
+    assert not torch.allclose(y_cp0, y_cp1, atol=1e-5), (
+        "context_patches=0 and context_patches=1 should produce different outputs."
+    )
+
+
+def test_more_context_closer_to_global():
+    """Increasing context_patches should converge toward the global result."""
+    H, W = 8, 16
+    resolution = (
+        torch.linspace(-90, 90, steps=H),
+        torch.linspace(0, 360, steps=W),
+    )
+
+    # nh=2, nw=4 latent grid with window_patches=1.
+    x = torch.randn(2, 12, 2, 4)
+    pio = make_decoder_perceiver_io(12, 24)
+
+    kwargs = dict(
+        in_channels=12,
+        out_channels=24,
+        patch_extent=(90, 90),
+        queries_dim=QUERIES_DIM,
+        perceiver_io=pio,
+    )
+
+    global_dec = PerceiverDecoder(**kwargs, window_patches=None, context_patches=None)
+    cp0 = PerceiverDecoder(**kwargs, window_patches=1, context_patches=0)
+    cp1 = PerceiverDecoder(**kwargs, window_patches=1, context_patches=1)
+
+    global_dec.eval()
+    cp0.eval()
+    cp1.eval()
+    cp0.load_state_dict(global_dec.state_dict())
+    cp1.load_state_dict(global_dec.state_dict())
+
+    with torch.no_grad():
+        y_global = global_dec(x, resolution)
+        y_cp0 = cp0(x, resolution)
+        y_cp1 = cp1(x, resolution)
+
+    err_cp0 = (y_global - y_cp0).abs().mean().item()
+    err_cp1 = (y_global - y_cp1).abs().mean().item()
+
+    # More context should bring the windowed result closer to global.
+    assert err_cp1 < err_cp0, (
+        f"context_patches=1 (err={err_cp1:.6f}) should be closer to global "
+        f"than context_patches=0 (err={err_cp0:.6f})."
+    )
+
+
+def test_context_patches_without_window_patches_raises():
+    """Setting context_patches without window_patches should raise."""
+
+    with pytest.raises(ValueError, match="window_patches must be set"):
+        PerceiverDecoder(
+            in_channels=12,
+            out_channels=24,
+            patch_extent=(90, 90),
+            queries_dim=QUERIES_DIM,
+            perceiver_io=make_decoder_perceiver_io(12, 24),
+            window_patches=None,
+            context_patches=1,
+        )

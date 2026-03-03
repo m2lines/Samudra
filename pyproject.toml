@@ -110,14 +110,21 @@ ini_options.markers = [
   "only_configs: used to mark tests that only run on specific configs (not used on command line)",
   "all_configs: used to mark tests that run on all configs (not used on command line)",
 ]
-ini_options.pythonpath = [ "src" ]
+ini_options.pythonpath = [ "src", "tests" ]
 ini_options.testpaths = [ "tests" ]
 ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --strict-markers"
 
 [tool.mypy]
 check_untyped_defs = true
 overrides = [
-  { module = [ "cftime.*", "scipy.*", "fsspec.*", "perceiver_pytorch.*", "aurora.*" ], follow_untyped_imports = true },
+  { module = [
+    "cftime.*",
+    "scipy.*",
+    "fsspec.*",
+    "perceiver_pytorch.*",
+    "aurora.*",
+    "flash_perceiver.*",
+  ], follow_untyped_imports = true },
 ]
 
 [tool.uv]

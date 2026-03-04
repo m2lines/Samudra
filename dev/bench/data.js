@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772668782766,
+  "lastUpdate": 1772668786742,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -16557,6 +16557,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.31169540400611706",
             "extra": "mean: 74.09548084079998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "940545897@qq.com",
+            "name": "Yuan Yuan",
+            "username": "YuanYuan98"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a154b09a413c414ffd18bdf63836a2509f91eb4c",
+          "message": "add demonstration GIF to README (#610)\n\nThis PR adds a dynamic demonstration GIF\n(`sst_tropical_pacific_fivedays.mp4`) to the `README.md` to provide a\nvisual representation of the Ocean Emulator's output.\n\nChanges\n- Uploaded `sst_tropical_pacific_fivedays.mp4` to the `docs/assets/`\ndirectory.\n- Updated `README.md` to include the GIF in the introductory/results\nsection.\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-03-04T23:33:23Z",
+          "tree_id": "8f4fafa16ecba2d5e2d0c6edf5bf187504c5053a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a154b09a413c414ffd18bdf63836a2509f91eb4c"
+        },
+        "date": 1772668786361,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1683556181422035,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0018368452492912581",
+            "extra": "mean: 855.9037885999942 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18806915907960156,
+            "unit": "iter/sec",
+            "range": "stddev: 0.042062456023079835",
+            "extra": "mean: 5.31719291400002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013084267598565492,
+            "unit": "iter/sec",
+            "range": "stddev: 0.30973120030024764",
+            "extra": "mean: 76.42766341080001 sec\nrounds: 5"
           }
         ]
       }

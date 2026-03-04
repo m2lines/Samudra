@@ -51,9 +51,12 @@ data:
   static_data_vars: []
   concurrent_compute: true
   sources:
-    - data_location: OM4.zarr
-      data_means_location: OM4_means.zarr
-      data_stds_location: OM4_stds.zarr
+    - data_location: om4_quarterdeg_v2/OM4.zarr
+      data_means_location: om4_quarterdeg_v2/OM4_means.zarr
+      data_stds_location: om4_quarterdeg_v2/OM4_stds.zarr
+    - data_location: om4_halfdeg_v4/OM4.zarr
+      data_means_location: om4_halfdeg_v4/OM4_means.zarr
+      data_stds_location: om4_halfdeg_v4/OM4_stds.zarr
     - data_location: om4_onedeg_v3/OM4.zarr
       data_means_location: om4_onedeg_v3/OM4_means.zarr
       data_stds_location: om4_onedeg_v3/OM4_stds.zarr

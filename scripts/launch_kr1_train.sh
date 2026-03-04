@@ -59,7 +59,7 @@ WANDB_MODE="${WANDB_MODE:-disabled}"
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # We just pass the W&B project and any batch size tweaks here.
-export ARGS="--batch_size=2"
+export ARGS="--batch_size=1"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"

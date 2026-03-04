@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772582430588,
+  "lastUpdate": 1772582431705,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -16377,6 +16377,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.20331797610476746",
             "extra": "mean: 76.84244291960003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bd429fc66ebab925b8a1c08466d746a15ecb87f4",
+          "message": "Fixes to get flash perceiver working. (#619)\n\nClosing #617 in favor of this PR, which has a cleaner history. This was\ntested on a small Flash Perceiver model config on an A10 GPU on AWS.",
+          "timestamp": "2026-03-03T15:34:40-08:00",
+          "tree_id": "358b035a14df20a402f7e9433cbf874697a6ae06",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/bd429fc66ebab925b8a1c08466d746a15ecb87f4"
+        },
+        "date": 1772582431363,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1602217034795765,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005834851578499118",
+            "extra": "mean: 861.9042351999951 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19136445030796925,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0481077191237129",
+            "extra": "mean: 5.2256309800000285 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013109573610662412,
+            "unit": "iter/sec",
+            "range": "stddev: 2.0723505885907305",
+            "extra": "mean: 76.28013158160002 sec\nrounds: 5"
           }
         ]
       }

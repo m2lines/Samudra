@@ -5,15 +5,15 @@ from ocean_emulators.constants import Lat, Lon
 from ocean_emulators.models.modules.encoder import PerceiverEncoder, patch_from
 
 
-def make_perceiver(in_channels, out_channels):
+def make_perceiver(in_channels, out_channels, *, num_latents=2, input_axis=2):
     return Perceiver(
         num_freq_bands=4,
         max_freq=1.0,
         depth=2,
-        input_axis=2,
+        input_axis=input_axis,
         input_channels=in_channels,
         latent_dim=3,
-        num_latents=2,
+        num_latents=num_latents,
         num_classes=out_channels,
         weight_tie_layers=True,
         self_per_cross_attn=2,

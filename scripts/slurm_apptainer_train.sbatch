@@ -32,6 +32,7 @@
 
 #SBATCH --job-name=oe-train
 #SBATCH --output=slurm-%j.out
+#SBATCH --open-mode=append
 #SBATCH --account=torch_pr_347_courant
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -40,6 +41,7 @@
 #SBATCH --mem=1400G
 #SBATCH --gres=gpu:rtx6000:8
 #SBATCH --time=8:00:00
+#SBATCH --signal=B:USR1@120
 
 set -euo pipefail
 
@@ -96,10 +98,21 @@ if [[ ! -d "${OUTPUT_BASE}" ]]; then
 fi
 
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
+# Track whether the user explicitly set PREEMPTIBLE before applying the default.
+PREEMPTIBLE_EXPLICIT="${PREEMPTIBLE+1}"  # non-empty if PREEMPTIBLE was set
+PREEMPTIBLE="${PREEMPTIBLE:-0}"
+if [[ "${PREEMPTIBLE}" == "1" ]]; then
+  # Enable auto-requeue so SLURM restarts the job after preemption or walltime.
+  scontrol update JobId="${SLURM_JOB_ID}" Requeue=1 2>/dev/null || true
+fi
 if [[ -e "${RUN_DIR}" ]]; then
-  echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
-  echo "Pick a unique NAME_SUFFIX." >&2
-  exit 4
+  if [[ "${PREEMPTIBLE}" == "1" ]]; then
+    echo "Output dir already exists (preemptible resume): ${RUN_DIR}"
+  else
+    echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
+    echo "Pick a unique NAME_SUFFIX, or set PREEMPTIBLE=1 to allow resume." >&2
+    exit 4
+  fi
 fi
 NSYS_OUTPUT_DIR="${RUN_DIR}/nsys"
 
@@ -151,14 +164,15 @@ if [[ -n "${GHCR_TOKEN:-}" ]] && [[ -z "${APPTAINER_DOCKER_PASSWORD:-}" ]]; then
   export APPTAINER_DOCKER_PASSWORD="${GHCR_TOKEN}"
 fi
 
-echo "Repo dir:   ${REPO_DIR}"
-echo "Config:     ${CONFIG_IN_CONTAINER}"
-echo "Name:       ${NAME}"
-echo "Data root:  ${DATA_ROOT}"
-echo "Outputs:    ${OUTPUT_BASE}"
-echo "W&B mode:   ${WANDB_MODE}"
-echo "Image ref:  ${IMAGE_REF}"
-echo "SIF path:   ${SIF_PATH}"
+echo "Repo dir:    ${REPO_DIR}"
+echo "Config:      ${CONFIG_IN_CONTAINER}"
+echo "Name:        ${NAME}"
+echo "Data root:   ${DATA_ROOT}"
+echo "Outputs:     ${OUTPUT_BASE}"
+echo "W&B mode:    ${WANDB_MODE}"
+echo "Preemptible: ${PREEMPTIBLE}"
+echo "Image ref:   ${IMAGE_REF}"
+echo "SIF path:    ${SIF_PATH}"
 if [[ -n "${NSYS_ARGS}" ]]; then
   echo "NSYS args:  ${NSYS_ARGS}"
   echo "NSYS out:   ${NSYS_OUTPUT_DIR}"
@@ -281,6 +295,16 @@ if [[ "${MOUNT_SOURCE:-1}" != "0" ]]; then
 fi
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
+# If the user explicitly set PREEMPTIBLE, override the config's preemptible flag.
+# If unset, the YAML config default is used.
+if [[ -n "${PREEMPTIBLE_EXPLICIT}" ]]; then
+  PREEMPTIBLE_FLAG=$([ "${PREEMPTIBLE}" = "1" ] && echo true || echo false)
+  ARGS="${ARGS} --preemptible=${PREEMPTIBLE_FLAG}"
+fi
+
+# Create the run directory after preflight validation so early failures are
+# retryable with the same NAME.
+mkdir -p "${RUN_DIR}"
 # ── Optional periodic py-spy dump watchdog ──
 # Set PYSPY_WATCHDOG=1 to enable periodic stack dumps of all training processes
 # (including DataLoader workers).  Dumps land in ${RUN_DIR}/pyspy_dumps.log.

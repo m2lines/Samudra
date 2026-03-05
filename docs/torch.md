@@ -69,10 +69,14 @@ It expects environment variables:
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)
+- `PREEMPTIBLE` (optional): set to `1` to enable preemptible training (allows
+  reuse of existing output directory and enables auto-requeue; default: `0`).
+  See [Preemptible Training](#preemptible-training) below.
 
 Key behavior:
 
-- Refuses to run if `${OUTPUT_BASE}/$NAME` already exists (forces unique run names).
+- Refuses to run if `${OUTPUT_BASE}/$NAME` already exists (forces unique run
+  names), unless `PREEMPTIBLE=1` is set to allow resume into an existing directory.
 - Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
   instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
@@ -150,6 +154,57 @@ squeue -j <jobid> -o '%.18i %.2t %.10M %R'
 tail -f slurm-<jobid>.out
 tail -f "${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log"
 ```
+
+## Preemptible Training
+
+Training jobs on Torch can be preempted by SLURM (higher-priority jobs or
+walltime limits). The sbatch harness and training code support automatic
+checkpointing and requeuing so that preempted jobs resume from the last
+completed epoch.
+
+### How it works
+
+1. **Signal handling:** The `Trainer` registers handlers for `SIGUSR1` and
+   `SIGTERM`. SLURM sends `USR1` 120 seconds before walltime (via
+   `--signal=B:USR1@120`) and `SIGTERM` on preemption.
+2. **Graceful exit:** When a signal is received, the trainer sets a flag and
+   continues the current epoch. After the epoch's checkpoint is saved, it calls
+   `finish()` and exits with code 0.
+3. **Auto-requeue:** When `PREEMPTIBLE=1` is set, the script enables SLURM
+   auto-requeue so the job is automatically resubmitted after preemption or
+   walltime exit.
+4. **Resume:** On restart, `preemptible=True` (the default in our Python config)
+   detects an existing `latest_ckpt.pt` in the output directory and resumes
+   from it. The sbatch script allows the output directory to already exist
+   when `PREEMPTIBLE=1`.
+
+### Submitting a preemptible job
+
+Set `PREEMPTIBLE=1` to opt in. This relaxes the output-dir uniqueness check
+(so requeued jobs can resume) and enables auto-requeue:
+
+```bash
+export CONFIG=configs/samudra_om4/train.yaml
+export NAME_SUFFIX=om4_samudra_baseline
+export PREEMPTIBLE=1
+export CONTAINER_HASH=<git_sha>
+
+sbatch \
+  --account=torch_pr_347_courant \
+  --nodes=1 --ntasks-per-node=1 \
+  --cpus-per-task=128 --mem=1400G \
+  --gres=gpu:rtx6000:8 \
+  --time=24:00:00 \
+  scripts/slurm_apptainer_train.sbatch
+```
+
+Without `PREEMPTIBLE=1`, the script behaves as before (refuses to run if the
+output directory already exists, no auto-requeue).
+
+### Log files
+
+`--open-mode=append` ensures that requeued jobs append to the same
+`slurm-<jobid>.out` file, so you get a continuous log across preemptions.
 
 ## Interactive And Batch Checks On Torch
 

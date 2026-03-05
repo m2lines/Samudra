@@ -8,6 +8,8 @@ import itertools
 import logging
 import multiprocessing
 import os
+import signal
+import sys
 import tempfile
 import time
 import warnings
@@ -382,6 +384,30 @@ class Trainer:
         self.val_loader: TrainDataLoader
         self.inference_loader: DataLoader[TrainData]
 
+        # Preemption support
+        self._preempt_requested = False
+        if is_main_process():
+            self._register_signal_handlers()
+
+    def _register_signal_handlers(self) -> None:
+        """Register handlers for SIGTERM and SIGUSR1 to support graceful preemption.
+
+        SLURM sends SIGUSR1 before walltime (via --signal=B:USR1@N) and SIGTERM
+        on preemption.  The handler just sets a flag; the epoch loop checks it
+        after each checkpoint save and exits cleanly so SLURM can requeue.
+        """
+
+        def _handler(signum: int, frame: Any) -> None:
+            sig_name = signal.Signals(signum).name
+            logger.warning(
+                f"Received {sig_name} — preemption requested. "
+                "Will exit after current epoch checkpoint."
+            )
+            self._preempt_requested = True
+
+        signal.signal(signal.SIGUSR1, _handler)
+        signal.signal(signal.SIGTERM, _handler)
+
     def init_inference_stores(self):
         # Determine number of processes based on device
         if using_gpu():
@@ -500,6 +526,17 @@ class Trainer:
 
             if is_main_process():
                 self.wandb_logger.log(log_stats, step=self.num_batches_seen)
+
+            if self._preempt_requested:
+                logger.info(
+                    "Preemption requested — exiting cleanly after epoch "
+                    f"{epoch} checkpoint."
+                )
+                total_time = time.perf_counter() - start_time
+                total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+                logger.info(f"Training time {total_time_str}")
+                self.finish()
+                sys.exit(0)
 
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))

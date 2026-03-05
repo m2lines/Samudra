@@ -529,17 +529,6 @@ class Trainer:
             if is_main_process():
                 self.wandb_logger.log(log_stats, step=self.num_batches_seen)
 
-            if self._preempt_requested:
-                logger.info(
-                    "Preemption requested — exiting cleanly after epoch "
-                    f"{epoch} checkpoint."
-                )
-                total_time = time.perf_counter() - start_time
-                total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-                logger.info(f"Training time {total_time_str}")
-                self.finish()
-                sys.exit(0)
-
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Training time {total_time_str}")

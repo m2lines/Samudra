@@ -302,6 +302,12 @@ mkdir -p "${RUN_DIR}"
 _srun_pid=""
 trap '[[ -n "${_srun_pid}" ]] && kill -USR1 "${_srun_pid}" 2>/dev/null' USR1
 
+# Forward USR1 from the batch shell to srun's process group.
+# --signal=B:USR1@120 sends USR1 to the batch shell 120s before walltime.
+# This trap relays it to srun, which forwards it to all tasks (torchrun → Python).
+_srun_pid=""
+trap '[[ -n "${_srun_pid}" ]] && kill -USR1 "${_srun_pid}" 2>/dev/null' USR1
+
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
     --bind "${BIND_ARG}" \

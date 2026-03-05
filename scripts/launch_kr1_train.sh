@@ -59,6 +59,12 @@ WANDB_MODE="${WANDB_MODE:-disabled}"
 # ─ Use preemptable resources, make the job resumable. ──
 export PREEMPTIBLE=1
 
+# ── NCCL workarounds for RTX6000 nodes ──
+# P2P and IB cause hangs/segfaults on gr102; disable them.
+export NCCL_P2P_DISABLE=1
+export NCCL_IB_DISABLE=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # We just pass the W&B project and any batch size tweaks here.
@@ -77,7 +83,8 @@ echo ""
 
 # ── Submit ──
 # 8x RTX6000, full node on torch.
-# Time: 72 hours for a long training run (70 epochs x 3 scales).
+# Time: 48h max (QOS limits >48h to 4 GPUs). With PREEMPTIBLE=1 the job
+# auto-requeues after walltime / preemption and resumes from checkpoint.
 sbatch \
   --account=torch_pr_347_courant \
   --nodes=1 \
@@ -85,6 +92,6 @@ sbatch \
   --cpus-per-task=128 \
   --mem=1400G \
   --gres=gpu:rtx6000:8 \
-  --time=72:00:00 \
+  --time=48:00:00 \
   --job-name=kr1-fomo \
   scripts/slurm_apptainer_train.sbatch

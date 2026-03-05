@@ -56,6 +56,9 @@ export OUTPUT_BASE="${OUTPUT_BASE:-/scratch/${USER}/runs}"
 export WANDB_MODE="${WANDB_MODE:-${WANDB_API_KEY:+online}}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
 
+# ─ Use preemptable resources, make the job resumable. ──
+export PREEMPTIBLE=1
+
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # We just pass the W&B project and any batch size tweaks here.
@@ -69,6 +72,7 @@ echo "Output base:    ${OUTPUT_BASE}"
 echo "W&B mode:       ${WANDB_MODE}"
 echo "Container:      ${IMAGE_REF:-${CONTAINER_TAG:-25.11-${CONTAINER_HASH:-???}}}"
 echo "ARGS:           ${ARGS}"
+echo "PREEMPTIBLE:    ${PREEMPTIBLE}"
 echo ""
 
 # ── Submit ──

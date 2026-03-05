@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772678254520,
+  "lastUpdate": 1772678258303,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -16647,6 +16647,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.30973120030024764",
             "extra": "mean: 76.42766341080001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "940545897@qq.com",
+            "name": "Yuan Yuan",
+            "username": "YuanYuan98"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e6fb26b364285699791a2b2b4a08ad51c39c34c8",
+          "message": "fix-video-path (#625)\n\nI identified an issue where the Sea Surface Temperature (SST) comparison video failed to render in the README preview. This was caused by the use of a relative path that GitHub's renderer couldn't resolve.",
+          "timestamp": "2026-03-04T21:11:37-05:00",
+          "tree_id": "e87ac2f3cd2e1fd7551dae543afa27f86429340b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e6fb26b364285699791a2b2b4a08ad51c39c34c8"
+        },
+        "date": 1772678257948,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1835436783456386,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00151153658526415",
+            "extra": "mean: 844.9202325999522 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1940943487792583,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022551742085559618",
+            "extra": "mean: 5.152133518000005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013353562788609564,
+            "unit": "iter/sec",
+            "range": "stddev: 0.39891042173630825",
+            "extra": "mean: 74.88638169679993 sec\nrounds: 5"
           }
         ]
       }

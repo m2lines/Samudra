@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772679684842,
+  "lastUpdate": 1772679687421,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -16737,6 +16737,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.39891042173630825",
             "extra": "mean: 74.88638169679993 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b41aadceb5ac4b27267324090698c8a1984ec761",
+          "message": "Adding small gif to README, compressed with `gifsicle` (#624)\n\nI first used ffmpeg to convert the MP4 to a (large) gif. Then, I used\ngifsicle with the arguments `gifsicle -O3 --lossy=30 --resize-width 800`\nto produce this ~9 MB gif of the figure.",
+          "timestamp": "2026-03-04T18:34:41-08:00",
+          "tree_id": "9db5c91d2452d115a0f309804004ed04e9b2b7ca",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/b41aadceb5ac4b27267324090698c8a1984ec761"
+        },
+        "date": 1772679687092,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1632461989157692,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002121653318286489",
+            "extra": "mean: 859.6632431999979 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18985716073349593,
+            "unit": "iter/sec",
+            "range": "stddev: 0.036045674454630514",
+            "extra": "mean: 5.2671176380000135 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012647083150283862,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2508555287155243",
+            "extra": "mean: 79.06961535060005 sec\nrounds: 5"
           }
         ]
       }

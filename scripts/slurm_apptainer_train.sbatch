@@ -21,6 +21,10 @@
 #   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
 #   export CONTAINER_TAG=25.11-latest
 #
+# Preemptible training (auto-requeue on preemption/walltime):
+#   export PREEMPTIBLE=1
+#   sbatch --comment="preemption=yes;requeue=true" ... scripts/slurm_apptainer_train.sbatch
+#
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
 #   export GHCR_TOKEN=...
@@ -104,8 +108,13 @@ PREEMPTIBLE="${PREEMPTIBLE:-0}"
 if [[ "${PREEMPTIBLE}" == "1" ]]; then
   # On Torch, preemption and auto-requeue are controlled via the job comment.
   # See: https://sites.google.com/nyu.edu/nyu-hpc/hpc-systems/torch/torch-new-user-guide
-  scontrol update JobId="${SLURM_JOB_ID}" \
-    Comment="preemption=yes;requeue=true" 2>/dev/null || true
+  #
+  # The comment is set at submission time via `sbatch --comment=...` (see launch scripts).
+  # As a fallback, try scontrol from the running job in case it was missed.
+  if [[ -n "${SLURM_JOB_ID:-}" ]]; then
+    scontrol update JobId="${SLURM_JOB_ID}" \
+      Comment="preemption=yes;requeue=true" 2>/dev/null || true
+  fi
 fi
 if [[ -e "${RUN_DIR}" ]]; then
   if [[ "${PREEMPTIBLE}" == "1" ]]; then
@@ -302,6 +311,11 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 if [[ -n "${PREEMPTIBLE_EXPLICIT}" ]]; then
   PREEMPTIBLE_FLAG=$([ "${PREEMPTIBLE}" = "1" ] && echo true || echo false)
   ARGS="${ARGS} --preemptible=${PREEMPTIBLE_FLAG}"
+  if [[ "${PREEMPTIBLE}" == "1" ]]; then
+    # Default to checkpointing every 250 batches unless already set.
+    CHECKPOINT_BATCH_INTERVAL="${CHECKPOINT_BATCH_INTERVAL:-250}"
+    ARGS="${ARGS} --checkpoint_batch_interval=${CHECKPOINT_BATCH_INTERVAL}"
+  fi
 fi
 
 # Create the run directory after preflight validation so early failures are
@@ -353,6 +367,12 @@ fi
 
 export OE_NSYS_ARGS="${NSYS_ARGS}"
 export OE_NSYS_OUTPUT_DIR="${NSYS_OUTPUT_DIR}"
+
+# Forward USR1 from the batch shell to srun's process group.
+# --signal=B:USR1@120 sends USR1 to the batch shell 120s before walltime.
+# This trap relays it to srun, which forwards it to all tasks (torchrun → Python).
+_srun_pid=""
+trap '[[ -n "${_srun_pid}" ]] && kill -USR1 "${_srun_pid}" 2>/dev/null' USR1
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
@@ -604,4 +624,9 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
       fi
 
       exit \${TORCHRUN_EXIT}
-    "
+    " &
+_srun_pid=$!
+# Wait for srun; re-wait if interrupted by the USR1 trap.
+wait "${_srun_pid}" || true
+wait "${_srun_pid}" 2>/dev/null
+exit $?

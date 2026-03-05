@@ -386,22 +386,24 @@ class Trainer:
 
         # Preemption support
         self._preempt_requested = False
-        if is_main_process():
+        self._preemptible = cfg.preemptible
+        self._checkpoint_batch_interval = cfg.checkpoint_batch_interval
+        if self._preemptible:
             self._register_signal_handlers()
 
     def _register_signal_handlers(self) -> None:
         """Register handlers for SIGTERM and SIGUSR1 to support graceful preemption.
 
         SLURM sends SIGUSR1 before walltime (via --signal=B:USR1@N) and SIGTERM
-        on preemption.  The handler just sets a flag; the epoch loop checks it
-        after each checkpoint save and exits cleanly so SLURM can requeue.
+        on preemption.  The handler sets a flag; the training loop checks it
+        every batch and saves a checkpoint before exiting.
         """
 
         def _handler(signum: int, frame: Any) -> None:
             sig_name = signal.Signals(signum).name
             logger.warning(
                 f"Received {sig_name} — preemption requested. "
-                "Will exit after current epoch checkpoint."
+                "Will save checkpoint and exit."
             )
             self._preempt_requested = True
 
@@ -526,17 +528,6 @@ class Trainer:
 
             if is_main_process():
                 self.wandb_logger.log(log_stats, step=self.num_batches_seen)
-
-            if self._preempt_requested:
-                logger.info(
-                    "Preemption requested — exiting cleanly after epoch "
-                    f"{epoch} checkpoint."
-                )
-                total_time = time.perf_counter() - start_time
-                total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-                logger.info(f"Training time {total_time_str}")
-                self.finish()
-                sys.exit(0)
 
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -720,6 +711,37 @@ class Trainer:
             self._maybe_update_loss(TO, data)
 
             self.profiler.after_batch(self.num_batches_seen)
+
+            # Intra-epoch checkpoint: save periodically or on preemption signal.
+            if self._preempt_requested:
+                logger.warning(
+                    f"Preemption signal received at batch {data_iter_step + 1}/{total_batches} "
+                    f"of epoch {epoch}. Saving checkpoint and exiting."
+                )
+                if is_main_process():
+                    self.save_checkpoint(
+                        epoch,
+                        self.ckpt_paths.latest_checkpoint_path,
+                        mid_epoch=True,
+                    )
+                self.finish()
+                # Exit with special code so SLURM knows to requeue.
+                sys.exit(143)  # 128 + 15 (SIGTERM)
+
+            if (
+                self._checkpoint_batch_interval > 0
+                and (data_iter_step + 1) % self._checkpoint_batch_interval == 0
+                and is_main_process()
+            ):
+                logger.info(
+                    f"Intra-epoch checkpoint at batch {data_iter_step + 1}/{total_batches} "
+                    f"of epoch {epoch}."
+                )
+                self.save_checkpoint(
+                    epoch,
+                    self.ckpt_paths.latest_checkpoint_path,
+                    mid_epoch=True,
+                )
 
         if self.scheduler is not None:
             self.scheduler.step()
@@ -1145,6 +1167,7 @@ class Trainer:
         epoch: int,
         checkpoint_path: Path,
         for_inference: bool = False,
+        mid_epoch: bool = False,
     ):
         if for_inference:
             with self._ema_context():
@@ -1160,6 +1183,7 @@ class Trainer:
                 "model": model_state_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "epoch": epoch,
+                "mid_epoch": mid_epoch,
                 "best_val_loss": self.best_val_loss,
                 "best_inf_loss": self.best_inf_loss,
                 "ema": self._ema.get_state(include_ema_params=not for_inference),
@@ -1217,7 +1241,15 @@ class Trainer:
                 )
                 load_state_dict_fn(checkpoint["loss_fn_state"])
 
-            self.start_epoch = checkpoint["epoch"] + 1
+            mid_epoch = checkpoint.get("mid_epoch", False)
+            if mid_epoch:
+                # Mid-epoch checkpoint: restart the same epoch.
+                self.start_epoch = checkpoint["epoch"]
+                logger.info(
+                    f"Resuming from mid-epoch checkpoint (epoch {self.start_epoch})."
+                )
+            else:
+                self.start_epoch = checkpoint["epoch"] + 1
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)

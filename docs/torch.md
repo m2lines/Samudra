@@ -170,9 +170,9 @@ completed epoch.
 2. **Graceful exit:** When a signal is received, the trainer sets a flag and
    continues the current epoch. After the epoch's checkpoint is saved, it calls
    `finish()` and exits with code 0.
-3. **Auto-requeue:** When `PREEMPTIBLE=1` is set, the script enables SLURM
-   auto-requeue so the job is automatically resubmitted after preemption or
-   walltime exit.
+3. **Auto-requeue:** When `PREEMPTIBLE=1` is set, the script updates the job's
+   SLURM comment to `preemption=yes;requeue=true` (the Torch cluster's
+   mechanism for opting into preemption partitions and auto-requeue).
 4. **Resume:** On restart, `preemptible=True` (the default in our Python config)
    detects an existing `latest_ckpt.pt` in the output directory and resumes
    from it. The sbatch script allows the output directory to already exist

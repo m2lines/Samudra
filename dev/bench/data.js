@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772678258303,
+  "lastUpdate": 1772679684842,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8319,6 +8319,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5435272260464888",
             "extra": "mean: 87.58226290219999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b41aadceb5ac4b27267324090698c8a1984ec761",
+          "message": "Adding small gif to README, compressed with `gifsicle` (#624)\n\nI first used ffmpeg to convert the MP4 to a (large) gif. Then, I used\ngifsicle with the arguments `gifsicle -O3 --lossy=30 --resize-width 800`\nto produce this ~9 MB gif of the figure.",
+          "timestamp": "2026-03-04T18:34:41-08:00",
+          "tree_id": "9db5c91d2452d115a0f309804004ed04e9b2b7ca",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/b41aadceb5ac4b27267324090698c8a1984ec761"
+        },
+        "date": 1772679684188,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1739064555764709,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009778837328741133",
+            "extra": "mean: 851.8566324000062 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1859304649771183,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03145152834851806",
+            "extra": "mean: 5.37835475280001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010803449565479177,
+            "unit": "iter/sec",
+            "range": "stddev: 0.437803790599011",
+            "extra": "mean: 92.5630275718 sec\nrounds: 5"
           }
         ]
       }

@@ -91,8 +91,10 @@ RUN_DIR="${OUTPUT_BASE}/${NAME}"
 PREEMPTIBLE_EXPLICIT="${PREEMPTIBLE+1}"  # non-empty if PREEMPTIBLE was set
 PREEMPTIBLE="${PREEMPTIBLE:-0}"
 if [[ "${PREEMPTIBLE}" == "1" ]]; then
-  # Enable auto-requeue so SLURM restarts the job after preemption or walltime.
-  scontrol update JobId="${SLURM_JOB_ID}" Requeue=1 2>/dev/null || true
+  # On Torch, preemption and auto-requeue are controlled via the job comment.
+  # See: https://sites.google.com/nyu.edu/nyu-hpc/hpc-systems/torch/torch-new-user-guide
+  scontrol update JobId="${SLURM_JOB_ID}" \
+    Comment="preemption=yes;requeue=true" 2>/dev/null || true
 fi
 if [[ -e "${RUN_DIR}" ]]; then
   if [[ "${PREEMPTIBLE}" == "1" ]]; then

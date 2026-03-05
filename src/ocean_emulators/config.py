@@ -970,6 +970,7 @@ class TrainConfig(TopLevelConfig):
     save_freq: int = 5
     epochs: int = 120
     preemptible: bool = True
+    checkpoint_batch_interval: int = 0  # Save checkpoint every N batches (0 = disabled)
     batch_size: int = 2
     learning_rate: float = 2e-4
     gradient_accumulation_steps: int = 1

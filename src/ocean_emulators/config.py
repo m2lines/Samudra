@@ -1115,6 +1115,7 @@ class TrainConfig(TopLevelConfig):
     )
     epochs: int = 120
     preemptible: bool = True
+    checkpoint_batch_interval: int = 0  # Save checkpoint every N batches (0 = disabled)
     batch_size: int = 2
     # Optional per-scale override for multi-scale runs. When set, must have
     # the same length as data.sources; the i-th value is used as the batch

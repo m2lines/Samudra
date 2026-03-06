@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772822273539,
+  "lastUpdate": 1772822276482,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -17007,6 +17007,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0748506837514776",
             "extra": "mean: 78.17454157460006 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff1800f4366b15f54b3f4053874920aecfddcd9d",
+          "message": "Add FOMini single-PerceiverIO model variant (#627)\n\n## Summary\n- add a new `FOMini` model that replaces FOMO's\nencoder/processor/decoder stack with a single PerceiverIO over pixel\ntokens\n- use learned embeddings of 3D Cartesian coordinates for both data-token\nposition and output queries (no raw coordinate concat path)\n- add `FOMiniConfig` and include it in `AnyModelConfig`\n- add OM4 config files under `configs/fomini_om4/` and a small test\nconfig `configs/test/train_fomini.yaml`\n- add `tests/test_fomini.py` for output-shape, query-chunk equivalence,\nand invalid chunk-size coverage\n\n## Validation\n- `UV_CACHE_DIR=/tmp/uv-cache uv run python -m pytest\ntests/test_fomini.py tests/test_decoder.py tests/test_encoder.py`\n- `UV_CACHE_DIR=/tmp/uv-cache uv run python -c \"from\nocean_emulators.config import TrainConfig;\nTrainConfig.from_yaml_and_cli(['configs/test/train_fomini.yaml']);\nTrainConfig.from_yaml_and_cli(['configs/fomini_om4/train.yaml']);\nprint('ok')\"`\n- pre-commit hooks on commit (`ruff`, `ruff-format`, `mypy`, schema\nvalidation, secrets) passed\n\nSlack conversation:\nhttps://openathena.slack.com/archives/C0AAEE8RGTV/p1772478293349509?thread_ts=1772478293.349509&cid=C0AAEE8RGTV\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-03-06T18:10:40Z",
+          "tree_id": "5ae2c1a5c6f2c5a466489ff502081824e0fd3ec2",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/ff1800f4366b15f54b3f4053874920aecfddcd9d"
+        },
+        "date": 1772822276175,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.166147372884126,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002688534560491714",
+            "extra": "mean: 857.5245490000043 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18619671339542782,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03372364301899838",
+            "extra": "mean: 5.3706640775999634 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.012403063609507915,
+            "unit": "iter/sec",
+            "range": "stddev: 0.35736104011010256",
+            "extra": "mean: 80.62524159220001 sec\nrounds: 5"
           }
         ]
       }

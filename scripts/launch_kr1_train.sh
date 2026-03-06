@@ -68,7 +68,7 @@ export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # We just pass the W&B project and any batch size tweaks here.
-export ARGS="--batch_size=1"
+export ARGS="--batch_size=1 --checkpoint_batch_interval=100"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"

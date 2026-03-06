@@ -1,22 +1,34 @@
 import pytest
 import torch
 import torch.nn as nn
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from ocean_emulators.models.modules.blocks import ConvNeXtBlock, PointwiseLinear
 
 
-def test_pointwise_linear_equivalent_to_conv1x1():
+@given(
+    in_ch=st.integers(min_value=1, max_value=64),
+    out_ch=st.integers(min_value=1, max_value=64),
+    batch=st.integers(min_value=1, max_value=4),
+    height=st.integers(min_value=1, max_value=16),
+    width=st.integers(min_value=1, max_value=16),
+)
+@settings(max_examples=20)
+def test_pointwise_linear_equivalent_to_conv1x1(
+    in_ch: int, out_ch: int, batch: int, height: int, width: int
+):
     """PointwiseLinear produces the same output as Conv2d(kernel_size=1)
-    when initialized with the same weights."""
-    pw = PointwiseLinear(16, 32)
-    conv = nn.Conv2d(16, 32, kernel_size=1)
+    for arbitrary channel counts and spatial dimensions."""
+    pw = PointwiseLinear(in_ch, out_ch)
+    conv = nn.Conv2d(in_ch, out_ch, kernel_size=1)
 
     with torch.no_grad():
         conv.weight.copy_(pw.linear.weight.unsqueeze(-1).unsqueeze(-1))
         assert conv.bias is not None and pw.linear.bias is not None
         conv.bias.copy_(pw.linear.bias)
 
-    x = torch.randn(2, 16, 8, 10)
+    x = torch.randn(batch, in_ch, height, width)
     torch.testing.assert_close(pw(x), conv(x))
 
 

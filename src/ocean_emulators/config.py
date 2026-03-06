@@ -19,7 +19,7 @@ from ocean_emulators.constants import (
     LoaderVersion,
     PrognosticVarNames,
 )
-from ocean_emulators.models import FOMO, Samudra
+from ocean_emulators.models import FOMO, FOMini, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
     AvgPool,
@@ -765,7 +765,81 @@ class FOMOConfig(BaseModelConfig):
         )
 
 
-AnyModelConfig = SamudraConfig | FOMOConfig
+class FOMiniConfig(BaseModelConfig):
+    perceiver: PerceiverConfig = PerceiverConfig()
+    perceiver_implementation: PerceiverImpl = Field(
+        default="auto",
+        description="Perceiver attention implementation for the single PerceiverIO model. "
+        "'auto' selects flash attention when CUDA is available, otherwise naive.",
+    )
+    embedding_dim: int = Field(
+        default=128,
+        description="Dimension of data-token embeddings before PerceiverIO.",
+    )
+    queries_dim: int = Field(
+        default=128,
+        description="Dimension of PerceiverIO output queries.",
+    )
+    coordinate_embedding_dim: int = Field(
+        default=64,
+        description="Hidden dimension used by learned 3D Cartesian coordinate embeddings.",
+    )
+    query_chunk_size: int | None = Field(
+        default=None,
+        description="Optional chunk size for query decoding. If set, PerceiverIO is called "
+        "over query chunks to reduce memory use.",
+    )
+    use_bfloat16: bool = Field(
+        default=True,
+        description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
+    )
+
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hist: int,
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[DataSource],
+    ) -> FOMini:
+        if self.add_3d_coordinates:
+            raise ValueError(
+                "FOMini always uses learned Cartesian coordinate embeddings. "
+                "Please set `add_3d_coordinates=False`."
+            )
+
+        impl = self.perceiver_implementation
+        if _use_flash(impl) and not self.use_bfloat16:
+            raise ValueError(
+                "Perceiver implementation resolves to flash attention. "
+                "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
+            )
+
+        perceiver_io = self.perceiver.build_io(
+            self.embedding_dim,
+            self.queries_dim,
+            out_channels,
+            impl,
+        )
+        return FOMini(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            pred_residuals=self.pred_residuals,
+            last_kernel_size=self.last_kernel_size,
+            pad=self.pad,
+            input_embedding_dim=self.embedding_dim,
+            coordinate_embedding_dim=self.coordinate_embedding_dim,
+            queries_dim=self.queries_dim,
+            query_chunk_size=self.query_chunk_size,
+            perceiver_io=perceiver_io,
+            hist=hist,
+            checkpointing=self.checkpointing,
+            gradient_detach_interval=self.gradient_detach_interval,
+            use_bfloat16=self.use_bfloat16,
+        )
+
+
+AnyModelConfig = SamudraConfig | FOMOConfig | FOMiniConfig
 
 
 class DistributedConfig(BaseConfig):

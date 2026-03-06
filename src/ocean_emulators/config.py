@@ -251,7 +251,7 @@ class BlockConfig(BaseConfig):
     activation: ActivationType = "capped_gelu"
     upscale_factor: int = 4
     norm: NormType = "batch"
-    pointwise_linear: bool = True
+    pointwise_linear: bool = False
 
     def build(self) -> CoreBlockBuilder:
         match self.activation:

@@ -239,7 +239,7 @@ class ConvNeXtBlock(CoreBlock):
         upscale_factor: int = 4,
         norm="batch",
         checkpoint_simple: bool = False,
-        pointwise_linear: bool = True,
+        pointwise_linear: bool = False,
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
         assert n_layers == 1, "Can only use a single layer here!"

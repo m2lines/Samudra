@@ -35,6 +35,7 @@ processor:
     activation: "capped_gelu"
     upscale_factor: 2
     norm: "batch"
+    pointwise_linear: true
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "zonally_periodic_upsample"

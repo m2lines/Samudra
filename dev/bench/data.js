@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772679687421,
+  "lastUpdate": 1772809561227,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8364,6 +8364,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.437803790599011",
             "extra": "mean: 92.5630275718 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34085119+amogh-gulati@users.noreply.github.com",
+            "name": "Amogh Gulati",
+            "username": "amogh-gulati"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9f84542ca193017dd7bf0bbb321517788998908b",
+          "message": "Remove extra forward pass from dynamic MSE loss (#592)\n\nResolved this issue #443\n\nEliminates the redundant second model forward pass that was used solely\nto update DynamicLoss channel scales. Instead, we reuse the per-channel\nloss already computed during the training rollout.\n\nThis should introduce a delayed estimate (if i interpret it correctly)\n\nWe are also using the error from the end of the 4-step rollout rather\nthan after a single step.\n\n---------\n\nCo-authored-by: Amogh Gulati <ag11542@gl058.hpc.nyu.edu>\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-03-06T09:37:58-05:00",
+          "tree_id": "6bc3728431743fd406c58f38bafddd5dce9c5a3a",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/9f84542ca193017dd7bf0bbb321517788998908b"
+        },
+        "date": 1772809560404,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1679843467784403,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00042821137918143377",
+            "extra": "mean: 856.1758577999967 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18412379126098674,
+            "unit": "iter/sec",
+            "range": "stddev: 0.062397596330937",
+            "extra": "mean: 5.431128661599996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.010342829379332391,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19792958749869213",
+            "extra": "mean: 96.6853424072 sec\nrounds: 5"
           }
         ]
       }

@@ -4,6 +4,7 @@ from typing import Protocol
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
+from jaxtyping import Float
 
 from ocean_emulators.models.modules.activations import CappedGELU
 
@@ -24,8 +25,9 @@ class PointwiseLinear(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(in_channels, out_channels)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: [B, C_in, H, W] -> permute to [B, H, W, C_in] -> linear -> permute back
+    def forward(
+        self, x: Float[torch.Tensor, "B C_in H W"]
+    ) -> Float[torch.Tensor, "B C_out H W"]:
         return self.linear(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
 
 

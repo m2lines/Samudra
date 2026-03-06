@@ -59,6 +59,9 @@ WANDB_MODE="${WANDB_MODE:-disabled}"
 # ─ Use preemptable resources, make the job resumable. ──
 export PREEMPTIBLE=1
 
+# ─ Checkpoint every 100 batches, not 250. ──
+export CHECKPOINT_BATCH_INTERVAL=100
+
 # ── NCCL workarounds for RTX6000 nodes ──
 # P2P and IB cause hangs/segfaults on gr102; disable them.
 export NCCL_P2P_DISABLE=1
@@ -68,7 +71,7 @@ export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # We just pass the W&B project and any batch size tweaks here.
-export ARGS="--batch_size=1 --checkpoint_batch_interval=100"
+export ARGS="--batch_size=1"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"
@@ -79,6 +82,7 @@ echo "W&B mode:       ${WANDB_MODE}"
 echo "Container:      ${IMAGE_REF:-${CONTAINER_TAG:-25.11-${CONTAINER_HASH:-???}}}"
 echo "ARGS:           ${ARGS}"
 echo "PREEMPTIBLE:    ${PREEMPTIBLE}"
+echo "CKPT_BATCH_INT: ${CHECKPOINT_BATCH_INTERVAL}"
 echo ""
 
 # ── Submit ──

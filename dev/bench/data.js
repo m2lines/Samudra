@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772809564324,
+  "lastUpdate": 1772819082970,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8409,6 +8409,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.19792958749869213",
             "extra": "mean: 96.6853424072 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8df0145996f989a2999ef18799dbb16929f8ea26",
+          "message": "Initial FOMO model hyperparamter configuration. (#628)\n\nTurns on flash perceiver implementation. Configures the decoder to match\nthe encoder in terms of depth and width. In addition, this configures\nthe decode strategy for the decoder (window patch size, query dim,\nnumber of context patches for the memory-bound decode). Last, but not\nleast, this sets a slightly higher spatial extent for patches to produce\na 60 x 72 latent grid.\n\nThis was the configuration used in this run:\nhttps://wandb.ai/ocean_emulators/default/runs/0zeuoacu",
+          "timestamp": "2026-03-06T17:17:50Z",
+          "tree_id": "644bf3a5327c6d6813bd18062e63a3f0fe1ac36d",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/8df0145996f989a2999ef18799dbb16929f8ea26"
+        },
+        "date": 1772819082242,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1689023449040827,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003199687133757667",
+            "extra": "mean: 855.5034596000041 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18689756737537583,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02232746074270415",
+            "extra": "mean: 5.350524429199993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01088092839465885,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15644694420001584",
+            "extra": "mean: 91.9039225082 sec\nrounds: 5"
           }
         ]
       }

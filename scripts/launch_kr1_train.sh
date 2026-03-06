@@ -94,5 +94,6 @@ sbatch \
   --gres=gpu:rtx6000:8 \
   --time=48:00:00 \
   --job-name=kr1-fomo \
+  --requeue \
   --comment="preemption=yes;requeue=true" \
   scripts/slurm_apptainer_train.sbatch

@@ -299,6 +299,7 @@ binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
+  "${RUN_DIR}/wandb:/workspace/wandb"
 )
 if [[ "${MOUNT_SOURCE:-1}" != "0" ]]; then
   binds+=("${REPO_DIR}/src:/workspace/src")

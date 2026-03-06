@@ -57,7 +57,7 @@ model:
   embedding_dim: 8
   queries_dim: 8
   coordinate_embedding_dim: 8
-  query_chunk_size: 32
+  query_chunk_size: null
 
   perceiver:
     depth: 1

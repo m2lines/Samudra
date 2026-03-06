@@ -53,6 +53,8 @@ def test_trainer__fomini_smoke_cuda(trainer_pair: TrainPair, caplog):
     caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
 
+    # The torchinfo summary path can OOM on the shared CI GPU despite this tiny config.
+    trainer.num_batches_seen = 1
     trainer.run()
 
 

@@ -73,10 +73,19 @@ def precompute_anomalies(data_root: Path) -> None:
     anomaly_std = float(anomaly.std().values)
     logger.info(f"  mean={anomaly_mean:.6f}, std={anomaly_std:.6f}")
 
-    # Write anomaly variable to the data store
+    # Write anomaly variable to the data store, preserving the source chunking
+    # so that per-timestep reads in training don't pull unnecessary data.
     logger.info(f"Appending {var} to {data_path} ...")
+    source_encoding = ds[base_var].encoding
+    chunks = source_encoding.get("chunks")
+    if chunks is None:
+        # Fall back to single-timestep chunks matching the spatial grid.
+        spatial = [ds.sizes[d] for d in ds[base_var].dims if d != "time"]
+        chunks = tuple([1] + spatial)
+        logger.warning(f"No chunk encoding found on {base_var}; defaulting to {chunks}")
+    encoding = {var: {"chunks": chunks}}
     anomaly_ds = anomaly.to_dataset(name=var)
-    anomaly_ds.to_zarr(data_path, mode="a")
+    anomaly_ds.to_zarr(data_path, mode="a", encoding=encoding)
 
     # Write mean
     logger.info(f"Appending {var} mean to {means_path} ...")

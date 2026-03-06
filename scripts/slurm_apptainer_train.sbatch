@@ -224,6 +224,7 @@ binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
+  "${RUN_DIR}/wandb:/workspace/wandb"
 )
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 

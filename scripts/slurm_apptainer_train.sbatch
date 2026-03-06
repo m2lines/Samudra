@@ -23,7 +23,7 @@
 #
 # Preemptible training (auto-requeue on preemption/walltime):
 #   export PREEMPTIBLE=1
-#   sbatch --comment="preemption=yes;requeue=true" ... scripts/slurm_apptainer_train.sbatch
+#   sbatch ... scripts/slurm_apptainer_train.sbatch
 #
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
@@ -105,16 +105,16 @@ RUN_DIR="${OUTPUT_BASE}/${NAME}"
 # Track whether the user explicitly set PREEMPTIBLE before applying the default.
 PREEMPTIBLE_EXPLICIT="${PREEMPTIBLE+1}"  # non-empty if PREEMPTIBLE was set
 PREEMPTIBLE="${PREEMPTIBLE:-0}"
-if [[ "${PREEMPTIBLE}" == "1" ]]; then
+if [[ "${PREEMPTIBLE}" == "1" && -n "${SLURM_JOB_ID:-}" ]]; then
   # On Torch, preemption and auto-requeue are controlled via the job comment.
   # See: https://sites.google.com/nyu.edu/nyu-hpc/hpc-systems/torch/torch-new-user-guide
   #
-  # The comment is set at submission time via `sbatch --comment=...` (see launch scripts).
-  # As a fallback, try scontrol from the running job in case it was missed.
-  if [[ -n "${SLURM_JOB_ID:-}" ]]; then
-    scontrol update JobId="${SLURM_JOB_ID}" \
-      Comment="preemption=yes;requeue=true" 2>/dev/null || true
-  fi
+  # We set both the Comment (Torch-specific preemption policy) and Requeue
+  # (SLURM's built-in requeue flag) from within the running job so that
+  # preemption works even if the submitter forgot --requeue / --comment.
+  scontrol update JobId="${SLURM_JOB_ID}" \
+    Comment="preemption=yes;requeue=true" \
+    Requeue=1 2>/dev/null || true
 fi
 if [[ -e "${RUN_DIR}" ]]; then
   if [[ "${PREEMPTIBLE}" == "1" ]]; then
@@ -626,7 +626,13 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
       exit \${TORCHRUN_EXIT}
     " &
 _srun_pid=$!
-# Wait for srun; re-wait if interrupted by the USR1 trap.
-wait "${_srun_pid}" || true
-wait "${_srun_pid}" 2>/dev/null
-exit $?
+# Wait for srun. If USR1 trap interrupts `wait`, it returns 128+signal;
+# re-wait to get srun's actual exit code. Preserve the exit code so SLURM
+# can decide whether to requeue (a clean exit 0 would prevent requeue).
+_rc=0
+wait "${_srun_pid}" || _rc=$?
+# If wait was interrupted by a signal (128+N), re-wait for srun's real exit.
+if (( _rc > 128 )); then
+  wait "${_srun_pid}" 2>/dev/null || _rc=$?
+fi
+exit "${_rc}"

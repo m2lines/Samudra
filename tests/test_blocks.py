@@ -1,5 +1,3 @@
-"""Tests for blocks.py, focusing on PointwiseLinear equivalence to Conv2d(kernel_size=1)."""
-
 import pytest
 import torch
 import torch.nn as nn

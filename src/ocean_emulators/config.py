@@ -905,6 +905,7 @@ class TrainConfig(TopLevelConfig):
     test_using_ema: bool = True
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True
+    delayed_loss_estimate: bool = False
     backend: TrainBackendConfig = "auto"
 
     # Profiling parameters

@@ -506,6 +506,7 @@ class FullAttention(nn.Module):
 
         self.capture_weights = False
         self.last_attn_weights: torch.Tensor | None = None
+        self.last_spatial_shape: tuple[int, int] | None = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, C, H, W = x.shape
@@ -533,6 +534,7 @@ class FullAttention(nn.Module):
             self.last_attn_weights = (
                 attn_weights.mean(dim=1).mean(dim=0).detach().cpu()
             )
+            self.last_spatial_shape = (H, W)
 
         out = out.transpose(1, 2).reshape(B, seq_len, C)
         out = self.proj(out)

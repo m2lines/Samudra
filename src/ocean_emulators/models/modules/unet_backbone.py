@@ -54,7 +54,9 @@ class UNetBackbone(nn.Module):
         downsampling_block: nn.Module,
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
-        create_attention_block: Callable[[int], nn.Module] | None = None,
+        encoder_attention_blocks: list[Callable[[int], nn.Module] | None] | None = None,
+        bottleneck_attention_block: Callable[[int], nn.Module] | None = None,
+        decoder_attention_blocks: list[Callable[[int], nn.Module] | None] | None = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -93,6 +95,10 @@ class UNetBackbone(nn.Module):
                     checkpoint_simple=checkpoint_simple,
                 )
             )
+            if encoder_attention_blocks is not None:
+                attention_block = encoder_attention_blocks[i]
+                if attention_block is not None:
+                    layers.append(attention_block(b))
             # Down sampling block
             layers.append(downsampling_block)
 
@@ -108,9 +114,8 @@ class UNetBackbone(nn.Module):
             )
         )
 
-        # Axial attention at bottleneck
-        if create_attention_block is not None:
-            layers.append(create_attention_block(b))
+        if bottleneck_attention_block is not None:
+            layers.append(bottleneck_attention_block(b))
 
         # First upsampling
         layers.append(create_upsampling_block(in_channels=b, out_channels=b))
@@ -132,6 +137,10 @@ class UNetBackbone(nn.Module):
                     checkpoint_simple=checkpoint_simple,
                 )
             )
+            if decoder_attention_blocks is not None:
+                attention_block = decoder_attention_blocks[i]
+                if attention_block is not None:
+                    layers.append(attention_block(b))
             layers.append(create_upsampling_block(in_channels=b, out_channels=b))
 
         # Final conv block
@@ -145,6 +154,10 @@ class UNetBackbone(nn.Module):
                 checkpoint_simple=checkpoint_simple,
             )
         )
+        if decoder_attention_blocks is not None:
+            attention_block = decoder_attention_blocks[-1]
+            if attention_block is not None:
+                layers.append(attention_block(b))
 
         first_block = layers[0]
         assert isinstance(first_block, CoreBlock)

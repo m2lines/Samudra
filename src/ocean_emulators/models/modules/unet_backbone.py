@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import TYPE_CHECKING, assert_never
 
 import numpy as np
@@ -54,9 +53,9 @@ class UNetBackbone(nn.Module):
         downsampling_block: nn.Module,
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
-        encoder_attention_blocks: list[Callable[[int], nn.Module] | None] | None = None,
-        bottleneck_attention_block: Callable[[int], nn.Module] | None = None,
-        decoder_attention_blocks: list[Callable[[int], nn.Module] | None] | None = None,
+        encoder_attention_blocks: list[nn.Module | None] | None = None,
+        bottleneck_attention_block: nn.Module | None = None,
+        decoder_attention_blocks: list[nn.Module | None] | None = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -98,7 +97,7 @@ class UNetBackbone(nn.Module):
             if encoder_attention_blocks is not None:
                 attention_block = encoder_attention_blocks[i]
                 if attention_block is not None:
-                    layers.append(attention_block(b))
+                    layers.append(attention_block)
             # Down sampling block
             layers.append(downsampling_block)
 
@@ -115,7 +114,7 @@ class UNetBackbone(nn.Module):
         )
 
         if bottleneck_attention_block is not None:
-            layers.append(bottleneck_attention_block(b))
+            layers.append(bottleneck_attention_block)
 
         # First upsampling
         layers.append(create_upsampling_block(in_channels=b, out_channels=b))
@@ -140,7 +139,7 @@ class UNetBackbone(nn.Module):
             if decoder_attention_blocks is not None:
                 attention_block = decoder_attention_blocks[i]
                 if attention_block is not None:
-                    layers.append(attention_block(b))
+                    layers.append(attention_block)
             layers.append(create_upsampling_block(in_channels=b, out_channels=b))
 
         # Final conv block
@@ -157,7 +156,7 @@ class UNetBackbone(nn.Module):
         if decoder_attention_blocks is not None:
             attention_block = decoder_attention_blocks[-1]
             if attention_block is not None:
-                layers.append(attention_block(b))
+                layers.append(attention_block)
 
         first_block = layers[0]
         assert isinstance(first_block, CoreBlock)

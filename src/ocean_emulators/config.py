@@ -318,7 +318,10 @@ class BottleneckBlockConfig(BaseConfig):
         if self.block_type == "attention":
             attention_config = self.attention
             if attention_config is None:
-                attention_config = AttentionBlockConfig()
+                raise ValueError(
+                    "`attention.bottleneck.attention` must be set when "
+                    "`attention.bottleneck.block_type` is `attention`."
+                )
             return attention_config.build(channels)
         if self.block_type == "transformer":
             raise NotImplementedError(
@@ -340,9 +343,9 @@ class UNetAttentionConfig(BaseConfig):
         default=None,
         description="Optional attention blocks after encoder core blocks, one entry per value in ch_width.",
     )
-    bottleneck: AttentionBlockConfig | BottleneckBlockConfig | None = Field(
+    bottleneck: BottleneckBlockConfig | None = Field(
         default=None,
-        description="Optional bottleneck block after the bottleneck core block. Supports the current attention shorthand and future bottleneck block families.",
+        description="Optional bottleneck block after the bottleneck core block.",
     )
     decoder: list[AttentionBlockConfig | None] | None = Field(
         default=None,
@@ -672,7 +675,7 @@ class UNetBackboneConfig(BaseConfig):
 
         encoder_attention_configs: list[AttentionBlockConfig | None] | None = None
         decoder_attention_configs: list[AttentionBlockConfig | None] | None = None
-        bottleneck_attention_config: AttentionBlockConfig | BottleneckBlockConfig | None = None
+        bottleneck_attention_config: BottleneckBlockConfig | None = None
 
         if self.attention is not None:
             encoder_attention_configs = self.attention.encoder

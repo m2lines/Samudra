@@ -22,10 +22,12 @@ unet:
 
   attention:
     bottleneck:
-      attention_type: "full"
-      num_heads: 8
-      attn_drop: 0.0
-      proj_drop: 0.0
+      block_type: "attention"
+      attention:
+        attention_type: "full"
+        num_heads: 8
+        attn_drop: 0.0
+        proj_drop: 0.0
 
 corrector:
   non_negative_corrector_names: null

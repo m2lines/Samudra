@@ -102,7 +102,6 @@ sbatch \
   scripts/slurm_apptainer_train.sbatch
 
 # Turn off preemption
-
 #  --time=02:00:00 \
 #  --requeue \
 #  --comment="preemption=yes;requeue=true" \

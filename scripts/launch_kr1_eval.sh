@@ -35,7 +35,7 @@ fi
 export CONFIG=configs/fomo_om4/eval_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_eval_v1_1
+export NAME_SUFFIX=kr1_fomo_multiscale_eval_v1_2
 
 # ── Target checkpoint to evaluate ──
 export TARGET_CHECKPOINT="${TARGET_CHECKPOINT:-/scratch/am16581/runs/2026-03-06-kr1_fomo_multiscale_v1_1/saved_nets/ckpt.pt}"

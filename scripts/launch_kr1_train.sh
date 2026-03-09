@@ -44,7 +44,7 @@ fi
 export CONFIG=configs/fomo_om4/train_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_v2
+export NAME_SUFFIX=kr1_fomo_multiscale_v1_2
 
 # ── Data root: parent dir containing all three resolution subdirectories ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/jr7309/data}"
@@ -57,7 +57,7 @@ export WANDB_MODE="${WANDB_MODE:-${WANDB_API_KEY:+online}}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
 
 # ─ Use preemptable resources, make the job resumable. ──
-export PREEMPTIBLE=1
+export PREEMPTIBLE=0  # Turn off preemption
 
 # ─ Checkpoint every 100 batches, not 250. ──
 export CHECKPOINT_BATCH_INTERVAL=100
@@ -87,8 +87,9 @@ echo ""
 
 # ── Submit ──
 # 8x RTX6000, full node on torch.
-# Time: 48h max (QOS limits >48h to 4 GPUs). With PREEMPTIBLE=1 the job
-# auto-requeues after walltime / preemption and resumes from checkpoint.
+# Time: 2h per run. The gpu48 QOS (auto-assigned for >2h) caps GPUs at 2,
+# so we stay within the default QOS and rely on PREEMPTIBLE=1 to auto-requeue
+# after walltime / preemption and resume from checkpoint.
 sbatch \
   --account=torch_pr_347_courant \
   --nodes=1 \
@@ -96,8 +97,12 @@ sbatch \
   --cpus-per-task=128 \
   --mem=1400G \
   --gres=gpu:rtx6000:8 \
-  --time=48:00:00 \
+  --time=24:00:00 \
   --job-name=kr1-fomo \
-  --requeue \
-  --comment="preemption=yes;requeue=true" \
   scripts/slurm_apptainer_train.sbatch
+
+# Turn off preemption
+
+#  --time=02:00:00 \
+#  --requeue \
+#  --comment="preemption=yes;requeue=true" \

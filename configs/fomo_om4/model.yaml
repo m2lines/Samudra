@@ -4,28 +4,28 @@ pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"
-embedding_dim: 64  # Halved from 128 to fit finer patch extent in memory.
+embedding_dim: 128  # Reduced from 280
 perceiver_implementation: "flash"
-# 120x144 latent grid (4x finer than previous 60x72 with [3.0, 5.0]).
-patch_extent: [1.5, 2.5]
+# TODO(alxmrs): How fine of a resolution should each patch be? This produces a 60x72 latent grid.
+patch_extent: [3.0, 5.0]
 
 encoder:
   perceiver:
-    depth: 2
-    latent_dim: 32  # Reduced from 48
-    num_latents: 64  # Reduced from 128
+    depth: 2  # Reduced from 3
+    latent_dim: 48  # Reduced from 64
+    num_latents: 128  # Reduced from 256
 
 decoder:
   perceiver:
-    depth: 2
-    latent_dim: 32
-    num_latents: 64
-  queries_dim: 32
-  window_patches: 12  # Divides 120 and 144 evenly.
-  context_patches: 1
+    depth: 2  # Match encoder depth
+    latent_dim: 48  # Match encoder latent_dim
+    num_latents: 128  # Match encoder num_latents
+  queries_dim: 64  # on the small end, but typical for PercieverIO models (usually in the ~100s-1000s).
+  window_patches: 12  # Must evenly divide latent grid (60x72). Enables real spatial windowing.
+  context_patches: 1  # Look at this many window_patches around the target patch.
 
 processor:
-  ch_width: [96, 128, 160]  # Roughly halved from [200, 256, 320] to compensate for 4x larger latent grid.
+  ch_width: [200, 256, 320]  # Reduced from [380, 480, 520]
   dilation: [1, 1, 1]
   n_layers: [1, 1, 1]
 

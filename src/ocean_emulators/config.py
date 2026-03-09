@@ -718,7 +718,9 @@ class UNetBackboneConfig(BaseConfig):
         encoder_attention_blocks: list[nn.Module | None] | None = None
         if encoder_attention_configs is not None:
             encoder_attention_blocks = []
-            for cfg, channels in zip(encoder_attention_configs, self.ch_width, strict=True):
+            for cfg, channels in zip(
+                encoder_attention_configs, self.ch_width, strict=True
+            ):
                 if cfg is None:
                     encoder_attention_blocks.append(None)
                 else:

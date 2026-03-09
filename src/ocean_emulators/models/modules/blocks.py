@@ -346,9 +346,7 @@ class AxialAttention(nn.Module):
     ):
         super().__init__()
         if dim % num_heads != 0:
-            raise ValueError(
-                f"dim {dim} must be divisible by num_heads {num_heads}"
-            )
+            raise ValueError(f"dim {dim} must be divisible by num_heads {num_heads}")
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
         self.axis = axis
@@ -375,9 +373,7 @@ class AxialAttention(nn.Module):
 
         batch_size, seq_len, _ = x.shape
 
-        qkv = self.qkv(x).reshape(
-            batch_size, seq_len, 3, self.num_heads, self.head_dim
-        )
+        qkv = self.qkv(x).reshape(batch_size, seq_len, 3, self.num_heads, self.head_dim)
         qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, batch, heads, seq, head_dim)
         q, k, v = qkv.unbind(0)
 
@@ -493,9 +489,7 @@ class FullAttention(nn.Module):
     ):
         super().__init__()
         if dim % num_heads != 0:
-            raise ValueError(
-                f"dim {dim} must be divisible by num_heads {num_heads}"
-            )
+            raise ValueError(f"dim {dim} must be divisible by num_heads {num_heads}")
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
         self.attn_drop_p = attn_drop
@@ -531,9 +525,7 @@ class FullAttention(nn.Module):
             attn_weights = (q @ k.transpose(-2, -1)) * scale
             attn_weights = attn_weights.softmax(dim=-1)
             # Average over heads and batch: (H*W, H*W)
-            self.last_attn_weights = (
-                attn_weights.mean(dim=1).mean(dim=0).detach().cpu()
-            )
+            self.last_attn_weights = attn_weights.mean(dim=1).mean(dim=0).detach().cpu()
             self.last_spatial_shape = (H, W)
 
         out = out.transpose(1, 2).reshape(B, seq_len, C)

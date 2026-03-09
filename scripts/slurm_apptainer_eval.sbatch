@@ -203,6 +203,7 @@ binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
+  "${RUN_DIR}/wandb:/workspace/wandb"
 )
 
 # If checkpoint lives outside DATA_ROOT/OUTPUT_BASE, bind its parent path too.
@@ -217,9 +218,11 @@ esac
 
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
-# Create the run directory after preflight validation so early failures are
-# retryable with the same NAME.
-mkdir -p "${RUN_DIR}"
+# Create the run directory (and wandb subdir) after preflight validation so
+# early failures are retryable with the same NAME.  The wandb subdir must
+# exist before apptainer launches because the base PhysicsNeMo image contains
+# /workspace/wandb, and apptainer will attempt to mount it.
+mkdir -p "${RUN_DIR}/wandb"
 
 srun --ntasks=1 --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \

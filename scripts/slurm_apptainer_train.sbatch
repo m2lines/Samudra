@@ -240,9 +240,12 @@ if [[ -n "${PREEMPTIBLE_EXPLICIT}" ]]; then
   fi
 fi
 
-# Create the run directory after preflight validation so early failures are
-# retryable with the same NAME.
-mkdir -p "${RUN_DIR}"
+# Create the run directory (and wandb subdir) after preflight validation so
+# early failures are retryable with the same NAME.  The wandb subdir must
+# exist before apptainer launches because the base PhysicsNeMo image contains
+# /workspace/wandb, and apptainer will attempt to overlay-mount ${RUN_DIR}/wandb
+# onto it; a missing source path causes a fatal mount error.
+mkdir -p "${RUN_DIR}/wandb"
 
 # Forward USR1 from the batch shell to srun's process group.
 # --signal=B:USR1@120 sends USR1 to the batch shell 120s before walltime.

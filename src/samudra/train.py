@@ -52,6 +52,7 @@ from samudra.datasets import (
     TrainDataLoader,
 )
 from samudra.models.base import BaseModel
+from samudra.models.modules.unet_backbone import UNetBackbone
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -439,6 +440,11 @@ class Trainer:
                 self.train_sampler.set_epoch(epoch)
             if hasattr(self.val_sampler, "set_epoch"):
                 self.val_sampler.set_epoch(epoch)
+
+            # Early stochastic depth: decay drop path rate over training.
+            for module in self.model.modules():
+                if isinstance(module, UNetBackbone):
+                    module.set_epoch(epoch)
 
             start_epoch_train_time = time.perf_counter()
             train_stats = self.train_one_epoch(epoch)

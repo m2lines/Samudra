@@ -59,6 +59,7 @@ class UNetBackbone(nn.Module):
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
         drop_path_rate: float = 0.0,
+        drop_path_epochs: int = 0,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -152,6 +153,16 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
         self.drop_path = DropPath(drop_path_rate)
+        self.drop_path_epochs = drop_path_epochs
+
+    def set_epoch(self, epoch: int) -> None:
+        """Update the drop path rate based on the current epoch.
+
+        When ``drop_path_epochs > 0``, linearly decays the rate to 0 over
+        that many epochs (early stochastic depth). Otherwise, no-ops.
+        """
+        if self.drop_path_epochs > 0:
+            self.drop_path.set_progress(epoch / self.drop_path_epochs)
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []

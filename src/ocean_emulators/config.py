@@ -590,6 +590,10 @@ class UNetBackboneConfig(BaseConfig):
     core_block: BlockConfig = BlockConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "zonally_periodic_upsample"
+    drop_path_rate: float = Field(
+        default=0.0,
+        description="Stochastic depth dropout rate. The chance we turn off residual connections in the UNet. Reasonable values are 0.1-0.3. Use 0.0 to disable.",
+    )
 
     def build(
         self,
@@ -634,6 +638,7 @@ class UNetBackboneConfig(BaseConfig):
             downsampling_block=downsampling_block,
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
+            drop_path_rate=self.drop_path_rate,
         )
 
 

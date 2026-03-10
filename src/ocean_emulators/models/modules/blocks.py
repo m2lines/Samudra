@@ -99,6 +99,42 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
         return upsampled[..., start:end]
 
 
+class DropPath(torch.nn.Module):
+    """Stochastic depth (drop path) for residual connections.
+
+    During training, randomly drops entire samples' residual contributions
+    with probability ``drop_prob``, scaling survivors by 1/(1-p) to preserve
+    expected values. Implemented via ``nn.Dropout`` applied to a per-sample
+    mask of ones.
+
+    References:
+        [0]: Deep Networks with Stochastic Depth (https://arxiv.org/abs/1603.09382)
+        [1]: Dropout Reduces Underfitting (https://arxiv.org/abs/2303.01500)
+    """
+
+    def __init__(self, drop_prob: float = 0.0):
+        super().__init__()
+        self.dropout = torch.nn.Dropout(p=drop_prob)
+
+    def forward(
+        self, residual: Float[torch.Tensor, "B C H W"]
+    ) -> Float[torch.Tensor, "B C H W"]:
+        if not self.training or self.dropout.p == 0.0:
+            return residual
+        # Per-sample mask: (B, 1, 1, 1) broadcasts over C, H, W.
+        mask = self.dropout(
+            torch.ones(
+                residual.shape[0],
+                1,
+                1,
+                1,
+                device=residual.device,
+                dtype=residual.dtype,
+            )
+        )
+        return residual * mask
+
+
 class AvgPool(torch.nn.Module):
     def __init__(
         self,

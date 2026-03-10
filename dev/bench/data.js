@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773177310149,
+  "lastUpdate": 1773177313493,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -17277,6 +17277,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.20884681504942815",
             "extra": "mean: 74.74275383939994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "259e2eb4744ba061589dc07846c152b1750f6311",
+          "message": "Adding pointwise linear block as an alternative to 1x1 Conv. (#637)\n\nFixes #631. Also, this more closely mimics the official implementation\nof ConvNext:\nhttps://github.com/facebookresearch/ConvNeXt/blob/main/models/convnext.py#L18.",
+          "timestamp": "2026-03-10T13:49:03-07:00",
+          "tree_id": "8000e89196ae23be09124e6e7bc5eee55889604b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/259e2eb4744ba061589dc07846c152b1750f6311"
+        },
+        "date": 1773177313109,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1815821333958207,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004814209097178607",
+            "extra": "mean: 846.322884999995 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1918072841079066,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014152812262694714",
+            "extra": "mean: 5.213566339000044 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.013155739335752868,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3488010829795179",
+            "extra": "mean: 76.01245163640002 sec\nrounds: 5"
           }
         ]
       }

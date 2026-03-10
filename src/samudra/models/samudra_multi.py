@@ -90,6 +90,9 @@ class SamudraMulti(BaseModel):
                 check_fn=lambda m: isinstance(m, _checkpoint_types),
             )
 
+    def set_epoch(self, epoch: int) -> None:
+        self.processor.set_epoch(epoch)
+
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
     ) -> Prognostic:

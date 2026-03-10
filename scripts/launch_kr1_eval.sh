@@ -35,7 +35,7 @@ fi
 export CONFIG=configs/fomo_om4/eval_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_eval_v1_2
+export NAME_SUFFIX=kr1_fomo_multiscale_eval_v2
 
 # ── Target checkpoint to evaluate ──
 export TARGET_CHECKPOINT="${TARGET_CHECKPOINT:-/scratch/am16581/runs/2026-03-06-kr1_fomo_multiscale_v1_1/saved_nets/ckpt.pt}"
@@ -56,7 +56,7 @@ export NCCL_IB_DISABLE=1
 export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 
 # ── Extra CLI overrides ──
-export ARGS=""
+export ARGS="--model.processor.core_block.pointwise_linear=false"
 
 echo "=== KR1 Multi-Scale FOMO Eval ==="
 echo "Config:         ${CONFIG}"

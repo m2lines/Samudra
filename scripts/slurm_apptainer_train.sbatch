@@ -34,7 +34,7 @@
 #SBATCH --cpus-per-task=128
 #SBATCH --mem=1400G
 #SBATCH --gres=gpu:rtx6000:8
-#SBATCH --time=02:00:00
+#SBATCH --time=24:00:00
 #SBATCH --signal=B:USR1@120
 
 set -euo pipefail

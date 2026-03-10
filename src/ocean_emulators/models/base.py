@@ -43,7 +43,7 @@ class BaseModel(torch.nn.Module):
         self.gradient_detach_interval = gradient_detach_interval
 
     def set_epoch(self, epoch: int) -> None:
-        """Per-epoch hook for scheduling (e.g. early stochastic depth).
+        """Per-epoch hook for scheduling.
 
         Subclasses should override to delegate to child modules.
         """

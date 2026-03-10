@@ -14,6 +14,7 @@ from .blocks import (
 from .decoder import PerceiverDecoder
 from .encoder import PerceiverEncoder
 from .unet_backbone import UNetBackbone
+from .vertical_conv_stem import VerticalConvStem
 
 __all__ = [
     "AvgPool",
@@ -30,4 +31,5 @@ __all__ = [
     "PerceiverEncoder",
     "ReLU",
     "UNetBackbone",
+    "VerticalConvStem",
 ]

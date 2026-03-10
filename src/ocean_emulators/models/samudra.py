@@ -55,6 +55,9 @@ class Samudra(BaseModel):
         self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
 
+    def set_epoch(self, epoch: int) -> None:
+        self.unet.set_epoch(epoch)
+
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
     ) -> Prognostic:

@@ -50,7 +50,6 @@ from ocean_emulators.datasets import (
     TrainDataLoader,
 )
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -447,9 +446,10 @@ class Trainer:
                 self.val_sampler.set_epoch(epoch)
 
             # Early stochastic depth: decay drop path rate over training.
-            for module in self.model.modules():
-                if isinstance(module, UNetBackbone):
-                    module.set_epoch(epoch)
+            if isinstance(self.model, BaseModel):
+                self.model.set_epoch(epoch)
+            elif isinstance(self.model, nn.parallel.DistributedDataParallel):
+                self.model.module.set_epoch(epoch)  # type: ignore[union-attr]
 
             start_epoch_train_time = time.perf_counter()
             train_stats = self.train_one_epoch(epoch)

@@ -516,6 +516,14 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __len__(self) -> int:
         return self.size
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # ThreadPoolExecutor is not picklable.  Drop it so the dataset can be
+        # sent to forkserver/spawn DataLoader workers.  Workers that need
+        # concurrent I/O will lazily recreate the executor on first use.
+        state["_executor"] = None
+        return state
+
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()

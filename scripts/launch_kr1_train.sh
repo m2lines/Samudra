@@ -44,7 +44,7 @@ fi
 export CONFIG=configs/fomo_om4/train_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_v2_3
+export NAME_SUFFIX=kr1_fomo_multiscale_v2_4
 
 # ── Data root: parent dir containing all three resolution subdirectories ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/jr7309/data}"
@@ -71,7 +71,7 @@ export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # We just pass the W&B project and any batch size tweaks here.
-export ARGS="--batch_size=1 --data.num_workers=16"
+export ARGS="--batch_size=1 --data.num_workers=8"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"

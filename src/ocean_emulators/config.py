@@ -19,7 +19,7 @@ from ocean_emulators.constants import (
     LoaderVersion,
     PrognosticVarNames,
 )
-from ocean_emulators.models import FOMO, Samudra
+from ocean_emulators.models import FOMO, FOMini, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
     AvgPool,
@@ -30,6 +30,7 @@ from ocean_emulators.models.modules import (
     CoreBlock,
     CoreBlockBuilder,
     MaxPool,
+    PerceiverDecoder,
     PerceiverEncoder,
     ReLU,
     TransposedConvUpsample,
@@ -259,6 +260,7 @@ class BlockConfig(BaseConfig):
     activation: ActivationType = "capped_gelu"
     upscale_factor: int = 4
     norm: NormType = "batch"
+    pointwise_linear: bool = False
 
     def build(self) -> CoreBlockBuilder:
         match self.activation:
@@ -303,6 +305,7 @@ class BlockConfig(BaseConfig):
                         upscale_factor=self.upscale_factor,
                         norm=self.norm,
                         activation=activation,
+                        pointwise_linear=self.pointwise_linear,
                     )
                 case _:
                     assert_never(self.block_type)
@@ -335,10 +338,11 @@ PerceiverImpl = Literal["auto", "naive", "flash"]
 class PerceiverConfig(BaseConfig):
     """A standard config interface to various perceiver implementations.
 
-    The `implementation="auto"` option will guess what is the best implementation given the runtime environment.
+    Builds either a regular Perceiver (for the encoder, via ``build``) or a
+    PerceiverIO (for the decoder, via ``build_io``).  Both respect the shared
+    ``implementation`` setting from ``FOMOConfig.perceiver_implementation``.
     """
 
-    implementation: PerceiverImpl = "auto"
     depth: int = 6
     latent_dim: int = Field(
         default=128,
@@ -350,76 +354,194 @@ class PerceiverConfig(BaseConfig):
     )
 
     def build(
-        self, in_channels: int, out_channels: int, max_patch_size: tuple[int, int]
+        self,
+        in_channels: int,
+        out_channels: int,
+        max_patch_size: tuple[int, int],
+        implementation: PerceiverImpl,
     ) -> nn.Module:
+        """Build a regular Perceiver (used by the encoder)."""
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*max_patch_size)
 
-        # TODO(alxmrs,jder): Each implementation takes the mean of the num_latents dim to produce the final output_dim.
-        #  Why compute the mean? Is it better to directly project from the num_latents x latent_dim?
-        if (
-            self.implementation == "auto" and torch.cuda.is_available()
-        ) or self.implementation == "flash":
+        if _use_flash(implementation):
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ModuleNotFoundError as e:
-                raise ValueError(
-                    "`implementation==flash` or flash was automatically chosen for `implementation==auto`, but the flash attention dependencies could not be imported. Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
-                ) from e
-            perceiver = FlashPerceiver(
-                latent_rotary_emb_dim=max_freq,
-                depth=self.depth,
-                input_dim=in_channels,
-                output_dim=out_channels,
-                output_mode="average",
-                latent_dim=self.latent_dim,
-                num_latents=self.num_latents,
-                use_flash_attn=True,
-                weight_tie_layers=True,  # share weights of cross-attn blocks during latent iteration
-                self_per_cross_attn=2,  # ratio of self-attention (latent, small) per cross-attn (input, big) blocks
+                raise _flash_import_error() from e
+            from einops.layers.torch import Rearrange
+
+            # Flash perceiver expects (batch, seq_len, dim); naive handles
+            # (batch, ph, pw, dim) natively via input_axis=2.  Bake the
+            # spatial-flatten into the module so callers don't need to care.
+            perceiver: nn.Module = nn.Sequential(
+                Rearrange("b ph pw v -> b (ph pw) v"),
+                FlashPerceiver(
+                    latent_rotary_emb_dim=max_freq,
+                    depth=self.depth,
+                    input_dim=in_channels,
+                    output_dim=out_channels,
+                    output_mode="average",
+                    latent_dim=self.latent_dim,
+                    num_latents=self.num_latents,
+                    use_flash_attn=True,
+                    weight_tie_layers=True,
+                    self_per_cross_attn=2,
+                ),
             )
-        elif (
-            self.implementation == "auto" and not torch.cuda.is_available()
-        ) or self.implementation == "naive":
+        elif _use_naive(implementation):
             perceiver = NaivePerceiver(
                 num_freq_bands=4,
                 max_freq=max_freq,
                 depth=self.depth,
-                input_axis=2,  # Number of positional dims before token dim
+                input_axis=2,
                 input_channels=in_channels,
                 num_classes=out_channels,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,
-                weight_tie_layers=True,  # share weights of cross-attn blocks
-                self_per_cross_attn=2,  # ratio of self-attn (latent, small) and cross-attn (input, big) blocks
+                weight_tie_layers=True,
+                self_per_cross_attn=2,
             )
         else:
-            raise ValueError(
-                f"Unknown perceiver implementation: {self.implementation}."
-            )
+            raise ValueError(f"Unknown perceiver implementation: {implementation}.")
 
         return perceiver
 
+    def build_io(
+        self,
+        in_channels: int,
+        queries_dim: int,
+        out_channels: int,
+        implementation: PerceiverImpl,
+    ) -> nn.Module:
+        """Build a PerceiverIO (used by the decoder)."""
+        if _use_flash(implementation):
+            try:
+                from flash_perceiver.perceiver import (  # type: ignore
+                    PerceiverIO as FlashPerceiverIO,  # type: ignore
+                )
+            except ModuleNotFoundError as e:
+                raise _flash_import_error() from e
+            perceiver_io: nn.Module = FlashPerceiverIO(
+                depth=self.depth,
+                input_dim=in_channels,
+                query_dim=queries_dim,
+                proj_dim=out_channels,
+                num_latents=self.num_latents,
+                latent_dim=self.latent_dim,
+                use_flash_attn=True,
+                weight_tie_layers=True,
+            )
+        elif _use_naive(implementation):
+            from perceiver_pytorch.perceiver_io import PerceiverIO as NaivePerceiverIO
+
+            perceiver_io = NaivePerceiverIO(
+                depth=self.depth,
+                dim=in_channels,
+                queries_dim=queries_dim,
+                logits_dim=out_channels,
+                num_latents=self.num_latents,
+                latent_dim=self.latent_dim,
+                weight_tie_layers=True,
+                decoder_ff=True,
+            )
+        else:
+            raise ValueError(f"Unknown perceiver implementation: {implementation}.")
+
+        return perceiver_io
+
+
+def _use_flash(implementation: PerceiverImpl) -> bool:
+    return (
+        implementation == "auto" and torch.cuda.is_available()
+    ) or implementation == "flash"
+
+
+def _use_naive(implementation: PerceiverImpl) -> bool:
+    return (
+        implementation == "auto" and not torch.cuda.is_available()
+    ) or implementation == "naive"
+
+
+def _flash_import_error() -> ValueError:
+    return ValueError(
+        "`implementation==flash` or flash was automatically chosen for `implementation==auto`, "
+        "but the flash attention dependencies could not be imported. "
+        "Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
+    )
+
 
 class EncoderConfig(BaseConfig):
-    patch_extent: list[float] = Field(
-        default=[6.0, 10.0],
-        description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
-        "Patch sizes will be calculated to match this extent for each grid resolution.",
-    )
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(
-        self, in_channels: int, out_channels: int, max_lat_size: int, max_lon_size: int
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+        max_lat_size: int,
+        max_lon_size: int,
+        implementation: PerceiverImpl,
     ) -> PerceiverEncoder:
-        assert len(self.patch_extent) == 2, "spatial extents must be a pair of floats."
-        extent = self.patch_extent[0], self.patch_extent[1]
-        max_patch_size = patch_from(extent, max_lat_size, max_lon_size)
+        max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
-            patch_extent=extent,
-            perceiver=self.perceiver.build(in_channels, out_channels, max_patch_size),
+            patch_extent=patch_extent,
+            perceiver=self.perceiver.build(
+                in_channels, out_channels, max_patch_size, implementation
+            ),
+        )
+
+
+class DecoderConfig(BaseConfig):
+    """A PerceiverIO-based decoder configuration.
+
+    Uses PerceiverIO (with an explicit query mechanism) rather than a regular
+    Perceiver.  Output pixel positions are encoded as queries, so the output
+    size is determined by the query count — not by ``num_latents``.
+
+    When ``window_patches`` is set, the decoder tiles the output grid into
+    spatial blocks of that many patches per side.  Each block's PerceiverIO
+    call receives only the overlapping latent tokens plus ``context_patches``
+    extra rings of neighbors, keeping cost bounded even when the latent grid
+    is large (i.e. fine ``patch_extent``).
+    """
+
+    perceiver: PerceiverConfig = PerceiverConfig()
+    queries_dim: int = Field(
+        default=64,
+        description="Embedding dimension for pixel-position queries in the PerceiverIO decoder head.",
+    )
+    window_patches: int | None = Field(
+        default=4096,
+        description="Side length (in patches) of each spatial decode window. "
+        "None = decode all patches at once (global attention). "
+        "E.g. window_patches=8 means each PerceiverIO call covers an 8x8 block of patches.",
+    )
+    context_patches: int | None = Field(
+        default=1,
+        description="Number of extra patch rings around each window to include as data context. "
+        "Only used when window_patches is set. None = full context (every window sees all latent tokens).",
+    )
+
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+        implementation: PerceiverImpl,
+    ) -> PerceiverDecoder:
+        return PerceiverDecoder(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            patch_extent=patch_extent,
+            queries_dim=self.queries_dim,
+            perceiver_io=self.perceiver.build_io(
+                in_channels, self.queries_dim, out_channels, implementation
+            ),
+            window_patches=self.window_patches,
+            context_patches=self.context_patches,
         )
 
 
@@ -579,7 +701,17 @@ class SamudraConfig(BaseModelConfig):
 class FOMOConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
-    # decoder will go here.
+    decoder: DecoderConfig = DecoderConfig()
+    perceiver_implementation: PerceiverImpl = Field(
+        default="auto",
+        description="Perceiver attention implementation shared by the encoder and decoder. "
+        "'auto' selects flash attention when CUDA is available, otherwise naive.",
+    )
+    patch_extent: list[float] = Field(
+        default=[6.0, 10.0],
+        description="Target physical extent of each patch in degrees [height_deg, width_deg]. "
+        "Shared by the encoder and decoder for consistent spatial semantics.",
+    )
     embedding_dim: int = 128
     use_bfloat16: bool = Field(
         default=True,
@@ -594,22 +726,36 @@ class FOMOConfig(BaseModelConfig):
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> FOMO:
+        assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
+        extent = self.patch_extent[0], self.patch_extent[1]
+
         all_grid_sizes = [s.grid_size for s in srcs]
         max_lat_size, max_lon_size = (
             max(g[0] for g in all_grid_sizes),
             max(g[1] for g in all_grid_sizes),
         )
-        encoder = self.encoder.build(
-            in_channels, self.embedding_dim, max_lat_size, max_lon_size
-        )
-        if (
-            hasattr(encoder.perceiver, "use_flash_attn")
-            and encoder.perceiver.use_flash_attn
-            and not self.use_bfloat16
-        ):
+
+        impl = self.perceiver_implementation
+        if _use_flash(impl) and not self.use_bfloat16:
             raise ValueError(
-                "Encoder is configured to use flash attention. Please set `use_bfloat16=True`."
+                "Perceiver implementation resolves to flash attention. "
+                "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
+
+        encoder = self.encoder.build(
+            in_channels, self.embedding_dim, extent, max_lat_size, max_lon_size, impl
+        )
+        processor = self.processor.build(
+            self.embedding_dim,
+            self.pad,
+            self.checkpointing,
+        )
+        decoder = self.decoder.build(
+            processor.out_channels,
+            out_channels,
+            extent,
+            impl,
+        )
 
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
@@ -620,22 +766,91 @@ class FOMOConfig(BaseModelConfig):
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             encoder=encoder,
-            processor=self.processor.build(
-                self.embedding_dim,
-                self.pad,
-                self.checkpointing,
-            ),
-            # decoder = self.decoder.build(processor.out_channels, out_channels)  # will be something like this
+            processor=processor,
+            decoder=decoder,
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
-            grid_sizes=all_grid_sizes,
             use_bfloat16=self.use_bfloat16,
         )
 
 
-AnyModelConfig = SamudraConfig | FOMOConfig
+class FOMiniConfig(BaseModelConfig):
+    perceiver: PerceiverConfig = PerceiverConfig()
+    perceiver_implementation: PerceiverImpl = Field(
+        default="auto",
+        description="Perceiver attention implementation for the single PerceiverIO model. "
+        "'auto' selects flash attention when CUDA is available, otherwise naive.",
+    )
+    embedding_dim: int = Field(
+        default=128,
+        description="Dimension of data-token embeddings before PerceiverIO.",
+    )
+    queries_dim: int = Field(
+        default=128,
+        description="Dimension of PerceiverIO output queries.",
+    )
+    coordinate_embedding_dim: int = Field(
+        default=64,
+        description="Hidden dimension used by learned 3D Cartesian coordinate embeddings.",
+    )
+    query_chunk_size: int | None = Field(
+        default=None,
+        description="Optional chunk size for query decoding. If set, PerceiverIO is called "
+        "over query chunks to reduce memory use.",
+    )
+    use_bfloat16: bool = Field(
+        default=True,
+        description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
+    )
+
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hist: int,
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[DataSource],
+    ) -> FOMini:
+        if self.add_3d_coordinates:
+            raise ValueError(
+                "FOMini always uses learned Cartesian coordinate embeddings. "
+                "Please set `add_3d_coordinates=False`."
+            )
+
+        impl = self.perceiver_implementation
+        if _use_flash(impl) and not self.use_bfloat16:
+            raise ValueError(
+                "Perceiver implementation resolves to flash attention. "
+                "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
+            )
+
+        perceiver_io = self.perceiver.build_io(
+            self.embedding_dim,
+            self.queries_dim,
+            out_channels,
+            impl,
+        )
+        return FOMini(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            pred_residuals=self.pred_residuals,
+            last_kernel_size=self.last_kernel_size,
+            pad=self.pad,
+            input_embedding_dim=self.embedding_dim,
+            coordinate_embedding_dim=self.coordinate_embedding_dim,
+            queries_dim=self.queries_dim,
+            query_chunk_size=self.query_chunk_size,
+            perceiver_io=perceiver_io,
+            hist=hist,
+            checkpointing=self.checkpointing,
+            gradient_detach_interval=self.gradient_detach_interval,
+            use_bfloat16=self.use_bfloat16,
+        )
+
+
+AnyModelConfig = SamudraConfig | FOMOConfig | FOMiniConfig
 
 
 class DistributedConfig(BaseConfig):
@@ -775,6 +990,7 @@ class TrainConfig(TopLevelConfig):
     test_using_ema: bool = True
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True
+    delayed_loss_estimate: bool = False
     backend: TrainBackendConfig = "auto"
 
     # Profiling parameters

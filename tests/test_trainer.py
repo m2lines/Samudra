@@ -40,6 +40,25 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
 
 
 @pytest.mark.parametrize(
+    "backend",
+    [pytest.param("cuda", marks=pytest.mark.cuda)],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_fomini.yaml")],
+    indirect=True,
+)
+def test_trainer__fomini_smoke_cuda(trainer_pair: TrainPair, caplog):
+    caplog.set_level(logging.INFO)
+    _, trainer = trainer_pair
+
+    # The torchinfo summary path can OOM on the shared CI GPU despite this tiny config.
+    trainer.num_batches_seen = 1
+    trainer.run()
+
+
+@pytest.mark.parametrize(
     "data_source,config_name",
     [("mock-om4", "test/train_default_2step.yaml")],
     indirect=True,

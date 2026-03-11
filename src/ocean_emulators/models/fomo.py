@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING
 
 import torch
-from einops import rearrange
 from perceiver_pytorch import Perceiver
 from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
 from torch import nn
@@ -9,16 +8,37 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
-from ocean_emulators.constants import GridSize
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.models.modules import PerceiverEncoder
-from ocean_emulators.models.modules.encoder import patch_from
+from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.device import autocast
 
 if TYPE_CHECKING:
     from ocean_emulators.config import Checkpointing
+
+_checkpoint_types: tuple[type, ...] = (
+    nn.LayerNorm,
+    FeedForward,
+    nn.Linear,
+    Perceiver,
+    PerceiverDecoder,
+    PerceiverEncoder,
+    UNetBackbone,
+    Attention,
+)
+
+try:
+    from flash_attn.modules.block import (
+        Block as FlashBlock,  # type: ignore[import-not-found]
+    )
+    from flash_perceiver.perceiver import (
+        PerceiverBase as FlashPerceiverBase,  # type: ignore[import-not-found]
+    )
+
+    _checkpoint_types = _checkpoint_types + (FlashPerceiverBase, FlashBlock)
+except ImportError:
+    pass
 
 
 class FOMO(BaseModel):
@@ -37,10 +57,10 @@ class FOMO(BaseModel):
         add_3d_coordinates: nn.Module | None,
         encoder: PerceiverEncoder,
         processor: UNetBackbone,
+        decoder: PerceiverDecoder,
         hist: int,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
-        grid_sizes: list[GridSize],
         use_bfloat16: bool,
     ):
         super().__init__(
@@ -56,69 +76,25 @@ class FOMO(BaseModel):
         self.maybe_add_3d_coordinates = add_3d_coordinates
         self.encoder = encoder
         self.processor = processor
+        self.decoder = decoder
         self.use_bfloat16 = use_bfloat16
-        # Placeholder decoder is a non-globe aware Conv2d.
-        self.decoder = nn.Conv2d(
-            processor.out_channels,
-            out_channels,
-            last_kernel_size,
-            padding=last_kernel_size // 2,
-        )
-        all_patches = [
-            patch_from(self.encoder.patch_extent, *grid_size)
-            for grid_size in grid_sizes
-        ]
-
-        self.unpatch = nn.ModuleDict(
-            {
-                str(patch_size): nn.Linear(
-                    out_channels, out_channels * patch_size[0] * patch_size[1]
-                )
-                for patch_size in all_patches
-            }
-        )
 
         if checkpointing == "all":
             apply_activation_checkpointing(
                 self,
-                check_fn=lambda m: isinstance(
-                    m,
-                    nn.LayerNorm
-                    | FeedForward
-                    | nn.Linear
-                    | Perceiver
-                    | PerceiverEncoder
-                    | UNetBackbone
-                    | Attention,
-                ),
+                check_fn=lambda m: isinstance(m, _checkpoint_types),
             )
 
     def forward_once(self, fts: torch.Tensor, ctx: GridContext) -> torch.Tensor:
-        _, _, H, W = fts.shape
-
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             if self.maybe_add_3d_coordinates is not None:
                 fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
             fts = self.encoder(fts, ctx.input_resolution_cpu)
             fts = self.processor(fts)
+            fts = self.decoder(fts, ctx.input_resolution_cpu)
 
-        # Convert back to float32 for decoder and unpatchify operations
+        # Convert back to float32
+        # TODO(alxmrs): We actually only support float16 when turned on; this kind of tricks us.
         fts = fts.to(torch.float32)
-        fts = self.decoder(fts)
-
-        # Unpatchify: project to patch area, then reshape back to original spatial dimensions
-        patch_size = patch_from(self.encoder.patch_extent, H, W)
-        _, _, h, w = fts.shape
-        fts = rearrange(fts, "b l h w -> b h w l")
-        fts = self.unpatch[str(patch_size)](fts)  # (b, h, w, out_channels * ph * pw)
-        fts = rearrange(
-            fts,
-            "b h w (c ph pw) -> b c (h ph) (w pw)",
-            c=self.out_channels,
-            ph=patch_size[0],
-            pw=patch_size[1],
-            h=h,
-            w=w,
-        )
 
         return torch.where(ctx.label_mask, fts, 0.0)

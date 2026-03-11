@@ -68,7 +68,7 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
-from ocean_emulators.utils.loss import LossFnWithContext
+from ocean_emulators.utils.loss import DynamicLoss, LossFnWithContext
 from ocean_emulators.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
@@ -275,23 +275,9 @@ class Trainer:
 
         # Modify DDP setup based on device
         if self.distributed is not None:
-            # Multiscale models (e.g. FOMO with multiple grid sizes) have
-            # per-resolution unpatch layers.  Under a "match" or "mix" schedule
-            # only one resolution's unpatch layer participates in each batch,
-            # so the others have no gradients.  DDP must be told about this.
-            match self.train_schedule:
-                case "standard":
-                    has_unused = False
-                case "mix":
-                    has_unused = True
-                case "match":
-                    has_unused = True
-                case _:
-                    assert_never(self.train_schedule)
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
-                find_unused_parameters=has_unused,
             )
 
         # EMA (must come after DDP setup so parameter names match final self.model)
@@ -325,6 +311,7 @@ class Trainer:
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
+        self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
 
@@ -599,7 +586,7 @@ class Trainer:
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
-            self._call_loss_update(data)
+            self._maybe_update_loss(TO, data)
 
             self.profiler.after_batch(self.num_batches_seen)
 
@@ -609,16 +596,41 @@ class Trainer:
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
 
-    def _call_loss_update(self, data: TrainData):
-        # This is a separate function to ensure locals are dropped immediately after use
-        if update := getattr(self.loss_fn, "update", None):
+    def _maybe_update_loss(self, output: TrainBatchOutput, data: TrainData):
+        if (update := getattr(self.loss_fn, "update", None)) is None:
+            return
+
+        if self.delayed_loss_estimate:
+            # Use the already-computed per-channel loss from the training
+            # rollout to update DynamicLoss scales, avoiding a second forward
+            # pass.  This introduces a delayed estimate but is more efficient.
+            loss_per_channel = output.loss_per_channel
+            # Undo the dynamic scaling to recover the raw per-channel loss.
+            if get_scales := getattr(self.loss_fn, "loss_scale_per_channel", None):
+                per_channel_scale = get_scales()
+                raw_loss = (
+                    loss_per_channel.detach().reshape(-1, per_channel_scale.shape[0])
+                    / per_channel_scale
+                ).reshape(-1)
+            else:
+                raise RuntimeError(
+                    "no `loss_scale_per_channel` — cannot recover unscaled per-channel loss."
+                )
+            update(raw_loss)
+        else:
+            # Run a fresh single-step forward pass so DynamicLoss sees an
+            # up-to-date, unscaled loss signal
             with torch.no_grad():
                 single_step_data = TrainData(data.num_prognostic_channels, data.ctx)
-                # Each entry in data is one step in a rollout.
-                input, label = data[0]
-                single_step_data.append(input, label)
+                input_, label = data[0]
+                single_step_data.append(input_, label)
                 pred = self.model(single_step_data)
-                update(pred[0], label, ctx=data.ctx)
+                # Compute the raw (unscaled) per-channel loss via the inner
+                # loss function, bypassing DynamicLoss scaling.
+                if not isinstance(self.loss_fn, DynamicLoss):
+                    raise TypeError(f"Expected loss_fn to be DynamicLoss")
+                raw_loss = self.loss_fn.loss_fn(pred[0], label, ctx=data.ctx)
+            update(raw_loss)
 
     def validate_one_epoch(self, epoch):
         self.model.eval()

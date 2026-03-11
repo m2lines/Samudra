@@ -4,8 +4,31 @@ from typing import Protocol
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
+from jaxtyping import Float
 
 from ocean_emulators.models.modules.activations import CappedGELU
+
+
+class PointwiseLinear(torch.nn.Module):
+    """A 1×1 convolution implemented as nn.Linear.
+
+    Mathematically equivalent to Conv2d(kernel_size=1), but avoids the
+    non-contiguous gradient strides that 1×1 convs produce, which cause
+    DDP to copy gradients instead of using zero-copy views.
+
+    This optimization is use in the official ConvNext implementation[0].
+
+    [0]: https://github.com/facebookresearch/ConvNeXt/blob/main/models/convnext.py#L18
+    """
+
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+        self.linear = torch.nn.Linear(in_channels, out_channels)
+
+    def forward(
+        self, x: Float[torch.Tensor, "B C_in H W"]
+    ) -> Float[torch.Tensor, "B C_out H W"]:
+        return self.linear(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
 
 
 class TransposedConvUpsample(torch.nn.Module):
@@ -176,6 +199,25 @@ class ConvBlock(CoreBlock):
         return fts
 
 
+def _pointwise(use_linear: bool, in_ch: int, out_ch: int) -> torch.nn.Module:
+    """Create a pointwise (1×1) channel-mixing layer.
+
+    When ``use_linear`` is True, returns a :class:`PointwiseLinear` backed by
+    ``nn.Linear``, which produces 2-D weight tensors and avoids the
+    non-contiguous gradient strides that ``Conv2d(kernel_size=1)`` introduces
+    for degenerate spatial dimensions.  This matters for DDP, which otherwise
+    falls back to copying gradients instead of using zero-copy views.
+
+    The ``nn.Linear`` approach is also used in the official ConvNeXt
+    implementation, where it is noted to be "slightly faster in PyTorch" [0].
+
+    [0]: https://github.com/facebookresearch/ConvNeXt/blob/main/models/convnext.py
+    """
+    if use_linear:
+        return PointwiseLinear(in_ch, out_ch)
+    return torch.nn.Conv2d(in_ch, out_ch, kernel_size=1, padding="same")
+
+
 class ConvNeXtBlock(CoreBlock):
     """
     A convolution block as reported in https://github.com/CognitiveModeling/dlwp-hpx/blob/main/src/dlwp-hpx/dlwp/model/modules/blocks.py.
@@ -197,20 +239,16 @@ class ConvNeXtBlock(CoreBlock):
         upscale_factor: int = 4,
         norm="batch",
         checkpoint_simple: bool = False,
+        pointwise_linear: bool = False,
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
         assert n_layers == 1, "Can only use a single layer here!"
 
-        # Instantiate 1x1 conv to increase/decrease channel depth if necessary
+        # Instantiate pointwise linear to increase/decrease channel depth if necessary
         if in_channels == out_channels:
             self.skip_module = lambda x: x  # Identity-function required in forward pass
         else:
-            self.skip_module = torch.nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                kernel_size=1,
-                padding="same",
-            )
+            self.skip_module = _pointwise(pointwise_linear, in_channels, out_channels)
 
         # Convolution block
         convblock: list[torch.nn.Module] = []
@@ -256,11 +294,8 @@ class ConvNeXtBlock(CoreBlock):
             convblock.append(activation())
         # Linear postprocessing
         convblock.append(
-            torch.nn.Conv2d(
-                in_channels=int(in_channels * upscale_factor),
-                out_channels=out_channels,
-                kernel_size=1,
-                padding="same",
+            _pointwise(
+                pointwise_linear, int(in_channels * upscale_factor), out_channels
             )
         )
         self.convblock = torch.nn.Sequential(*convblock)

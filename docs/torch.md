@@ -1,4 +1,4 @@
-# Torch (NYU HPC) Slurm Training With Apptainer
+# Torch (NYU HPC) Slurm Training/Eval With Apptainer
 
 This repo includes Slurm harness scripts that run training inside the published PhysicsNeMo container via Apptainer.
 
@@ -133,12 +133,24 @@ tail -f slurm-<jobid>.out
 tail -f "${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log"
 ```
 
-## Batch-First Guidance On Torch
+## Interactive And Batch Checks On Torch
 
-In general, interactive allocations and TTY-driven `srun` sessions are flaky on Torch.
-For routine checks and probes, prefer short `sbatch` jobs and inspect their outputs.
+Interactive allocations and TTY-driven `srun` sessions are available on Torch.
+For quick probes, use a short interactive `srun` command. For reproducible checks
+with saved logs, prefer short `sbatch` jobs and inspect their outputs.
 
-Example hostname probe:
+Example interactive hostname probe:
+
+```bash
+srun \
+  --account=torch_pr_347_courant \
+  --nodes=1 \
+  --ntasks=1 \
+  --time=00:02:00 \
+  --pty bash -lc 'hostname'
+```
+
+Equivalent batch hostname probe:
 
 ```bash
 sbatch \
@@ -157,6 +169,76 @@ GPU status inside an allocation:
 
 ```bash
 srun --overlap --jobid=<jobid> -N1 -n1 nvidia-smi
+```
+
+## Evaluation Harness
+
+Main script:
+
+- `scripts/slurm_apptainer_eval.sbatch`
+
+The eval harness runs one process (single-node, single-GPU by default) inside
+the PhysicsNeMo container and executes:
+
+```bash
+python -m ocean_emulators.eval <CONFIG> ...
+```
+
+It expects environment variables:
+
+- `CONFIG` (required): eval config path inside the container image. Relative paths
+  resolve under `/workspace/`, e.g. `configs/samudra_om4/eval.yaml`.
+- `NAME_SUFFIX` (required): populates the eval run name by prepending the current date;
+  you can also set `NAME` directly if you prefer.
+- One checkpoint selector (required):
+  - `TARGET_CHECKPOINT`: checkpoint path relative to `${OUTPUT_BASE}`, or
+  - `CKPT_PATH`: absolute checkpoint path on host (relative host paths are also accepted).
+- `DATA_ROOT` (optional): host data path passed to `--experiment.data_root` (default:
+  `/scratch/<current_user>/data/om4_onedeg_v3`)
+- `OUTPUT_BASE` (optional): host output base dir passed to `--experiment.base_output_dir`
+  (default: `/scratch/<current_user>/runs`)
+- `ARGS` (optional): extra CLI overrides
+- `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
+- `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
+  whether `WANDB_API_KEY` is present)
+- `BACKEND` (optional): eval backend (default `cuda`)
+
+Key behavior:
+
+- Refuses to run if `${OUTPUT_BASE}/$NAME` already exists (forces unique run names).
+- Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
+  instructions to set the corresponding env var.
+- Verifies the checkpoint exists before launching.
+- Binds checkpoint parent paths automatically when checkpoint files live outside
+  `${DATA_ROOT}`/`${OUTPUT_BASE}`.
+
+### Example: 1 Node, 1x RTX6000 Eval
+
+```bash
+export CONFIG=configs/samudra_om4/eval.yaml
+export NAME_SUFFIX=om4_samudra_baseline_eval
+export TARGET_CHECKPOINT=2026-02-22-om4_samudra_baseline/saved_nets/ema_ckpt.pt
+# Optional overrides (defaults are /scratch/$USER/data/om4_onedeg_v3 and /scratch/$USER/runs)
+# export DATA_ROOT=/scratch/$USER/data/om4_onedeg_v3
+# export OUTPUT_BASE=/scratch/$USER/runs
+# export WANDB_MODE=online
+# export WANDB_API_KEY=...
+
+# Container selection (pick one)
+export CONTAINER_HASH=<git_sha>
+# export CONTAINER_TAG=25.11-manual-<branch>
+# export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-<git_sha>
+
+sbatch \
+  --account=torch_pr_347_courant \
+  --partition=rtx6000_lzanna \
+  --nodes=1 \
+  --ntasks-per-node=1 \
+  --cpus-per-task=8 \
+  --mem=128GB \
+  --gres=gpu:rtx6000:1 \
+  --time=04:00:00 \
+  scripts/slurm_apptainer_eval.sbatch
 ```
 
 ## NCCL Gotcha On RTX6000 Nodes

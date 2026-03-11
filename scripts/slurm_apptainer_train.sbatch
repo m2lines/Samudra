@@ -90,7 +90,6 @@ if [[ -e "${RUN_DIR}" ]]; then
   echo "Pick a unique NAME_SUFFIX." >&2
   exit 4
 fi
-mkdir -p "${RUN_DIR}"
 
 # W&B mode defaults: online if key provided, else disabled.
 WANDB_MODE="${WANDB_MODE:-}"
@@ -202,6 +201,10 @@ binds=(
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
+
+# Create the run directory after preflight validation so early failures are
+# retryable with the same NAME.
+mkdir -p "${RUN_DIR}"
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \

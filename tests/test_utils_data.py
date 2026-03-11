@@ -32,13 +32,15 @@ def test_mask_roundtrip(data_source):
 
 
 def test_rename_vars():
-    """Test renaming variables from OM4 format to standard format."""
-    # Create test dataset with OM4 format variables
+    """Test renaming variables from depth-value format to depth-index format."""
+    level_0 = str(DEPTH_LEVELS[0]).replace(".", "_")
+    level_1 = str(DEPTH_LEVELS[1]).replace(".", "_")
+    level_11 = str(DEPTH_LEVELS[11]).replace(".", "_")
     test_data = {
-        "so_lev_1050_0": (["time", "lat", "lon"], [[[1.0]]]),
-        "thetao_lev_2_5": (["time", "lat", "lon"], [[[2.0]]]),
-        "vo_lev_10_0": (["time", "lat", "lon"], [[[3.0]]]),
-        "zos": (["time", "lat", "lon"], [[[4.0]]]),  # Should remain unchanged
+        f"Salt_lev_{level_11}": (["time", "lat", "lon"], [[[1.0]]]),
+        f"Theta_lev_{level_0}": (["time", "lat", "lon"], [[[2.0]]]),
+        f"V_lev_{level_1}": (["time", "lat", "lon"], [[[3.0]]]),
+        "Eta": (["time", "lat", "lon"], [[[4.0]]]),  # Should remain unchanged
     }
     ds = xr.Dataset(
         test_data,
@@ -53,28 +55,28 @@ def test_rename_vars():
     renamed_ds = with_level_index_vars(ds)
 
     # Test that variables are renamed correctly
-    assert "so_11" in renamed_ds.variables  # 1040.0 is at index 11 in DEPTH_LEVELS
-    assert "thetao_0" in renamed_ds.variables  # 2.5 is at index 0 in DEPTH_LEVELS
-    assert "vo_1" in renamed_ds.variables  # 10.0 is at index 1 in DEPTH_LEVELS
-    assert "zos" in renamed_ds.variables  # Should remain unchanged
+    assert "Salt_11" in renamed_ds.variables
+    assert "Theta_0" in renamed_ds.variables
+    assert "V_1" in renamed_ds.variables
+    assert "Eta" in renamed_ds.variables  # Should remain unchanged
 
     # Test that data values are preserved
-    assert renamed_ds["so_11"].values[0, 0, 0] == 1.0
-    assert renamed_ds["thetao_0"].values[0, 0, 0] == 2.0
-    assert renamed_ds["vo_1"].values[0, 0, 0] == 3.0
-    assert renamed_ds["zos"].values[0, 0, 0] == 4.0
+    assert renamed_ds["Salt_11"].values[0, 0, 0] == 1.0
+    assert renamed_ds["Theta_0"].values[0, 0, 0] == 2.0
+    assert renamed_ds["V_1"].values[0, 0, 0] == 3.0
+    assert renamed_ds["Eta"].values[0, 0, 0] == 4.0
 
     # Test that original dataset is not modified
-    assert "so_lev_1050_0" in ds.variables
-    assert "thetao_lev_2_5" in ds.variables
-    assert "vo_lev_10_0" in ds.variables
+    assert f"Salt_lev_{level_11}" in ds.variables
+    assert f"Theta_lev_{level_0}" in ds.variables
+    assert f"V_lev_{level_1}" in ds.variables
 
 
 def test_rename_vars_invalid_depth():
     """Test that invalid depth levels raise an error."""
     # Create test dataset with invalid depth level
     test_data = {
-        "so_lev_9999_0": (["time", "lat", "lon"], [[[1.0]]]),  # Invalid depth
+        "Salt_lev_9999_0": (["time", "lat", "lon"], [[[1.0]]]),  # Invalid depth
     }
     ds = xr.Dataset(
         test_data,
@@ -101,7 +103,7 @@ def test_compute_anomalies():
     clim = np.sin(np.linspace(-20 * np.pi, 20 * np.pi, N))
     true_anomaly = np.random.normal(0, 1, N)
     test_data = {
-        "thetao_0": (
+        "Theta_0": (
             ["lat", "lon", "time"],
             [[[clim[t] + true_anomaly[t] + 10 for t in range(N)]]],
         ),
@@ -119,8 +121,8 @@ def test_compute_anomalies():
     ds_std = ds.std().compute()
 
     # compute anomalies
-    anomalies, _, _ = compute_anomalies(ds, ds_mean, ds_std, ("thetao_0_anomalies",))
-    anomalies_np = anomalies["thetao_0_anomalies"].to_numpy()
+    anomalies, _, _ = compute_anomalies(ds, ds_mean, ds_std, ("Theta_0_anomalies",))
+    anomalies_np = anomalies["Theta_0_anomalies"].to_numpy()
     anomalies_np_flat = anomalies_np[0][0]
 
     # check that anomalies are more correlated with true anomaly than climatology
@@ -273,29 +275,22 @@ def data_init(hist: int):
         lons = 3
         total_time_steps = 100
 
-        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
+        tensor_map = TensorMap.init_instance("single_1", "single")
 
         wet_mask_ = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
         wet_full = np.tile(wet_mask_, (total_time_steps, levels, 1, 1))
 
-        # Even thetao, odd hfds for every time step
-        # Ex, timestep 0: thetao = 0, hfds = 1
-        # Ex, timestep 1: thetao = 2, hfds = 3
-        # Ex, timestep 2: thetao = 4, hfds = 5
-        # ...
+        # Even Theta, odd oceQnet for every time step.
         data = xr.Dataset(
             {
-                **{
-                    f"thetao_{lev}": (
-                        ["time", "lat", "lon"],
-                        np.tile(
-                            np.arange(total_time_steps)[:, None, None] * 2,
-                            (1, lats, lons),
-                        ),
-                    )
-                    for lev in range(levels)
-                },
-                "hfds": (
+                "Theta_0": (
+                    ["time", "lat", "lon"],
+                    np.tile(
+                        np.arange(total_time_steps)[:, None, None] * 2,
+                        (1, lats, lons),
+                    ),
+                ),
+                "oceQnet": (
                     ["time", "lat", "lon"],
                     np.tile(
                         np.arange(total_time_steps)[:, None, None] * 2 + 1,

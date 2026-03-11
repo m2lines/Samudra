@@ -684,7 +684,12 @@ def _parse_lev_from_output_var(prognostic_var_names: PrognosticVarNames) -> list
     """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
     depth_inds = []
     for var_depth_i in prognostic_var_names:
-        # Examples: "so_18", "zos"
+        # Examples: "Theta_18", "Eta", "so_lev_24_99"
+        if "_lev_" in var_depth_i:
+            _, lev_depth = var_depth_i.split("_lev_", maxsplit=1)
+            depth_inds.append(DEPTH_LEVELS.index(float(lev_depth.replace("_", "."))))
+            continue
+
         var_split = var_depth_i.split("_")
         if len(var_split) == 1:
             depth_inds.append(0)
@@ -695,18 +700,22 @@ def _parse_lev_from_output_var(prognostic_var_names: PrognosticVarNames) -> list
 
 
 def flatten_masks(data: xr.Dataset) -> xr.Dataset:
-    """Adds data_vars "mask_0"..."mask_18" with dimensions (y, x)."""
+    """Adds level-wise mask data vars with dimensions matching the input mask."""
     data_ = data.copy()
+    legacy_mask_vars = [f"mask_{lev}" for lev in DEPTH_I_LEVELS]
     if MASK_VARS[0] not in data_.variables:
+        if legacy_mask_vars[0] in data_.variables:
+            return data_.rename(dict(zip(legacy_mask_vars, MASK_VARS, strict=True)))
+
         assert MASK_ALL_LEVELS_VAR in data_.variables, (
             "Wet mask cannot be constructed without "
             "either the wetmask variable or the level-wise masks"
         )
 
         wet_mask = data_[MASK_ALL_LEVELS_VAR]
-        for i, lev in enumerate(DEPTH_I_LEVELS):
+        for i, (lev, mask_var) in enumerate(zip(DEPTH_I_LEVELS, MASK_VARS, strict=True)):
             assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
-            data_[f"mask_{lev}"] = wet_mask.isel(lev=i)
+            data_[mask_var] = wet_mask.isel(lev=i)
 
         data_ = data_.drop_vars(MASK_ALL_LEVELS_VAR)
 

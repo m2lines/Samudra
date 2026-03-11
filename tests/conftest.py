@@ -432,9 +432,10 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         means = xr.open_dataset(cache / "means.nc")
         stds = xr.open_dataset(cache / "stds.nc")
 
-        boundary_vars = [
-            str(v) for v in data.data_vars if v in BOUNDARY_VARS["tau_hfds_hfds_anom"]
-        ]
+        boundary_candidates = {
+            var for boundary_vars in BOUNDARY_VARS.values() for var in boundary_vars
+        } | {"hfds", "hfds_anomalies", "tauuo", "tauvo"}
+        boundary_vars = [str(v) for v in data.data_vars if v in boundary_candidates]
 
         if _is_compact(data, means, stds):
             prognostic_var_names: list[str] = []

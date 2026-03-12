@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.metadata as metadata
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -24,6 +25,12 @@ def version(dist_name: str) -> str:
     return metadata.version(dist_name)
 
 
+def require_command(command_name: str) -> None:
+    if shutil.which(command_name) is None:
+        raise RuntimeError(f"missing expected command on PATH: {command_name}")
+    print(f"command {command_name}: OK")
+
+
 def main() -> int:
     require_import("ocean_emulators")
     require_import("ocean_emulators.models.samudra")
@@ -32,6 +39,8 @@ def main() -> int:
     require_import("kvikio.zarr")
     require_import("nvidia.nvcomp")
     require_import("xarray")
+    require_command("gds_stats")
+    require_command("gdscheck")
 
     sample = torch.randn(2, 2)
     result = sample @ sample

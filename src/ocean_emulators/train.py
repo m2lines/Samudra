@@ -140,13 +140,10 @@ class Trainer:
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
-            # Always use spawn: workers start as fresh Python interpreters and
-            # don't inherit the parent's large address space (xarray datasets,
-            # anomaly arrays, etc.).  With fork, copy-on-write pages get
-            # duplicated as workers call .to_numpy(), causing OOM when many
-            # workers are used with multi-scale data.  The slower startup is
-            # amortized by persistent_workers=True on the DataLoaders.
-            self.mp_context = multiprocessing.get_context("spawn")
+            if self.data_container.supports_fork:
+                self.mp_context = multiprocessing.get_context("fork")
+            else:
+                self.mp_context = multiprocessing.get_context("spawn")
 
         self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
@@ -416,7 +413,6 @@ class Trainer:
             drop_last=False,
             collate_fn=collate_inference_data,
             multiprocessing_context=self.mp_context,
-            persistent_workers=self.num_workers > 0,
         )
 
     def run(self) -> None:
@@ -940,7 +936,6 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
-            persistent_workers=self.num_workers > 0,
         )
 
         val_dataloader = DataLoader(
@@ -950,7 +945,6 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
-            persistent_workers=self.num_workers > 0,
         )
 
         # Wrap dataloaders to handle GPU post-processing

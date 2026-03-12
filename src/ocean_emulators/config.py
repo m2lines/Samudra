@@ -151,6 +151,11 @@ class DataConfig(BaseConfig):
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+    llc_face: int = 1
+    llc_i_start: int = 0
+    llc_i_end: int = 719
+    llc_j_start: int = 0
+    llc_j_end: int = 719
 
     def build(
         self,
@@ -173,6 +178,11 @@ class DataConfig(BaseConfig):
             boundary_var_names=boundary_var_names,
             static_data_vars=self.static_data_vars,
             use_dask=use_dask,
+            llc_face=self.llc_face,
+            llc_i_start=self.llc_i_start,
+            llc_i_end=self.llc_i_end,
+            llc_j_start=self.llc_j_start,
+            llc_j_end=self.llc_j_end,
         )
 
         if use_dask:
@@ -188,6 +198,11 @@ class DataConfig(BaseConfig):
                 boundary_var_names=boundary_var_names,
                 static_data_vars=self.static_data_vars,
                 use_dask=True,
+                llc_face=self.llc_face,
+                llc_i_start=self.llc_i_start,
+                llc_i_end=self.llc_i_end,
+                llc_j_start=self.llc_j_start,
+                llc_j_end=self.llc_j_end,
             )
 
         static_data = (
@@ -509,7 +524,7 @@ class SamudraConfig(BaseModelConfig):
         description="""Number of channels used for a learned positional embedding""",
     )
     use_bfloat16: bool = Field(
-        default=False,
+        default=True,
         description="Use bfloat16 for most layers rather than float32.",
     )
 
@@ -743,6 +758,27 @@ class TrainConfig(TopLevelConfig):
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True
     backend: TrainBackendConfig = "auto"
+    ddp_bucket_cap_mb: int | None = Field(
+        default=50,
+        ge=1,
+        description=(
+            "DDP communication bucket size in MB. Larger values reduce collective "
+            "count but increase burst memory pressure."
+        ),
+    )
+    ddp_gradient_as_bucket_view: bool = True
+    ddp_static_graph: bool = False
+    ddp_find_unused_parameters: bool = False
+    ddp_broadcast_buffers: bool = True
+    ddp_use_no_sync_for_accumulation: bool = True
+    ddp_timeout_minutes: int = Field(
+        default=10,
+        ge=1,
+        description=(
+            "Distributed process-group timeout in minutes. Increase this to "
+            "avoid aborting runs when one rank occasionally stalls."
+        ),
+    )
 
     # Profiling parameters
     profiler: ProfilerConfig = ProfilerConfig()

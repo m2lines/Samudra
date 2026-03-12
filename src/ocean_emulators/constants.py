@@ -8,6 +8,7 @@ import torch
 import xarray as xr
 from jaxtyping import Bool, Float
 from torch import Tensor
+import numpy as np
 
 from ocean_emulators.utils.multiton import Multiton
 
@@ -69,57 +70,54 @@ DEPTH_LEVELS = [
     45.855,
     52.69,
     60.28,
-    68.685,
-] # should go deeper --------------------------------------------------------
+    68.685, 
+    77.965, 
+    88.175, 
+    99.37, 
+    111.6, 
+    124.915, 
+    139.365, 
+    154.99,
+    171.825,
+    189.9, 
+    209.235, 
+    229.855, 
+    251.77, 
+    274.985, 
+    299.505, 
+    325.32, 
+    352.42,
+    380.79, 
+    410.41, 
+    441.255, 
+    473.305, 
+    506.54, 
+    540.935, 
+    576.465, 
+    613.11,
+    650.855, 
+    689.685, 
+    729.595, 
+    770.585, 
+    812.66, 
+    855.835, 
+    900.135, 
+    945.595,
+]
 
-NEXT_DEPTH_LEVEL = 77.965
+# SELECT A SUBSET OF THE TOTAL DEPTH LEVELS
+# SELECT A SUBSET OF THE TOTAL DEPTH LEVELS
+#DEPTH_LEVELS = DEPTH_LEVELS[::3]
+
+NEXT_DEPTH_LEVEL = 1000#900.135#1000
 
 # Depth thicknesses
 DEPTH_THICKNESS = [n - p for p, n in zip(DEPTH_LEVELS, DEPTH_LEVELS[1:] + [NEXT_DEPTH_LEVEL])]
 
-DEPTH_I_LEVELS = [
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "10",
-    "11",
-    "12",
-    "13",
-    "14",
-    "15",
-    "16",
-    "17",
-    "18",
-]
+N = len(DEPTH_LEVELS)
+DEPTH_I_LEVELS = [str(i) for i in range(N)]
+MASK_VARS = [f"wetmask_{i}" for i in range(N)]
 
-MASK_VARS = [
-    "wetmask_0",
-    "wetmask_1",
-    "wetmask_2",
-    "wetmask_3",
-    "wetmask_4",
-    "wetmask_5",
-    "wetmask_6",
-    "wetmask_7",
-    "wetmask_8",
-    "wetmask_9",
-    "wetmask_10",
-    "wetmask_11",
-    "wetmask_12",
-    "wetmask_13",
-    "wetmask_14",
-    "wetmask_15",
-    "wetmask_16",
-    "wetmask_17",
-    "wetmask_18",
-]
 
 MASK_ALL_LEVELS_VAR = "wetmask"
 HEAT_VAR_NAME = "Theta"
@@ -131,6 +129,12 @@ SECONDS_PER_TIME_STEP = 60 # hourly
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
     "single_1": [f"Theta_{DEPTH_I_LEVELS[0]}"],
+    "single_2": [
+        k + str(j) for k in ["Theta_"] for j in DEPTH_I_LEVELS[:2]
+    ],
+    "thermo_51": [
+        k + str(j) for k in ["Theta_", "Salt_"] for j in DEPTH_I_LEVELS
+    ],
     "all": [
         k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS
     ]
@@ -140,6 +144,7 @@ PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
 BoundaryVarNames = list[str]
 BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
     "single": ["oceQnet"],
+    "double": ["oceQnet", "Eta"],
     "all": ["oceTAUX", "oceTAUY", "oceQnet", "Eta"],
 }
 
@@ -236,11 +241,11 @@ class TensorMap(Multiton):
             )
         )
 
-        assert 19 == len(DEPTH_I_LEVELS) == len(DEPTH_THICKNESS) == len(DEPTH_LEVELS) == len(MASK_VARS)
+        assert 51 == len(DEPTH_I_LEVELS) == len(DEPTH_THICKNESS) == len(DEPTH_LEVELS) == len(MASK_VARS)
 
         levels_str = prognostic_vars_key.split("_")[-1]
         if "all" in levels_str:
-            levels = 19
+            levels = 51
         else:
             levels = int(levels_str)
 

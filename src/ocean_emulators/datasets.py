@@ -26,7 +26,15 @@ from ocean_emulators.utils.data import DataSource, LoadStats, conditional_rearra
 from ocean_emulators.utils.device import get_device, using_gpu
 from ocean_emulators.utils.logging import elapsed
 
+
+from numcodecs import blosc
+blosc.use_threads = True
+blosc.set_nthreads(1)
+
+
 logger = logging.getLogger(__name__)
+_PIN_MEMORY_WARNING_EMITTED = False
+_PIN_MEMORY_DISABLED = False
 
 
 class InferenceDataset(Dataset):
@@ -311,10 +319,25 @@ class RawTrainData:
         ]
 
     def pin_memory(self):
-        self.raw_data = [
-            (all_prognostic.pin_memory(), all_boundary.pin_memory())
-            for all_prognostic, all_boundary in self.raw_data
-        ]
+        global _PIN_MEMORY_WARNING_EMITTED
+        global _PIN_MEMORY_DISABLED
+        if _PIN_MEMORY_DISABLED:
+            return self
+        try:
+            self.raw_data = [
+                (all_prognostic.pin_memory(), all_boundary.pin_memory())
+                for all_prognostic, all_boundary in self.raw_data
+            ]
+        except RuntimeError as e:
+            # Large multi-worker batches can intermittently fail host pinning.
+            # Fall back to pageable memory so training can continue.
+            if not _PIN_MEMORY_WARNING_EMITTED:
+                logger.warning(
+                    "Pin-memory failed for a batch; continuing without pinning. "
+                    f"Error: {e}"
+                )
+                _PIN_MEMORY_WARNING_EMITTED = True
+            _PIN_MEMORY_DISABLED = True
         return self
 
 

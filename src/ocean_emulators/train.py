@@ -3,6 +3,7 @@ import datetime
 import logging
 import multiprocessing
 import os
+import signal
 import tempfile
 import time
 import warnings
@@ -60,6 +61,7 @@ from ocean_emulators.utils.data import (
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
     all_reduce_mean,
+    get_rank,
     get_world_size,
     is_main_process,
     set_seed,
@@ -83,6 +85,10 @@ from ocean_emulators.utils.wandb import WandBLogger
 logger = logging.getLogger(__name__)
 
 
+class GracefulStopRequested(RuntimeError):
+    """Raised when training should stop after writing an emergency checkpoint."""
+
+
 class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
@@ -91,7 +97,9 @@ class Trainer:
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
         # Backend
-        self.device, self.distributed = init_train_backend(cfg.backend)
+        self.device, self.distributed = init_train_backend(
+            cfg.backend, ddp_timeout_minutes=cfg.ddp_timeout_minutes
+        )
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
@@ -134,6 +142,17 @@ class Trainer:
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
+
+        if self.distributed is not None and cfg.data.num_workers > 0:
+            world_size = get_world_size()
+            scaled_workers = max(1, cfg.data.num_workers // world_size)
+            if scaled_workers != cfg.data.num_workers:
+                logger.info(
+                    "Scaling data.num_workers from "
+                    f"{cfg.data.num_workers} to {scaled_workers} per rank "
+                    f"for world_size={world_size}."
+                )
+                cfg.data.num_workers = scaled_workers
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -239,9 +258,8 @@ class Trainer:
         # Check for preemption
         if cfg.preemptible:
             assert not cfg.finetune, "Finetune is not supported with preemptible"
-            preempted = os.path.isfile(self.ckpt_paths.latest_checkpoint_path)
-            if preempted:
-                cfg.resume_ckpt_path = str(self.ckpt_paths.latest_checkpoint_path)
+            if resumable_ckpt := self.ckpt_paths.latest_resumable_checkpoint_path():
+                cfg.resume_ckpt_path = str(resumable_ckpt)
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
@@ -267,11 +285,13 @@ class Trainer:
             )
 
         self.num_batches_seen = 0
+        self.start_batch_in_epoch = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
                 self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
                 self.start_epoch = 1
+                self.start_batch_in_epoch = 0
             else:
                 self.load_checkpoint(cfg.resume_ckpt_path)
                 if not self.wandb_logger.enabled and is_main_process():
@@ -282,12 +302,28 @@ class Trainer:
             loaded_checkpoint = True
         else:
             self.start_epoch = 1
+            self.start_batch_in_epoch = 0
+
+        self._stop_requested = False
+        self._stop_reason: str | None = None
+        self._active_epoch: int | None = None
+        self._last_completed_batch_in_epoch = -1
+        self._finished = False
 
         # Modify DDP setup based on device
         if self.distributed is not None:
+            ddp_options = {
+                "device_ids": [self.distributed.gpu],
+                "bucket_cap_mb": cfg.ddp_bucket_cap_mb,
+                "gradient_as_bucket_view": cfg.ddp_gradient_as_bucket_view,
+                "static_graph": cfg.ddp_static_graph,
+                "find_unused_parameters": cfg.ddp_find_unused_parameters,
+                "broadcast_buffers": cfg.ddp_broadcast_buffers,
+            }
+            logger.info(f"Initializing DDP with options: {ddp_options}")
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
-                device_ids=[self.distributed.gpu],
+                **ddp_options,
             )
 
         # EMA (must come after DDP setup so parameter names match final self.model)
@@ -310,6 +346,20 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
+        self.ddp_use_no_sync_for_accumulation = (
+            cfg.ddp_use_no_sync_for_accumulation
+        )
+        self.ddp_static_graph: bool = cfg.ddp_static_graph
+        if (
+            self.ddp_static_graph
+            and self.ddp_use_no_sync_for_accumulation
+            and self.gradient_accumulation_steps > 1
+        ):
+            logger.warning(
+                "Disabling DDP no_sync accumulation because ddp_static_graph=true. "
+                "This avoids known DDP reducer assertions in this PyTorch setup."
+            )
+            self.ddp_use_no_sync_for_accumulation = False
         self.num_workers: int = cfg.data.num_workers
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
@@ -338,6 +388,8 @@ class Trainer:
         self.train_loader: TrainDataLoader
         self.val_loader: TrainDataLoader
         self.inference_loader: DataLoader[TrainData]
+
+        self._install_signal_handlers()
 
     def init_inference_stores(self):
         # Determine number of processes based on device
@@ -402,68 +454,107 @@ class Trainer:
         self.profiler.start()
 
         start_time = time.perf_counter()
-        for epoch in range(self.start_epoch, self.epochs + 1):
-            # Iterative step training
-            if epoch == self.start_epoch or epoch in self.step_transition:
-                cur_step = self.get_current_step(epoch)
-                self.init_data_loaders(cur_step)
+        try:
+            for epoch in range(self.start_epoch, self.epochs + 1):
+                self._active_epoch = epoch
 
-            if isinstance(self.train_sampler, DistributedSampler):
-                self.train_sampler.set_epoch(epoch)
-            if isinstance(self.val_sampler, DistributedSampler):
-                self.val_sampler.set_epoch(epoch)
+                # Iterative step training
+                if epoch == self.start_epoch or epoch in self.step_transition:
+                    cur_step = self.get_current_step(epoch)
+                    self.init_data_loaders(cur_step)
 
-            start_epoch_train_time = time.perf_counter()
-            train_stats = self.train_one_epoch(epoch)
-            end_epoch_train_time = time.perf_counter()
-            val_stats = self.validate_one_epoch(epoch)
-            end_epoch_val_time = time.perf_counter()
+                if isinstance(self.train_sampler, DistributedSampler):
+                    self.train_sampler.set_epoch(epoch)
+                if isinstance(self.val_sampler, DistributedSampler):
+                    self.val_sampler.set_epoch(epoch)
 
-            if -1 in self.inference_epochs or epoch in self.inference_epochs:
-                inf_stats = self.inference_one_epoch(epoch)
-                end_epoch_inf_time = time.perf_counter()
-            else:
-                inf_stats = {}
-                end_epoch_inf_time = None
+                start_batch_in_epoch = (
+                    self.start_batch_in_epoch if epoch == self.start_epoch else 0
+                )
+                if start_batch_in_epoch > 0:
+                    logger.info(
+                        f"Resuming epoch {epoch} from batch {start_batch_in_epoch}"
+                    )
+                self._last_completed_batch_in_epoch = start_batch_in_epoch - 1
 
-            train_loss = train_stats["train/mean/loss"]
-            v_loss = val_stats["val/mean/loss"]
-            inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
+                start_epoch_train_time = time.perf_counter()
+                train_stats = self.train_one_epoch(epoch, start_batch_in_epoch)
+                self.start_batch_in_epoch = 0
+                end_epoch_train_time = time.perf_counter()
 
-            logger.info(f"Achieved Train Loss = {train_loss:.3f}")
-            logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
-            if inf_loss is not None:
-                logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
+                if self._stop_requested:
+                    reason = self._stop_reason or "stop requested"
+                    self.save_emergency_checkpoint(
+                        epoch=epoch,
+                        batch_in_epoch=self._last_completed_batch_in_epoch,
+                        reason=reason,
+                    )
+                    raise GracefulStopRequested(
+                        f"Stopping after emergency checkpoint ({reason})."
+                    )
 
-            if is_main_process():
-                self.save_all_checkpoints(epoch, v_loss, inf_loss)
+                val_stats = self.validate_one_epoch(epoch)
+                end_epoch_val_time = time.perf_counter()
 
-            time_elapsed = time.perf_counter() - start_epoch_train_time
+                if -1 in self.inference_epochs or epoch in self.inference_epochs:
+                    inf_stats = self.inference_one_epoch(epoch)
+                    end_epoch_inf_time = time.perf_counter()
+                else:
+                    inf_stats = {}
+                    end_epoch_inf_time = None
 
-            log_stats = {
-                **train_stats,
-                **val_stats,
-                **inf_stats,
-                "epoch": epoch,
-                "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
-                "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
-                "epoch_total_seconds": time_elapsed,
-            }
-
-            if end_epoch_inf_time is not None:
-                log_stats["epoch_inference_seconds"] = (
-                    end_epoch_inf_time - end_epoch_val_time
+                train_loss = train_stats["train/mean/loss"]
+                v_loss = val_stats["val/mean/loss"]
+                inf_loss = inf_stats.get(
+                    "inference/time_mean_norm/rmse/channel_mean", None
                 )
 
-            if is_main_process():
-                self.wandb_logger.log(log_stats, step=self.num_batches_seen)
+                logger.info(f"Achieved Train Loss = {train_loss:.3f}")
+                logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
+                if inf_loss is not None:
+                    logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
-        total_time = time.perf_counter() - start_time
-        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logger.info(f"Training time {total_time_str}")
-        self.finish()
+                if is_main_process():
+                    self.save_all_checkpoints(epoch, v_loss, inf_loss)
 
-    def train_one_epoch(self, epoch):
+                time_elapsed = time.perf_counter() - start_epoch_train_time
+
+                log_stats = {
+                    **train_stats,
+                    **val_stats,
+                    **inf_stats,
+                    "epoch": epoch,
+                    "epoch_train_seconds": end_epoch_train_time
+                    - start_epoch_train_time,
+                    "epoch_validation_seconds": end_epoch_val_time
+                    - end_epoch_train_time,
+                    "epoch_total_seconds": time_elapsed,
+                }
+
+                if end_epoch_inf_time is not None:
+                    log_stats["epoch_inference_seconds"] = (
+                        end_epoch_inf_time - end_epoch_val_time
+                    )
+
+                if is_main_process():
+                    self.wandb_logger.log(log_stats, step=self.num_batches_seen)
+        except GracefulStopRequested as e:
+            logger.warning(str(e))
+        except Exception:
+            if self._active_epoch is not None:
+                self.save_emergency_checkpoint(
+                    epoch=self._active_epoch,
+                    batch_in_epoch=self._last_completed_batch_in_epoch,
+                    reason="uncaught_exception",
+                )
+            raise
+        finally:
+            total_time = time.perf_counter() - start_time
+            total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+            logger.info(f"Training time {total_time_str}")
+            self.finish()
+
+    def train_one_epoch(self, epoch, start_batch_in_epoch: int = 0):
         self.model.train(True)
         train_aggregator = Aggregator.get_train_aggregator()
         metric_logger = MetricLogger(delimiter="  ")
@@ -483,10 +574,24 @@ class Trainer:
             if remaining_batches > 0
             else total_batches
         )
+        ddp_model = (
+            self.model
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else None
+        )
+        use_no_sync = (
+            ddp_model is not None
+            and self.ddp_use_no_sync_for_accumulation
+            and self.gradient_accumulation_steps > 1
+            and not self.ddp_static_graph
+        )
 
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
+            if data_iter_step < start_batch_in_epoch:
+                continue
+
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
@@ -503,20 +608,30 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
+            is_last = data_iter_step + 1 == total_batches
+            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
+            sync_gradients = should_step or is_last
 
-            # Scale loss by the actual number of microbatches that will be accumulated
-            scaled_loss = TO.loss / r
-            scaled_loss.backward()
+            sync_context: contextlib.AbstractContextManager
+            if use_no_sync and not sync_gradients:
+                sync_context = ddp_model.no_sync()
+            else:
+                sync_context = contextlib.nullcontext()
+
+            with sync_context:
+                TO: TrainBatchOutput = Stepper.train_batch(
+                    self.model, data, self.loss_fn
+                )
+                # Scale loss by the actual number of microbatches that will be accumulated
+                scaled_loss = TO.loss / r
+                scaled_loss.backward()
 
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
 
-            is_last = data_iter_step + 1 == total_batches
-            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
             # Step optimizer after accumulating enough batches or at the end
-            if should_step or is_last:
+            if sync_gradients:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 self.optimizer.step()
                 self.optimizer.zero_grad()
@@ -530,8 +645,16 @@ class Trainer:
 
             with torch.no_grad():
                 # Reduce losses
-                loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
+                if sync_gradients:
+                    loss_value_reduce = all_reduce_mean(TO.loss.detach())
+                    loss_per_channel_reduce = all_reduce_mean(
+                        TO.loss_per_channel.detach()
+                    )
+                else:
+                    # Skip cross-rank synchronization on intermediate microbatches.
+                    # This keeps communication low during gradient accumulation.
+                    loss_value_reduce = TO.loss.detach()
+                    loss_per_channel_reduce = TO.loss_per_channel.detach()
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
@@ -594,6 +717,19 @@ class Trainer:
             self._call_loss_update(data)
 
             self.profiler.after_batch(self.num_batches_seen)
+            self._last_completed_batch_in_epoch = data_iter_step
+
+            if self._stop_requested and sync_gradients:
+                reason = self._stop_reason or "stop requested"
+                self.save_emergency_checkpoint(
+                    epoch=epoch,
+                    batch_in_epoch=data_iter_step,
+                    reason=reason,
+                )
+                raise GracefulStopRequested(
+                    f"Received stop request during epoch {epoch} at "
+                    f"batch {data_iter_step}."
+                )
 
         if self.scheduler is not None:
             self.scheduler.step()
@@ -808,6 +944,63 @@ class Trainer:
         )
         self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
 
+    def _install_signal_handlers(self) -> None:
+        handled_signals = [signal.SIGTERM, signal.SIGINT]
+        if hasattr(signal, "SIGUSR1"):
+            handled_signals.append(signal.SIGUSR1)
+
+        for signum in handled_signals:
+            signal.signal(signum, self._handle_signal)
+
+    def _handle_signal(self, signum: int, _frame: Any) -> None:
+        if self._stop_requested:
+            return
+
+        try:
+            signame = signal.Signals(signum).name
+        except ValueError:
+            signame = f"signal_{signum}"
+
+        self._stop_requested = True
+        self._stop_reason = signame
+        logger.warning(
+            f"Received {signame}; saving emergency minibatch checkpoint at "
+            "next safe optimization step."
+        )
+
+    def save_emergency_checkpoint(
+        self,
+        epoch: int,
+        batch_in_epoch: int,
+        reason: str,
+    ) -> Path | None:
+        batch_in_epoch = max(-1, batch_in_epoch)
+        checkpoint_path = (
+            self.ckpt_paths.latest_batch_checkpoint_path
+            if is_main_process()
+            else self.ckpt_paths.latest_batch_checkpoint_path_for_rank(get_rank())
+        )
+
+        try:
+            self.save_checkpoint(
+                epoch=epoch,
+                checkpoint_path=checkpoint_path,
+                batch_in_epoch=batch_in_epoch,
+                epoch_complete=False,
+                save_reason=reason,
+            )
+            logger.warning(
+                f"Saved emergency minibatch checkpoint to {checkpoint_path} "
+                f"(epoch={epoch}, batch_in_epoch={batch_in_epoch}, reason={reason})"
+            )
+            return checkpoint_path
+        except Exception:
+            logger.exception(
+                f"Failed to save emergency minibatch checkpoint to "
+                f"{checkpoint_path}"
+            )
+            return None
+
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():
             is_best_val_loss = False
@@ -863,6 +1056,9 @@ class Trainer:
         epoch: int,
         checkpoint_path: Path,
         for_inference: bool = False,
+        batch_in_epoch: int | None = None,
+        epoch_complete: bool = True,
+        save_reason: str | None = None,
     ):
         if for_inference:
             with self._ema_context():
@@ -878,6 +1074,7 @@ class Trainer:
                 "model": model_state_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "epoch": epoch,
+                "epoch_complete": epoch_complete,
                 "best_val_loss": self.best_val_loss,
                 "best_inf_loss": self.best_inf_loss,
                 "ema": self._ema.get_state(include_ema_params=not for_inference),
@@ -885,6 +1082,10 @@ class Trainer:
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
+            if batch_in_epoch is not None:
+                checkpoint["batch_in_epoch"] = batch_in_epoch
+            if save_reason is not None:
+                checkpoint["save_reason"] = save_reason
             loss_state: dict[str, Any] | None = None
             if state_dict_fn := getattr(self.loss_fn, "state_dict", None):
                 loss_state = state_dict_fn()
@@ -935,12 +1136,20 @@ class Trainer:
                 )
                 load_state_dict_fn(checkpoint["loss_fn_state"])
 
-            self.start_epoch = checkpoint["epoch"] + 1
+            epoch_complete = checkpoint.get("epoch_complete", True)
+            if epoch_complete:
+                self.start_epoch = checkpoint["epoch"] + 1
+                self.start_batch_in_epoch = 0
+            else:
+                self.start_epoch = checkpoint["epoch"]
+                self.start_batch_in_epoch = checkpoint.get("batch_in_epoch", -1) + 1
+
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
 
             logger.info(f"Start Epoch: {self.start_epoch}")
+            logger.info(f"Start Batch In Epoch: {self.start_batch_in_epoch}")
             logger.info(f"Wandb id: {self.wandb_id}")
             logger.info(f"Wandb name: {self.wandb_name}")
             logger.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
@@ -977,6 +1186,9 @@ class Trainer:
             self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
+        if self._finished:
+            return
+        self._finished = True
         if self.executor is not None:
             self.executor.shutdown()
         self.wandb_logger.finish()

@@ -254,6 +254,11 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None,
         use_dask: bool,
+        llc_face: int = 1,
+        llc_i_start: int = 0,
+        llc_i_end: int = 719,
+        llc_j_start: int = 0,
+        llc_j_end: int = 719,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
         data = data_location.open(chunks)
@@ -262,13 +267,21 @@ class DataSource:
 
         # LLC specific fixes
 
-        # slice out a single face and small area 
-        data = data.sel(face = 8, drop = True)
-        data = data.isel(i=slice(0, 100), j=slice(0, 100), i_g=slice(0,100), j_g=slice(0,100))
+        # Slice out a single LLC face and spatial extent.
+        data = data.sel(face=llc_face, drop=True)
+        data = data.isel(
+            i=slice(llc_i_start, llc_i_end),
+            j=slice(llc_j_start, llc_j_end),
+            i_g=slice(llc_i_start, llc_i_end),
+            j_g=slice(llc_j_start, llc_j_end),
+        )
 
         # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS
         data["U"] = data["U"].rename({"i_g": "i"})
         data["V"] = data["V"].rename({"j_g": "j"})
+
+        data["oceTAUX"] = data["oceTAUX"].rename({"i_g": "i"})
+        data["oceTAUY"] = data["oceTAUY"].rename({"j_g": "j"})
 
         # TEMPORARY BAND-AID: Drop staggered dims
         for dim in ["i_g", "j_g"]:

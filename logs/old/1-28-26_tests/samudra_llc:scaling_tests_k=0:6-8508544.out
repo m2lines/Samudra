@@ -1,0 +1,940 @@
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Resolved 299 packages in 1ms
+Audited 294 packages in 171ms
+======== train ocean_emulator samudra w/ 3 gpu on LLC4320 data ========
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+
+*****************************************
+Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+*****************************************
+2026-01-28 15:15:36,580 - INFO - backend - auto backend detected CUDA
+2026-01-28 15:15:36,584 - INFO - backend - auto backend detected CUDA
+2026-01-28 15:15:36,585 - INFO - backend - auto backend detected CUDA
+2026-01-28 15:15:38,275 - INFO - distributed - | distributed init (rank 1), gpu 1, world_size 3, dist_url env://
+2026-01-28 15:15:38,276 - INFO - distributed - | distributed init (rank 2), gpu 2, world_size 3, dist_url env://
+2026-01-28 15:15:38,287 - INFO - distributed - | distributed init (rank 0), gpu 0, world_size 3, dist_url env://
+2026-01-28 15:15:38,603 - INFO - backend - succeeded in initializing distributed mode
+2026-01-28 15:15:38,631 - INFO - train - Prognostic variables: Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5
+2026-01-28 15:15:38,631 - INFO - train - Boundary variables: oceQnet
+2026-01-28 15:15:38,631 - INFO - train - Levels: 6
+2026-01-28 15:15:39,224 - INFO - logging - 
+=== Warning Details ===
+2026-01-28 15:15:39,224 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-28 15:15:39,224 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-28 15:15:39,224 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-28 15:15:39,224 - INFO - logging - Line: 135
+2026-01-28 15:15:39,224 - INFO - logging - 
+Full stack trace:
+2026-01-28 15:15:39,227 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-28 15:15:39,228 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 1003, in <module>
+2026-01-28 15:15:39,228 - INFO - logging -     main()
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 993, in main
+2026-01-28 15:15:39,228 - INFO - logging -     trainer = Trainer(cfg)
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 132, in __init__
+2026-01-28 15:15:39,228 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 168, in build
+2026-01-28 15:15:39,228 - INFO - logging -     source = DataSource.from_locations(
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-01-28 15:15:39,228 - INFO - logging -     data = data_location.open(chunks)
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-28 15:15:39,228 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-28 15:15:39,228 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-28 15:15:39,228 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-28 15:15:39,228 - INFO - logging -     ) = _get_open_params(
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-28 15:15:39,228 - INFO - logging -     emit_user_level_warning(
+2026-01-28 15:15:39,228 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-28 15:15:39,228 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-28 15:15:39,228 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-28 15:15:39,229 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-28 15:15:39,229 - INFO - logging - =====================
+
+2026-01-28 15:15:43,559 - INFO - logging - 
+=== Warning Details ===
+2026-01-28 15:15:43,559 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-28 15:15:43,559 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-28 15:15:43,559 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-28 15:15:43,559 - INFO - logging - Line: 135
+2026-01-28 15:15:43,559 - INFO - logging - 
+Full stack trace:
+2026-01-28 15:15:43,559 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-28 15:15:43,559 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-28 15:15:43,559 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 1003, in <module>
+2026-01-28 15:15:43,559 - INFO - logging -     main()
+2026-01-28 15:15:43,559 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 993, in main
+2026-01-28 15:15:43,560 - INFO - logging -     trainer = Trainer(cfg)
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 132, in __init__
+2026-01-28 15:15:43,560 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 183, in build
+2026-01-28 15:15:43,560 - INFO - logging -     source_using_dask = DataSource.from_locations(
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-01-28 15:15:43,560 - INFO - logging -     data = data_location.open(chunks)
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-28 15:15:43,560 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-28 15:15:43,560 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-28 15:15:43,560 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-28 15:15:43,560 - INFO - logging -     ) = _get_open_params(
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-28 15:15:43,560 - INFO - logging -     emit_user_level_warning(
+2026-01-28 15:15:43,560 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-28 15:15:43,560 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-28 15:15:43,560 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-28 15:15:43,560 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-28 15:15:43,560 - INFO - logging - =====================
+
+2026-01-28 15:16:15,690 - INFO - train - Number of inputs (prognostic + boundary): 14
+2026-01-28 15:16:15,690 - INFO - train - Number of outputs (prognostic): 12
+2026-01-28 15:16:15,691 - INFO - train - Loading data
+2026-01-28 15:16:15,692 - INFO - constants - lon does not have any default metadata
+2026-01-28 15:16:15,692 - INFO - constants - iter does not have any default metadata
+2026-01-28 15:16:15,692 - INFO - constants - lat does not have any default metadata
+2026-01-28 15:16:15,692 - INFO - constants - k_l does not have any default metadata
+2026-01-28 15:16:15,692 - INFO - constants - k_p1 does not have any default metadata
+2026-01-28 15:16:15,693 - INFO - constants - k_u does not have any default metadata
+2026-01-28 15:16:15,693 - INFO - constants - time does not have any default metadata
+2026-01-28 15:16:15,699 - INFO - constants - hFacC_0 does not have any default metadata
+2026-01-28 15:16:15,699 - INFO - constants - hFacC_1 does not have any default metadata
+2026-01-28 15:16:15,699 - INFO - constants - hFacC_2 does not have any default metadata
+2026-01-28 15:16:15,699 - INFO - constants - hFacC_3 does not have any default metadata
+2026-01-28 15:16:15,699 - INFO - constants - hFacC_4 does not have any default metadata
+2026-01-28 15:16:15,700 - INFO - constants - hFacC_5 does not have any default metadata
+2026-01-28 15:16:15,700 - INFO - constants - hFacC_6 does not have any default metadata
+2026-01-28 15:16:15,700 - INFO - constants - hFacC_7 does not have any default metadata
+2026-01-28 15:16:15,700 - INFO - constants - hFacC_8 does not have any default metadata
+2026-01-28 15:16:15,700 - INFO - constants - hFacC_9 does not have any default metadata
+2026-01-28 15:16:15,701 - INFO - constants - hFacC_10 does not have any default metadata
+2026-01-28 15:16:15,701 - INFO - constants - hFacC_11 does not have any default metadata
+2026-01-28 15:16:15,701 - INFO - constants - hFacC_12 does not have any default metadata
+2026-01-28 15:16:15,701 - INFO - constants - hFacC_13 does not have any default metadata
+2026-01-28 15:16:15,701 - INFO - constants - hFacC_14 does not have any default metadata
+2026-01-28 15:16:15,701 - INFO - constants - hFacC_15 does not have any default metadata
+2026-01-28 15:16:15,701 - INFO - constants - hFacC_16 does not have any default metadata
+2026-01-28 15:16:15,701 - INFO - constants - hFacC_17 does not have any default metadata
+2026-01-28 15:16:15,702 - INFO - constants - hFacC_18 does not have any default metadata
+2026-01-28 15:16:15,702 - INFO - constants - hFacS_0 does not have any default metadata
+2026-01-28 15:16:15,702 - INFO - constants - hFacS_1 does not have any default metadata
+2026-01-28 15:16:15,702 - INFO - constants - hFacS_2 does not have any default metadata
+2026-01-28 15:16:15,702 - INFO - constants - hFacS_3 does not have any default metadata
+2026-01-28 15:16:15,702 - INFO - constants - hFacS_4 does not have any default metadata
+2026-01-28 15:16:15,702 - INFO - constants - hFacS_5 does not have any default metadata
+2026-01-28 15:16:15,703 - INFO - constants - hFacS_6 does not have any default metadata
+2026-01-28 15:16:15,703 - INFO - constants - hFacS_7 does not have any default metadata
+2026-01-28 15:16:15,703 - INFO - constants - hFacS_8 does not have any default metadata
+2026-01-28 15:16:15,704 - INFO - constants - hFacS_9 does not have any default metadata
+2026-01-28 15:16:15,704 - INFO - constants - hFacS_10 does not have any default metadata
+2026-01-28 15:16:15,704 - INFO - constants - hFacS_11 does not have any default metadata
+2026-01-28 15:16:15,704 - INFO - constants - hFacS_12 does not have any default metadata
+2026-01-28 15:16:15,704 - INFO - constants - hFacS_13 does not have any default metadata
+2026-01-28 15:16:15,704 - INFO - constants - hFacS_14 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacS_15 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacS_16 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacS_17 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacS_18 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacW_0 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacW_1 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacW_2 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacW_3 does not have any default metadata
+2026-01-28 15:16:15,705 - INFO - constants - hFacW_4 does not have any default metadata
+2026-01-28 15:16:15,706 - INFO - constants - hFacW_5 does not have any default metadata
+2026-01-28 15:16:15,706 - INFO - constants - hFacW_6 does not have any default metadata
+2026-01-28 15:16:15,706 - INFO - constants - hFacW_7 does not have any default metadata
+2026-01-28 15:16:15,706 - INFO - constants - hFacW_8 does not have any default metadata
+2026-01-28 15:16:15,706 - INFO - constants - hFacW_9 does not have any default metadata
+2026-01-28 15:16:15,706 - INFO - constants - hFacW_10 does not have any default metadata
+2026-01-28 15:16:15,706 - INFO - constants - hFacW_11 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - hFacW_12 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - hFacW_13 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - hFacW_14 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - hFacW_15 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - hFacW_16 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - hFacW_17 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - hFacW_18 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - lev_0 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - lev_1 does not have any default metadata
+2026-01-28 15:16:15,707 - INFO - constants - lev_2 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_3 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_4 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_5 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_6 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_7 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_8 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_9 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_10 does not have any default metadata
+2026-01-28 15:16:15,708 - INFO - constants - lev_11 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - lev_12 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - lev_13 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - lev_14 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - lev_15 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - lev_16 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - lev_17 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - lev_18 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - wetmask_0 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - wetmask_1 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - wetmask_2 does not have any default metadata
+2026-01-28 15:16:15,709 - INFO - constants - wetmask_3 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_4 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_5 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_6 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_7 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_8 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_9 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_10 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_11 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_12 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_13 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_14 does not have any default metadata
+2026-01-28 15:16:15,710 - INFO - constants - wetmask_15 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - wetmask_16 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - wetmask_17 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - wetmask_18 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_0 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_1 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_2 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_3 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_4 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_5 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_6 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_7 does not have any default metadata
+2026-01-28 15:16:15,711 - INFO - constants - mask_s_8 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_9 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_10 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_11 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_12 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_13 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_14 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_15 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_16 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_17 does not have any default metadata
+2026-01-28 15:16:15,712 - INFO - constants - mask_s_18 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_0 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_1 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_2 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_3 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_4 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_5 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_6 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_7 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_8 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_9 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_10 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_11 does not have any default metadata
+2026-01-28 15:16:15,713 - INFO - constants - mask_w_12 does not have any default metadata
+2026-01-28 15:16:15,714 - INFO - constants - mask_w_13 does not have any default metadata
+2026-01-28 15:16:15,714 - INFO - constants - mask_w_14 does not have any default metadata
+2026-01-28 15:16:15,714 - INFO - constants - mask_w_15 does not have any default metadata
+2026-01-28 15:16:15,714 - INFO - constants - mask_w_16 does not have any default metadata
+2026-01-28 15:16:15,714 - INFO - constants - mask_w_17 does not have any default metadata
+2026-01-28 15:16:15,714 - INFO - constants - mask_w_18 does not have any default metadata
+wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+wandb: Currently logged in as: codycruz (codycruz-massachusetts-institute-of-technology) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.19.8
+wandb: Run data is saved locally in .LOCAL/samudra_llc:scaling_tests_k=0:6/wandb/run-20260128_151616-luegfgqq
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run samudra_llc:scaling_tests_k=0:6
+wandb: ⭐️ View project at https://wandb.ai/ocean_emulators/default
+wandb: 🚀 View run at https://wandb.ai/ocean_emulators/default/runs/luegfgqq
+2026-01-28 15:16:17,924 - INFO - train - Effective batch size: 2 (batch_size=2 × gradient_accumulation_steps=1)
+2026-01-28 15:16:17,939 - INFO - train - Starting training
+2026-01-28 15:16:17,940 - INFO - train - Starting training at step 4
+2026-01-28 15:16:17,954 - INFO - logging - TorchTrainDataset.__init__ took 0.0018 seconds
+2026-01-28 15:16:17,962 - INFO - logging - TorchTrainDataset.__init__ took 0.0017 seconds
+2026-01-28 15:16:17,963 - INFO - train - Instantiating torch loaders
+2026-01-28 15:17:08,116 - INFO - logging - Number of parameters: 82175804
+2026-01-28 15:17:11,236 - INFO - logging - =========================================================================================================
+Layer (type:depth-idx)                                  Output Shape              Param #
+=========================================================================================================
+DistributedDataParallel                                 [2, 12, 500, 500]         --
+├─Samudra: 1-1                                          [2, 12, 500, 500]         --
+│    └─UNetBackbone: 2-1                                [2, 280, 500, 500]        82,145,552
+│    └─Conv2d: 2-2                                      [2, 12, 500, 500]         30,252
+│    └─Correctors: 2-3                                  [2, 12, 500, 500]         --
+│    └─UNetBackbone: 2-4                                [2, 280, 500, 500]        (recursive)
+│    └─Conv2d: 2-5                                      [2, 12, 500, 500]         (recursive)
+│    └─Correctors: 2-6                                  [2, 12, 500, 500]         --
+│    └─UNetBackbone: 2-7                                [2, 280, 500, 500]        (recursive)
+│    └─Conv2d: 2-8                                      [2, 12, 500, 500]         (recursive)
+│    └─Correctors: 2-9                                  [2, 12, 500, 500]         --
+│    └─UNetBackbone: 2-10                               [2, 280, 500, 500]        (recursive)
+│    └─Conv2d: 2-11                                     [2, 12, 500, 500]         (recursive)
+│    └─Correctors: 2-12                                 [2, 12, 500, 500]         --
+=========================================================================================================
+Total params: 82,175,804
+Trainable params: 82,175,804
+Non-trainable params: 0
+Total mult-adds (Units.TERABYTES): 18.89
+=========================================================================================================
+Input size (MB): 0.00
+Forward/backward pass size (MB): 89012.00
+Params size (MB): 328.70
+Estimated Total Size (MB): 89340.70
+=========================================================================================================
+2026-01-28 15:20:54,150 - INFO - logging - Training Epoch: [1]  [  0/123]  eta: 9:26:10  lr: 0.000600  iter_time: 276.186(276.186)  data_wait_time: 50.151(50.151)  data_load_time: 48.918(48.918)  loss: 10.5181 (10.5181)  max cpu mem: 8596  max gpu mem: 64360
+2026-01-28 15:21:55,912 - INFO - logging - Training Epoch: [1]  [  1/123]  eta: 5:43:34  lr: 0.000600  iter_time: 61.761(61.761)  data_wait_time: 0.002(0.002)  data_load_time: 105.386(105.386)  loss: 10.5181 (36.8593)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:21:57,255 - INFO - logging - Training Epoch: [1]  [  2/123]  eta: 3:48:04  lr: 0.000600  iter_time: 1.342(1.342)  data_wait_time: 0.001(0.001)  data_load_time: 205.941(205.941)  loss: 23.6643 (32.4610)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:21:58,762 - INFO - logging - Training Epoch: [1]  [  3/123]  eta: 2:50:23  lr: 0.000600  iter_time: 1.506(1.506)  data_wait_time: 0.002(0.002)  data_load_time: 124.173(124.173)  loss: 10.5181 (26.2443)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:22:26,474 - INFO - logging - Training Epoch: [1]  [  4/123]  eta: 2:26:10  lr: 0.000600  iter_time: 27.711(27.711)  data_wait_time: 0.003(0.003)  data_load_time: 66.685(66.685)  loss: 10.5181 (22.0592)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:22:27,854 - INFO - logging - Training Epoch: [1]  [  5/123]  eta: 2:01:14  lr: 0.000600  iter_time: 1.379(1.379)  data_wait_time: 0.002(0.002)  data_load_time: 206.638(206.638)  loss: 7.5944 (19.2867)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:22:29,714 - INFO - logging - Training Epoch: [1]  [  6/123]  eta: 1:43:33  lr: 0.000600  iter_time: 1.859(1.859)  data_wait_time: 0.001(0.001)  data_load_time: 122.932(122.932)  loss: 7.5944 (16.8485)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:22:31,091 - INFO - logging - Training Epoch: [1]  [  7/123]  eta: 1:30:10  lr: 0.000600  iter_time: 1.376(1.376)  data_wait_time: 0.002(0.002)  data_load_time: 245.520(245.520)  loss: 5.4241 (14.9846)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:22:47,439 - INFO - logging - Training Epoch: [1]  [  8/123]  eta: 1:22:56  lr: 0.000600  iter_time: 16.347(16.347)  data_wait_time: 0.002(0.002)  data_load_time: 176.011(176.011)  loss: 5.4241 (13.5620)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:23:39,605 - INFO - logging - Training Epoch: [1]  [  9/123]  eta: 1:23:54  lr: 0.000600  iter_time: 52.164(52.164)  data_wait_time: 0.001(0.001)  data_load_time: 179.720(179.719)  loss: 5.3186 (12.3853)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:23:40,968 - INFO - logging - Training Epoch: [1]  [ 10/123]  eta: 1:15:50  lr: 0.000600  iter_time: 1.362(1.362)  data_wait_time: 0.001(0.001)  data_load_time: 128.592(128.592)  loss: 5.3186 (11.4208)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:23:42,336 - INFO - logging - Training Epoch: [1]  [ 11/123]  eta: 1:09:07  lr: 0.000600  iter_time: 1.368(1.368)  data_wait_time: 0.002(0.002)  data_load_time: 82.169(82.169)  loss: 2.2196 (10.5955)  max cpu mem: 9381  max gpu mem: 21669
+2026-01-28 15:27:57,584 - INFO - logging - Training Epoch: [1]  [ 12/123]  eta: 1:39:33  lr: 0.000600  iter_time: 255.247(255.247)  data_wait_time: 0.002(0.002)  data_load_time: 254.713(254.713)  loss: 2.2196 (9.8891)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:27:58,939 - INFO - logging - Training Epoch: [1]  [ 13/123]  eta: 1:31:47  lr: 0.000600  iter_time: 1.354(1.354)  data_wait_time: 0.002(0.002)  data_load_time: 201.523(201.523)  loss: 2.1817 (9.2976)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:28:00,959 - INFO - logging - Training Epoch: [1]  [ 14/123]  eta: 1:25:08  lr: 0.000600  iter_time: 2.019(2.019)  data_wait_time: 0.002(0.002)  data_load_time: 103.658(103.658)  loss: 2.1817 (8.7572)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:28:02,443 - INFO - logging - Training Epoch: [1]  [ 15/123]  eta: 1:19:15  lr: 0.000600  iter_time: 1.483(1.483)  data_wait_time: 0.002(0.002)  data_load_time: 203.604(203.604)  loss: 1.9369 (8.2799)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:28:04,027 - INFO - logging - Training Epoch: [1]  [ 16/123]  eta: 1:14:03  lr: 0.000600  iter_time: 1.583(1.583)  data_wait_time: 0.002(0.002)  data_load_time: 139.880(139.880)  loss: 1.9369 (7.8583)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:28:05,657 - INFO - logging - Training Epoch: [1]  [ 17/123]  eta: 1:09:27  lr: 0.000600  iter_time: 1.629(1.629)  data_wait_time: 0.002(0.002)  data_load_time: 201.467(201.467)  loss: 1.7949 (7.4762)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:28:07,111 - INFO - logging - Training Epoch: [1]  [ 18/123]  eta: 1:05:18  lr: 0.000600  iter_time: 1.453(1.453)  data_wait_time: 0.002(0.002)  data_load_time: 191.258(191.258)  loss: 1.7949 (7.1444)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:28:08,678 - INFO - logging - Training Epoch: [1]  [ 19/123]  eta: 1:01:35  lr: 0.000600  iter_time: 1.566(1.566)  data_wait_time: 0.002(0.002)  data_load_time: 101.624(101.624)  loss: 1.7760 (6.8533)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:30:32,158 - INFO - logging - Training Epoch: [1]  [ 20/123]  eta: 1:09:49  lr: 0.000600  iter_time: 143.479(143.479)  data_wait_time: 0.002(0.002)  data_load_time: 246.686(246.686)  loss: 1.6080 (6.5752)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:30:33,497 - INFO - logging - Training Epoch: [1]  [ 21/123]  eta: 1:06:06  lr: 0.000600  iter_time: 1.338(1.338)  data_wait_time: 0.001(0.001)  data_load_time: 209.747(209.747)  loss: 1.5174 (6.3415)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:30:34,863 - INFO - logging - Training Epoch: [1]  [ 22/123]  eta: 1:02:42  lr: 0.000600  iter_time: 1.365(1.365)  data_wait_time: 0.001(0.001)  data_load_time: 179.554(179.554)  loss: 1.5174 (6.1424)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:30:36,235 - INFO - logging - Training Epoch: [1]  [ 23/123]  eta: 0:59:36  lr: 0.000600  iter_time: 1.372(1.372)  data_wait_time: 0.002(0.002)  data_load_time: 150.305(150.305)  loss: 1.4339 (5.9387)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:30:37,620 - INFO - logging - Training Epoch: [1]  [ 24/123]  eta: 0:56:44  lr: 0.000600  iter_time: 1.384(1.384)  data_wait_time: 0.001(0.001)  data_load_time: 189.738(189.738)  loss: 1.4339 (5.7866)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:30:38,999 - INFO - logging - Training Epoch: [1]  [ 25/123]  eta: 0:54:05  lr: 0.000600  iter_time: 1.378(1.378)  data_wait_time: 0.002(0.002)  data_load_time: 150.624(150.624)  loss: 1.4339 (5.6340)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:30:46,501 - INFO - logging - Training Epoch: [1]  [ 26/123]  eta: 0:52:00  lr: 0.000600  iter_time: 7.501(7.501)  data_wait_time: 0.001(0.001)  data_load_time: 76.856(76.856)  loss: 1.4339 (5.5260)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:30:47,860 - INFO - logging - Training Epoch: [1]  [ 27/123]  eta: 0:49:42  lr: 0.000600  iter_time: 1.359(1.359)  data_wait_time: 0.002(0.002)  data_load_time: 76.596(76.596)  loss: 1.4339 (5.4048)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:34:43,740 - INFO - logging - Training Epoch: [1]  [ 28/123]  eta: 1:00:22  lr: 0.000600  iter_time: 235.879(235.879)  data_wait_time: 0.001(0.001)  data_load_time: 93.582(93.582)  loss: 1.4339 (5.3139)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:34:45,111 - INFO - logging - Training Epoch: [1]  [ 29/123]  eta: 0:57:48  lr: 0.000600  iter_time: 1.370(1.370)  data_wait_time: 0.002(0.002)  data_load_time: 232.079(232.079)  loss: 1.4339 (5.1924)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:34:46,471 - INFO - logging - Training Epoch: [1]  [ 30/123]  eta: 0:55:25  lr: 0.000600  iter_time: 1.359(1.359)  data_wait_time: 0.002(0.002)  data_load_time: 129.181(129.181)  loss: 1.4339 (5.0960)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:34:48,201 - INFO - logging - Training Epoch: [1]  [ 31/123]  eta: 0:53:11  lr: 0.000600  iter_time: 1.729(1.729)  data_wait_time: 0.002(0.002)  data_load_time: 146.830(146.830)  loss: 1.4339 (4.9943)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:34:49,587 - INFO - logging - Training Epoch: [1]  [ 32/123]  eta: 0:51:05  lr: 0.000600  iter_time: 1.385(1.385)  data_wait_time: 0.002(0.002)  data_load_time: 137.651(137.651)  loss: 1.6080 (4.8985)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:34:50,999 - INFO - logging - Training Epoch: [1]  [ 33/123]  eta: 0:49:06  lr: 0.000600  iter_time: 1.411(1.411)  data_wait_time: 0.002(0.002)  data_load_time: 215.706(215.706)  loss: 1.6705 (4.8399)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:34:52,560 - INFO - logging - Training Epoch: [1]  [ 34/123]  eta: 0:47:14  lr: 0.000600  iter_time: 1.560(1.560)  data_wait_time: 0.001(0.001)  data_load_time: 305.553(305.553)  loss: 1.7627 (4.7653)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:34:53,967 - INFO - logging - Training Epoch: [1]  [ 35/123]  eta: 0:45:27  lr: 0.000600  iter_time: 1.406(1.406)  data_wait_time: 0.002(0.002)  data_load_time: 80.961(80.961)  loss: 1.8203 (4.7169)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:37:17,946 - INFO - logging - Training Epoch: [1]  [ 36/123]  eta: 0:49:22  lr: 0.000600  iter_time: 143.978(143.978)  data_wait_time: 0.001(0.001)  data_load_time: 252.016(252.016)  loss: 1.8343 (4.6559)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:37:19,326 - INFO - logging - Training Epoch: [1]  [ 37/123]  eta: 0:47:34  lr: 0.000600  iter_time: 1.379(1.379)  data_wait_time: 0.002(0.002)  data_load_time: 107.220(107.220)  loss: 1.8404 (4.6284)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:37:20,761 - INFO - logging - Training Epoch: [1]  [ 38/123]  eta: 0:45:52  lr: 0.000600  iter_time: 1.434(1.434)  data_wait_time: 0.002(0.002)  data_load_time: 84.977(84.977)  loss: 1.8404 (4.5567)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:37:22,135 - INFO - logging - Training Epoch: [1]  [ 39/123]  eta: 0:44:14  lr: 0.000600  iter_time: 1.373(1.373)  data_wait_time: 0.001(0.001)  data_load_time: 133.078(133.078)  loss: 2.1331 (4.5506)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:37:23,491 - INFO - logging - Training Epoch: [1]  [ 40/123]  eta: 0:42:41  lr: 0.000600  iter_time: 1.355(1.355)  data_wait_time: 0.001(0.001)  data_load_time: 205.431(205.431)  loss: 2.1364 (4.5633)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:37:24,868 - INFO - logging - Training Epoch: [1]  [ 41/123]  eta: 0:41:13  lr: 0.000600  iter_time: 1.377(1.377)  data_wait_time: 0.001(0.001)  data_load_time: 121.879(121.879)  loss: 2.1364 (4.5032)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:37:26,245 - INFO - logging - Training Epoch: [1]  [ 42/123]  eta: 0:39:49  lr: 0.000600  iter_time: 1.376(1.376)  data_wait_time: 0.002(0.002)  data_load_time: 60.292(60.292)  loss: 2.2040 (4.4898)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:37:27,593 - INFO - logging - Training Epoch: [1]  [ 43/123]  eta: 0:38:28  lr: 0.000600  iter_time: 1.348(1.348)  data_wait_time: 0.001(0.001)  data_load_time: 114.124(114.124)  loss: 2.2277 (4.4590)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:39:36,907 - INFO - logging - Training Epoch: [1]  [ 44/123]  eta: 0:40:55  lr: 0.000600  iter_time: 129.313(129.313)  data_wait_time: 0.002(0.002)  data_load_time: 89.346(89.346)  loss: 2.4589 (4.4694)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:39:38,288 - INFO - logging - Training Epoch: [1]  [ 45/123]  eta: 0:39:34  lr: 0.000600  iter_time: 1.379(1.379)  data_wait_time: 0.003(0.003)  data_load_time: 98.648(98.648)  loss: 2.7170 (4.4319)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:40:45,459 - INFO - logging - Training Epoch: [1]  [ 46/123]  eta: 0:40:04  lr: 0.000600  iter_time: 67.170(67.170)  data_wait_time: 65.834(65.834)  data_load_time: 358.793(358.793)  loss: 2.7440 (4.3997)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:40:46,815 - INFO - logging - Training Epoch: [1]  [ 47/123]  eta: 0:38:45  lr: 0.000600  iter_time: 1.355(1.355)  data_wait_time: 0.001(0.001)  data_load_time: 68.586(68.586)  loss: 2.7669 (4.3724)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:40:48,166 - INFO - logging - Training Epoch: [1]  [ 48/123]  eta: 0:37:30  lr: 0.000600  iter_time: 1.351(1.351)  data_wait_time: 0.001(0.001)  data_load_time: 43.168(43.168)  loss: 2.7440 (4.3284)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:40:49,574 - INFO - logging - Training Epoch: [1]  [ 49/123]  eta: 0:36:17  lr: 0.000600  iter_time: 1.407(1.407)  data_wait_time: 0.001(0.001)  data_load_time: 166.203(166.203)  loss: 2.7440 (4.2730)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:40:50,966 - INFO - logging - Training Epoch: [1]  [ 50/123]  eta: 0:35:08  lr: 0.000600  iter_time: 1.391(1.391)  data_wait_time: 0.001(0.001)  data_load_time: 116.897(116.897)  loss: 2.7440 (4.2316)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:40:52,568 - INFO - logging - Training Epoch: [1]  [ 51/123]  eta: 0:34:01  lr: 0.000600  iter_time: 1.602(1.602)  data_wait_time: 0.002(0.002)  data_load_time: 196.688(196.688)  loss: 2.7440 (4.1948)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:41:27,234 - INFO - logging - Training Epoch: [1]  [ 52/123]  eta: 0:33:41  lr: 0.000600  iter_time: 34.665(34.665)  data_wait_time: 0.002(0.002)  data_load_time: 65.093(65.093)  loss: 2.7440 (4.1520)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:41:28,589 - INFO - logging - Training Epoch: [1]  [ 53/123]  eta: 0:32:38  lr: 0.000600  iter_time: 1.354(1.354)  data_wait_time: 0.002(0.002)  data_load_time: 54.399(54.399)  loss: 2.7440 (4.1530)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:43:21,066 - INFO - logging - Training Epoch: [1]  [ 54/123]  eta: 0:33:56  lr: 0.000600  iter_time: 112.477(112.477)  data_wait_time: 111.120(111.120)  data_load_time: 155.492(155.492)  loss: 2.9197 (4.1621)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:43:22,449 - INFO - logging - Training Epoch: [1]  [ 55/123]  eta: 0:32:52  lr: 0.000600  iter_time: 1.382(1.382)  data_wait_time: 0.002(0.002)  data_load_time: 172.730(172.730)  loss: 2.9197 (4.2561)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:43:23,838 - INFO - logging - Training Epoch: [1]  [ 56/123]  eta: 0:31:51  lr: 0.000600  iter_time: 1.388(1.388)  data_wait_time: 0.001(0.001)  data_load_time: 277.249(277.249)  loss: 3.0864 (4.3118)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:43:25,212 - INFO - logging - Training Epoch: [1]  [ 57/123]  eta: 0:30:51  lr: 0.000600  iter_time: 1.373(1.373)  data_wait_time: 0.001(0.001)  data_load_time: 125.217(125.217)  loss: 3.0864 (4.3046)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:43:27,098 - INFO - logging - Training Epoch: [1]  [ 58/123]  eta: 0:29:54  lr: 0.000600  iter_time: 1.885(1.885)  data_wait_time: 0.002(0.002)  data_load_time: 144.679(144.679)  loss: 3.1356 (4.3996)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:43:29,022 - INFO - logging - Training Epoch: [1]  [ 59/123]  eta: 0:28:59  lr: 0.000600  iter_time: 1.923(1.923)  data_wait_time: 0.002(0.002)  data_load_time: 129.083(129.083)  loss: 3.1356 (4.4307)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:46:16,123 - INFO - logging - Training Epoch: [1]  [ 60/123]  eta: 0:30:57  lr: 0.000600  iter_time: 167.100(167.100)  data_wait_time: 0.002(0.002)  data_load_time: 198.543(198.543)  loss: 3.1356 (4.4394)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:46:17,472 - INFO - logging - Training Epoch: [1]  [ 61/123]  eta: 0:29:59  lr: 0.000600  iter_time: 1.348(1.348)  data_wait_time: 0.001(0.001)  data_load_time: 197.913(197.913)  loss: 3.1356 (4.4044)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:46:18,824 - INFO - logging - Training Epoch: [1]  [ 62/123]  eta: 0:29:03  lr: 0.000600  iter_time: 1.351(1.351)  data_wait_time: 0.002(0.002)  data_load_time: 115.669(115.669)  loss: 3.0864 (4.3691)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:46:20,377 - INFO - logging - Training Epoch: [1]  [ 63/123]  eta: 0:28:09  lr: 0.000600  iter_time: 1.553(1.553)  data_wait_time: 0.001(0.001)  data_load_time: 89.127(89.127)  loss: 2.9197 (4.3463)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:46:21,831 - INFO - logging - Training Epoch: [1]  [ 64/123]  eta: 0:27:17  lr: 0.000600  iter_time: 1.453(1.453)  data_wait_time: 0.002(0.002)  data_load_time: 150.628(150.628)  loss: 2.9117 (4.3127)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:46:23,195 - INFO - logging - Training Epoch: [1]  [ 65/123]  eta: 0:26:26  lr: 0.000600  iter_time: 1.364(1.364)  data_wait_time: 0.001(0.001)  data_load_time: 81.743(81.743)  loss: 2.9197 (4.3150)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:46:24,557 - INFO - logging - Training Epoch: [1]  [ 66/123]  eta: 0:25:36  lr: 0.000600  iter_time: 1.361(1.361)  data_wait_time: 0.002(0.002)  data_load_time: 101.258(101.258)  loss: 3.0864 (4.3039)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:46:25,954 - INFO - logging - Training Epoch: [1]  [ 67/123]  eta: 0:24:48  lr: 0.000600  iter_time: 1.397(1.397)  data_wait_time: 0.001(0.001)  data_load_time: 135.979(135.979)  loss: 3.0102 (4.2849)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:49:36,253 - INFO - logging - Training Epoch: [1]  [ 68/123]  eta: 0:26:32  lr: 0.000600  iter_time: 190.298(190.298)  data_wait_time: 0.002(0.002)  data_load_time: 185.671(185.671)  loss: 3.5742 (4.2852)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:49:37,614 - INFO - logging - Training Epoch: [1]  [ 69/123]  eta: 0:25:42  lr: 0.000600  iter_time: 1.360(1.360)  data_wait_time: 0.001(0.001)  data_load_time: 50.557(50.557)  loss: 3.8725 (4.2793)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:49:39,109 - INFO - logging - Training Epoch: [1]  [ 70/123]  eta: 0:24:53  lr: 0.000600  iter_time: 1.494(1.494)  data_wait_time: 0.001(0.001)  data_load_time: 71.186(71.186)  loss: 3.8906 (4.2862)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:49:40,478 - INFO - logging - Training Epoch: [1]  [ 71/123]  eta: 0:24:06  lr: 0.000600  iter_time: 1.369(1.369)  data_wait_time: 0.001(0.001)  data_load_time: 107.421(107.421)  loss: 3.8906 (4.2681)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:49:42,927 - INFO - logging - Training Epoch: [1]  [ 72/123]  eta: 0:23:20  lr: 0.000600  iter_time: 2.447(2.447)  data_wait_time: 0.001(0.001)  data_load_time: 80.573(80.573)  loss: 4.2088 (4.3036)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:49:44,515 - INFO - logging - Training Epoch: [1]  [ 73/123]  eta: 0:22:35  lr: 0.000600  iter_time: 1.587(1.587)  data_wait_time: 0.003(0.003)  data_load_time: 180.915(180.915)  loss: 4.3070 (4.3672)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:49:47,125 - INFO - logging - Training Epoch: [1]  [ 74/123]  eta: 0:21:52  lr: 0.000600  iter_time: 2.609(2.609)  data_wait_time: 0.023(0.023)  data_load_time: 172.715(172.715)  loss: 3.8906 (4.3595)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:49:49,457 - INFO - logging - Training Epoch: [1]  [ 75/123]  eta: 0:21:10  lr: 0.000600  iter_time: 2.331(2.331)  data_wait_time: 0.002(0.002)  data_load_time: 265.766(265.766)  loss: 3.8725 (4.3419)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:52:27,725 - INFO - logging - Training Epoch: [1]  [ 76/123]  eta: 0:22:04  lr: 0.000600  iter_time: 158.267(158.267)  data_wait_time: 0.002(0.002)  data_load_time: 75.766(75.766)  loss: 3.7881 (4.3287)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:52:29,082 - INFO - logging - Training Epoch: [1]  [ 77/123]  eta: 0:21:20  lr: 0.000600  iter_time: 1.356(1.356)  data_wait_time: 0.002(0.002)  data_load_time: 163.750(163.750)  loss: 3.5903 (4.3192)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:52:30,578 - INFO - logging - Training Epoch: [1]  [ 78/123]  eta: 0:20:37  lr: 0.000600  iter_time: 1.495(1.495)  data_wait_time: 0.001(0.001)  data_load_time: 177.170(177.170)  loss: 3.5742 (4.2945)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:52:32,102 - INFO - logging - Training Epoch: [1]  [ 79/123]  eta: 0:19:55  lr: 0.000600  iter_time: 1.522(1.522)  data_wait_time: 0.002(0.002)  data_load_time: 127.188(127.188)  loss: 3.3237 (4.2698)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:52:33,492 - INFO - logging - Training Epoch: [1]  [ 80/123]  eta: 0:19:14  lr: 0.000600  iter_time: 1.390(1.390)  data_wait_time: 0.002(0.002)  data_load_time: 75.651(75.651)  loss: 3.2977 (4.2578)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:52:34,942 - INFO - logging - Training Epoch: [1]  [ 81/123]  eta: 0:18:35  lr: 0.000600  iter_time: 1.449(1.449)  data_wait_time: 0.002(0.002)  data_load_time: 168.114(168.114)  loss: 3.2977 (4.2452)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:52:36,514 - INFO - logging - Training Epoch: [1]  [ 82/123]  eta: 0:17:56  lr: 0.000600  iter_time: 1.571(1.571)  data_wait_time: 0.002(0.002)  data_load_time: 152.809(152.809)  loss: 3.2977 (4.2314)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:53:10,149 - INFO - logging - Training Epoch: [1]  [ 83/123]  eta: 0:17:33  lr: 0.000600  iter_time: 33.634(33.634)  data_wait_time: 0.002(0.002)  data_load_time: 83.832(83.832)  loss: 3.2977 (4.2121)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:54:26,818 - INFO - logging - Training Epoch: [1]  [ 84/123]  eta: 0:17:30  lr: 0.000600  iter_time: 76.667(76.667)  data_wait_time: 0.002(0.002)  data_load_time: 207.486(207.486)  loss: 3.2977 (4.1823)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:54:28,196 - INFO - logging - Training Epoch: [1]  [ 85/123]  eta: 0:16:51  lr: 0.000600  iter_time: 1.377(1.377)  data_wait_time: 0.002(0.002)  data_load_time: 138.043(138.043)  loss: 3.2317 (4.1583)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:54:29,630 - INFO - logging - Training Epoch: [1]  [ 86/123]  eta: 0:16:14  lr: 0.000600  iter_time: 1.433(1.433)  data_wait_time: 0.002(0.002)  data_load_time: 130.565(130.565)  loss: 3.2317 (4.1801)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:54:31,045 - INFO - logging - Training Epoch: [1]  [ 87/123]  eta: 0:15:38  lr: 0.000600  iter_time: 1.415(1.415)  data_wait_time: 0.002(0.002)  data_load_time: 151.301(151.301)  loss: 3.2977 (4.1794)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:54:32,429 - INFO - logging - Training Epoch: [1]  [ 88/123]  eta: 0:15:02  lr: 0.000600  iter_time: 1.383(1.383)  data_wait_time: 0.002(0.002)  data_load_time: 71.619(71.619)  loss: 3.2977 (4.2063)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:54:33,851 - INFO - logging - Training Epoch: [1]  [ 89/123]  eta: 0:14:27  lr: 0.000600  iter_time: 1.421(1.421)  data_wait_time: 0.002(0.002)  data_load_time: 134.782(134.782)  loss: 3.2977 (4.2237)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:54:35,321 - INFO - logging - Training Epoch: [1]  [ 90/123]  eta: 0:13:53  lr: 0.000600  iter_time: 1.470(1.470)  data_wait_time: 0.002(0.002)  data_load_time: 173.173(173.173)  loss: 3.2317 (4.2000)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:55:58,659 - INFO - logging - Training Epoch: [1]  [ 91/123]  eta: 0:13:48  lr: 0.000600  iter_time: 83.337(83.337)  data_wait_time: 0.002(0.002)  data_load_time: 224.549(224.549)  loss: 3.2317 (4.1656)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:56:55,646 - INFO - logging - Training Epoch: [1]  [ 92/123]  eta: 0:13:32  lr: 0.000600  iter_time: 56.985(56.985)  data_wait_time: 0.002(0.002)  data_load_time: 154.236(154.236)  loss: 3.2317 (4.1793)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:56:56,988 - INFO - logging - Training Epoch: [1]  [ 93/123]  eta: 0:12:58  lr: 0.000600  iter_time: 1.342(1.342)  data_wait_time: 0.001(0.001)  data_load_time: 252.246(252.246)  loss: 3.2317 (4.1925)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:57:28,719 - INFO - logging - Training Epoch: [1]  [ 94/123]  eta: 0:12:34  lr: 0.000600  iter_time: 31.730(31.730)  data_wait_time: 30.376(30.376)  data_load_time: 298.039(298.039)  loss: 3.2317 (4.2333)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:57:30,088 - INFO - logging - Training Epoch: [1]  [ 95/123]  eta: 0:12:01  lr: 0.000600  iter_time: 1.368(1.368)  data_wait_time: 0.001(0.001)  data_load_time: 193.098(193.098)  loss: 3.2977 (4.2392)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:57:31,462 - INFO - logging - Training Epoch: [1]  [ 96/123]  eta: 0:11:28  lr: 0.000600  iter_time: 1.373(1.373)  data_wait_time: 0.001(0.001)  data_load_time: 81.918(81.918)  loss: 3.2977 (4.2419)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:57:35,356 - INFO - logging - Training Epoch: [1]  [ 97/123]  eta: 0:10:57  lr: 0.000600  iter_time: 3.894(3.894)  data_wait_time: 2.542(2.542)  data_load_time: 300.248(300.248)  loss: 3.2977 (4.2428)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:57:36,715 - INFO - logging - Training Epoch: [1]  [ 98/123]  eta: 0:10:25  lr: 0.000600  iter_time: 1.359(1.359)  data_wait_time: 0.001(0.001)  data_load_time: 154.140(154.140)  loss: 3.2977 (4.2297)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:57:38,081 - INFO - logging - Training Epoch: [1]  [ 99/123]  eta: 0:09:55  lr: 0.000600  iter_time: 1.365(1.365)  data_wait_time: 0.001(0.001)  data_load_time: 135.889(135.889)  loss: 3.2977 (4.2171)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:59:14,702 - INFO - logging - Training Epoch: [1]  [100/123]  eta: 0:09:46  lr: 0.000600  iter_time: 96.620(96.620)  data_wait_time: 0.002(0.002)  data_load_time: 56.365(56.365)  loss: 4.1185 (4.2196)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:59:16,124 - INFO - logging - Training Epoch: [1]  [101/123]  eta: 0:09:16  lr: 0.000600  iter_time: 1.421(1.421)  data_wait_time: 0.002(0.002)  data_load_time: 77.814(77.814)  loss: 4.3309 (4.2308)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 15:59:58,609 - INFO - logging - Training Epoch: [1]  [102/123]  eta: 0:08:54  lr: 0.000600  iter_time: 42.484(42.484)  data_wait_time: 41.145(41.145)  data_load_time: 149.884(149.884)  loss: 4.4688 (4.2603)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:01:11,002 - INFO - logging - Training Epoch: [1]  [103/123]  eta: 0:08:37  lr: 0.000600  iter_time: 72.392(72.392)  data_wait_time: 71.010(71.010)  data_load_time: 325.538(325.538)  loss: 4.5025 (4.2704)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:01:12,366 - INFO - logging - Training Epoch: [1]  [104/123]  eta: 0:08:07  lr: 0.000600  iter_time: 1.363(1.363)  data_wait_time: 0.002(0.002)  data_load_time: 210.552(210.552)  loss: 4.5025 (4.2506)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:01:13,754 - INFO - logging - Training Epoch: [1]  [105/123]  eta: 0:07:37  lr: 0.000600  iter_time: 1.388(1.388)  data_wait_time: 0.002(0.002)  data_load_time: 78.700(78.700)  loss: 4.5025 (4.2261)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:01:15,134 - INFO - logging - Training Epoch: [1]  [106/123]  eta: 0:07:08  lr: 0.000600  iter_time: 1.379(1.379)  data_wait_time: 0.002(0.002)  data_load_time: 310.468(310.468)  loss: 4.5025 (4.2557)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:01:16,491 - INFO - logging - Training Epoch: [1]  [107/123]  eta: 0:06:39  lr: 0.000600  iter_time: 1.356(1.356)  data_wait_time: 0.003(0.003)  data_load_time: 73.806(73.806)  loss: 4.8015 (4.2638)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:01:17,837 - INFO - logging - Training Epoch: [1]  [108/123]  eta: 0:06:11  lr: 0.000600  iter_time: 1.346(1.346)  data_wait_time: 0.001(0.001)  data_load_time: 81.548(81.548)  loss: 4.5025 (4.2659)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:01:19,189 - INFO - logging - Training Epoch: [1]  [109/123]  eta: 0:05:43  lr: 0.000600  iter_time: 1.352(1.352)  data_wait_time: 0.001(0.001)  data_load_time: 138.169(138.169)  loss: 4.4940 (4.2635)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:01:48,923 - INFO - logging - Training Epoch: [1]  [110/123]  eta: 0:05:19  lr: 0.000600  iter_time: 29.733(29.733)  data_wait_time: 28.396(28.396)  data_load_time: 110.225(110.225)  loss: 4.4940 (4.2560)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:02:10,827 - INFO - logging - Training Epoch: [1]  [111/123]  eta: 0:04:54  lr: 0.000600  iter_time: 21.903(21.903)  data_wait_time: 20.565(20.565)  data_load_time: 59.881(59.881)  loss: 4.4940 (4.2477)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:02:12,190 - INFO - logging - Training Epoch: [1]  [112/123]  eta: 0:04:28  lr: 0.000600  iter_time: 1.362(1.362)  data_wait_time: 0.001(0.001)  data_load_time: 99.853(99.853)  loss: 4.4688 (4.2475)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:02:13,559 - INFO - logging - Training Epoch: [1]  [113/123]  eta: 0:04:01  lr: 0.000600  iter_time: 1.368(1.368)  data_wait_time: 0.001(0.001)  data_load_time: 183.396(183.396)  loss: 4.3309 (4.2472)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:14,086 - INFO - logging - Training Epoch: [1]  [114/123]  eta: 0:03:40  lr: 0.000600  iter_time: 60.527(60.527)  data_wait_time: 59.198(59.198)  data_load_time: 169.899(169.899)  loss: 4.2330 (4.2421)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:15,427 - INFO - logging - Training Epoch: [1]  [115/123]  eta: 0:03:14  lr: 0.000600  iter_time: 1.340(1.340)  data_wait_time: 0.001(0.001)  data_load_time: 244.463(244.463)  loss: 4.2125 (4.2377)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:16,770 - INFO - logging - Training Epoch: [1]  [116/123]  eta: 0:02:48  lr: 0.000600  iter_time: 1.342(1.342)  data_wait_time: 0.001(0.001)  data_load_time: 70.736(70.736)  loss: 4.2125 (4.2395)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:44,592 - INFO - logging - Training Epoch: [1]  [117/123]  eta: 0:02:24  lr: 0.000600  iter_time: 27.821(27.821)  data_wait_time: 0.001(0.001)  data_load_time: 64.278(64.278)  loss: 4.0027 (4.2351)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:45,927 - INFO - logging - Training Epoch: [1]  [118/123]  eta: 0:01:59  lr: 0.000600  iter_time: 1.335(1.335)  data_wait_time: 0.001(0.001)  data_load_time: 37.917(37.917)  loss: 4.0027 (4.2327)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:47,264 - INFO - logging - Training Epoch: [1]  [119/123]  eta: 0:01:34  lr: 0.000600  iter_time: 1.337(1.337)  data_wait_time: 0.001(0.001)  data_load_time: 56.572(56.572)  loss: 4.2125 (4.2348)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:48,602 - INFO - logging - Training Epoch: [1]  [120/123]  eta: 0:01:10  lr: 0.000600  iter_time: 1.337(1.337)  data_wait_time: 0.001(0.001)  data_load_time: 116.555(116.555)  loss: 4.2125 (4.2410)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:49,940 - INFO - logging - Training Epoch: [1]  [121/123]  eta: 0:00:46  lr: 0.000600  iter_time: 1.338(1.338)  data_wait_time: 0.001(0.001)  data_load_time: 53.893(53.893)  loss: 4.0027 (4.2323)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:51,282 - INFO - logging - Training Epoch: [1]  [122/123]  eta: 0:00:23  lr: 0.000600  iter_time: 1.341(1.341)  data_wait_time: 0.001(0.001)  data_load_time: 31.274(31.274)  loss: 4.0027 (4.2313)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:03:51,502 - INFO - logging - Training Epoch: [1] Total time: 0:47:33 (23.1995 s / it)
+2026-01-28 16:03:51,504 - INFO - train - Aggregating train logs
+2026-01-28 16:04:58,899 - INFO - logging - One-Step Validation Epoch: [1]  [  0/120]  eta: 2:14:35  iter_time: 67.298(67.298)  data_wait_time: 67.159(67.159)  data_load_time: 66.894(66.894)  loss: 0.2848 (0.2848)  max cpu mem: 9448  max gpu mem: 7605
+2026-01-28 16:05:41,165 - INFO - logging - One-Step Validation Epoch: [1]  [  1/120]  eta: 1:48:38  iter_time: 42.265(42.265)  data_wait_time: 42.190(42.190)  data_load_time: 109.218(109.218)  loss: 0.2496 (0.2672)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:01,990 - INFO - logging - One-Step Validation Epoch: [1]  [  2/120]  eta: 1:25:28  iter_time: 20.824(20.824)  data_wait_time: 20.749(20.749)  data_load_time: 130.044(130.044)  loss: 0.2848 (0.2900)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:02,066 - INFO - logging - One-Step Validation Epoch: [1]  [  3/120]  eta: 1:03:35  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 101.883(101.883)  loss: 0.2848 (0.2983)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:02,141 - INFO - logging - One-Step Validation Epoch: [1]  [  4/120]  eta: 0:50:28  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 108.047(108.047)  loss: 0.3229 (0.3072)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:02,217 - INFO - logging - One-Step Validation Epoch: [1]  [  5/120]  eta: 0:41:43  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 62.843(62.843)  loss: 0.2848 (0.3008)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:02,292 - INFO - logging - One-Step Validation Epoch: [1]  [  6/120]  eta: 0:35:28  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 125.182(125.182)  loss: 0.3229 (0.3205)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:02,367 - INFO - logging - One-Step Validation Epoch: [1]  [  7/120]  eta: 0:30:46  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 45.205(45.205)  loss: 0.3229 (0.3235)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:02,443 - INFO - logging - One-Step Validation Epoch: [1]  [  8/120]  eta: 0:27:08  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 14.656(14.656)  loss: 0.3358 (0.3263)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:20,004 - INFO - logging - One-Step Validation Epoch: [1]  [  9/120]  eta: 0:27:27  iter_time: 17.560(17.560)  data_wait_time: 17.486(17.486)  data_load_time: 38.826(38.826)  loss: 0.3229 (0.3206)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:46,728 - INFO - logging - One-Step Validation Epoch: [1]  [ 10/120]  eta: 0:29:11  iter_time: 26.723(26.723)  data_wait_time: 26.649(26.649)  data_load_time: 44.725(44.725)  loss: 0.3358 (0.3325)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:46,804 - INFO - logging - One-Step Validation Epoch: [1]  [ 11/120]  eta: 0:26:31  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 18.288(18.288)  loss: 0.3358 (0.3348)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:46,880 - INFO - logging - One-Step Validation Epoch: [1]  [ 12/120]  eta: 0:24:16  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 59.392(59.392)  loss: 0.3428 (0.3363)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:06:46,956 - INFO - logging - One-Step Validation Epoch: [1]  [ 13/120]  eta: 0:22:20  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 20.655(20.655)  loss: 0.3358 (0.3316)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:04,885 - INFO - logging - One-Step Validation Epoch: [1]  [ 14/120]  eta: 0:22:45  iter_time: 17.929(17.929)  data_wait_time: 17.851(17.851)  data_load_time: 67.736(67.736)  loss: 0.3428 (0.3391)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:04,965 - INFO - logging - One-Step Validation Epoch: [1]  [ 15/120]  eta: 0:21:08  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 9.998(9.998)  loss: 0.3428 (0.3398)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:05,042 - INFO - logging - One-Step Validation Epoch: [1]  [ 16/120]  eta: 0:19:43  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 20.600(20.600)  loss: 0.3439 (0.3407)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:05,121 - INFO - logging - One-Step Validation Epoch: [1]  [ 17/120]  eta: 0:18:27  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 18.657(18.657)  loss: 0.3428 (0.3375)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:55,045 - INFO - logging - One-Step Validation Epoch: [1]  [ 18/120]  eta: 0:21:46  iter_time: 49.923(49.923)  data_wait_time: 49.849(49.849)  data_load_time: 68.298(68.298)  loss: 0.3439 (0.3453)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:55,130 - INFO - logging - One-Step Validation Epoch: [1]  [ 19/120]  eta: 0:20:29  iter_time: 0.084(0.084)  data_wait_time: 0.001(0.001)  data_load_time: 29.491(29.491)  loss: 0.3439 (0.3462)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:55,212 - INFO - logging - One-Step Validation Epoch: [1]  [ 20/120]  eta: 0:19:19  iter_time: 0.081(0.081)  data_wait_time: 0.001(0.001)  data_load_time: 55.951(55.951)  loss: 0.3493 (0.3470)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:55,297 - INFO - logging - One-Step Validation Epoch: [1]  [ 21/120]  eta: 0:18:16  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 27.141(27.141)  loss: 0.3493 (0.3444)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:55,378 - INFO - logging - One-Step Validation Epoch: [1]  [ 22/120]  eta: 0:17:18  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 15.045(15.045)  loss: 0.3496 (0.3515)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:55,458 - INFO - logging - One-Step Validation Epoch: [1]  [ 23/120]  eta: 0:16:25  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 69.335(69.335)  loss: 0.3548 (0.3536)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:55,539 - INFO - logging - One-Step Validation Epoch: [1]  [ 24/120]  eta: 0:15:36  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 35.989(35.989)  loss: 0.3558 (0.3541)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:07:55,621 - INFO - logging - One-Step Validation Epoch: [1]  [ 25/120]  eta: 0:14:51  iter_time: 0.081(0.081)  data_wait_time: 0.001(0.001)  data_load_time: 15.129(15.129)  loss: 0.3558 (0.3514)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:06,141 - INFO - logging - One-Step Validation Epoch: [1]  [ 26/120]  eta: 0:14:46  iter_time: 10.519(10.519)  data_wait_time: 10.441(10.441)  data_load_time: 11.097(11.097)  loss: 0.3558 (0.3577)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:06,221 - INFO - logging - One-Step Validation Epoch: [1]  [ 27/120]  eta: 0:14:05  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 55.382(55.382)  loss: 0.3593 (0.3595)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:30,604 - INFO - logging - One-Step Validation Epoch: [1]  [ 28/120]  eta: 0:14:45  iter_time: 24.382(24.382)  data_wait_time: 24.308(24.308)  data_load_time: 55.219(55.219)  loss: 0.3593 (0.3593)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:30,681 - INFO - logging - One-Step Validation Epoch: [1]  [ 29/120]  eta: 0:14:06  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 22.719(22.719)  loss: 0.3593 (0.3568)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:30,760 - INFO - logging - One-Step Validation Epoch: [1]  [ 30/120]  eta: 0:13:30  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 11.315(11.315)  loss: 0.3593 (0.3602)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:30,840 - INFO - logging - One-Step Validation Epoch: [1]  [ 31/120]  eta: 0:12:56  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 65.564(65.564)  loss: 0.3626 (0.3607)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:30,920 - INFO - logging - One-Step Validation Epoch: [1]  [ 32/120]  eta: 0:12:24  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 16.652(16.652)  loss: 0.3626 (0.3606)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:31,000 - INFO - logging - One-Step Validation Epoch: [1]  [ 33/120]  eta: 0:11:54  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 36.132(36.132)  loss: 0.3626 (0.3590)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:31,080 - INFO - logging - One-Step Validation Epoch: [1]  [ 34/120]  eta: 0:11:26  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 10.848(10.848)  loss: 0.3626 (0.3620)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:31,157 - INFO - logging - One-Step Validation Epoch: [1]  [ 35/120]  eta: 0:10:59  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 13.224(13.224)  loss: 0.3632 (0.3623)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:45,862 - INFO - logging - One-Step Validation Epoch: [1]  [ 36/120]  eta: 0:11:07  iter_time: 14.704(14.704)  data_wait_time: 14.625(14.625)  data_load_time: 15.198(15.198)  loss: 0.3647 (0.3625)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:45,943 - INFO - logging - One-Step Validation Epoch: [1]  [ 37/120]  eta: 0:10:42  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 38.895(38.895)  loss: 0.3647 (0.3610)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:48,913 - INFO - logging - One-Step Validation Epoch: [1]  [ 38/120]  eta: 0:10:25  iter_time: 2.969(2.969)  data_wait_time: 2.895(2.895)  data_load_time: 53.474(53.474)  loss: 0.3647 (0.3647)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:48,989 - INFO - logging - One-Step Validation Epoch: [1]  [ 39/120]  eta: 0:10:02  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 30.404(30.404)  loss: 0.3697 (0.3650)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:49,065 - INFO - logging - One-Step Validation Epoch: [1]  [ 40/120]  eta: 0:09:40  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 16.666(16.666)  loss: 0.3736 (0.3653)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:59,640 - INFO - logging - One-Step Validation Epoch: [1]  [ 41/120]  eta: 0:09:39  iter_time: 10.574(10.574)  data_wait_time: 10.500(10.500)  data_load_time: 63.965(63.965)  loss: 0.3736 (0.3634)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:59,716 - INFO - logging - One-Step Validation Epoch: [1]  [ 42/120]  eta: 0:09:18  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 8.743(8.743)  loss: 0.3736 (0.3666)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:08:59,792 - INFO - logging - One-Step Validation Epoch: [1]  [ 43/120]  eta: 0:08:59  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 16.491(16.491)  loss: 0.3736 (0.3671)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:09:05,833 - INFO - logging - One-Step Validation Epoch: [1]  [ 44/120]  eta: 0:08:50  iter_time: 6.040(6.040)  data_wait_time: 5.961(5.961)  data_load_time: 19.980(19.980)  loss: 0.3736 (0.3672)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:12,891 - INFO - logging - One-Step Validation Epoch: [1]  [ 45/120]  eta: 0:10:21  iter_time: 67.057(67.057)  data_wait_time: 66.983(66.983)  data_load_time: 98.620(98.620)  loss: 0.3736 (0.3656)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:32,281 - INFO - logging - One-Step Validation Epoch: [1]  [ 46/120]  eta: 0:10:30  iter_time: 19.389(19.389)  data_wait_time: 19.311(19.311)  data_load_time: 103.335(103.335)  loss: 0.3736 (0.3681)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:32,358 - INFO - logging - One-Step Validation Epoch: [1]  [ 47/120]  eta: 0:10:09  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 77.413(77.413)  loss: 0.3736 (0.3686)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:32,435 - INFO - logging - One-Step Validation Epoch: [1]  [ 48/120]  eta: 0:09:48  iter_time: 0.077(0.077)  data_wait_time: 0.001(0.001)  data_load_time: 95.622(95.622)  loss: 0.3736 (0.3686)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:32,513 - INFO - logging - One-Step Validation Epoch: [1]  [ 49/120]  eta: 0:09:29  iter_time: 0.077(0.077)  data_wait_time: 0.001(0.001)  data_load_time: 22.597(22.597)  loss: 0.3736 (0.3669)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:32,590 - INFO - logging - One-Step Validation Epoch: [1]  [ 50/120]  eta: 0:09:10  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 15.907(15.907)  loss: 0.3736 (0.3698)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:32,670 - INFO - logging - One-Step Validation Epoch: [1]  [ 51/120]  eta: 0:08:52  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 33.730(33.730)  loss: 0.3736 (0.3703)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:32,746 - INFO - logging - One-Step Validation Epoch: [1]  [ 52/120]  eta: 0:08:34  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 33.262(33.262)  loss: 0.3736 (0.3702)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:10:32,823 - INFO - logging - One-Step Validation Epoch: [1]  [ 53/120]  eta: 0:08:17  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 17.267(17.267)  loss: 0.3736 (0.3686)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:28,637 - INFO - logging - One-Step Validation Epoch: [1]  [ 54/120]  eta: 0:09:08  iter_time: 55.813(55.813)  data_wait_time: 55.738(55.738)  data_load_time: 56.368(56.368)  loss: 0.3736 (0.3714)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:28,716 - INFO - logging - One-Step Validation Epoch: [1]  [ 55/120]  eta: 0:08:50  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 17.905(17.905)  loss: 0.3738 (0.3716)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:41,769 - INFO - logging - One-Step Validation Epoch: [1]  [ 56/120]  eta: 0:08:47  iter_time: 13.052(13.052)  data_wait_time: 12.974(12.974)  data_load_time: 95.149(95.149)  loss: 0.3738 (0.3715)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:41,845 - INFO - logging - One-Step Validation Epoch: [1]  [ 57/120]  eta: 0:08:30  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 29.039(29.039)  loss: 0.3738 (0.3706)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:41,921 - INFO - logging - One-Step Validation Epoch: [1]  [ 58/120]  eta: 0:08:14  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 72.981(72.981)  loss: 0.3738 (0.3728)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:41,999 - INFO - logging - One-Step Validation Epoch: [1]  [ 59/120]  eta: 0:07:58  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 47.038(47.038)  loss: 0.3738 (0.3731)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:42,078 - INFO - logging - One-Step Validation Epoch: [1]  [ 60/120]  eta: 0:07:42  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 34.762(34.762)  loss: 0.3729 (0.3731)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:59,095 - INFO - logging - One-Step Validation Epoch: [1]  [ 61/120]  eta: 0:07:43  iter_time: 17.017(17.017)  data_wait_time: 16.942(16.942)  data_load_time: 88.910(88.910)  loss: 0.3729 (0.3723)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:59,171 - INFO - logging - One-Step Validation Epoch: [1]  [ 62/120]  eta: 0:07:28  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 14.557(14.557)  loss: 0.3729 (0.3746)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:11:59,249 - INFO - logging - One-Step Validation Epoch: [1]  [ 63/120]  eta: 0:07:14  iter_time: 0.077(0.077)  data_wait_time: 0.001(0.001)  data_load_time: 40.554(40.554)  loss: 0.3729 (0.3752)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:04,940 - INFO - logging - One-Step Validation Epoch: [1]  [ 64/120]  eta: 0:07:04  iter_time: 5.690(5.690)  data_wait_time: 5.609(5.609)  data_load_time: 23.152(23.152)  loss: 0.3832 (0.3753)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:33,242 - INFO - logging - One-Step Validation Epoch: [1]  [ 65/120]  eta: 0:07:14  iter_time: 28.301(28.301)  data_wait_time: 28.226(28.226)  data_load_time: 120.656(120.656)  loss: 0.3832 (0.3750)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:33,491 - INFO - logging - One-Step Validation Epoch: [1]  [ 66/120]  eta: 0:07:00  iter_time: 0.248(0.248)  data_wait_time: 0.174(0.174)  data_load_time: 120.835(120.835)  loss: 0.3832 (0.3769)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:33,571 - INFO - logging - One-Step Validation Epoch: [1]  [ 67/120]  eta: 0:06:46  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 61.652(61.652)  loss: 0.3832 (0.3776)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:33,651 - INFO - logging - One-Step Validation Epoch: [1]  [ 68/120]  eta: 0:06:33  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 104.710(104.710)  loss: 0.3836 (0.3781)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:56,943 - INFO - logging - One-Step Validation Epoch: [1]  [ 69/120]  eta: 0:06:37  iter_time: 23.290(23.290)  data_wait_time: 23.211(23.211)  data_load_time: 57.823(57.823)  loss: 0.3836 (0.3780)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:57,023 - INFO - logging - One-Step Validation Epoch: [1]  [ 70/120]  eta: 0:06:24  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 8.766(8.766)  loss: 0.3836 (0.3814)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:57,102 - INFO - logging - One-Step Validation Epoch: [1]  [ 71/120]  eta: 0:06:11  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 37.250(37.250)  loss: 0.3836 (0.3829)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:12:57,181 - INFO - logging - One-Step Validation Epoch: [1]  [ 72/120]  eta: 0:05:58  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 30.772(30.772)  loss: 0.3944 (0.3837)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:04,667 - INFO - logging - One-Step Validation Epoch: [1]  [ 73/120]  eta: 0:05:51  iter_time: 7.485(7.485)  data_wait_time: 7.410(7.410)  data_load_time: 31.419(31.419)  loss: 0.3944 (0.3837)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:04,743 - INFO - logging - One-Step Validation Epoch: [1]  [ 74/120]  eta: 0:05:39  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 31.128(31.128)  loss: 0.3944 (0.3866)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:04,819 - INFO - logging - One-Step Validation Epoch: [1]  [ 75/120]  eta: 0:05:27  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 30.371(30.371)  loss: 0.4088 (0.3880)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:04,895 - INFO - logging - One-Step Validation Epoch: [1]  [ 76/120]  eta: 0:05:16  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 31.657(31.657)  loss: 0.4123 (0.3887)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:42,785 - INFO - logging - One-Step Validation Epoch: [1]  [ 77/120]  eta: 0:05:25  iter_time: 37.889(37.889)  data_wait_time: 37.815(37.814)  data_load_time: 45.839(45.839)  loss: 0.4123 (0.3887)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:42,861 - INFO - logging - One-Step Validation Epoch: [1]  [ 78/120]  eta: 0:05:14  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 32.684(32.684)  loss: 0.4123 (0.3919)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:42,937 - INFO - logging - One-Step Validation Epoch: [1]  [ 79/120]  eta: 0:05:03  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 17.382(17.382)  loss: 0.4203 (0.3937)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:43,013 - INFO - logging - One-Step Validation Epoch: [1]  [ 80/120]  eta: 0:04:52  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 27.522(27.522)  loss: 0.4408 (0.3945)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:43,090 - INFO - logging - One-Step Validation Epoch: [1]  [ 81/120]  eta: 0:04:41  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 29.362(29.362)  loss: 0.4408 (0.3948)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:58,096 - INFO - logging - One-Step Validation Epoch: [1]  [ 82/120]  eta: 0:04:37  iter_time: 15.006(15.006)  data_wait_time: 14.928(14.928)  data_load_time: 53.444(53.444)  loss: 0.4408 (0.3982)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:58,177 - INFO - logging - One-Step Validation Epoch: [1]  [ 83/120]  eta: 0:04:27  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 50.963(50.963)  loss: 0.4448 (0.4003)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:13:58,257 - INFO - logging - One-Step Validation Epoch: [1]  [ 84/120]  eta: 0:04:16  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 34.051(34.051)  loss: 0.4604 (0.4017)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:14:26,778 - INFO - logging - One-Step Validation Epoch: [1]  [ 85/120]  eta: 0:04:18  iter_time: 28.520(28.520)  data_wait_time: 28.442(28.442)  data_load_time: 43.951(43.951)  loss: 0.4604 (0.4020)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:14:26,858 - INFO - logging - One-Step Validation Epoch: [1]  [ 86/120]  eta: 0:04:08  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 27.781(27.781)  loss: 0.4604 (0.4044)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:14:26,938 - INFO - logging - One-Step Validation Epoch: [1]  [ 87/120]  eta: 0:03:58  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 27.458(27.458)  loss: 0.4855 (0.4061)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:14:27,018 - INFO - logging - One-Step Validation Epoch: [1]  [ 88/120]  eta: 0:03:48  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 16.880(16.880)  loss: 0.4935 (0.4075)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:14:27,095 - INFO - logging - One-Step Validation Epoch: [1]  [ 89/120]  eta: 0:03:38  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 12.651(12.651)  loss: 0.4935 (0.4078)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:14:27,175 - INFO - logging - One-Step Validation Epoch: [1]  [ 90/120]  eta: 0:03:29  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 27.818(27.818)  loss: 0.4935 (0.4099)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:14:27,255 - INFO - logging - One-Step Validation Epoch: [1]  [ 91/120]  eta: 0:03:20  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 14.466(14.466)  loss: 0.5149 (0.4112)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:14:27,336 - INFO - logging - One-Step Validation Epoch: [1]  [ 92/120]  eta: 0:03:11  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 12.501(12.501)  loss: 0.5149 (0.4122)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:10,153 - INFO - logging - One-Step Validation Epoch: [1]  [ 93/120]  eta: 0:03:14  iter_time: 42.817(42.817)  data_wait_time: 42.742(42.742)  data_load_time: 43.390(43.390)  loss: 0.5149 (0.4124)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:10,229 - INFO - logging - One-Step Validation Epoch: [1]  [ 94/120]  eta: 0:03:05  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 41.294(41.294)  loss: 0.5149 (0.4146)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:10,305 - INFO - logging - One-Step Validation Epoch: [1]  [ 95/120]  eta: 0:02:56  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 39.542(39.542)  loss: 0.5267 (0.4160)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:10,381 - INFO - logging - One-Step Validation Epoch: [1]  [ 96/120]  eta: 0:02:47  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 49.114(49.114)  loss: 0.5267 (0.4170)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:10,458 - INFO - logging - One-Step Validation Epoch: [1]  [ 97/120]  eta: 0:02:39  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 30.707(30.707)  loss: 0.5267 (0.4173)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:10,535 - INFO - logging - One-Step Validation Epoch: [1]  [ 98/120]  eta: 0:02:30  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 14.092(14.092)  loss: 0.5267 (0.4197)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:10,611 - INFO - logging - One-Step Validation Epoch: [1]  [ 99/120]  eta: 0:02:22  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 46.715(46.715)  loss: 0.5267 (0.4211)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:10,687 - INFO - logging - One-Step Validation Epoch: [1]  [100/120]  eta: 0:02:14  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 18.246(18.246)  loss: 0.5279 (0.4222)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:15:48,522 - INFO - logging - One-Step Validation Epoch: [1]  [101/120]  eta: 0:02:13  iter_time: 37.835(37.835)  data_wait_time: 37.760(37.760)  data_load_time: 38.350(38.350)  loss: 0.5279 (0.4226)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:11,922 - INFO - logging - One-Step Validation Epoch: [1]  [102/120]  eta: 0:02:09  iter_time: 23.399(23.399)  data_wait_time: 23.325(23.325)  data_load_time: 105.018(105.018)  loss: 0.5279 (0.4245)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:11,997 - INFO - logging - One-Step Validation Epoch: [1]  [103/120]  eta: 0:02:01  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 66.020(66.020)  loss: 0.5279 (0.4258)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:22,912 - INFO - logging - One-Step Validation Epoch: [1]  [104/120]  eta: 0:01:54  iter_time: 10.914(10.914)  data_wait_time: 10.835(10.835)  data_load_time: 110.660(110.660)  loss: 0.5377 (0.4270)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:22,992 - INFO - logging - One-Step Validation Epoch: [1]  [105/120]  eta: 0:01:46  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 40.837(40.837)  loss: 0.5377 (0.4274)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:23,073 - INFO - logging - One-Step Validation Epoch: [1]  [106/120]  eta: 0:01:38  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 22.462(22.462)  loss: 0.5377 (0.4297)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:23,150 - INFO - logging - One-Step Validation Epoch: [1]  [107/120]  eta: 0:01:30  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 13.907(13.907)  loss: 0.5377 (0.4314)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:23,227 - INFO - logging - One-Step Validation Epoch: [1]  [108/120]  eta: 0:01:22  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 80.400(80.400)  loss: 0.5460 (0.4353)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:34,998 - INFO - logging - One-Step Validation Epoch: [1]  [109/120]  eta: 0:01:16  iter_time: 11.771(11.771)  data_wait_time: 11.696(11.696)  data_load_time: 46.486(46.486)  loss: 0.5460 (0.4359)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:57,421 - INFO - logging - One-Step Validation Epoch: [1]  [110/120]  eta: 0:01:10  iter_time: 22.422(22.422)  data_wait_time: 22.344(22.344)  data_load_time: 45.467(45.467)  loss: 0.5460 (0.4383)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:57,497 - INFO - logging - One-Step Validation Epoch: [1]  [111/120]  eta: 0:01:03  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 36.583(36.583)  loss: 0.5469 (0.4400)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:57,572 - INFO - logging - One-Step Validation Epoch: [1]  [112/120]  eta: 0:00:55  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 19.650(19.650)  loss: 0.5577 (0.4413)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:57,648 - INFO - logging - One-Step Validation Epoch: [1]  [113/120]  eta: 0:00:48  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 25.948(25.948)  loss: 0.5577 (0.4422)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:57,724 - INFO - logging - One-Step Validation Epoch: [1]  [114/120]  eta: 0:00:41  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 24.396(24.396)  loss: 0.5577 (0.4437)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:57,799 - INFO - logging - One-Step Validation Epoch: [1]  [115/120]  eta: 0:00:33  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 27.791(27.791)  loss: 0.5616 (0.4455)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:57,875 - INFO - logging - One-Step Validation Epoch: [1]  [116/120]  eta: 0:00:26  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 60.767(60.767)  loss: 0.5866 (0.4467)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:16:57,951 - INFO - logging - One-Step Validation Epoch: [1]  [117/120]  eta: 0:00:19  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 11.370(11.370)  loss: 0.5866 (0.4476)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:17:25,067 - INFO - logging - One-Step Validation Epoch: [1]  [118/120]  eta: 0:00:13  iter_time: 27.115(27.115)  data_wait_time: 27.041(27.041)  data_load_time: 27.659(27.659)  loss: 0.5866 (0.4503)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:17:25,143 - INFO - logging - One-Step Validation Epoch: [1]  [119/120]  eta: 0:00:06  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 51.362(51.362)  loss: 0.5942 (0.4524)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 16:17:25,217 - INFO - logging - One-Step Validation Epoch: [1] Total time: 0:13:33 (6.7801 s / it)
+2026-01-28 16:17:25,222 - INFO - train - Aggregating validation logs
+2026-01-28 16:20:22,805 - INFO - train - Achieved Train Loss = 4.231
+2026-01-28 16:20:22,806 - INFO - train - Achieved Validation Loss = 0.455
+2026-01-28 16:20:22,809 - INFO - train - Epoch validation loss (0.455) is lower than previous best validation loss (100000000.000).
+2026-01-28 16:20:22,809 - INFO - train - Saving lowest validation loss checkpoint to .LOCAL/samudra_llc:scaling_tests_k=0:6/saved_nets/best_validation_ckpt.pt
+2026-01-28 16:20:24,513 - INFO - train - Saving latest checkpoint to .LOCAL/samudra_llc:scaling_tests_k=0:6/saved_nets/ckpt.pt
+2026-01-28 16:20:26,405 - INFO - train - Saving per-epoch checkpoint to .LOCAL/samudra_llc:scaling_tests_k=0:6/saved_nets/ckpt_1.pt
+2026-01-28 16:20:28,667 - INFO - train - Saving latest EMA checkpoint to .LOCAL/samudra_llc:scaling_tests_k=0:6/saved_nets/ema_ckpt.pt
+2026-01-28 16:23:36,717 - INFO - logging - Training Epoch: [2]  [  0/123]  eta: 6:21:34  lr: 0.000300  iter_time: 186.137(186.137)  data_wait_time: 184.695(184.695)  data_load_time: 183.952(183.952)  loss: 2.4161 (2.4161)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:26:02,859 - INFO - logging - Training Epoch: [2]  [  1/123]  eta: 5:37:48  lr: 0.000300  iter_time: 146.141(146.141)  data_wait_time: 77.331(77.331)  data_load_time: 262.653(262.653)  loss: 0.9976 (1.7068)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:26:21,122 - INFO - logging - Training Epoch: [2]  [  2/123]  eta: 3:55:38  lr: 0.000300  iter_time: 18.261(18.261)  data_wait_time: 0.002(0.002)  data_load_time: 247.312(247.312)  loss: 2.4161 (2.3209)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:26:22,468 - INFO - logging - Training Epoch: [2]  [  3/123]  eta: 2:55:56  lr: 0.000300  iter_time: 1.345(1.345)  data_wait_time: 0.002(0.002)  data_load_time: 220.854(220.854)  loss: 2.1557 (2.2796)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:26:23,823 - INFO - logging - Training Epoch: [2]  [  4/123]  eta: 2:20:07  lr: 0.000300  iter_time: 1.355(1.355)  data_wait_time: 0.001(0.001)  data_load_time: 340.418(340.418)  loss: 2.4161 (2.6688)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:26:25,189 - INFO - logging - Training Epoch: [2]  [  5/123]  eta: 1:56:13  lr: 0.000300  iter_time: 1.365(1.365)  data_wait_time: 0.001(0.001)  data_load_time: 197.518(197.518)  loss: 2.4161 (3.0016)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:26:26,691 - INFO - logging - Training Epoch: [2]  [  6/123]  eta: 1:39:12  lr: 0.000300  iter_time: 1.501(1.501)  data_wait_time: 0.003(0.003)  data_load_time: 250.100(250.100)  loss: 2.4161 (2.9073)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:26:28,055 - INFO - logging - Training Epoch: [2]  [  7/123]  eta: 1:26:23  lr: 0.000300  iter_time: 1.364(1.364)  data_wait_time: 0.001(0.001)  data_load_time: 191.330(191.330)  loss: 2.4161 (3.0359)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:27:16,634 - INFO - logging - Training Epoch: [2]  [  8/123]  eta: 1:26:28  lr: 0.000300  iter_time: 48.578(48.578)  data_wait_time: 0.001(0.001)  data_load_time: 135.168(135.168)  loss: 3.5491 (3.1856)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:28:57,337 - INFO - logging - Training Epoch: [2]  [  9/123]  eta: 1:36:16  lr: 0.000300  iter_time: 100.702(100.702)  data_wait_time: 40.177(40.177)  data_load_time: 182.769(182.769)  loss: 2.7079 (3.1378)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:28:58,695 - INFO - logging - Training Epoch: [2]  [ 10/123]  eta: 1:26:59  lr: 0.000300  iter_time: 1.357(1.357)  data_wait_time: 0.002(0.002)  data_load_time: 141.961(141.961)  loss: 2.7244 (3.1002)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:29:00,071 - INFO - logging - Training Epoch: [2]  [ 11/123]  eta: 1:19:15  lr: 0.000300  iter_time: 1.374(1.374)  data_wait_time: 0.001(0.001)  data_load_time: 113.695(113.695)  loss: 2.7079 (3.0242)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:29:02,539 - INFO - logging - Training Epoch: [2]  [ 12/123]  eta: 1:12:51  lr: 0.000300  iter_time: 2.468(2.468)  data_wait_time: 0.035(0.035)  data_load_time: 63.052(63.052)  loss: 2.7244 (3.0021)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:29:03,924 - INFO - logging - Training Epoch: [2]  [ 13/123]  eta: 1:07:13  lr: 0.000300  iter_time: 1.383(1.383)  data_wait_time: 0.002(0.002)  data_load_time: 97.978(97.978)  loss: 2.7244 (3.0070)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:29:05,704 - INFO - logging - Training Epoch: [2]  [ 14/123]  eta: 1:02:23  lr: 0.000300  iter_time: 1.779(1.779)  data_wait_time: 0.002(0.002)  data_load_time: 199.936(199.936)  loss: 2.7366 (3.0002)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:29:07,088 - INFO - logging - Training Epoch: [2]  [ 15/123]  eta: 0:58:06  lr: 0.000300  iter_time: 1.383(1.383)  data_wait_time: 0.002(0.002)  data_load_time: 124.489(124.489)  loss: 2.7366 (3.0288)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:30:36,519 - INFO - logging - Training Epoch: [2]  [ 16/123]  eta: 1:03:33  lr: 0.000300  iter_time: 89.430(89.430)  data_wait_time: 61.183(61.183)  data_load_time: 257.706(257.706)  loss: 2.7366 (2.9960)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:32:27,618 - INFO - logging - Training Epoch: [2]  [ 17/123]  eta: 1:10:22  lr: 0.000300  iter_time: 111.098(111.098)  data_wait_time: 0.001(0.001)  data_load_time: 90.446(90.446)  loss: 2.7244 (2.9725)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:32:29,014 - INFO - logging - Training Epoch: [2]  [ 18/123]  eta: 1:06:10  lr: 0.000300  iter_time: 1.395(1.395)  data_wait_time: 0.002(0.002)  data_load_time: 117.249(117.249)  loss: 2.7244 (2.8832)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:32:30,371 - INFO - logging - Training Epoch: [2]  [ 19/123]  eta: 1:02:22  lr: 0.000300  iter_time: 1.356(1.356)  data_wait_time: 0.001(0.001)  data_load_time: 149.747(149.747)  loss: 2.7244 (2.8915)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:32:31,756 - INFO - logging - Training Epoch: [2]  [ 20/123]  eta: 0:58:57  lr: 0.000300  iter_time: 1.384(1.384)  data_wait_time: 0.002(0.002)  data_load_time: 103.109(103.109)  loss: 2.7366 (2.9003)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:32:33,792 - INFO - logging - Training Epoch: [2]  [ 21/123]  eta: 0:55:52  lr: 0.000300  iter_time: 2.035(2.035)  data_wait_time: 0.001(0.001)  data_load_time: 64.769(64.769)  loss: 2.9043 (2.9332)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:32:35,357 - INFO - logging - Training Epoch: [2]  [ 22/123]  eta: 0:53:02  lr: 0.000300  iter_time: 1.565(1.565)  data_wait_time: 0.002(0.002)  data_load_time: 118.452(118.452)  loss: 2.9043 (2.9956)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:32:36,738 - INFO - logging - Training Epoch: [2]  [ 23/123]  eta: 0:50:25  lr: 0.000300  iter_time: 1.380(1.380)  data_wait_time: 0.001(0.001)  data_load_time: 108.744(108.744)  loss: 2.9043 (2.9774)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:35:22,131 - INFO - logging - Training Epoch: [2]  [ 24/123]  eta: 0:58:50  lr: 0.000300  iter_time: 165.393(165.393)  data_wait_time: 0.001(0.001)  data_load_time: 91.937(91.937)  loss: 2.9043 (2.9961)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:35:23,474 - INFO - logging - Training Epoch: [2]  [ 25/123]  eta: 0:56:05  lr: 0.000300  iter_time: 1.342(1.342)  data_wait_time: 0.002(0.002)  data_load_time: 149.921(149.921)  loss: 2.7366 (2.9777)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:35:24,827 - INFO - logging - Training Epoch: [2]  [ 26/123]  eta: 0:53:32  lr: 0.000300  iter_time: 1.351(1.351)  data_wait_time: 0.002(0.002)  data_load_time: 250.776(250.776)  loss: 2.9043 (3.0182)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:35:26,411 - INFO - logging - Training Epoch: [2]  [ 27/123]  eta: 0:51:11  lr: 0.000300  iter_time: 1.583(1.583)  data_wait_time: 0.001(0.001)  data_load_time: 148.832(148.832)  loss: 2.9043 (3.0699)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:35:27,968 - INFO - logging - Training Epoch: [2]  [ 28/123]  eta: 0:48:59  lr: 0.000300  iter_time: 1.557(1.557)  data_wait_time: 0.002(0.002)  data_load_time: 87.220(87.220)  loss: 2.9043 (3.0726)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:35:29,492 - INFO - logging - Training Epoch: [2]  [ 29/123]  eta: 0:46:56  lr: 0.000300  iter_time: 1.522(1.522)  data_wait_time: 0.009(0.009)  data_load_time: 163.156(163.156)  loss: 3.0490 (3.0805)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:35:32,127 - INFO - logging - Training Epoch: [2]  [ 30/123]  eta: 0:45:04  lr: 0.000300  iter_time: 2.635(2.635)  data_wait_time: 0.003(0.003)  data_load_time: 258.614(258.614)  loss: 3.0715 (3.1306)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:35:33,549 - INFO - logging - Training Epoch: [2]  [ 31/123]  eta: 0:43:15  lr: 0.000300  iter_time: 1.421(1.421)  data_wait_time: 0.002(0.002)  data_load_time: 104.191(104.191)  loss: 3.0767 (3.1873)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:38:28,009 - INFO - logging - Training Epoch: [2]  [ 32/123]  eta: 0:49:31  lr: 0.000300  iter_time: 174.459(174.459)  data_wait_time: 0.002(0.002)  data_load_time: 168.147(168.147)  loss: 3.0767 (3.1723)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:38:29,377 - INFO - logging - Training Epoch: [2]  [ 33/123]  eta: 0:47:35  lr: 0.000300  iter_time: 1.367(1.367)  data_wait_time: 0.001(0.001)  data_load_time: 72.445(72.445)  loss: 3.0767 (3.1460)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:38:30,837 - INFO - logging - Training Epoch: [2]  [ 34/123]  eta: 0:45:46  lr: 0.000300  iter_time: 1.460(1.460)  data_wait_time: 0.001(0.001)  data_load_time: 106.755(106.755)  loss: 3.1497 (3.1689)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:38:32,308 - INFO - logging - Training Epoch: [2]  [ 35/123]  eta: 0:44:04  lr: 0.000300  iter_time: 1.470(1.470)  data_wait_time: 0.002(0.002)  data_load_time: 147.460(147.460)  loss: 3.0767 (3.1564)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:38:33,693 - INFO - logging - Training Epoch: [2]  [ 36/123]  eta: 0:42:26  lr: 0.000300  iter_time: 1.384(1.384)  data_wait_time: 0.002(0.002)  data_load_time: 120.547(120.547)  loss: 3.0767 (3.1156)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:38:35,291 - INFO - logging - Training Epoch: [2]  [ 37/123]  eta: 0:40:54  lr: 0.000300  iter_time: 1.596(1.596)  data_wait_time: 0.004(0.004)  data_load_time: 77.701(77.701)  loss: 3.1497 (3.3061)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:38:36,773 - INFO - logging - Training Epoch: [2]  [ 38/123]  eta: 0:39:27  lr: 0.000300  iter_time: 1.481(1.481)  data_wait_time: 0.002(0.002)  data_load_time: 63.311(63.311)  loss: 3.3100 (3.4864)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:38:38,690 - INFO - logging - Training Epoch: [2]  [ 39/123]  eta: 0:38:04  lr: 0.000300  iter_time: 1.916(1.916)  data_wait_time: 0.002(0.002)  data_load_time: 83.410(83.410)  loss: 3.4438 (3.6054)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:39:47,040 - INFO - logging - Training Epoch: [2]  [ 40/123]  eta: 0:39:01  lr: 0.000300  iter_time: 68.350(68.350)  data_wait_time: 0.001(0.001)  data_load_time: 38.054(38.054)  loss: 3.6232 (3.6261)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:39:48,508 - INFO - logging - Training Epoch: [2]  [ 41/123]  eta: 0:37:40  lr: 0.000300  iter_time: 1.466(1.466)  data_wait_time: 0.002(0.002)  data_load_time: 153.060(153.060)  loss: 3.9458 (3.7444)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:39:51,086 - INFO - logging - Training Epoch: [2]  [ 42/123]  eta: 0:36:25  lr: 0.000300  iter_time: 2.576(2.576)  data_wait_time: 0.002(0.002)  data_load_time: 134.205(134.205)  loss: 3.9458 (3.9335)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:39:52,469 - INFO - logging - Training Epoch: [2]  [ 43/123]  eta: 0:35:12  lr: 0.000300  iter_time: 1.382(1.382)  data_wait_time: 0.002(0.002)  data_load_time: 141.849(141.849)  loss: 4.0716 (4.2422)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:39:53,870 - INFO - logging - Training Epoch: [2]  [ 44/123]  eta: 0:34:02  lr: 0.000300  iter_time: 1.400(1.400)  data_wait_time: 0.002(0.002)  data_load_time: 120.738(120.738)  loss: 4.4544 (4.7703)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:39:55,253 - INFO - logging - Training Epoch: [2]  [ 45/123]  eta: 0:32:54  lr: 0.000300  iter_time: 1.382(1.382)  data_wait_time: 0.002(0.002)  data_load_time: 160.497(160.497)  loss: 4.4652 (5.0013)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:39:56,625 - INFO - logging - Training Epoch: [2]  [ 46/123]  eta: 0:31:50  lr: 0.000300  iter_time: 1.372(1.372)  data_wait_time: 0.002(0.002)  data_load_time: 126.116(126.116)  loss: 4.4652 (4.9894)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:39:57,986 - INFO - logging - Training Epoch: [2]  [ 47/123]  eta: 0:30:48  lr: 0.000300  iter_time: 1.360(1.360)  data_wait_time: 0.001(0.001)  data_load_time: 142.904(142.904)  loss: 4.6326 (5.0713)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:42:02,708 - INFO - logging - Training Epoch: [2]  [ 48/123]  eta: 0:32:57  lr: 0.000300  iter_time: 124.721(124.721)  data_wait_time: 0.001(0.001)  data_load_time: 147.960(147.960)  loss: 4.9448 (5.1949)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:42:29,105 - INFO - logging - Training Epoch: [2]  [ 49/123]  eta: 0:32:31  lr: 0.000300  iter_time: 26.396(26.396)  data_wait_time: 0.001(0.001)  data_load_time: 197.499(197.499)  loss: 6.4985 (5.2210)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:42:53,318 - INFO - logging - Training Epoch: [2]  [ 50/123]  eta: 0:32:01  lr: 0.000300  iter_time: 24.212(24.212)  data_wait_time: 22.874(22.874)  data_load_time: 262.399(262.399)  loss: 8.2251 (5.2799)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:42:54,674 - INFO - logging - Training Epoch: [2]  [ 51/123]  eta: 0:31:00  lr: 0.000300  iter_time: 1.356(1.356)  data_wait_time: 0.001(0.001)  data_load_time: 108.535(108.535)  loss: 8.2441 (5.3611)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:42:56,051 - INFO - logging - Training Epoch: [2]  [ 52/123]  eta: 0:30:02  lr: 0.000300  iter_time: 1.376(1.376)  data_wait_time: 0.002(0.002)  data_load_time: 137.541(137.541)  loss: 8.2441 (5.3250)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:43:54,396 - INFO - logging - Training Epoch: [2]  [ 53/123]  eta: 0:30:19  lr: 0.000300  iter_time: 58.344(58.344)  data_wait_time: 56.991(56.991)  data_load_time: 319.055(319.055)  loss: 8.2441 (5.3429)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:43:55,755 - INFO - logging - Training Epoch: [2]  [ 54/123]  eta: 0:29:22  lr: 0.000300  iter_time: 1.358(1.358)  data_wait_time: 0.001(0.001)  data_load_time: 141.341(141.341)  loss: 8.2441 (5.3463)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:43:57,248 - INFO - logging - Training Epoch: [2]  [ 55/123]  eta: 0:28:28  lr: 0.000300  iter_time: 1.493(1.493)  data_wait_time: 0.001(0.001)  data_load_time: 139.483(139.483)  loss: 8.2441 (5.2994)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:44:58,277 - INFO - logging - Training Epoch: [2]  [ 56/123]  eta: 0:28:45  lr: 0.000300  iter_time: 61.028(61.028)  data_wait_time: 0.015(0.015)  data_load_time: 196.994(196.994)  loss: 8.2441 (5.2735)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:45:08,265 - INFO - logging - Training Epoch: [2]  [ 57/123]  eta: 0:28:01  lr: 0.000300  iter_time: 9.987(9.987)  data_wait_time: 0.001(0.001)  data_load_time: 32.893(32.893)  loss: 8.2251 (5.2188)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:45:09,626 - INFO - logging - Training Epoch: [2]  [ 58/123]  eta: 0:27:09  lr: 0.000300  iter_time: 1.360(1.360)  data_wait_time: 0.003(0.003)  data_load_time: 97.562(97.562)  loss: 6.4985 (5.1542)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:45:11,072 - INFO - logging - Training Epoch: [2]  [ 59/123]  eta: 0:26:19  lr: 0.000300  iter_time: 1.445(1.445)  data_wait_time: 0.002(0.002)  data_load_time: 65.269(65.269)  loss: 6.2917 (5.0928)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:45:12,467 - INFO - logging - Training Epoch: [2]  [ 60/123]  eta: 0:25:30  lr: 0.000300  iter_time: 1.394(1.394)  data_wait_time: 0.002(0.002)  data_load_time: 157.435(157.435)  loss: 6.2917 (5.0567)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:45:13,845 - INFO - logging - Training Epoch: [2]  [ 61/123]  eta: 0:24:43  lr: 0.000300  iter_time: 1.377(1.377)  data_wait_time: 0.002(0.002)  data_load_time: 65.985(65.985)  loss: 5.5305 (5.0198)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:45:26,497 - INFO - logging - Training Epoch: [2]  [ 62/123]  eta: 0:24:08  lr: 0.000300  iter_time: 12.651(12.651)  data_wait_time: 0.002(0.002)  data_load_time: 81.181(81.181)  loss: 4.4417 (4.9803)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:45:27,853 - INFO - logging - Training Epoch: [2]  [ 63/123]  eta: 0:23:23  lr: 0.000300  iter_time: 1.355(1.355)  data_wait_time: 0.001(0.001)  data_load_time: 50.737(50.737)  loss: 3.8266 (4.9293)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:48:40,219 - INFO - logging - Training Epoch: [2]  [ 64/123]  eta: 0:25:33  lr: 0.000300  iter_time: 192.366(192.366)  data_wait_time: 0.001(0.001)  data_load_time: 95.083(95.083)  loss: 3.4459 (4.9063)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:48:41,571 - INFO - logging - Training Epoch: [2]  [ 65/123]  eta: 0:24:45  lr: 0.000300  iter_time: 1.351(1.351)  data_wait_time: 0.001(0.001)  data_load_time: 89.921(89.921)  loss: 3.4369 (4.8679)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:48:42,947 - INFO - logging - Training Epoch: [2]  [ 66/123]  eta: 0:23:59  lr: 0.000300  iter_time: 1.375(1.375)  data_wait_time: 0.001(0.001)  data_load_time: 93.335(93.335)  loss: 2.8945 (4.8219)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:48:45,424 - INFO - logging - Training Epoch: [2]  [ 67/123]  eta: 0:23:15  lr: 0.000300  iter_time: 2.476(2.476)  data_wait_time: 0.002(0.002)  data_load_time: 57.332(57.332)  loss: 2.7690 (4.7816)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:48:46,796 - INFO - logging - Training Epoch: [2]  [ 68/123]  eta: 0:22:32  lr: 0.000300  iter_time: 1.372(1.372)  data_wait_time: 0.002(0.002)  data_load_time: 50.251(50.251)  loss: 2.7173 (4.7323)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:48:48,185 - INFO - logging - Training Epoch: [2]  [ 69/123]  eta: 0:21:49  lr: 0.000300  iter_time: 1.388(1.388)  data_wait_time: 0.002(0.002)  data_load_time: 126.200(126.200)  loss: 2.5290 (4.6977)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:48:49,562 - INFO - logging - Training Epoch: [2]  [ 70/123]  eta: 0:21:08  lr: 0.000300  iter_time: 1.376(1.376)  data_wait_time: 0.002(0.002)  data_load_time: 78.513(78.513)  loss: 2.5290 (4.7453)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:48:51,500 - INFO - logging - Training Epoch: [2]  [ 71/123]  eta: 0:20:28  lr: 0.000300  iter_time: 1.937(1.937)  data_wait_time: 0.002(0.002)  data_load_time: 197.849(197.849)  loss: 2.5290 (4.7384)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:52:09,245 - INFO - logging - Training Epoch: [2]  [ 72/123]  eta: 0:22:06  lr: 0.000300  iter_time: 197.745(197.745)  data_wait_time: 0.001(0.001)  data_load_time: 50.273(50.273)  loss: 2.5290 (4.7678)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:52:10,658 - INFO - logging - Training Epoch: [2]  [ 73/123]  eta: 0:21:23  lr: 0.000300  iter_time: 1.411(1.411)  data_wait_time: 0.003(0.003)  data_load_time: 36.526(36.526)  loss: 2.5290 (4.7467)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:52:12,021 - INFO - logging - Training Epoch: [2]  [ 74/123]  eta: 0:20:42  lr: 0.000300  iter_time: 1.363(1.363)  data_wait_time: 0.002(0.002)  data_load_time: 167.013(167.013)  loss: 2.5290 (4.8941)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:52:13,633 - INFO - logging - Training Epoch: [2]  [ 75/123]  eta: 0:20:01  lr: 0.000300  iter_time: 1.611(1.611)  data_wait_time: 0.002(0.002)  data_load_time: 168.186(168.186)  loss: 2.5290 (5.0976)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:52:15,953 - INFO - logging - Training Epoch: [2]  [ 76/123]  eta: 0:19:22  lr: 0.000300  iter_time: 2.318(2.318)  data_wait_time: 0.005(0.005)  data_load_time: 152.170(152.170)  loss: 2.5290 (5.1350)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:52:17,383 - INFO - logging - Training Epoch: [2]  [ 77/123]  eta: 0:18:44  lr: 0.000300  iter_time: 1.428(1.428)  data_wait_time: 0.002(0.002)  data_load_time: 121.415(121.415)  loss: 2.7690 (5.2179)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:52:18,805 - INFO - logging - Training Epoch: [2]  [ 78/123]  eta: 0:18:06  lr: 0.000300  iter_time: 1.421(1.421)  data_wait_time: 0.002(0.002)  data_load_time: 287.411(287.411)  loss: 2.8945 (5.2945)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:52:20,833 - INFO - logging - Training Epoch: [2]  [ 79/123]  eta: 0:17:30  lr: 0.000300  iter_time: 2.027(2.027)  data_wait_time: 0.005(0.005)  data_load_time: 79.512(79.512)  loss: 3.2071 (5.3819)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:53:47,976 - INFO - logging - Training Epoch: [2]  [ 80/123]  eta: 0:17:40  lr: 0.000300  iter_time: 87.142(87.142)  data_wait_time: 0.007(0.007)  data_load_time: 138.788(138.788)  loss: 3.4369 (5.4207)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:54:04,466 - INFO - logging - Training Epoch: [2]  [ 81/123]  eta: 0:17:11  lr: 0.000300  iter_time: 16.489(16.489)  data_wait_time: 0.002(0.002)  data_load_time: 193.173(193.173)  loss: 4.2439 (5.5283)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:54:05,827 - INFO - logging - Training Epoch: [2]  [ 82/123]  eta: 0:16:35  lr: 0.000300  iter_time: 1.360(1.360)  data_wait_time: 0.001(0.001)  data_load_time: 227.047(227.047)  loss: 5.0887 (5.5230)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:54:07,173 - INFO - logging - Training Epoch: [2]  [ 83/123]  eta: 0:16:00  lr: 0.000300  iter_time: 1.345(1.345)  data_wait_time: 0.002(0.002)  data_load_time: 72.716(72.716)  loss: 5.0887 (5.5167)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:54:08,524 - INFO - logging - Training Epoch: [2]  [ 84/123]  eta: 0:15:25  lr: 0.000300  iter_time: 1.350(1.350)  data_wait_time: 0.002(0.002)  data_load_time: 139.062(139.062)  loss: 6.8844 (5.5698)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:54:09,908 - INFO - logging - Training Epoch: [2]  [ 85/123]  eta: 0:14:52  lr: 0.000300  iter_time: 1.383(1.383)  data_wait_time: 0.001(0.001)  data_load_time: 196.270(196.270)  loss: 6.8844 (5.5605)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:57:18,989 - INFO - logging - Training Epoch: [2]  [ 86/123]  eta: 0:15:39  lr: 0.000300  iter_time: 189.081(189.081)  data_wait_time: 0.002(0.002)  data_load_time: 85.154(85.154)  loss: 6.8844 (5.5692)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:57:20,341 - INFO - logging - Training Epoch: [2]  [ 87/123]  eta: 0:15:03  lr: 0.000300  iter_time: 1.351(1.351)  data_wait_time: 0.001(0.001)  data_load_time: 93.190(93.190)  loss: 7.9708 (5.6544)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:57:21,800 - INFO - logging - Training Epoch: [2]  [ 88/123]  eta: 0:14:29  lr: 0.000300  iter_time: 1.457(1.457)  data_wait_time: 0.001(0.001)  data_load_time: 125.426(125.426)  loss: 7.9708 (5.6395)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:57:23,219 - INFO - logging - Training Epoch: [2]  [ 89/123]  eta: 0:13:55  lr: 0.000300  iter_time: 1.419(1.419)  data_wait_time: 0.003(0.003)  data_load_time: 86.854(86.854)  loss: 8.0791 (5.7000)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:57:24,853 - INFO - logging - Training Epoch: [2]  [ 90/123]  eta: 0:13:22  lr: 0.000300  iter_time: 1.632(1.632)  data_wait_time: 0.002(0.002)  data_load_time: 83.264(83.264)  loss: 8.5315 (5.7344)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:57:26,593 - INFO - logging - Training Epoch: [2]  [ 91/123]  eta: 0:12:50  lr: 0.000300  iter_time: 1.740(1.740)  data_wait_time: 0.002(0.002)  data_load_time: 156.528(156.528)  loss: 8.5315 (5.7043)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:57:27,986 - INFO - logging - Training Epoch: [2]  [ 92/123]  eta: 0:12:19  lr: 0.000300  iter_time: 1.392(1.392)  data_wait_time: 0.002(0.002)  data_load_time: 265.752(265.752)  loss: 8.5315 (5.6839)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:57:29,993 - INFO - logging - Training Epoch: [2]  [ 93/123]  eta: 0:11:48  lr: 0.000300  iter_time: 2.006(2.006)  data_wait_time: 0.003(0.003)  data_load_time: 70.817(70.817)  loss: 8.8273 (5.7508)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:59:26,946 - INFO - logging - Training Epoch: [2]  [ 94/123]  eta: 0:11:53  lr: 0.000300  iter_time: 116.953(116.953)  data_wait_time: 0.008(0.008)  data_load_time: 170.700(170.700)  loss: 8.5315 (5.7091)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:59:28,384 - INFO - logging - Training Epoch: [2]  [ 95/123]  eta: 0:11:21  lr: 0.000300  iter_time: 1.436(1.436)  data_wait_time: 0.002(0.002)  data_load_time: 82.567(82.567)  loss: 7.9708 (5.6670)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:59:30,019 - INFO - logging - Training Epoch: [2]  [ 96/123]  eta: 0:10:51  lr: 0.000300  iter_time: 1.634(1.634)  data_wait_time: 0.002(0.002)  data_load_time: 212.455(212.455)  loss: 6.3215 (5.6315)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:59:31,386 - INFO - logging - Training Epoch: [2]  [ 97/123]  eta: 0:10:21  lr: 0.000300  iter_time: 1.367(1.367)  data_wait_time: 0.002(0.002)  data_load_time: 104.811(104.811)  loss: 5.0887 (5.5876)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:59:32,761 - INFO - logging - Training Epoch: [2]  [ 98/123]  eta: 0:09:51  lr: 0.000300  iter_time: 1.374(1.374)  data_wait_time: 0.001(0.001)  data_load_time: 87.339(87.339)  loss: 4.9950 (5.5731)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:59:34,796 - INFO - logging - Training Epoch: [2]  [ 99/123]  eta: 0:09:22  lr: 0.000300  iter_time: 2.034(2.034)  data_wait_time: 0.002(0.002)  data_load_time: 52.715(52.715)  loss: 4.9950 (5.5690)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:59:36,178 - INFO - logging - Training Epoch: [2]  [100/123]  eta: 0:08:54  lr: 0.000300  iter_time: 1.381(1.381)  data_wait_time: 0.003(0.003)  data_load_time: 39.306(39.306)  loss: 4.7692 (5.5429)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 16:59:37,558 - INFO - logging - Training Epoch: [2]  [101/123]  eta: 0:08:26  lr: 0.000300  iter_time: 1.379(1.379)  data_wait_time: 0.002(0.002)  data_load_time: 109.571(109.571)  loss: 4.3271 (5.5103)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:02:57,819 - INFO - logging - Training Epoch: [2]  [102/123]  eta: 0:08:39  lr: 0.000300  iter_time: 200.260(200.260)  data_wait_time: 0.002(0.002)  data_load_time: 105.056(105.056)  loss: 4.3271 (5.5123)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:02:59,247 - INFO - logging - Training Epoch: [2]  [103/123]  eta: 0:08:10  lr: 0.000300  iter_time: 1.427(1.427)  data_wait_time: 0.001(0.001)  data_load_time: 107.771(107.771)  loss: 4.1526 (5.4894)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:03:00,631 - INFO - logging - Training Epoch: [2]  [104/123]  eta: 0:07:41  lr: 0.000300  iter_time: 1.384(1.384)  data_wait_time: 0.002(0.002)  data_load_time: 88.582(88.582)  loss: 3.7998 (5.4608)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:03:02,876 - INFO - logging - Training Epoch: [2]  [105/123]  eta: 0:07:13  lr: 0.000300  iter_time: 2.244(2.244)  data_wait_time: 0.003(0.003)  data_load_time: 71.776(71.776)  loss: 3.1280 (5.4272)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:03:04,265 - INFO - logging - Training Epoch: [2]  [106/123]  eta: 0:06:45  lr: 0.000300  iter_time: 1.388(1.388)  data_wait_time: 0.002(0.002)  data_load_time: 171.379(171.379)  loss: 2.9693 (5.3936)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:03:05,656 - INFO - logging - Training Epoch: [2]  [107/123]  eta: 0:06:18  lr: 0.000300  iter_time: 1.390(1.390)  data_wait_time: 0.002(0.002)  data_load_time: 274.262(274.262)  loss: 2.9411 (5.3653)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:03:07,017 - INFO - logging - Training Epoch: [2]  [108/123]  eta: 0:05:51  lr: 0.000300  iter_time: 1.360(1.360)  data_wait_time: 0.001(0.001)  data_load_time: 265.759(265.759)  loss: 2.9411 (5.3476)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:03:08,369 - INFO - logging - Training Epoch: [2]  [109/123]  eta: 0:05:25  lr: 0.000300  iter_time: 1.351(1.351)  data_wait_time: 0.001(0.001)  data_load_time: 175.936(175.936)  loss: 2.4910 (5.3213)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:04:49,004 - INFO - logging - Training Epoch: [2]  [110/123]  eta: 0:05:11  lr: 0.000300  iter_time: 100.634(100.634)  data_wait_time: 0.002(0.002)  data_load_time: 82.130(82.130)  loss: 2.4910 (5.3094)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:04:50,350 - INFO - logging - Training Epoch: [2]  [111/123]  eta: 0:04:44  lr: 0.000300  iter_time: 1.346(1.346)  data_wait_time: 0.001(0.001)  data_load_time: 176.477(176.477)  loss: 2.4910 (5.3230)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:04:51,691 - INFO - logging - Training Epoch: [2]  [112/123]  eta: 0:04:19  lr: 0.000300  iter_time: 1.339(1.339)  data_wait_time: 0.001(0.001)  data_load_time: 221.083(221.083)  loss: 2.4910 (5.2998)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:04:53,044 - INFO - logging - Training Epoch: [2]  [113/123]  eta: 0:03:53  lr: 0.000300  iter_time: 1.353(1.353)  data_wait_time: 0.001(0.001)  data_load_time: 206.188(206.188)  loss: 2.4569 (5.2674)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:04:54,395 - INFO - logging - Training Epoch: [2]  [114/123]  eta: 0:03:28  lr: 0.000300  iter_time: 1.350(1.350)  data_wait_time: 0.001(0.001)  data_load_time: 116.778(116.778)  loss: 2.4910 (5.2891)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:04:55,736 - INFO - logging - Training Epoch: [2]  [115/123]  eta: 0:03:03  lr: 0.000300  iter_time: 1.341(1.341)  data_wait_time: 0.001(0.001)  data_load_time: 75.933(75.933)  loss: 2.6994 (5.2887)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:04:57,083 - INFO - logging - Training Epoch: [2]  [116/123]  eta: 0:02:39  lr: 0.000300  iter_time: 1.346(1.346)  data_wait_time: 0.001(0.001)  data_load_time: 166.784(166.784)  loss: 2.9411 (5.3003)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:04:58,426 - INFO - logging - Training Epoch: [2]  [117/123]  eta: 0:02:15  lr: 0.000300  iter_time: 1.343(1.343)  data_wait_time: 0.001(0.001)  data_load_time: 164.989(164.989)  loss: 3.1280 (5.3223)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:05:54,216 - INFO - logging - Training Epoch: [2]  [118/123]  eta: 0:01:54  lr: 0.000300  iter_time: 55.789(55.789)  data_wait_time: 0.001(0.001)  data_load_time: 121.610(121.610)  loss: 2.9411 (5.2974)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:05:55,551 - INFO - logging - Training Epoch: [2]  [119/123]  eta: 0:01:30  lr: 0.000300  iter_time: 1.335(1.335)  data_wait_time: 0.001(0.001)  data_load_time: 110.847(110.847)  loss: 2.6994 (5.2717)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:05:56,889 - INFO - logging - Training Epoch: [2]  [120/123]  eta: 0:01:07  lr: 0.000300  iter_time: 1.337(1.337)  data_wait_time: 0.001(0.001)  data_load_time: 74.201(74.201)  loss: 2.6994 (5.2524)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:05:58,230 - INFO - logging - Training Epoch: [2]  [121/123]  eta: 0:00:44  lr: 0.000300  iter_time: 1.341(1.341)  data_wait_time: 0.001(0.001)  data_load_time: 121.328(121.328)  loss: 2.9371 (5.2473)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:05:59,568 - INFO - logging - Training Epoch: [2]  [122/123]  eta: 0:00:22  lr: 0.000300  iter_time: 1.337(1.337)  data_wait_time: 0.001(0.001)  data_load_time: 86.423(86.423)  loss: 2.9371 (5.2319)  max cpu mem: 9448  max gpu mem: 21669
+2026-01-28 17:05:59,747 - INFO - logging - Training Epoch: [2] Total time: 0:45:29 (22.1883 s / it)
+2026-01-28 17:05:59,749 - INFO - train - Aggregating train logs
+2026-01-28 17:07:30,802 - INFO - logging - One-Step Validation Epoch: [2]  [  0/120]  eta: 3:02:04  iter_time: 91.035(91.035)  data_wait_time: 90.955(90.955)  data_load_time: 90.645(90.645)  loss: 0.7554 (0.7554)  max cpu mem: 9448  max gpu mem: 7605
+2026-01-28 17:07:30,882 - INFO - logging - One-Step Validation Epoch: [2]  [  1/120]  eta: 1:30:21  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 79.543(79.543)  loss: 0.4581 (0.6068)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:07:52,903 - INFO - logging - One-Step Validation Epoch: [2]  [  2/120]  eta: 1:14:09  iter_time: 22.021(22.021)  data_wait_time: 21.946(21.946)  data_load_time: 112.777(112.777)  loss: 0.5984 (0.6040)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:07:52,984 - INFO - logging - One-Step Validation Epoch: [2]  [  3/120]  eta: 0:55:11  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 93.299(93.299)  loss: 0.5984 (0.6298)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:07:53,064 - INFO - logging - One-Step Validation Epoch: [2]  [  4/120]  eta: 0:43:48  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 92.949(92.949)  loss: 0.7071 (0.6710)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:07:53,145 - INFO - logging - One-Step Validation Epoch: [2]  [  5/120]  eta: 0:36:12  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 86.424(86.424)  loss: 0.5984 (0.6450)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:07:53,225 - INFO - logging - One-Step Validation Epoch: [2]  [  6/120]  eta: 0:30:47  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 87.079(87.079)  loss: 0.7071 (0.6593)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:07:53,305 - INFO - logging - One-Step Validation Epoch: [2]  [  7/120]  eta: 0:26:43  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 92.575(92.575)  loss: 0.7071 (0.6728)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:06,534 - INFO - logging - One-Step Validation Epoch: [2]  [  8/120]  eta: 0:38:44  iter_time: 73.227(73.227)  data_wait_time: 73.146(73.146)  data_load_time: 95.455(95.455)  loss: 0.7450 (0.6891)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:06,634 - INFO - logging - One-Step Validation Epoch: [2]  [  9/120]  eta: 0:34:34  iter_time: 0.099(0.099)  data_wait_time: 0.001(0.001)  data_load_time: 39.747(39.747)  loss: 0.7071 (0.6714)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:06,738 - INFO - logging - One-Step Validation Epoch: [2]  [ 10/120]  eta: 0:31:09  iter_time: 0.091(0.091)  data_wait_time: 0.001(0.001)  data_load_time: 42.394(42.394)  loss: 0.7450 (0.6797)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:06,833 - INFO - logging - One-Step Validation Epoch: [2]  [ 11/120]  eta: 0:28:18  iter_time: 0.094(0.094)  data_wait_time: 0.001(0.001)  data_load_time: 18.445(18.445)  loss: 0.7450 (0.6867)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:06,931 - INFO - logging - One-Step Validation Epoch: [2]  [ 12/120]  eta: 0:25:54  iter_time: 0.096(0.096)  data_wait_time: 0.001(0.001)  data_load_time: 17.131(17.131)  loss: 0.7554 (0.6928)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:07,012 - INFO - logging - One-Step Validation Epoch: [2]  [ 13/120]  eta: 0:23:50  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 69.082(69.082)  loss: 0.7450 (0.6799)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:07,101 - INFO - logging - One-Step Validation Epoch: [2]  [ 14/120]  eta: 0:22:03  iter_time: 0.087(0.087)  data_wait_time: 0.001(0.001)  data_load_time: 58.447(58.447)  loss: 0.7450 (0.6837)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:07,216 - INFO - logging - One-Step Validation Epoch: [2]  [ 15/120]  eta: 0:20:29  iter_time: 0.114(0.114)  data_wait_time: 0.002(0.002)  data_load_time: 18.276(18.276)  loss: 0.7366 (0.6844)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:15,676 - INFO - logging - One-Step Validation Epoch: [2]  [ 16/120]  eta: 0:19:58  iter_time: 8.458(8.458)  data_wait_time: 8.380(8.380)  data_load_time: 9.370(9.370)  loss: 0.7366 (0.6856)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:15,752 - INFO - logging - One-Step Validation Epoch: [2]  [ 17/120]  eta: 0:18:41  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 51.937(51.937)  loss: 0.7071 (0.6763)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:55,424 - INFO - logging - One-Step Validation Epoch: [2]  [ 18/120]  eta: 0:21:04  iter_time: 39.671(39.671)  data_wait_time: 39.597(39.597)  data_load_time: 80.089(80.089)  loss: 0.7366 (0.6818)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:55,507 - INFO - logging - One-Step Validation Epoch: [2]  [ 19/120]  eta: 0:19:50  iter_time: 0.083(0.083)  data_wait_time: 0.001(0.001)  data_load_time: 97.341(97.341)  loss: 0.7366 (0.6851)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:55,585 - INFO - logging - One-Step Validation Epoch: [2]  [ 20/120]  eta: 0:18:42  iter_time: 0.077(0.077)  data_wait_time: 0.001(0.001)  data_load_time: 28.138(28.138)  loss: 0.7204 (0.6868)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:55,664 - INFO - logging - One-Step Validation Epoch: [2]  [ 21/120]  eta: 0:17:41  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 52.979(52.979)  loss: 0.7204 (0.6799)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:55,743 - INFO - logging - One-Step Validation Epoch: [2]  [ 22/120]  eta: 0:16:45  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 15.197(15.197)  loss: 0.7366 (0.6869)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:55,821 - INFO - logging - One-Step Validation Epoch: [2]  [ 23/120]  eta: 0:15:53  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 28.049(28.049)  loss: 0.7450 (0.6938)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:09:55,901 - INFO - logging - One-Step Validation Epoch: [2]  [ 24/120]  eta: 0:15:06  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 6.613(6.613)  loss: 0.7450 (0.6987)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:10:20,497 - INFO - logging - One-Step Validation Epoch: [2]  [ 25/120]  eta: 0:15:52  iter_time: 24.595(24.595)  data_wait_time: 24.520(24.520)  data_load_time: 73.825(73.825)  loss: 0.7450 (0.6928)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:15,042 - INFO - logging - One-Step Validation Epoch: [2]  [ 26/120]  eta: 0:18:17  iter_time: 54.545(54.545)  data_wait_time: 54.470(54.470)  data_load_time: 79.618(79.618)  loss: 0.7493 (0.7017)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:15,118 - INFO - logging - One-Step Validation Epoch: [2]  [ 27/120]  eta: 0:17:27  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 16.720(16.720)  loss: 0.7493 (0.7095)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:15,194 - INFO - logging - One-Step Validation Epoch: [2]  [ 28/120]  eta: 0:16:40  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 41.510(41.510)  loss: 0.7493 (0.7156)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:15,270 - INFO - logging - One-Step Validation Epoch: [2]  [ 29/120]  eta: 0:15:56  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 80.528(80.528)  loss: 0.7493 (0.7105)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:15,346 - INFO - logging - One-Step Validation Epoch: [2]  [ 30/120]  eta: 0:15:16  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 36.682(36.682)  loss: 0.7493 (0.7143)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:15,422 - INFO - logging - One-Step Validation Epoch: [2]  [ 31/120]  eta: 0:14:37  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 20.027(20.027)  loss: 0.7493 (0.7179)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:15,498 - INFO - logging - One-Step Validation Epoch: [2]  [ 32/120]  eta: 0:14:01  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 7.513(7.513)  loss: 0.7493 (0.7234)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:15,573 - INFO - logging - One-Step Validation Epoch: [2]  [ 33/120]  eta: 0:13:27  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 12.892(12.892)  loss: 0.7493 (0.7193)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:11:57,250 - INFO - logging - One-Step Validation Epoch: [2]  [ 34/120]  eta: 0:14:38  iter_time: 41.676(41.676)  data_wait_time: 41.601(41.601)  data_load_time: 42.127(42.127)  loss: 0.7803 (0.7216)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:12:01,934 - INFO - logging - One-Step Validation Epoch: [2]  [ 35/120]  eta: 0:14:15  iter_time: 4.683(4.683)  data_wait_time: 4.608(4.608)  data_load_time: 126.364(126.364)  loss: 0.7803 (0.7229)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:12:02,010 - INFO - logging - One-Step Validation Epoch: [2]  [ 36/120]  eta: 0:13:42  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 62.274(62.274)  loss: 0.7997 (0.7252)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:12:02,086 - INFO - logging - One-Step Validation Epoch: [2]  [ 37/120]  eta: 0:13:11  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 64.118(64.118)  loss: 0.7997 (0.7205)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:12:02,163 - INFO - logging - One-Step Validation Epoch: [2]  [ 38/120]  eta: 0:12:41  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 60.279(60.279)  loss: 0.8091 (0.7248)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:12:02,239 - INFO - logging - One-Step Validation Epoch: [2]  [ 39/120]  eta: 0:12:13  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 20.821(20.821)  loss: 0.8091 (0.7243)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:12:02,316 - INFO - logging - One-Step Validation Epoch: [2]  [ 40/120]  eta: 0:11:47  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 18.363(18.363)  loss: 0.8091 (0.7231)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:12:02,393 - INFO - logging - One-Step Validation Epoch: [2]  [ 41/120]  eta: 0:11:21  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 6.402(6.402)  loss: 0.8091 (0.7181)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:12:47,522 - INFO - logging - One-Step Validation Epoch: [2]  [ 42/120]  eta: 0:12:19  iter_time: 45.129(45.129)  data_wait_time: 45.054(45.054)  data_load_time: 50.311(50.311)  loss: 0.8091 (0.7222)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:13:31,750 - INFO - logging - One-Step Validation Epoch: [2]  [ 43/120]  eta: 0:13:10  iter_time: 44.227(44.227)  data_wait_time: 44.148(44.148)  data_load_time: 89.774(89.774)  loss: 0.8091 (0.7243)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:13:31,830 - INFO - logging - One-Step Validation Epoch: [2]  [ 44/120]  eta: 0:12:43  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 18.724(18.724)  loss: 0.7997 (0.7251)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:13:31,911 - INFO - logging - One-Step Validation Epoch: [2]  [ 45/120]  eta: 0:12:17  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 27.890(27.890)  loss: 0.7997 (0.7209)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:13:31,995 - INFO - logging - One-Step Validation Epoch: [2]  [ 46/120]  eta: 0:11:51  iter_time: 0.082(0.082)  data_wait_time: 0.002(0.002)  data_load_time: 32.629(32.629)  loss: 0.7997 (0.7233)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:13:32,076 - INFO - logging - One-Step Validation Epoch: [2]  [ 47/120]  eta: 0:11:27  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 42.446(42.446)  loss: 0.7709 (0.7243)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:13:32,160 - INFO - logging - One-Step Validation Epoch: [2]  [ 48/120]  eta: 0:11:04  iter_time: 0.083(0.083)  data_wait_time: 0.004(0.004)  data_load_time: 78.527(78.527)  loss: 0.7665 (0.7245)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:13:32,242 - INFO - logging - One-Step Validation Epoch: [2]  [ 49/120]  eta: 0:10:42  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 76.052(76.052)  loss: 0.7665 (0.7206)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:13:32,325 - INFO - logging - One-Step Validation Epoch: [2]  [ 50/120]  eta: 0:10:21  iter_time: 0.082(0.082)  data_wait_time: 0.002(0.002)  data_load_time: 17.404(17.404)  loss: 0.7665 (0.7242)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:13,590 - INFO - logging - One-Step Validation Epoch: [2]  [ 51/120]  eta: 0:10:55  iter_time: 41.265(41.265)  data_wait_time: 41.190(41.190)  data_load_time: 41.845(41.845)  loss: 0.7665 (0.7263)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:13,667 - INFO - logging - One-Step Validation Epoch: [2]  [ 52/120]  eta: 0:10:33  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 52.466(52.466)  loss: 0.7665 (0.7285)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:13,746 - INFO - logging - One-Step Validation Epoch: [2]  [ 53/120]  eta: 0:10:12  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 13.272(13.272)  loss: 0.7665 (0.7247)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:13,832 - INFO - logging - One-Step Validation Epoch: [2]  [ 54/120]  eta: 0:09:52  iter_time: 0.085(0.085)  data_wait_time: 0.001(0.001)  data_load_time: 15.121(15.121)  loss: 0.7665 (0.7277)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:13,915 - INFO - logging - One-Step Validation Epoch: [2]  [ 55/120]  eta: 0:09:33  iter_time: 0.082(0.082)  data_wait_time: 0.003(0.003)  data_load_time: 16.768(16.768)  loss: 0.7709 (0.7310)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:13,995 - INFO - logging - One-Step Validation Epoch: [2]  [ 56/120]  eta: 0:09:14  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 11.296(11.296)  loss: 0.7709 (0.7376)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:14,074 - INFO - logging - One-Step Validation Epoch: [2]  [ 57/120]  eta: 0:08:56  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 8.206(8.206)  loss: 0.7709 (0.7353)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:14,150 - INFO - logging - One-Step Validation Epoch: [2]  [ 58/120]  eta: 0:08:39  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 39.800(39.800)  loss: 0.7709 (0.7377)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:47,390 - INFO - logging - One-Step Validation Epoch: [2]  [ 59/120]  eta: 0:08:56  iter_time: 33.238(33.238)  data_wait_time: 33.164(33.164)  data_load_time: 33.789(33.789)  loss: 0.8121 (0.7400)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:47,467 - INFO - logging - One-Step Validation Epoch: [2]  [ 60/120]  eta: 0:08:38  iter_time: 0.077(0.077)  data_wait_time: 0.001(0.001)  data_load_time: 26.044(26.044)  loss: 0.8313 (0.7449)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:47,543 - INFO - logging - One-Step Validation Epoch: [2]  [ 61/120]  eta: 0:08:22  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 18.872(18.872)  loss: 0.8313 (0.7426)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:14:47,621 - INFO - logging - One-Step Validation Epoch: [2]  [ 62/120]  eta: 0:08:05  iter_time: 0.077(0.077)  data_wait_time: 0.001(0.001)  data_load_time: 47.289(47.289)  loss: 0.8313 (0.7455)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:15:03,649 - INFO - logging - One-Step Validation Epoch: [2]  [ 63/120]  eta: 0:08:04  iter_time: 16.026(16.026)  data_wait_time: 15.951(15.951)  data_load_time: 91.499(91.499)  loss: 0.8328 (0.7489)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:15:03,727 - INFO - logging - One-Step Validation Epoch: [2]  [ 64/120]  eta: 0:07:48  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 60.143(60.143)  loss: 0.8425 (0.7574)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:15:03,805 - INFO - logging - One-Step Validation Epoch: [2]  [ 65/120]  eta: 0:07:33  iter_time: 0.077(0.077)  data_wait_time: 0.001(0.001)  data_load_time: 22.284(22.284)  loss: 0.8425 (0.7563)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:15:03,888 - INFO - logging - One-Step Validation Epoch: [2]  [ 66/120]  eta: 0:07:18  iter_time: 0.082(0.082)  data_wait_time: 0.001(0.001)  data_load_time: 22.512(22.512)  loss: 0.8725 (0.7588)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:15:12,064 - INFO - logging - One-Step Validation Epoch: [2]  [ 67/120]  eta: 0:07:10  iter_time: 8.175(8.175)  data_wait_time: 8.098(8.098)  data_load_time: 24.666(24.666)  loss: 0.8800 (0.7624)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:15:12,145 - INFO - logging - One-Step Validation Epoch: [2]  [ 68/120]  eta: 0:06:56  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 18.997(18.997)  loss: 0.8872 (0.7695)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:15:12,224 - INFO - logging - One-Step Validation Epoch: [2]  [ 69/120]  eta: 0:06:42  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 22.028(22.028)  loss: 0.8872 (0.7682)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:15:12,303 - INFO - logging - One-Step Validation Epoch: [2]  [ 70/120]  eta: 0:06:29  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 51.833(51.833)  loss: 0.8872 (0.7728)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:17:23,931 - INFO - logging - One-Step Validation Epoch: [2]  [ 71/120]  eta: 0:07:45  iter_time: 131.626(131.626)  data_wait_time: 131.548(131.548)  data_load_time: 140.276(140.276)  loss: 0.9121 (0.7768)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:17:24,011 - INFO - logging - One-Step Validation Epoch: [2]  [ 72/120]  eta: 0:07:29  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 28.486(28.486)  loss: 0.9253 (0.7815)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:17:24,092 - INFO - logging - One-Step Validation Epoch: [2]  [ 73/120]  eta: 0:07:14  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 21.072(21.072)  loss: 0.9253 (0.7808)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:17:24,174 - INFO - logging - One-Step Validation Epoch: [2]  [ 74/120]  eta: 0:06:59  iter_time: 0.081(0.081)  data_wait_time: 0.001(0.001)  data_load_time: 14.180(14.180)  loss: 0.9255 (0.7853)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:17:24,255 - INFO - logging - One-Step Validation Epoch: [2]  [ 75/120]  eta: 0:06:45  iter_time: 0.080(0.080)  data_wait_time: 0.001(0.001)  data_load_time: 43.205(43.205)  loss: 0.9604 (0.7895)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:17:24,337 - INFO - logging - One-Step Validation Epoch: [2]  [ 76/120]  eta: 0:06:31  iter_time: 0.080(0.080)  data_wait_time: 0.002(0.002)  data_load_time: 48.149(48.149)  loss: 0.9604 (0.7951)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:17:24,419 - INFO - logging - One-Step Validation Epoch: [2]  [ 77/120]  eta: 0:06:17  iter_time: 0.081(0.081)  data_wait_time: 0.001(0.001)  data_load_time: 23.655(23.655)  loss: 0.9604 (0.7945)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:17:24,499 - INFO - logging - One-Step Validation Epoch: [2]  [ 78/120]  eta: 0:06:03  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 95.646(95.646)  loss: 0.9989 (0.7992)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:18:31,067 - INFO - logging - One-Step Validation Epoch: [2]  [ 79/120]  eta: 0:06:24  iter_time: 66.567(66.567)  data_wait_time: 66.493(66.493)  data_load_time: 67.139(67.139)  loss: 1.0404 (0.8048)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:18:31,143 - INFO - logging - One-Step Validation Epoch: [2]  [ 80/120]  eta: 0:06:11  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 101.249(101.249)  loss: 1.0670 (0.8115)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:18:31,219 - INFO - logging - One-Step Validation Epoch: [2]  [ 81/120]  eta: 0:05:57  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 60.540(60.540)  loss: 1.0670 (0.8115)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:18:31,295 - INFO - logging - One-Step Validation Epoch: [2]  [ 82/120]  eta: 0:05:44  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 60.218(60.218)  loss: 1.0907 (0.8174)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:18:31,372 - INFO - logging - One-Step Validation Epoch: [2]  [ 83/120]  eta: 0:05:31  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 50.932(50.932)  loss: 1.1111 (0.8234)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:18:31,449 - INFO - logging - One-Step Validation Epoch: [2]  [ 84/120]  eta: 0:05:18  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 77.132(77.132)  loss: 1.1111 (0.8294)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:18:31,525 - INFO - logging - One-Step Validation Epoch: [2]  [ 85/120]  eta: 0:05:05  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 66.782(66.782)  loss: 1.1111 (0.8301)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:18:31,602 - INFO - logging - One-Step Validation Epoch: [2]  [ 86/120]  eta: 0:04:53  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 10.924(10.924)  loss: 1.1132 (0.8357)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:00,273 - INFO - logging - One-Step Validation Epoch: [2]  [ 87/120]  eta: 0:04:52  iter_time: 28.670(28.670)  data_wait_time: 28.591(28.591)  data_load_time: 29.161(29.161)  loss: 1.1176 (0.8414)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:37,159 - INFO - logging - One-Step Validation Epoch: [2]  [ 88/120]  eta: 0:04:53  iter_time: 36.886(36.886)  data_wait_time: 36.811(36.811)  data_load_time: 133.074(133.074)  loss: 1.1176 (0.8467)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:37,239 - INFO - logging - One-Step Validation Epoch: [2]  [ 89/120]  eta: 0:04:41  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 57.425(57.425)  loss: 1.1176 (0.8475)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:37,316 - INFO - logging - One-Step Validation Epoch: [2]  [ 90/120]  eta: 0:04:29  iter_time: 0.077(0.077)  data_wait_time: 0.002(0.002)  data_load_time: 118.825(118.825)  loss: 1.1609 (0.8520)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:37,395 - INFO - logging - One-Step Validation Epoch: [2]  [ 91/120]  eta: 0:04:17  iter_time: 0.078(0.078)  data_wait_time: 0.001(0.001)  data_load_time: 56.611(56.611)  loss: 1.2138 (0.8564)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:37,484 - INFO - logging - One-Step Validation Epoch: [2]  [ 92/120]  eta: 0:04:06  iter_time: 0.088(0.088)  data_wait_time: 0.001(0.001)  data_load_time: 49.071(49.071)  loss: 1.2138 (0.8593)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:37,567 - INFO - logging - One-Step Validation Epoch: [2]  [ 93/120]  eta: 0:03:54  iter_time: 0.081(0.081)  data_wait_time: 0.001(0.001)  data_load_time: 74.464(74.464)  loss: 1.2138 (0.8599)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:37,659 - INFO - logging - One-Step Validation Epoch: [2]  [ 94/120]  eta: 0:03:43  iter_time: 0.091(0.091)  data_wait_time: 0.001(0.001)  data_load_time: 44.408(44.408)  loss: 1.2413 (0.8639)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:19:37,844 - INFO - logging - One-Step Validation Epoch: [2]  [ 95/120]  eta: 0:03:33  iter_time: 0.183(0.183)  data_wait_time: 0.002(0.002)  data_load_time: 14.100(14.100)  loss: 1.2474 (0.8688)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:20:07,174 - INFO - logging - One-Step Validation Epoch: [2]  [ 96/120]  eta: 0:03:29  iter_time: 29.329(29.329)  data_wait_time: 29.250(29.250)  data_load_time: 30.009(30.009)  loss: 1.2549 (0.8738)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:20:07,250 - INFO - logging - One-Step Validation Epoch: [2]  [ 97/120]  eta: 0:03:18  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 61.565(61.565)  loss: 1.2549 (0.8741)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:20:07,326 - INFO - logging - One-Step Validation Epoch: [2]  [ 98/120]  eta: 0:03:08  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 11.793(11.793)  loss: 1.2590 (0.8784)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:20:07,410 - INFO - logging - One-Step Validation Epoch: [2]  [ 99/120]  eta: 0:02:57  iter_time: 0.083(0.083)  data_wait_time: 0.001(0.001)  data_load_time: 15.008(15.008)  loss: 1.2951 (0.8828)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:20:07,491 - INFO - logging - One-Step Validation Epoch: [2]  [100/120]  eta: 0:02:47  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 22.371(22.371)  loss: 1.2938 (0.8869)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:20:07,571 - INFO - logging - One-Step Validation Epoch: [2]  [101/120]  eta: 0:02:37  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 17.002(17.002)  loss: 1.2938 (0.8874)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:20:07,651 - INFO - logging - One-Step Validation Epoch: [2]  [102/120]  eta: 0:02:28  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 23.272(23.272)  loss: 1.2938 (0.8914)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:20:07,731 - INFO - logging - One-Step Validation Epoch: [2]  [103/120]  eta: 0:02:18  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 13.928(13.928)  loss: 1.2938 (0.8955)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:07,829 - INFO - logging - One-Step Validation Epoch: [2]  [104/120]  eta: 0:02:18  iter_time: 60.097(60.097)  data_wait_time: 60.019(60.019)  data_load_time: 60.637(60.637)  loss: 1.2938 (0.8997)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:07,909 - INFO - logging - One-Step Validation Epoch: [2]  [105/120]  eta: 0:02:08  iter_time: 0.079(0.079)  data_wait_time: 0.001(0.001)  data_load_time: 26.855(26.855)  loss: 1.2938 (0.9003)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:07,985 - INFO - logging - One-Step Validation Epoch: [2]  [106/120]  eta: 0:01:58  iter_time: 0.076(0.076)  data_wait_time: 0.001(0.001)  data_load_time: 19.095(19.095)  loss: 1.2938 (0.9043)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:08,061 - INFO - logging - One-Step Validation Epoch: [2]  [107/120]  eta: 0:01:49  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 22.712(22.712)  loss: 1.2938 (0.9096)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:08,136 - INFO - logging - One-Step Validation Epoch: [2]  [108/120]  eta: 0:01:39  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 49.452(49.452)  loss: 1.2938 (0.9255)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:08,212 - INFO - logging - One-Step Validation Epoch: [2]  [109/120]  eta: 0:01:30  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 20.965(20.965)  loss: 1.2938 (0.9269)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:08,288 - INFO - logging - One-Step Validation Epoch: [2]  [110/120]  eta: 0:01:21  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 17.647(17.647)  loss: 1.2951 (0.9323)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:08,363 - INFO - logging - One-Step Validation Epoch: [2]  [111/120]  eta: 0:01:13  iter_time: 0.075(0.075)  data_wait_time: 0.001(0.001)  data_load_time: 59.616(59.616)  loss: 1.2957 (0.9378)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:25,949 - INFO - logging - One-Step Validation Epoch: [2]  [112/120]  eta: 0:01:05  iter_time: 17.585(17.585)  data_wait_time: 17.511(17.511)  data_load_time: 18.136(18.136)  loss: 1.3174 (0.9464)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:26,025 - INFO - logging - One-Step Validation Epoch: [2]  [113/120]  eta: 0:00:56  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 59.789(59.789)  loss: 1.3174 (0.9487)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:26,100 - INFO - logging - One-Step Validation Epoch: [2]  [114/120]  eta: 0:00:48  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 43.962(43.962)  loss: 1.3259 (0.9543)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:26,175 - INFO - logging - One-Step Validation Epoch: [2]  [115/120]  eta: 0:00:39  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 25.777(25.777)  loss: 1.3259 (0.9588)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:26,250 - INFO - logging - One-Step Validation Epoch: [2]  [116/120]  eta: 0:00:31  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 39.711(39.711)  loss: 1.3259 (0.9630)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:26,325 - INFO - logging - One-Step Validation Epoch: [2]  [117/120]  eta: 0:00:23  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 25.801(25.801)  loss: 1.3259 (0.9642)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:26,400 - INFO - logging - One-Step Validation Epoch: [2]  [118/120]  eta: 0:00:15  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 21.739(21.739)  loss: 1.3261 (0.9698)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:26,475 - INFO - logging - One-Step Validation Epoch: [2]  [119/120]  eta: 0:00:07  iter_time: 0.075(0.075)  data_wait_time: 0.000(0.000)  data_load_time: 17.121(17.121)  loss: 1.3355 (0.9758)  max cpu mem: 9448  max gpu mem: 7865
+2026-01-28 17:21:26,563 - INFO - logging - One-Step Validation Epoch: [2] Total time: 0:15:26 (7.7233 s / it)
+2026-01-28 17:21:26,568 - INFO - train - Aggregating validation logs
+2026-01-28 17:24:12,884 - INFO - train - Achieved Train Loss = 5.232
+2026-01-28 17:24:12,885 - INFO - train - Achieved Validation Loss = 0.956
+2026-01-28 17:24:12,888 - INFO - train - Saving latest checkpoint to .LOCAL/samudra_llc:scaling_tests_k=0:6/saved_nets/ckpt.pt
+2026-01-28 17:24:14,175 - INFO - train - Saving per-epoch checkpoint to .LOCAL/samudra_llc:scaling_tests_k=0:6/saved_nets/ckpt_2.pt
+2026-01-28 17:24:15,433 - INFO - train - Saving latest EMA checkpoint to .LOCAL/samudra_llc:scaling_tests_k=0:6/saved_nets/ema_ckpt.pt
+2026-01-28 17:24:16,541 - INFO - train - Training time 2:07:58
+wandb: uploading history steps 246-246, summary, console lines 536-541
+wandb:                                                                                
+wandb: 
+wandb: Run history:
+wandb:                                   config/effective_batch_size ▁
+wandb:                                                         epoch ▁█
+wandb:                                           epoch_total_seconds █▁
+wandb:                                           epoch_train_seconds █▁
+wandb:                                      epoch_validation_seconds ▁█
+wandb:                                    train/batch/data_load_time ▁▆▇▅▄▄▃▂▂▁▃▂▅▂▄▂▂▂▂▂▃▄▁▄▃▂▃▂▂▄▇▂█▂▆▂▂▂█▃
+wandb:                                    train/batch/data_wait_time ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▅▁▁▁▁▁▁▁▁█▁▁▁▁▁▁▁▁▁▃▁▁▁▁▁▁
+wandb:                                     train/batch/ema_cur_decay ▁▁▂▃▃▄▅▅▆▆▆▆▆▆▇▇▇▇▇▇▇▇▇▇████████████████
+wandb:                                         train/batch/iter_time ▁▂▁█▁▁▇▁▁▅▁▁▁▁▁▂▁▃▁▃▅▁▁▁▁▁▁▁▃▁▃▁▁▆▁▁▁▁▁▁
+wandb:                                              train/batch/loss ▁▁▁▁▁▂▂▁▂▂▁▂▂▂▂▃▂▂▂▂▁▂▁▁▁▂▁▂▃█▃▁▂▄▂▂▁▁▂▂
+wandb:                                     train/batch/loss_unscaled █▂▃▂▂▁▃▂▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁
+wandb:                                                train/batch/lr ███████████████████▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:                               train/loss/channel/Theta_0_loss ▄▁▂▁▃▂▁▂▂▂▁▃█▁▄▆█▂▂▂▃▂▂▂▂▁▁▃▂▃▇▂▁▁▂▂▁▂▂▂
+wandb:                               train/loss/channel/Theta_1_loss █▄▂▂▁▁▂▂▂▁▄▄▂▁▅▂▂▄▄▁▄▃▄▃▂▃▂▂▂▂▆▄▂▃▁▅▄▄▂▆
+wandb:                               train/loss/channel/Theta_2_loss ▂▂▁▂▁▁▂▂▃▄▂▁▂▂▃▂▃▃▃▂▃▅▄▄▂▄▄▃█▆▃▂▂▂▁▁▂▁▁▅
+wandb:                               train/loss/channel/Theta_3_loss ▂█▃▁▁▁▁▁▃▁▁▁▁▁▂▂▁▂▂▁▁▂▂▁▁▂▁▁▁▁▃▁▂▁▁▁▂▁▂▁
+wandb:                               train/loss/channel/Theta_4_loss █▁▁▁▁▁▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▁▁▁▁▁▁▁
+wandb:                               train/loss/channel/Theta_5_loss ▂▂▁▁▁▂▂▁▃▃▄▂▃▂▅▁▂▇▃▄▂▂▄▄▁▂▂▃▂█▅█▇▆▂▂▁▁▃▁
+wandb:                                 train/loss/depth/depth_0_loss ▁▂▂▃▁▁▂▁▂▃▁▁▃▁▁▁▁▂▁▂▂▂▂▂▂▂█▂▁▂▁▃▅▂▁▂▂▁▂▂
+wandb:                                 train/loss/depth/depth_1_loss ▃█▁▁▁▁▂▁▁▁▂▁▁▁▁▂▂▃▂▁▁▁▁▁▁▂▁▂▂▂▃▁▁▂▁▂▁▃▁▂
+wandb:                                 train/loss/depth/depth_2_loss ▆▂▁▁▁▃▃▄▆▁▂▃▃▅▆▁▄▄▁▂▂▂▂▁█▂▆▃▁▁▁▁▂▄▅▁▄▁▃▃
+wandb:                                 train/loss/depth/depth_3_loss ▁▁▁▁▂▂▇▂▁▂▁▁▃▂▃▃▃▂▂▂▂▂▁▂▁▁▁▂▅▅▂█▄▂▂▁▂▃▁▃
+wandb:                                 train/loss/depth/depth_4_loss ▂▁▁▁▂▂▂▅▁▂▁▆▆▁▁▁▁▂▂▂▂▂▂▂▇▃▂▁▁▃█▄▅▂▇▄▂▁▁▄
+wandb:                                 train/loss/depth/depth_5_loss ▅▂▁▁▁▂▂▂▂▂▂▃▃▂▃▁▅▂▁▃▂▁▃▄▂▇▃▅█▄▂▅▇▅▂▁▂▃▄▃
+wandb:                                train/loss/variable/Theta_loss █▁▁▁▁▁▁▁▁▁▂▁▁▁▁▂▁▂▁▁▁▁▁▁▁▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:                   train/loss_scale/channel/Theta_0_loss_scale ▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▃▃▃▄▄▅▅▅▅▅▄▄▄▅▅▅▇▆▅▆▆▇█
+wandb:                   train/loss_scale/channel/Theta_1_loss_scale ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▃▃▄▄▅▅▅▅▅▅▅▆▇▇▆▆▆▆▅▇█
+wandb:                   train/loss_scale/channel/Theta_2_loss_scale ▁▁▁▁▁▂▂▂▂▂▂▂▂▃▃▃▃▄▄▅▅▄▄▅▅▆▅▆▅▅▅▅▆▆▆▆▆▇▇█
+wandb:                   train/loss_scale/channel/Theta_3_loss_scale ▁▁▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▂▂▄▄▄▄▄▄▄▅▄▄▄▄▄▄▆▆▇▇██
+wandb:                   train/loss_scale/channel/Theta_4_loss_scale ▁▁▁▁▁▁▂▂▂▂▂▂▂▂▃▃▃▄▄▄▄▃▃▄▄▅▅▆▆▅▅▅▆▆▆▆▆▆▇█
+wandb:                   train/loss_scale/channel/Theta_5_loss_scale ▁▁▁▁▁▁▁▁▁▂▂▂▂▂▂▂▂▂▂▂▃▃▃▃▃▄▄▄▄▄▅▄▄▄▄▅▅▆▇█
+wandb:             train/loss_unscaled/channel/Theta_0_loss_unscaled █▅▃▂▂▂▁▁▁▁▂▂▁▁▂▁▁▁▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:             train/loss_unscaled/channel/Theta_1_loss_unscaled ▆█▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:             train/loss_unscaled/channel/Theta_2_loss_unscaled ▇█▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:             train/loss_unscaled/channel/Theta_3_loss_unscaled █▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:             train/loss_unscaled/channel/Theta_4_loss_unscaled █▃▂▃▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:             train/loss_unscaled/channel/Theta_5_loss_unscaled █▃▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:                                               train/mean/loss ▁█
+wandb:                                 val/loss/channel/Theta_0_loss ▁█
+wandb:                                 val/loss/channel/Theta_1_loss ▁█
+wandb:                                 val/loss/channel/Theta_2_loss ▁█
+wandb:                                 val/loss/channel/Theta_3_loss ▁█
+wandb:                                 val/loss/channel/Theta_4_loss ▁█
+wandb:                                 val/loss/channel/Theta_5_loss ▁█
+wandb:                                   val/loss/depth/depth_0_loss ▁█
+wandb:                                   val/loss/depth/depth_1_loss ▁█
+wandb:                                   val/loss/depth/depth_2_loss ▁█
+wandb:                                   val/loss/depth/depth_3_loss ▁█
+wandb:                                   val/loss/depth/depth_4_loss ▁█
+wandb:                                   val/loss/depth/depth_5_loss ▁█
+wandb:                                  val/loss/variable/Theta_loss ▁█
+wandb:                                                 val/mean/loss ▁█
+wandb:                             val/reduced/weighted_bias/Theta_0 █▁
+wandb:                             val/reduced/weighted_bias/Theta_1 █▁
+wandb:                             val/reduced/weighted_bias/Theta_2 █▁
+wandb:                             val/reduced/weighted_bias/Theta_3 █▁
+wandb:                             val/reduced/weighted_bias/Theta_4 █▁
+wandb:                             val/reduced/weighted_bias/Theta_5 █▁
+wandb:                  val/reduced/weighted_bias/ocean_heat_content █▁
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_0 ▁█
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_1 █▁
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_2 █▁
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_3 █▁
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_4 █▁
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_5 ▁█
+wandb: val/reduced/weighted_grad_mag_percent_diff/ocean_heat_content █▁
+wandb: 
+wandb: Run summary:
+wandb:                                   config/effective_batch_size 2
+wandb:                                                         epoch 2
+wandb:                                           epoch_total_seconds 3825.83639
+wandb:                                           epoch_train_seconds 2729.18012
+wandb:                                      epoch_validation_seconds 1093.12457
+wandb:                                    train/batch/data_load_time 86.42305
+wandb:                                    train/batch/data_wait_time 0.00103
+wandb:                                     train/batch/ema_cur_decay 0.96484
+wandb:                                         train/batch/iter_time 1.34127
+wandb:                                              train/batch/loss 3.35356
+wandb:                                     train/batch/loss_unscaled 0.00536
+wandb:                                                train/batch/lr 0.0003
+wandb:                               train/loss/channel/Theta_0_loss 5.027
+wandb:                               train/loss/channel/Theta_1_loss 5.8544
+wandb:                               train/loss/channel/Theta_2_loss 4.71844
+wandb:                               train/loss/channel/Theta_3_loss 5.58411
+wandb:                               train/loss/channel/Theta_4_loss 5.60438
+wandb:                               train/loss/channel/Theta_5_loss 4.26789
+wandb:                                 train/loss/depth/depth_0_loss 5.027
+wandb:                                 train/loss/depth/depth_1_loss 5.8544
+wandb:                                 train/loss/depth/depth_2_loss 4.71844
+wandb:                                 train/loss/depth/depth_3_loss 5.58411
+wandb:                                 train/loss/depth/depth_4_loss 5.60438
+wandb:                                 train/loss/depth/depth_5_loss 4.26789
+wandb:                                train/loss/variable/Theta_loss 5.17604
+wandb:                   train/loss_scale/channel/Theta_0_loss_scale 513.96808
+wandb:                   train/loss_scale/channel/Theta_1_loss_scale 627.82367
+wandb:                   train/loss_scale/channel/Theta_2_loss_scale 590.51898
+wandb:                   train/loss_scale/channel/Theta_3_loss_scale 714.59155
+wandb:                   train/loss_scale/channel/Theta_4_loss_scale 804.01624
+wandb:                   train/loss_scale/channel/Theta_5_loss_scale 641.46497
+wandb:             train/loss_unscaled/channel/Theta_0_loss_unscaled 0.00883
+wandb:             train/loss_unscaled/channel/Theta_1_loss_unscaled 0.00591
+wandb:             train/loss_unscaled/channel/Theta_2_loss_unscaled 0.00534
+wandb:             train/loss_unscaled/channel/Theta_3_loss_unscaled 0.00517
+wandb:             train/loss_unscaled/channel/Theta_4_loss_unscaled 0.0036
+wandb:             train/loss_unscaled/channel/Theta_5_loss_unscaled 0.00333
+wandb:                                               train/mean/loss 5.23187
+wandb:                                 val/loss/channel/Theta_0_loss 0.90665
+wandb:                                 val/loss/channel/Theta_1_loss 0.94196
+wandb:                                 val/loss/channel/Theta_2_loss 0.62334
+wandb:                                 val/loss/channel/Theta_3_loss 0.97162
+wandb:                                 val/loss/channel/Theta_4_loss 1.12883
+wandb:                                 val/loss/channel/Theta_5_loss 1.03006
+wandb:                                   val/loss/depth/depth_0_loss 0.90665
+wandb:                                   val/loss/depth/depth_1_loss 0.94196
+wandb:                                   val/loss/depth/depth_2_loss 0.62334
+wandb:                                   val/loss/depth/depth_3_loss 0.97162
+wandb:                                   val/loss/depth/depth_4_loss 1.12883
+wandb:                                   val/loss/depth/depth_5_loss 1.03006
+wandb:                                  val/loss/variable/Theta_loss 0.93374
+wandb:                                                 val/mean/loss 0.95584
+wandb:                             val/reduced/weighted_bias/Theta_0 -0.10207
+wandb:                             val/reduced/weighted_bias/Theta_1 0.04144
+wandb:                             val/reduced/weighted_bias/Theta_2 -0.00199
+wandb:                             val/reduced/weighted_bias/Theta_3 0.15921
+wandb:                             val/reduced/weighted_bias/Theta_4 0.00142
+wandb:                             val/reduced/weighted_bias/Theta_5 0.17457
+wandb:                  val/reduced/weighted_bias/ocean_heat_content 2294350.5
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_0 6848.57373
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_1 176.45654
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_2 -54.06319
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_3 335.53851
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_4 637.3446
+wandb:            val/reduced/weighted_grad_mag_percent_diff/Theta_5 969.16235
+wandb: val/reduced/weighted_grad_mag_percent_diff/ocean_heat_content 192.98535
+wandb:                             val/reduced/weighted_rmse/Theta_0 nan
+wandb:                             val/reduced/weighted_rmse/Theta_1 nan
+wandb:                             val/reduced/weighted_rmse/Theta_2 nan
+wandb:                             val/reduced/weighted_rmse/Theta_3 nan
+wandb:                             val/reduced/weighted_rmse/Theta_4 nan
+wandb:                             val/reduced/weighted_rmse/Theta_5 nan
+wandb:                  val/reduced/weighted_rmse/ocean_heat_content nan
+wandb: 
+wandb: 🚀 View run samudra_llc:scaling_tests_k=0:6 at: https://wandb.ai/ocean_emulators/default/runs/luegfgqq
+wandb: ⭐️ View project at: https://wandb.ai/ocean_emulators/default
+wandb: Synced 5 W&B file(s), 70 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: .LOCAL/samudra_llc:scaling_tests_k=0:6/wandb/run-20260128_151616-luegfgqq/logs

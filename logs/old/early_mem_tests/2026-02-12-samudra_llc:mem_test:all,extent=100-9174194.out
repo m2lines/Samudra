@@ -1,0 +1,601 @@
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Resolved 299 packages in 82ms
+Audited 294 packages in 662ms
+======== train ocean_emulator samudra w/ 4 gpus on LLC4320 data ========
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+
+*****************************************
+Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+*****************************************
+2026-02-12 16:49:42,496 - INFO - backend - auto backend detected CUDA
+2026-02-12 16:49:42,716 - INFO - backend - auto backend detected CUDA
+2026-02-12 16:49:42,719 - INFO - backend - auto backend detected CUDA
+2026-02-12 16:49:42,721 - INFO - backend - auto backend detected CUDA
+2026-02-12 16:49:46,165 - INFO - distributed - | distributed init (rank 2), gpu 2, world_size 4, dist_url env://
+2026-02-12 16:49:46,167 - INFO - distributed - | distributed init (rank 1), gpu 1, world_size 4, dist_url env://
+2026-02-12 16:49:46,169 - INFO - distributed - | distributed init (rank 3), gpu 3, world_size 4, dist_url env://
+2026-02-12 16:49:46,179 - INFO - distributed - | distributed init (rank 0), gpu 0, world_size 4, dist_url env://
+2026-02-12 16:49:46,844 - INFO - backend - succeeded in initializing distributed mode
+2026-02-12 16:49:46,861 - INFO - train - Prognostic variables: U_0, U_1, U_2, U_3, U_4, U_5, U_6, U_7, U_8, U_9, U_10, U_11, U_12, U_13, U_14, U_15, U_16, U_17, U_18, U_19, U_20, U_21, U_22, U_23, U_24, U_25, U_26, U_27, U_28, U_29, U_30, U_31, U_32, U_33, U_34, U_35, U_36, U_37, U_38, U_39, U_40, U_41, U_42, U_43, U_44, U_45, U_46, U_47, U_48, U_49, U_50, V_0, V_1, V_2, V_3, V_4, V_5, V_6, V_7, V_8, V_9, V_10, V_11, V_12, V_13, V_14, V_15, V_16, V_17, V_18, V_19, V_20, V_21, V_22, V_23, V_24, V_25, V_26, V_27, V_28, V_29, V_30, V_31, V_32, V_33, V_34, V_35, V_36, V_37, V_38, V_39, V_40, V_41, V_42, V_43, V_44, V_45, V_46, V_47, V_48, V_49, V_50, Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, Theta_7, Theta_8, Theta_9, Theta_10, Theta_11, Theta_12, Theta_13, Theta_14, Theta_15, Theta_16, Theta_17, Theta_18, Theta_19, Theta_20, Theta_21, Theta_22, Theta_23, Theta_24, Theta_25, Theta_26, Theta_27, Theta_28, Theta_29, Theta_30, Theta_31, Theta_32, Theta_33, Theta_34, Theta_35, Theta_36, Theta_37, Theta_38, Theta_39, Theta_40, Theta_41, Theta_42, Theta_43, Theta_44, Theta_45, Theta_46, Theta_47, Theta_48, Theta_49, Theta_50, Salt_0, Salt_1, Salt_2, Salt_3, Salt_4, Salt_5, Salt_6, Salt_7, Salt_8, Salt_9, Salt_10, Salt_11, Salt_12, Salt_13, Salt_14, Salt_15, Salt_16, Salt_17, Salt_18, Salt_19, Salt_20, Salt_21, Salt_22, Salt_23, Salt_24, Salt_25, Salt_26, Salt_27, Salt_28, Salt_29, Salt_30, Salt_31, Salt_32, Salt_33, Salt_34, Salt_35, Salt_36, Salt_37, Salt_38, Salt_39, Salt_40, Salt_41, Salt_42, Salt_43, Salt_44, Salt_45, Salt_46, Salt_47, Salt_48, Salt_49, Salt_50, Eta
+2026-02-12 16:49:46,861 - INFO - train - Boundary variables: oceTAUX, oceTAUY, oceQnet, Eta
+2026-02-12 16:49:46,862 - INFO - train - Levels: 19
+2026-02-12 16:49:47,400 - INFO - logging - 
+=== Warning Details ===
+2026-02-12 16:49:47,400 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-02-12 16:49:47,400 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-02-12 16:49:47,400 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-02-12 16:49:47,400 - INFO - logging - Line: 135
+2026-02-12 16:49:47,400 - INFO - logging - 
+Full stack trace:
+2026-02-12 16:49:47,415 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-02-12 16:49:47,416 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 1003, in <module>
+2026-02-12 16:49:47,416 - INFO - logging -     main()
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 993, in main
+2026-02-12 16:49:47,416 - INFO - logging -     trainer = Trainer(cfg)
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 132, in __init__
+2026-02-12 16:49:47,416 - INFO - logging -     self.data_container = cfg.data.build(
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 168, in build
+2026-02-12 16:49:47,416 - INFO - logging -     source = DataSource.from_locations(
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-02-12 16:49:47,416 - INFO - logging -     data = data_location.open(chunks)
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-02-12 16:49:47,416 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-02-12 16:49:47,416 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-02-12 16:49:47,416 - INFO - logging -     store = ZarrStore.open_group(
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-02-12 16:49:47,416 - INFO - logging -     ) = _get_open_params(
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-02-12 16:49:47,416 - INFO - logging -     emit_user_level_warning(
+2026-02-12 16:49:47,416 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-02-12 16:49:47,416 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-02-12 16:49:47,416 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-02-12 16:49:47,416 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-02-12 16:49:47,416 - INFO - logging - =====================
+
+2026-02-12 16:50:04,661 - INFO - logging - 
+=== Warning Details ===
+2026-02-12 16:50:04,661 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-02-12 16:50:04,661 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-02-12 16:50:04,661 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-02-12 16:50:04,661 - INFO - logging - Line: 135
+2026-02-12 16:50:04,661 - INFO - logging - 
+Full stack trace:
+2026-02-12 16:50:04,661 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-02-12 16:50:04,661 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-02-12 16:50:04,661 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 1003, in <module>
+2026-02-12 16:50:04,661 - INFO - logging -     main()
+2026-02-12 16:50:04,661 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 993, in main
+2026-02-12 16:50:04,661 - INFO - logging -     trainer = Trainer(cfg)
+2026-02-12 16:50:04,661 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 132, in __init__
+2026-02-12 16:50:04,661 - INFO - logging -     self.data_container = cfg.data.build(
+2026-02-12 16:50:04,661 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 183, in build
+2026-02-12 16:50:04,661 - INFO - logging -     source_using_dask = DataSource.from_locations(
+2026-02-12 16:50:04,661 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-02-12 16:50:04,661 - INFO - logging -     data = data_location.open(chunks)
+2026-02-12 16:50:04,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-02-12 16:50:04,662 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-02-12 16:50:04,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-02-12 16:50:04,662 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-02-12 16:50:04,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-02-12 16:50:04,662 - INFO - logging -     store = ZarrStore.open_group(
+2026-02-12 16:50:04,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-02-12 16:50:04,662 - INFO - logging -     ) = _get_open_params(
+2026-02-12 16:50:04,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-02-12 16:50:04,662 - INFO - logging -     emit_user_level_warning(
+2026-02-12 16:50:04,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-02-12 16:50:04,662 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-02-12 16:50:04,662 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-02-12 16:50:04,662 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-02-12 16:50:04,662 - INFO - logging - =====================
+
+2026-02-12 16:50:52,536 - INFO - train - Number of inputs (prognostic + boundary): 418
+2026-02-12 16:50:52,537 - INFO - train - Number of outputs (prognostic): 410
+2026-02-12 16:50:52,537 - INFO - train - Loading data
+2026-02-12 16:50:52,539 - INFO - constants - lon does not have any default metadata
+2026-02-12 16:50:52,540 - INFO - constants - iter does not have any default metadata
+2026-02-12 16:50:52,540 - INFO - constants - lat does not have any default metadata
+2026-02-12 16:50:52,540 - INFO - constants - k_l does not have any default metadata
+2026-02-12 16:50:52,540 - INFO - constants - k_p1 does not have any default metadata
+2026-02-12 16:50:52,540 - INFO - constants - k_u does not have any default metadata
+2026-02-12 16:50:52,541 - INFO - constants - time does not have any default metadata
+2026-02-12 16:50:52,567 - INFO - constants - hFacC_0 does not have any default metadata
+2026-02-12 16:50:52,567 - INFO - constants - hFacC_1 does not have any default metadata
+2026-02-12 16:50:52,567 - INFO - constants - hFacC_2 does not have any default metadata
+2026-02-12 16:50:52,567 - INFO - constants - hFacC_3 does not have any default metadata
+2026-02-12 16:50:52,568 - INFO - constants - hFacC_4 does not have any default metadata
+2026-02-12 16:50:52,568 - INFO - constants - hFacC_5 does not have any default metadata
+2026-02-12 16:50:52,568 - INFO - constants - hFacC_6 does not have any default metadata
+2026-02-12 16:50:52,568 - INFO - constants - hFacC_7 does not have any default metadata
+2026-02-12 16:50:52,568 - INFO - constants - hFacC_8 does not have any default metadata
+2026-02-12 16:50:52,568 - INFO - constants - hFacC_9 does not have any default metadata
+2026-02-12 16:50:52,568 - INFO - constants - hFacC_10 does not have any default metadata
+2026-02-12 16:50:52,568 - INFO - constants - hFacC_11 does not have any default metadata
+2026-02-12 16:50:52,569 - INFO - constants - hFacC_12 does not have any default metadata
+2026-02-12 16:50:52,569 - INFO - constants - hFacC_13 does not have any default metadata
+2026-02-12 16:50:52,569 - INFO - constants - hFacC_14 does not have any default metadata
+2026-02-12 16:50:52,569 - INFO - constants - hFacC_15 does not have any default metadata
+2026-02-12 16:50:52,570 - INFO - constants - hFacC_16 does not have any default metadata
+2026-02-12 16:50:52,570 - INFO - constants - hFacC_17 does not have any default metadata
+2026-02-12 16:50:52,570 - INFO - constants - hFacC_18 does not have any default metadata
+2026-02-12 16:50:52,570 - INFO - constants - hFacC_19 does not have any default metadata
+2026-02-12 16:50:52,570 - INFO - constants - hFacC_20 does not have any default metadata
+2026-02-12 16:50:52,570 - INFO - constants - hFacC_21 does not have any default metadata
+2026-02-12 16:50:52,571 - INFO - constants - hFacC_22 does not have any default metadata
+2026-02-12 16:50:52,571 - INFO - constants - hFacC_23 does not have any default metadata
+2026-02-12 16:50:52,571 - INFO - constants - hFacC_24 does not have any default metadata
+2026-02-12 16:50:52,571 - INFO - constants - hFacC_25 does not have any default metadata
+2026-02-12 16:50:52,571 - INFO - constants - hFacC_26 does not have any default metadata
+2026-02-12 16:50:52,571 - INFO - constants - hFacC_27 does not have any default metadata
+2026-02-12 16:50:52,572 - INFO - constants - hFacC_28 does not have any default metadata
+2026-02-12 16:50:52,572 - INFO - constants - hFacC_29 does not have any default metadata
+2026-02-12 16:50:52,572 - INFO - constants - hFacC_30 does not have any default metadata
+2026-02-12 16:50:52,572 - INFO - constants - hFacC_31 does not have any default metadata
+2026-02-12 16:50:52,572 - INFO - constants - hFacC_32 does not have any default metadata
+2026-02-12 16:50:52,572 - INFO - constants - hFacC_33 does not have any default metadata
+2026-02-12 16:50:52,572 - INFO - constants - hFacC_34 does not have any default metadata
+2026-02-12 16:50:52,572 - INFO - constants - hFacC_35 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_36 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_37 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_38 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_39 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_40 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_41 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_42 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_43 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_44 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_45 does not have any default metadata
+2026-02-12 16:50:52,573 - INFO - constants - hFacC_46 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacC_47 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacC_48 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacC_49 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacC_50 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacS_0 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacS_1 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacS_2 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacS_3 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacS_4 does not have any default metadata
+2026-02-12 16:50:52,574 - INFO - constants - hFacS_5 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_6 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_7 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_8 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_9 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_10 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_11 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_12 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_13 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_14 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_15 does not have any default metadata
+2026-02-12 16:50:52,575 - INFO - constants - hFacS_16 does not have any default metadata
+2026-02-12 16:50:52,576 - INFO - constants - hFacS_17 does not have any default metadata
+2026-02-12 16:50:52,576 - INFO - constants - hFacS_18 does not have any default metadata
+2026-02-12 16:50:52,576 - INFO - constants - hFacS_19 does not have any default metadata
+2026-02-12 16:50:52,577 - INFO - constants - hFacS_20 does not have any default metadata
+2026-02-12 16:50:52,577 - INFO - constants - hFacS_21 does not have any default metadata
+2026-02-12 16:50:52,577 - INFO - constants - hFacS_22 does not have any default metadata
+2026-02-12 16:50:52,577 - INFO - constants - hFacS_23 does not have any default metadata
+2026-02-12 16:50:52,577 - INFO - constants - hFacS_24 does not have any default metadata
+2026-02-12 16:50:52,577 - INFO - constants - hFacS_25 does not have any default metadata
+2026-02-12 16:50:52,577 - INFO - constants - hFacS_26 does not have any default metadata
+2026-02-12 16:50:52,578 - INFO - constants - hFacS_27 does not have any default metadata
+2026-02-12 16:50:52,578 - INFO - constants - hFacS_28 does not have any default metadata
+2026-02-12 16:50:52,578 - INFO - constants - hFacS_29 does not have any default metadata
+2026-02-12 16:50:52,578 - INFO - constants - hFacS_30 does not have any default metadata
+2026-02-12 16:50:52,578 - INFO - constants - hFacS_31 does not have any default metadata
+2026-02-12 16:50:52,578 - INFO - constants - hFacS_32 does not have any default metadata
+2026-02-12 16:50:52,578 - INFO - constants - hFacS_33 does not have any default metadata
+2026-02-12 16:50:52,579 - INFO - constants - hFacS_34 does not have any default metadata
+2026-02-12 16:50:52,579 - INFO - constants - hFacS_35 does not have any default metadata
+2026-02-12 16:50:52,579 - INFO - constants - hFacS_36 does not have any default metadata
+2026-02-12 16:50:52,579 - INFO - constants - hFacS_37 does not have any default metadata
+2026-02-12 16:50:52,579 - INFO - constants - hFacS_38 does not have any default metadata
+2026-02-12 16:50:52,579 - INFO - constants - hFacS_39 does not have any default metadata
+2026-02-12 16:50:52,580 - INFO - constants - hFacS_40 does not have any default metadata
+2026-02-12 16:50:52,580 - INFO - constants - hFacS_41 does not have any default metadata
+2026-02-12 16:50:52,580 - INFO - constants - hFacS_42 does not have any default metadata
+2026-02-12 16:50:52,580 - INFO - constants - hFacS_43 does not have any default metadata
+2026-02-12 16:50:52,580 - INFO - constants - hFacS_44 does not have any default metadata
+2026-02-12 16:50:52,580 - INFO - constants - hFacS_45 does not have any default metadata
+2026-02-12 16:50:52,580 - INFO - constants - hFacS_46 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacS_47 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacS_48 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacS_49 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacS_50 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacW_0 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacW_1 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacW_2 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacW_3 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacW_4 does not have any default metadata
+2026-02-12 16:50:52,581 - INFO - constants - hFacW_5 does not have any default metadata
+2026-02-12 16:50:52,582 - INFO - constants - hFacW_6 does not have any default metadata
+2026-02-12 16:50:52,582 - INFO - constants - hFacW_7 does not have any default metadata
+2026-02-12 16:50:52,582 - INFO - constants - hFacW_8 does not have any default metadata
+2026-02-12 16:50:52,582 - INFO - constants - hFacW_9 does not have any default metadata
+2026-02-12 16:50:52,582 - INFO - constants - hFacW_10 does not have any default metadata
+2026-02-12 16:50:52,582 - INFO - constants - hFacW_11 does not have any default metadata
+2026-02-12 16:50:52,583 - INFO - constants - hFacW_12 does not have any default metadata
+2026-02-12 16:50:52,583 - INFO - constants - hFacW_13 does not have any default metadata
+2026-02-12 16:50:52,583 - INFO - constants - hFacW_14 does not have any default metadata
+2026-02-12 16:50:52,583 - INFO - constants - hFacW_15 does not have any default metadata
+2026-02-12 16:50:52,583 - INFO - constants - hFacW_16 does not have any default metadata
+2026-02-12 16:50:52,584 - INFO - constants - hFacW_17 does not have any default metadata
+2026-02-12 16:50:52,584 - INFO - constants - hFacW_18 does not have any default metadata
+2026-02-12 16:50:52,584 - INFO - constants - hFacW_19 does not have any default metadata
+2026-02-12 16:50:52,584 - INFO - constants - hFacW_20 does not have any default metadata
+2026-02-12 16:50:52,584 - INFO - constants - hFacW_21 does not have any default metadata
+2026-02-12 16:50:52,584 - INFO - constants - hFacW_22 does not have any default metadata
+2026-02-12 16:50:52,584 - INFO - constants - hFacW_23 does not have any default metadata
+2026-02-12 16:50:52,585 - INFO - constants - hFacW_24 does not have any default metadata
+2026-02-12 16:50:52,585 - INFO - constants - hFacW_25 does not have any default metadata
+2026-02-12 16:50:52,585 - INFO - constants - hFacW_26 does not have any default metadata
+2026-02-12 16:50:52,585 - INFO - constants - hFacW_27 does not have any default metadata
+2026-02-12 16:50:52,585 - INFO - constants - hFacW_28 does not have any default metadata
+2026-02-12 16:50:52,585 - INFO - constants - hFacW_29 does not have any default metadata
+2026-02-12 16:50:52,585 - INFO - constants - hFacW_30 does not have any default metadata
+2026-02-12 16:50:52,586 - INFO - constants - hFacW_31 does not have any default metadata
+2026-02-12 16:50:52,586 - INFO - constants - hFacW_32 does not have any default metadata
+2026-02-12 16:50:52,586 - INFO - constants - hFacW_33 does not have any default metadata
+2026-02-12 16:50:52,586 - INFO - constants - hFacW_34 does not have any default metadata
+2026-02-12 16:50:52,586 - INFO - constants - hFacW_35 does not have any default metadata
+2026-02-12 16:50:52,586 - INFO - constants - hFacW_36 does not have any default metadata
+2026-02-12 16:50:52,587 - INFO - constants - hFacW_37 does not have any default metadata
+2026-02-12 16:50:52,587 - INFO - constants - hFacW_38 does not have any default metadata
+2026-02-12 16:50:52,587 - INFO - constants - hFacW_39 does not have any default metadata
+2026-02-12 16:50:52,587 - INFO - constants - hFacW_40 does not have any default metadata
+2026-02-12 16:50:52,587 - INFO - constants - hFacW_41 does not have any default metadata
+2026-02-12 16:50:52,588 - INFO - constants - hFacW_42 does not have any default metadata
+2026-02-12 16:50:52,588 - INFO - constants - hFacW_43 does not have any default metadata
+2026-02-12 16:50:52,588 - INFO - constants - hFacW_44 does not have any default metadata
+2026-02-12 16:50:52,588 - INFO - constants - hFacW_45 does not have any default metadata
+2026-02-12 16:50:52,588 - INFO - constants - hFacW_46 does not have any default metadata
+2026-02-12 16:50:52,588 - INFO - constants - hFacW_47 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - hFacW_48 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - hFacW_49 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - hFacW_50 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_0 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_1 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_2 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_3 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_4 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_5 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_6 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_7 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_8 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_9 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_10 does not have any default metadata
+2026-02-12 16:50:52,589 - INFO - constants - lev_11 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_12 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_13 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_14 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_15 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_16 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_17 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_18 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_19 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_20 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_21 does not have any default metadata
+2026-02-12 16:50:52,590 - INFO - constants - lev_22 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_23 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_24 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_25 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_26 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_27 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_28 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_29 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_30 does not have any default metadata
+2026-02-12 16:50:52,591 - INFO - constants - lev_31 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_32 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_33 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_34 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_35 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_36 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_37 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_38 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_39 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_40 does not have any default metadata
+2026-02-12 16:50:52,592 - INFO - constants - lev_41 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_42 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_43 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_44 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_45 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_46 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_47 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_48 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_49 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - lev_50 does not have any default metadata
+2026-02-12 16:50:52,593 - INFO - constants - wetmask_0 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_1 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_2 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_3 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_4 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_5 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_6 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_7 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_8 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_9 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_10 does not have any default metadata
+2026-02-12 16:50:52,594 - INFO - constants - wetmask_11 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_12 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_13 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_14 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_15 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_16 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_17 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_18 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_19 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_20 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_21 does not have any default metadata
+2026-02-12 16:50:52,595 - INFO - constants - wetmask_22 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_23 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_24 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_25 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_26 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_27 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_28 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_29 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_30 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_31 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_32 does not have any default metadata
+2026-02-12 16:50:52,596 - INFO - constants - wetmask_33 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_34 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_35 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_36 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_37 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_38 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_39 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_40 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_41 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_42 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_43 does not have any default metadata
+2026-02-12 16:50:52,597 - INFO - constants - wetmask_44 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - wetmask_45 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - wetmask_46 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - wetmask_47 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - wetmask_48 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - wetmask_49 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - wetmask_50 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - mask_s_0 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - mask_s_1 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - mask_s_2 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - mask_s_3 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - mask_s_4 does not have any default metadata
+2026-02-12 16:50:52,598 - INFO - constants - mask_s_5 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_6 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_7 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_8 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_9 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_10 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_11 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_12 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_13 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_14 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_15 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_16 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_17 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_18 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_19 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_20 does not have any default metadata
+2026-02-12 16:50:52,599 - INFO - constants - mask_s_21 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_22 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_23 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_24 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_25 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_26 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_27 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_28 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_29 does not have any default metadata
+2026-02-12 16:50:52,600 - INFO - constants - mask_s_30 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_31 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_32 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_33 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_34 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_35 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_36 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_37 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_38 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_39 does not have any default metadata
+2026-02-12 16:50:52,601 - INFO - constants - mask_s_40 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_41 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_42 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_43 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_44 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_45 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_46 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_47 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_48 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_49 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_s_50 does not have any default metadata
+2026-02-12 16:50:52,602 - INFO - constants - mask_w_0 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_1 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_2 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_3 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_4 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_5 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_6 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_7 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_8 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_9 does not have any default metadata
+2026-02-12 16:50:52,603 - INFO - constants - mask_w_10 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_11 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_12 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_13 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_14 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_15 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_16 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_17 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_18 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_19 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_20 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_21 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_22 does not have any default metadata
+2026-02-12 16:50:52,604 - INFO - constants - mask_w_23 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_24 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_25 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_26 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_27 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_28 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_29 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_30 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_31 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_32 does not have any default metadata
+2026-02-12 16:50:52,605 - INFO - constants - mask_w_33 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_34 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_35 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_36 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_37 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_38 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_39 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_40 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_41 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_42 does not have any default metadata
+2026-02-12 16:50:52,606 - INFO - constants - mask_w_43 does not have any default metadata
+2026-02-12 16:50:52,607 - INFO - constants - mask_w_44 does not have any default metadata
+2026-02-12 16:50:52,607 - INFO - constants - mask_w_45 does not have any default metadata
+2026-02-12 16:50:52,607 - INFO - constants - mask_w_46 does not have any default metadata
+2026-02-12 16:50:52,607 - INFO - constants - mask_w_47 does not have any default metadata
+2026-02-12 16:50:52,607 - INFO - constants - mask_w_48 does not have any default metadata
+2026-02-12 16:50:52,607 - INFO - constants - mask_w_49 does not have any default metadata
+2026-02-12 16:50:52,607 - INFO - constants - mask_w_50 does not have any default metadata
+wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+wandb: Currently logged in as: codycruz (codycruz-massachusetts-institute-of-technology) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.19.8
+wandb: Run data is saved locally in .LOCAL/2026-02-12-samudra_llc:mem_test_all/wandb/run-20260212_165056-362ve0rl
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 2026-02-12-samudra_llc:mem_test_all
+wandb: ⭐️ View project at https://wandb.ai/ocean_emulators/default
+wandb: 🚀 View run at https://wandb.ai/ocean_emulators/default/runs/362ve0rl
+2026-02-12 16:50:58,092 - INFO - train - Effective batch size: 1 (batch_size=1 × gradient_accumulation_steps=1)
+2026-02-12 16:50:58,142 - INFO - train - Starting training
+2026-02-12 16:50:58,143 - INFO - train - Starting training at step 4
+2026-02-12 16:50:58,164 - INFO - logging - TorchTrainDataset.__init__ took 0.0049 seconds
+2026-02-12 16:50:58,179 - INFO - logging - TorchTrainDataset.__init__ took 0.0046 seconds
+2026-02-12 16:50:58,179 - INFO - train - Instantiating torch loaders
+2026-02-12 17:09:07,611 - INFO - logging - Number of parameters: 92917978
+2026-02-12 17:09:11,625 - INFO - logging - =========================================================================================================
+Layer (type:depth-idx)                                  Output Shape              Param #
+=========================================================================================================
+DistributedDataParallel                                 [1, 410, 100, 100]        --
+├─Samudra: 1-1                                          [1, 410, 100, 100]        --
+│    └─UNetBackbone: 2-1                                [1, 280, 100, 100]        91,884,368
+│    └─Conv2d: 2-2                                      [1, 410, 100, 100]        1,033,610
+│    └─Correctors: 2-3                                  [1, 410, 100, 100]        --
+│    └─UNetBackbone: 2-4                                [1, 280, 100, 100]        (recursive)
+│    └─Conv2d: 2-5                                      [1, 410, 100, 100]        (recursive)
+│    └─Correctors: 2-6                                  [1, 410, 100, 100]        --
+│    └─UNetBackbone: 2-7                                [1, 280, 100, 100]        (recursive)
+│    └─Conv2d: 2-8                                      [1, 410, 100, 100]        (recursive)
+│    └─Correctors: 2-9                                  [1, 410, 100, 100]        --
+│    └─UNetBackbone: 2-10                               [1, 280, 100, 100]        (recursive)
+│    └─Conv2d: 2-11                                     [1, 410, 100, 100]        (recursive)
+│    └─Correctors: 2-12                                 [1, 410, 100, 100]        --
+=========================================================================================================
+Total params: 92,917,978
+Trainable params: 92,917,978
+Non-trainable params: 0
+Total mult-adds (Units.GIGABYTES): 807.26
+=========================================================================================================
+Input size (MB): 0.00
+Forward/backward pass size (MB): 1744.08
+Params size (MB): 371.67
+Estimated Total Size (MB): 2115.76
+=========================================================================================================
+2026-02-12 17:18:44,444 - INFO - logging - Training Epoch: [1]  [  0/184]  eta: 3 days, 13:09:52  lr: 0.000600  iter_time: 1666.263(1666.263)  data_wait_time: 1089.425(1089.425)  data_load_time: 1088.097(1088.097)  loss: 5.3189 (5.3189)  max cpu mem: 6890  max gpu mem: 46294
+2026-02-12 17:18:44,843 - INFO - logging - Training Epoch: [1]  [  1/184]  eta: 1 day, 18:21:39  lr: 0.000600  iter_time: 0.397(0.397)  data_wait_time: 0.036(0.036)  data_load_time: 612.624(612.624)  loss: 5.0948 (5.2068)  max cpu mem: 6908  max gpu mem: 2990
+2026-02-12 17:20:16,073 - INFO - logging - Training Epoch: [1]  [  2/184]  eta: 1 day, 5:37:25  lr: 0.000600  iter_time: 91.227(91.227)  data_wait_time: 1.092(1.092)  data_load_time: 1106.048(1106.048)  loss: 5.3189 (5.4374)  max cpu mem: 7492  max gpu mem: 2990
+2026-02-12 17:20:16,244 - INFO - logging - Training Epoch: [1]  [  3/184]  eta: 22:05:52  lr: 0.000600  iter_time: 0.170(0.170)  data_wait_time: 0.002(0.002)  data_load_time: 1631.490(1631.490)  loss: 5.3189 (5.4379)  max cpu mem: 7492  max gpu mem: 2990
+2026-02-12 17:20:16,469 - INFO - logging - Training Epoch: [1]  [  4/184]  eta: 17:34:58  lr: 0.000600  iter_time: 0.224(0.224)  data_wait_time: 0.002(0.002)  data_load_time: 1084.518(1084.517)  loss: 5.3189 (5.1102)  max cpu mem: 7492  max gpu mem: 2990
+2026-02-12 17:20:16,640 - INFO - logging - Training Epoch: [1]  [  5/184]  eta: 14:34:20  lr: 0.000600  iter_time: 0.171(0.171)  data_wait_time: 0.002(0.002)  data_load_time: 1107.307(1107.307)  loss: 5.0948 (4.7534)  max cpu mem: 7492  max gpu mem: 2990
+2026-02-12 17:20:16,786 - INFO - logging - Training Epoch: [1]  [  6/184]  eta: 12:25:18  lr: 0.000600  iter_time: 0.143(0.143)  data_wait_time: 0.002(0.002)  data_load_time: 1180.176(1180.176)  loss: 5.0948 (4.5119)  max cpu mem: 7492  max gpu mem: 2990
+2026-02-12 17:20:16,927 - INFO - logging - Training Epoch: [1]  [  7/184]  eta: 10:48:31  lr: 0.000600  iter_time: 0.140(0.140)  data_wait_time: 0.002(0.002)  data_load_time: 1151.331(1151.331)  loss: 3.7991 (4.3522)  max cpu mem: 7492  max gpu mem: 2990
+[rank0]:[E212 17:32:38.767370273 ProcessGroupNCCL.cpp:685] [Rank 0] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=104, OpType=ALLREDUCE, NumelIn=1033200, NumelOut=1033200, Timeout(ms)=600000) ran for 600042 milliseconds before timing out.
+[rank0]:[E212 17:32:38.793921752 ProcessGroupNCCL.cpp:2252] [PG ID 0 PG GUID 0(default_pg) Rank 0]  failure detected by watchdog at work sequence id: 104 PG status: last enqueued work: 115, last completed work: 103
+[rank0]:[E212 17:32:38.793963357 ProcessGroupNCCL.cpp:732] Stack trace of the failed collective not found, potentially because FlightRecorder is disabled. You can enable it by setting TORCH_NCCL_TRACE_BUFFER_SIZE to a non-zero value.
+[rank0]:[E212 17:32:38.794027388 ProcessGroupNCCL.cpp:2584] [PG ID 0 PG GUID 0(default_pg) Rank 0] First PG on this rank to signal dumping.
+[rank0]:[E212 17:32:38.812490280 ProcessGroupNCCL.cpp:1870] [PG ID 0 PG GUID 0(default_pg) Rank 0] Received a dump signal due to a collective timeout from this local rank and we will try our best to dump the debug info. Last enqueued NCCL work: 115, last completed NCCL work: 103.This is most likely caused by incorrect usages of collectives, e.g., wrong sizes used across ranks, the order of collectives is not same for all ranks or the scheduled collective, for some reason, didn't run. Additionally, this can be caused by GIL deadlock or other reasons such as network errors or bugs in the communications library (e.g. NCCL), etc. 
+[rank0]:[E212 17:32:38.815317969 ProcessGroupNCCL.cpp:1589] [PG ID 0 PG GUID 0(default_pg) Rank 0] ProcessGroupNCCL preparing to dump debug info. Include stack trace: 1
+[rank2]:[E212 17:32:38.009335081 ProcessGroupNCCL.cpp:1806] [PG ID 0 PG GUID 0(default_pg) Rank 2] Observed flight recorder dump signal from another rank via TCPStore.
+[rank2]:[E212 17:32:38.009453212 ProcessGroupNCCL.cpp:1870] [PG ID 0 PG GUID 0(default_pg) Rank 2] Received a dump signal due to a collective timeout from  rank 0 and we will try our best to dump the debug info. Last enqueued NCCL work: 103, last completed NCCL work: 102.This is most likely caused by incorrect usages of collectives, e.g., wrong sizes used across ranks, the order of collectives is not same for all ranks or the scheduled collective, for some reason, didn't run. Additionally, this can be caused by GIL deadlock or other reasons such as network errors or bugs in the communications library (e.g. NCCL), etc. 
+[rank2]:[E212 17:32:38.009628574 ProcessGroupNCCL.cpp:1589] [PG ID 0 PG GUID 0(default_pg) Rank 2] ProcessGroupNCCL preparing to dump debug info. Include stack trace: 1
+[rank3]:[E212 17:32:39.469164423 ProcessGroupNCCL.cpp:1806] [PG ID 0 PG GUID 0(default_pg) Rank 3] Observed flight recorder dump signal from another rank via TCPStore.
+[rank3]:[E212 17:32:39.469307704 ProcessGroupNCCL.cpp:1870] [PG ID 0 PG GUID 0(default_pg) Rank 3] Received a dump signal due to a collective timeout from  rank 0 and we will try our best to dump the debug info. Last enqueued NCCL work: 103, last completed NCCL work: 102.This is most likely caused by incorrect usages of collectives, e.g., wrong sizes used across ranks, the order of collectives is not same for all ranks or the scheduled collective, for some reason, didn't run. Additionally, this can be caused by GIL deadlock or other reasons such as network errors or bugs in the communications library (e.g. NCCL), etc. 
+[rank3]:[E212 17:32:39.469492386 ProcessGroupNCCL.cpp:1589] [PG ID 0 PG GUID 0(default_pg) Rank 3] ProcessGroupNCCL preparing to dump debug info. Include stack trace: 1
+[rank1]:[E212 17:32:39.550068121 ProcessGroupNCCL.cpp:1806] [PG ID 0 PG GUID 0(default_pg) Rank 1] Observed flight recorder dump signal from another rank via TCPStore.
+[rank1]:[E212 17:32:39.550216698 ProcessGroupNCCL.cpp:1870] [PG ID 0 PG GUID 0(default_pg) Rank 1] Received a dump signal due to a collective timeout from  rank 0 and we will try our best to dump the debug info. Last enqueued NCCL work: 102, last completed NCCL work: 102.This is most likely caused by incorrect usages of collectives, e.g., wrong sizes used across ranks, the order of collectives is not same for all ranks or the scheduled collective, for some reason, didn't run. Additionally, this can be caused by GIL deadlock or other reasons such as network errors or bugs in the communications library (e.g. NCCL), etc. 
+[rank1]:[E212 17:32:39.550603871 ProcessGroupNCCL.cpp:1589] [PG ID 0 PG GUID 0(default_pg) Rank 1] ProcessGroupNCCL preparing to dump debug info. Include stack trace: 1
+2026-02-12 17:33:38,527 - INFO - logging - Training Epoch: [1]  [  8/184]  eta: 13:54:28  lr: 0.000600  iter_time: 801.599(801.599)  data_wait_time: 141.306(141.306)  data_load_time: 810.629(810.629)  loss: 3.7991 (3.9974)  max cpu mem: 7673  max gpu mem: 2990
+[rank0]:[E212 17:33:38.915877749 ProcessGroupNCCL.cpp:746] [Rank 0] Some NCCL operations have failed or timed out. Due to the asynchronous nature of CUDA kernels, subsequent GPU operations might run on corrupted/incomplete data.
+[rank0]:[E212 17:33:38.915915024 ProcessGroupNCCL.cpp:760] [Rank 0] To avoid data inconsistency, we are taking the entire process down.
+[rank0]:[E212 17:33:38.937748833 ProcessGroupNCCL.cpp:2068] [PG ID 0 PG GUID 0(default_pg) Rank 0] Process group watchdog thread terminated with exception: [Rank 0] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=104, OpType=ALLREDUCE, NumelIn=1033200, NumelOut=1033200, Timeout(ms)=600000) ran for 600042 milliseconds before timing out.
+Exception raised from checkTimeout at /pytorch/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:688 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x80 (0x1515b5f05eb0 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libc10.so)
+frame #1: c10d::ProcessGroupNCCL::WorkNCCL::checkTimeout(std::optional<std::chrono::duration<long, std::ratio<1l, 1000l> > >) + 0x247 (0x1515b6e6c147 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libtorch_cuda.so)
+frame #2: c10d::ProcessGroupNCCL::Watchdog::runLoop() + 0x1591 (0x1515b6e6fb61 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libtorch_cuda.so)
+frame #3: c10d::ProcessGroupNCCL::Watchdog::run() + 0xd2 (0x1515b6e70ec2 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libtorch_cuda.so)
+frame #4: <unknown function> + 0xc2b23 (0x15159a515b23 in /lib64/libstdc++.so.6)
+frame #5: <unknown function> + 0x81ca (0x15161a2e91ca in /lib64/libpthread.so.0)
+frame #6: clone + 0x43 (0x1516197ba8d3 in /lib64/libc.so.6)
+
+terminate called after throwing an instance of 'c10::DistBackendError'
+  what():  [PG ID 0 PG GUID 0(default_pg) Rank 0] Process group watchdog thread terminated with exception: [Rank 0] Watchdog caught collective operation timeout: WorkNCCL(SeqNum=104, OpType=ALLREDUCE, NumelIn=1033200, NumelOut=1033200, Timeout(ms)=600000) ran for 600042 milliseconds before timing out.
+Exception raised from checkTimeout at /pytorch/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:688 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x80 (0x1515b5f05eb0 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libc10.so)
+frame #1: c10d::ProcessGroupNCCL::WorkNCCL::checkTimeout(std::optional<std::chrono::duration<long, std::ratio<1l, 1000l> > >) + 0x247 (0x1515b6e6c147 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libtorch_cuda.so)
+frame #2: c10d::ProcessGroupNCCL::Watchdog::runLoop() + 0x1591 (0x1515b6e6fb61 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libtorch_cuda.so)
+frame #3: c10d::ProcessGroupNCCL::Watchdog::run() + 0xd2 (0x1515b6e70ec2 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libtorch_cuda.so)
+frame #4: <unknown function> + 0xc2b23 (0x15159a515b23 in /lib64/libstdc++.so.6)
+frame #5: <unknown function> + 0x81ca (0x15161a2e91ca in /lib64/libpthread.so.0)
+frame #6: clone + 0x43 (0x1516197ba8d3 in /lib64/libc.so.6)
+
+Exception raised from run at /pytorch/torch/csrc/distributed/c10d/ProcessGroupNCCL.cpp:2074 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x80 (0x1515b5f05eb0 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0xe1c1a1 (0x1515b6e481a1 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libtorch_cuda.so)
+frame #2: <unknown function> + 0x9468e6 (0x1515b69728e6 in /orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/lib/libtorch_cuda.so)
+frame #3: <unknown function> + 0xc2b23 (0x15159a515b23 in /lib64/libstdc++.so.6)
+frame #4: <unknown function> + 0x81ca (0x15161a2e91ca in /lib64/libpthread.so.0)
+frame #5: clone + 0x43 (0x1516197ba8d3 in /lib64/libc.so.6)
+
+W0212 17:33:47.410000 3483849 .venv/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:900] Sending process 3483933 closing signal SIGTERM
+W0212 17:33:47.430000 3483849 .venv/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:900] Sending process 3483934 closing signal SIGTERM
+W0212 17:33:47.431000 3483849 .venv/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:900] Sending process 3483935 closing signal SIGTERM
+E0212 17:33:48.078000 3483849 .venv/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:874] failed (exitcode: -6) local_rank: 0 (pid: 3483932) of binary: /orcd/home/002/codycruz/Ocean_Emulator/.venv/bin/python3
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 905, in <module>
+    main()
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 901, in main
+    run(args)
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 143, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 277, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+========================================================
+ocean_emulators.train FAILED
+--------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+--------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-02-12_17:33:47
+  host      : node2905.inband
+  rank      : 0 (local_rank: 0)
+  exitcode  : -6 (pid: 3483932)
+  error_file: <N/A>
+  traceback : Signal 6 (SIGABRT) received by PID 3483932
+========================================================

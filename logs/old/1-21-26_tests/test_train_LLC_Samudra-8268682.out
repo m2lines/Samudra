@@ -1,0 +1,77 @@
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Resolved 299 packages in 87ms
+   Building ocean-emulators @ file:///orcd/home/002/codycruz/Ocean_Emulator
+Downloading hf-xet (3.2MiB)
+Downloading timm (2.4MiB)
+Downloading torchvision (8.2MiB)
+ Downloading hf-xet
+ Downloading torchvision
+ Downloading timm
+      Built ocean-emulators @ file:///orcd/home/002/codycruz/Ocean_Emulator
+Prepared 13 packages in 3.53s
+Uninstalled 5 packages in 542ms
+Installed 13 packages in 382ms
+ + azure-core==1.36.0
+ + azure-storage-blob==12.27.1
+ - einops==0.8.1
+ + einops==0.7.0
+ - future==1.0.0
+ + hf-xet==1.2.0
+ + huggingface-hub==1.1.2
+ + isodate==0.7.2
+ + microsoft-aurora==1.8.0
+ ~ ocean-emulators==1.0 (from file:///orcd/home/002/codycruz/Ocean_Emulator)
+ + safetensors==0.6.2
+ + shellingham==1.5.4
+ + timm==1.0.22
+ + torchvision==0.23.0
+ + typer-slim==0.20.0
+ - xgcm==0.9.0
+ - xrft==1.0.1
+======== train ocean_emulator samudra w/ 1 gpu on LLC4320 data ========
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 1003, in <module>
+    main()
+  File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/train.py", line 987, in main
+    cfg = TrainConfig.from_yaml_and_cli()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config_base.py", line 105, in from_yaml_and_cli
+    raise FileNotFoundError(
+FileNotFoundError: Config file `configs/train_LLC.yaml` (full path: /orcd/home/002/codycruz/Ocean_Emulator/configs/train_LLC.yaml) not found
+E0121 14:29:43.154000 3803855 .venv/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/api.py:874] failed (exitcode: 1) local_rank: 0 (pid: 3804341) of binary: /orcd/home/002/codycruz/Ocean_Emulator/.venv/bin/python3
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 905, in <module>
+    main()
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 901, in main
+    run(args)
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/run.py", line 892, in run
+    elastic_launch(
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 143, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/torch/distributed/launcher/api.py", line 277, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+ocean_emulators.train FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-01-21_14:29:43
+  host      : node2905.inband
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 3804341)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

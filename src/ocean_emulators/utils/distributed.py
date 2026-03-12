@@ -81,8 +81,12 @@ def is_main_process():
     return get_rank() == 0
 
 
-def init_distributed_mode() -> DistributedConfig:
+def init_distributed_mode(timeout_minutes: int = 10) -> DistributedConfig:
     cfg = DistributedConfig()
+
+    # Prefer surfacing NCCL async failures as recoverable Python errors so
+    # callers can checkpoint on failure paths.
+    os.environ.setdefault("TORCH_NCCL_ASYNC_ERROR_HANDLING", "2")
 
     if "RANK" in os.environ:
         cfg.rank = int(os.environ["RANK"])
@@ -123,11 +127,15 @@ def init_distributed_mode() -> DistributedConfig:
         world_size=cfg.world_size,
         rank=cfg.rank,
         device_id=cfg.gpu,
+        timeout=datetime.timedelta(minutes=timeout_minutes),
     )
     torch.cuda.set_device(cfg.gpu)
     logger.info(
         f"| distributed init (rank {cfg.rank}), gpu {cfg.gpu}, "
-        f"world_size {cfg.world_size}, dist_url {cfg.dist_url}"
+        f"world_size {cfg.world_size}, dist_url {cfg.dist_url}, "
+        f"timeout {timeout_minutes} min, "
+        f"TORCH_NCCL_ASYNC_ERROR_HANDLING="
+        f"{os.environ.get('TORCH_NCCL_ASYNC_ERROR_HANDLING')}"
     )
     torch.distributed.barrier()
     suppress_prints(cfg.rank == 0)

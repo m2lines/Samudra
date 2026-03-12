@@ -30,6 +30,7 @@ def _cuda_diagnostics() -> str:
 
 def init_train_backend(
     backend: TrainBackendConfig,
+    ddp_timeout_minutes: int = 10,
 ) -> tuple[torch.device, DistributedConfig | None]:
     """Given backend config, get the device and (if any) distributed configuration."""
     match backend:
@@ -51,12 +52,12 @@ def init_train_backend(
                     + _cuda_diagnostics()
                 )
             device = torch.device("cuda")
-            dist_cfg = init_distributed_mode()
+            dist_cfg = init_distributed_mode(timeout_minutes=ddp_timeout_minutes)
         case "auto" if torch.cuda.is_available():
             logger.info("auto backend detected CUDA")
             device = torch.device("cuda")
             try:
-                dist_cfg = init_distributed_mode()
+                dist_cfg = init_distributed_mode(timeout_minutes=ddp_timeout_minutes)
                 logger.info("succeeded in initializing distributed mode")
             except RuntimeError as e:
                 logger.info(

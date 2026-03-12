@@ -1,0 +1,6 @@
+Submitting 4 single-GPU jobs from /orcd/home/002/codycruz/Ocean_Emulator/JOBS/train_llc.sh
+Shared knobs: workers=10 pin_mem=false ddp_broadcast_buffers=false ddp_timeout_minutes=30
+Submitted batch job 10066273
+Submitted batch job 10066274
+Submitted batch job 10066275
+Submitted batch job 10066276

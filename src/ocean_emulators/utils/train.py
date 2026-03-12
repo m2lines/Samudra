@@ -52,6 +52,23 @@ class CheckpointPaths:
     def latest_checkpoint_path(self) -> Path:
         return self.checkpoint_dir / "ckpt.pt"
 
+    @property
+    def latest_batch_checkpoint_path(self) -> Path:
+        return self.checkpoint_dir / "ckpt_batch.pt"
+
+    def latest_batch_checkpoint_path_for_rank(self, rank: int) -> Path:
+        return self.checkpoint_dir / f"ckpt_batch_rank{rank}.pt"
+
+    def latest_resumable_checkpoint_path(self) -> Path | None:
+        candidates = [
+            self.latest_checkpoint_path,
+            self.latest_batch_checkpoint_path,
+        ]
+        existing = [p for p in candidates if p.exists()]
+        if not existing:
+            return None
+        return max(existing, key=lambda p: p.stat().st_mtime)
+
     def latest_checkpoint_path_with_epoch(self, epoch: int) -> Path:
         return self.checkpoint_dir / f"ckpt_{epoch}.pt"
 

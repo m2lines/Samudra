@@ -1,0 +1,1290 @@
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Resolved 299 packages in 1ms
+Audited 294 packages in 118ms
+======== evaluate ocean_emulator samudra w/ 3 gpu on LLC4320 data ========
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+
+*****************************************
+Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+*****************************************
+2026-01-30 11:27:30,208 - INFO - backend - auto backend detected CUDA
+2026-01-30 11:27:30,212 - INFO - backend - auto backend detected CUDA
+2026-01-30 11:27:30,213 - INFO - backend - auto backend detected CUDA
+2026-01-30 11:27:30,518 - INFO - eval - Prognostic variables: Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, Theta_7, Theta_8, Theta_9
+2026-01-30 11:27:30,519 - INFO - eval - Boundary variables: oceQnet
+2026-01-30 11:27:30,519 - INFO - eval - Levels: 10
+2026-01-30 11:27:30,519 - INFO - eval - Number of inputs (prognostic + boundary): 22
+2026-01-30 11:27:30,519 - INFO - eval - Number of outputs (prognostic): 20
+2026-01-30 11:27:30,519 - INFO - eval - Loading data
+2026-01-30 11:27:30,521 - INFO - eval - Prognostic variables: Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, Theta_7, Theta_8, Theta_9
+2026-01-30 11:27:30,521 - INFO - eval - Boundary variables: oceQnet
+2026-01-30 11:27:30,521 - INFO - eval - Levels: 10
+2026-01-30 11:27:30,522 - INFO - eval - Prognostic variables: Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, Theta_7, Theta_8, Theta_9
+2026-01-30 11:27:30,522 - INFO - eval - Number of inputs (prognostic + boundary): 22
+2026-01-30 11:27:30,522 - INFO - eval - Number of outputs (prognostic): 20
+2026-01-30 11:27:30,522 - INFO - eval - Boundary variables: oceQnet
+2026-01-30 11:27:30,522 - INFO - eval - Loading data
+2026-01-30 11:27:30,522 - INFO - eval - Levels: 10
+2026-01-30 11:27:30,523 - INFO - eval - Number of inputs (prognostic + boundary): 22
+2026-01-30 11:27:30,523 - INFO - eval - Number of outputs (prognostic): 20
+2026-01-30 11:27:30,523 - INFO - eval - Loading data
+2026-01-30 11:27:30,774 - INFO - logging - 
+=== Warning Details ===
+2026-01-30 11:27:30,775 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-30 11:27:30,775 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-30 11:27:30,775 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-30 11:27:30,775 - INFO - logging - Line: 135
+2026-01-30 11:27:30,775 - INFO - logging - 
+Full stack trace:
+2026-01-30 11:27:30,780 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-30 11:27:30,780 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-30 11:27:30,780 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 247, in <module>
+2026-01-30 11:27:30,780 - INFO - logging -     main()
+2026-01-30 11:27:30,780 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 236, in main
+2026-01-30 11:27:30,780 - INFO - logging -     Evaluator = Eval(cfg)
+2026-01-30 11:27:30,780 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 90, in __init__
+2026-01-30 11:27:30,780 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-30 11:27:30,781 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 168, in build
+2026-01-30 11:27:30,781 - INFO - logging -     source = DataSource.from_locations(
+2026-01-30 11:27:30,781 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-01-30 11:27:30,781 - INFO - logging -     data = data_location.open(chunks)
+2026-01-30 11:27:30,781 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-30 11:27:30,781 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-30 11:27:30,781 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-30 11:27:30,781 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-30 11:27:30,781 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-30 11:27:30,781 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-30 11:27:30,781 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-30 11:27:30,781 - INFO - logging -     ) = _get_open_params(
+2026-01-30 11:27:30,781 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-30 11:27:30,781 - INFO - logging -     emit_user_level_warning(
+2026-01-30 11:27:30,781 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-30 11:27:30,781 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-30 11:27:30,781 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-30 11:27:30,781 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-30 11:27:30,781 - INFO - logging - =====================
+
+2026-01-30 11:27:30,784 - INFO - logging - 
+=== Warning Details ===
+2026-01-30 11:27:30,784 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-30 11:27:30,784 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-30 11:27:30,784 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-30 11:27:30,784 - INFO - logging - Line: 135
+2026-01-30 11:27:30,784 - INFO - logging - 
+Full stack trace:
+2026-01-30 11:27:30,786 - INFO - logging - 
+=== Warning Details ===
+2026-01-30 11:27:30,786 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-30 11:27:30,786 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-30 11:27:30,786 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-30 11:27:30,786 - INFO - logging - Line: 135
+2026-01-30 11:27:30,786 - INFO - logging - 
+Full stack trace:
+2026-01-30 11:27:30,788 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-30 11:27:30,788 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-30 11:27:30,788 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 247, in <module>
+2026-01-30 11:27:30,788 - INFO - logging -     main()
+2026-01-30 11:27:30,788 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 236, in main
+2026-01-30 11:27:30,788 - INFO - logging -     Evaluator = Eval(cfg)
+2026-01-30 11:27:30,788 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 90, in __init__
+2026-01-30 11:27:30,788 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-30 11:27:30,788 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 168, in build
+2026-01-30 11:27:30,789 - INFO - logging -     source = DataSource.from_locations(
+2026-01-30 11:27:30,789 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-01-30 11:27:30,789 - INFO - logging -     data = data_location.open(chunks)
+2026-01-30 11:27:30,789 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-30 11:27:30,789 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-30 11:27:30,789 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-30 11:27:30,789 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-30 11:27:30,789 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-30 11:27:30,789 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-30 11:27:30,789 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-30 11:27:30,789 - INFO - logging -     ) = _get_open_params(
+2026-01-30 11:27:30,789 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-30 11:27:30,789 - INFO - logging -     emit_user_level_warning(
+2026-01-30 11:27:30,789 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-30 11:27:30,789 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-30 11:27:30,789 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-30 11:27:30,789 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-30 11:27:30,789 - INFO - logging - =====================
+
+2026-01-30 11:27:30,790 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-30 11:27:30,790 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 247, in <module>
+2026-01-30 11:27:30,790 - INFO - logging -     main()
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 236, in main
+2026-01-30 11:27:30,790 - INFO - logging -     Evaluator = Eval(cfg)
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 90, in __init__
+2026-01-30 11:27:30,790 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 168, in build
+2026-01-30 11:27:30,790 - INFO - logging -     source = DataSource.from_locations(
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-01-30 11:27:30,790 - INFO - logging -     data = data_location.open(chunks)
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-30 11:27:30,790 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-30 11:27:30,790 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-30 11:27:30,790 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-30 11:27:30,790 - INFO - logging -     ) = _get_open_params(
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-30 11:27:30,790 - INFO - logging -     emit_user_level_warning(
+2026-01-30 11:27:30,790 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-30 11:27:30,790 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-30 11:27:30,790 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-30 11:27:30,790 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-30 11:27:30,790 - INFO - logging - =====================
+
+2026-01-30 11:27:35,265 - INFO - logging - 
+=== Warning Details ===
+2026-01-30 11:27:35,265 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-30 11:27:35,265 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-30 11:27:35,265 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-30 11:27:35,265 - INFO - logging - Line: 135
+2026-01-30 11:27:35,265 - INFO - logging - 
+Full stack trace:
+2026-01-30 11:27:35,266 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-30 11:27:35,266 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 247, in <module>
+2026-01-30 11:27:35,266 - INFO - logging -     main()
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 236, in main
+2026-01-30 11:27:35,266 - INFO - logging -     Evaluator = Eval(cfg)
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 90, in __init__
+2026-01-30 11:27:35,266 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 183, in build
+2026-01-30 11:27:35,266 - INFO - logging -     source_using_dask = DataSource.from_locations(
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-01-30 11:27:35,266 - INFO - logging -     data = data_location.open(chunks)
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-30 11:27:35,266 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-30 11:27:35,266 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-30 11:27:35,266 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-30 11:27:35,266 - INFO - logging -     ) = _get_open_params(
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-30 11:27:35,266 - INFO - logging -     emit_user_level_warning(
+2026-01-30 11:27:35,266 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-30 11:27:35,266 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-30 11:27:35,266 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-30 11:27:35,266 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-30 11:27:35,266 - INFO - logging - =====================
+
+2026-01-30 11:27:35,313 - INFO - logging - 
+=== Warning Details ===
+2026-01-30 11:27:35,313 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-30 11:27:35,313 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-30 11:27:35,313 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-30 11:27:35,313 - INFO - logging - Line: 135
+2026-01-30 11:27:35,313 - INFO - logging - 
+Full stack trace:
+2026-01-30 11:27:35,313 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-30 11:27:35,313 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-30 11:27:35,313 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 247, in <module>
+2026-01-30 11:27:35,313 - INFO - logging -     main()
+2026-01-30 11:27:35,313 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 236, in main
+2026-01-30 11:27:35,314 - INFO - logging -     Evaluator = Eval(cfg)
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 90, in __init__
+2026-01-30 11:27:35,314 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 183, in build
+2026-01-30 11:27:35,314 - INFO - logging -     source_using_dask = DataSource.from_locations(
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-01-30 11:27:35,314 - INFO - logging -     data = data_location.open(chunks)
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-30 11:27:35,314 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-30 11:27:35,314 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-30 11:27:35,314 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-30 11:27:35,314 - INFO - logging -     ) = _get_open_params(
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-30 11:27:35,314 - INFO - logging -     emit_user_level_warning(
+2026-01-30 11:27:35,314 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-30 11:27:35,314 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-30 11:27:35,314 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-30 11:27:35,314 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-30 11:27:35,315 - INFO - logging - =====================
+
+2026-01-30 11:27:40,528 - INFO - logging - 
+=== Warning Details ===
+2026-01-30 11:27:40,528 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-01-30 11:27:40,529 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-01-30 11:27:40,529 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py
+2026-01-30 11:27:40,529 - INFO - logging - Line: 135
+2026-01-30 11:27:40,529 - INFO - logging - 
+Full stack trace:
+2026-01-30 11:27:40,529 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-01-30 11:27:40,529 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-01-30 11:27:40,529 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 247, in <module>
+2026-01-30 11:27:40,529 - INFO - logging -     main()
+2026-01-30 11:27:40,529 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 236, in main
+2026-01-30 11:27:40,529 - INFO - logging -     Evaluator = Eval(cfg)
+2026-01-30 11:27:40,529 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/eval.py", line 90, in __init__
+2026-01-30 11:27:40,529 - INFO - logging -     self.data_container = cfg.data.build(
+2026-01-30 11:27:40,529 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/config.py", line 183, in build
+2026-01-30 11:27:40,529 - INFO - logging -     source_using_dask = DataSource.from_locations(
+2026-01-30 11:27:40,529 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/data.py", line 259, in from_locations
+2026-01-30 11:27:40,529 - INFO - logging -     data = data_location.open(chunks)
+2026-01-30 11:27:40,529 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/src/ocean_emulators/utils/location.py", line 135, in open
+2026-01-30 11:27:40,530 - INFO - logging -     return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+2026-01-30 11:27:40,530 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/api.py", line 686, in open_dataset
+2026-01-30 11:27:40,530 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-01-30 11:27:40,530 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1563, in open_dataset
+2026-01-30 11:27:40,530 - INFO - logging -     store = ZarrStore.open_group(
+2026-01-30 11:27:40,530 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 700, in open_group
+2026-01-30 11:27:40,530 - INFO - logging -     ) = _get_open_params(
+2026-01-30 11:27:40,530 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/backends/zarr.py", line 1765, in _get_open_params
+2026-01-30 11:27:40,530 - INFO - logging -     emit_user_level_warning(
+2026-01-30 11:27:40,530 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib64/python3.11/site-packages/xarray/core/utils.py", line 1174, in emit_user_level_warning
+2026-01-30 11:27:40,530 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-01-30 11:27:40,530 - INFO - logging -   File "/usr/lib64/python3.11/warnings.py", line 110, in _showwarnmsg
+2026-01-30 11:27:40,530 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-01-30 11:27:40,530 - INFO - logging - =====================
+
+2026-01-30 11:28:07,643 - INFO - constants - lon does not have any default metadata
+2026-01-30 11:28:07,644 - INFO - constants - iter does not have any default metadata
+2026-01-30 11:28:07,644 - INFO - constants - lat does not have any default metadata
+2026-01-30 11:28:07,644 - INFO - constants - k_l does not have any default metadata
+2026-01-30 11:28:07,644 - INFO - constants - k_p1 does not have any default metadata
+2026-01-30 11:28:07,644 - INFO - constants - k_u does not have any default metadata
+2026-01-30 11:28:07,645 - INFO - constants - time does not have any default metadata
+2026-01-30 11:28:07,650 - INFO - constants - hFacC_0 does not have any default metadata
+2026-01-30 11:28:07,650 - INFO - constants - hFacC_1 does not have any default metadata
+2026-01-30 11:28:07,650 - INFO - constants - hFacC_2 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_3 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_4 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_5 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_6 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_7 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_8 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_9 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_10 does not have any default metadata
+2026-01-30 11:28:07,651 - INFO - constants - hFacC_11 does not have any default metadata
+2026-01-30 11:28:07,652 - INFO - constants - hFacC_12 does not have any default metadata
+2026-01-30 11:28:07,652 - INFO - constants - hFacC_13 does not have any default metadata
+2026-01-30 11:28:07,652 - INFO - constants - hFacC_14 does not have any default metadata
+2026-01-30 11:28:07,652 - INFO - constants - hFacC_15 does not have any default metadata
+2026-01-30 11:28:07,652 - INFO - constants - hFacC_16 does not have any default metadata
+2026-01-30 11:28:07,652 - INFO - constants - hFacC_17 does not have any default metadata
+2026-01-30 11:28:07,652 - INFO - constants - hFacC_18 does not have any default metadata
+2026-01-30 11:28:07,652 - INFO - constants - hFacS_0 does not have any default metadata
+2026-01-30 11:28:07,653 - INFO - constants - hFacS_1 does not have any default metadata
+2026-01-30 11:28:07,653 - INFO - constants - hFacS_2 does not have any default metadata
+2026-01-30 11:28:07,653 - INFO - constants - hFacS_3 does not have any default metadata
+2026-01-30 11:28:07,653 - INFO - constants - hFacS_4 does not have any default metadata
+2026-01-30 11:28:07,653 - INFO - constants - hFacS_5 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_6 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_7 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_8 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_9 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_10 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_11 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_12 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_13 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_14 does not have any default metadata
+2026-01-30 11:28:07,654 - INFO - constants - hFacS_15 does not have any default metadata
+2026-01-30 11:28:07,655 - INFO - constants - hFacS_16 does not have any default metadata
+2026-01-30 11:28:07,655 - INFO - constants - hFacS_17 does not have any default metadata
+2026-01-30 11:28:07,655 - INFO - constants - hFacS_18 does not have any default metadata
+2026-01-30 11:28:07,655 - INFO - constants - hFacW_0 does not have any default metadata
+2026-01-30 11:28:07,655 - INFO - constants - hFacW_1 does not have any default metadata
+2026-01-30 11:28:07,655 - INFO - constants - hFacW_2 does not have any default metadata
+2026-01-30 11:28:07,655 - INFO - constants - hFacW_3 does not have any default metadata
+2026-01-30 11:28:07,655 - INFO - constants - hFacW_4 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_5 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_6 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_7 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_8 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_9 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_10 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_11 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_12 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_13 does not have any default metadata
+2026-01-30 11:28:07,656 - INFO - constants - hFacW_14 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - hFacW_15 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - hFacW_16 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - hFacW_17 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - hFacW_18 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - lev_0 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - lev_1 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - lev_2 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - lev_3 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - lev_4 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - lev_5 does not have any default metadata
+2026-01-30 11:28:07,657 - INFO - constants - lev_6 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_7 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_8 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_9 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_10 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_11 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_12 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_13 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_14 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_15 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_16 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_17 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - lev_18 does not have any default metadata
+2026-01-30 11:28:07,658 - INFO - constants - wetmask_0 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_1 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_2 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_3 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_4 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_5 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_6 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_7 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_8 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_9 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_10 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_11 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_12 does not have any default metadata
+2026-01-30 11:28:07,659 - INFO - constants - wetmask_13 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - wetmask_14 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - wetmask_15 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - wetmask_16 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - wetmask_17 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - wetmask_18 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - mask_s_0 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - mask_s_1 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - mask_s_2 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - mask_s_3 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - mask_s_4 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - mask_s_5 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - mask_s_6 does not have any default metadata
+2026-01-30 11:28:07,660 - INFO - constants - mask_s_7 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_8 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_9 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_10 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_11 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_12 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_13 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_14 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_15 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_16 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_17 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_s_18 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_w_0 does not have any default metadata
+2026-01-30 11:28:07,661 - INFO - constants - mask_w_1 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_2 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_3 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_4 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_5 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_6 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_7 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_8 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_9 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_10 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_11 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_12 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_13 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_14 does not have any default metadata
+2026-01-30 11:28:07,662 - INFO - constants - mask_w_15 does not have any default metadata
+2026-01-30 11:28:07,663 - INFO - constants - mask_w_16 does not have any default metadata
+2026-01-30 11:28:07,663 - INFO - constants - mask_w_17 does not have any default metadata
+2026-01-30 11:28:07,663 - INFO - constants - mask_w_18 does not have any default metadata
+2026-01-30 11:28:08,480 - INFO - constants - lon does not have any default metadata
+2026-01-30 11:28:08,480 - INFO - constants - iter does not have any default metadata
+2026-01-30 11:28:08,480 - INFO - constants - lat does not have any default metadata
+2026-01-30 11:28:08,480 - INFO - constants - k_l does not have any default metadata
+2026-01-30 11:28:08,480 - INFO - constants - k_p1 does not have any default metadata
+2026-01-30 11:28:08,480 - INFO - constants - k_u does not have any default metadata
+2026-01-30 11:28:08,481 - INFO - constants - time does not have any default metadata
+2026-01-30 11:28:08,487 - INFO - constants - hFacC_0 does not have any default metadata
+2026-01-30 11:28:08,487 - INFO - constants - hFacC_1 does not have any default metadata
+2026-01-30 11:28:08,487 - INFO - constants - hFacC_2 does not have any default metadata
+2026-01-30 11:28:08,487 - INFO - constants - hFacC_3 does not have any default metadata
+2026-01-30 11:28:08,487 - INFO - constants - hFacC_4 does not have any default metadata
+2026-01-30 11:28:08,487 - INFO - constants - hFacC_5 does not have any default metadata
+2026-01-30 11:28:08,487 - INFO - constants - hFacC_6 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_7 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_8 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_9 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_10 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_11 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_12 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_13 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_14 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_15 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_16 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_17 does not have any default metadata
+2026-01-30 11:28:08,488 - INFO - constants - hFacC_18 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_0 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_1 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_2 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_3 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_4 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_5 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_6 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_7 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_8 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_9 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_10 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_11 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_12 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_13 does not have any default metadata
+2026-01-30 11:28:08,489 - INFO - constants - hFacS_14 does not have any default metadata
+2026-01-30 11:28:08,490 - INFO - constants - hFacS_15 does not have any default metadata
+2026-01-30 11:28:08,490 - INFO - constants - hFacS_16 does not have any default metadata
+2026-01-30 11:28:08,490 - INFO - constants - hFacS_17 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacS_18 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_0 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_1 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_2 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_3 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_4 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_5 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_6 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_7 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_8 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_9 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_10 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_11 does not have any default metadata
+2026-01-30 11:28:08,491 - INFO - constants - hFacW_12 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - hFacW_13 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - hFacW_14 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - hFacW_15 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - hFacW_16 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - hFacW_17 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - hFacW_18 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - lev_0 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - lev_1 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - lev_2 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - lev_3 does not have any default metadata
+2026-01-30 11:28:08,492 - INFO - constants - lev_4 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_5 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_6 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_7 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_8 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_9 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_10 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_11 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_12 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_13 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_14 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_15 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_16 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_17 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - lev_18 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - wetmask_0 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - wetmask_1 does not have any default metadata
+2026-01-30 11:28:08,493 - INFO - constants - wetmask_2 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_3 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_4 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_5 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_6 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_7 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_8 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_9 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_10 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_11 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_12 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_13 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_14 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_15 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_16 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_17 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - wetmask_18 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - mask_s_0 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - mask_s_1 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - mask_s_2 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - mask_s_3 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - mask_s_4 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - mask_s_5 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - mask_s_6 does not have any default metadata
+2026-01-30 11:28:08,494 - INFO - constants - mask_s_7 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_8 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_9 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_10 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_11 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_12 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_13 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_14 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_15 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_16 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_17 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_s_18 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_w_0 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_w_1 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_w_2 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_w_3 does not have any default metadata
+2026-01-30 11:28:08,495 - INFO - constants - mask_w_4 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_5 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_6 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_7 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_8 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_9 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_10 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_11 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_12 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_13 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_14 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_15 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_16 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_17 does not have any default metadata
+2026-01-30 11:28:08,496 - INFO - constants - mask_w_18 does not have any default metadata
+2026-01-30 11:28:10,193 - INFO - logging - Number of parameters: 82191604
+2026-01-30 11:28:10,195 - INFO - logging - Number of parameters: 82191604
+2026-01-30 11:28:10,196 - INFO - logging - ===========================================================================
+Layer (type:depth-idx)                             Param #
+===========================================================================
+Samudra                                            --
+├─UNetBackbone: 1-1                                --
+│    └─ModuleList: 2-1                             82,141,184
+├─Conv2d: 1-2                                      50,420
+├─Correctors: 1-3                                  --
+│    └─ModuleList: 2-2                             --
+===========================================================================
+Total params: 82,191,604
+Trainable params: 82,191,604
+Non-trainable params: 0
+===========================================================================
+2026-01-30 11:28:10,200 - INFO - logging - ===========================================================================
+Layer (type:depth-idx)                             Param #
+===========================================================================
+Samudra                                            --
+├─UNetBackbone: 1-1                                --
+│    └─ModuleList: 2-1                             82,141,184
+├─Conv2d: 1-2                                      50,420
+├─Correctors: 1-3                                  --
+│    └─ModuleList: 2-2                             --
+===========================================================================
+Total params: 82,191,604
+Trainable params: 82,191,604
+Non-trainable params: 0
+===========================================================================
+2026-01-30 11:28:12,209 - INFO - constants - lon does not have any default metadata
+2026-01-30 11:28:12,210 - INFO - constants - iter does not have any default metadata
+2026-01-30 11:28:12,210 - INFO - constants - lat does not have any default metadata
+2026-01-30 11:28:12,210 - INFO - constants - k_l does not have any default metadata
+2026-01-30 11:28:12,210 - INFO - constants - k_p1 does not have any default metadata
+2026-01-30 11:28:12,210 - INFO - constants - k_u does not have any default metadata
+2026-01-30 11:28:12,211 - INFO - constants - time does not have any default metadata
+2026-01-30 11:28:12,216 - INFO - constants - hFacC_0 does not have any default metadata
+2026-01-30 11:28:12,216 - INFO - constants - hFacC_1 does not have any default metadata
+2026-01-30 11:28:12,216 - INFO - constants - hFacC_2 does not have any default metadata
+2026-01-30 11:28:12,222 - INFO - constants - hFacC_3 does not have any default metadata
+2026-01-30 11:28:12,222 - INFO - constants - hFacC_4 does not have any default metadata
+2026-01-30 11:28:12,222 - INFO - constants - hFacC_5 does not have any default metadata
+2026-01-30 11:28:12,222 - INFO - constants - hFacC_6 does not have any default metadata
+2026-01-30 11:28:12,222 - INFO - constants - hFacC_7 does not have any default metadata
+2026-01-30 11:28:12,222 - INFO - constants - hFacC_8 does not have any default metadata
+2026-01-30 11:28:12,222 - INFO - constants - hFacC_9 does not have any default metadata
+2026-01-30 11:28:12,223 - INFO - constants - hFacC_10 does not have any default metadata
+2026-01-30 11:28:12,223 - INFO - constants - hFacC_11 does not have any default metadata
+2026-01-30 11:28:12,223 - INFO - constants - hFacC_12 does not have any default metadata
+2026-01-30 11:28:12,223 - INFO - constants - hFacC_13 does not have any default metadata
+2026-01-30 11:28:12,223 - INFO - constants - hFacC_14 does not have any default metadata
+2026-01-30 11:28:12,230 - INFO - constants - hFacC_15 does not have any default metadata
+2026-01-30 11:28:12,230 - INFO - constants - hFacC_16 does not have any default metadata
+2026-01-30 11:28:12,230 - INFO - constants - hFacC_17 does not have any default metadata
+2026-01-30 11:28:12,230 - INFO - constants - hFacC_18 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_0 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_1 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_2 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_3 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_4 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_5 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_6 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_7 does not have any default metadata
+2026-01-30 11:28:12,231 - INFO - constants - hFacS_8 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_9 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_10 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_11 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_12 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_13 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_14 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_15 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_16 does not have any default metadata
+2026-01-30 11:28:12,232 - INFO - constants - hFacS_17 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacS_18 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_0 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_1 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_2 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_3 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_4 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_5 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_6 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_7 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_8 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_9 does not have any default metadata
+2026-01-30 11:28:12,233 - INFO - constants - hFacW_10 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - hFacW_11 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - hFacW_12 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - hFacW_13 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - hFacW_14 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - hFacW_15 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - hFacW_16 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - hFacW_17 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - hFacW_18 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - lev_0 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - lev_1 does not have any default metadata
+2026-01-30 11:28:12,234 - INFO - constants - lev_2 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_3 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_4 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_5 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_6 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_7 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_8 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_9 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_10 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_11 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_12 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_13 does not have any default metadata
+2026-01-30 11:28:12,235 - INFO - constants - lev_14 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - lev_15 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - lev_16 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - lev_17 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - lev_18 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - wetmask_0 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - wetmask_1 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - wetmask_2 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - wetmask_3 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - wetmask_4 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - wetmask_5 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - wetmask_6 does not have any default metadata
+2026-01-30 11:28:12,236 - INFO - constants - wetmask_7 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_8 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_9 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_10 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_11 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_12 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_13 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_14 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_15 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_16 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_17 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - wetmask_18 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - mask_s_0 does not have any default metadata
+2026-01-30 11:28:12,237 - INFO - constants - mask_s_1 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_2 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_3 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_4 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_5 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_6 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_7 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_8 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_9 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_10 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_11 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_12 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_13 does not have any default metadata
+2026-01-30 11:28:12,238 - INFO - constants - mask_s_14 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_s_15 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_s_16 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_s_17 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_s_18 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_0 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_1 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_2 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_3 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_4 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_5 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_6 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_7 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_8 does not have any default metadata
+2026-01-30 11:28:12,239 - INFO - constants - mask_w_9 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_10 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_11 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_12 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_13 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_14 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_15 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_16 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_17 does not have any default metadata
+2026-01-30 11:28:12,240 - INFO - constants - mask_w_18 does not have any default metadata
+2026-01-30 11:28:12,746 - INFO - logging - Number of parameters: 82191604
+2026-01-30 11:28:12,750 - INFO - logging - ===========================================================================
+Layer (type:depth-idx)                             Param #
+===========================================================================
+Samudra                                            --
+├─UNetBackbone: 1-1                                --
+│    └─ModuleList: 2-1                             82,141,184
+├─Conv2d: 1-2                                      50,420
+├─Correctors: 1-3                                  --
+│    └─ModuleList: 2-2                             --
+===========================================================================
+Total params: 82,191,604
+Trainable params: 82,191,604
+Non-trainable params: 0
+===========================================================================
+2026-01-30 11:28:13,300 - INFO - datasets - Long rollout will use input at time 2012-11-01 12:00:00 and produce output at 2012-11-01 14:00:00
+2026-01-30 11:28:13,303 - INFO - logging - InferenceDataset.__init__ took 0.0111 seconds
+2026-01-30 11:28:13,307 - INFO - stepper - Inference [epoch 0]: processing initial prognostic.
+2026-01-30 11:28:13,322 - INFO - datasets - Long rollout will use input at time 2012-11-01 12:00:00 and produce output at 2012-11-01 14:00:00
+2026-01-30 11:28:13,325 - INFO - logging - InferenceDataset.__init__ took 0.0062 seconds
+2026-01-30 11:28:13,325 - INFO - datasets - Long rollout will use input at time 2012-11-01 12:00:00 and produce output at 2012-11-01 14:00:00
+2026-01-30 11:28:13,328 - INFO - stepper - Inference [epoch 0]: processing initial prognostic.
+2026-01-30 11:28:13,328 - INFO - logging - InferenceDataset.__init__ took 0.0092 seconds
+2026-01-30 11:28:13,331 - INFO - stepper - Inference [epoch 0]: processing initial prognostic.
+2026-01-30 11:28:23,736 - INFO - stepper - Inference [epoch 0]: loop 0 of 6. Stepping 25 steps forward.
+2026-01-30 11:28:23,839 - INFO - stepper - Inference [epoch 0]: loop 0 of 6. Stepping 25 steps forward.
+2026-01-30 11:28:23,858 - INFO - stepper - Inference [epoch 0]: loop 0 of 6. Stepping 25 steps forward.
+2026-01-30 11:29:16,840 - INFO - base - Inference [epoch 0]: Rollout step 0 of 24.
+2026-01-30 11:29:16,885 - INFO - base - Inference [epoch 0]: Rollout step 0 of 24.
+2026-01-30 11:29:16,889 - INFO - base - Inference [epoch 0]: Rollout step 0 of 24.
+2026-01-30 11:29:20,007 - INFO - base - Inference [epoch 0]: Rollout step 1 of 24.
+2026-01-30 11:29:20,026 - INFO - base - Inference [epoch 0]: Rollout step 1 of 24.
+2026-01-30 11:29:20,026 - INFO - base - Inference [epoch 0]: Rollout step 1 of 24.
+2026-01-30 11:29:23,904 - INFO - base - Inference [epoch 0]: Rollout step 2 of 24.
+2026-01-30 11:29:23,979 - INFO - base - Inference [epoch 0]: Rollout step 2 of 24.
+2026-01-30 11:29:23,982 - INFO - base - Inference [epoch 0]: Rollout step 2 of 24.
+2026-01-30 11:29:27,622 - INFO - base - Inference [epoch 0]: Rollout step 3 of 24.
+2026-01-30 11:29:27,776 - INFO - base - Inference [epoch 0]: Rollout step 3 of 24.
+2026-01-30 11:29:27,777 - INFO - base - Inference [epoch 0]: Rollout step 3 of 24.
+2026-01-30 11:29:31,676 - INFO - base - Inference [epoch 0]: Rollout step 4 of 24.
+2026-01-30 11:29:31,678 - INFO - base - Inference [epoch 0]: Rollout step 4 of 24.
+2026-01-30 11:29:31,684 - INFO - base - Inference [epoch 0]: Rollout step 4 of 24.
+2026-01-30 11:29:35,189 - INFO - base - Inference [epoch 0]: Rollout step 5 of 24.
+2026-01-30 11:29:35,190 - INFO - base - Inference [epoch 0]: Rollout step 5 of 24.
+2026-01-30 11:29:35,208 - INFO - base - Inference [epoch 0]: Rollout step 5 of 24.
+2026-01-30 11:29:38,820 - INFO - base - Inference [epoch 0]: Rollout step 6 of 24.
+2026-01-30 11:29:38,821 - INFO - base - Inference [epoch 0]: Rollout step 6 of 24.
+2026-01-30 11:29:38,823 - INFO - base - Inference [epoch 0]: Rollout step 6 of 24.
+2026-01-30 11:29:41,823 - INFO - base - Inference [epoch 0]: Rollout step 7 of 24.
+2026-01-30 11:29:41,826 - INFO - base - Inference [epoch 0]: Rollout step 7 of 24.
+2026-01-30 11:29:41,865 - INFO - base - Inference [epoch 0]: Rollout step 7 of 24.
+2026-01-30 11:29:46,326 - INFO - base - Inference [epoch 0]: Rollout step 8 of 24.
+2026-01-30 11:29:46,332 - INFO - base - Inference [epoch 0]: Rollout step 8 of 24.
+2026-01-30 11:29:46,341 - INFO - base - Inference [epoch 0]: Rollout step 8 of 24.
+2026-01-30 11:29:50,093 - INFO - base - Inference [epoch 0]: Rollout step 9 of 24.
+2026-01-30 11:29:50,190 - INFO - base - Inference [epoch 0]: Rollout step 9 of 24.
+2026-01-30 11:29:50,201 - INFO - base - Inference [epoch 0]: Rollout step 9 of 24.
+2026-01-30 11:29:55,159 - INFO - base - Inference [epoch 0]: Rollout step 10 of 24.
+2026-01-30 11:29:55,161 - INFO - base - Inference [epoch 0]: Rollout step 10 of 24.
+2026-01-30 11:29:55,168 - INFO - base - Inference [epoch 0]: Rollout step 10 of 24.
+2026-01-30 11:29:59,415 - INFO - base - Inference [epoch 0]: Rollout step 11 of 24.
+2026-01-30 11:29:59,419 - INFO - base - Inference [epoch 0]: Rollout step 11 of 24.
+2026-01-30 11:29:59,435 - INFO - base - Inference [epoch 0]: Rollout step 11 of 24.
+2026-01-30 11:30:03,235 - INFO - base - Inference [epoch 0]: Rollout step 12 of 24.
+2026-01-30 11:30:03,235 - INFO - base - Inference [epoch 0]: Rollout step 12 of 24.
+2026-01-30 11:30:03,236 - INFO - base - Inference [epoch 0]: Rollout step 12 of 24.
+2026-01-30 11:30:06,114 - INFO - base - Inference [epoch 0]: Rollout step 13 of 24.
+2026-01-30 11:30:06,290 - INFO - base - Inference [epoch 0]: Rollout step 13 of 24.
+2026-01-30 11:30:06,292 - INFO - base - Inference [epoch 0]: Rollout step 13 of 24.
+2026-01-30 11:30:08,726 - INFO - base - Inference [epoch 0]: Rollout step 14 of 24.
+2026-01-30 11:30:08,821 - INFO - base - Inference [epoch 0]: Rollout step 14 of 24.
+2026-01-30 11:30:08,823 - INFO - base - Inference [epoch 0]: Rollout step 14 of 24.
+2026-01-30 11:30:19,848 - INFO - base - Inference [epoch 0]: Rollout step 15 of 24.
+2026-01-30 11:30:19,855 - INFO - base - Inference [epoch 0]: Rollout step 15 of 24.
+2026-01-30 11:30:19,859 - INFO - base - Inference [epoch 0]: Rollout step 15 of 24.
+2026-01-30 11:30:33,167 - INFO - base - Inference [epoch 0]: Rollout step 16 of 24.
+2026-01-30 11:30:33,169 - INFO - base - Inference [epoch 0]: Rollout step 16 of 24.
+2026-01-30 11:30:33,172 - INFO - base - Inference [epoch 0]: Rollout step 16 of 24.
+2026-01-30 11:30:42,317 - INFO - base - Inference [epoch 0]: Rollout step 17 of 24.
+2026-01-30 11:30:42,318 - INFO - base - Inference [epoch 0]: Rollout step 17 of 24.
+2026-01-30 11:30:42,322 - INFO - base - Inference [epoch 0]: Rollout step 17 of 24.
+2026-01-30 11:30:48,969 - INFO - base - Inference [epoch 0]: Rollout step 18 of 24.
+2026-01-30 11:30:48,975 - INFO - base - Inference [epoch 0]: Rollout step 18 of 24.
+2026-01-30 11:30:48,979 - INFO - base - Inference [epoch 0]: Rollout step 18 of 24.
+2026-01-30 11:31:00,202 - INFO - base - Inference [epoch 0]: Rollout step 19 of 24.
+2026-01-30 11:31:00,282 - INFO - base - Inference [epoch 0]: Rollout step 19 of 24.
+2026-01-30 11:31:00,287 - INFO - base - Inference [epoch 0]: Rollout step 19 of 24.
+2026-01-30 11:31:08,826 - INFO - base - Inference [epoch 0]: Rollout step 20 of 24.
+2026-01-30 11:31:08,828 - INFO - base - Inference [epoch 0]: Rollout step 20 of 24.
+2026-01-30 11:31:08,832 - INFO - base - Inference [epoch 0]: Rollout step 20 of 24.
+2026-01-30 11:31:12,482 - INFO - base - Inference [epoch 0]: Rollout step 21 of 24.
+2026-01-30 11:31:12,483 - INFO - base - Inference [epoch 0]: Rollout step 21 of 24.
+2026-01-30 11:31:12,488 - INFO - base - Inference [epoch 0]: Rollout step 21 of 24.
+2026-01-30 11:31:44,021 - INFO - base - Inference [epoch 0]: Rollout step 22 of 24.
+2026-01-30 11:31:44,026 - INFO - base - Inference [epoch 0]: Rollout step 22 of 24.
+2026-01-30 11:31:44,026 - INFO - base - Inference [epoch 0]: Rollout step 22 of 24.
+2026-01-30 11:31:49,417 - INFO - base - Inference [epoch 0]: Rollout step 23 of 24.
+2026-01-30 11:31:49,417 - INFO - base - Inference [epoch 0]: Rollout step 23 of 24.
+2026-01-30 11:31:49,426 - INFO - base - Inference [epoch 0]: Rollout step 23 of 24.
+2026-01-30 11:31:52,780 - INFO - base - Inference [epoch 0]: Rollout step 24 of 24.
+2026-01-30 11:31:52,792 - INFO - base - Inference [epoch 0]: Rollout step 24 of 24.
+2026-01-30 11:31:52,804 - INFO - base - Inference [epoch 0]: Rollout step 24 of 24.
+2026-01-30 11:32:05,150 - INFO - stepper - Writing to zarr...
+2026-01-30 11:32:05,299 - INFO - stepper - Writing to zarr...
+2026-01-30 11:32:05,315 - INFO - stepper - Writing to zarr...
+2026-01-30 11:32:06,352 - INFO - stepper - Recording logs...
+2026-01-30 11:32:06,484 - INFO - stepper - Logging to wandb...
+2026-01-30 11:32:06,485 - INFO - stepper - Inference [epoch 0]: loop 1 of 6. Stepping 25 steps forward.
+2026-01-30 11:32:06,935 - INFO - stepper - Recording logs...
+2026-01-30 11:32:07,068 - INFO - stepper - Logging to wandb...
+2026-01-30 11:32:07,069 - INFO - stepper - Inference [epoch 0]: loop 1 of 6. Stepping 25 steps forward.
+2026-01-30 11:32:07,103 - INFO - stepper - Recording logs...
+2026-01-30 11:32:07,233 - INFO - stepper - Logging to wandb...
+2026-01-30 11:32:07,234 - INFO - stepper - Inference [epoch 0]: loop 1 of 6. Stepping 25 steps forward.
+2026-01-30 11:32:16,640 - INFO - base - Inference [epoch 0]: Rollout step 25 of 49.
+2026-01-30 11:32:16,969 - INFO - base - Inference [epoch 0]: Rollout step 25 of 49.
+2026-01-30 11:32:17,092 - INFO - base - Inference [epoch 0]: Rollout step 25 of 49.
+2026-01-30 11:32:21,371 - INFO - base - Inference [epoch 0]: Rollout step 26 of 49.
+2026-01-30 11:32:21,411 - INFO - base - Inference [epoch 0]: Rollout step 26 of 49.
+2026-01-30 11:32:21,422 - INFO - base - Inference [epoch 0]: Rollout step 26 of 49.
+2026-01-30 11:32:26,073 - INFO - base - Inference [epoch 0]: Rollout step 27 of 49.
+2026-01-30 11:32:26,078 - INFO - base - Inference [epoch 0]: Rollout step 27 of 49.
+2026-01-30 11:32:26,082 - INFO - base - Inference [epoch 0]: Rollout step 27 of 49.
+2026-01-30 11:32:30,854 - INFO - base - Inference [epoch 0]: Rollout step 28 of 49.
+2026-01-30 11:32:30,921 - INFO - base - Inference [epoch 0]: Rollout step 28 of 49.
+2026-01-30 11:32:30,923 - INFO - base - Inference [epoch 0]: Rollout step 28 of 49.
+2026-01-30 11:32:36,558 - INFO - base - Inference [epoch 0]: Rollout step 29 of 49.
+2026-01-30 11:32:36,588 - INFO - base - Inference [epoch 0]: Rollout step 29 of 49.
+2026-01-30 11:32:36,590 - INFO - base - Inference [epoch 0]: Rollout step 29 of 49.
+2026-01-30 11:32:40,913 - INFO - base - Inference [epoch 0]: Rollout step 30 of 49.
+2026-01-30 11:32:40,913 - INFO - base - Inference [epoch 0]: Rollout step 30 of 49.
+2026-01-30 11:32:40,915 - INFO - base - Inference [epoch 0]: Rollout step 30 of 49.
+2026-01-30 11:32:46,593 - INFO - base - Inference [epoch 0]: Rollout step 31 of 49.
+2026-01-30 11:32:46,597 - INFO - base - Inference [epoch 0]: Rollout step 31 of 49.
+2026-01-30 11:32:46,600 - INFO - base - Inference [epoch 0]: Rollout step 31 of 49.
+2026-01-30 11:32:51,156 - INFO - base - Inference [epoch 0]: Rollout step 32 of 49.
+2026-01-30 11:32:51,226 - INFO - base - Inference [epoch 0]: Rollout step 32 of 49.
+2026-01-30 11:32:51,227 - INFO - base - Inference [epoch 0]: Rollout step 32 of 49.
+2026-01-30 11:32:55,717 - INFO - base - Inference [epoch 0]: Rollout step 33 of 49.
+2026-01-30 11:32:55,771 - INFO - base - Inference [epoch 0]: Rollout step 33 of 49.
+2026-01-30 11:32:55,773 - INFO - base - Inference [epoch 0]: Rollout step 33 of 49.
+2026-01-30 11:33:00,873 - INFO - base - Inference [epoch 0]: Rollout step 34 of 49.
+2026-01-30 11:33:01,081 - INFO - base - Inference [epoch 0]: Rollout step 34 of 49.
+2026-01-30 11:33:01,082 - INFO - base - Inference [epoch 0]: Rollout step 34 of 49.
+2026-01-30 11:33:06,515 - INFO - base - Inference [epoch 0]: Rollout step 35 of 49.
+2026-01-30 11:33:06,531 - INFO - base - Inference [epoch 0]: Rollout step 35 of 49.
+2026-01-30 11:33:06,535 - INFO - base - Inference [epoch 0]: Rollout step 35 of 49.
+2026-01-30 11:33:26,480 - INFO - base - Inference [epoch 0]: Rollout step 36 of 49.
+2026-01-30 11:33:26,569 - INFO - base - Inference [epoch 0]: Rollout step 36 of 49.
+2026-01-30 11:33:26,569 - INFO - base - Inference [epoch 0]: Rollout step 36 of 49.
+2026-01-30 11:33:31,625 - INFO - base - Inference [epoch 0]: Rollout step 37 of 49.
+2026-01-30 11:33:31,625 - INFO - base - Inference [epoch 0]: Rollout step 37 of 49.
+2026-01-30 11:33:31,628 - INFO - base - Inference [epoch 0]: Rollout step 37 of 49.
+2026-01-30 11:33:36,495 - INFO - base - Inference [epoch 0]: Rollout step 38 of 49.
+2026-01-30 11:33:36,603 - INFO - base - Inference [epoch 0]: Rollout step 38 of 49.
+2026-01-30 11:33:36,604 - INFO - base - Inference [epoch 0]: Rollout step 38 of 49.
+2026-01-30 11:33:40,637 - INFO - base - Inference [epoch 0]: Rollout step 39 of 49.
+2026-01-30 11:33:40,717 - INFO - base - Inference [epoch 0]: Rollout step 39 of 49.
+2026-01-30 11:33:40,719 - INFO - base - Inference [epoch 0]: Rollout step 39 of 49.
+2026-01-30 11:33:47,590 - INFO - base - Inference [epoch 0]: Rollout step 40 of 49.
+2026-01-30 11:33:47,591 - INFO - base - Inference [epoch 0]: Rollout step 40 of 49.
+2026-01-30 11:33:47,593 - INFO - base - Inference [epoch 0]: Rollout step 40 of 49.
+2026-01-30 11:33:55,068 - INFO - base - Inference [epoch 0]: Rollout step 41 of 49.
+2026-01-30 11:33:55,074 - INFO - base - Inference [epoch 0]: Rollout step 41 of 49.
+2026-01-30 11:33:55,077 - INFO - base - Inference [epoch 0]: Rollout step 41 of 49.
+2026-01-30 11:33:58,543 - INFO - base - Inference [epoch 0]: Rollout step 42 of 49.
+2026-01-30 11:33:58,553 - INFO - base - Inference [epoch 0]: Rollout step 42 of 49.
+2026-01-30 11:33:58,560 - INFO - base - Inference [epoch 0]: Rollout step 42 of 49.
+2026-01-30 11:34:19,193 - INFO - base - Inference [epoch 0]: Rollout step 43 of 49.
+2026-01-30 11:34:19,197 - INFO - base - Inference [epoch 0]: Rollout step 43 of 49.
+2026-01-30 11:34:19,200 - INFO - base - Inference [epoch 0]: Rollout step 43 of 49.
+2026-01-30 11:34:23,418 - INFO - base - Inference [epoch 0]: Rollout step 44 of 49.
+2026-01-30 11:34:23,423 - INFO - base - Inference [epoch 0]: Rollout step 44 of 49.
+2026-01-30 11:34:23,425 - INFO - base - Inference [epoch 0]: Rollout step 44 of 49.
+2026-01-30 11:34:28,070 - INFO - base - Inference [epoch 0]: Rollout step 45 of 49.
+2026-01-30 11:34:28,142 - INFO - base - Inference [epoch 0]: Rollout step 45 of 49.
+2026-01-30 11:34:28,149 - INFO - base - Inference [epoch 0]: Rollout step 45 of 49.
+2026-01-30 11:34:32,179 - INFO - base - Inference [epoch 0]: Rollout step 46 of 49.
+2026-01-30 11:34:32,181 - INFO - base - Inference [epoch 0]: Rollout step 46 of 49.
+2026-01-30 11:34:32,190 - INFO - base - Inference [epoch 0]: Rollout step 46 of 49.
+2026-01-30 11:34:36,005 - INFO - base - Inference [epoch 0]: Rollout step 47 of 49.
+2026-01-30 11:34:36,190 - INFO - base - Inference [epoch 0]: Rollout step 47 of 49.
+2026-01-30 11:34:36,194 - INFO - base - Inference [epoch 0]: Rollout step 47 of 49.
+2026-01-30 11:34:40,231 - INFO - base - Inference [epoch 0]: Rollout step 48 of 49.
+2026-01-30 11:34:40,330 - INFO - base - Inference [epoch 0]: Rollout step 48 of 49.
+2026-01-30 11:34:40,338 - INFO - base - Inference [epoch 0]: Rollout step 48 of 49.
+2026-01-30 11:34:43,647 - INFO - base - Inference [epoch 0]: Rollout step 49 of 49.
+2026-01-30 11:34:43,755 - INFO - base - Inference [epoch 0]: Rollout step 49 of 49.
+2026-01-30 11:34:43,760 - INFO - base - Inference [epoch 0]: Rollout step 49 of 49.
+2026-01-30 11:34:57,313 - INFO - stepper - Writing to zarr...
+2026-01-30 11:34:57,344 - INFO - stepper - Writing to zarr...
+2026-01-30 11:34:57,347 - INFO - stepper - Writing to zarr...
+2026-01-30 11:34:58,752 - INFO - stepper - Recording logs...
+2026-01-30 11:34:58,880 - INFO - stepper - Logging to wandb...
+2026-01-30 11:34:58,881 - INFO - stepper - Inference [epoch 0]: loop 2 of 6. Stepping 25 steps forward.
+2026-01-30 11:34:58,939 - INFO - stepper - Recording logs...
+2026-01-30 11:34:59,054 - INFO - stepper - Recording logs...
+2026-01-30 11:34:59,067 - INFO - stepper - Logging to wandb...
+2026-01-30 11:34:59,068 - INFO - stepper - Inference [epoch 0]: loop 2 of 6. Stepping 25 steps forward.
+2026-01-30 11:34:59,181 - INFO - stepper - Logging to wandb...
+2026-01-30 11:34:59,182 - INFO - stepper - Inference [epoch 0]: loop 2 of 6. Stepping 25 steps forward.
+2026-01-30 11:35:08,904 - INFO - base - Inference [epoch 0]: Rollout step 50 of 74.
+2026-01-30 11:35:09,240 - INFO - base - Inference [epoch 0]: Rollout step 50 of 74.
+2026-01-30 11:35:09,250 - INFO - base - Inference [epoch 0]: Rollout step 50 of 74.
+2026-01-30 11:35:30,794 - INFO - base - Inference [epoch 0]: Rollout step 51 of 74.
+2026-01-30 11:35:30,876 - INFO - base - Inference [epoch 0]: Rollout step 51 of 74.
+2026-01-30 11:35:30,893 - INFO - base - Inference [epoch 0]: Rollout step 51 of 74.
+2026-01-30 11:35:41,445 - INFO - base - Inference [epoch 0]: Rollout step 52 of 74.
+2026-01-30 11:35:41,446 - INFO - base - Inference [epoch 0]: Rollout step 52 of 74.
+2026-01-30 11:35:41,448 - INFO - base - Inference [epoch 0]: Rollout step 52 of 74.
+2026-01-30 11:36:13,918 - INFO - base - Inference [epoch 0]: Rollout step 53 of 74.
+2026-01-30 11:36:13,921 - INFO - base - Inference [epoch 0]: Rollout step 53 of 74.
+2026-01-30 11:36:13,924 - INFO - base - Inference [epoch 0]: Rollout step 53 of 74.
+2026-01-30 11:36:20,790 - INFO - base - Inference [epoch 0]: Rollout step 54 of 74.
+2026-01-30 11:36:20,860 - INFO - base - Inference [epoch 0]: Rollout step 54 of 74.
+2026-01-30 11:36:20,873 - INFO - base - Inference [epoch 0]: Rollout step 54 of 74.
+2026-01-30 11:36:25,305 - INFO - base - Inference [epoch 0]: Rollout step 55 of 74.
+2026-01-30 11:36:25,388 - INFO - base - Inference [epoch 0]: Rollout step 55 of 74.
+2026-01-30 11:36:25,400 - INFO - base - Inference [epoch 0]: Rollout step 55 of 74.
+2026-01-30 11:36:30,392 - INFO - base - Inference [epoch 0]: Rollout step 56 of 74.
+2026-01-30 11:36:30,571 - INFO - base - Inference [epoch 0]: Rollout step 56 of 74.
+2026-01-30 11:36:30,571 - INFO - base - Inference [epoch 0]: Rollout step 56 of 74.
+2026-01-30 11:36:47,250 - INFO - base - Inference [epoch 0]: Rollout step 57 of 74.
+2026-01-30 11:36:47,251 - INFO - base - Inference [epoch 0]: Rollout step 57 of 74.
+2026-01-30 11:36:47,255 - INFO - base - Inference [epoch 0]: Rollout step 57 of 74.
+2026-01-30 11:36:57,209 - INFO - base - Inference [epoch 0]: Rollout step 58 of 74.
+2026-01-30 11:36:57,280 - INFO - base - Inference [epoch 0]: Rollout step 58 of 74.
+2026-01-30 11:36:57,298 - INFO - base - Inference [epoch 0]: Rollout step 58 of 74.
+2026-01-30 11:37:01,796 - INFO - base - Inference [epoch 0]: Rollout step 59 of 74.
+2026-01-30 11:37:01,797 - INFO - base - Inference [epoch 0]: Rollout step 59 of 74.
+2026-01-30 11:37:01,801 - INFO - base - Inference [epoch 0]: Rollout step 59 of 74.
+2026-01-30 11:37:07,224 - INFO - base - Inference [epoch 0]: Rollout step 60 of 74.
+2026-01-30 11:37:07,274 - INFO - base - Inference [epoch 0]: Rollout step 60 of 74.
+2026-01-30 11:37:07,283 - INFO - base - Inference [epoch 0]: Rollout step 60 of 74.
+2026-01-30 11:37:12,568 - INFO - base - Inference [epoch 0]: Rollout step 61 of 74.
+2026-01-30 11:37:12,608 - INFO - base - Inference [epoch 0]: Rollout step 61 of 74.
+2026-01-30 11:37:12,624 - INFO - base - Inference [epoch 0]: Rollout step 61 of 74.
+2026-01-30 11:37:17,889 - INFO - base - Inference [epoch 0]: Rollout step 62 of 74.
+2026-01-30 11:37:17,971 - INFO - base - Inference [epoch 0]: Rollout step 62 of 74.
+2026-01-30 11:37:17,983 - INFO - base - Inference [epoch 0]: Rollout step 62 of 74.
+2026-01-30 11:37:22,199 - INFO - base - Inference [epoch 0]: Rollout step 63 of 74.
+2026-01-30 11:37:22,206 - INFO - base - Inference [epoch 0]: Rollout step 63 of 74.
+2026-01-30 11:37:22,211 - INFO - base - Inference [epoch 0]: Rollout step 63 of 74.
+2026-01-30 11:37:43,434 - INFO - base - Inference [epoch 0]: Rollout step 64 of 74.
+2026-01-30 11:37:43,515 - INFO - base - Inference [epoch 0]: Rollout step 64 of 74.
+2026-01-30 11:37:43,537 - INFO - base - Inference [epoch 0]: Rollout step 64 of 74.
+2026-01-30 11:37:47,906 - INFO - base - Inference [epoch 0]: Rollout step 65 of 74.
+2026-01-30 11:37:47,913 - INFO - base - Inference [epoch 0]: Rollout step 65 of 74.
+2026-01-30 11:37:47,913 - INFO - base - Inference [epoch 0]: Rollout step 65 of 74.
+2026-01-30 11:37:52,936 - INFO - base - Inference [epoch 0]: Rollout step 66 of 74.
+2026-01-30 11:37:52,981 - INFO - base - Inference [epoch 0]: Rollout step 66 of 74.
+2026-01-30 11:37:52,981 - INFO - base - Inference [epoch 0]: Rollout step 66 of 74.
+2026-01-30 11:37:57,933 - INFO - base - Inference [epoch 0]: Rollout step 67 of 74.
+2026-01-30 11:37:57,937 - INFO - base - Inference [epoch 0]: Rollout step 67 of 74.
+2026-01-30 11:37:57,951 - INFO - base - Inference [epoch 0]: Rollout step 67 of 74.
+2026-01-30 11:38:02,314 - INFO - base - Inference [epoch 0]: Rollout step 68 of 74.
+2026-01-30 11:38:02,348 - INFO - base - Inference [epoch 0]: Rollout step 68 of 74.
+2026-01-30 11:38:02,355 - INFO - base - Inference [epoch 0]: Rollout step 68 of 74.
+2026-01-30 11:38:07,269 - INFO - base - Inference [epoch 0]: Rollout step 69 of 74.
+2026-01-30 11:38:07,353 - INFO - base - Inference [epoch 0]: Rollout step 69 of 74.
+2026-01-30 11:38:07,364 - INFO - base - Inference [epoch 0]: Rollout step 69 of 74.
+2026-01-30 11:38:12,251 - INFO - base - Inference [epoch 0]: Rollout step 70 of 74.
+2026-01-30 11:38:12,442 - INFO - base - Inference [epoch 0]: Rollout step 70 of 74.
+2026-01-30 11:38:12,442 - INFO - base - Inference [epoch 0]: Rollout step 70 of 74.
+2026-01-30 11:38:37,913 - INFO - base - Inference [epoch 0]: Rollout step 71 of 74.
+2026-01-30 11:38:37,921 - INFO - base - Inference [epoch 0]: Rollout step 71 of 74.
+2026-01-30 11:38:37,923 - INFO - base - Inference [epoch 0]: Rollout step 71 of 74.
+2026-01-30 11:38:42,481 - INFO - base - Inference [epoch 0]: Rollout step 72 of 74.
+2026-01-30 11:38:42,566 - INFO - base - Inference [epoch 0]: Rollout step 72 of 74.
+2026-01-30 11:38:42,566 - INFO - base - Inference [epoch 0]: Rollout step 72 of 74.
+2026-01-30 11:38:47,202 - INFO - base - Inference [epoch 0]: Rollout step 73 of 74.
+2026-01-30 11:38:47,202 - INFO - base - Inference [epoch 0]: Rollout step 73 of 74.
+2026-01-30 11:38:47,203 - INFO - base - Inference [epoch 0]: Rollout step 73 of 74.
+2026-01-30 11:38:51,700 - INFO - base - Inference [epoch 0]: Rollout step 74 of 74.
+2026-01-30 11:38:51,781 - INFO - base - Inference [epoch 0]: Rollout step 74 of 74.
+2026-01-30 11:38:51,787 - INFO - base - Inference [epoch 0]: Rollout step 74 of 74.
+2026-01-30 11:39:03,875 - INFO - stepper - Writing to zarr...
+2026-01-30 11:39:03,876 - INFO - stepper - Writing to zarr...
+2026-01-30 11:39:03,899 - INFO - stepper - Writing to zarr...
+2026-01-30 11:39:05,461 - INFO - stepper - Recording logs...
+2026-01-30 11:39:05,591 - INFO - stepper - Logging to wandb...
+2026-01-30 11:39:05,592 - INFO - stepper - Inference [epoch 0]: loop 3 of 6. Stepping 25 steps forward.
+2026-01-30 11:39:05,596 - INFO - stepper - Recording logs...
+2026-01-30 11:39:05,603 - INFO - stepper - Recording logs...
+2026-01-30 11:39:05,850 - INFO - stepper - Logging to wandb...
+2026-01-30 11:39:05,851 - INFO - stepper - Inference [epoch 0]: loop 3 of 6. Stepping 25 steps forward.
+2026-01-30 11:39:05,871 - INFO - stepper - Logging to wandb...
+2026-01-30 11:39:05,872 - INFO - stepper - Inference [epoch 0]: loop 3 of 6. Stepping 25 steps forward.
+2026-01-30 11:39:15,744 - INFO - base - Inference [epoch 0]: Rollout step 75 of 99.
+2026-01-30 11:39:15,858 - INFO - base - Inference [epoch 0]: Rollout step 75 of 99.
+2026-01-30 11:39:15,921 - INFO - base - Inference [epoch 0]: Rollout step 75 of 99.
+2026-01-30 11:39:19,910 - INFO - base - Inference [epoch 0]: Rollout step 76 of 99.
+2026-01-30 11:39:19,918 - INFO - base - Inference [epoch 0]: Rollout step 76 of 99.
+2026-01-30 11:39:19,919 - INFO - base - Inference [epoch 0]: Rollout step 76 of 99.
+2026-01-30 11:39:24,809 - INFO - base - Inference [epoch 0]: Rollout step 77 of 99.
+2026-01-30 11:39:24,810 - INFO - base - Inference [epoch 0]: Rollout step 77 of 99.
+2026-01-30 11:39:24,815 - INFO - base - Inference [epoch 0]: Rollout step 77 of 99.
+2026-01-30 11:39:28,179 - INFO - base - Inference [epoch 0]: Rollout step 78 of 99.
+2026-01-30 11:39:28,253 - INFO - base - Inference [epoch 0]: Rollout step 78 of 99.
+2026-01-30 11:39:28,275 - INFO - base - Inference [epoch 0]: Rollout step 78 of 99.
+2026-01-30 11:39:33,613 - INFO - base - Inference [epoch 0]: Rollout step 79 of 99.
+2026-01-30 11:39:33,699 - INFO - base - Inference [epoch 0]: Rollout step 79 of 99.
+2026-01-30 11:39:33,700 - INFO - base - Inference [epoch 0]: Rollout step 79 of 99.
+2026-01-30 11:39:37,801 - INFO - base - Inference [epoch 0]: Rollout step 80 of 99.
+2026-01-30 11:39:37,910 - INFO - base - Inference [epoch 0]: Rollout step 80 of 99.
+2026-01-30 11:39:37,921 - INFO - base - Inference [epoch 0]: Rollout step 80 of 99.
+2026-01-30 11:39:43,212 - INFO - base - Inference [epoch 0]: Rollout step 81 of 99.
+2026-01-30 11:39:43,282 - INFO - base - Inference [epoch 0]: Rollout step 81 of 99.
+2026-01-30 11:39:43,282 - INFO - base - Inference [epoch 0]: Rollout step 81 of 99.
+2026-01-30 11:39:48,343 - INFO - base - Inference [epoch 0]: Rollout step 82 of 99.
+2026-01-30 11:39:48,343 - INFO - base - Inference [epoch 0]: Rollout step 82 of 99.
+2026-01-30 11:39:48,345 - INFO - base - Inference [epoch 0]: Rollout step 82 of 99.
+2026-01-30 11:39:53,405 - INFO - base - Inference [epoch 0]: Rollout step 83 of 99.
+2026-01-30 11:39:53,416 - INFO - base - Inference [epoch 0]: Rollout step 83 of 99.
+2026-01-30 11:39:53,437 - INFO - base - Inference [epoch 0]: Rollout step 83 of 99.
+2026-01-30 11:39:58,244 - INFO - base - Inference [epoch 0]: Rollout step 84 of 99.
+2026-01-30 11:39:58,265 - INFO - base - Inference [epoch 0]: Rollout step 84 of 99.
+2026-01-30 11:39:58,267 - INFO - base - Inference [epoch 0]: Rollout step 84 of 99.
+2026-01-30 11:40:01,621 - INFO - base - Inference [epoch 0]: Rollout step 85 of 99.
+2026-01-30 11:40:01,621 - INFO - base - Inference [epoch 0]: Rollout step 85 of 99.
+2026-01-30 11:40:01,627 - INFO - base - Inference [epoch 0]: Rollout step 85 of 99.
+2026-01-30 11:40:05,082 - INFO - base - Inference [epoch 0]: Rollout step 86 of 99.
+2026-01-30 11:40:05,150 - INFO - base - Inference [epoch 0]: Rollout step 86 of 99.
+2026-01-30 11:40:05,156 - INFO - base - Inference [epoch 0]: Rollout step 86 of 99.
+2026-01-30 11:40:11,416 - INFO - base - Inference [epoch 0]: Rollout step 87 of 99.
+2026-01-30 11:40:11,489 - INFO - base - Inference [epoch 0]: Rollout step 87 of 99.
+2026-01-30 11:40:11,500 - INFO - base - Inference [epoch 0]: Rollout step 87 of 99.
+2026-01-30 11:40:15,698 - INFO - base - Inference [epoch 0]: Rollout step 88 of 99.
+2026-01-30 11:40:15,763 - INFO - base - Inference [epoch 0]: Rollout step 88 of 99.
+2026-01-30 11:40:15,765 - INFO - base - Inference [epoch 0]: Rollout step 88 of 99.
+2026-01-30 11:40:37,818 - INFO - base - Inference [epoch 0]: Rollout step 89 of 99.
+2026-01-30 11:40:37,824 - INFO - base - Inference [epoch 0]: Rollout step 89 of 99.
+2026-01-30 11:40:37,826 - INFO - base - Inference [epoch 0]: Rollout step 89 of 99.
+2026-01-30 11:41:06,184 - INFO - base - Inference [epoch 0]: Rollout step 90 of 99.
+2026-01-30 11:41:06,280 - INFO - base - Inference [epoch 0]: Rollout step 90 of 99.
+2026-01-30 11:41:06,285 - INFO - base - Inference [epoch 0]: Rollout step 90 of 99.
+2026-01-30 11:41:28,188 - INFO - base - Inference [epoch 0]: Rollout step 91 of 99.
+2026-01-30 11:41:28,254 - INFO - base - Inference [epoch 0]: Rollout step 91 of 99.
+2026-01-30 11:41:28,263 - INFO - base - Inference [epoch 0]: Rollout step 91 of 99.
+2026-01-30 11:41:32,263 - INFO - base - Inference [epoch 0]: Rollout step 92 of 99.
+2026-01-30 11:41:32,266 - INFO - base - Inference [epoch 0]: Rollout step 92 of 99.
+2026-01-30 11:41:32,267 - INFO - base - Inference [epoch 0]: Rollout step 92 of 99.
+2026-01-30 11:41:36,444 - INFO - base - Inference [epoch 0]: Rollout step 93 of 99.
+2026-01-30 11:41:36,451 - INFO - base - Inference [epoch 0]: Rollout step 93 of 99.
+2026-01-30 11:41:36,454 - INFO - base - Inference [epoch 0]: Rollout step 93 of 99.
+2026-01-30 11:41:40,367 - INFO - base - Inference [epoch 0]: Rollout step 94 of 99.
+2026-01-30 11:41:40,375 - INFO - base - Inference [epoch 0]: Rollout step 94 of 99.
+2026-01-30 11:41:40,378 - INFO - base - Inference [epoch 0]: Rollout step 94 of 99.
+2026-01-30 11:41:43,705 - INFO - base - Inference [epoch 0]: Rollout step 95 of 99.
+2026-01-30 11:41:43,707 - INFO - base - Inference [epoch 0]: Rollout step 95 of 99.
+2026-01-30 11:41:43,717 - INFO - base - Inference [epoch 0]: Rollout step 95 of 99.
+2026-01-30 11:41:47,741 - INFO - base - Inference [epoch 0]: Rollout step 96 of 99.
+2026-01-30 11:41:47,743 - INFO - base - Inference [epoch 0]: Rollout step 96 of 99.
+2026-01-30 11:41:47,749 - INFO - base - Inference [epoch 0]: Rollout step 96 of 99.
+2026-01-30 11:41:52,211 - INFO - base - Inference [epoch 0]: Rollout step 97 of 99.
+2026-01-30 11:41:52,273 - INFO - base - Inference [epoch 0]: Rollout step 97 of 99.
+2026-01-30 11:41:52,289 - INFO - base - Inference [epoch 0]: Rollout step 97 of 99.
+2026-01-30 11:41:55,541 - INFO - base - Inference [epoch 0]: Rollout step 98 of 99.
+2026-01-30 11:41:55,543 - INFO - base - Inference [epoch 0]: Rollout step 98 of 99.
+2026-01-30 11:41:55,544 - INFO - base - Inference [epoch 0]: Rollout step 98 of 99.
+2026-01-30 11:42:10,529 - INFO - base - Inference [epoch 0]: Rollout step 99 of 99.
+2026-01-30 11:42:10,531 - INFO - base - Inference [epoch 0]: Rollout step 99 of 99.
+2026-01-30 11:42:10,534 - INFO - base - Inference [epoch 0]: Rollout step 99 of 99.
+2026-01-30 11:42:24,386 - INFO - stepper - Writing to zarr...
+2026-01-30 11:42:24,429 - INFO - stepper - Writing to zarr...
+2026-01-30 11:42:24,466 - INFO - stepper - Writing to zarr...
+2026-01-30 11:42:25,621 - INFO - stepper - Recording logs...
+2026-01-30 11:42:25,749 - INFO - stepper - Logging to wandb...
+2026-01-30 11:42:25,750 - INFO - stepper - Inference [epoch 0]: loop 4 of 6. Stepping 25 steps forward.
+2026-01-30 11:42:26,032 - INFO - stepper - Recording logs...
+2026-01-30 11:42:26,106 - INFO - stepper - Recording logs...
+2026-01-30 11:42:26,270 - INFO - stepper - Logging to wandb...
+2026-01-30 11:42:26,271 - INFO - stepper - Inference [epoch 0]: loop 4 of 6. Stepping 25 steps forward.
+2026-01-30 11:42:26,272 - INFO - stepper - Logging to wandb...
+2026-01-30 11:42:26,273 - INFO - stepper - Inference [epoch 0]: loop 4 of 6. Stepping 25 steps forward.
+2026-01-30 11:42:48,351 - INFO - base - Inference [epoch 0]: Rollout step 100 of 124.
+2026-01-30 11:42:48,357 - INFO - base - Inference [epoch 0]: Rollout step 100 of 124.
+2026-01-30 11:42:48,357 - INFO - base - Inference [epoch 0]: Rollout step 100 of 124.
+2026-01-30 11:42:53,172 - INFO - base - Inference [epoch 0]: Rollout step 101 of 124.
+2026-01-30 11:42:53,175 - INFO - base - Inference [epoch 0]: Rollout step 101 of 124.
+2026-01-30 11:42:53,221 - INFO - base - Inference [epoch 0]: Rollout step 101 of 124.
+2026-01-30 11:42:58,035 - INFO - base - Inference [epoch 0]: Rollout step 102 of 124.
+2026-01-30 11:42:58,041 - INFO - base - Inference [epoch 0]: Rollout step 102 of 124.
+2026-01-30 11:42:58,042 - INFO - base - Inference [epoch 0]: Rollout step 102 of 124.
+2026-01-30 11:43:01,773 - INFO - base - Inference [epoch 0]: Rollout step 103 of 124.
+2026-01-30 11:43:01,839 - INFO - base - Inference [epoch 0]: Rollout step 103 of 124.
+2026-01-30 11:43:01,843 - INFO - base - Inference [epoch 0]: Rollout step 103 of 124.
+2026-01-30 11:43:20,769 - INFO - base - Inference [epoch 0]: Rollout step 104 of 124.
+2026-01-30 11:43:20,841 - INFO - base - Inference [epoch 0]: Rollout step 104 of 124.
+2026-01-30 11:43:20,842 - INFO - base - Inference [epoch 0]: Rollout step 104 of 124.
+2026-01-30 11:43:25,906 - INFO - base - Inference [epoch 0]: Rollout step 105 of 124.
+2026-01-30 11:43:26,112 - INFO - base - Inference [epoch 0]: Rollout step 105 of 124.
+2026-01-30 11:43:26,122 - INFO - base - Inference [epoch 0]: Rollout step 105 of 124.
+2026-01-30 11:43:30,361 - INFO - base - Inference [epoch 0]: Rollout step 106 of 124.
+2026-01-30 11:43:30,403 - INFO - base - Inference [epoch 0]: Rollout step 106 of 124.
+2026-01-30 11:43:30,405 - INFO - base - Inference [epoch 0]: Rollout step 106 of 124.
+2026-01-30 11:43:42,211 - INFO - base - Inference [epoch 0]: Rollout step 107 of 124.
+2026-01-30 11:43:42,213 - INFO - base - Inference [epoch 0]: Rollout step 107 of 124.
+2026-01-30 11:43:42,214 - INFO - base - Inference [epoch 0]: Rollout step 107 of 124.
+2026-01-30 11:43:46,456 - INFO - base - Inference [epoch 0]: Rollout step 108 of 124.
+2026-01-30 11:43:46,531 - INFO - base - Inference [epoch 0]: Rollout step 108 of 124.
+2026-01-30 11:43:46,532 - INFO - base - Inference [epoch 0]: Rollout step 108 of 124.
+2026-01-30 11:43:51,963 - INFO - base - Inference [epoch 0]: Rollout step 109 of 124.
+2026-01-30 11:43:51,986 - INFO - base - Inference [epoch 0]: Rollout step 109 of 124.
+2026-01-30 11:43:52,134 - INFO - base - Inference [epoch 0]: Rollout step 109 of 124.
+2026-01-30 11:43:57,517 - INFO - base - Inference [epoch 0]: Rollout step 110 of 124.
+2026-01-30 11:43:57,518 - INFO - base - Inference [epoch 0]: Rollout step 110 of 124.
+2026-01-30 11:43:57,523 - INFO - base - Inference [epoch 0]: Rollout step 110 of 124.
+2026-01-30 11:44:05,662 - INFO - base - Inference [epoch 0]: Rollout step 111 of 124.
+2026-01-30 11:44:05,662 - INFO - base - Inference [epoch 0]: Rollout step 111 of 124.
+2026-01-30 11:44:05,671 - INFO - base - Inference [epoch 0]: Rollout step 111 of 124.
+2026-01-30 11:44:10,301 - INFO - base - Inference [epoch 0]: Rollout step 112 of 124.
+2026-01-30 11:44:10,307 - INFO - base - Inference [epoch 0]: Rollout step 112 of 124.
+2026-01-30 11:44:10,311 - INFO - base - Inference [epoch 0]: Rollout step 112 of 124.
+2026-01-30 11:44:15,094 - INFO - base - Inference [epoch 0]: Rollout step 113 of 124.
+2026-01-30 11:44:15,159 - INFO - base - Inference [epoch 0]: Rollout step 113 of 124.
+2026-01-30 11:44:15,203 - INFO - base - Inference [epoch 0]: Rollout step 113 of 124.
+2026-01-30 11:44:18,601 - INFO - base - Inference [epoch 0]: Rollout step 114 of 124.
+2026-01-30 11:44:18,836 - INFO - base - Inference [epoch 0]: Rollout step 114 of 124.
+2026-01-30 11:44:18,892 - INFO - base - Inference [epoch 0]: Rollout step 114 of 124.
+2026-01-30 11:44:21,478 - INFO - base - Inference [epoch 0]: Rollout step 115 of 124.
+2026-01-30 11:44:21,479 - INFO - base - Inference [epoch 0]: Rollout step 115 of 124.
+2026-01-30 11:44:21,481 - INFO - base - Inference [epoch 0]: Rollout step 115 of 124.
+2026-01-30 11:44:24,910 - INFO - base - Inference [epoch 0]: Rollout step 116 of 124.
+2026-01-30 11:44:24,916 - INFO - base - Inference [epoch 0]: Rollout step 116 of 124.
+2026-01-30 11:44:24,920 - INFO - base - Inference [epoch 0]: Rollout step 116 of 124.
+2026-01-30 11:44:29,061 - INFO - base - Inference [epoch 0]: Rollout step 117 of 124.
+2026-01-30 11:44:29,065 - INFO - base - Inference [epoch 0]: Rollout step 117 of 124.
+2026-01-30 11:44:29,197 - INFO - base - Inference [epoch 0]: Rollout step 117 of 124.
+2026-01-30 11:44:34,268 - INFO - base - Inference [epoch 0]: Rollout step 118 of 124.
+2026-01-30 11:44:34,270 - INFO - base - Inference [epoch 0]: Rollout step 118 of 124.
+2026-01-30 11:44:34,272 - INFO - base - Inference [epoch 0]: Rollout step 118 of 124.
+2026-01-30 11:44:39,031 - INFO - base - Inference [epoch 0]: Rollout step 119 of 124.
+2026-01-30 11:44:39,034 - INFO - base - Inference [epoch 0]: Rollout step 119 of 124.
+2026-01-30 11:44:39,097 - INFO - base - Inference [epoch 0]: Rollout step 119 of 124.
+2026-01-30 11:44:43,650 - INFO - base - Inference [epoch 0]: Rollout step 120 of 124.
+2026-01-30 11:44:43,674 - INFO - base - Inference [epoch 0]: Rollout step 120 of 124.
+2026-01-30 11:44:43,852 - INFO - base - Inference [epoch 0]: Rollout step 120 of 124.
+2026-01-30 11:44:48,148 - INFO - base - Inference [epoch 0]: Rollout step 121 of 124.
+2026-01-30 11:44:48,193 - INFO - base - Inference [epoch 0]: Rollout step 121 of 124.
+2026-01-30 11:44:48,199 - INFO - base - Inference [epoch 0]: Rollout step 121 of 124.
+2026-01-30 11:44:52,241 - INFO - base - Inference [epoch 0]: Rollout step 122 of 124.
+2026-01-30 11:44:52,243 - INFO - base - Inference [epoch 0]: Rollout step 122 of 124.
+2026-01-30 11:44:52,247 - INFO - base - Inference [epoch 0]: Rollout step 122 of 124.
+2026-01-30 11:45:14,235 - INFO - base - Inference [epoch 0]: Rollout step 123 of 124.
+2026-01-30 11:45:14,240 - INFO - base - Inference [epoch 0]: Rollout step 123 of 124.
+2026-01-30 11:45:14,246 - INFO - base - Inference [epoch 0]: Rollout step 123 of 124.
+2026-01-30 11:45:20,070 - INFO - base - Inference [epoch 0]: Rollout step 124 of 124.
+2026-01-30 11:45:20,155 - INFO - base - Inference [epoch 0]: Rollout step 124 of 124.
+2026-01-30 11:45:20,156 - INFO - base - Inference [epoch 0]: Rollout step 124 of 124.
+2026-01-30 11:45:43,084 - INFO - stepper - Writing to zarr...
+2026-01-30 11:45:43,100 - INFO - stepper - Writing to zarr...
+2026-01-30 11:45:43,129 - INFO - stepper - Writing to zarr...
+2026-01-30 11:45:44,715 - INFO - stepper - Recording logs...
+2026-01-30 11:45:44,719 - INFO - stepper - Recording logs...
+2026-01-30 11:45:44,854 - INFO - stepper - Recording logs...
+2026-01-30 11:45:45,078 - INFO - stepper - Logging to wandb...
+2026-01-30 11:45:45,079 - INFO - stepper - Inference [epoch 0]: loop 5 of 6. Stepping 25 steps forward.
+2026-01-30 11:45:45,088 - INFO - stepper - Logging to wandb...
+2026-01-30 11:45:45,089 - INFO - stepper - Inference [epoch 0]: loop 5 of 6. Stepping 25 steps forward.
+2026-01-30 11:45:45,095 - INFO - stepper - Logging to wandb...
+2026-01-30 11:45:45,096 - INFO - stepper - Inference [epoch 0]: loop 5 of 6. Stepping 25 steps forward.
+2026-01-30 11:46:18,418 - INFO - base - Inference [epoch 0]: Rollout step 125 of 149.
+2026-01-30 11:46:18,421 - INFO - base - Inference [epoch 0]: Rollout step 125 of 149.
+2026-01-30 11:46:18,421 - INFO - base - Inference [epoch 0]: Rollout step 125 of 149.
+2026-01-30 11:46:22,613 - INFO - base - Inference [epoch 0]: Rollout step 126 of 149.
+2026-01-30 11:46:22,628 - INFO - base - Inference [epoch 0]: Rollout step 126 of 149.
+2026-01-30 11:46:22,630 - INFO - base - Inference [epoch 0]: Rollout step 126 of 149.
+2026-01-30 11:46:28,034 - INFO - base - Inference [epoch 0]: Rollout step 127 of 149.
+2026-01-30 11:46:28,110 - INFO - base - Inference [epoch 0]: Rollout step 127 of 149.
+2026-01-30 11:46:28,131 - INFO - base - Inference [epoch 0]: Rollout step 127 of 149.
+2026-01-30 11:46:31,981 - INFO - base - Inference [epoch 0]: Rollout step 128 of 149.
+2026-01-30 11:46:31,988 - INFO - base - Inference [epoch 0]: Rollout step 128 of 149.
+2026-01-30 11:46:31,992 - INFO - base - Inference [epoch 0]: Rollout step 128 of 149.
+2026-01-30 11:46:34,822 - INFO - base - Inference [epoch 0]: Rollout step 129 of 149.
+2026-01-30 11:46:34,833 - INFO - base - Inference [epoch 0]: Rollout step 129 of 149.
+2026-01-30 11:46:34,916 - INFO - base - Inference [epoch 0]: Rollout step 129 of 149.
+2026-01-30 11:46:40,987 - INFO - base - Inference [epoch 0]: Rollout step 130 of 149.
+2026-01-30 11:46:41,076 - INFO - base - Inference [epoch 0]: Rollout step 130 of 149.
+2026-01-30 11:46:41,078 - INFO - base - Inference [epoch 0]: Rollout step 130 of 149.
+2026-01-30 11:46:45,240 - INFO - base - Inference [epoch 0]: Rollout step 131 of 149.
+2026-01-30 11:46:45,366 - INFO - base - Inference [epoch 0]: Rollout step 131 of 149.
+2026-01-30 11:46:45,367 - INFO - base - Inference [epoch 0]: Rollout step 131 of 149.
+2026-01-30 11:46:51,037 - INFO - base - Inference [epoch 0]: Rollout step 132 of 149.
+2026-01-30 11:46:51,042 - INFO - base - Inference [epoch 0]: Rollout step 132 of 149.
+2026-01-30 11:46:51,096 - INFO - base - Inference [epoch 0]: Rollout step 132 of 149.
+2026-01-30 11:46:56,716 - INFO - base - Inference [epoch 0]: Rollout step 133 of 149.
+2026-01-30 11:46:56,718 - INFO - base - Inference [epoch 0]: Rollout step 133 of 149.
+2026-01-30 11:46:56,720 - INFO - base - Inference [epoch 0]: Rollout step 133 of 149.
+2026-01-30 11:47:01,619 - INFO - base - Inference [epoch 0]: Rollout step 134 of 149.
+2026-01-30 11:47:01,703 - INFO - base - Inference [epoch 0]: Rollout step 134 of 149.
+2026-01-30 11:47:01,705 - INFO - base - Inference [epoch 0]: Rollout step 134 of 149.
+2026-01-30 11:47:08,832 - INFO - base - Inference [epoch 0]: Rollout step 135 of 149.
+2026-01-30 11:47:08,835 - INFO - base - Inference [epoch 0]: Rollout step 135 of 149.
+2026-01-30 11:47:08,837 - INFO - base - Inference [epoch 0]: Rollout step 135 of 149.
+2026-01-30 11:47:14,279 - INFO - base - Inference [epoch 0]: Rollout step 136 of 149.
+2026-01-30 11:47:14,286 - INFO - base - Inference [epoch 0]: Rollout step 136 of 149.
+2026-01-30 11:47:14,290 - INFO - base - Inference [epoch 0]: Rollout step 136 of 149.
+2026-01-30 11:47:18,324 - INFO - base - Inference [epoch 0]: Rollout step 137 of 149.
+2026-01-30 11:47:18,338 - INFO - base - Inference [epoch 0]: Rollout step 137 of 149.
+2026-01-30 11:47:18,493 - INFO - base - Inference [epoch 0]: Rollout step 137 of 149.
+2026-01-30 11:47:22,860 - INFO - base - Inference [epoch 0]: Rollout step 138 of 149.
+2026-01-30 11:47:22,863 - INFO - base - Inference [epoch 0]: Rollout step 138 of 149.
+2026-01-30 11:47:22,864 - INFO - base - Inference [epoch 0]: Rollout step 138 of 149.
+2026-01-30 11:47:28,369 - INFO - base - Inference [epoch 0]: Rollout step 139 of 149.
+2026-01-30 11:47:28,373 - INFO - base - Inference [epoch 0]: Rollout step 139 of 149.
+2026-01-30 11:47:28,379 - INFO - base - Inference [epoch 0]: Rollout step 139 of 149.
+2026-01-30 11:47:31,938 - INFO - base - Inference [epoch 0]: Rollout step 140 of 149.
+2026-01-30 11:47:31,973 - INFO - base - Inference [epoch 0]: Rollout step 140 of 149.
+2026-01-30 11:47:32,005 - INFO - base - Inference [epoch 0]: Rollout step 140 of 149.
+2026-01-30 11:47:37,768 - INFO - base - Inference [epoch 0]: Rollout step 141 of 149.
+2026-01-30 11:47:37,774 - INFO - base - Inference [epoch 0]: Rollout step 141 of 149.
+2026-01-30 11:47:37,777 - INFO - base - Inference [epoch 0]: Rollout step 141 of 149.
+2026-01-30 11:47:42,047 - INFO - base - Inference [epoch 0]: Rollout step 142 of 149.
+2026-01-30 11:47:42,050 - INFO - base - Inference [epoch 0]: Rollout step 142 of 149.
+2026-01-30 11:47:42,067 - INFO - base - Inference [epoch 0]: Rollout step 142 of 149.
+2026-01-30 11:47:46,392 - INFO - base - Inference [epoch 0]: Rollout step 143 of 149.
+2026-01-30 11:47:46,459 - INFO - base - Inference [epoch 0]: Rollout step 143 of 149.
+2026-01-30 11:47:46,464 - INFO - base - Inference [epoch 0]: Rollout step 143 of 149.
+2026-01-30 11:47:49,623 - INFO - base - Inference [epoch 0]: Rollout step 144 of 149.
+2026-01-30 11:47:49,706 - INFO - base - Inference [epoch 0]: Rollout step 144 of 149.
+2026-01-30 11:47:49,706 - INFO - base - Inference [epoch 0]: Rollout step 144 of 149.
+2026-01-30 11:47:54,239 - INFO - base - Inference [epoch 0]: Rollout step 145 of 149.
+2026-01-30 11:47:54,316 - INFO - base - Inference [epoch 0]: Rollout step 145 of 149.
+2026-01-30 11:47:54,473 - INFO - base - Inference [epoch 0]: Rollout step 145 of 149.
+2026-01-30 11:47:57,778 - INFO - base - Inference [epoch 0]: Rollout step 146 of 149.
+2026-01-30 11:47:57,838 - INFO - base - Inference [epoch 0]: Rollout step 146 of 149.
+2026-01-30 11:47:57,937 - INFO - base - Inference [epoch 0]: Rollout step 146 of 149.
+2026-01-30 11:48:00,879 - INFO - base - Inference [epoch 0]: Rollout step 147 of 149.
+2026-01-30 11:48:00,884 - INFO - base - Inference [epoch 0]: Rollout step 147 of 149.
+2026-01-30 11:48:00,929 - INFO - base - Inference [epoch 0]: Rollout step 147 of 149.
+2026-01-30 11:48:04,575 - INFO - base - Inference [epoch 0]: Rollout step 148 of 149.
+2026-01-30 11:48:04,593 - INFO - base - Inference [epoch 0]: Rollout step 148 of 149.
+2026-01-30 11:48:04,595 - INFO - base - Inference [epoch 0]: Rollout step 148 of 149.
+2026-01-30 11:48:09,798 - INFO - base - Inference [epoch 0]: Rollout step 149 of 149.
+2026-01-30 11:48:09,864 - INFO - base - Inference [epoch 0]: Rollout step 149 of 149.
+2026-01-30 11:48:09,865 - INFO - base - Inference [epoch 0]: Rollout step 149 of 149.
+2026-01-30 11:48:22,655 - INFO - stepper - Writing to zarr...
+2026-01-30 11:48:22,705 - INFO - stepper - Writing to zarr...
+2026-01-30 11:48:22,797 - INFO - stepper - Writing to zarr...
+2026-01-30 11:48:23,964 - INFO - stepper - Recording logs...
+2026-01-30 11:48:24,100 - INFO - stepper - Logging to wandb...
+2026-01-30 11:48:24,101 - INFO - stepper - Inference [epoch 0]: loop 6 of 6. Stepping 5 steps forward.
+2026-01-30 11:48:24,194 - INFO - stepper - Recording logs...
+2026-01-30 11:48:24,321 - INFO - stepper - Logging to wandb...
+2026-01-30 11:48:24,322 - INFO - stepper - Inference [epoch 0]: loop 6 of 6. Stepping 5 steps forward.
+2026-01-30 11:48:24,460 - INFO - stepper - Recording logs...
+2026-01-30 11:48:24,589 - INFO - stepper - Logging to wandb...
+2026-01-30 11:48:24,589 - INFO - stepper - Inference [epoch 0]: loop 6 of 6. Stepping 5 steps forward.
+2026-01-30 11:48:50,780 - INFO - base - Inference [epoch 0]: Rollout step 150 of 154.
+2026-01-30 11:48:50,781 - INFO - base - Inference [epoch 0]: Rollout step 150 of 154.
+2026-01-30 11:48:50,783 - INFO - base - Inference [epoch 0]: Rollout step 150 of 154.
+2026-01-30 11:49:07,869 - INFO - base - Inference [epoch 0]: Rollout step 151 of 154.
+2026-01-30 11:49:07,874 - INFO - base - Inference [epoch 0]: Rollout step 151 of 154.
+2026-01-30 11:49:07,889 - INFO - base - Inference [epoch 0]: Rollout step 151 of 154.
+2026-01-30 11:49:13,755 - INFO - base - Inference [epoch 0]: Rollout step 152 of 154.
+2026-01-30 11:49:13,757 - INFO - base - Inference [epoch 0]: Rollout step 152 of 154.
+2026-01-30 11:49:13,759 - INFO - base - Inference [epoch 0]: Rollout step 152 of 154.
+2026-01-30 11:49:19,501 - INFO - base - Inference [epoch 0]: Rollout step 153 of 154.
+2026-01-30 11:49:19,508 - INFO - base - Inference [epoch 0]: Rollout step 153 of 154.
+2026-01-30 11:49:19,512 - INFO - base - Inference [epoch 0]: Rollout step 153 of 154.
+2026-01-30 11:49:23,834 - INFO - base - Inference [epoch 0]: Rollout step 154 of 154.
+2026-01-30 11:49:23,835 - INFO - base - Inference [epoch 0]: Rollout step 154 of 154.
+2026-01-30 11:49:23,835 - INFO - base - Inference [epoch 0]: Rollout step 154 of 154.
+2026-01-30 11:49:33,839 - INFO - stepper - Writing to zarr...
+2026-01-30 11:49:33,842 - INFO - stepper - Writing to zarr...
+2026-01-30 11:49:33,888 - INFO - stepper - Writing to zarr...
+2026-01-30 11:49:34,416 - INFO - stepper - Recording logs...
+2026-01-30 11:49:34,452 - INFO - stepper - Logging to wandb...
+2026-01-30 11:49:34,455 - INFO - stepper - Recording logs...
+2026-01-30 11:49:34,491 - INFO - stepper - Logging to wandb...
+2026-01-30 11:49:35,019 - INFO - stepper - Recording logs...
+2026-01-30 11:49:35,057 - INFO - stepper - Logging to wandb...
+2026-01-30 11:49:39,551 - INFO - eval - Eval time (Including wandb logging) 0:21:26
+2026-01-30 11:49:39,563 - INFO - eval - Eval time (Including wandb logging) 0:21:26
+2026-01-30 11:49:40,233 - INFO - eval - Eval time (Including wandb logging) 0:21:26

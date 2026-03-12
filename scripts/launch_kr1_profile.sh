@@ -19,7 +19,7 @@ fi
 export CONFIG=configs/fomo_om4/train_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_profile_memory
+export NAME_SUFFIX=kr1_fomo_profile_memory_v2
 
 # ── Data root ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/jr7309/data}"
@@ -34,7 +34,7 @@ export WANDB_MODE=disabled
 export PREEMPTIBLE=0
 
 # ── Override: 0 workers (avoid fork OOM), 1 epoch, no inference ──
-export ARGS="--batch_size=1 --data.num_workers=0 --epochs=1 --inference_epochs=[]"
+export ARGS="--batch_size=1 --data.num_workers=0 --epochs=1"
 
 # ── Profile output location (inside the run dir, bind-mounted) ──
 PROFILE_OUT="/scratch/${USER}/runs/memprofile_kr1.bin"

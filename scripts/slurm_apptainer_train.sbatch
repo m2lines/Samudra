@@ -57,6 +57,7 @@ CONFIG="${CONFIG:-}"
 NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
+ARGS_FILE="${ARGS_FILE:-}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -203,6 +204,23 @@ export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
 
+EXTRA_TRAIN_ARGS=()
+if [[ -n "${ARGS}" ]]; then
+  # Preserve literal quote characters in values like JSON overrides while still
+  # splitting simple whitespace-delimited flags into separate argv entries.
+  read -r -a EXTRA_TRAIN_ARGS <<< "${ARGS}"
+fi
+if [[ -n "${ARGS_FILE}" ]]; then
+  if [[ ! -f "${ARGS_FILE}" ]]; then
+    echo "ARGS_FILE does not exist: ${ARGS_FILE}" >&2
+    exit 7
+  fi
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    [[ -z "${line}" ]] && continue
+    EXTRA_TRAIN_ARGS+=("${line}")
+  done < "${ARGS_FILE}"
+fi
+
 # Bind mounts.
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
 mkdir -p "${DATA_CACHE_DIR}"
@@ -217,34 +235,41 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
 
+export OE_CONFIG_IN_CONTAINER="${CONFIG_IN_CONTAINER}"
+export OE_TRAIN_NAME="${NAME}"
+export OE_DATA_ROOT="${DATA_ROOT}"
+export OE_OUTPUT_BASE="${OUTPUT_BASE}"
+export OE_WANDB_MODE="${WANDB_MODE}"
+export OE_GPUS_PER_NODE="${GPUS_PER_NODE}"
+
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
     --bind "${BIND_ARG}" \
     --pwd /workspace \
     "${SIF_PATH}" \
-    bash -lc "
+    bash -lc '
       set -euo pipefail
-      export PYTHONPATH=/workspace/src:\${PYTHONPATH:-}
+      export PYTHONPATH=/workspace/src:${PYTHONPATH:-}
       if [[ ! -x /workspace/.venv/bin/python ]]; then
-        echo \"ERROR: /workspace/.venv/bin/python not found inside container\" >&2
+        echo "ERROR: /workspace/.venv/bin/python not found inside container" >&2
         exit 1
       fi
-      if [[ ! -f \"${CONFIG_IN_CONTAINER}\" ]]; then
-        echo \"ERROR: config not found inside container: ${CONFIG_IN_CONTAINER}\" >&2
-        echo \"Hint: rebuild/pull a container tag that includes /workspace/configs.\" >&2
+      if [[ ! -f "${OE_CONFIG_IN_CONTAINER}" ]]; then
+        echo "ERROR: config not found inside container: ${OE_CONFIG_IN_CONTAINER}" >&2
+        echo "Hint: rebuild/pull a container tag that includes /workspace/configs." >&2
         exit 2
       fi
-      /workspace/.venv/bin/python -m torch.distributed.run \
-        --nnodes=${SLURM_NNODES} \
-        --nproc_per_node=${GPUS_PER_NODE} \
-        --master_addr=${MASTER_ADDR} \
-        --master_port=${MASTER_PORT} \
-        --node_rank=\${SLURM_PROCID} \
-        -m ocean_emulators.train \"${CONFIG_IN_CONTAINER}\" \
-        --experiment.name=\"${NAME}\" \
-        --experiment.data_root=\"${DATA_ROOT}\" \
-        --experiment.base_output_dir=\"${OUTPUT_BASE}\" \
-        --experiment.wandb.mode=\"${WANDB_MODE}\" \
-        --backend=\"nccl\" \
-        ${ARGS}
-    "
+      exec /workspace/.venv/bin/python -m torch.distributed.run \
+        --nnodes='"${SLURM_NNODES}"' \
+        --nproc_per_node="${OE_GPUS_PER_NODE}" \
+        --master_addr='"${MASTER_ADDR}"' \
+        --master_port='"${MASTER_PORT}"' \
+        --node_rank="${SLURM_PROCID}" \
+        -m ocean_emulators.train "${OE_CONFIG_IN_CONTAINER}" \
+        --experiment.name="${OE_TRAIN_NAME}" \
+        --experiment.data_root="${OE_DATA_ROOT}" \
+        --experiment.base_output_dir="${OE_OUTPUT_BASE}" \
+        --experiment.wandb.mode="${OE_WANDB_MODE}" \
+        --backend="nccl" \
+        "$@"
+    ' bash "${EXTRA_TRAIN_ARGS[@]}"

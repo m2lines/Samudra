@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
+batch_size: 1
 learning_rate: 0.0006
 gradient_accumulation_steps: 1
 scheduler: { type: cosine }
@@ -26,7 +26,7 @@ inference_times:
   - start: "2011-09-13"
     end: "2011-11-02"
 data_stride: [1]
-steps: [4]
+steps: [1]
 step_transition: []
 preemptible: false
 

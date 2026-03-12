@@ -389,9 +389,14 @@ class DataSource:
 
         # LLC specific fixes
 
-        # slice out a single face and small area 
-        data = data.sel(face = 8, drop = True)
-        data = data.isel(i=slice(0, 100), j=slice(0, 100), i_g=slice(0,100), j_g=slice(0,100))
+        # slice out a single face and larger area
+        data = data.sel(face=8, drop=True)
+        data = data.isel(
+            i=slice(0, 720),
+            j=slice(0, 720),
+            i_g=slice(0, 720),
+            j_g=slice(0, 720),
+        )
 
         # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS
         data["U"] = data["U"].rename({"i_g": "i"})
@@ -403,31 +408,39 @@ class DataSource:
         for dim in ["i_g", "j_g"]:
             data = data.drop_vars(dim)
 
-        data = data.rename({'k': 'lev', 'mask_c': 'wetmask', 'i': 'x', 'j': 'y'})
+        data = data.rename({"k": "lev", "mask_c": "wetmask", "i": "x", "j": "y"})
 
-        # Convert data.time from numpy.datetime64[ns] to cftime.DatetimeJulian 
+        # Convert data.time from numpy.datetime64[ns] to cftime.DatetimeJulian
         if "time" in data.coords:
             import cftime
+
             times = data["time"].values
-            julian_times = [cftime.num2date(t.item() / 1_000_000, 'milliseconds since 1970-01-01', calendar='julian') for t in times]
+            julian_times = [
+                cftime.num2date(
+                    t.item() / 1_000_000,
+                    "milliseconds since 1970-01-01",
+                    calendar="julian",
+                )
+                for t in times
+            ]
             data = data.assign_coords(time=("time", julian_times))
 
         # Rename means and stds from $var_lev_$index to $var_$index
-        for v in list(means.variables):
-            if "_lev_" in v:
-                var, lev = v.split("_lev_")
-                means = means.rename({v: f"{var}_{lev}"})
-        for v in stds.variables:
-            if "_lev_" in v:
-                var, lev = v.split("_lev_")
-                stds = stds.rename({v: f"{var}_{lev}"})
+        for name in [v for v in means.variables if isinstance(v, str)]:
+            if "_lev_" in name:
+                var, lev = name.split("_lev_")
+                means = means.rename({name: f"{var}_{lev}"})
+        for name in [v for v in stds.variables if isinstance(v, str)]:
+            if "_lev_" in name:
+                var, lev = name.split("_lev_")
+                stds = stds.rename({name: f"{var}_{lev}"})
 
         # Flatten data to non-compact (ie Salt with `lev` into Salt_0, Salt_1, etc.)
-        for v in data.variables:
-            if "lev" in data[v].dims:
+        for name in [v for v in data.variables if isinstance(v, str)]:
+            if "lev" in data[name].dims:
                 for index, lev in enumerate(DEPTH_I_LEVELS):
-                    data[f"{v}_{lev}"] = data[v].isel(lev=index)
-                data = data.drop_vars(v)
+                    data[f"{name}_{lev}"] = data[name].isel(lev=index)
+                data = data.drop_vars(name)
 
         return cls.from_datasets(
             data,
@@ -713,7 +726,9 @@ def flatten_masks(data: xr.Dataset) -> xr.Dataset:
         )
 
         wet_mask = data_[MASK_ALL_LEVELS_VAR]
-        for i, (lev, mask_var) in enumerate(zip(DEPTH_I_LEVELS, MASK_VARS, strict=True)):
+        for i, (lev, mask_var) in enumerate(
+            zip(DEPTH_I_LEVELS, MASK_VARS, strict=True)
+        ):
             assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
             data_[mask_var] = wet_mask.isel(lev=i)
 

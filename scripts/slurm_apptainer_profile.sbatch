@@ -115,6 +115,7 @@ binds=(
 BIND_ARG=$(IFS=,; echo "${binds[*]}")
 
 mkdir -p "${RUN_DIR}" "$(dirname "${PROFILE_OUT}")"
+rm -f "${PROFILE_OUT}" "${PROFILE_OUT%.bin}_flamegraph.html"
 
 srun --ntasks=1 \
   "${APPTAINER_BIN}" exec --nv \

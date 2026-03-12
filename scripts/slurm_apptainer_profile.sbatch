@@ -13,10 +13,12 @@
 #SBATCH --job-name=oe-profile
 #SBATCH --output=slurm-%j.out
 #SBATCH --open-mode=append
+#SBATCH --account=torch_pr_347_courant
+#SBATCH --partition=rtx6000_lzanna
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=256G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=128G
 #SBATCH --gres=gpu:rtx6000:1
 #SBATCH --time=02:00:00
 

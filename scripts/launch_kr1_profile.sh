@@ -47,16 +47,8 @@ echo "Profile out:  ${PROFILE_OUT}"
 echo "ARGS:         ${ARGS}"
 echo ""
 
-# ── Submit: single GPU, enough memory for one rank ──
+# ── Submit: single GPU, matching previous successful 1-GPU jobs ──
 sbatch \
-  --account=torch_pr_347_courant \
-  --partition=rtx6000_lzanna \
-  --nodes=1 \
-  --ntasks-per-node=1 \
-  --cpus-per-task=16 \
-  --mem=256G \
-  --gres=gpu:rtx6000:1 \
-  --time=02:00:00 \
   --job-name=kr1-profile \
   --export=ALL,PROFILE_OUT="${PROFILE_OUT}" \
   scripts/slurm_apptainer_profile.sbatch

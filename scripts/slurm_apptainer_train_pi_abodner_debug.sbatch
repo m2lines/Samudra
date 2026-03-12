@@ -24,4 +24,4 @@ else
   export ARGS="--debug=true"
 fi
 
-source "$(dirname "${BASH_SOURCE[0]}")/slurm_apptainer_train.sbatch"
+source "${SLURM_SUBMIT_DIR:-$PWD}/scripts/slurm_apptainer_train.sbatch"

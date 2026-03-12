@@ -9,9 +9,9 @@ process — the dominant source of CPU-RAM OOM during multi-scale training.
 Usage
 -----
     # On torch, for all three scales:
-    python scripts/precompute_anomalies.py /path/to/om4_quarterdeg_v2
-    python scripts/precompute_anomalies.py /path/to/om4_halfdeg_v4
-    python scripts/precompute_anomalies.py /path/to/om4_onedeg_v3
+    uv run scripts/precompute_anomalies.py /path/to/om4_quarterdeg_v2
+    uv run scripts/precompute_anomalies.py /path/to/om4_halfdeg_v4
+    uv run scripts/precompute_anomalies.py /path/to/om4_onedeg_v3
 
 Each invocation:
   1. Opens  <root>/OM4.zarr, computes hfds_anomalies (= hfds − seasonal cycle)
@@ -22,6 +22,19 @@ Each invocation:
 The script is idempotent: if hfds_anomalies already exists it will
 overwrite it (with mode="a").
 """
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#   "xarray[io]",
+#   "zarr<3",
+#   "dask",
+#   "numcodecs>=0.15",
+#   "ocean-emulators",
+# ]
+#
+# [tool.uv.sources]
+# ocean-emulators = { path = "../" }
+# ///
 
 import argparse
 import logging
@@ -30,11 +43,15 @@ from pathlib import Path
 
 import xarray as xr
 
+from ocean_emulators.utils.data import compute_anomalies
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
+ANOMALIES_VARS = ("hfds_anomalies",)
 
-def precompute_anomalies(data_root: Path) -> None:
+
+def precompute(data_root: Path) -> None:
     data_path = data_root / "OM4.zarr"
     means_path = data_root / "OM4_means.zarr"
     stds_path = data_root / "OM4_stds.zarr"
@@ -44,58 +61,55 @@ def precompute_anomalies(data_root: Path) -> None:
             logger.error(f"Expected {p} to exist")
             sys.exit(1)
 
-    var = "hfds_anomalies"
-    base_var = "hfds"
-
     logger.info(f"Opening {data_path}")
     ds = xr.open_zarr(data_path)
-
-    if base_var not in ds:
-        logger.error(f"{base_var} not found in {data_path}")
-        sys.exit(1)
+    means = xr.open_zarr(means_path)
+    stds = xr.open_zarr(stds_path)
 
     grid = dict(ds.sizes)
     grid.pop("time", None)
     logger.info(f"Grid: {grid}, time steps: {ds.sizes.get('time', '?')}")
 
-    # Compute climatology (small: 366 × lat × lon)
-    logger.info("Computing daily climatology ...")
-    climatology = ds[base_var].groupby("time.dayofyear").mean("time").compute()
+    # compute_anomalies skips vars that already exist in ds, so if everything
+    # is already present we can exit early.
+    missing = [var for var in ANOMALIES_VARS if var not in ds]
+    if not missing:
+        logger.info("All anomaly variables already exist — nothing to do.")
+        return
 
-    # Compute anomaly
-    logger.info("Computing anomaly (this reads the full time series once) ...")
-    day_of_year = ds[base_var]["time"].dt.dayofyear
-    anomaly = (ds[base_var] - climatology.sel(dayofyear=day_of_year)).compute()
-    anomaly = anomaly.drop_vars("dayofyear")
-    anomaly.name = var
+    logger.info(f"Computing missing anomalies: {missing} ...")
+    ds, means, stds = compute_anomalies(ds, means, stds, tuple(missing))
 
-    anomaly_mean = float(anomaly.mean().values)
-    anomaly_std = float(anomaly.std().values)
-    logger.info(f"  mean={anomaly_mean:.6f}, std={anomaly_std:.6f}")
+    # Write each anomaly variable back to the zarr stores.
+    for var in ANOMALIES_VARS:
+        base_var = var.replace("_anomalies", "")
+        anomaly = ds[var]
 
-    # Write anomaly variable to the data store, preserving the source chunking
-    # so that per-timestep reads in training don't pull unnecessary data.
-    logger.info(f"Appending {var} to {data_path} ...")
-    source_encoding = ds[base_var].encoding
-    chunks = source_encoding.get("chunks")
-    if chunks is None:
-        # Fall back to single-timestep chunks matching the spatial grid.
-        spatial = [ds.sizes[d] for d in ds[base_var].dims if d != "time"]
-        chunks = tuple([1] + spatial)
-        logger.warning(f"No chunk encoding found on {base_var}; defaulting to {chunks}")
-    encoding = {var: {"chunks": chunks}}
-    anomaly_ds = anomaly.to_dataset(name=var)
-    anomaly_ds.to_zarr(data_path, mode="a", encoding=encoding)
+        logger.info(
+            f"  {var}: mean={float(means[var].values):.6f}, "
+            f"std={float(stds[var].values):.6f}"
+        )
 
-    # Write mean
-    logger.info(f"Appending {var} mean to {means_path} ...")
-    means_ds = xr.Dataset({var: xr.DataArray(anomaly_mean)})
-    means_ds.to_zarr(means_path, mode="a")
+        # Preserve the source chunking so per-timestep reads stay efficient.
+        source_encoding = ds[base_var].encoding
+        chunks = source_encoding.get("chunks")
+        if chunks is None:
+            spatial = [ds.sizes[d] for d in ds[base_var].dims if d != "time"]
+            chunks = tuple([1] + spatial)
+            logger.warning(
+                f"No chunk encoding found on {base_var}; defaulting to {chunks}"
+            )
 
-    # Write std
-    logger.info(f"Appending {var} std to {stds_path} ...")
-    stds_ds = xr.Dataset({var: xr.DataArray(anomaly_std)})
-    stds_ds.to_zarr(stds_path, mode="a")
+        logger.info(f"Appending {var} to {data_path} ...")
+        anomaly.to_dataset(name=var).to_zarr(
+            data_path, mode="a", encoding={var: {"chunks": chunks}}
+        )
+
+        logger.info(f"Appending {var} mean to {means_path} ...")
+        xr.Dataset({var: means[var]}).to_zarr(means_path, mode="a")
+
+        logger.info(f"Appending {var} std to {stds_path} ...")
+        xr.Dataset({var: stds[var]}).to_zarr(stds_path, mode="a")
 
     logger.info("Done.")
 
@@ -108,7 +122,7 @@ def main():
         help="Directory containing OM4.zarr, OM4_means.zarr, OM4_stds.zarr",
     )
     args = parser.parse_args()
-    precompute_anomalies(args.data_root)
+    precompute(args.data_root)
 
 
 if __name__ == "__main__":

@@ -58,6 +58,9 @@ NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 ARGS_FILE="${ARGS_FILE:-}"
+PRE_TRAIN_DIAGNOSTICS="${PRE_TRAIN_DIAGNOSTICS:-0}"
+PRE_TRAIN_ZARR_PROBE_PATH="${PRE_TRAIN_ZARR_PROBE_PATH:-}"
+PRE_TRAIN_ZARR_PROBE_VAR="${PRE_TRAIN_ZARR_PROBE_VAR:-}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -241,6 +244,9 @@ export OE_DATA_ROOT="${DATA_ROOT}"
 export OE_OUTPUT_BASE="${OUTPUT_BASE}"
 export OE_WANDB_MODE="${WANDB_MODE}"
 export OE_GPUS_PER_NODE="${GPUS_PER_NODE}"
+export OE_PRE_TRAIN_DIAGNOSTICS="${PRE_TRAIN_DIAGNOSTICS}"
+export OE_PRE_TRAIN_ZARR_PROBE_PATH="${PRE_TRAIN_ZARR_PROBE_PATH}"
+export OE_PRE_TRAIN_ZARR_PROBE_VAR="${PRE_TRAIN_ZARR_PROBE_VAR}"
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
@@ -258,6 +264,132 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo "ERROR: config not found inside container: ${OE_CONFIG_IN_CONTAINER}" >&2
         echo "Hint: rebuild/pull a container tag that includes /workspace/configs." >&2
         exit 2
+      fi
+      if [[ "${OE_PRE_TRAIN_DIAGNOSTICS}" == "1" && "${SLURM_PROCID}" == "0" ]]; then
+        echo "===== Pre-train diagnostics start ====="
+        echo "timestamp: $(date -Is)"
+        echo "hostname: $(hostname)"
+        echo "pwd: $(pwd)"
+        echo "slurm_job_id: ${SLURM_JOB_ID:-unset}"
+        echo "slurm_nodeid: ${SLURM_NODEID:-unset}"
+        echo "slurm_procid: ${SLURM_PROCID:-unset}"
+        echo "cuda_visible_devices: ${CUDA_VISIBLE_DEVICES:-unset}"
+        echo "data_root: ${OE_DATA_ROOT}"
+        if command -v nvidia-smi >/dev/null 2>&1; then
+          echo "+ nvidia-smi -L"
+          nvidia-smi -L || true
+          echo "+ nvidia-smi --query-gpu=name,uuid,pci.bus_id,driver_version,memory.total --format=csv,noheader"
+          nvidia-smi --query-gpu=name,uuid,pci.bus_id,driver_version,memory.total --format=csv,noheader || true
+        fi
+        if command -v findmnt >/dev/null 2>&1; then
+          echo "+ findmnt -T ${OE_DATA_ROOT}"
+          findmnt -T "${OE_DATA_ROOT}" -o TARGET,SOURCE,FSTYPE,OPTIONS || true
+        fi
+        if [[ -n "${OE_PRE_TRAIN_ZARR_PROBE_PATH}" ]] && command -v findmnt >/dev/null 2>&1; then
+          echo "+ findmnt -T ${OE_PRE_TRAIN_ZARR_PROBE_PATH}"
+          findmnt -T "${OE_PRE_TRAIN_ZARR_PROBE_PATH}" -o TARGET,SOURCE,FSTYPE,OPTIONS || true
+        fi
+        if [[ -f /etc/cufile.json ]]; then
+          echo "+ cat /etc/cufile.json"
+          cat /etc/cufile.json || true
+        fi
+        if command -v lsmod >/dev/null 2>&1; then
+          echo "+ lsmod | grep -E \"nvidia_fs|nv_peer_mem|gds\""
+          lsmod | grep -E "nvidia_fs|nv_peer_mem|gds" || true
+        fi
+        if command -v gdscheck >/dev/null 2>&1; then
+          echo "+ gdscheck -p"
+          gdscheck -p || true
+        fi
+        if command -v gds_stats >/dev/null 2>&1; then
+          echo "+ gds_stats -h"
+          gds_stats -h || true
+        fi
+        echo "+ python GDS probe"
+        /workspace/.venv/bin/python - <<"PY" || true
+import importlib
+import os
+from pathlib import Path
+
+modules = ("cupy", "kvikio", "xarray", "zarr")
+for module_name in modules:
+    try:
+        module = importlib.import_module(module_name)
+        version = getattr(module, "__version__", "unknown")
+        print(f"{module_name}.__version__={version}")
+    except Exception as exc:
+        print(f"{module_name}_import_error={type(exc).__name__}: {exc}")
+
+try:
+    from kvikio import defaults as kvikio_defaults
+
+    compat_mode = kvikio_defaults.compat_mode
+    compat_value = compat_mode() if callable(compat_mode) else compat_mode
+    print(f"kvikio.compat_mode={compat_value}")
+except Exception as exc:
+    print(f"kvikio.compat_mode_error={type(exc).__name__}: {exc}")
+
+try:
+    import cupy
+
+    device_count = cupy.cuda.runtime.getDeviceCount()
+    print(f"cupy.device_count={device_count}")
+    if device_count:
+        props = cupy.cuda.runtime.getDeviceProperties(0)
+        gpu_name = props.get("name", "unknown")
+        if isinstance(gpu_name, bytes):
+            gpu_name = gpu_name.decode()
+        print(f"cupy.device0.name={gpu_name}")
+except Exception as exc:
+    print(f"cupy_probe_error={type(exc).__name__}: {exc}")
+
+probe_path = os.environ.get("OE_PRE_TRAIN_ZARR_PROBE_PATH", "")
+probe_var = os.environ.get("OE_PRE_TRAIN_ZARR_PROBE_VAR", "")
+if probe_path:
+    probe_var_display = probe_var or "unset"
+    print(f"probe.path={probe_path}")
+    print(f"probe.var={probe_var_display}")
+    try:
+        import zarr
+
+        from ocean_emulators.utils.location import _local_gds_store
+
+        path = Path(probe_path)
+        store = _local_gds_store(path)
+        if store is None:
+            print("probe.store_type=fallback_path")
+            probe_store = str(path)
+        else:
+            print(
+                "probe.store_type="
+                f"{type(store).__module__}.{type(store).__qualname__}"
+            )
+            probe_store = store
+        with zarr.config.enable_gpu():
+            root = zarr.open_group(store=probe_store, mode="r")
+            array_keys = list(root.array_keys())
+            print(f"probe.array_count={len(array_keys)}")
+            print(f"probe.array_keys_head={array_keys[:8]}")
+            if probe_var:
+                if probe_var in root:
+                    array = root[probe_var]
+                    array_chunks = getattr(array, "chunks", None)
+                    print(f"probe.array_shape={array.shape}")
+                    print(f"probe.array_chunks={array_chunks}")
+                    index = tuple(slice(0, 1) for _ in array.shape)
+                    sample = array[index]
+                    print(
+                        "probe.sample_type="
+                        f"{type(sample).__module__}.{type(sample).__qualname__}"
+                    )
+                    device = getattr(sample, "device", None)
+                    print(f"probe.sample_device={device}")
+                else:
+                    print("probe.array_missing=true")
+    except Exception as exc:
+        print(f"probe.error={type(exc).__name__}: {exc}")
+PY
+        echo "===== Pre-train diagnostics end ====="
       fi
       exec /workspace/.venv/bin/python -m torch.distributed.run \
         --nnodes='"${SLURM_NNODES}"' \

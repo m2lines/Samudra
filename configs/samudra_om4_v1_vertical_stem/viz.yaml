@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../schemas/VizConfig.json
+
+base_output_dir: ".LOCAL"
+name: "samudra_om4_v1_vertical_stem_viz"
+dataset_name: "OM4"
+groundtruth_location: "OM4.zarr"
+basins_location:
+  type: s3
+  bucket: "emulators"
+  path: "jr7309/basins/basin_masks_original.zarr"
+  endpoint_url: "https://nyu1.osn.mghpcc.org"
+groundtruth_time_range:
+  start: "2014-10-20"
+  end: "2022-12-24"
+runs:
+  - name: "samudra_om4_v1_vertical_stem_eval"
+    location: ".LOCAL/samudra_om4_v1_vertical_stem_eval/predictions.zarr"

@@ -35,6 +35,7 @@ from ocean_emulators.models.modules import (
     ReLU,
     TransposedConvUpsample,
     UNetBackbone,
+    VerticalConvStem,
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
@@ -634,6 +635,56 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         pass
 
 
+class VerticalConvStemConfig(BaseConfig):
+    """Configuration for the vertical convolution stem.
+
+    This stem applies 1D convolutions along the depth axis for 3D ocean
+    variables, encoding an inductive bias that adjacent depth levels are
+    related. It is channel-preserving (same input and output channel count).
+    """
+
+    num_3d_vars: int = Field(
+        default=4,
+        description="Number of distinct 3D variable types (e.g. 4 for uo, vo, thetao, so).",
+    )
+    num_depths: int = Field(
+        default=19,
+        description="Number of depth levels per 3D variable.",
+    )
+    num_2d_vars: int = Field(
+        default=1,
+        description="Number of 2D prognostic variables (e.g. 1 for zos).",
+    )
+    kernel_size: int = Field(
+        default=3,
+        description="Kernel size for the 1D depth convolution. Must be odd.",
+    )
+    mid_channels: int | None = Field(
+        default=None,
+        description="Hidden channels in the depth conv. Defaults to num_depths.",
+    )
+    shared_weights: bool = Field(
+        default=True,
+        description="Share depth conv weights across all 3D variable types.",
+    )
+
+    def build(
+        self,
+        num_boundary_vars: int,
+        hist: int,
+    ) -> VerticalConvStem:
+        return VerticalConvStem(
+            num_3d_vars=self.num_3d_vars,
+            num_depths=self.num_depths,
+            num_2d_vars=self.num_2d_vars,
+            num_boundary_vars=num_boundary_vars,
+            hist=hist,
+            kernel_size=self.kernel_size,
+            mid_channels=self.mid_channels,
+            shared_weights=self.shared_weights,
+        )
+
+
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
     corrector: CorrectorConfig | None = None  # None turns all correctors off.
@@ -644,6 +695,11 @@ class SamudraConfig(BaseModelConfig):
     use_bfloat16: bool = Field(
         default=False,
         description="Use bfloat16 for most layers rather than float32.",
+    )
+    vertical_conv_stem: VerticalConvStemConfig | None = Field(
+        default=None,
+        description="Optional vertical convolution stem that applies 1D convolutions "
+        "along the depth axis for 3D ocean variables. Set to null/None to disable.",
     )
 
     def build(
@@ -668,6 +724,28 @@ class SamudraConfig(BaseModelConfig):
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
+
+        # Build optional vertical conv stem
+        vertical_conv_stem_module = None
+        if self.vertical_conv_stem is not None:
+            if in_channels % (hist + 1) != 0 or out_channels % (hist + 1) != 0:
+                raise ValueError(
+                    "Samudra vertical_conv_stem requires time-major channel counts "
+                    "that are divisible by hist + 1."
+                )
+            # Derive num_boundary_vars from in/out channels and hist
+            channels_per_ts = out_channels // (hist + 1)
+            num_boundary_per_ts = (in_channels // (hist + 1)) - channels_per_ts
+            if num_boundary_per_ts < 0:
+                raise ValueError(
+                    "Samudra vertical_conv_stem inferred a negative number of "
+                    "boundary channels per timestep."
+                )
+            vertical_conv_stem_module = self.vertical_conv_stem.build(
+                num_boundary_vars=num_boundary_per_ts,
+                hist=hist,
+            )
+
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -682,6 +760,7 @@ class SamudraConfig(BaseModelConfig):
             corrector=corrector,
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
+            vertical_conv_stem=vertical_conv_stem_module,
             hist=hist,
             grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,

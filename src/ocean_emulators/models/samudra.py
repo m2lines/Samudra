@@ -5,6 +5,7 @@ import torch.utils.checkpoint
 from ocean_emulators.constants import GridSize
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
+from ocean_emulators.models.modules.vertical_conv_stem import VerticalConvStem
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.device import autocast
 
@@ -21,6 +22,7 @@ class Samudra(BaseModel):
         corrector: nn.Module | None,
         pos_channels: int,
         add_3d_coordinates: nn.Module | None,
+        vertical_conv_stem: VerticalConvStem | None,
         hist: int,
         grid_size: GridSize,
         gradient_detach_interval: int,
@@ -43,6 +45,7 @@ class Samudra(BaseModel):
             self.register_parameter("positional_params", None)
 
         self.add_3d_coordinates = add_3d_coordinates
+        self.vertical_conv_stem = vertical_conv_stem
         self.unet = unet
         self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
@@ -54,6 +57,9 @@ class Samudra(BaseModel):
             fts_input = fts.clone().detach()
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            if self.vertical_conv_stem is not None:
+                fts = self.vertical_conv_stem(fts)
+
             if self.positional_params is not None:
                 pos = self.positional_params.unsqueeze(0).expand(
                     fts.shape[0], -1, -1, -1

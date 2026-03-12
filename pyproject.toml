@@ -49,6 +49,8 @@ dependencies = [
 optional-dependencies.cuda = [
   "flash-attn>=2.7.4.post1,<3",
   "flash-perceiver>=0.2",
+  "kvikio-cu12>=25.10",
+  "nvidia-nvcomp-cu12>=5.1",
   "torchvision>=0.24.0a0",
 ]
 

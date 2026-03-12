@@ -29,6 +29,8 @@ def main() -> int:
     require_import("ocean_emulators.models.samudra")
     require_import("flash_attn")
     require_import("flash_perceiver")
+    require_import("kvikio.zarr")
+    require_import("nvidia.nvcomp")
     require_import("xarray")
 
     sample = torch.randn(2, 2)
@@ -70,6 +72,8 @@ def main() -> int:
     print(f"torchvision: {version('torchvision')}")
     print(f"flash-attn: {version('flash-attn')}")
     print(f"flash-perceiver: {version('flash-perceiver')}")
+    print(f"kvikio-cu12: {version('kvikio-cu12')}")
+    print(f"nvidia-nvcomp-cu12: {version('nvidia-nvcomp-cu12')}")
     print(f"xarray: {xarray_version}")
     print(f"zarr: {zarr.__version__}")
     print(f"tensor-op: shape={tuple(result.shape)} dtype={result.dtype}")

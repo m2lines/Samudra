@@ -141,6 +141,74 @@ def _time_indices(time_coord: xr.DataArray, start: object, end: object) -> np.nd
     return np.nonzero((values >= start) & (values < end))[0]
 
 
+def _to_julian_datetime(value: object) -> cftime.DatetimeJulian:
+    """Convert a date-like value to the equivalent Julian-calendar datetime."""
+    if isinstance(value, cftime.DatetimeJulian):
+        return value
+    if isinstance(value, cftime.datetime):
+        return cftime.DatetimeJulian(
+            value.year,
+            value.month,
+            value.day,
+            value.hour,
+            value.minute,
+            value.second,
+            value.microsecond,
+        )
+    if isinstance(value, dt.datetime):
+        return cftime.DatetimeJulian(
+            value.year,
+            value.month,
+            value.day,
+            value.hour,
+            value.minute,
+            value.second,
+            value.microsecond,
+        )
+    if isinstance(value, dt.date):
+        return cftime.DatetimeJulian(value.year, value.month, value.day)
+    raise TypeError(f"Unsupported time value type: {type(value).__name__}")
+
+
+def _convert_llc_time_coord_to_julian(time_coord: xr.DataArray) -> np.ndarray:
+    """Convert LLC time coordinates to Julian-calendar cftime datetimes."""
+    values = _time_values(time_coord)
+    if values.size == 0:
+        return values.astype(object)
+
+    if np.issubdtype(values.dtype, np.datetime64):
+        microseconds = values.astype("datetime64[us]").astype(np.int64)
+        converted = cftime.num2date(
+            microseconds,
+            "microseconds since 1970-01-01",
+            calendar="julian",
+        )
+        return np.asarray(converted, dtype=object)
+
+    if values.dtype == object:
+        flat_values = values.ravel()
+        sample = flat_values[0]
+        if isinstance(sample, cftime.datetime | dt.datetime | dt.date):
+            return np.asarray(
+                [_to_julian_datetime(value) for value in flat_values],
+                dtype=object,
+            ).reshape(values.shape)
+
+    units = time_coord.attrs.get("units")
+    if units is None:
+        raise ValueError(
+            "LLC time coordinate is numeric but missing 'units'; unable to decode "
+            "raw time values."
+        )
+    calendar = time_coord.attrs.get("calendar", "standard")
+    decoded = cftime.num2date(values, units=units, calendar=calendar)
+    decoded_array = np.asarray(decoded, dtype=object)
+    return np.asarray(
+        [_to_julian_datetime(value) for value in decoded_array.ravel()],
+        dtype=object,
+    ).reshape(decoded_array.shape)
+
+
 def _var_name_encode_level(var_name: str) -> bool:
     """Check if the variable name encodes the level."""
     var_name_encodes_level = re.compile(r"_[0-9]+")
@@ -410,19 +478,9 @@ class DataSource:
 
         data = data.rename({"k": "lev", "mask_c": "wetmask", "i": "x", "j": "y"})
 
-        # Convert data.time from numpy.datetime64[ns] to cftime.DatetimeJulian
+        # Standardize time to Julian cftime values for downstream slicing logic.
         if "time" in data.coords:
-            import cftime
-
-            times = data["time"].values
-            julian_times = [
-                cftime.num2date(
-                    t.item() / 1_000_000,
-                    "milliseconds since 1970-01-01",
-                    calendar="julian",
-                )
-                for t in times
-            ]
+            julian_times = _convert_llc_time_coord_to_julian(data["time"])
             data = data.assign_coords(time=("time", julian_times))
 
         # Rename means and stds from $var_lev_$index to $var_$index

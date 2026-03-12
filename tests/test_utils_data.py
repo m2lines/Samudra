@@ -13,6 +13,7 @@ from ocean_emulators.utils.data import (
     Masks,
     Normalize,
     OceanData,
+    _convert_llc_time_coord_to_julian,
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
@@ -255,6 +256,42 @@ def test_data_source_slice_with_numeric_time_coords():
     np.testing.assert_array_equal(
         sliced.data["temperature"].values, np.array([20.0, 30.0])
     )
+
+
+def test_convert_llc_time_coord_to_julian_handles_numeric_offsets():
+    time_coord = xr.DataArray(
+        np.array([0, 86_400, 172_800], dtype=np.int64),
+        dims=["time"],
+        attrs={
+            "units": "seconds since 2011-09-10",
+            "calendar": "gregorian",
+        },
+    )
+
+    converted = _convert_llc_time_coord_to_julian(time_coord)
+
+    assert [value.strftime("%Y-%m-%d") for value in converted.tolist()] == [
+        "2011-09-10",
+        "2011-09-11",
+        "2011-09-12",
+    ]
+
+
+def test_convert_llc_time_coord_to_julian_handles_datetime64_values():
+    time_coord = xr.DataArray(
+        np.array(
+            ["2011-09-10T00:00:00", "2011-09-13T12:00:00"],
+            dtype="datetime64[ns]",
+        ),
+        dims=["time"],
+    )
+
+    converted = _convert_llc_time_coord_to_julian(time_coord)
+
+    assert [value.strftime("%Y-%m-%d %H:%M:%S") for value in converted.tolist()] == [
+        "2011-09-10 00:00:00",
+        "2011-09-13 12:00:00",
+    ]
 
 
 @pytest.mark.parametrize("fill_value", [float("nan"), 0.0])

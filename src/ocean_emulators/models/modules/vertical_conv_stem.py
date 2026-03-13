@@ -110,25 +110,46 @@ class VerticalConvStem(nn.Module):
     # ------------------------------------------------------------------
     # Index helpers
     # ------------------------------------------------------------------
-    def _compute_3d_indices(self) -> list[int]:
-        """Flat indices of all 3D variable channels across all timesteps."""
+    def _compute_indices(self, start: int, length: int) -> list[int]:
+        """Flat indices for a fixed-size channel block across all timesteps."""
         out: list[int] = []
         for t in range(self._total_ts):
-            base = t * self._channels_per_ts
-            out.extend(range(base, base + self._num_3d_per_ts))
+            base = t * self._channels_per_ts + start
+            out.extend(range(base, base + length))
         return out
+
+    def _compute_3d_indices(self) -> list[int]:
+        """Flat indices of all 3D variable channels across all timesteps."""
+        return self._compute_indices(start=0, length=self._num_3d_per_ts)
 
     def _compute_2d_indices(self) -> list[int]:
         """Flat indices of all 2D variable channels across all timesteps."""
-        out: list[int] = []
-        for t in range(self._total_ts):
-            base = t * self._channels_per_ts + self._num_3d_per_ts
-            out.extend(range(base, base + self.num_2d_vars))
-        return out
+        return self._compute_indices(
+            start=self._num_3d_per_ts,
+            length=self.num_2d_vars,
+        )
 
     def _boundary_slice(self, total_channels: int) -> slice:
         """Slice for boundary channels (everything after prognostic)."""
         return slice(self._num_prog_channels, total_channels)
+
+    def _apply_depth_conv(self, x_3d_perm: torch.Tensor) -> torch.Tensor:
+        """Apply shared or per-variable depth convs to (B, G, H, W, D) input."""
+        B, total_groups, H, W, _ = x_3d_perm.shape
+
+        if self.shared_weights:
+            x_3d_flat = x_3d_perm.reshape(-1, 1, self.num_depths)
+            return self.depth_conv(x_3d_flat)
+
+        y_3d_perm = torch.empty_like(x_3d_perm)
+        for g in range(total_groups):
+            # Groups are ordered time-major as [t0v0, t0v1, ..., t1v0, t1v1, ...],
+            # so modulo num_3d_vars recovers the variable-specific conv to use.
+            depth_conv = self.depth_convs[g % self.num_3d_vars]
+            group = x_3d_perm[:, g].reshape(-1, 1, self.num_depths)
+            group_out = depth_conv(group)
+            y_3d_perm[:, g] = group_out.reshape(B, H, W, self.num_depths)
+        return y_3d_perm.reshape(-1, 1, self.num_depths)
 
     # ------------------------------------------------------------------
     # Forward
@@ -154,29 +175,15 @@ class VerticalConvStem(nn.Module):
         # Extract 3D channels and reshape into (B, T*V, D, H, W)
         x_3d = x[:, idx_3d]  # (B, T*V*D, H, W)
         total_groups = self._total_ts * self.num_3d_vars
-        x_3d = x_3d.view(B, total_groups, self.num_depths, H, W)
+        x_3d = x_3d.reshape(B, total_groups, self.num_depths, H, W)
 
         # Depth conv expects (N, 1, D).
         # Flatten spatial + batch + groups: (B * G * H * W, 1, D)
         x_3d_perm = x_3d.permute(0, 1, 3, 4, 2).contiguous()  # (B, G, H, W, D)
-        x_3d_flat = x_3d_perm.view(-1, 1, self.num_depths)  # (N, 1, D)
-
-        if self.shared_weights:
-            y_flat = self.depth_conv(x_3d_flat)  # (N, 1, D)
-        else:
-            # Per-variable convolutions.
-            per_var = B * H * W
-            chunks: list[torch.Tensor] = []
-            for t in range(self._total_ts):
-                for v in range(self.num_3d_vars):
-                    g = t * self.num_3d_vars + v
-                    start = g * per_var
-                    end = start + per_var
-                    chunks.append(self.depth_convs[v](x_3d_flat[start:end]))
-            y_flat = torch.cat(chunks, dim=0)  # (N, 1, D)
+        y_flat = self._apply_depth_conv(x_3d_perm)
 
         # Reshape back: (N, 1, D) -> (B, G, H, W, D) -> (B, G, D, H, W) -> (B, G*D, H, W)
-        y = y_flat.view(B, total_groups, H, W, self.num_depths)
+        y = y_flat.reshape(B, total_groups, H, W, self.num_depths)
         y = y.permute(0, 1, 4, 2, 3)  # (B, G, D, H, W)
         y = y.reshape(B, total_groups * self.num_depths, H, W)
 

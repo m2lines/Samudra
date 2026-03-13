@@ -167,6 +167,7 @@ jobs:
       - name: Save base image to cache
         if: steps.base-image-cache.outputs.cache-hit != 'true'
         run: |
+          set -euo pipefail
           mkdir -p /tmp/docker-cache
           docker pull nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
           docker save nvcr.io/nvidia/physicsnemo/physicsnemo:25.11 | gzip > /tmp/docker-cache/base-image.tar

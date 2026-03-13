@@ -25,7 +25,6 @@
 #SBATCH --job-name=oe-eval
 #SBATCH --output=slurm-%j.out
 #SBATCH --account=torch_pr_347_courant
-#SBATCH --partition=rtx6000_lzanna
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8

@@ -192,8 +192,54 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
 
-        # Build model on CPU — CUDA init is deferred to _activate_device()
-        # so that DataLoader workers can be forked before CUDA is initialized.
+        # Training parameters — set these before init_data_loaders which needs them.
+        self.epochs = cfg.epochs
+        self.test_using_ema = cfg.test_using_ema
+        self.hist: int = cfg.data.hist
+        self.steps = cfg.steps
+        self.step_transition = cfg.step_transition
+        self.save_freq = cfg.save_freq
+        self.output_dir = cfg.experiment.output_dir
+        self.debug = cfg.debug
+        self.data_stride: list[int] = cfg.data_stride
+        self.batch_size: int = cfg.batch_size
+        self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
+        self.num_workers: int = cfg.data.num_workers
+        self.pin_mem: bool = cfg.pin_mem
+        self.train_time: config.TimeConfig = cfg.train_time
+        self.val_time = cfg.val_time
+        self.inference_times = cfg.inference_times
+        self.inference_epochs = cfg.inference_epochs
+        self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
+            self.hist + 1
+        )
+        self.normalize_before_mask: bool = cfg.data.normalize_before_mask
+        self.normalize_fill_value: float = cfg.data.masked_fill_value
+        self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
+
+        # Type annotations for samplers/loaders (set by init_data_loaders/init_inference_stores)
+        self.train_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
+        self.val_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
+        self.inference_sampler: DistributedSampler | RandomSampler
+        self.train_loader: TrainDataLoader
+        self.val_loader: TrainDataLoader
+        self.inference_loader: DataLoader[TrainData]
+
+        # Fork DataLoader workers BEFORE initializing CUDA (model.to(device)).
+        # Forking after CUDA init causes SIGSEGV. Creating workers here ensures
+        # the fork happens while the process is still CPU-only.
+        self._initial_step = self.steps[0]
+        self.init_data_loaders(self._initial_step)
+
+        if self.inference_epochs:
+            self.init_inference_stores()
+
+        # --- CUDA initialization happens below this line ---
+
         self.model = cfg.model.build(
             in_channels=self.num_in,
             out_channels=self.num_out,
@@ -201,13 +247,26 @@ class Trainer:
             # TODO(559): This won't work at multiple scales. Refactor as part of src.
             static_data_for_corrector=self.data_container.static_data,
             srcs=self.data_container.sources,
-        )
+        ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
         self.network = self.model.__class__.__name__
 
-        # Store config for deferred device activation
-        self._cfg = cfg
+        # Loss function
+        self.loss_fn: LossFnWithContext = build_loss_fn(
+            cfg.loss,
+            device=self.device,
+            num_channels=self.N_prog,
+            pad_mode=cfg.model.pad,
+        )
+
+        # Optimizer
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+
+        # Scheduler
+        self.scheduler = None
+        if cfg.scheduler:
+            self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
 
         # Initialize WandB
         self.wandb_logger = WandBLogger.init_instance()
@@ -248,59 +307,40 @@ class Trainer:
             )
 
         self.num_batches_seen = 0
-        self.start_epoch = 1
-        self._device_activated = False
+        loaded_checkpoint = False
+        if cfg.resume_ckpt_path is not None:
+            if cfg.finetune:
+                self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
+                self.start_epoch = 1
+            else:
+                self.load_checkpoint(cfg.resume_ckpt_path)
+                if not self.wandb_logger.enabled and is_main_process():
+                    warnings.warn(
+                        "This checkpoint had wandb enabled, \
+                            but wandb is not enabled now!"
+                    )
+            loaded_checkpoint = True
+        else:
+            self.start_epoch = 1
 
-        # Training
-        self.epochs = cfg.epochs
-        self.test_using_ema = cfg.test_using_ema
-        self.hist: int = cfg.data.hist
-        self.steps = cfg.steps
-        self.step_transition = cfg.step_transition
-        self.save_freq = cfg.save_freq
-        self.output_dir = cfg.experiment.output_dir
-        self.debug = cfg.debug
-        self.data_stride: list[int] = cfg.data_stride
-        self.batch_size: int = cfg.batch_size
-        self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.num_workers: int = cfg.data.num_workers
-        self.pin_mem: bool = cfg.pin_mem
-        self.train_time: config.TimeConfig = cfg.train_time
-        self.val_time = cfg.val_time
-        self.inference_times = cfg.inference_times
-        self.inference_epochs = cfg.inference_epochs
-        self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
-            self.hist + 1
-        )
-        self.normalize_before_mask: bool = cfg.data.normalize_before_mask
-        self.normalize_fill_value: float = cfg.data.masked_fill_value
-        self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
+        # Modify DDP setup based on device
+        if self.distributed is not None:
+            self.model = nn.parallel.DistributedDataParallel(
+                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
+                device_ids=[self.distributed.gpu],
+            )
+
+        # EMA (must come after DDP setup so parameter names match final self.model)
+        if not loaded_checkpoint:
+            self._ema = EMATracker(
+                self.model,
+                decay=cfg.ema_decay,
+                faster_decay_at_start=cfg.faster_decay_at_start,
+            )
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
 
         assert self.tensor_map is not None
-
-        if self.inference_epochs:
-            self.init_inference_stores()
-
-        # Add type annotations for samplers
-        self.train_sampler: (
-            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
-        )
-        self.val_sampler: (
-            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
-        )
-        self.inference_sampler: DistributedSampler | RandomSampler
-
-        # Add type annotations for loaders
-        self.train_loader: TrainDataLoader
-        self.val_loader: TrainDataLoader
-        self.inference_loader: DataLoader[TrainData]
-
-        # When not using GPU, there's no fork-before-CUDA concern — activate now.
-        # When using GPU with fork workers, defer to run() so workers fork first.
-        if self.device.type != "cuda" or cfg.data.num_workers == 0:
-            self._activate_device()
 
         # Preemption support
         self._preempt_requested = False
@@ -381,87 +421,23 @@ class Trainer:
             multiprocessing_context=self.mp_context,
         )
 
-    def _activate_device(self) -> None:
-        """Move model, loss, and optimizer to the target device.
-
-        This is called in run() *after* DataLoader workers have been forked,
-        so that CUDA is not initialized before fork (which causes SIGSEGV).
-        Subsequent calls are no-ops.
-        """
-        if self._device_activated:
-            return
-        self._device_activated = True
-
-        cfg = self._cfg
-
-        self.model = self.model.to(self.device)
-
-        # Loss function
-        self.loss_fn: LossFnWithContext = build_loss_fn(
-            cfg.loss,
-            device=self.device,
-            num_channels=self.N_prog,
-            pad_mode=cfg.model.pad,
-        )
-
-        # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
-
-        # Scheduler
-        self.scheduler = None
-        if cfg.scheduler:
-            self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
-
-        # Load checkpoint (needs model on device for map_location)
-        loaded_checkpoint = False
-        if cfg.resume_ckpt_path is not None:
-            if cfg.finetune:
-                self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
-                self.start_epoch = 1
-            else:
-                self.load_checkpoint(cfg.resume_ckpt_path)
-                if not self.wandb_logger.enabled and is_main_process():
-                    warnings.warn(
-                        "This checkpoint had wandb enabled, \
-                            but wandb is not enabled now!"
-                    )
-            loaded_checkpoint = True
-
-        # Modify DDP setup based on device
-        if self.distributed is not None:
-            self.model = nn.parallel.DistributedDataParallel(
-                nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
-                device_ids=[self.distributed.gpu],
-            )
-
-        # EMA (must come after DDP setup so parameter names match final self.model)
-        if not loaded_checkpoint:
-            self._ema = EMATracker(
-                self.model,
-                decay=cfg.ema_decay,
-                faster_decay_at_start=cfg.faster_decay_at_start,
-            )
-
     def run(self) -> None:
         logger.info(f"Starting training")
 
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
+        self.wandb_logger.watch(self.model, log="all")
 
         self.profiler.start()
 
         start_time = time.perf_counter()
         for epoch in range(self.start_epoch, self.epochs + 1):
-            # Iterative step training
+            # Iterative step training — skip the first call since __init__
+            # already created data loaders for the initial step.
             if epoch == self.start_epoch or epoch in self.step_transition:
                 cur_step = self.get_current_step(epoch)
-                self.init_data_loaders(cur_step)
-
-                # On the first epoch, activate the device after workers are
-                # forked so that CUDA is not initialized before fork.
-                if epoch == self.start_epoch:
-                    self._activate_device()
-                    self.wandb_logger.watch(self.model, log="all")
+                if cur_step != self._initial_step or epoch != self.start_epoch:
+                    self.init_data_loaders(cur_step)
 
             if isinstance(self.train_sampler, DistributedSampler):
                 self.train_sampler.set_epoch(epoch)

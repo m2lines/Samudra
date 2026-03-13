@@ -145,6 +145,17 @@ jobs:
           df -h
           docker system df || true
 
+      - name: Restore cached base image
+        id: base-image-cache
+        uses: actions/cache@v3
+        with:
+          path: /tmp/docker-cache
+          key: docker-base-physicsnemo-25.11
+
+      - name: Load cached base image
+        if: steps.base-image-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/docker-cache/base-image.tar
+
       - name: Pull published image
         run: |
           set -euo pipefail
@@ -152,6 +163,13 @@ jobs:
           image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo:25.11-${GITHUB_SHA}"
           docker pull "${image}"
           echo "TEST_IMAGE=${image}" >> "${GITHUB_ENV}"
+
+      - name: Save base image to cache
+        if: steps.base-image-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/docker-cache
+          docker pull nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
+          docker save nvcr.io/nvidia/physicsnemo/physicsnemo:25.11 | gzip > /tmp/docker-cache/base-image.tar
 
       - name: Run CPU tests in container
         timeout-minutes: 90

@@ -4,7 +4,8 @@ This module introduces an inductive bias that treats depth levels as an ordered,
 adjacent dimension rather than independent channels. For each 3D variable group
 (e.g., thetao, so, uo, vo), a 1D convolution is applied along the depth
 axis before the features are flattened back into the channel dimension for the
-main U-Net backbone.
+main U-Net backbone. An optional residual depth mixer can then cheaply mix the
+full depth vector after the local convolution has injected a neighborhood bias.
 
 This is motivated by the observation that Samudra's flat-channel design treats
 thetao_0 (2.5m) and thetao_18 (6000m) as no more related than thetao_0 and vo_17.
@@ -12,9 +13,10 @@ A vertical conv explicitly encodes that adjacent depths are neighbors, giving th
 model a structured prior on vertical locality.
 
 Design decisions:
-- The 1D conv is shared across all 3D variable types by default. This keeps
-  parameters low and encodes the assumption that vertical locality is a universal
-  physical prior. A per-variable option is available via ``shared_weights=False``.
+- By default each 3D variable type gets its own depth-conv stack. This keeps
+    the stem cheap relative to the backbone while avoiding an overly constrained
+    shared filter across uo, vo, thetao, and so. Shared weights remain available
+    via ``shared_weights=True``.
 - A residual connection is used (depth dimension is always preserved).
 - 2D surface variables and boundary variables pass through unchanged.
 """
@@ -32,9 +34,12 @@ class VerticalConvStem(nn.Module):
 
     1. Splits channels into 3D variable groups, 2D variables, and boundary variables
        based on the known channel layout.
-    2. For each 3D group, reshapes to ``(batch, num_3d_vars, num_depths, lat, lon)``
-       and applies a small 1D convolution along the depth dimension.
-    3. Adds a residual connection and recombines all channels.
+     2. Reshapes the 3D channels to
+         ``(batch, total_timesteps * num_3d_vars, num_depths, lat, lon)`` so each
+         timestep-variable pair becomes its own depth profile group, then applies
+         a small 1D convolution along the depth dimension.
+     3. Adds a residual connection, optionally applies a residual depth mixer,
+         and recombines all channels.
 
     The output has the **same** channel count as the input (channel-preserving).
 
@@ -47,9 +52,12 @@ class VerticalConvStem(nn.Module):
         hist: History length (number of past timesteps included, e.g., 1).
         kernel_size: Kernel size for the depth convolution. Must be odd.
         mid_channels: Number of intermediate channels in the depth conv block.
-            Defaults to ``num_depths`` if not set.
-        shared_weights: If True (default), all 3D variable types share the same
-            depth conv weights. If False, each variable type gets its own conv.
+            Defaults to ``256`` if not set.
+        depth_mlp_hidden: Hidden width of an optional residual MLP mixer applied
+            to the full depth vector after the local depth convolution. When
+            ``None``, the residual mixer is disabled.
+        shared_weights: If True, all 3D variable types share the same depth
+            conv weights. If False (default), each variable type gets its own conv.
     """
 
     def __init__(
@@ -59,9 +67,10 @@ class VerticalConvStem(nn.Module):
         num_2d_vars: int,
         num_boundary_vars: int,
         hist: int,
-        kernel_size: int = 3,
-        mid_channels: int | None = None,
-        shared_weights: bool = True,
+        kernel_size: int = 7,
+        mid_channels: int | None = 256,
+        depth_mlp_hidden: int | None = None,
+        shared_weights: bool = False,
     ):
         super().__init__()
         assert kernel_size % 2 == 1, "kernel_size must be odd for symmetric padding"
@@ -71,9 +80,10 @@ class VerticalConvStem(nn.Module):
         self.num_2d_vars = num_2d_vars
         self.num_boundary_vars = num_boundary_vars
         self.hist = hist
+        self.depth_mlp_hidden = depth_mlp_hidden
         self.shared_weights = shared_weights
 
-        mid = mid_channels if mid_channels is not None else num_depths
+        mid = mid_channels if mid_channels is not None else 256
         pad = (kernel_size - 1) // 2
 
         def _make_depth_conv() -> nn.Sequential:
@@ -83,12 +93,27 @@ class VerticalConvStem(nn.Module):
                 nn.Conv1d(mid, 1, kernel_size=kernel_size, padding=pad),
             )
 
+        def _make_depth_mixer() -> nn.Sequential:
+            if depth_mlp_hidden is None:
+                raise ValueError("depth_mlp_hidden must be set to build a depth mixer")
+            return nn.Sequential(
+                nn.Linear(num_depths, depth_mlp_hidden),
+                nn.GELU(),
+                nn.Linear(depth_mlp_hidden, num_depths),
+            )
+
         if shared_weights:
             self.depth_conv = _make_depth_conv()
+            if depth_mlp_hidden is not None:
+                self.depth_mixer = _make_depth_mixer()
         else:
             self.depth_convs = nn.ModuleList(
                 [_make_depth_conv() for _ in range(num_3d_vars)]
             )
+            if depth_mlp_hidden is not None:
+                self.depth_mixers = nn.ModuleList(
+                    [_make_depth_mixer() for _ in range(num_3d_vars)]
+                )
 
         # Pre-compute the channel layout metadata.
         self._channels_per_ts = num_3d_vars * num_depths + num_2d_vars
@@ -151,6 +176,25 @@ class VerticalConvStem(nn.Module):
             y_3d_perm[:, g] = group_out.reshape(B, H, W, self.num_depths)
         return y_3d_perm.reshape(-1, 1, self.num_depths)
 
+    def _apply_depth_mixer(self, x_3d_perm: torch.Tensor) -> torch.Tensor:
+        """Apply an optional residual MLP mixer to (B, G, H, W, D) input."""
+        B, total_groups, H, W, _ = x_3d_perm.shape
+
+        if self.depth_mlp_hidden is None:
+            return torch.zeros_like(x_3d_perm)
+
+        if self.shared_weights:
+            x_flat = x_3d_perm.reshape(-1, self.num_depths)
+            return self.depth_mixer(x_flat).reshape(B, total_groups, H, W, self.num_depths)
+
+        y_3d_perm = torch.empty_like(x_3d_perm)
+        for g in range(total_groups):
+            depth_mixer = self.depth_mixers[g % self.num_3d_vars]
+            group = x_3d_perm[:, g].reshape(-1, self.num_depths)
+            group_out = depth_mixer(group)
+            y_3d_perm[:, g] = group_out.reshape(B, H, W, self.num_depths)
+        return y_3d_perm
+
     # ------------------------------------------------------------------
     # Forward
     # ------------------------------------------------------------------
@@ -182,13 +226,15 @@ class VerticalConvStem(nn.Module):
         x_3d_perm = x_3d.permute(0, 1, 3, 4, 2).contiguous()  # (B, G, H, W, D)
         y_flat = self._apply_depth_conv(x_3d_perm)
 
-        # Reshape back: (N, 1, D) -> (B, G, H, W, D) -> (B, G, D, H, W) -> (B, G*D, H, W)
-        y = y_flat.reshape(B, total_groups, H, W, self.num_depths)
-        y = y.permute(0, 1, 4, 2, 3)  # (B, G, D, H, W)
-        y = y.reshape(B, total_groups * self.num_depths, H, W)
+        # Reshape back to grouped depth profiles, then apply residual depth processing.
+        y_3d_perm = y_flat.reshape(B, total_groups, H, W, self.num_depths)
+        y_3d_perm = y_3d_perm + x_3d_perm
+        if self.depth_mlp_hidden is not None:
+            y_3d_perm = y_3d_perm + self._apply_depth_mixer(y_3d_perm)
 
-        # Residual connection on 3D channels
-        y = y + x[:, idx_3d]
+        # Convert back to the original flattened channel layout.
+        y = y_3d_perm.permute(0, 1, 4, 2, 3)  # (B, G, D, H, W)
+        y = y.reshape(B, total_groups * self.num_depths, H, W)
 
         # Write processed 3D channels back into their original positions,
         # preserving 2D and boundary channels in place.

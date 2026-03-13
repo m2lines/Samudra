@@ -9,9 +9,10 @@ vertical_conv_stem:
   num_3d_vars: 4
   num_depths: 19
   num_2d_vars: 1
-  kernel_size: 3
-  mid_channels: null
-  shared_weights: true
+  kernel_size: 5
+  mid_channels: 16
+  depth_mlp_hidden: 32
+  shared_weights: false
 
 unet:
   ch_width: [200, 250, 300, 400]

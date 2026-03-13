@@ -656,15 +656,19 @@ class VerticalConvStemConfig(BaseConfig):
         description="Number of 2D prognostic variables (e.g. 1 for zos).",
     )
     kernel_size: int = Field(
-        default=3,
+        default=7,
         description="Kernel size for the 1D depth convolution. Must be odd.",
     )
     mid_channels: int | None = Field(
+        default=256,
+        description="Hidden channels in the depth conv. Defaults to 256 for a lean per-variable stem.",
+    )
+    depth_mlp_hidden: int | None = Field(
         default=None,
-        description="Hidden channels in the depth conv. Defaults to num_depths.",
+        description="Optional hidden width for a residual depth-vector mixer applied after the local depth convolution.",
     )
     shared_weights: bool = Field(
-        default=True,
+        default=False,
         description="Share depth conv weights across all 3D variable types.",
     )
 
@@ -681,6 +685,7 @@ class VerticalConvStemConfig(BaseConfig):
             hist=hist,
             kernel_size=self.kernel_size,
             mid_channels=self.mid_channels,
+            depth_mlp_hidden=self.depth_mlp_hidden,
             shared_weights=self.shared_weights,
         )
 

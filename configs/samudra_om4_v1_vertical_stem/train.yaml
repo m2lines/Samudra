@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
+batch_size: 2
 learning_rate: 0.0006
 scheduler: { type: cosine }
 loss: mse
@@ -44,11 +44,11 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: samudra_om4_v1_vertical_stem
+  name: samudra_om4_v1_vertical_stem_mixer
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
-    mode: disabled
+    mode: online
     project: default
   prognostic_vars_key: thermo_dynamic_all
   boundary_vars_key: tau_hfds_hfds_anom

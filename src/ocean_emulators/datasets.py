@@ -513,6 +513,16 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             - self.hist * self.stride
         )
 
+    def __getstate__(self):
+        """Allow pickling for spawn multiprocessing context.
+
+        ThreadPoolExecutor is not picklable; exclude it and let the worker
+        recreate it lazily (or operate without one).
+        """
+        state = self.__dict__.copy()
+        state["_executor"] = None
+        return state
+
     def __len__(self) -> int:
         return self.size
 

@@ -21,7 +21,10 @@ class Samudra(BaseModel):
         corrector: nn.Module | None,
         pos_channels: int,
         add_3d_coordinates: nn.Module | None,
-        hist: int,
+        *,
+        hist: int | None = None,
+        num_input_states: int | None = None,
+        num_output_states: int | None = None,
         grid_size: GridSize,
         gradient_detach_interval: int,
         use_bfloat16: bool,
@@ -30,6 +33,8 @@ class Samudra(BaseModel):
             in_channels=in_channels,
             out_channels=out_channels,
             hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,
@@ -54,16 +59,16 @@ class Samudra(BaseModel):
             fts_input = fts.clone().detach()
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            pos = None
             if self.positional_params is not None:
                 pos = self.positional_params.unsqueeze(0).expand(
                     fts.shape[0], -1, -1, -1
                 )
-                fts = torch.cat([fts, pos], dim=1)
 
             if self.add_3d_coordinates is not None:
                 fts = self.add_3d_coordinates(fts, ctx.input_resolution_cpu)
 
-            fts = self.unet(fts)
+            fts = self.unet(fts, pos=pos)
             fts = torch.nn.functional.pad(
                 fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
             )

@@ -52,7 +52,7 @@ from ocean_emulators.datasets import (
 )
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
-from ocean_emulators.utils.data import DataSource, Normalize, get_inference_steps
+from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
     all_reduce_mean,
@@ -143,8 +143,12 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
-        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
+        self.num_in_states = cfg.data.num_in_states
+        self.num_out_states = cfg.data.num_out_states
+        assert self.num_in_states is not None
+        assert self.num_out_states is not None
+        self.num_in = int(self.num_in_states * (self.N_prog + self.N_bound))
+        self.num_out = int(self.num_out_states * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
@@ -193,7 +197,8 @@ class Trainer:
         self.model = cfg.model.build(
             in_channels=self.num_in,
             out_channels=self.num_out,
-            hist=cfg.data.hist,
+            num_input_states=self.num_in_states,
+            num_output_states=self.num_out_states,
             # TODO(559): This won't work at multiple scales. Refactor as part of src.
             static_data_for_corrector=self.data_container.static_data,
             srcs=self.data_container.sources,
@@ -291,7 +296,7 @@ class Trainer:
         # Training
         self.epochs = cfg.epochs
         self.test_using_ema = cfg.test_using_ema
-        self.hist: int = cfg.data.hist
+        self.hist: int = cfg.data.hist or (self.num_in_states - 1)
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
@@ -306,8 +311,8 @@ class Trainer:
         self.val_time = cfg.val_time
         self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
-        self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
-            self.hist + 1
+        self.max_train_model_steps_forward = (
+            MAX_TRAIN_MODEL_STEPS_FORWARD // self.num_out_states
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
@@ -347,22 +352,19 @@ class Trainer:
         num_steps_inf_set = []
         for i in range(num_splits):
             sliced_src = self.inference_src.slice(self.inference_times[i])
-            num_time_steps = get_inference_steps(
-                sliced_src,
-                hist=self.hist,
-            )
             inference_dataset = InferenceDataset(
                 src=sliced_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                num_in_states=self.num_in_states,
+                num_out_states=self.num_out_states,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
             )
 
             inference_datasets.append(inference_dataset)
-            num_steps_inf_set.append(num_time_steps)
+            num_steps_inf_set.append(inference_dataset.target_timesteps)
 
         inference_data_combined = InferenceDatasets(
             inference_datasets, num_steps_inf_set
@@ -639,16 +641,21 @@ class Trainer:
             # The standard val aggregator only supports a single scale.
             val_aggregator = Aggregator.get_validation_aggregator(
                 self.primary_src.metadata,
-                self.hist,
+                self.num_in_states,
+                self.num_out_states,
                 self.primary_src.spherical_area_weights.to(self.device),
+                self.primary_src.masks.prognostic.to(self.device),
                 self.num_out,
             )
         else:
             # Create a validation aggregator that handles multiple scales.
             val_aggregator = ValidateAggregator(
                 {},  # Currently, don't do anything else besides record the training loss.
-                self.hist,
-                self.num_out,
+                num_input_states=self.num_in_states,
+                num_target_states=self.num_out_states,
+                area_weights=self.primary_src.spherical_area_weights.to(self.device),
+                wet=self.primary_src.masks.prognostic.to(self.device),
+                target_prognostic_channels=self.num_out,
             )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -680,7 +687,8 @@ class Trainer:
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
                     self.primary_src.metadata,
-                    self.hist,
+                    self.num_in_states,
+                    self.num_out_states,
                     self.primary_src.spherical_area_weights.to(self.device),
                     self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
@@ -697,7 +705,7 @@ class Trainer:
                     inf_aggregator=inf_aggregator,
                     epoch=epoch,
                     num_model_steps_forward=min(
-                        num_steps // 2, self.max_train_model_steps_forward
+                        len(inference_dataset), self.max_train_model_steps_forward
                     ),
                 )
 
@@ -763,7 +771,8 @@ class Trainer:
                 dst=dst.slice(self.train_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                num_in_states=self.num_in_states,
+                num_out_states=self.num_out_states,
                 steps=cur_step,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
@@ -780,7 +789,8 @@ class Trainer:
                 dst=dst.slice(self.val_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                num_in_states=self.num_in_states,
+                num_out_states=self.num_out_states,
                 steps=1,  # current_step set to 1 for validation
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,

@@ -55,7 +55,10 @@ class InferenceDataset(Dataset):
         src: DataSource,
         prognostic_var_names,
         boundary_var_names,
-        hist,
+        hist=None,
+        *,
+        num_in_states: int | None = None,
+        num_out_states: int | None = None,
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
@@ -65,9 +68,33 @@ class InferenceDataset(Dataset):
         # to be passed between DataLoader worker processes. Call to(device) before
         # using the dataset for inference.
 
-        self.hist = hist
+        if hist is not None:
+            hist_states = hist + 1
+            if num_in_states is None:
+                num_in_states = hist_states
+            elif num_in_states != hist_states:
+                raise ValueError("hist and num_in_states disagree")
+            if num_out_states is None:
+                num_out_states = hist_states
+            elif num_out_states != hist_states:
+                raise ValueError("hist and num_out_states disagree")
 
-        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        if num_in_states is None or num_out_states is None:
+            raise ValueError(
+                "num_in_states and num_out_states must be set, either directly or via hist"
+            )
+        if num_in_states < 1 or num_out_states < 1:
+            raise ValueError("State counts must be >= 1")
+
+        self.num_in_states = num_in_states
+        self.num_out_states = num_out_states
+        self.hist = self.num_in_states - 1
+
+        self.num_input_prognostic_channels = num_in_states * len(prognostic_var_names)
+        self.num_output_prognostic_channels = num_out_states * len(
+            prognostic_var_names
+        )
+        self.num_prognostic_channels = self.num_output_prognostic_channels
         data = src.data
         self.input_res = src.resolution
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
@@ -76,34 +103,36 @@ class InferenceDataset(Dataset):
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
 
-        time_indices = np.arange(data.time.size)
-        indices = xr.DataArray(
-            time_indices,
-            dims=["time"],
-            coords={"time": time_indices},
+        window_length = self.num_in_states + self.num_out_states
+        if data.time.size < window_length:
+            raise ValueError(
+                "Not enough timesteps to build inference dataset: "
+                f"required at least {window_length}, got {data.time.size}"
+            )
+
+        starts = np.arange(
+            0,
+            data.time.size - window_length + 1,
+            self.num_out_states,
+            dtype=int,
         )
-        total_steps = 2 * self.hist + 1
-        rolling_indices = indices.rolling(
-            time=len(time_indices) - total_steps, center=False
-        ).construct("window_dim")
-        rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
-            time=slice(len(time_indices) - total_steps - 1, None)
-        )  # Remove first few null indices
-        self.rolling_indices = rolling_indices.isel(
-            window_dim=slice(0, None, self.hist + 1)
-        )  # Skip indices based on history
-        self.rolling_indices = self.rolling_indices.astype(int)
+        windows = starts[:, None] + np.arange(window_length, dtype=int)[None, :]
+        self.rolling_indices = xr.DataArray(
+            windows,
+            dims=["window_dim", "time"],
+        ).astype(int)
 
         if long_rollout:
             logger.info(
                 f"Long rollout will use input at time {data.time.values[0]} and produce"
-                f" output at {data.time.values[self.hist + 1]}"
+                f" output at {data.time.values[self.num_in_states]}"
             )
 
         self.wet: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
-        self.wet_label = src.masks.prognostic_with_hist(self.hist)
+        self.wet_label = src.masks.prognostic_with_states(self.num_out_states)
         self.size = len(self.rolling_indices)
+        self.target_timesteps = self.size * self.num_out_states
 
         if using_gpu():
             self.wet = self.wet.pin_memory()
@@ -143,8 +172,8 @@ class InferenceDataset(Dataset):
     def get_target_time(self, start_step: int, num_steps: int):
         x_index = self._get_x_index(start_step)
         batch_index = x_index.values[0]
-        steps_predicted = len(batch_index) // 2
-        start_target_index = batch_index[steps_predicted]
+        start_target_index = batch_index[self.num_in_states]
+        steps_predicted = self.num_out_states
 
         return self._times.isel(
             time=slice(
@@ -197,7 +226,7 @@ class InferenceDataset(Dataset):
 
     def _get_prognostic(self, x_index):
         data_in_src = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
+            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.num_in_states))
         )
         if self.normalize_before_mask:
             data_in_ds = data_in_src.normalize()
@@ -234,11 +263,10 @@ class InferenceDataset(Dataset):
         """
         This function returns the boundary condition for the current time step.
 
-        With hist > 0, the boundary condition considered is always the last step of
-        the input.
+        The boundary condition uses the same input-state window as the prognostic data.
         """
         data_in_boundary_src = self._boundary_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
+            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.num_in_states))
         )
         if self.normalize_before_mask:
             data_in_boundary_ds = data_in_boundary_src.normalize()
@@ -265,7 +293,9 @@ class InferenceDataset(Dataset):
 
     def _get_label(self, x_index):
         label_src = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
+            lambda ds: ds.isel(time=x_index).isel(
+                time=slice(self.num_in_states, self.num_in_states + self.num_out_states)
+            )
         )
         if self.normalize_before_mask:
             label_ds = label_src.normalize()
@@ -449,7 +479,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         dst: DataSource | None,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        hist: int,
+        hist: int | None = None,
+        *,
+        num_in_states: int | None = None,
+        num_out_states: int | None = None,
         steps: int,
         normalize_before_mask: bool,
         masked_fill_value: float,
@@ -461,14 +494,38 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         # If the src and dst DataSource are the same, we can do a lot less work.
         srcs = [src, dst] if dst else [src]
 
-        self.hist: int = hist
+        if hist is not None:
+            hist_states = hist + 1
+            if num_in_states is None:
+                num_in_states = hist_states
+            elif num_in_states != hist_states:
+                raise ValueError("hist and num_in_states disagree")
+            if num_out_states is None:
+                num_out_states = hist_states
+            elif num_out_states != hist_states:
+                raise ValueError("hist and num_out_states disagree")
+        if num_in_states is None or num_out_states is None:
+            raise ValueError(
+                "num_in_states and num_out_states must be set, either directly or via hist"
+            )
+        if num_in_states < 1 or num_out_states < 1:
+            raise ValueError("State counts must be >= 1")
+
+        self.num_in_states: int = num_in_states
+        self.num_out_states: int = num_out_states
+        self.hist: int = self.num_in_states - 1
         self.steps: int = steps
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._executor = executor
 
-        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
+        self.num_prognostic_channels: int = self.num_in_states * len(
+            prognostic_var_names
+        )
+        self.num_label_prognostic_channels: int = self.num_out_states * len(
+            prognostic_var_names
+        )
         assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
             "src and dst DataSource have different time slices!"
         )
@@ -479,7 +536,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
-        total_steps: int = 2 * self.hist + 2
+        total_steps: int = self.num_in_states + self.num_out_states
 
         # Calculate the number of windows
         num_windows = time_.size - (total_steps - 1) * self.stride
@@ -503,15 +560,19 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.wet_surface: GridMask = src.masks.boundary
 
         self.ctx = GridContext(
-            self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
+            self.prognostic_srcs[-1].masks.prognostic_with_states(self.num_out_states),
             self.prognostic_srcs[0].resolution,
         )
 
+        num_windows = time_.size - (total_steps - 1) * self.stride
         self.size: int = (
-            time_.size
-            - self.steps * (self.hist + 1) * self.stride
-            - self.hist * self.stride
+            num_windows - (self.steps - 1) * self.num_out_states * self.stride
         )
+        if self.size <= 0:
+            raise ValueError(
+                "Computed non-positive dataset size. Check num_in_states, "
+                "num_out_states, stride, and number of steps."
+            )
 
     def __len__(self) -> int:
         return self.size
@@ -523,8 +584,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
-            current_x_index = x_index.isel(time=slice(0, self.hist + 1))
-            forecast_x_index = x_index.isel(time=slice(self.hist + 1, None))
+            current_x_index = x_index.isel(time=slice(0, self.num_in_states))
+            forecast_x_index = x_index.isel(
+                time=slice(self.num_in_states, self.num_in_states + self.num_out_states)
+            )
 
             # Only materialize the time ranges we actually use to reduce memory.
             input_selected = self.prognostic_srcs[0].data.isel(time=current_x_index)
@@ -651,7 +714,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         if idx >= len(self):
             raise IndexError("Index out of range")
 
-        window_index = idx + step * (self.hist + 1) * self.stride
+        window_index = idx + step * self.num_out_states * self.stride
         return self.rolling_indices.isel(window=window_index, drop=True)
 
 

@@ -68,10 +68,13 @@ class Masks:
         self.prognostic = self.prognostic.bool()
         self.boundary = self.boundary.bool()
 
+    def prognostic_with_states(self, num_states: int) -> Bool[GridMask, " prognostic_vars*num_states"]:
+        return torch.concat([self.prognostic] * num_states, dim=0)
+
     def prognostic_with_hist(
         self, hist: int
     ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:
-        return torch.concat([self.prognostic] * (hist + 1), dim=0)
+        return self.prognostic_with_states(hist + 1)
 
 
 @dataclasses.dataclass
@@ -632,13 +635,18 @@ def spherical_area(data: xr.Dataset) -> Grid:
     return torch.from_numpy(areas)
 
 
-def get_inference_steps(data_source: DataSource, hist: int = 1):
+def get_inference_steps(
+    data_source: DataSource,
+    hist: int | None = None,
+    num_out_states: int | None = None,
+):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
     Args:
         data_source: The data source sliced to the inference time range
-        hist: How many additional history samples we get per step
+        hist: Deprecated legacy history setting.
+        num_out_states: Number of predicted states per rollout step.
 
     Returns:
         num_steps: Total number of rolled-out inferences which fit into the time range
@@ -646,7 +654,11 @@ def get_inference_steps(data_source: DataSource, hist: int = 1):
     num_steps = data_source.data.time.size
 
     # Might have extra remaining days, so we remove them
-    mod = num_steps % (hist + 1)
+    if num_out_states is None:
+        if hist is None:
+            hist = 1
+        num_out_states = hist + 1
+    mod = num_steps % num_out_states
     num_steps = num_steps - mod
     return num_steps
 
@@ -668,9 +680,14 @@ def get_aggregator_dicts(
     long_rollout: bool,
     input_type: Literal["prognostic", "input"] = "prognostic",
     num_prognostic_channels: int = 0,
-    hist: int = 1,
+    hist: int | None = None,
+    num_states: int | None = None,
 ) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
     normalize = Normalize.get_instance()
+    if num_states is None:
+        if hist is None:
+            hist = 1
+        num_states = hist + 1
     # Remove boundary data if input
     if input_type == "input":
         data = data[:, :num_prognostic_channels]
@@ -680,11 +697,11 @@ def get_aggregator_dicts(
     if long_rollout:
         # All batches are part of the same rollout during inference
         data_reshaped = rearrange(
-            data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
+            data, "n (hi c) h w -> (n hi) c h w", hi=num_states
         ).unsqueeze(0)  # add artificial batch dim
     elif data.ndim != 5:
         # Batches are independent rollouts during validation
-        data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
+        data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=num_states)
     else:
         # This case comes up in tests; typically, data is not in the desired shape automatically.
         data_reshaped = data

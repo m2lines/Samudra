@@ -79,7 +79,7 @@ class Stepper:
             writer = ZarrWriter(
                 output_dir,
                 coords=coords,
-                hist=inf_aggregator.hist,
+                num_out_states=inf_aggregator.num_target_states,
                 model_path=model_path,
                 time_chunk_size=chunk_size,
             )
@@ -124,8 +124,26 @@ class Stepper:
                 num_steps=num_steps,
                 epoch=epoch,
             )
-            # Setting initial prognostic for next loop
-            initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
+            prog_channels_per_state = model.out_channels // model.num_output_states
+            device = IO.prediction.device
+            history = initial_prognostic.to(device).view(
+                1,
+                model.num_input_states,
+                prog_channels_per_state,
+                *initial_prognostic.shape[2:],
+            )
+            preds = IO.prediction.view(
+                num_steps * model.num_output_states,
+                prog_channels_per_state,
+                *IO.prediction.shape[2:],
+            )
+            full_sequence = torch.cat([history.squeeze(0), preds], dim=0)
+            tail = full_sequence[-model.num_input_states :]
+            initial_prognostic = tail.reshape(
+                1,
+                model.num_input_states * prog_channels_per_state,
+                *IO.prediction.shape[2:],
+            ).clone()
             if writer:
                 logger.info(f"Writing to zarr...")
                 writer.record_batch(IO)

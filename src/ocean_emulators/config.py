@@ -8,7 +8,7 @@ import pydantic
 import torch
 import xarray as xr
 from perceiver_pytorch import Perceiver as NaivePerceiver
-from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
+from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema, model_validator
 from torch import nn
 from torch.nn import GELU
 
@@ -156,11 +156,65 @@ class DataConfig(BaseConfig):
     )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
-    hist: int = 1
+    hist: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Deprecated legacy history setting. When set, this resolves to "
+            "`num_in_states = hist + 1` and `num_out_states = hist + 1`."
+        ),
+    )
+    num_in_states: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of sequential states provided as model input.",
+    )
+    num_out_states: int | None = Field(
+        default=None,
+        ge=1,
+        description="Number of sequential states predicted by the model per step.",
+    )
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+
+    @model_validator(mode="after")
+    def _resolve_state_counts(self) -> Self:
+        if self.hist is None and self.num_in_states is None and self.num_out_states is None:
+            self.hist = 1
+
+        if self.hist is not None:
+            hist_states = self.hist + 1
+            if self.num_in_states is None:
+                self.num_in_states = hist_states
+            elif self.num_in_states != hist_states:
+                raise ValueError(
+                    "hist and num_in_states disagree. Either omit hist or set "
+                    "`num_in_states = hist + 1`."
+                )
+
+            if self.num_out_states is None:
+                self.num_out_states = hist_states
+            elif self.num_out_states != hist_states:
+                raise ValueError(
+                    "hist and num_out_states disagree. Either omit hist or set "
+                    "`num_out_states = hist + 1`."
+                )
+
+        if self.num_in_states is None or self.num_out_states is None:
+            raise ValueError(
+                "num_in_states and num_out_states must be set, either directly or via hist."
+            )
+
+        if self.num_out_states > self.num_in_states:
+            raise ValueError(
+                "num_out_states must be less than or equal to num_in_states to support "
+                "autoregressive rollouts."
+            )
+
+        self.hist = self.num_in_states - 1
+        return self
 
     def build(
         self,
@@ -556,6 +610,8 @@ class UNetBackboneConfig(BaseConfig):
         in_channels: int,
         pad: str,
         checkpointing: Checkpointing | None,
+        *,
+        pos_channels: int = 0,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
@@ -594,13 +650,33 @@ class UNetBackboneConfig(BaseConfig):
             downsampling_block=downsampling_block,
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
+            pos_channels=pos_channels,
         )
+
+
+class WeightInitConfig(BaseConfig):
+    type: Literal["default", "kaiming_normal"] = "default"
+
+
+def apply_weight_initialization(module: nn.Module, init_cfg: WeightInitConfig) -> None:
+    if init_cfg.type == "default":
+        return
+
+    if init_cfg.type != "kaiming_normal":
+        assert_never(init_cfg.type)
+
+    for submodule in module.modules():
+        if isinstance(submodule, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
+            nn.init.kaiming_normal_(submodule.weight, nonlinearity="relu")
+            if submodule.bias is not None:
+                nn.init.zeros_(submodule.bias)
 
 
 class BaseModelConfig(BaseConfig, abc.ABC):
     pred_residuals: bool = False
     last_kernel_size: int = 3
     pad: str = "circular"
+    weight_init: WeightInitConfig = WeightInitConfig()
 
     checkpointing: Checkpointing | None = Field(
         default=None,
@@ -627,11 +703,44 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         self,
         in_channels: int,
         out_channels: int,
-        hist: int,
+        *,
+        hist: int | None = None,
+        num_input_states: int | None = None,
+        num_output_states: int | None = None,
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> BaseModel:
         pass
+
+    def _resolve_state_counts(
+        self,
+        *,
+        hist: int | None,
+        num_input_states: int | None,
+        num_output_states: int | None,
+    ) -> tuple[int, int]:
+        if num_input_states is None and num_output_states is None:
+            # Preserve the legacy direct-builder behavior unless callers opt into
+            # explicit input/output state counts.
+            return 1, 1
+
+        if hist is not None:
+            hist_states = hist + 1
+            if num_input_states is None:
+                num_input_states = hist_states
+            elif num_input_states != hist_states:
+                raise ValueError("hist and num_input_states disagree")
+            if num_output_states is None:
+                num_output_states = hist_states
+            elif num_output_states != hist_states:
+                raise ValueError("hist and num_output_states disagree")
+
+        if num_input_states is None or num_output_states is None:
+            raise ValueError(
+                "num_input_states and num_output_states must be set, either directly or via hist"
+            )
+
+        return num_input_states, num_output_states
 
 
 class SamudraConfig(BaseModelConfig):
@@ -650,10 +759,18 @@ class SamudraConfig(BaseModelConfig):
         self,
         in_channels: int,
         out_channels: int,
-        hist: int,
+        *,
+        hist: int | None = None,
+        num_input_states: int | None = None,
+        num_output_states: int | None = None,
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> Samudra:
+        num_input_states, num_output_states = self._resolve_state_counts(
+            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
+        )
         corrector = None
         if len(srcs) != 1:
             raise ValueError(
@@ -661,14 +778,18 @@ class SamudraConfig(BaseModelConfig):
             )
         src = srcs[0]
         if self.corrector is not None:
+            if num_input_states != num_output_states:
+                raise ValueError(
+                    "Correctors currently require matching input and output state counts."
+                )
             corrector = self.corrector.build(
-                hist, src.spherical_area_weights, static_data_for_corrector
+                num_input_states - 1,
+                src.spherical_area_weights,
+                static_data_for_corrector,
             )
-        total_in_channels = (
-            in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
-        )
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
-        return Samudra(
+        model = Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
@@ -678,15 +799,19 @@ class SamudraConfig(BaseModelConfig):
                 in_channels=total_in_channels,
                 pad=self.pad,
                 checkpointing=self.checkpointing,
+                pos_channels=self.pos_channels,
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
             grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
+        apply_weight_initialization(model, self.weight_init)
+        return model
 
 
 class FOMOConfig(BaseModelConfig):
@@ -713,10 +838,18 @@ class FOMOConfig(BaseModelConfig):
         self,
         in_channels: int,
         out_channels: int,
-        hist: int,
+        *,
+        hist: int | None = None,
+        num_input_states: int | None = None,
+        num_output_states: int | None = None,
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> FOMO:
+        num_input_states, num_output_states = self._resolve_state_counts(
+            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
+        )
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
 
@@ -750,7 +883,7 @@ class FOMOConfig(BaseModelConfig):
 
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
-        return FOMO(
+        model = FOMO(
             in_channels=total_in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
@@ -760,11 +893,14 @@ class FOMOConfig(BaseModelConfig):
             processor=processor,
             decoder=decoder,
             add_3d_coordinates=add_3d_coordinates,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
+        apply_weight_initialization(model, self.weight_init)
+        return model
 
 
 class FOMiniConfig(BaseModelConfig):
@@ -800,10 +936,18 @@ class FOMiniConfig(BaseModelConfig):
         self,
         in_channels: int,
         out_channels: int,
-        hist: int,
+        *,
+        hist: int | None = None,
+        num_input_states: int | None = None,
+        num_output_states: int | None = None,
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
     ) -> FOMini:
+        num_input_states, num_output_states = self._resolve_state_counts(
+            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
+        )
         if self.add_3d_coordinates:
             raise ValueError(
                 "FOMini always uses learned Cartesian coordinate embeddings. "
@@ -823,7 +967,7 @@ class FOMiniConfig(BaseModelConfig):
             out_channels,
             impl,
         )
-        return FOMini(
+        model = FOMini(
             in_channels=in_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
@@ -834,11 +978,14 @@ class FOMiniConfig(BaseModelConfig):
             queries_dim=self.queries_dim,
             query_chunk_size=self.query_chunk_size,
             perceiver_io=perceiver_io,
-            hist=hist,
+            num_input_states=num_input_states,
+            num_output_states=num_output_states,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
+        apply_weight_initialization(model, self.weight_init)
+        return model
 
 
 AnyModelConfig = SamudraConfig | FOMOConfig | FOMiniConfig
@@ -911,6 +1058,7 @@ TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 class DynamicLossConfig(pydantic.BaseModel):
     type: Literal["dynamic"] = "dynamic"
     metric: LossMetric = "mse"
+    weighting: Literal["inverse_loss", "inverse_sqrt_loss"] = "inverse_loss"
     limit: float | None = Field(
         description="The ratio of the largest weight to the smallest weight across all channels which we'll allow. Default of None means no limit.",
         default=None,
@@ -944,10 +1092,11 @@ def build_loss_fn(
     match loss_cfg:
         case str():
             return loss_fn_from_metric(loss_cfg)
-        case DynamicLossConfig(metric=metric, limit=limit):
+        case DynamicLossConfig(metric=metric, weighting=weighting, limit=limit):
             loss_fn = loss_fn_from_metric(metric)
             return DynamicLoss(
                 loss_fn=loss_fn,
+                weighting=weighting,
                 limit=limit,
                 device=device,
                 num_channels=num_channels,

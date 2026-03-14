@@ -25,6 +25,7 @@ LossMetric = Literal[
     "mse_mae",
     "mse_diff_weighted",
 ]
+DynamicLossWeighting = Literal["inverse_loss", "inverse_sqrt_loss"]
 
 
 def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
@@ -157,11 +158,13 @@ class DynamicLoss:
         self,
         loss_fn: LossFnWithContext,
         *,
+        weighting: DynamicLossWeighting,
         limit: float | None,
         device: torch.device,
         num_channels: int,
     ):
         self.loss_fn = loss_fn
+        self._weighting = weighting
         self._device = device
         self._per_channel_scale: Float[torch.Tensor, " var"] = torch.ones(
             num_channels, device=self._device
@@ -194,7 +197,13 @@ class DynamicLoss:
 
         loss = loss_per_channel.detach()
         loss = torch.where(loss == 0, 1e-8, loss)
-        new_target_weights_with_history: Float[torch.Tensor, " hist*var"] = 1.0 / loss
+        match self._weighting:
+            case "inverse_loss":
+                new_target_weights_with_history = 1.0 / loss
+            case "inverse_sqrt_loss":
+                new_target_weights_with_history = 1.0 / torch.sqrt(loss)
+            case _:
+                assert_never(self._weighting)
         # Reshape from channels * history to channels
         # by averaging along the `hist` dimension
         new_target_weights: Float[torch.Tensor, " var"] = (

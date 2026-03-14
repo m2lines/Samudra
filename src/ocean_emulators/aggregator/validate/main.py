@@ -1,3 +1,6 @@
+from collections.abc import Mapping
+from typing import cast
+
 import torch
 
 from ocean_emulators.aggregator.train import TrainAggregator
@@ -15,8 +18,8 @@ class ValidateAggregator(TrainAggregator):
 
     def __init__(
         self,
-        aggregators_or_metadata: dict[str, ValidateSubAggregator]
-        | dict[str, dict[str, str]],
+        aggregators_or_metadata: Mapping[str, ValidateSubAggregator]
+        | Mapping[str, dict[str, str]],
         hist: int | None = None,
         num_prognostic_channels: int | None = None,
         *,
@@ -28,6 +31,7 @@ class ValidateAggregator(TrainAggregator):
     ):
         super().__init__()
         self._legacy_mask_from_ctx = False
+        self._aggregators: dict[str, ValidateSubAggregator]
 
         if num_input_states is None and num_target_states is None:
             if hist is None or num_prognostic_channels is None:
@@ -35,7 +39,9 @@ class ValidateAggregator(TrainAggregator):
                     "Legacy ValidateAggregator construction requires `hist` and "
                     "`num_prognostic_channels`."
                 )
-            self._aggregators = aggregators_or_metadata  # type: ignore[assignment]
+            self._aggregators = dict(
+                cast(Mapping[str, ValidateSubAggregator], aggregators_or_metadata)
+            )
             self.num_input_states = hist + 1
             self.num_target_states = hist + 1
             self.num_target_channels = num_prognostic_channels
@@ -53,7 +59,7 @@ class ValidateAggregator(TrainAggregator):
                     "Explicit ValidateAggregator construction requires input/target "
                     "state counts, area weights, wet mask, and target channels."
                 )
-            metadata = aggregators_or_metadata  # type: ignore[assignment]
+            metadata = dict(cast(Mapping[str, dict[str, str]], aggregators_or_metadata))
             val_aggregators: dict[str, ValidateSubAggregator] = {
                 "snapshot": SnapshotAggregator(
                     metadata, input_time_index=num_input_states - 1
@@ -75,9 +81,7 @@ class ValidateAggregator(TrainAggregator):
                     "Target prognostic channels must be divisible by the number of "
                     "target states."
                 )
-            self.num_prognostic_vars = (
-                target_prognostic_channels // num_target_states
-            )
+            self.num_prognostic_vars = target_prognostic_channels // num_target_states
             self.num_input_channels = self.num_prognostic_vars * num_input_states
 
         if self.num_target_channels % self.num_target_states != 0:
@@ -85,9 +89,7 @@ class ValidateAggregator(TrainAggregator):
                 "Target prognostic channels must be divisible by the number of "
                 "target states."
             )
-        self.num_prognostic_vars = (
-            self.num_target_channels // self.num_target_states
-        )
+        self.num_prognostic_vars = self.num_target_channels // self.num_target_states
         self.wet = wet
 
     # TODO(jder): we could remove this by moving from inheritance
@@ -116,6 +118,7 @@ class ValidateAggregator(TrainAggregator):
                 "The wetmask channel count must be divisible by the target state count."
             )
             wet = wet[: wet.shape[0] // self.num_target_states]
+        assert wet is not None
 
         assert batch.target_data.shape[1] == self.num_target_channels
         target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(

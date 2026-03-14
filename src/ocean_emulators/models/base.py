@@ -69,7 +69,9 @@ class BaseModel(torch.nn.Module):
         outputs: list[torch.Tensor] = []
         loss = torch.tensor(torch.nan)
         prog_channels_per_state = self.out_channels // self.num_output_states
-        total_input_prognostic_channels = prog_channels_per_state * self.num_input_states
+        total_input_prognostic_channels = (
+            prog_channels_per_state * self.num_input_states
+        )
         prognostic_buffer = train_data.get_initial_input()[
             :, :total_input_prognostic_channels
         ]

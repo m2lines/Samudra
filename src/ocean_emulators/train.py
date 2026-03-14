@@ -143,10 +143,12 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.num_in_states = cfg.data.num_in_states
-        self.num_out_states = cfg.data.num_out_states
-        assert self.num_in_states is not None
-        assert self.num_out_states is not None
+        num_in_states = cfg.data.num_in_states
+        num_out_states = cfg.data.num_out_states
+        assert num_in_states is not None
+        assert num_out_states is not None
+        self.num_in_states: int = num_in_states
+        self.num_out_states: int = num_out_states
         self.num_in = int(self.num_in_states * (self.N_prog + self.N_bound))
         self.num_out = int(self.num_out_states * self.N_prog)
 
@@ -651,11 +653,8 @@ class Trainer:
             # Create a validation aggregator that handles multiple scales.
             val_aggregator = ValidateAggregator(
                 {},  # Currently, don't do anything else besides record the training loss.
-                num_input_states=self.num_in_states,
-                num_target_states=self.num_out_states,
-                area_weights=self.primary_src.spherical_area_weights.to(self.device),
-                wet=self.primary_src.masks.prognostic.to(self.device),
-                target_prognostic_channels=self.num_out,
+                hist=self.num_out_states - 1,
+                num_prognostic_channels=self.num_out,
             )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"

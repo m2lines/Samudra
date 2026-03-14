@@ -68,7 +68,9 @@ class Masks:
         self.prognostic = self.prognostic.bool()
         self.boundary = self.boundary.bool()
 
-    def prognostic_with_states(self, num_states: int) -> Bool[GridMask, " prognostic_vars*num_states"]:
+    def prognostic_with_states(
+        self, num_states: int
+    ) -> Bool[GridMask, " prognostic_vars*num_states"]:
         return torch.concat([self.prognostic] * num_states, dim=0)
 
     def prognostic_with_hist(

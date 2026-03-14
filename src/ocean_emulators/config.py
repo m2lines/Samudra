@@ -8,7 +8,13 @@ import pydantic
 import torch
 import xarray as xr
 from perceiver_pytorch import Perceiver as NaivePerceiver
-from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema, model_validator
+from pydantic import (
+    Field,
+    PlainSerializer,
+    PlainValidator,
+    WithJsonSchema,
+    model_validator,
+)
 from torch import nn
 from torch.nn import GELU
 
@@ -181,7 +187,11 @@ class DataConfig(BaseConfig):
 
     @model_validator(mode="after")
     def _resolve_state_counts(self) -> Self:
-        if self.hist is None and self.num_in_states is None and self.num_out_states is None:
+        if (
+            self.hist is None
+            and self.num_in_states is None
+            and self.num_out_states is None
+        ):
             self.hist = 1
 
         if self.hist is not None:
@@ -719,11 +729,6 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         num_input_states: int | None,
         num_output_states: int | None,
     ) -> tuple[int, int]:
-        if num_input_states is None and num_output_states is None:
-            # Preserve the legacy direct-builder behavior unless callers opt into
-            # explicit input/output state counts.
-            return 1, 1
-
         if hist is not None:
             hist_states = hist + 1
             if num_input_states is None:
@@ -734,6 +739,10 @@ class BaseModelConfig(BaseConfig, abc.ABC):
                 num_output_states = hist_states
             elif num_output_states != hist_states:
                 raise ValueError("hist and num_output_states disagree")
+        elif num_input_states is None and num_output_states is None:
+            # Preserve the direct-builder single-step behavior when neither the
+            # legacy history knob nor the explicit state counts are provided.
+            return 1, 1
 
         if num_input_states is None or num_output_states is None:
             raise ValueError(

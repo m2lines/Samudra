@@ -91,9 +91,7 @@ class InferenceDataset(Dataset):
         self.hist = self.num_in_states - 1
 
         self.num_input_prognostic_channels = num_in_states * len(prognostic_var_names)
-        self.num_output_prognostic_channels = num_out_states * len(
-            prognostic_var_names
-        )
+        self.num_output_prognostic_channels = num_out_states * len(prognostic_var_names)
         self.num_prognostic_channels = self.num_output_prognostic_channels
         data = src.data
         self.input_res = src.resolution

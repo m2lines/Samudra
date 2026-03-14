@@ -19,10 +19,7 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.stepper import Stepper
-from ocean_emulators.utils.data import (
-    Normalize,
-    spherical_area_weights,
-)
+from ocean_emulators.utils.data import Normalize, spherical_area_weights
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import is_main_process, set_seed
 from ocean_emulators.utils.logging import (
@@ -74,10 +71,12 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in_states = cfg.data.num_in_states
-        self.num_out_states = cfg.data.num_out_states
-        assert self.num_in_states is not None
-        assert self.num_out_states is not None
+        num_in_states = cfg.data.num_in_states
+        num_out_states = cfg.data.num_out_states
+        assert num_in_states is not None
+        assert num_out_states is not None
+        self.num_in_states: int = num_in_states
+        self.num_out_states: int = num_out_states
         self.num_in = int(self.num_in_states * (self.N_prog + self.N_bound))
         self.num_out = int(self.num_out_states * self.N_prog)
 

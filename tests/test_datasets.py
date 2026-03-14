@@ -188,9 +188,10 @@ def calc_num_samples(
     data_size = ds.sel(time=time_slice).time.size
     steps = cfg.steps[0]
     hist = cfg.data.hist
+    assert hist is not None
     stride = cfg.data_stride[0]
 
-    n_samples = data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
+    n_samples = data_size - (steps * (hist + 1) * stride) - hist * stride
     if schedule == "match":
         n_samples *= 2
     if schedule == "mix":
@@ -362,6 +363,7 @@ def test_loader__data_shape__across_schedules(
     train_config: TrainConfig, schedule: TrainSchedule
 ):
     history = train_config.data.hist
+    assert history is not None
 
     with make_loader(
         train_config, version=LoaderVersion.OM4_TORCH, schedule=schedule

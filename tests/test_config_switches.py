@@ -71,6 +71,29 @@ def test_samudra_supports_explicit_input_output_states(dummy_src: DataSource):
     assert loss.requires_grad
 
 
+def test_samudra_honors_hist_when_explicit_state_counts_are_omitted(
+    dummy_src: DataSource,
+):
+    model = SamudraConfig(
+        unet=UNetBackboneConfig(
+            ch_width=[2],
+            dilation=[1],
+            n_layers=[1],
+        ),
+        pos_channels=0,
+    ).build(
+        in_channels=4,
+        out_channels=2,
+        hist=1,
+        static_data_for_corrector=None,
+        srcs=[dummy_src],
+    )
+
+    assert model.num_input_states == 2
+    assert model.num_output_states == 2
+    assert model.hist == 1
+
+
 def test_build_loss_fn_supports_inverse_sqrt_weighting():
     loss_fn = build_loss_fn(
         DynamicLossConfig(metric="mse", weighting="inverse_sqrt_loss", limit=None),
@@ -81,7 +104,9 @@ def test_build_loss_fn_supports_inverse_sqrt_weighting():
     assert isinstance(loss_fn, DynamicLoss)
 
     loss_fn.update(torch.tensor([4.0, 9.0]))
-    expected = (torch.ones(2) * (DynamicLoss.N_WINDOW - 1) + torch.tensor([0.5, 1 / 3])) / DynamicLoss.N_WINDOW
+    expected = (
+        torch.ones(2) * (DynamicLoss.N_WINDOW - 1) + torch.tensor([0.5, 1 / 3])
+    ) / DynamicLoss.N_WINDOW
 
     assert torch.allclose(loss_fn.loss_scale_per_channel().cpu(), expected)
 
@@ -99,7 +124,9 @@ def test_samudra_kaiming_normal_init_zeroes_biases(dummy_src: DataSource):
     biases = [
         module.bias.detach()
         for module in model.modules()
-        if isinstance(module, (torch.nn.Conv2d, torch.nn.ConvTranspose2d, torch.nn.Linear))
+        if isinstance(
+            module, (torch.nn.Conv2d, torch.nn.ConvTranspose2d, torch.nn.Linear)
+        )
         and module.bias is not None
     ]
 

@@ -82,12 +82,6 @@ class S3Location(ResolvedLocation, BaseModel):
             backend_kwargs={"storage_options": {"endpoint_url": self.endpoint_url}},
             engine="zarr",
             chunks=chunks,
-            # Disable xarray's MemoryCachedArray when not using dask.
-            # Without this, the first .isel().to_numpy() on any variable
-            # caches the ENTIRE array in application memory (not just the
-            # requested slice), causing OOM with forked DataLoader workers.
-            # The OS file cache handles repeated reads efficiently.
-            cache=False,
         )
 
     def url(self) -> str:
@@ -138,12 +132,7 @@ class LocalLocation(ResolvedLocation, BaseModel):
 
     def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
         engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"
-        # Disable xarray's MemoryCachedArray when not using dask.
-        # Without this, the first .isel().to_numpy() on any variable
-        # caches the ENTIRE array in application memory (not just the
-        # requested slice), causing OOM with forked DataLoader workers.
-        # The OS file cache handles repeated reads efficiently.
-        return xr.open_dataset(self.path, engine=engine, chunks=chunks, cache=False)
+        return xr.open_dataset(self.path, engine=engine, chunks=chunks)
 
     def resolve(self, location: "Location") -> "ResolvedLocation":
         if isinstance(location, UnresolvedLocation):

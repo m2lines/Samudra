@@ -1040,7 +1040,7 @@ class EvalConfig(TopLevelConfig):
     )
     experiment: ExperimentConfig
     data: DataConfig
-    model: AnyModelConfig = SamudraConfig()
+    model: AnyModelConfig
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

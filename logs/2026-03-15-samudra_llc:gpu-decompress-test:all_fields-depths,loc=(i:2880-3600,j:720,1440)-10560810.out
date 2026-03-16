@@ -1,0 +1,412 @@
+warning: `VIRTUAL_ENV=/orcd/home/002/codycruz/Ocean_Emulator/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Resolved 312 packages in 2ms
+Audited 308 packages in 130ms
+======== train ocean_emulator samudra w/ 4 gpus on LLC4320 data ========
+training for 3 total epochs and saving checkpoints every 1
+using 0 data workers and false pin memory
+using LLC face=1, i=[2880:3600), j=[720:1440)
+warning: `VIRTUAL_ENV=/orcd/home/002/codycruz/Ocean_Emulator/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+2026-03-15 15:28:12,121 - INFO - backend - auto backend detected CUDA
+2026-03-15 15:28:12,128 - INFO - backend - auto backend detected CUDA
+2026-03-15 15:28:12,458 - INFO - backend - auto backend detected CUDA
+2026-03-15 15:28:12,460 - INFO - backend - auto backend detected CUDA
+node2905:1883777:1883777 [0] NCCL INFO Bootstrap: Using ib0:172.16.29.5<0>
+node2905:1883777:1883777 [0] NCCL INFO cudaDriverVersion 13010
+node2905:1883777:1883777 [0] NCCL INFO NCCL version 2.27.5+cuda12.9
+node2905:1883777:1883777 [0] NCCL INFO Comm config Blocking set to 1
+node2905:1883779:1883779 [2] NCCL INFO cudaDriverVersion 13010
+node2905:1883779:1883779 [2] NCCL INFO Bootstrap: Using ib0:172.16.29.5<0>
+node2905:1883779:1883779 [2] NCCL INFO NCCL version 2.27.5+cuda12.9
+node2905:1883779:1883779 [2] NCCL INFO Comm config Blocking set to 1
+node2905:1883778:1883778 [1] NCCL INFO cudaDriverVersion 13010
+node2905:1883778:1883778 [1] NCCL INFO Bootstrap: Using ib0:172.16.29.5<0>
+node2905:1883778:1883778 [1] NCCL INFO NCCL version 2.27.5+cuda12.9
+node2905:1883778:1883778 [1] NCCL INFO Comm config Blocking set to 1
+node2905:1883780:1883780 [3] NCCL INFO cudaDriverVersion 13010
+node2905:1883780:1883780 [3] NCCL INFO Bootstrap: Using ib0:172.16.29.5<0>
+node2905:1883780:1883780 [3] NCCL INFO NCCL version 2.27.5+cuda12.9
+node2905:1883780:1883780 [3] NCCL INFO Comm config Blocking set to 1
+node2905:1883777:1883896 [0] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+node2905:1883779:1883897 [2] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+node2905:1883778:1883900 [1] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+node2905:1883779:1883897 [2] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [RO]; OOB ib0:172.16.29.5<0>
+node2905:1883779:1883897 [2] NCCL INFO Initialized NET plugin IB
+node2905:1883779:1883897 [2] NCCL INFO Assigned NET plugin IB to comm
+node2905:1883779:1883897 [2] NCCL INFO Using network IB
+node2905:1883777:1883896 [0] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [RO]; OOB ib0:172.16.29.5<0>
+node2905:1883777:1883896 [0] NCCL INFO Initialized NET plugin IB
+node2905:1883777:1883896 [0] NCCL INFO Assigned NET plugin IB to comm
+node2905:1883777:1883896 [0] NCCL INFO Using network IB
+node2905:1883778:1883900 [1] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [RO]; OOB ib0:172.16.29.5<0>
+node2905:1883778:1883900 [1] NCCL INFO Initialized NET plugin IB
+node2905:1883778:1883900 [1] NCCL INFO Assigned NET plugin IB to comm
+node2905:1883778:1883900 [1] NCCL INFO Using network IB
+node2905:1883780:1883901 [3] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+node2905:1883780:1883901 [3] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [RO]; OOB ib0:172.16.29.5<0>
+node2905:1883780:1883901 [3] NCCL INFO Initialized NET plugin IB
+node2905:1883780:1883901 [3] NCCL INFO Assigned NET plugin IB to comm
+node2905:1883780:1883901 [3] NCCL INFO Using network IB
+node2905:1883777:1883896 [0] NCCL INFO DMA-BUF is available on GPU device 0
+node2905:1883779:1883897 [2] NCCL INFO DMA-BUF is available on GPU device 2
+node2905:1883777:1883896 [0] NCCL INFO ncclCommInitRankConfig comm 0x55c7d82767f0 rank 0 nranks 4 cudaDev 0 nvmlDev 0 busId 55000 commId 0xb4eea49b2eb9920e - Init START
+node2905:1883778:1883900 [1] NCCL INFO DMA-BUF is available on GPU device 1
+node2905:1883779:1883897 [2] NCCL INFO ncclCommInitRankConfig comm 0x557db3510a20 rank 2 nranks 4 cudaDev 2 nvmlDev 2 busId d2000 commId 0xb4eea49b2eb9920e - Init START
+node2905:1883778:1883900 [1] NCCL INFO ncclCommInitRankConfig comm 0x5604d72c8e10 rank 1 nranks 4 cudaDev 1 nvmlDev 1 busId 68000 commId 0xb4eea49b2eb9920e - Init START
+node2905:1883778:1883900 [1] NCCL INFO RAS client listening socket at ::1<28028>
+node2905:1883780:1883901 [3] NCCL INFO DMA-BUF is available on GPU device 3
+node2905:1883780:1883901 [3] NCCL INFO ncclCommInitRankConfig comm 0x555bf1be85b0 rank 3 nranks 4 cudaDev 3 nvmlDev 3 busId e4000 commId 0xb4eea49b2eb9920e - Init START
+node2905:1883779:1883897 [2] NCCL INFO RAS client listening socket at ::1<28028>
+node2905:1883777:1883896 [0] NCCL INFO RAS client listening socket at ::1<28028>
+node2905:1883780:1883901 [3] NCCL INFO RAS client listening socket at ::1<28028>
+node2905:1883780:1883901 [3] NCCL INFO Bootstrap timings total 0.000665 (create 0.000021, send 0.000056, recv 0.000116, ring 0.000030, delay 0.000000)
+node2905:1883779:1883897 [2] NCCL INFO Bootstrap timings total 0.087093 (create 0.000015, send 0.000053, recv 0.086538, ring 0.000052, delay 0.000000)
+node2905:1883778:1883900 [1] NCCL INFO Bootstrap timings total 0.062392 (create 0.000016, send 0.000056, recv 0.000056, ring 0.061917, delay 0.000000)
+node2905:1883777:1883896 [0] NCCL INFO Bootstrap timings total 0.124366 (create 0.000031, send 0.000053, recv 0.062000, ring 0.000068, delay 0.000000)
+node2905:1883777:1883896 [0] NCCL INFO Setting affinity for GPU 0 to 2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100
+node2905:1883777:1883896 [0] NCCL INFO NVLS multicast support is not available on dev 0 (NVLS_NCHANNELS 0)
+node2905:1883778:1883900 [1] NCCL INFO Setting affinity for GPU 1 to 2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,66,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100
+node2905:1883780:1883901 [3] NCCL INFO Setting affinity for GPU 3 to 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,43,45,47,49,65,67,69,71,73,75,77,79,81,83,85,87,89,91,93,95,97,99,107,109,111,113
+node2905:1883779:1883897 [2] NCCL INFO Setting affinity for GPU 2 to 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,43,45,47,49,65,67,69,71,73,75,77,79,81,83,85,87,89,91,93,95,97,99,107,109,111,113
+node2905:1883779:1883897 [2] NCCL INFO NVLS multicast support is not available on dev 2 (NVLS_NCHANNELS 0)
+node2905:1883778:1883900 [1] NCCL INFO NVLS multicast support is not available on dev 1 (NVLS_NCHANNELS 0)
+node2905:1883780:1883901 [3] NCCL INFO NVLS multicast support is not available on dev 3 (NVLS_NCHANNELS 0)
+node2905:1883779:1883897 [2] NCCL INFO comm 0x557db3510a20 rank 2 nRanks 4 nNodes 1 localRanks 4 localRank 2 MNNVL 0
+node2905:1883778:1883900 [1] NCCL INFO comm 0x5604d72c8e10 rank 1 nRanks 4 nNodes 1 localRanks 4 localRank 1 MNNVL 0
+node2905:1883777:1883896 [0] NCCL INFO comm 0x55c7d82767f0 rank 0 nRanks 4 nNodes 1 localRanks 4 localRank 0 MNNVL 0
+node2905:1883780:1883901 [3] NCCL INFO comm 0x555bf1be85b0 rank 3 nRanks 4 nNodes 1 localRanks 4 localRank 3 MNNVL 0
+node2905:1883777:1883896 [0] NCCL INFO Channel 00/24 : 0 1 2 3
+node2905:1883779:1883897 [2] NCCL INFO Trees [0] 3/-1/-1->2->1 [1] 3/-1/-1->2->1 [2] 3/-1/-1->2->1 [3] 3/-1/-1->2->1 [4] 1/-1/-1->2->0 [5] 1/-1/-1->2->0 [6] 1/-1/-1->2->0 [7] 1/-1/-1->2->0 [8] -1/-1/-1->2->3 [9] -1/-1/-1->2->3 [10] -1/-1/-1->2->3 [11] -1/-1/-1->2->3 [12] 3/-1/-1->2->1 [13] 3/-1/-1->2->1 [14] 3/-1/-1->2->1 [15] 3/-1/-1->2->1 [16] 1/-1/-1->2->0 [17] 1/-1/-1->2->0 [18] 1/-1/-1->2->0 [19] 1/-1/-1->2->0 [20] -1/-1/-1->2->3 [21] -1/-1/-1->2->3 [22] -1/-1/-1->2->3 [23] -1/-1/-1->2->3
+node2905:1883778:1883900 [1] NCCL INFO Trees [0] 2/-1/-1->1->0 [1] 2/-1/-1->1->0 [2] 2/-1/-1->1->0 [3] 2/-1/-1->1->0 [4] 3/-1/-1->1->2 [5] 3/-1/-1->1->2 [6] 3/-1/-1->1->2 [7] 3/-1/-1->1->2 [8] 0/-1/-1->1->-1 [9] 0/-1/-1->1->-1 [10] 0/-1/-1->1->-1 [11] 0/-1/-1->1->-1 [12] 2/-1/-1->1->0 [13] 2/-1/-1->1->0 [14] 2/-1/-1->1->0 [15] 2/-1/-1->1->0 [16] 3/-1/-1->1->2 [17] 3/-1/-1->1->2 [18] 3/-1/-1->1->2 [19] 3/-1/-1->1->2 [20] 0/-1/-1->1->-1 [21] 0/-1/-1->1->-1 [22] 0/-1/-1->1->-1 [23] 0/-1/-1->1->-1
+node2905:1883777:1883896 [0] NCCL INFO Channel 01/24 : 0 1 3 2
+node2905:1883779:1883897 [2] NCCL INFO P2P Chunksize set to 524288
+node2905:1883778:1883900 [1] NCCL INFO P2P Chunksize set to 524288
+node2905:1883777:1883896 [0] NCCL INFO Channel 02/24 : 0 2 3 1
+node2905:1883780:1883901 [3] NCCL INFO Trees [0] -1/-1/-1->3->2 [1] -1/-1/-1->3->2 [2] -1/-1/-1->3->2 [3] -1/-1/-1->3->2 [4] -1/-1/-1->3->1 [5] -1/-1/-1->3->1 [6] -1/-1/-1->3->1 [7] -1/-1/-1->3->1 [8] 2/-1/-1->3->0 [9] 2/-1/-1->3->0 [10] 2/-1/-1->3->0 [11] 2/-1/-1->3->0 [12] -1/-1/-1->3->2 [13] -1/-1/-1->3->2 [14] -1/-1/-1->3->2 [15] -1/-1/-1->3->2 [16] -1/-1/-1->3->1 [17] -1/-1/-1->3->1 [18] -1/-1/-1->3->1 [19] -1/-1/-1->3->1 [20] 2/-1/-1->3->0 [21] 2/-1/-1->3->0 [22] 2/-1/-1->3->0 [23] 2/-1/-1->3->0
+node2905:1883777:1883896 [0] NCCL INFO Channel 03/24 : 0 2 1 3
+node2905:1883780:1883901 [3] NCCL INFO P2P Chunksize set to 524288
+node2905:1883777:1883896 [0] NCCL INFO Channel 04/24 : 0 3 1 2
+node2905:1883777:1883896 [0] NCCL INFO Channel 05/24 : 0 3 2 1
+node2905:1883777:1883896 [0] NCCL INFO Channel 06/24 : 0 1 2 3
+node2905:1883777:1883896 [0] NCCL INFO Channel 07/24 : 0 1 3 2
+node2905:1883777:1883896 [0] NCCL INFO Channel 08/24 : 0 2 3 1
+node2905:1883777:1883896 [0] NCCL INFO Channel 09/24 : 0 2 1 3
+node2905:1883777:1883896 [0] NCCL INFO Channel 10/24 : 0 3 1 2
+node2905:1883777:1883896 [0] NCCL INFO Channel 11/24 : 0 3 2 1
+node2905:1883777:1883896 [0] NCCL INFO Channel 12/24 : 0 1 2 3
+node2905:1883777:1883896 [0] NCCL INFO Channel 13/24 : 0 1 3 2
+node2905:1883777:1883896 [0] NCCL INFO Channel 14/24 : 0 2 3 1
+node2905:1883777:1883896 [0] NCCL INFO Channel 15/24 : 0 2 1 3
+node2905:1883777:1883896 [0] NCCL INFO Channel 16/24 : 0 3 1 2
+node2905:1883777:1883896 [0] NCCL INFO Channel 17/24 : 0 3 2 1
+node2905:1883777:1883896 [0] NCCL INFO Channel 18/24 : 0 1 2 3
+node2905:1883777:1883896 [0] NCCL INFO Channel 19/24 : 0 1 3 2
+node2905:1883777:1883896 [0] NCCL INFO Channel 20/24 : 0 2 3 1
+node2905:1883777:1883896 [0] NCCL INFO Channel 21/24 : 0 2 1 3
+node2905:1883777:1883896 [0] NCCL INFO Channel 22/24 : 0 3 1 2
+node2905:1883777:1883896 [0] NCCL INFO Channel 23/24 : 0 3 2 1
+node2905:1883777:1883896 [0] NCCL INFO Trees [0] 1/-1/-1->0->-1 [1] 1/-1/-1->0->-1 [2] 1/-1/-1->0->-1 [3] 1/-1/-1->0->-1 [4] 2/-1/-1->0->-1 [5] 2/-1/-1->0->-1 [6] 2/-1/-1->0->-1 [7] 2/-1/-1->0->-1 [8] 3/-1/-1->0->1 [9] 3/-1/-1->0->1 [10] 3/-1/-1->0->1 [11] 3/-1/-1->0->1 [12] 1/-1/-1->0->-1 [13] 1/-1/-1->0->-1 [14] 1/-1/-1->0->-1 [15] 1/-1/-1->0->-1 [16] 2/-1/-1->0->-1 [17] 2/-1/-1->0->-1 [18] 2/-1/-1->0->-1 [19] 2/-1/-1->0->-1 [20] 3/-1/-1->0->1 [21] 3/-1/-1->0->1 [22] 3/-1/-1->0->1 [23] 3/-1/-1->0->1
+node2905:1883777:1883896 [0] NCCL INFO P2P Chunksize set to 524288
+node2905:1883779:1883897 [2] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+node2905:1883778:1883900 [1] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+node2905:1883779:1883933 [2] NCCL INFO [Proxy Service] Device 2 CPU core 1
+node2905:1883778:1883932 [1] NCCL INFO [Proxy Service] Device 1 CPU core 84
+node2905:1883779:1883935 [2] NCCL INFO [Proxy Service UDS] Device 2 CPU core 9
+node2905:1883777:1883896 [0] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+node2905:1883778:1883934 [1] NCCL INFO [Proxy Service UDS] Device 1 CPU core 24
+node2905:1883777:1883896 [0] NCCL INFO Check P2P Type isAllDirectP2p 1 directMode 0
+node2905:1883780:1883901 [3] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+node2905:1883777:1883936 [0] NCCL INFO [Proxy Service] Device 0 CPU core 90
+node2905:1883777:1883937 [0] NCCL INFO [Proxy Service UDS] Device 0 CPU core 92
+node2905:1883780:1883938 [3] NCCL INFO [Proxy Service] Device 3 CPU core 79
+node2905:1883780:1883939 [3] NCCL INFO [Proxy Service UDS] Device 3 CPU core 83
+node2905:1883778:1883900 [1] NCCL INFO threadThresholds 8/8/64 | 32/8/64 | 512 | 512
+node2905:1883778:1883900 [1] NCCL INFO 24 coll channels, 24 collnet channels, 0 nvls channels, 32 p2p channels, 16 p2p channels per peer
+node2905:1883779:1883897 [2] NCCL INFO threadThresholds 8/8/64 | 32/8/64 | 512 | 512
+node2905:1883779:1883897 [2] NCCL INFO 24 coll channels, 24 collnet channels, 0 nvls channels, 32 p2p channels, 16 p2p channels per peer
+node2905:1883777:1883896 [0] NCCL INFO threadThresholds 8/8/64 | 32/8/64 | 512 | 512
+node2905:1883777:1883896 [0] NCCL INFO 24 coll channels, 24 collnet channels, 0 nvls channels, 32 p2p channels, 16 p2p channels per peer
+node2905:1883780:1883901 [3] NCCL INFO threadThresholds 8/8/64 | 32/8/64 | 512 | 512
+node2905:1883780:1883901 [3] NCCL INFO 24 coll channels, 24 collnet channels, 0 nvls channels, 32 p2p channels, 16 p2p channels per peer
+node2905:1883777:1883896 [0] NCCL INFO CC Off, workFifoBytes 1048576
+node2905:1883779:1883897 [2] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+node2905:1883779:1883897 [2] NCCL INFO ncclCommInitRankConfig comm 0x557db3510a20 rank 2 nranks 4 cudaDev 2 nvmlDev 2 busId d2000 commId 0xb4eea49b2eb9920e - Init COMPLETE
+node2905:1883779:1883897 [2] NCCL INFO Init timings - ncclCommInitRankConfig: rank 2 nranks 4 total 1.64 (kernels 0.16, alloc 1.33, bootstrap 0.09, allgathers 0.00, topo 0.02, graphs 0.01, connections 0.02, rest 0.01)
+node2905:1883780:1883901 [3] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+node2905:1883778:1883900 [1] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+node2905:1883780:1883901 [3] NCCL INFO ncclCommInitRankConfig comm 0x555bf1be85b0 rank 3 nranks 4 cudaDev 3 nvmlDev 3 busId e4000 commId 0xb4eea49b2eb9920e - Init COMPLETE
+node2905:1883778:1883900 [1] NCCL INFO ncclCommInitRankConfig comm 0x5604d72c8e10 rank 1 nranks 4 cudaDev 1 nvmlDev 1 busId 68000 commId 0xb4eea49b2eb9920e - Init COMPLETE
+node2905:1883777:1883896 [0] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+node2905:1883780:1883901 [3] NCCL INFO Init timings - ncclCommInitRankConfig: rank 3 nranks 4 total 1.60 (kernels 0.43, alloc 1.12, bootstrap 0.00, allgathers 0.00, topo 0.02, graphs 0.01, connections 0.02, rest 0.01)
+node2905:1883778:1883900 [1] NCCL INFO Init timings - ncclCommInitRankConfig: rank 1 nranks 4 total 1.62 (kernels 0.16, alloc 1.34, bootstrap 0.06, allgathers 0.00, topo 0.02, graphs 0.01, connections 0.02, rest 0.01)
+node2905:1883777:1883896 [0] NCCL INFO ncclCommInitRankConfig comm 0x55c7d82767f0 rank 0 nranks 4 cudaDev 0 nvmlDev 0 busId 55000 commId 0xb4eea49b2eb9920e - Init COMPLETE
+node2905:1883777:1883896 [0] NCCL INFO Init timings - ncclCommInitRankConfig: rank 0 nranks 4 total 1.65 (kernels 0.17, alloc 1.30, bootstrap 0.12, allgathers 0.00, topo 0.02, graphs 0.01, connections 0.02, rest 0.01)
+[W315 15:28:14.241165570 Utils.hpp:137] Warning: Environment variable TORCH_NCCL_TRACE_BUFFER_SIZE is deprecated; use TORCH_FR_BUFFER_SIZE instead (function operator())
+[W315 15:28:14.241326596 Utils.hpp:137] Warning: Environment variable TORCH_NCCL_TRACE_BUFFER_SIZE is deprecated; use TORCH_FR_BUFFER_SIZE instead (function operator())
+[W315 15:28:14.241320740 Utils.hpp:137] Warning: Environment variable TORCH_NCCL_TRACE_BUFFER_SIZE is deprecated; use TORCH_FR_BUFFER_SIZE instead (function operator())
+2026-03-15 15:28:14,896 - INFO - distributed - | distributed init (rank 2), gpu 2, world_size 4, dist_url env://
+2026-03-15 15:28:14,899 - INFO - distributed - | distributed init (rank 1), gpu 1, world_size 4, dist_url env://
+2026-03-15 15:28:14,900 - INFO - distributed - | distributed init (rank 3), gpu 3, world_size 4, dist_url env://
+[W315 15:28:14.254079081 Utils.hpp:137] Warning: Environment variable TORCH_NCCL_TRACE_BUFFER_SIZE is deprecated; use TORCH_FR_BUFFER_SIZE instead (function operator())
+node2905:1883779:1883940 [2] NCCL INFO Channel 00/0 : 2[2] -> 3[3] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 02/0 : 2[2] -> 3[3] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 06/0 : 2[2] -> 3[3] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 08/0 : 2[2] -> 3[3] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 12/0 : 2[2] -> 3[3] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 14/0 : 2[2] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 00/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 18/0 : 2[2] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 04/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 20/0 : 2[2] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 06/0 : 1[1] -> 2[2] via P2P/CUMEM
+2026-03-15 15:28:14,909 - INFO - distributed - | distributed init (rank 0), gpu 0, world_size 4, dist_url env://
+node2905:1883778:1883941 [1] NCCL INFO Channel 10/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 00/0 : 3[3] -> 0[0] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 12/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 03/0 : 3[3] -> 0[0] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 06/0 : 3[3] -> 0[0] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 16/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 18/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 09/0 : 3[3] -> 0[0] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 22/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 12/0 : 3[3] -> 0[0] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 15/0 : 3[3] -> 0[0] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 18/0 : 3[3] -> 0[0] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 21/0 : 3[3] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 01/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 04/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 07/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 10/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 13/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 16/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 19/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 22/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 00/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 01/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 06/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 07/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 12/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 13/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 18/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 19/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 01/0 : 1[1] -> 3[3] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 02/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 02/0 : 3[3] -> 1[1] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 03/0 : 1[1] -> 3[3] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 03/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 07/0 : 1[1] -> 3[3] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 04/0 : 3[3] -> 1[1] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 08/0 : 3[3] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 08/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 09/0 : 1[1] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 13/0 : 1[1] -> 3[3] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 10/0 : 3[3] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 09/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 15/0 : 1[1] -> 3[3] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 14/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 14/0 : 3[3] -> 1[1] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 16/0 : 3[3] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 15/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 19/0 : 1[1] -> 3[3] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 20/0 : 3[3] -> 1[1] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 21/0 : 1[1] -> 3[3] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 20/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 21/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 22/0 : 3[3] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 04/0 : 0[0] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 02/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 01/0 : 3[3] -> 2[2] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 03/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 05/0 : 0[0] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 05/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 05/0 : 3[3] -> 2[2] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 05/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 10/0 : 0[0] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 08/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 07/0 : 3[3] -> 2[2] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 09/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 11/0 : 0[0] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 11/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 11/0 : 3[3] -> 2[2] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 16/0 : 0[0] -> 3[3] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 11/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 13/0 : 3[3] -> 2[2] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 15/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 14/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 17/0 : 0[0] -> 3[3] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 17/0 : 3[3] -> 2[2] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 22/0 : 0[0] -> 3[3] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 17/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 17/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 20/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1883777:1883943 [0] NCCL INFO Channel 23/0 : 0[0] -> 3[3] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 19/0 : 3[3] -> 2[2] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 21/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Channel 23/0 : 3[3] -> 2[2] via P2P/CUMEM
+node2905:1883778:1883941 [1] NCCL INFO Channel 23/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1883779:1883940 [2] NCCL INFO Channel 23/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1883780:1883942 [3] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+node2905:1883779:1883940 [2] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+node2905:1883778:1883941 [1] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+node2905:1883777:1883943 [0] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+2026-03-15 15:28:15,447 - INFO - backend - succeeded in initializing distributed mode
+2026-03-15 15:28:15,461 - INFO - train - Prognostic variables: U_0, U_1, U_2, U_3, U_4, U_5, U_6, U_7, U_8, U_9, U_10, U_11, U_12, U_13, U_14, U_15, U_16, U_17, U_18, U_19, U_20, U_21, U_22, U_23, U_24, U_25, U_26, U_27, U_28, U_29, U_30, U_31, U_32, U_33, U_34, U_35, U_36, U_37, U_38, U_39, U_40, U_41, U_42, U_43, U_44, U_45, U_46, U_47, U_48, U_49, U_50, V_0, V_1, V_2, V_3, V_4, V_5, V_6, V_7, V_8, V_9, V_10, V_11, V_12, V_13, V_14, V_15, V_16, V_17, V_18, V_19, V_20, V_21, V_22, V_23, V_24, V_25, V_26, V_27, V_28, V_29, V_30, V_31, V_32, V_33, V_34, V_35, V_36, V_37, V_38, V_39, V_40, V_41, V_42, V_43, V_44, V_45, V_46, V_47, V_48, V_49, V_50, Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, Theta_7, Theta_8, Theta_9, Theta_10, Theta_11, Theta_12, Theta_13, Theta_14, Theta_15, Theta_16, Theta_17, Theta_18, Theta_19, Theta_20, Theta_21, Theta_22, Theta_23, Theta_24, Theta_25, Theta_26, Theta_27, Theta_28, Theta_29, Theta_30, Theta_31, Theta_32, Theta_33, Theta_34, Theta_35, Theta_36, Theta_37, Theta_38, Theta_39, Theta_40, Theta_41, Theta_42, Theta_43, Theta_44, Theta_45, Theta_46, Theta_47, Theta_48, Theta_49, Theta_50, Salt_0, Salt_1, Salt_2, Salt_3, Salt_4, Salt_5, Salt_6, Salt_7, Salt_8, Salt_9, Salt_10, Salt_11, Salt_12, Salt_13, Salt_14, Salt_15, Salt_16, Salt_17, Salt_18, Salt_19, Salt_20, Salt_21, Salt_22, Salt_23, Salt_24, Salt_25, Salt_26, Salt_27, Salt_28, Salt_29, Salt_30, Salt_31, Salt_32, Salt_33, Salt_34, Salt_35, Salt_36, Salt_37, Salt_38, Salt_39, Salt_40, Salt_41, Salt_42, Salt_43, Salt_44, Salt_45, Salt_46, Salt_47, Salt_48, Salt_49, Salt_50, Eta
+2026-03-15 15:28:15,461 - INFO - train - Boundary variables: oceTAUX, oceTAUY, oceQnet, Eta
+2026-03-15 15:28:15,461 - INFO - train - Levels: 19
+2026-03-15 15:28:17,648 - INFO - logging - 
+=== Warning Details ===
+2026-03-15 15:28:17,648 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-03-15 15:28:17,648 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-03-15 15:28:17,649 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py
+2026-03-15 15:28:17,649 - INFO - logging - Line: 237
+2026-03-15 15:28:17,649 - INFO - logging - 
+Full stack trace:
+2026-03-15 15:28:17,662 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-03-15 15:28:17,662 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-03-15 15:28:17,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1089, in <module>
+2026-03-15 15:28:17,662 - INFO - logging -     main()
+2026-03-15 15:28:17,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1079, in main
+2026-03-15 15:28:17,662 - INFO - logging -     trainer = Trainer(cfg)
+2026-03-15 15:28:17,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 132, in __init__
+2026-03-15 15:28:17,662 - INFO - logging -     self.data_container = cfg.data.build(
+2026-03-15 15:28:17,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 224, in build
+2026-03-15 15:28:17,662 - INFO - logging -     src, fork = make_source(
+2026-03-15 15:28:17,662 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 196, in make_source
+2026-03-15 15:28:17,662 - INFO - logging -     data_source = DataSource.from_locations(
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 459, in from_locations
+2026-03-15 15:28:17,663 - INFO - logging -     data = data_location.open(chunks, use_gpu_zarr_decode=zarr_gpu_decode)
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 234, in open
+2026-03-15 15:28:17,663 - INFO - logging -     return _open_with_optional_gpu_decode(
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 74, in _open_with_optional_gpu_decode
+2026-03-15 15:28:17,663 - INFO - logging -     return open_dataset()
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 237, in <lambda>
+2026-03-15 15:28:17,663 - INFO - logging -     open_dataset=lambda: xr.open_dataset(
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/api.py", line 607, in open_dataset
+2026-03-15 15:28:17,663 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1683, in open_dataset
+2026-03-15 15:28:17,663 - INFO - logging -     store = ZarrStore.open_group(
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 722, in open_group
+2026-03-15 15:28:17,663 - INFO - logging -     ) = _get_open_params(
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1896, in _get_open_params
+2026-03-15 15:28:17,663 - INFO - logging -     emit_user_level_warning(
+2026-03-15 15:28:17,663 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/core/utils.py", line 1268, in emit_user_level_warning
+2026-03-15 15:28:17,663 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-03-15 15:28:17,663 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 110, in _showwarnmsg
+2026-03-15 15:28:17,663 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-03-15 15:28:17,664 - INFO - logging - =====================
+
+2026-03-15 15:28:29,262 - INFO - logging - 
+=== Warning Details ===
+2026-03-15 15:28:29,262 - INFO - logging - Message: Failed to open Zarr store with consolidated metadata, but successfully read with non-consolidated metadata. This is typically much slower for opening a dataset. To silence this warning, consider:
+1. Consolidating metadata in this existing store with zarr.consolidate_metadata().
+2. Explicitly setting consolidated=False, to avoid trying to read consolidate metadata, or
+3. Explicitly setting consolidated=True, to raise an error in this case instead of falling back to try reading non-consolidated metadata.
+2026-03-15 15:28:29,262 - INFO - logging - Category: <class 'RuntimeWarning'>
+2026-03-15 15:28:29,262 - INFO - logging - File: /orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py
+2026-03-15 15:28:29,262 - INFO - logging - Line: 237
+2026-03-15 15:28:29,262 - INFO - logging - 
+Full stack trace:
+2026-03-15 15:28:29,262 - INFO - logging -   File "<frozen runpy>", line 198, in _run_module_as_main
+2026-03-15 15:28:29,262 - INFO - logging -   File "<frozen runpy>", line 88, in _run_code
+2026-03-15 15:28:29,262 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1089, in <module>
+2026-03-15 15:28:29,263 - INFO - logging -     main()
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1079, in main
+2026-03-15 15:28:29,263 - INFO - logging -     trainer = Trainer(cfg)
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 132, in __init__
+2026-03-15 15:28:29,263 - INFO - logging -     self.data_container = cfg.data.build(
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 240, in build
+2026-03-15 15:28:29,263 - INFO - logging -     inference_source, _ = make_source(
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 196, in make_source
+2026-03-15 15:28:29,263 - INFO - logging -     data_source = DataSource.from_locations(
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 459, in from_locations
+2026-03-15 15:28:29,263 - INFO - logging -     data = data_location.open(chunks, use_gpu_zarr_decode=zarr_gpu_decode)
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 234, in open
+2026-03-15 15:28:29,263 - INFO - logging -     return _open_with_optional_gpu_decode(
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 74, in _open_with_optional_gpu_decode
+2026-03-15 15:28:29,263 - INFO - logging -     return open_dataset()
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 237, in <lambda>
+2026-03-15 15:28:29,263 - INFO - logging -     open_dataset=lambda: xr.open_dataset(
+2026-03-15 15:28:29,263 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/api.py", line 607, in open_dataset
+2026-03-15 15:28:29,263 - INFO - logging -     backend_ds = backend.open_dataset(
+2026-03-15 15:28:29,264 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1683, in open_dataset
+2026-03-15 15:28:29,264 - INFO - logging -     store = ZarrStore.open_group(
+2026-03-15 15:28:29,264 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 722, in open_group
+2026-03-15 15:28:29,264 - INFO - logging -     ) = _get_open_params(
+2026-03-15 15:28:29,264 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1896, in _get_open_params
+2026-03-15 15:28:29,264 - INFO - logging -     emit_user_level_warning(
+2026-03-15 15:28:29,264 - INFO - logging -   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/core/utils.py", line 1268, in emit_user_level_warning
+2026-03-15 15:28:29,264 - INFO - logging -     return warnings.warn(message, category=category, stacklevel=stacklevel)
+2026-03-15 15:28:29,264 - INFO - logging -   File "/usr/lib64/python3.12/warnings.py", line 110, in _showwarnmsg
+2026-03-15 15:28:29,264 - INFO - logging -     sw(msg.message, msg.category, msg.filename, msg.lineno,
+2026-03-15 15:28:29,264 - INFO - logging - =====================
+
+2026-03-15 15:29:19,213 - INFO - train - Number of inputs (prognostic + boundary): 418
+2026-03-15 15:29:19,213 - INFO - train - Number of outputs (prognostic): 410
+2026-03-15 15:29:19,213 - INFO - train - Loading data
+wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
+wandb: Currently logged in as: codycruz (codycruz-massachusetts-institute-of-technology) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: Tracking run with wandb version 0.19.8
+wandb: Run data is saved locally in .LOCAL/2026-03-15-samudra_llc:gpu-decompress-test:all_fields-depths,loc=(i:2880-3600,j:720,1440)/wandb/run-20260315_152924-pecidsov
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 2026-03-15-samudra_llc:gpu-decompress-test:all_fields-depths,loc=(i:2880-3600,j:720,1440)
+wandb: ⭐️ View project at https://wandb.ai/ocean_emulators/default
+wandb: 🚀 View run at https://wandb.ai/ocean_emulators/default/runs/pecidsov
+2026-03-15 15:29:26,726 - INFO - train - Effective batch size: 4 (batch_size=1 × gradient_accumulation_steps=4)
+2026-03-15 15:29:26,774 - INFO - train - Starting training
+2026-03-15 15:29:26,775 - INFO - train - Starting training at step 1
+2026-03-15 15:29:26,846 - INFO - logging - TorchTrainDataset.__init__ took 0.0453 seconds
+2026-03-15 15:29:26,906 - INFO - logging - TorchTrainDataset.__init__ took 0.0440 seconds
+2026-03-15 15:29:26,906 - INFO - train - Instantiating torch loaders
+2026-03-15 15:31:42,233 - INFO - logging - Number of parameters: 92947882
+2026-03-15 15:31:44,874 - INFO - logging - ====================================================================================================
+Layer (type:depth-idx)                             Output Shape              Param #
+====================================================================================================
+_ForwardOnceWrapper                                [1, 410, 720, 720]        --
+├─Samudra: 1-1                                     --                        --
+│    └─UNetBackbone: 2-1                           [1, 280, 720, 720]        91,914,272
+│    └─Conv2d: 2-2                                 [1, 410, 720, 720]        1,033,610
+│    └─Correctors: 2-3                             [1, 410, 720, 720]        --
+====================================================================================================
+Total params: 92,947,882
+Trainable params: 92,947,882
+Non-trainable params: 0
+Total mult-adds (Units.TERABYTES): 10.48
+====================================================================================================
+Input size (MB): 866.76
+Forward/backward pass size (MB): 38137.78
+Params size (MB): 371.79
+Estimated Total Size (MB): 39376.34
+====================================================================================================
+2026-03-15 15:32:20,801 - INFO - logging - Training Epoch: [1]  [   0/2195]  eta: 4 days, 10:01:34  lr: 0.000600  iter_time: 173.893(173.893)  data_wait_time: 135.325(135.325)  data_load_time: 134.263(134.263)  loss: 2.2503 (2.2503)  max cpu mem: 12814  max gpu mem: 68641
+2026-03-15 15:34:12,522 - INFO - logging - Training Epoch: [1]  [   1/2195]  eta: 3 days, 15:01:56  lr: 0.000600  iter_time: 111.720(111.720)  data_wait_time: 111.118(111.118)  data_load_time: 109.863(109.863)  loss: 2.2503 (2.2626)  max cpu mem: 15941  max gpu mem: 22355
+2026-03-15 15:35:51,244 - INFO - logging - Training Epoch: [1]  [   2/2195]  eta: 3 days, 6:02:28  lr: 0.000600  iter_time: 98.721(98.721)  data_wait_time: 97.616(97.616)  data_load_time: 96.814(96.814)  loss: 2.2741 (2.2664)  max cpu mem: 17861  max gpu mem: 22355
+2026-03-15 15:38:50,330 - INFO - logging - Training Epoch: [1]  [   3/2195]  eta: 3 days, 13:45:53  lr: 0.000600  iter_time: 179.084(179.085)  data_wait_time: 100.174(100.174)  data_load_time: 99.183(99.183)  loss: 2.2503 (2.2466)  max cpu mem: 17896  max gpu mem: 22355
+2026-03-15 15:41:55,365 - INFO - logging - Training Epoch: [1]  [   4/2195]  eta: 3 days, 19:06:11  lr: 0.000600  iter_time: 185.034(185.034)  data_wait_time: 95.200(95.200)  data_load_time: 94.474(94.474)  loss: 2.2503 (2.1460)  max cpu mem: 18130  max gpu mem: 23033
+2026-03-15 15:44:16,628 - INFO - logging - Training Epoch: [1]  [   5/2195]  eta: 3 days, 18:12:25  lr: 0.000600  iter_time: 141.262(141.262)  data_wait_time: 140.610(140.610)  data_load_time: 139.754(139.754)  loss: 2.1873 (2.0763)  max cpu mem: 18130  max gpu mem: 23069
+2026-03-15 15:45:55,383 - INFO - logging - Training Epoch: [1]  [   6/2195]  eta: 3 days, 13:51:48  lr: 0.000600  iter_time: 98.754(98.754)  data_wait_time: 98.091(98.091)  data_load_time: 97.372(97.372)  loss: 2.1873 (2.0281)  max cpu mem: 18130  max gpu mem: 23069
+2026-03-15 15:47:35,563 - INFO - logging - Training Epoch: [1]  [   7/2195]  eta: 3 days, 10:42:25  lr: 0.000600  iter_time: 100.179(100.179)  data_wait_time: 99.551(99.551)  data_load_time: 98.842(98.842)  loss: 1.7437 (1.9894)  max cpu mem: 18130  max gpu mem: 23069
+2026-03-15 15:50:12,806 - INFO - logging - Training Epoch: [1]  [   8/2195]  eta: 3 days, 12:05:51  lr: 0.000600  iter_time: 157.242(157.242)  data_wait_time: 156.642(156.642)  data_load_time: 155.915(155.915)  loss: 1.7437 (1.8533)  max cpu mem: 18130  max gpu mem: 23033
+2026-03-15 15:52:18,646 - INFO - logging - Training Epoch: [1]  [   9/2195]  eta: 3 days, 11:17:39  lr: 0.000600  iter_time: 125.839(125.839)  data_wait_time: 95.597(95.597)  data_load_time: 94.725(94.725)  loss: 1.7385 (1.7428)  max cpu mem: 18130  max gpu mem: 23069
+2026-03-15 15:53:53,096 - INFO - logging - Training Epoch: [1]  [  10/2195]  eta: 3 days, 8:53:55  lr: 0.000600  iter_time: 94.448(94.448)  data_wait_time: 93.809(93.809)  data_load_time: 93.111(93.111)  loss: 1.7385 (1.6529)  max cpu mem: 18130  max gpu mem: 23069
+2026-03-15 15:56:28,010 - INFO - logging - Training Epoch: [1]  [  11/2195]  eta: 3 days, 9:57:18  lr: 0.000600  iter_time: 154.913(154.913)  data_wait_time: 90.255(90.255)  data_load_time: 89.540(89.540)  loss: 1.7278 (1.5795)  max cpu mem: 18130  max gpu mem: 23069
+2026-03-15 15:58:05,717 - INFO - logging - Training Epoch: [1]  [  12/2195]  eta: 3 days, 8:10:25  lr: 0.000600  iter_time: 97.706(97.706)  data_wait_time: 97.071(97.071)  data_load_time: 96.246(96.246)  loss: 1.7278 (1.5496)  max cpu mem: 18177  max gpu mem: 23033
+2026-03-15 15:59:39,244 - INFO - logging - Training Epoch: [1]  [  13/2195]  eta: 3 days, 6:27:43  lr: 0.000600  iter_time: 93.526(93.526)  data_wait_time: 92.105(92.105)  data_load_time: 91.228(91.228)  loss: 1.7183 (1.5237)  max cpu mem: 18177  max gpu mem: 23068
+2026-03-15 16:01:59,119 - INFO - logging - Training Epoch: [1]  [  14/2195]  eta: 3 days, 6:50:49  lr: 0.000600  iter_time: 139.874(139.874)  data_wait_time: 139.237(139.237)  data_load_time: 138.490(138.490)  loss: 1.7183 (1.5044)  max cpu mem: 18177  max gpu mem: 23069
+2026-03-15 16:05:08,882 - INFO - logging - Training Epoch: [1]  [  15/2195]  eta: 3 days, 9:04:01  lr: 0.000600  iter_time: 189.762(189.762)  data_wait_time: 151.416(151.416)  data_load_time: 150.719(150.719)  loss: 1.2347 (1.4852)  max cpu mem: 18177  max gpu mem: 23068
+2026-03-15 16:07:04,770 - INFO - logging - Training Epoch: [1]  [  16/2195]  eta: 3 days, 8:23:22  lr: 0.000600  iter_time: 115.886(115.886)  data_wait_time: 94.197(94.197)  data_load_time: 93.413(93.413)  loss: 1.2347 (1.4264)  max cpu mem: 18191  max gpu mem: 23033
+2026-03-15 16:09:55,570 - INFO - logging - Training Epoch: [1]  [  17/2195]  eta: 3 days, 9:37:45  lr: 0.000600  iter_time: 170.799(170.799)  data_wait_time: 170.165(170.165)  data_load_time: 169.472(169.472)  loss: 1.1966 (1.3737)  max cpu mem: 18191  max gpu mem: 23069
+2026-03-15 16:11:31,084 - INFO - logging - Training Epoch: [1]  [  18/2195]  eta: 3 days, 8:20:15  lr: 0.000600  iter_time: 95.513(95.513)  data_wait_time: 83.813(83.813)  data_load_time: 82.961(82.961)  loss: 1.1966 (1.3267)  max cpu mem: 18191  max gpu mem: 23069
+2026-03-15 16:13:09,939 - INFO - logging - Training Epoch: [1]  [  19/2195]  eta: 3 days, 7:16:23  lr: 0.000600  iter_time: 98.853(98.853)  data_wait_time: 94.165(94.165)  data_load_time: 93.469(93.469)  loss: 1.1906 (1.2837)  max cpu mem: 18191  max gpu mem: 23069
+2026-03-15 16:14:47,542 - INFO - logging - Training Epoch: [1]  [  20/2195]  eta: 3 days, 6:16:17  lr: 0.000600  iter_time: 97.603(97.603)  data_wait_time: 96.954(96.954)  data_load_time: 96.122(96.122)  loss: 1.1866 (1.2445)  max cpu mem: 18191  max gpu mem: 23033
+2026-03-15 16:16:54,969 - INFO - logging - Training Epoch: [1]  [  21/2195]  eta: 3 days, 6:10:37  lr: 0.000600  iter_time: 127.426(127.426)  data_wait_time: 101.879(101.879)  data_load_time: 101.038(101.038)  loss: 0.7718 (1.2075)  max cpu mem: 18191  max gpu mem: 23068
+2026-03-15 16:19:35,536 - INFO - logging - Training Epoch: [1]  [  22/2195]  eta: 3 days, 6:57:27  lr: 0.000600  iter_time: 160.565(160.565)  data_wait_time: 159.916(159.915)  data_load_time: 159.082(159.083)  loss: 0.7646 (1.1745)  max cpu mem: 18191  max gpu mem: 23069
+2026-03-15 16:22:33,834 - INFO - logging - Training Epoch: [1]  [  23/2195]  eta: 3 days, 8:06:54  lr: 0.000600  iter_time: 178.298(178.298)  data_wait_time: 98.901(98.901)  data_load_time: 98.204(98.204)  loss: 0.7542 (1.1449)  max cpu mem: 18191  max gpu mem: 23068
+2026-03-15 16:25:10,728 - INFO - logging - Training Epoch: [1]  [  24/2195]  eta: 3 days, 8:39:34  lr: 0.000600  iter_time: 156.893(156.893)  data_wait_time: 156.252(156.252)  data_load_time: 155.555(155.555)  loss: 0.7488 (1.1147)  max cpu mem: 18191  max gpu mem: 23033
+2026-03-15 16:26:44,122 - INFO - logging - Training Epoch: [1]  [  25/2195]  eta: 3 days, 7:41:12  lr: 0.000600  iter_time: 93.393(93.393)  data_wait_time: 77.141(77.141)  data_load_time: 76.424(76.424)  loss: 0.4856 (1.0865)  max cpu mem: 18191  max gpu mem: 23069
+[2026-03-15T16:28:27.916] error: *** JOB 10560810 ON node2905 CANCELLED AT 2026-03-15T16:28:27 DUE to SIGNAL Terminated ***
+forwarding TERM to training process 1883744
+W0315 16:28:27.917000 1883747 .venv/lib/python3.12/site-packages/torch/distributed/elastic/agent/server/api.py:725] Received 15 death signal, shutting down workers

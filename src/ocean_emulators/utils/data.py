@@ -448,6 +448,11 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None,
         use_dask: bool,
+        llc_face: int = 1,
+        llc_i_start: int = 0,
+        llc_i_end: int = 719,
+        llc_j_start: int = 0,
+        llc_j_end: int = 719,
         zarr_gpu_decode: bool = False,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
@@ -457,13 +462,13 @@ class DataSource:
 
         # LLC specific fixes
 
-        # slice out a single face and larger area
-        data = data.sel(face=8, drop=True)
+        # Slice out a single LLC face and spatial extent.
+        data = data.sel(face=llc_face, drop=True)
         data = data.isel(
-            i=slice(0, 720),
-            j=slice(0, 720),
-            i_g=slice(0, 720),
-            j_g=slice(0, 720),
+            i=slice(llc_i_start, llc_i_end),
+            j=slice(llc_j_start, llc_j_end),
+            i_g=slice(llc_i_start, llc_i_end),
+            j_g=slice(llc_j_start, llc_j_end),
         )
 
         # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS

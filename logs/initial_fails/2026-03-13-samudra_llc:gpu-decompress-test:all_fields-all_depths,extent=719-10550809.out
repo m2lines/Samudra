@@ -1,0 +1,13 @@
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Resolved 312 packages in 2ms
+Audited 308 packages in 134ms
+======== train ocean_emulator samudra w/ 3 gpus on LLC4320 data ========
+training for 3 total epochs and saving checkpoints every 1
+using 0 data workers and false pin memory
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+[2026-03-14T22:37:09.571] error: *** JOB 10550809 ON node2905 CANCELLED AT 2026-03-14T22:37:09 DUE to SIGNAL Terminated ***
+forwarding TERM to training process 1800823
+W0314 22:37:09.571000 1800826 .venv/lib/python3.12/site-packages/torch/distributed/elastic/agent/server/api.py:725] Received 15 death signal, shutting down workers
+W0314 22:37:09.572000 1800826 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 1800863 closing signal SIGTERM
+W0314 22:37:09.572000 1800826 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 1800864 closing signal SIGTERM
+W0314 22:37:09.572000 1800826 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 1800865 closing signal SIGTERM

@@ -1,6 +1,10 @@
 # Build (and for main/manual runs, publish and test) the PhysicsNeMo-based container on x86 Linux.
 name: Container PhysicsNeMo 25.11
 
+# Docker caching system references:
+# - https://www.blacksmith.sh/blog/cache-is-king-a-guide-for-docker-layer-caching-in-github-actions
+# - https://docs.docker.com/build/cache/backends/gha/
+
 on:
   push:
     branches:
@@ -65,42 +69,52 @@ jobs:
           df -h
           docker info | grep "Docker Root Dir"
 
-      - name: Build container
-        run: |
-          BUILDKIT_PROGRESS=plain \
-          IMAGE_TAG="${LOCAL_IMAGE_TAG}" \
-          DOCKERFILE=containers/Dockerfile.physicsnemo-25.11 \
-          BUILD_APPTAINER=0 \
-          bash scripts/container/build_physicsnemo_25_11.sh
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute GHCR image name
+        run: |
+          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          echo "GHCR_IMAGE=ghcr.io/${owner_lower}/ocean-emulator-physicsnemo" >> "${GITHUB_ENV}"
+
+      - name: Build container
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: containers/Dockerfile.physicsnemo-25.11
+          load: true
+          tags: ${{ env.LOCAL_IMAGE_TAG }}
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            VCS_URL=${{ github.server_url }}/${{ github.repository }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=registry,ref=${{ env.GHCR_IMAGE }}:buildcache
+          cache-to: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && format('type=registry,ref={0}:buildcache,mode=max', env.GHCR_IMAGE) || '' }}
+
       - name: Publish image
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           set -euo pipefail
 
-          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          ghcr_image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo"
-
-          sha_tag="${ghcr_image}:25.11-${GITHUB_SHA}"
+          sha_tag="${GHCR_IMAGE}:25.11-${GITHUB_SHA}"
           docker tag "${LOCAL_IMAGE_TAG}" "${sha_tag}"
           docker push "${sha_tag}"
 
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            ref_tag="${ghcr_image}:25.11-manual-${GITHUB_REF_NAME//\//-}"
+            ref_tag="${GHCR_IMAGE}:25.11-manual-${GITHUB_REF_NAME//\//-}"
             docker tag "${LOCAL_IMAGE_TAG}" "${ref_tag}"
             docker push "${ref_tag}"
           fi
 
           if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
-            latest_tag="${ghcr_image}:25.11-latest"
+            latest_tag="${GHCR_IMAGE}:25.11-latest"
             docker tag "${LOCAL_IMAGE_TAG}" "${latest_tag}"
             docker push "${latest_tag}"
           fi
@@ -140,37 +154,34 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute GHCR image name
+        run: |
+          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          echo "GHCR_IMAGE=ghcr.io/${owner_lower}/ocean-emulator-physicsnemo" >> "${GITHUB_ENV}"
+
       - name: Show disk before pull
         run: |
           df -h
           docker system df || true
 
-      - name: Restore cached base image
-        id: base-image-cache
-        uses: actions/cache@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Rebuild image from registry cache
+        uses: docker/build-push-action@v6
         with:
-          path: /tmp/docker-cache
-          key: docker-base-physicsnemo-25.11
+          context: .
+          file: containers/Dockerfile.physicsnemo-25.11
+          load: true
+          tags: test-image:latest
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            VCS_URL=${{ github.server_url }}/${{ github.repository }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+          cache-from: type=registry,ref=${{ env.GHCR_IMAGE }}:buildcache
 
-      - name: Load cached base image
-        if: steps.base-image-cache.outputs.cache-hit == 'true'
-        run: docker load -i /tmp/docker-cache/base-image.tar
-
-      - name: Pull published image
-        run: |
-          set -euo pipefail
-          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo:25.11-${GITHUB_SHA}"
-          docker pull "${image}"
-          echo "TEST_IMAGE=${image}" >> "${GITHUB_ENV}"
-
-      - name: Save base image to cache
-        if: steps.base-image-cache.outputs.cache-hit != 'true'
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/docker-cache
-          docker pull nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
-          docker save nvcr.io/nvidia/physicsnemo/physicsnemo:25.11 | gzip > /tmp/docker-cache/base-image.tar
+      - name: Set TEST_IMAGE env var
+        run: echo "TEST_IMAGE=test-image:latest" >> "${GITHUB_ENV}"
 
       - name: Run CPU tests in container
         timeout-minutes: 90

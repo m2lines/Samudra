@@ -1,6 +1,8 @@
+import pytest
 import torch
 
 from ocean_emulators.config import (
+    CorrectorConfig,
     DynamicLossConfig,
     SamudraConfig,
     UNetBackboneConfig,
@@ -69,6 +71,56 @@ def test_samudra_supports_explicit_input_output_states(dummy_src: DataSource):
 
     assert torch.isfinite(loss)
     assert loss.requires_grad
+
+
+def test_samudra_ignores_disabled_corrector_config_for_asymmetric_state_counts(
+    dummy_src: DataSource,
+):
+    model = SamudraConfig(
+        unet=UNetBackboneConfig(
+            ch_width=[2],
+            dilation=[1],
+            n_layers=[1],
+        ),
+        corrector=CorrectorConfig(),
+        pos_channels=0,
+    ).build(
+        in_channels=3,
+        out_channels=1,
+        num_input_states=2,
+        num_output_states=1,
+        static_data_for_corrector=None,
+        srcs=[dummy_src],
+    )
+
+    assert model.corrector is None
+    assert model.num_input_states == 2
+    assert model.num_output_states == 1
+
+
+def test_samudra_rejects_enabled_corrector_for_asymmetric_state_counts(
+    dummy_src: DataSource,
+):
+    with pytest.raises(
+        ValueError,
+        match="Correctors currently require matching input and output state counts.",
+    ):
+        SamudraConfig(
+            unet=UNetBackboneConfig(
+                ch_width=[2],
+                dilation=[1],
+                n_layers=[1],
+            ),
+            corrector=CorrectorConfig(non_negative_corrector_names=["thetao_0"]),
+            pos_channels=0,
+        ).build(
+            in_channels=3,
+            out_channels=1,
+            num_input_states=2,
+            num_output_states=1,
+            static_data_for_corrector=None,
+            srcs=[dummy_src],
+        )
 
 
 def test_samudra_honors_hist_when_explicit_state_counts_are_omitted(

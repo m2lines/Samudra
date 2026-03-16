@@ -372,6 +372,9 @@ class CorrectorConfig(BaseConfig):
     non_negative_corrector_names: list[str] | None = None
     ocean_heat_corrector: bool = False
 
+    def enabled(self) -> bool:
+        return bool(self.non_negative_corrector_names) or self.ocean_heat_corrector
+
     def build(
         self, hist: int, area_weights: Grid, static_data: xr.Dataset | None
     ) -> nn.Module:
@@ -786,7 +789,7 @@ class SamudraConfig(BaseModelConfig):
                 'Samudra only supports training at a single scale! Please set `training_schedule="standard"`.'
             )
         src = srcs[0]
-        if self.corrector is not None:
+        if self.corrector is not None and self.corrector.enabled():
             if num_input_states != num_output_states:
                 raise ValueError(
                     "Correctors currently require matching input and output state counts."

@@ -419,6 +419,7 @@ class Trainer:
             drop_last=False,
             collate_fn=collate_inference_data,
             multiprocessing_context=self.mp_context,
+            persistent_workers=self.num_workers > 0,
         )
 
     def run(self) -> None:
@@ -944,6 +945,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            persistent_workers=self.num_workers > 0,
         )
 
         val_dataloader = DataLoader(
@@ -953,6 +955,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            persistent_workers=self.num_workers > 0,
         )
 
         # Wrap dataloaders to handle GPU post-processing

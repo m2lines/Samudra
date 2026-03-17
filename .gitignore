@@ -42,3 +42,4 @@ configs/schemas/
 build/
 .pytype/
 .claude/
+logs/

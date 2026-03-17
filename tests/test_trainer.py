@@ -164,7 +164,9 @@ def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
 
 
 def test_should_log_validation_images_every_n_epochs():
-    assert [epoch for epoch in range(1, 26) if should_log_validation_images(epoch, 10)] == [
+    assert [
+        epoch for epoch in range(1, 26) if should_log_validation_images(epoch, 10)
+    ] == [
         1,
         11,
         21,

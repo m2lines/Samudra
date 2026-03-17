@@ -88,7 +88,9 @@ def should_log_validation_images(epoch: int, frequency: int) -> bool:
     if epoch < 1:
         raise ValueError(f"Epoch must be >= 1, got {epoch}")
     if frequency < 1:
-        raise ValueError(f"Validation image log frequency must be >= 1, got {frequency}")
+        raise ValueError(
+            f"Validation image log frequency must be >= 1, got {frequency}"
+        )
     return (epoch - 1) % frequency == 0
 
 

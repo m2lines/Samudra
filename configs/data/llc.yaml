@@ -5,6 +5,6 @@ sources:
     data_means_location: 002/cody/LLC_means_stds/var_96_LLC_means.zarr
     data_stds_location: 002/cody/LLC_means_stds/var_96_LLC_stds.zarr
 static_data_vars: []
-concurrent_compute: true
+concurrent_compute: false
 num_workers: 0
 zarr_gpu_decode: true

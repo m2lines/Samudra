@@ -162,6 +162,11 @@ class DataConfig(BaseConfig):
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
     zarr_gpu_decode: bool = False
+    llc_face: int = 1
+    llc_i_start: int = 0
+    llc_i_end: int = 719
+    llc_j_start: int = 0
+    llc_j_end: int = 719
 
     def build(
         self,
@@ -196,6 +201,11 @@ class DataConfig(BaseConfig):
                 boundary_var_names=boundary_var_names,
                 static_data_vars=self.static_data_vars,
                 use_dask=turn_on_dask,
+                llc_face=self.llc_face,
+                llc_i_start=self.llc_i_start,
+                llc_i_end=self.llc_i_end,
+                llc_j_start=self.llc_j_start,
+                llc_j_end=self.llc_j_end,
                 zarr_gpu_decode=self.zarr_gpu_decode,
             )
 

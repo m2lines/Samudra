@@ -1,0 +1,117 @@
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Resolved 312 packages in 3ms
+Audited 308 packages in 250ms
+======== train ocean_emulator samudra w/ 4 gpus on LLC4320 data ========
+training for 3 total epochs and saving checkpoints every 1
+using 0 data workers and false pin memory
+using LLC face=1, i=[2880:3600), j=[720:1440)
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 27, in <module>
+    from ocean_emulators import config
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 24, in <module>
+    from ocean_emulators.models import FOMO, Samudra
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/__init__.py", line 1, in <module>
+    from .fomini import FOMini
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/fomini.py", line 12, in <module>
+    from ocean_emulators.models.base import BaseModel
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/base.py", line 11, in <module>
+    from ocean_emulators.datasets import InferenceDataset, TrainData
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/datasets.py", line 26, in <module>
+    from ocean_emulators.utils.data import (
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 20, in <module>
+    from ocean_emulators.constants import (
+ImportError: cannot import name 'GridSize' from 'ocean_emulators.constants' (/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/constants.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 27, in <module>
+    from ocean_emulators import config
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 24, in <module>
+    from ocean_emulators.models import FOMO, Samudra
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/__init__.py", line 1, in <module>
+    from .fomini import FOMini
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/fomini.py", line 12, in <module>
+    from ocean_emulators.models.base import BaseModel
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/base.py", line 11, in <module>
+    from ocean_emulators.datasets import InferenceDataset, TrainData
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/datasets.py", line 26, in <module>
+    from ocean_emulators.utils.data import (
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 20, in <module>
+    from ocean_emulators.constants import (
+ImportError: cannot import name 'GridSize' from 'ocean_emulators.constants' (/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/constants.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 27, in <module>
+    from ocean_emulators import config
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 24, in <module>
+    from ocean_emulators.models import FOMO, Samudra
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/__init__.py", line 1, in <module>
+    from .fomini import FOMini
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/fomini.py", line 12, in <module>
+    from ocean_emulators.models.base import BaseModel
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/base.py", line 11, in <module>
+    from ocean_emulators.datasets import InferenceDataset, TrainData
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/datasets.py", line 26, in <module>
+    from ocean_emulators.utils.data import (
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 20, in <module>
+    from ocean_emulators.constants import (
+ImportError: cannot import name 'GridSize' from 'ocean_emulators.constants' (/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/constants.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 27, in <module>
+    from ocean_emulators import config
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 24, in <module>
+    from ocean_emulators.models import FOMO, Samudra
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/__init__.py", line 1, in <module>
+    from .fomini import FOMini
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/fomini.py", line 12, in <module>
+    from ocean_emulators.models.base import BaseModel
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/models/base.py", line 11, in <module>
+    from ocean_emulators.datasets import InferenceDataset, TrainData
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/datasets.py", line 26, in <module>
+    from ocean_emulators.utils.data import (
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 20, in <module>
+    from ocean_emulators.constants import (
+ImportError: cannot import name 'GridSize' from 'ocean_emulators.constants' (/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/constants.py)
+W0314 23:06:43.106000 1809981 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 1810014 closing signal SIGTERM
+W0314 23:06:43.106000 1809981 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 1810016 closing signal SIGTERM
+W0314 23:06:43.107000 1809981 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 1810017 closing signal SIGTERM
+E0314 23:06:43.153000 1809981 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:882] failed (exitcode: 1) local_rank: 1 (pid: 1810015) of binary: /orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/bin/python3
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/run.py", line 940, in <module>
+    main()
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/run.py", line 936, in main
+    run(args)
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/run.py", line 927, in run
+    elastic_launch(
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/launcher/api.py", line 156, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/launcher/api.py", line 293, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+ocean_emulators.train FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-03-14_23:06:43
+  host      : node2905.inband
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 1810015)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

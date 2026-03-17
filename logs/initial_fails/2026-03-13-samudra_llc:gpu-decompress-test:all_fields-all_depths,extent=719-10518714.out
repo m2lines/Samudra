@@ -1,0 +1,874 @@
+warning: `VIRTUAL_ENV=/orcd/home/002/codycruz/Ocean_Emulator/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+Using CPython 3.12.3 interpreter at: /usr/bin/python3.12
+Creating virtual environment at: .venv
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+Resolved 312 packages in 6ms
+   Building ocean-emulators @ file:///orcd/home/002/codycruz/Ocean_Emulator_gpudecode
+   Updating https://github.com/Open-Athena/zarr-python.git (96e2f752b9483ac36cc891eb7390f8af9556c0d9)
+Downloading pandas (12.1MiB)
+Downloading netcdf4 (8.8MiB)
+Downloading nvidia-nccl-cu12 (307.4MiB)
+Downloading xarray (1.3MiB)
+Downloading uvloop (4.5MiB)
+Downloading lxml (4.7MiB)
+Downloading scipy (35.6MiB)
+Downloading nvidia-nvshmem-cu12 (118.9MiB)
+Downloading psycopg2-binary (2.9MiB)
+Downloading pydantic-core (1.9MiB)
+Downloading cartopy (11.2MiB)
+Downloading h5py (4.7MiB)
+Downloading triton (162.6MiB)
+Downloading numpy (15.8MiB)
+Downloading kiwisolver (1.4MiB)
+Downloading numba (3.6MiB)
+Downloading matplotlib (8.2MiB)
+Downloading mypy (11.8MiB)
+Downloading pillow (4.3MiB)
+Downloading aiohttp (1.6MiB)
+Downloading torchvision (7.7MiB)
+Downloading fonttools (4.6MiB)
+Downloading torch (858.1MiB)
+Downloading pyproj (9.1MiB)
+Downloading sqlalchemy (3.2MiB)
+Downloading shapely (3.0MiB)
+Downloading cftime (1.3MiB)
+Downloading debugpy (4.0MiB)
+Downloading scalene (1.2MiB)
+Downloading memray (8.0MiB)
+ Downloading kiwisolver
+    Updated https://github.com/Open-Athena/zarr-python.git (96e2f752b9483ac36cc891eb7390f8af9556c0d9)
+ Downloading scalene
+   Building zarr @ git+https://github.com/Open-Athena/zarr-python.git@96e2f752b9483ac36cc891eb7390f8af9556c0d9
+ Downloading cftime
+ Downloading aiohttp
+ Downloading pydantic-core
+ Downloading xarray
+ Downloading psycopg2-binary
+ Downloading sqlalchemy
+ Downloading shapely
+ Downloading debugpy
+ Downloading pillow
+ Downloading fonttools
+ Downloading uvloop
+ Downloading h5py
+ Downloading lxml
+      Built ocean-emulators @ file:///orcd/home/002/codycruz/Ocean_Emulator_gpudecode
+      Built zarr @ git+https://github.com/Open-Athena/zarr-python.git@96e2f752b9483ac36cc891eb7390f8af9556c0d9
+ Downloading numba
+ Downloading torchvision
+ Downloading memray
+ Downloading matplotlib
+ Downloading netcdf4
+ Downloading pyproj
+ Downloading cartopy
+ Downloading numpy
+ Downloading pandas
+ Downloading scipy
+ Downloading mypy
+ Downloading nvidia-nvshmem-cu12
+ Downloading triton
+ Downloading nvidia-nccl-cu12
+ Downloading torch
+Prepared 55 packages in 35.52s
+Installed 300 packages in 17.51s
+ + aiobotocore==2.22.0
+ + aiofiles==24.1.0
+ + aiohappyeyeballs==2.6.1
+ + aiohttp==3.11.16
+ + aioitertools==0.12.0
+ + aiosignal==1.3.2
+ + annotated-types==0.7.0
+ + anyio==4.9.0
+ + argon2-cffi==25.1.0
+ + argon2-cffi-bindings==21.2.0
+ + arrow==1.3.0
+ + asttokens==3.0.0
+ + async-lru==2.0.5
+ + attrs==25.2.0
+ + awscli==1.38.3
+ + azure-core==1.36.0
+ + azure-storage-blob==12.27.1
+ + babel==2.17.0
+ + backoff==2.2.1
+ + bcrypt==4.3.0
+ + beartype==0.20.0
+ + beautifulsoup4==4.13.4
+ + bleach==6.2.0
+ + boto3==1.37.3
+ + botocore==1.37.3
+ + cachetools==6.1.0
+ + cartopy==0.24.1
+ + casbin==1.43.0
+ + cattrs==25.2.0
+ + certifi==2025.1.31
+ + cf-xarray==0.10.5
+ + cffi==1.17.1
+ + cftime==1.6.4.post1
+ + charset-normalizer==3.4.1
+ + click==8.1.8
+ + cloudpickle==3.1.1
+ + cmocean==4.0.3
+ + coiled==1.101.1
+ + colorama==0.4.4
+ + comm==0.2.2
+ + contourpy==1.3.1
+ + cryptography==45.0.3
+ + cycler==0.12.1
+ + dacite==1.9.2
+ + dask==2025.2.0
+ + debugpy==1.8.13
+ + decorator==5.2.1
+ + defusedxml==0.7.1
+ + deprecated==1.2.18
+ + distributed==2025.2.0
+ + docker-pycreds==0.4.0
+ + docutils==0.16
+ + donfig==0.8.1.post1
+ + einops==0.7.0
+ + entrypoints==0.4
+ + execnet==2.1.1
+ + executing==2.2.0
+ + fabric==3.2.2
+ + fastapi==0.116.1
+ + fastjsonschema==2.21.1
+ + filelock==3.17.0
+ + fonttools==4.56.0
+ + fqdn==1.5.1
+ + frozenlist==1.5.0
+ + fsspec==2025.5.1
+ + gilknocker==0.4.1
+ + gitdb==4.0.12
+ + gitpython==3.1.44
+ + google-crc32c==1.8.0
+ + gprof2dot==2024.6.6
+ + greenlet==3.2.3
+ + h11==0.16.0
+ + h2==4.2.0
+ + h5netcdf==1.6.1
+ + h5py==3.13.0
+ + hf-xet==1.2.0
+ + hpack==4.1.0
+ + httpcore==1.0.9
+ + httptools==0.6.4
+ + httpx==0.28.1
+ + huggingface-hub==1.1.2
+ + hyperframe==6.1.0
+ + hypothesis==6.129.0
+ + idna==3.10
+ + importlib-metadata==8.6.1
+ + iniconfig==2.0.0
+ + invoke==2.2.0
+ + ipykernel==6.29.5
+ + ipython==9.0.2
+ + ipython-pygments-lexers==1.1.1
+ + ipywidgets==8.1.7
+ + isodate==0.7.2
+ + isoduration==20.11.0
+ + jaxtyping==0.3.0
+ + jedi==0.19.2
+ + jinja2==3.1.6
+ + jmespath==1.0.1
+ + json5==0.12.0
+ + jsondiff==2.2.1
+ + jsonpointer==3.0.0
+ + jsonschema==4.24.0
+ + jsonschema-specifications==2025.4.1
+ + jupyter==1.1.1
+ + jupyter-client==8.6.3
+ + jupyter-console==6.6.3
+ + jupyter-core==5.7.2
+ + jupyter-events==0.12.0
+ + jupyter-lsp==2.2.5
+ + jupyter-server==2.16.0
+ + jupyter-server-terminals==0.5.3
+ + jupyterlab==4.4.3
+ + jupyterlab-pygments==0.3.0
+ + jupyterlab-server==2.27.3
+ + jupyterlab-widgets==3.0.15
+ + kiwisolver==1.4.8
+ + linkify-it-py==2.0.3
+ + llvmlite==0.46.0
+ + locket==1.0.0
+ + lxml==5.4.0
+ + markdown-it-py==3.0.0
+ + markupsafe==3.0.2
+ + matplotlib==3.10.1
+ + matplotlib-inline==0.1.7
+ + mdit-py-plugins==0.4.2
+ + mdurl==0.1.2
+ + memray==1.17.1
+ + microsoft-aurora==1.8.0
+ + mistune==0.8.4
+ + mpmath==1.3.0
+ + msgpack==1.1.0
+ + multidict==6.1.0
+ + mypy==1.15.0
+ + mypy-extensions==1.0.0
+ + nbclient==0.10.2
+ + nbconvert==6.5.4
+ + nbformat==5.10.4
+ + nc-time-axis==1.4.1
+ + nest-asyncio==1.6.0
+ + netcdf4==1.7.2
+ + networkx==3.4.2
+ + notebook==7.4.3
+ + notebook-shim==0.2.4
+ + numba==0.64.0
+ + numcodecs==0.15.1
+ + numpy==2.4.2
+ + nvidia-cublas-cu12==12.8.4.1
+ + nvidia-cuda-cupti-cu12==12.8.90
+ + nvidia-cuda-nvrtc-cu12==12.8.93
+ + nvidia-cuda-runtime-cu12==12.8.90
+ + nvidia-cudnn-cu12==9.10.2.21
+ + nvidia-cufft-cu12==11.3.3.83
+ + nvidia-cufile-cu12==1.13.1.3
+ + nvidia-curand-cu12==10.3.9.90
+ + nvidia-cusolver-cu12==11.7.3.90
+ + nvidia-cusparse-cu12==12.5.8.93
+ + nvidia-cusparselt-cu12==0.7.1
+ + nvidia-ml-py==12.570.86
+ + nvidia-nccl-cu12==2.27.5
+ + nvidia-nvjitlink-cu12==12.8.93
+ + nvidia-nvshmem-cu12==3.3.20
+ + nvidia-nvtx-cu12==12.8.90
+ + ocean-emulators==1.0 (from file:///orcd/home/002/codycruz/Ocean_Emulator_gpudecode)
+ + overrides==7.7.0
+ + packaging==24.2
+ + pandas==2.2.3
+ + pandas-stubs==2.3.0.250703
+ + pandocfilters==1.5.1
+ + paramiko==3.5.1
+ + parso==0.8.4
+ + partd==1.4.2
+ + passlib==1.7.4
+ + pendulum==3.1.0
+ + perceiver-pytorch==0.8.8
+ + pexpect==4.9.0
+ + pillow==11.1.0
+ + pip==25.1.1
+ + pip-requirements-parser==32.0.1
+ + platformdirs==4.3.6
+ + pluggy==1.5.0
+ + pooch==1.8.2
+ + prettytable==3.16.0
+ + prometheus-client==0.22.1
+ + prompt-toolkit==3.0.50
+ + propcache==0.3.0
+ + protobuf==5.29.3
+ + psutil==7.0.0
+ + psycopg2-binary==2.9.10
+ + ptyprocess==0.7.0
+ + pulp==3.2.2
+ + pure-eval==0.2.3
+ + py-cpuinfo==9.0.0
+ + py-spy==0.4.0
+ + pyasn1==0.6.1
+ + pycparser==2.22
+ + pydantic==2.10.6
+ + pydantic-core==2.27.2
+ + pydantic-settings==2.8.1
+ + pydap==3.5.8
+ + pygal==3.0.5
+ + pygaljs==1.0.2
+ + pygments==2.19.1
+ + pyjwt==2.10.1
+ + pynacl==1.5.0
+ + pyparsing==3.2.1
+ + pyproj==3.7.1
+ + pyshp==2.3.1
+ + pytest==8.3.5
+ + pytest-benchmark==5.1.0
+ + pytest-profiling==1.8.1
+ + pytest-xdist==3.6.1
+ + python-dateutil==2.9.0.post0
+ + python-dotenv==1.1.0
+ + python-json-logger==3.3.0
+ + python-multipart==0.0.20
+ + pytz==2025.1
+ + pyyaml==6.0.2
+ + pyzmq==26.3.0
+ + referencing==0.36.2
+ + requests==2.32.3
+ + requests-cache==1.3.0
+ + rfc3339-validator==0.1.4
+ + rfc3986-validator==0.1.1
+ + rich==14.0.0
+ + rpds-py==0.25.1
+ + rsa==4.7.2
+ + s3fs==2025.5.1
+ + s3transfer==0.11.3
+ + safetensors==0.6.2
+ + scalene==1.5.51
+ + scipy==1.15.2
+ + send2trash==1.8.3
+ + sentry-sdk==2.22.0
+ + setproctitle==1.3.5
+ + setuptools==76.0.0
+ + shapely==2.1.1
+ + shellingham==1.5.4
+ + simpleeval==1.0.3
+ + six==1.17.0
+ + skypilot==0.10.0
+ + smmap==5.0.2
+ + snakeviz==2.2.2
+ + sniffio==1.3.1
+ + sortedcontainers==2.4.0
+ + soupsieve==2.7
+ + sparse==0.17.0
+ + sqlalchemy==2.0.43
+ + sqlalchemy-adapter==1.3.0
+ + stack-data==0.6.3
+ + starlette==0.47.2
+ + sympy==1.13.3
+ + tabulate==0.9.0
+ + tblib==3.1.0
+ + tenacity==9.0.0
+ + terminado==0.18.1
+ + textual==3.1.1
+ + timm==1.0.22
+ + tinycss2==1.4.0
+ + toml==0.10.2
+ + toolz==1.0.0
+ + torch==2.9.1
+ + torchinfo==1.8.0
+ + torchvision==0.24.1
+ + tornado==6.4.2
+ + tqdm==4.67.1
+ + traitlets==5.14.3
+ + triton==3.5.1
+ + typer-slim==0.20.0
+ + types-python-dateutil==2.9.0.20250516
+ + types-pytz==2025.2.0.20250516
+ + types-pyyaml==6.0.12.20241230
+ + types-requests==2.32.4.20250611
+ + types-tqdm==4.67.0.20250516
+ + typing-extensions==4.12.2
+ + tzdata==2025.1
+ + uc-micro-py==1.0.3
+ + uri-template==1.3.0
+ + url-normalize==2.2.1
+ + urllib3==2.3.0
+ + uvicorn==0.35.0
+ + uvloop==0.21.0
+ + wadler-lindig==0.1.3
+ + wandb==0.19.8
+ + watchfiles==1.1.0
+ + wcwidth==0.2.13
+ + webcolors==24.11.1
+ + webencodings==0.5.1
+ + webob==1.8.9
+ + websocket-client==1.8.0
+ + websockets==15.0.1
+ + wheel==0.45.1
+ + widgetsnbextension==4.0.14
+ + wrapt==1.17.2
+ + xarray==2026.2.0
+ + xarray-einstats==0.8.0
+ + xarrayutils==2.0.1
+ + xesmf==0.8.10
+ + yarl==1.18.3
+ + zarr==3.1.1.dev2775+g96e2f752b (from git+https://github.com/Open-Athena/zarr-python.git@96e2f752b9483ac36cc891eb7390f8af9556c0d9)
+ + zict==3.0.0
+ + zipp==3.21.0
+======== train ocean_emulator samudra w/ 3 gpus on LLC4320 data ========
+training for 3 total epochs and saving checkpoints every 1
+using 0 data workers and false pin memory
+warning: `VIRTUAL_ENV=/orcd/home/002/codycruz/Ocean_Emulator/.venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead
+warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
+/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/einops/einops.py:827: SyntaxWarning: invalid escape sequence '\s'
+  """
+/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/einops/einops.py:827: SyntaxWarning: invalid escape sequence '\s'
+  """
+/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/einops/einops.py:827: SyntaxWarning: invalid escape sequence '\s'
+  """
+2026-03-13 17:40:24,563 - INFO - backend - auto backend detected CUDA
+2026-03-13 17:40:24,677 - INFO - backend - auto backend detected CUDA
+2026-03-13 17:40:24,679 - INFO - backend - auto backend detected CUDA
+node2905:1859268:1859268 [0] NCCL INFO Bootstrap: Using ib0:172.16.29.5<0>
+node2905:1859268:1859268 [0] NCCL INFO cudaDriverVersion 13010
+node2905:1859268:1859268 [0] NCCL INFO NCCL version 2.27.5+cuda12.9
+node2905:1859268:1859268 [0] NCCL INFO Comm config Blocking set to 1
+node2905:1859269:1859269 [1] NCCL INFO cudaDriverVersion 13010
+node2905:1859269:1859269 [1] NCCL INFO Bootstrap: Using ib0:172.16.29.5<0>
+node2905:1859269:1859269 [1] NCCL INFO NCCL version 2.27.5+cuda12.9
+node2905:1859270:1859270 [2] NCCL INFO cudaDriverVersion 13010
+node2905:1859270:1859270 [2] NCCL INFO Bootstrap: Using ib0:172.16.29.5<0>
+node2905:1859270:1859270 [2] NCCL INFO NCCL version 2.27.5+cuda12.9
+node2905:1859269:1859269 [1] NCCL INFO Comm config Blocking set to 1
+node2905:1859270:1859270 [2] NCCL INFO Comm config Blocking set to 1
+node2905:1859270:1859384 [2] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+node2905:1859269:1859383 [1] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+node2905:1859268:1859380 [0] NCCL INFO NET/Plugin: Could not find: libnccl-net.so. 
+node2905:1859269:1859383 [1] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [RO]; OOB ib0:172.16.29.5<0>
+node2905:1859269:1859383 [1] NCCL INFO Initialized NET plugin IB
+node2905:1859268:1859380 [0] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [RO]; OOB ib0:172.16.29.5<0>
+node2905:1859268:1859380 [0] NCCL INFO Initialized NET plugin IB
+node2905:1859270:1859384 [2] NCCL INFO NET/IB : Using [0]mlx5_0:1/IB [1]mlx5_1:1/IB [2]mlx5_2:1/IB [3]mlx5_3:1/IB [RO]; OOB ib0:172.16.29.5<0>
+node2905:1859270:1859384 [2] NCCL INFO Initialized NET plugin IB
+node2905:1859269:1859383 [1] NCCL INFO Assigned NET plugin IB to comm
+node2905:1859268:1859380 [0] NCCL INFO Assigned NET plugin IB to comm
+node2905:1859269:1859383 [1] NCCL INFO Using network IB
+node2905:1859270:1859384 [2] NCCL INFO Assigned NET plugin IB to comm
+node2905:1859268:1859380 [0] NCCL INFO Using network IB
+node2905:1859270:1859384 [2] NCCL INFO Using network IB
+node2905:1859269:1859383 [1] NCCL INFO DMA-BUF is available on GPU device 1
+node2905:1859269:1859383 [1] NCCL INFO ncclCommInitRankConfig comm 0x56085a2c7350 rank 1 nranks 3 cudaDev 1 nvmlDev 1 busId 68000 commId 0xe5dc9a91450670fe - Init START
+node2905:1859270:1859384 [2] NCCL INFO DMA-BUF is available on GPU device 2
+node2905:1859270:1859384 [2] NCCL INFO ncclCommInitRankConfig comm 0x555638594350 rank 2 nranks 3 cudaDev 2 nvmlDev 2 busId d2000 commId 0xe5dc9a91450670fe - Init START
+node2905:1859268:1859380 [0] NCCL INFO DMA-BUF is available on GPU device 0
+node2905:1859268:1859380 [0] NCCL INFO ncclCommInitRankConfig comm 0x5635f2733740 rank 0 nranks 3 cudaDev 0 nvmlDev 0 busId 55000 commId 0xe5dc9a91450670fe - Init START
+node2905:1859268:1859380 [0] NCCL INFO RAS client listening socket at ::1<28028>
+node2905:1859269:1859383 [1] NCCL INFO RAS client listening socket at ::1<28028>
+node2905:1859270:1859384 [2] NCCL INFO RAS client listening socket at ::1<28028>
+node2905:1859270:1859384 [2] NCCL INFO Bootstrap timings total 0.007636 (create 0.000016, send 0.000053, recv 0.007228, ring 0.000015, delay 0.000000)
+node2905:1859268:1859380 [0] NCCL INFO Bootstrap timings total 0.000436 (create 0.000016, send 0.000048, recv 0.000051, ring 0.000024, delay 0.000000)
+node2905:1859269:1859383 [1] NCCL INFO Bootstrap timings total 0.013656 (create 0.000021, send 0.000055, recv 0.006052, ring 0.000025, delay 0.000000)
+node2905:1859268:1859380 [0] NCCL INFO Setting affinity for GPU 0 to 4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100,102,104,106
+node2905:1859268:1859380 [0] NCCL INFO NVLS multicast support is not available on dev 0 (NVLS_NCHANNELS 0)
+node2905:1859270:1859384 [2] NCCL INFO Setting affinity for GPU 2 to 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,65,67,69,71,73,75,77,79,81,83,85,87,89,91,93,95,97,99,101,103
+node2905:1859270:1859384 [2] NCCL INFO NVLS multicast support is not available on dev 2 (NVLS_NCHANNELS 0)
+node2905:1859269:1859383 [1] NCCL INFO Setting affinity for GPU 1 to 4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,68,70,72,74,76,78,80,82,84,86,88,90,92,94,96,98,100,102,104,106
+node2905:1859269:1859383 [1] NCCL INFO NVLS multicast support is not available on dev 1 (NVLS_NCHANNELS 0)
+node2905:1859270:1859384 [2] NCCL INFO comm 0x555638594350 rank 2 nRanks 3 nNodes 1 localRanks 3 localRank 2 MNNVL 0
+node2905:1859269:1859383 [1] NCCL INFO comm 0x56085a2c7350 rank 1 nRanks 3 nNodes 1 localRanks 3 localRank 1 MNNVL 0
+node2905:1859268:1859380 [0] NCCL INFO comm 0x5635f2733740 rank 0 nRanks 3 nNodes 1 localRanks 3 localRank 0 MNNVL 0
+node2905:1859270:1859384 [2] NCCL INFO Trees [0] -1/-1/-1->2->1 [1] -1/-1/-1->2->1 [2] 1/-1/-1->2->0 [3] 1/-1/-1->2->0 [4] 0/-1/-1->2->1 [5] -1/-1/-1->2->0 [6] 0/-1/-1->2->-1 [7] 1/-1/-1->2->-1 [8] -1/-1/-1->2->1 [9] -1/-1/-1->2->1 [10] 1/-1/-1->2->0 [11] 1/-1/-1->2->0 [12] 0/-1/-1->2->1 [13] -1/-1/-1->2->0 [14] 0/-1/-1->2->-1 [15] 1/-1/-1->2->-1
+node2905:1859268:1859380 [0] NCCL INFO Channel 00/16 : 0 1 2
+node2905:1859270:1859384 [2] NCCL INFO P2P Chunksize set to 524288
+node2905:1859269:1859383 [1] NCCL INFO Trees [0] 2/-1/-1->1->0 [1] 2/-1/-1->1->0 [2] -1/-1/-1->1->2 [3] -1/-1/-1->1->2 [4] 2/-1/-1->1->-1 [5] 0/-1/-1->1->-1 [6] -1/-1/-1->1->0 [7] 0/-1/-1->1->2 [8] 2/-1/-1->1->0 [9] 2/-1/-1->1->0 [10] -1/-1/-1->1->2 [11] -1/-1/-1->1->2 [12] 2/-1/-1->1->-1 [13] 0/-1/-1->1->-1 [14] -1/-1/-1->1->0 [15] 0/-1/-1->1->2
+node2905:1859268:1859380 [0] NCCL INFO Channel 01/16 : 0 1 2
+node2905:1859269:1859383 [1] NCCL INFO P2P Chunksize set to 524288
+node2905:1859268:1859380 [0] NCCL INFO Channel 02/16 : 0 2 1
+node2905:1859268:1859380 [0] NCCL INFO Channel 03/16 : 0 2 1
+node2905:1859268:1859380 [0] NCCL INFO Channel 04/16 : 0 1 2
+node2905:1859268:1859380 [0] NCCL INFO Channel 05/16 : 0 1 2
+node2905:1859268:1859380 [0] NCCL INFO Channel 06/16 : 0 2 1
+node2905:1859268:1859380 [0] NCCL INFO Channel 07/16 : 0 2 1
+node2905:1859268:1859380 [0] NCCL INFO Channel 08/16 : 0 1 2
+node2905:1859268:1859380 [0] NCCL INFO Channel 09/16 : 0 1 2
+node2905:1859268:1859380 [0] NCCL INFO Channel 10/16 : 0 2 1
+node2905:1859268:1859380 [0] NCCL INFO Channel 11/16 : 0 2 1
+node2905:1859268:1859380 [0] NCCL INFO Channel 12/16 : 0 1 2
+node2905:1859268:1859380 [0] NCCL INFO Channel 13/16 : 0 1 2
+node2905:1859268:1859380 [0] NCCL INFO Channel 14/16 : 0 2 1
+node2905:1859268:1859380 [0] NCCL INFO Channel 15/16 : 0 2 1
+node2905:1859268:1859380 [0] NCCL INFO Trees [0] 1/-1/-1->0->-1 [1] 1/-1/-1->0->-1 [2] 2/-1/-1->0->-1 [3] 2/-1/-1->0->-1 [4] -1/-1/-1->0->2 [5] 2/-1/-1->0->1 [6] 1/-1/-1->0->2 [7] -1/-1/-1->0->1 [8] 1/-1/-1->0->-1 [9] 1/-1/-1->0->-1 [10] 2/-1/-1->0->-1 [11] 2/-1/-1->0->-1 [12] -1/-1/-1->0->2 [13] 2/-1/-1->0->1 [14] 1/-1/-1->0->2 [15] -1/-1/-1->0->1
+node2905:1859268:1859380 [0] NCCL INFO P2P Chunksize set to 524288
+node2905:1859270:1859384 [2] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+node2905:1859270:1859401 [2] NCCL INFO [Proxy Service] Device 2 CPU core 13
+node2905:1859270:1859402 [2] NCCL INFO [Proxy Service UDS] Device 2 CPU core 79
+node2905:1859269:1859383 [1] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+node2905:1859268:1859380 [0] NCCL INFO PROFILER/Plugin: Could not find: libnccl-profiler.so. 
+node2905:1859268:1859380 [0] NCCL INFO Check P2P Type isAllDirectP2p 1 directMode 0
+node2905:1859269:1859403 [1] NCCL INFO [Proxy Service] Device 1 CPU core 90
+node2905:1859269:1859406 [1] NCCL INFO [Proxy Service UDS] Device 1 CPU core 92
+node2905:1859268:1859404 [0] NCCL INFO [Proxy Service] Device 0 CPU core 22
+node2905:1859268:1859405 [0] NCCL INFO [Proxy Service UDS] Device 0 CPU core 94
+node2905:1859270:1859384 [2] NCCL INFO threadThresholds 8/8/64 | 24/8/64 | 512 | 512
+node2905:1859270:1859384 [2] NCCL INFO 16 coll channels, 16 collnet channels, 0 nvls channels, 16 p2p channels, 16 p2p channels per peer
+node2905:1859269:1859383 [1] NCCL INFO threadThresholds 8/8/64 | 24/8/64 | 512 | 512
+node2905:1859269:1859383 [1] NCCL INFO 16 coll channels, 16 collnet channels, 0 nvls channels, 16 p2p channels, 16 p2p channels per peer
+node2905:1859268:1859380 [0] NCCL INFO threadThresholds 8/8/64 | 24/8/64 | 512 | 512
+node2905:1859268:1859380 [0] NCCL INFO 16 coll channels, 16 collnet channels, 0 nvls channels, 16 p2p channels, 16 p2p channels per peer
+node2905:1859268:1859380 [0] NCCL INFO CC Off, workFifoBytes 1048576
+node2905:1859269:1859383 [1] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+node2905:1859269:1859383 [1] NCCL INFO ncclCommInitRankConfig comm 0x56085a2c7350 rank 1 nranks 3 cudaDev 1 nvmlDev 1 busId 68000 commId 0xe5dc9a91450670fe - Init COMPLETE
+node2905:1859269:1859383 [1] NCCL INFO Init timings - ncclCommInitRankConfig: rank 1 nranks 3 total 0.84 (kernels 0.17, alloc 0.61, bootstrap 0.01, allgathers 0.00, topo 0.02, graphs 0.00, connections 0.01, rest 0.01)
+node2905:1859268:1859380 [0] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+node2905:1859270:1859384 [2] NCCL INFO TUNER/Plugin: Could not find: libnccl-tuner.so. Using internal tuner plugin.
+node2905:1859268:1859380 [0] NCCL INFO ncclCommInitRankConfig comm 0x5635f2733740 rank 0 nranks 3 cudaDev 0 nvmlDev 0 busId 55000 commId 0xe5dc9a91450670fe - Init COMPLETE
+node2905:1859270:1859384 [2] NCCL INFO ncclCommInitRankConfig comm 0x555638594350 rank 2 nranks 3 cudaDev 2 nvmlDev 2 busId d2000 commId 0xe5dc9a91450670fe - Init COMPLETE
+node2905:1859268:1859380 [0] NCCL INFO Init timings - ncclCommInitRankConfig: rank 0 nranks 3 total 0.88 (kernels 0.20, alloc 0.63, bootstrap 0.00, allgathers 0.00, topo 0.02, graphs 0.00, connections 0.01, rest 0.02)
+node2905:1859270:1859384 [2] NCCL INFO Init timings - ncclCommInitRankConfig: rank 2 nranks 3 total 0.84 (kernels 0.17, alloc 0.62, bootstrap 0.01, allgathers 0.00, topo 0.02, graphs 0.00, connections 0.01, rest 0.02)
+[W313 17:40:26.439870274 Utils.hpp:137] Warning: Environment variable TORCH_NCCL_TRACE_BUFFER_SIZE is deprecated; use TORCH_FR_BUFFER_SIZE instead (function operator())
+[W313 17:40:26.440197964 Utils.hpp:137] Warning: Environment variable TORCH_NCCL_TRACE_BUFFER_SIZE is deprecated; use TORCH_FR_BUFFER_SIZE instead (function operator())
+2026-03-13 17:40:26,096 - INFO - distributed - | distributed init (rank 1), gpu 1, world_size 3, dist_url env://
+2026-03-13 17:40:26,097 - INFO - distributed - | distributed init (rank 2), gpu 2, world_size 3, dist_url env://
+[W313 17:40:26.454438669 Utils.hpp:137] Warning: Environment variable TORCH_NCCL_TRACE_BUFFER_SIZE is deprecated; use TORCH_FR_BUFFER_SIZE instead (function operator())
+2026-03-13 17:40:26,105 - INFO - distributed - | distributed init (rank 0), gpu 0, world_size 3, dist_url env://
+node2905:1859270:1859407 [2] NCCL INFO Channel 00/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 01/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 04/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 00/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 05/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 01/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 08/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 09/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 04/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 12/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 05/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 13/0 : 2[2] -> 0[0] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 08/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 09/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 12/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 13/0 : 1[1] -> 2[2] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 00/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 01/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 04/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 05/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 08/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 09/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 12/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 13/0 : 0[0] -> 1[1] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 02/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 02/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 02/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 03/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 03/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 03/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 06/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 06/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 06/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 07/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 07/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 07/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 10/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 10/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 10/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 11/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 11/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 11/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 14/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 14/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 14/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Channel 15/0 : 1[1] -> 0[0] via P2P/CUMEM
+node2905:1859268:1859409 [0] NCCL INFO Channel 15/0 : 0[0] -> 2[2] via P2P/CUMEM
+node2905:1859270:1859407 [2] NCCL INFO Channel 15/0 : 2[2] -> 1[1] via P2P/CUMEM
+node2905:1859269:1859408 [1] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+node2905:1859268:1859409 [0] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+node2905:1859270:1859407 [2] NCCL INFO Connected all rings, use ring PXN 0 GDR 1
+2026-03-13 17:40:26,385 - INFO - backend - succeeded in initializing distributed mode
+2026-03-13 17:40:26,391 - WARNING - location - kvikio is not installed; falling back to standard zarr reads for /orcd/data/abodner/003/LLC4320/LLC4320
+2026-03-13 17:40:26,400 - WARNING - location - kvikio is not installed; falling back to standard zarr reads for /orcd/data/abodner/003/LLC4320/LLC4320
+2026-03-13 17:40:26,409 - INFO - train - Prognostic variables: U_0, U_1, U_2, U_3, U_4, U_5, U_6, U_7, U_8, U_9, U_10, U_11, U_12, U_13, U_14, U_15, U_16, U_17, U_18, V_0, V_1, V_2, V_3, V_4, V_5, V_6, V_7, V_8, V_9, V_10, V_11, V_12, V_13, V_14, V_15, V_16, V_17, V_18, Theta_0, Theta_1, Theta_2, Theta_3, Theta_4, Theta_5, Theta_6, Theta_7, Theta_8, Theta_9, Theta_10, Theta_11, Theta_12, Theta_13, Theta_14, Theta_15, Theta_16, Theta_17, Theta_18, Salt_0, Salt_1, Salt_2, Salt_3, Salt_4, Salt_5, Salt_6, Salt_7, Salt_8, Salt_9, Salt_10, Salt_11, Salt_12, Salt_13, Salt_14, Salt_15, Salt_16, Salt_17, Salt_18, Eta
+2026-03-13 17:40:26,409 - INFO - train - Boundary variables: oceTAUX, oceTAUY, oceQnet, Eta
+2026-03-13 17:40:26,409 - INFO - train - Levels: 19
+2026-03-13 17:40:26,410 - WARNING - location - kvikio is not installed; falling back to standard zarr reads for /orcd/data/abodner/003/LLC4320/LLC4320
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 74, in _open_with_optional_gpu_decode
+[rank0]:     return open_dataset()
+[rank0]:            ^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 237, in <lambda>
+[rank0]:     open_dataset=lambda: xr.open_dataset(
+[rank0]:                          ^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/api.py", line 607, in open_dataset
+[rank0]:     backend_ds = backend.open_dataset(
+[rank0]:                  ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1683, in open_dataset
+[rank0]:     store = ZarrStore.open_group(
+[rank0]:             ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 722, in open_group
+[rank0]:     ) = _get_open_params(
+[rank0]:         ^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1891, in _get_open_params
+[rank0]:     zarr_root_group = zarr.open_consolidated(store, **open_kwargs)
+[rank0]:                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/synchronous.py", line 238, in open_consolidated
+[rank0]:     sync(async_api.open_consolidated(*args, use_consolidated=use_consolidated, **kwargs))
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/sync.py", line 159, in sync
+[rank0]:     raise return_result
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/sync.py", line 119, in _runner
+[rank0]:     return await coro
+[rank0]:            ^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/asynchronous.py", line 415, in open_consolidated
+[rank0]:     return await open_group(*args, use_consolidated=use_consolidated, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/asynchronous.py", line 866, in open_group
+[rank0]:     return await AsyncGroup.open(
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/group.py", line 570, in open
+[rank0]:     ) = await asyncio.gather(
+[rank0]:         ^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_common.py", line 168, in get
+[rank0]:     return await self.store.get(self.path, prototype=prototype, byte_range=byte_range)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_local.py", line 205, in get
+[rank0]:     return await asyncio.to_thread(_get, path, prototype, byte_range)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/usr/lib64/python3.12/asyncio/threads.py", line 25, in to_thread
+[rank0]:     return await loop.run_in_executor(None, func_call)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 58, in run
+[rank0]:     result = self.fn(*self.args, **self.kwargs)
+[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_local.py", line 32, in _get
+[rank0]:     return prototype.buffer.from_bytes(path.read_bytes())
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/buffer/gpu.py", line 105, in from_bytes
+[rank0]:     return cls.from_array_like(cp.frombuffer(bytes_like, dtype="B"))
+[rank0]:                                ^^^^^^^^^^^^^
+[rank0]: AttributeError: 'NoneType' object has no attribute 'frombuffer'
+
+[rank0]: The above exception was the direct cause of the following exception:
+
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank0]:   File "<frozen runpy>", line 88, in _run_code
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1089, in <module>
+[rank0]:     main()
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1079, in main
+[rank0]:     trainer = Trainer(cfg)
+[rank0]:               ^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 132, in __init__
+[rank0]:     self.data_container = cfg.data.build(
+[rank0]:                           ^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 214, in build
+[rank0]:     src, fork = make_source(
+[rank0]:                 ^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 191, in make_source
+[rank0]:     data_source = DataSource.from_locations(
+[rank0]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 454, in from_locations
+[rank0]:     data = data_location.open(chunks, use_gpu_zarr_decode=zarr_gpu_decode)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 234, in open
+[rank0]:     return _open_with_optional_gpu_decode(
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 79, in _open_with_optional_gpu_decode
+[rank0]:     raise RuntimeError(
+[rank0]: RuntimeError: GPU zarr decode failed while opening /orcd/data/abodner/003/LLC4320/LLC4320 with xarray. This usually means xarray/zarr GPU-buffer integration is incompatible with the current store or environment. Set data.zarr_gpu_decode=false to continue on the CPU path.
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 74, in _open_with_optional_gpu_decode
+[rank1]:     return open_dataset()
+[rank1]:            ^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 237, in <lambda>
+[rank1]:     open_dataset=lambda: xr.open_dataset(
+[rank1]:                          ^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/api.py", line 607, in open_dataset
+[rank1]:     backend_ds = backend.open_dataset(
+[rank1]:                  ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1683, in open_dataset
+[rank1]:     store = ZarrStore.open_group(
+[rank1]:             ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 722, in open_group
+[rank1]:     ) = _get_open_params(
+[rank1]:         ^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1891, in _get_open_params
+[rank1]:     zarr_root_group = zarr.open_consolidated(store, **open_kwargs)
+[rank1]:                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/synchronous.py", line 238, in open_consolidated
+[rank1]:     sync(async_api.open_consolidated(*args, use_consolidated=use_consolidated, **kwargs))
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/sync.py", line 159, in sync
+[rank1]:     raise return_result
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/sync.py", line 119, in _runner
+[rank1]:     return await coro
+[rank1]:            ^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/asynchronous.py", line 415, in open_consolidated
+[rank1]:     return await open_group(*args, use_consolidated=use_consolidated, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/asynchronous.py", line 866, in open_group
+[rank1]:     return await AsyncGroup.open(
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/group.py", line 570, in open
+[rank1]:     ) = await asyncio.gather(
+[rank1]:         ^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_common.py", line 168, in get
+[rank1]:     return await self.store.get(self.path, prototype=prototype, byte_range=byte_range)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_local.py", line 205, in get
+[rank1]:     return await asyncio.to_thread(_get, path, prototype, byte_range)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/usr/lib64/python3.12/asyncio/threads.py", line 25, in to_thread
+[rank1]:     return await loop.run_in_executor(None, func_call)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 58, in run
+[rank1]:     result = self.fn(*self.args, **self.kwargs)
+[rank1]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_local.py", line 32, in _get
+[rank1]:     return prototype.buffer.from_bytes(path.read_bytes())
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/buffer/gpu.py", line 105, in from_bytes
+[rank1]:     return cls.from_array_like(cp.frombuffer(bytes_like, dtype="B"))
+[rank1]:                                ^^^^^^^^^^^^^
+[rank1]: AttributeError: 'NoneType' object has no attribute 'frombuffer'
+
+[rank1]: The above exception was the direct cause of the following exception:
+
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank1]:   File "<frozen runpy>", line 88, in _run_code
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1089, in <module>
+[rank1]:     main()
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1079, in main
+[rank1]:     trainer = Trainer(cfg)
+[rank1]:               ^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 132, in __init__
+[rank1]:     self.data_container = cfg.data.build(
+[rank1]:                           ^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 214, in build
+[rank1]:     src, fork = make_source(
+[rank1]:                 ^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 191, in make_source
+[rank1]:     data_source = DataSource.from_locations(
+[rank1]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 454, in from_locations
+[rank1]:     data = data_location.open(chunks, use_gpu_zarr_decode=zarr_gpu_decode)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 234, in open
+[rank1]:     return _open_with_optional_gpu_decode(
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 79, in _open_with_optional_gpu_decode
+[rank1]:     raise RuntimeError(
+[rank1]: RuntimeError: GPU zarr decode failed while opening /orcd/data/abodner/003/LLC4320/LLC4320 with xarray. This usually means xarray/zarr GPU-buffer integration is incompatible with the current store or environment. Set data.zarr_gpu_decode=false to continue on the CPU path.
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 74, in _open_with_optional_gpu_decode
+[rank2]:     return open_dataset()
+[rank2]:            ^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 237, in <lambda>
+[rank2]:     open_dataset=lambda: xr.open_dataset(
+[rank2]:                          ^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/api.py", line 607, in open_dataset
+[rank2]:     backend_ds = backend.open_dataset(
+[rank2]:                  ^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1683, in open_dataset
+[rank2]:     store = ZarrStore.open_group(
+[rank2]:             ^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 722, in open_group
+[rank2]:     ) = _get_open_params(
+[rank2]:         ^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/xarray/backends/zarr.py", line 1891, in _get_open_params
+[rank2]:     zarr_root_group = zarr.open_consolidated(store, **open_kwargs)
+[rank2]:                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/synchronous.py", line 238, in open_consolidated
+[rank2]:     sync(async_api.open_consolidated(*args, use_consolidated=use_consolidated, **kwargs))
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/sync.py", line 159, in sync
+[rank2]:     raise return_result
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/sync.py", line 119, in _runner
+[rank2]:     return await coro
+[rank2]:            ^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/asynchronous.py", line 415, in open_consolidated
+[rank2]:     return await open_group(*args, use_consolidated=use_consolidated, **kwargs)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/api/asynchronous.py", line 866, in open_group
+[rank2]:     return await AsyncGroup.open(
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/group.py", line 570, in open
+[rank2]:     ) = await asyncio.gather(
+[rank2]:         ^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_common.py", line 168, in get
+[rank2]:     return await self.store.get(self.path, prototype=prototype, byte_range=byte_range)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_local.py", line 205, in get
+[rank2]:     return await asyncio.to_thread(_get, path, prototype, byte_range)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/usr/lib64/python3.12/asyncio/threads.py", line 25, in to_thread
+[rank2]:     return await loop.run_in_executor(None, func_call)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/usr/lib64/python3.12/concurrent/futures/thread.py", line 58, in run
+[rank2]:     result = self.fn(*self.args, **self.kwargs)
+[rank2]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/storage/_local.py", line 32, in _get
+[rank2]:     return prototype.buffer.from_bytes(path.read_bytes())
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/zarr/core/buffer/gpu.py", line 105, in from_bytes
+[rank2]:     return cls.from_array_like(cp.frombuffer(bytes_like, dtype="B"))
+[rank2]:                                ^^^^^^^^^^^^^
+[rank2]: AttributeError: 'NoneType' object has no attribute 'frombuffer'
+
+[rank2]: The above exception was the direct cause of the following exception:
+
+[rank2]: Traceback (most recent call last):
+[rank2]:   File "<frozen runpy>", line 198, in _run_module_as_main
+[rank2]:   File "<frozen runpy>", line 88, in _run_code
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1089, in <module>
+[rank2]:     main()
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 1079, in main
+[rank2]:     trainer = Trainer(cfg)
+[rank2]:               ^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/train.py", line 132, in __init__
+[rank2]:     self.data_container = cfg.data.build(
+[rank2]:                           ^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 214, in build
+[rank2]:     src, fork = make_source(
+[rank2]:                 ^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/config.py", line 191, in make_source
+[rank2]:     data_source = DataSource.from_locations(
+[rank2]:                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/data.py", line 454, in from_locations
+[rank2]:     data = data_location.open(chunks, use_gpu_zarr_decode=zarr_gpu_decode)
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 234, in open
+[rank2]:     return _open_with_optional_gpu_decode(
+[rank2]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank2]:   File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/src/ocean_emulators/utils/location.py", line 79, in _open_with_optional_gpu_decode
+[rank2]:     raise RuntimeError(
+[rank2]: RuntimeError: GPU zarr decode failed while opening /orcd/data/abodner/003/LLC4320/LLC4320 with xarray. This usually means xarray/zarr GPU-buffer integration is incompatible with the current store or environment. Set data.zarr_gpu_decode=false to continue on the CPU path.
+[rank0]:[W313 17:40:28.501424167 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859268:1859404 [0] NCCL INFO misc/socket.cc:915 -> 3
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859269:1859403 [1] NCCL INFO misc/socket.cc:915 -> 3
+node2905:1859268:1859404 [0] NCCL INFO misc/socket.cc:915 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859268:1859425 [0] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859269:1859424 [1] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859269:1859403 [1] NCCL INFO misc/socket.cc:915 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859268:1859404 [0] NCCL INFO misc/socket.cc:915 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:64 -> 3
+node2905:1859269:1859403 [1] NCCL INFO misc/socket.cc:915 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:81 -> 3
+node2905:1859270:1859427 [2] NCCL INFO misc/socket.cc:863 -> 3
+node2905:1859270:1859401 [2] NCCL INFO misc/socket.cc:915 -> 3
+node2905:1859269:1859424 [1] NCCL INFO comm 0x56085a2c7350 rank 1 nranks 3 cudaDev 1 busId 68000 - Abort COMPLETE
+node2905:1859268:1859425 [0] NCCL INFO comm 0x5635f2733740 rank 0 nranks 3 cudaDev 0 busId 55000 - Abort COMPLETE
+node2905:1859270:1859427 [2] NCCL INFO comm 0x555638594350 rank 2 nranks 3 cudaDev 2 busId d2000 - Abort COMPLETE
+[rank1]:[W313 17:40:28.254033239 AllocatorConfig.cpp:28] Warning: PYTORCH_CUDA_ALLOC_CONF is deprecated, use PYTORCH_ALLOC_CONF instead (function operator())
+[rank0]:[W313 17:40:28.254043629 AllocatorConfig.cpp:28] Warning: PYTORCH_CUDA_ALLOC_CONF is deprecated, use PYTORCH_ALLOC_CONF instead (function operator())
+[rank2]:[W313 17:40:29.420629282 AllocatorConfig.cpp:28] Warning: PYTORCH_CUDA_ALLOC_CONF is deprecated, use PYTORCH_ALLOC_CONF instead (function operator())
+W0313 17:40:30.176000 1859226 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 1859268 closing signal SIGTERM
+W0313 17:40:30.177000 1859226 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:908] Sending process 1859270 closing signal SIGTERM
+E0313 17:40:30.291000 1859226 .venv/lib/python3.12/site-packages/torch/distributed/elastic/multiprocessing/api.py:882] failed (exitcode: 1) local_rank: 1 (pid: 1859269) of binary: /orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/bin/python3
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/run.py", line 940, in <module>
+    main()
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 357, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/run.py", line 936, in main
+    run(args)
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/run.py", line 927, in run
+    elastic_launch(
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/launcher/api.py", line 156, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/orcd/home/002/codycruz/Ocean_Emulator_gpudecode/.venv/lib64/python3.12/site-packages/torch/distributed/launcher/api.py", line 293, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+ocean_emulators.train FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-03-13_17:40:30
+  host      : node2905.inband
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 1859269)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+[W313 17:40:30.818409727 AllocatorConfig.cpp:28] Warning: PYTORCH_CUDA_ALLOC_CONF is deprecated, use PYTORCH_ALLOC_CONF instead (function operator())

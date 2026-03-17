@@ -83,6 +83,15 @@ from ocean_emulators.utils.wandb import WandBLogger
 logger = logging.getLogger(__name__)
 
 
+def should_log_validation_images(epoch: int, frequency: int) -> bool:
+    """Return whether to log validation images for a 1-based training epoch."""
+    if epoch < 1:
+        raise ValueError(f"Epoch must be >= 1, got {epoch}")
+    if frequency < 1:
+        raise ValueError(f"Validation image log frequency must be >= 1, got {frequency}")
+    return (epoch - 1) % frequency == 0
+
+
 class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
@@ -295,6 +304,7 @@ class Trainer:
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
+        self.validation_image_log_freq = cfg.validation_image_log_freq
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
@@ -634,6 +644,9 @@ class Trainer:
 
     def validate_one_epoch(self, epoch):
         self.model.eval()
+        log_validation_images = should_log_validation_images(
+            epoch, self.validation_image_log_freq
+        )
 
         if self.train_schedule == "standard":
             # The standard val aggregator only supports a single scale.
@@ -642,6 +655,7 @@ class Trainer:
                 self.hist,
                 self.primary_src.spherical_area_weights.to(self.device),
                 self.num_out,
+                include_image_aggregators=log_validation_images,
             )
         else:
             # Create a validation aggregator that handles multiple scales.

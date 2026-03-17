@@ -162,9 +162,6 @@ uvx pre-commit run --all-files
 
 Please ask if you need to train or evaluate a model.
 
-For Torch/Slurm jobs, use the 1-day default timeout for 1-degree runs unless the user asks for something else.
-For 1/2-degree and 1/4-degree Torch/Slurm jobs, prompt the user before submission and use a longer timeout than the 1-degree default.
-
 For vizualization or other long-running tasks:
 
 * Run with `PYTHONUNBUFFERED=1 uv run ... > /tmp/logfile.txt 2>&1`

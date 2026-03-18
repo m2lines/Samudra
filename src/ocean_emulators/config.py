@@ -733,10 +733,12 @@ class UNetBackboneConfig(BaseConfig):
         )
         decoder_attention_blocks: list[nn.Module | None] | None = None
         if decoder_attention_configs is not None:
+            # Skip the bottleneck width and repeat the final decoder width (as done in core blocks)
+            decoder_attention_channels = self.ch_width[-2::-1] + [self.ch_width[0]]
             decoder_attention_blocks = []
             for cfg, channels in zip(
                 decoder_attention_configs,
-                reversed(self.ch_width),
+                decoder_attention_channels,
                 strict=True,
             ):
                 if cfg is None:

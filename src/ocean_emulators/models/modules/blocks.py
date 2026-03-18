@@ -361,7 +361,10 @@ class AxialAttention(nn.Module):
         self.capture_weights = False
         self.last_attn_weights: torch.Tensor | None = None
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels height width"],
+    ) -> Float[torch.Tensor, "batch channels height width"]:
         B, C, H, W = x.shape
 
         if self.axis == "height":
@@ -455,7 +458,10 @@ class AxialAttentionBlock(nn.Module):
             proj_drop=proj_drop,
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels height width"],
+    ) -> Float[torch.Tensor, "batch channels height width"]:
         # Height-axis attention with residual
         x = x + self.attn_h(self.norm_h(x))
         # Width-axis attention with residual
@@ -504,7 +510,10 @@ class FullAttention(nn.Module):
         self.last_attn_weights: torch.Tensor | None = None
         self.last_spatial_shape: tuple[int, int] | None = None
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels height width"],
+    ) -> Float[torch.Tensor, "batch channels height width"]:
         B, C, H, W = x.shape
         seq_len = H * W
 
@@ -569,7 +578,10 @@ class FullAttentionBlock(nn.Module):
             proj_drop=proj_drop,
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels height width"],
+    ) -> Float[torch.Tensor, "batch channels height width"]:
         return x + self.attn(self.norm(x))
 
 

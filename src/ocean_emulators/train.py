@@ -888,6 +888,7 @@ class Trainer:
                 datasets=train_datasets,
                 group_key=group_key,
                 batch_size=self.batch_size,
+                num_replicas=1,
                 shuffle=True,
                 drop_last=True,
             )
@@ -896,6 +897,7 @@ class Trainer:
                 datasets=val_datasets,
                 group_key=group_key,
                 batch_size=self.batch_size,
+                num_replicas=1,
                 shuffle=True,
                 drop_last=False,
             )

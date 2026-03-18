@@ -32,8 +32,8 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         groups: List of index lists, where each inner list contains indices belonging to
             the same equivalence group.
         batch_size: Number of samples per batch
-        n_workers: Coordinate batches across workers to prevent loading asymmetry.
-            This should prevent NCCL timeouts. Use -1 to turn worker coordination off.
+        num_replicas: Coordinate batches across workers to prevent loading asymmetry.
+            This should prevent NCCL timeouts. Use 1 to turn worker coordination off.
         shuffle: Whether to shuffle indices within groups and shuffle batches globally
         drop_last: Whether to drop incomplete batches at the end of each group
     """
@@ -42,14 +42,14 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         self,
         groups: list[list[int]],
         batch_size: int,
-        n_workers: int = -1,
+        num_replicas: int = 1,
         shuffle: bool = True,
         drop_last: bool = False,
     ):
         super().__init__()
         self.groups = groups
         self.batch_size = batch_size
-        self.n_workers = n_workers
+        self.num_replicas = num_replicas
         self.shuffle = shuffle
         self.drop_last = drop_last
 
@@ -70,7 +70,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         cls,
         dataset_sizes: list[int],
         batch_size: int,
-        n_workers: int = -1,
+        num_replicas: int = 1,
         shuffle: bool = True,
         drop_last: bool = False,
     ) -> Self:
@@ -80,8 +80,8 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
             dataset_sizes: List of individual dataset sizes. Groups are created based on
                 cumulative boundaries, where each dataset forms its own equivalence group.
             batch_size: Number of samples per batch
-            n_workers: Coordinate batches across workers to prevent loading asymmetry.
-                This should prevent NCCL timeouts. Use -1 to turn worker coordination off.
+            num_replicas: Coordinate batches across workers to prevent loading asymmetry.
+                This should prevent NCCL timeouts. Use 1 to turn worker coordination off.
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
         """
@@ -90,7 +90,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         for size in dataset_sizes:
             groups.append(list(range(cumsum, cumsum + size)))
             cumsum += size
-        return cls(groups, batch_size, n_workers, shuffle, drop_last)
+        return cls(groups, batch_size, num_replicas, shuffle, drop_last)
 
     @classmethod
     def from_datasets(
@@ -98,7 +98,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         datasets: list["TorchTrainDataset"],
         group_key: Callable[["TorchTrainDataset"], Hashable],
         batch_size: int,
-        n_workers: int,
+        num_replicas: int,
         shuffle: bool,
         drop_last: bool,
     ) -> Self:
@@ -111,7 +111,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
             datasets: List of TorchTrainDataset instances to group
             group_key: Callable that extracts grouping key from a dataset.
             batch_size: Number of samples per batch
-            n_workers: Coordinate batches across workers to prevent loading asymmetry.
+            num_replicas: Coordinate batches across workers to prevent loading asymmetry.
                 This should prevent NCCL timeouts. Use -1 to turn worker coordination off.
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
@@ -152,7 +152,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         sorted_groups = sorted(groups.items(), key=lambda x: x[0])  # type: ignore
         group_indices = [indices for _, indices in sorted_groups]
 
-        return cls(group_indices, batch_size, n_workers, shuffle, drop_last)
+        return cls(group_indices, batch_size, num_replicas, shuffle, drop_last)
 
     def __iter__(self):
         # Create batch samplers for each group
@@ -161,38 +161,37 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         if not self.shuffle:
             # No global shuffle: return batches in sequential group order
             yield from batch_sampler
-        elif self.n_workers != -1:
-            per_worker = []
+        else:
+            # Shuffle batches in a replica-aware way. When num_replicas=1, it behaves
+            # like a global shuffle. When num_replicas>1 and drop_last=False, we move
+            # the "remainder" batch to the very end. This makes timeouts a lot less
+            # likely to occur. In general, we shuffle within replica samples and globally
+            # for replica chunked batches.
+            per_replica = []
             move_to_end = []
             for sampler in self._samplers:
-                per_worker_per_sampler = list(
-                    itertools.batched(sampler, self.n_workers)
+                pre_replica_per_sample = list(
+                    itertools.batched(sampler, self.num_replicas)
                 )
-                if len(per_worker_per_sampler[-1]) < self.n_workers:
-                    move_to_end.append(per_worker_per_sampler.pop())
-                random.shuffle(per_worker_per_sampler)
-                per_worker.append(per_worker_per_sampler)
-            whole_worker_batches = list(itertools.chain(*per_worker))
-            random.shuffle(whole_worker_batches)
+                if len(pre_replica_per_sample[-1]) < self.num_replicas:
+                    move_to_end.append(pre_replica_per_sample.pop())
+                random.shuffle(pre_replica_per_sample)
+                per_replica.append(pre_replica_per_sample)
+            whole_replica_batches = list(itertools.chain.from_iterable(per_replica))
+            random.shuffle(whole_replica_batches)
             if self.drop_last:
-                all_worker_batches = whole_worker_batches
+                all_replica_batches = whole_replica_batches
             else:
                 random.shuffle(move_to_end)
-                all_worker_batches = whole_worker_batches + move_to_end
-            yield from itertools.chain.from_iterable(all_worker_batches)
-        else:
-            # Shuffle batches globally to avoid sequential group processing
-            # This is regenerated each epoch, giving different orderings
-            all_batches = list(batch_sampler)
-            random.shuffle(all_batches)
-            yield from all_batches
+                all_replica_batches = whole_replica_batches + move_to_end
+            yield from itertools.chain.from_iterable(all_replica_batches)
 
     def __len__(self):
         """Calculate total number of batches across all groups."""
         total_batches = 0
         for sampler in self._samplers:
-            if self.n_workers != -1 and self.drop_last:
-                total_batches += (len(sampler) // self.n_workers) * self.n_workers
+            if self.num_replicas != -1 and self.drop_last:
+                total_batches += (len(sampler) // self.num_replicas) * self.num_replicas
             else:
                 total_batches += len(sampler)
 
@@ -257,7 +256,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
             datasets=datasets,
             group_key=group_key,
             batch_size=batch_size,
-            n_workers=-1,
+            num_replicas=num_replicas,
             shuffle=False,  # We handle shuffling with seeded RNG
             drop_last=drop_last,
         )
@@ -272,8 +271,17 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
 
         # Shuffle with seeded RNG so all workers get identical ordering
         if self.shuffle:
+            per_replica = list(itertools.batched(all_batches, self.num_replicas))
+            last_replica = []
+            if len(per_replica[-1]) % self.num_replicas != 0:
+                if self.drop_last:
+                    per_replica = per_replica[:-1]
+                else:
+                    last_replica = [per_replica.pop()]
             rng = random.Random(self.seed + self.epoch)
-            rng.shuffle(all_batches)
+            rng.shuffle(per_replica)
+            per_replica = per_replica + last_replica
+            all_batches = list(itertools.chain.from_iterable(per_replica))
 
         # Ensure uniform batch count across all ranks to prevent DDP hangs.
         # Similar to torch.utils.data.DistributedSampler behavior:

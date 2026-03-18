@@ -338,11 +338,11 @@ class AxialAttention(nn.Module):
     def __init__(
         self,
         dim: int,
-        num_heads: int = 8,
-        qkv_bias: bool = True,
-        attn_drop: float = 0.0,
-        proj_drop: float = 0.0,
-        axis: Literal["height", "width"] = "height",
+        num_heads: int,
+        qkv_bias: bool,
+        attn_drop: float,
+        proj_drop: float,
+        axis: Literal["height", "width"],
     ):
         super().__init__()
         if dim % num_heads != 0:
@@ -440,6 +440,7 @@ class AxialAttentionBlock(nn.Module):
         self.attn_h = AxialAttention(
             channels,
             num_heads,
+            qkv_bias=True,
             axis="height",
             attn_drop=attn_drop,
             proj_drop=proj_drop,
@@ -448,6 +449,7 @@ class AxialAttentionBlock(nn.Module):
         self.attn_w = AxialAttention(
             channels,
             num_heads,
+            qkv_bias=True,
             axis="width",
             attn_drop=attn_drop,
             proj_drop=proj_drop,
@@ -482,10 +484,10 @@ class FullAttention(nn.Module):
     def __init__(
         self,
         dim: int,
-        num_heads: int = 8,
-        qkv_bias: bool = True,
-        attn_drop: float = 0.0,
-        proj_drop: float = 0.0,
+        num_heads: int,
+        qkv_bias: bool,
+        attn_drop: float,
+        proj_drop: float,
     ):
         super().__init__()
         if dim % num_heads != 0:
@@ -562,6 +564,7 @@ class FullAttentionBlock(nn.Module):
         self.attn = FullAttention(
             channels,
             num_heads,
+            qkv_bias=True,
             attn_drop=attn_drop,
             proj_drop=proj_drop,
         )

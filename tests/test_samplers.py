@@ -1,3 +1,4 @@
+import itertools
 import random
 
 import pytest
@@ -32,6 +33,7 @@ def sampler_from_datasets(request):
                 datasets=datasets,
                 group_key=group_key,
                 batch_size=batch_size,
+                n_workers=-1,
                 shuffle=shuffle,
                 drop_last=drop_last,
             )
@@ -384,3 +386,61 @@ class TestDistributedBatchSamplerDistribution:
                 shuffle=False,
                 drop_last=False,
             )
+
+
+def test_group_batch_sampler__n_workers__splits_into_worker_batches():
+    ds_size = 20
+    n_workers = 8
+    datasets = [
+        MockDataset(ds_size, grid_size=(10, 20)),
+        MockDataset(ds_size, grid_size=(5, 10)),
+    ]
+    batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
+        datasets,  # type: ignore[arg-type]
+        group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
+        batch_size=2,
+        n_workers=n_workers,
+        shuffle=True,
+        drop_last=True,
+    )
+    assert len(batch_sampler) % n_workers == 0, (
+        "when both n_workers and drop_last are set, we drop batches that don't fit into the n_workers."
+    )
+
+    batches = list(batch_sampler)
+
+    worker_batches = list(itertools.batched(batches, n_workers))
+    for w_batch in worker_batches:
+        batch = list(itertools.chain.from_iterable(w_batch))
+        assert all(b >= ds_size for b in batch) or all(b < ds_size for b in batch), (
+            "Cannot mix dataset batches within grouping of workers."
+        )
+
+
+def test_group_batch_sampler__n_workers_no_drop_last__moves_awkward_batches_to_the_end():
+    ds_size = 20
+    n_workers = 8
+    datasets = [
+        MockDataset(ds_size, grid_size=(10, 20)),
+        MockDataset(ds_size, grid_size=(5, 10)),
+    ]
+    batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
+        datasets,  # type: ignore[arg-type]
+        group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
+        batch_size=2,
+        n_workers=n_workers,
+        shuffle=True,
+        drop_last=False,
+    )
+    assert len(batch_sampler) % n_workers != 0, (
+        "We don't neatly divide the number of workers"
+    )
+
+    batches = list(batch_sampler)
+
+    worker_batches = list(itertools.batched(batches, n_workers))
+    for w_batch in worker_batches[:-1]:
+        batch = list(itertools.chain.from_iterable(w_batch))
+        assert all(b >= ds_size for b in batch) or all(b < ds_size for b in batch), (
+            "Cannot mix dataset batches within grouping of workers."
+        )

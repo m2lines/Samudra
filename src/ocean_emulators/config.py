@@ -246,7 +246,7 @@ BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "layer"]
 AttentionType = Literal["axial", "full"]
-BottleneckBlockType = Literal["attention", "transformer", "maxvit"]
+BottleneckBlockType = Literal["attention"]
 
 
 class AttentionBlockConfig(BaseConfig):
@@ -288,15 +288,8 @@ class AttentionBlockConfig(BaseConfig):
         assert_never(self.attention_type)
 
 
-class TransformerBottleneckConfig(BaseConfig):
-    """Reserved config surface for a future transformer bottleneck block."""
-
-
-class MaxViTBottleneckConfig(BaseConfig):
-    """Reserved config surface for a future MaxViT bottleneck block."""
-
-
 class BottleneckBlockConfig(BaseConfig):
+    # TODO: Add Transformer and MaxVIT style bottlenecks as options here as well
     block_type: BottleneckBlockType = Field(
         default="attention",
         description="Bottleneck block family to insert between the U-Net middle block and decoder.",
@@ -304,14 +297,6 @@ class BottleneckBlockConfig(BaseConfig):
     attention: AttentionBlockConfig | None = Field(
         default=None,
         description="Attention bottleneck settings used when `block_type` is `attention`.",
-    )
-    transformer: TransformerBottleneckConfig | None = Field(
-        default=None,
-        description="Reserved transformer bottleneck settings for future implementation.",
-    )
-    maxvit: MaxViTBottleneckConfig | None = Field(
-        default=None,
-        description="Reserved MaxViT bottleneck settings for future implementation.",
     )
 
     def build(self, channels: int) -> nn.Module:
@@ -323,16 +308,6 @@ class BottleneckBlockConfig(BaseConfig):
                     "`attention.bottleneck.block_type` is `attention`."
                 )
             return attention_config.build(channels)
-        if self.block_type == "transformer":
-            raise NotImplementedError(
-                "Transformer bottleneck blocks are not implemented yet. "
-                "This config shape is reserved for future use."
-            )
-        if self.block_type == "maxvit":
-            raise NotImplementedError(
-                "MaxViT bottleneck blocks are not implemented yet. "
-                "This config shape is reserved for future use."
-            )
         assert_never(self.block_type)
 
 

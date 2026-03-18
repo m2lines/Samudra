@@ -253,7 +253,7 @@ class AttentionBlockConfig(BaseConfig):
     """Configuration for a single attention block in the U-Net."""
 
     attention_type: AttentionType = Field(
-        default="axial",
+        default="full",
         description="Attention implementation to use at this stage.",
     )
 

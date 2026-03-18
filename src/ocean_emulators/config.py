@@ -271,6 +271,9 @@ class AttentionBlockConfig(BaseConfig):
     )
 
     def build(self, channels: int) -> nn.Module:
+        assert channels % self.num_heads == 0, (
+            f"channels {channels} must be divisible by num_heads {self.num_heads}"
+        )
         if self.attention_type == "axial":
             return AxialAttentionBlock(
                 channels=channels,

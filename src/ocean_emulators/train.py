@@ -115,7 +115,7 @@ class Trainer:
 
         levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:
-            self.levels = 19
+            self.levels = 51
         else:
             self.levels = int(levels)
 

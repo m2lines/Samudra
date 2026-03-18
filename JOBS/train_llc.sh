@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-03-15-samudra_llc:gpu-decompress-test-2gpus,few_cpus:all_fields-depths,loc=(i:0-720,j:0,720)
+#SBATCH --job-name=2026-03-17-samudra_llc:gpu-decompress-test:all_fields-depths,loc=(i:0-720,j:0,720)
 #SBATCH -N 1
 #SBATCH --mem=400GB
 #SBATCH --ntasks=1

@@ -33,7 +33,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-03-15-samudra_llc:gpu-decompress-test-2gpus,few_cpus:all_fields-depths,loc=(i:0-720,j:0,720)
+  name: 2026-03-17-samudra_llc:gpu-decompress-test:all_fields-depths,loc=(i:0-720,j:0,720)
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

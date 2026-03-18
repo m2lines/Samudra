@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../schemas/DataConfig.json
 
 sources:
-  - data_location: 003/LLC4320/LLC4320
+  - data_location: /orcd/pool/008/jrusak/data/LLC4320v3/
     data_means_location: 002/cody/LLC_means_stds/var_96_LLC_means.zarr
     data_stds_location: 002/cody/LLC_means_stds/var_96_LLC_stds.zarr
 static_data_vars: []

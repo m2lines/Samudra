@@ -4,7 +4,10 @@ from typing import Literal, Protocol
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
+<<<<<<< HEAD
 from einops import rearrange
+=======
+>>>>>>> 386e3796 (Added jax typing)
 from jaxtyping import Float
 
 from ocean_emulators.models.modules.activations import CappedGELU

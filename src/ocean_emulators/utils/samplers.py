@@ -190,7 +190,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         """Calculate total number of batches across all groups."""
         total_batches = 0
         for sampler in self._samplers:
-            if self.num_replicas != -1 and self.drop_last:
+            if self.num_replicas > 0 and self.drop_last:
                 total_batches += (len(sampler) // self.num_replicas) * self.num_replicas
             else:
                 total_batches += len(sampler)

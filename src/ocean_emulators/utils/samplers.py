@@ -273,12 +273,13 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         if self.shuffle:
             per_replica = list(itertools.batched(all_batches, self.num_replicas))
             last_replica = []
+            rng = random.Random(self.seed + self.epoch)
             if len(per_replica[-1]) % self.num_replicas != 0:
                 if self.drop_last:
                     per_replica = per_replica[:-1]
                 else:
                     last_replica = [per_replica.pop()]
-            rng = random.Random(self.seed + self.epoch)
+                    rng.shuffle(last_replica)
             rng.shuffle(per_replica)
             per_replica = per_replica + last_replica
             all_batches = list(itertools.chain.from_iterable(per_replica))

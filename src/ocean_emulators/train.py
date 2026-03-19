@@ -16,6 +16,7 @@ from typing import Any, assert_never
 
 import dask
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from torch.utils.data import (
     ConcatDataset,
@@ -290,6 +291,13 @@ class Trainer:
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
             )
+            # Create a CPU-side (Gloo) process group for data-loading barriers.
+            # This lets all ranks synchronize after loading a batch without
+            # consuming the NCCL timeout budget, preventing NCCL timeouts when
+            # the networked filesystem stalls on some ranks.
+            self._cpu_group = dist.new_group(backend="gloo")
+        else:
+            self._cpu_group = None
 
         # EMA (must come after DDP setup so parameter names match final self.model)
         if not loaded_checkpoint:
@@ -507,6 +515,12 @@ class Trainer:
             else:
                 r = self.gradient_accumulation_steps
 
+            # Synchronize all ranks after data loading so that no rank
+            # starts GPU work (and hits NCCL collectives) while another is
+            # still blocked on a slow networked filesystem read.
+            if self._cpu_group is not None:
+                dist.barrier(group=self._cpu_group)
+
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
@@ -675,6 +689,9 @@ class Trainer:
             ):
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
+
+                if self._cpu_group is not None:
+                    dist.barrier(group=self._cpu_group)
 
                 VO: ValBatchOutput = Stepper.validate_batch(
                     self.model, data, self.loss_fn

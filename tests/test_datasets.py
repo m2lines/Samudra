@@ -4,7 +4,9 @@ import contextlib
 import dataclasses
 import datetime
 import itertools
+import pickle
 from collections.abc import Generator, Iterable
+from concurrent.futures import ThreadPoolExecutor
 from typing import assert_never
 
 import cftime
@@ -177,6 +179,21 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
 
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
+
+
+def test_torch_train_dataset_pickling_drops_executor():
+    dataset = object.__new__(TorchTrainDataset)
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
+        dataset._executor = executor
+        dataset.marker = "kept"
+
+        restored = pickle.loads(pickle.dumps(dataset))
+
+        assert restored._executor is None
+        assert restored.marker == "kept"
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
 
 
 def calc_num_samples(

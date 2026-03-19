@@ -516,6 +516,14 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __len__(self) -> int:
         return self.size
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # DataLoader workers spawned via multiprocessing must pickle the dataset.
+        # ThreadPoolExecutor carries non-picklable queue state, so worker copies
+        # fall back to serial compute unless they rebuild their own executor.
+        state["_executor"] = None
+        return state
+
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()

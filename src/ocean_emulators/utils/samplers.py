@@ -112,7 +112,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
             group_key: Callable that extracts grouping key from a dataset.
             batch_size: Number of samples per batch
             num_replicas: Coordinate batches across workers to prevent loading asymmetry.
-                This should prevent NCCL timeouts. Use -1 to turn worker coordination off.
+                This should prevent NCCL timeouts. Use 1 to turn worker coordination off.
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
 

@@ -44,7 +44,7 @@ def sampler_from_datasets(request):
                 datasets=datasets,
                 group_key=group_key,
                 batch_size=batch_size,
-                num_replicas=num_replicas,  # Single worker to match standard behavior
+                num_replicas=num_replicas,
                 rank=0,
                 shuffle=shuffle,
                 drop_last=drop_last,

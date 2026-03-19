@@ -5,13 +5,33 @@ from pathlib import Path
 import pytest
 import torch
 
-from ocean_emulators.config import DynamicLossConfig
+from ocean_emulators.config import DistributedConfig, DynamicLossConfig
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.train import Trainer
+from ocean_emulators.train import Trainer, get_mp_context
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.loss import DynamicLoss
 from ocean_emulators.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, TrainPair
+
+
+def test_get_mp_context__none_when_no_workers():
+    assert get_mp_context(num_workers=0, supports_fork=True, distributed=None) is None
+
+
+def test_get_mp_context__uses_fork_for_non_distributed_local_data():
+    ctx = get_mp_context(num_workers=4, supports_fork=True, distributed=None)
+    assert ctx is not None
+    assert ctx.get_start_method() == "fork"
+
+
+def test_get_mp_context__uses_spawn_for_distributed_local_data():
+    ctx = get_mp_context(
+        num_workers=4,
+        supports_fork=True,
+        distributed=DistributedConfig(),
+    )
+    assert ctx is not None
+    assert ctx.get_start_method() == "spawn"
 
 
 @pytest.mark.manual

@@ -83,6 +83,26 @@ from ocean_emulators.utils.wandb import WandBLogger
 logger = logging.getLogger(__name__)
 
 
+def get_mp_context(
+    num_workers: int,
+    supports_fork: bool,
+    distributed: config.DistributedConfig | None,
+) -> BaseContext | None:
+    """Choose a safe multiprocessing context for DataLoader workers.
+
+    Forking local-data workers is fine in simple single-process runs, but it is
+    unsafe once distributed training has already initialized NCCL/UCX state in
+    the parent process.
+    """
+    if num_workers <= 0:
+        return None
+    if distributed is not None:
+        return multiprocessing.get_context("spawn")
+    if supports_fork:
+        return multiprocessing.get_context("fork")
+    return multiprocessing.get_context("spawn")
+
+
 class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
@@ -136,12 +156,11 @@ class Trainer:
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
 
-        self.mp_context: BaseContext | None = None
-        if cfg.data.num_workers > 0:
-            if self.data_container.supports_fork:
-                self.mp_context = multiprocessing.get_context("fork")
-            else:
-                self.mp_context = multiprocessing.get_context("spawn")
+        self.mp_context = get_mp_context(
+            num_workers=cfg.data.num_workers,
+            supports_fork=self.data_container.supports_fork,
+            distributed=self.distributed,
+        )
 
         self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)

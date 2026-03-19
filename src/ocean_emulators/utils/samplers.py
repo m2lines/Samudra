@@ -173,7 +173,10 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
                 pre_replica_per_sample = list(
                     itertools.batched(sampler, self.num_replicas)
                 )
-                if len(pre_replica_per_sample[-1]) < self.num_replicas:
+                if (
+                    pre_replica_per_sample
+                    and len(pre_replica_per_sample[-1]) < self.num_replicas
+                ):
                     move_to_end.append(pre_replica_per_sample.pop())
                 random.shuffle(pre_replica_per_sample)
                 per_replica.append(pre_replica_per_sample)

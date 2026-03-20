@@ -1098,6 +1098,9 @@ class Trainer:
     def finish(self):
         if self.executor is not None:
             self.executor.shutdown()
+        if self._cpu_group is not None:
+            dist.destroy_process_group(self._cpu_group)
+            self._cpu_group = None
         self.wandb_logger.finish()
 
 

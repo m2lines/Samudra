@@ -390,56 +390,105 @@ class TestDistributedBatchSamplerDistribution:
             )
 
 
-def test_group_batch_sampler__n_workers__splits_into_worker_batches(
-    sampler_from_datasets,
-):
+def test_group_batch_sampler__standard__replica_chunks_are_homogeneous():
+    """For the non-distributed sampler, consecutive num_replicas batches are from the same group."""
     ds_size = 20
     n_workers = 8
     datasets = [
         MockDataset(ds_size, grid_size=(10, 20)),
         MockDataset(ds_size, grid_size=(5, 10)),
     ]
-    batch_sampler = sampler_from_datasets(
-        datasets,  # type: ignore[arg-type]
+    sampler = EquivalenceGroupBatchSampler.from_datasets(
+        datasets=datasets,  # type: ignore[arg-type]
         group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
         batch_size=2,
         num_replicas=n_workers,
         shuffle=True,
         drop_last=True,
     )
-    batches = list(batch_sampler)
-
-    worker_batches = list(itertools.batched(batches, n_workers))
-    for w_batch in worker_batches:
-        batch = list(itertools.chain.from_iterable(w_batch))
-        assert all(b >= ds_size for b in batch) or all(b < ds_size for b in batch), (
-            "Cannot mix dataset batches within grouping of workers."
-        )
+    batches = list(sampler)
+    for chunk in itertools.batched(batches, n_workers):
+        indices = list(itertools.chain.from_iterable(chunk))
+        assert all(b >= ds_size for b in indices) or all(
+            b < ds_size for b in indices
+        ), "Cannot mix dataset batches within a replica chunk."
 
 
-def test_group_batch_sampler__n_workers_no_drop_last__moves_awkward_batches_to_the_end(
-    sampler_from_datasets,
-):
+def test_group_batch_sampler__distributed__replica_chunks_are_homogeneous():
+    """All DDP ranks at the same step must process batches from the same group."""
     ds_size = 20
     n_workers = 8
     datasets = [
         MockDataset(ds_size, grid_size=(10, 20)),
         MockDataset(ds_size, grid_size=(5, 10)),
     ]
-    batch_sampler = sampler_from_datasets(
-        datasets,  # type: ignore[arg-type]
-        group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
-        batch_size=2,
-        num_replicas=n_workers,
-        shuffle=True,
-        drop_last=False,
-    )
 
-    batches = list(batch_sampler)
-
-    worker_batches = list(itertools.batched(batches, n_workers))
-    for w_batch in worker_batches[:-1]:
-        batch = list(itertools.chain.from_iterable(w_batch))
-        assert all(b >= ds_size for b in batch) or all(b < ds_size for b in batch), (
-            "Cannot mix dataset batches within grouping of workers."
+    # Collect each rank's batches
+    rank_batches = []
+    for rank in range(n_workers):
+        sampler = DistributedEquivalenceGroupBatchSampler(
+            datasets=datasets,  # type: ignore[arg-type]
+            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
+            batch_size=2,
+            num_replicas=n_workers,
+            rank=rank,
+            shuffle=True,
+            drop_last=True,
         )
+        rank_batches.append(list(sampler))
+
+    # All ranks must have the same number of batches
+    counts = [len(rb) for rb in rank_batches]
+    assert len(set(counts)) == 1, f"Ranks have different batch counts: {counts}"
+
+    # At each step, all ranks should process the same group
+    batches_per_rank = counts[0]
+    for step in range(batches_per_rank):
+        step_indices = list(
+            itertools.chain.from_iterable(
+                rank_batches[r][step] for r in range(n_workers)
+            )
+        )
+        assert all(b >= ds_size for b in step_indices) or all(
+            b < ds_size for b in step_indices
+        ), f"Step {step}: ranks process mixed groups. Indices: {step_indices}"
+
+
+def test_group_batch_sampler__n_workers_no_drop_last__moves_awkward_batches_to_the_end():
+    """Without drop_last, all steps except possibly the last should be homogeneous across ranks."""
+    ds_size = 20
+    n_workers = 8
+    datasets = [
+        MockDataset(ds_size, grid_size=(10, 20)),
+        MockDataset(ds_size, grid_size=(5, 10)),
+    ]
+
+    # Collect each rank's batches
+    rank_batches = []
+    for rank in range(n_workers):
+        sampler = DistributedEquivalenceGroupBatchSampler(
+            datasets=datasets,  # type: ignore[arg-type]
+            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
+            batch_size=2,
+            num_replicas=n_workers,
+            rank=rank,
+            shuffle=True,
+            drop_last=False,
+        )
+        rank_batches.append(list(sampler))
+
+    # All ranks must have the same number of batches
+    counts = [len(rb) for rb in rank_batches]
+    assert len(set(counts)) == 1, f"Ranks have different batch counts: {counts}"
+
+    # All steps except possibly the last should be homogeneous across ranks
+    batches_per_rank = counts[0]
+    for step in range(batches_per_rank - 1):
+        step_indices = list(
+            itertools.chain.from_iterable(
+                rank_batches[r][step] for r in range(n_workers)
+            )
+        )
+        assert all(b >= ds_size for b in step_indices) or all(
+            b < ds_size for b in step_indices
+        ), f"Step {step}: ranks process mixed groups. Indices: {step_indices}"

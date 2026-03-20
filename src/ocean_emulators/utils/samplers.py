@@ -36,6 +36,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
             This should prevent NCCL timeouts. Use 1 to turn worker coordination off.
         shuffle: Whether to shuffle indices within groups and shuffle batches globally
         drop_last: Whether to drop incomplete batches at the end of each group
+        rng: Random number generator (optional): Use to seed shuffles.
     """
 
     def __init__(
@@ -45,6 +46,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         num_replicas: int = 1,
         shuffle: bool = True,
         drop_last: bool = False,
+        rng: random.Random | None = None,
     ):
         super().__init__()
         self.groups = groups
@@ -52,6 +54,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         self.num_replicas = num_replicas
         self.shuffle = shuffle
         self.drop_last = drop_last
+        self.rng = rng
 
         # Choose sampler based on shuffle setting
         SubsetSampler = SubsetRandomSampler if self.shuffle else _SimpleSubsetSampler
@@ -73,6 +76,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         num_replicas: int = 1,
         shuffle: bool = True,
         drop_last: bool = False,
+        rng: random.Random | None = None,
     ) -> Self:
         """Create sampler from dataset sizes, treating each as a contiguous group.
 
@@ -84,13 +88,14 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
                 This should prevent NCCL timeouts. Use 1 to turn worker coordination off.
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
+            rng: Random number generator (optional): Use to seed shuffles.
         """
         cumsum = 0
         groups = []
         for size in dataset_sizes:
             groups.append(list(range(cumsum, cumsum + size)))
             cumsum += size
-        return cls(groups, batch_size, num_replicas, shuffle, drop_last)
+        return cls(groups, batch_size, num_replicas, shuffle, drop_last, rng)
 
     @classmethod
     def from_datasets(
@@ -101,6 +106,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         num_replicas: int,
         shuffle: bool,
         drop_last: bool,
+        rng: random.Random | None = None,
     ) -> Self:
         """Create sampler by grouping datasets using a key function.
 
@@ -115,13 +121,11 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
                 This should prevent NCCL timeouts. Use 1 to turn worker coordination off.
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
+            rng: Random number generator (optional): Use to seed shuffles.
 
         Examples:
                 - lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon'])  # group by resolution
                 - lambda ds: ds._input_src.data.sizes['lat']  # group by latitude size only
-            batch_size: Number of samples per batch
-            shuffle: Whether to shuffle indices within groups and shuffle batches globally
-            drop_last: Whether to drop incomplete batches at the end of each group
 
         Returns:
             EquivalenceGroupBatchSampler configured to group by the provided key
@@ -152,7 +156,13 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         sorted_groups = sorted(groups.items(), key=lambda x: x[0])  # type: ignore
         group_indices = [indices for _, indices in sorted_groups]
 
-        return cls(group_indices, batch_size, num_replicas, shuffle, drop_last)
+        return cls(group_indices, batch_size, num_replicas, shuffle, drop_last, rng)
+
+    def _apply_shuffle(self, items: list) -> None:
+        if self.rng:
+            self.rng.shuffle(items)
+        else:
+            random.shuffle(items)
 
     def __iter__(self):
         # Create batch samplers for each group
@@ -178,14 +188,14 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
                     and len(pre_replica_per_sample[-1]) < self.num_replicas
                 ):
                     move_to_end.append(pre_replica_per_sample.pop())
-                random.shuffle(pre_replica_per_sample)
+                self._apply_shuffle(pre_replica_per_sample)
                 per_replica.append(pre_replica_per_sample)
             whole_replica_batches = list(itertools.chain.from_iterable(per_replica))
-            random.shuffle(whole_replica_batches)
+            self._apply_shuffle(whole_replica_batches)
             if self.drop_last:
                 all_replica_batches = whole_replica_batches
             else:
-                random.shuffle(move_to_end)
+                self._apply_shuffle(move_to_end)
                 all_replica_batches = whole_replica_batches + move_to_end
             yield from itertools.chain.from_iterable(all_replica_batches)
 
@@ -193,7 +203,7 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         """Calculate total number of batches across all groups."""
         total_batches = 0
         for sampler in self._samplers:
-            if self.num_replicas > 0 and self.drop_last:
+            if self.num_replicas > 1 and self.drop_last:
                 total_batches += (len(sampler) // self.num_replicas) * self.num_replicas
             else:
                 total_batches += len(sampler)
@@ -260,44 +270,30 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
             group_key=group_key,
             batch_size=batch_size,
             num_replicas=num_replicas,
-            shuffle=False,  # We handle shuffling with seeded RNG
+            shuffle=self.shuffle,
             drop_last=drop_last,
+            rng=random.Random(self.seed + self.epoch),
         )
 
     def set_epoch(self, epoch: int) -> None:
         """Set the epoch for deterministic shuffling across workers."""
         self.epoch = epoch
+        self._inner.rng = random.Random(self.seed + self.epoch)
 
     def __iter__(self):
         # Get all batches from inner sampler (deterministic order)
         all_batches = list(self._inner)
 
-        # Shuffle with seeded RNG so all workers get identical ordering
-        if self.shuffle:
-            per_replica = list(itertools.batched(all_batches, self.num_replicas))
-            last_replica = []
-            rng = random.Random(self.seed + self.epoch)
-            if len(per_replica[-1]) % self.num_replicas != 0:
-                if self.drop_last:
-                    per_replica = per_replica[:-1]
-                else:
-                    last_replica = [per_replica.pop()]
-                    rng.shuffle(last_replica)
-            rng.shuffle(per_replica)
-            per_replica = per_replica + last_replica
-            all_batches = list(itertools.chain.from_iterable(per_replica))
-
         # Ensure uniform batch count across all ranks to prevent DDP hangs.
-        # Similar to torch.utils.data.DistributedSampler behavior:
-        # - drop_last=True: trim to largest multiple of num_replicas
-        # - drop_last=False: pad by duplicating batches to reach next multiple
+        # When shuffle=True, the inner sampler's replica-aware batching already
+        # trims for drop_last. When shuffle=False, it doesn't, so we must trim
+        # here. The trim is a no-op when already divisible, so it's always safe.
         total = len(all_batches)
         if self.drop_last:
-            # Trim to ensure divisibility
             num_batches_per_rank = total // self.num_replicas
-            total_batches_to_use = num_batches_per_rank * self.num_replicas
-            all_batches = all_batches[:total_batches_to_use]
-        else:
+            all_batches = all_batches[: num_batches_per_rank * self.num_replicas]
+            total = len(all_batches)
+        if not self.drop_last:
             # Pad to ensure divisibility (ceiling division)
             num_batches_per_rank = (total + self.num_replicas - 1) // self.num_replicas
             # Pad by wrapping around from the beginning (may wrap multiple times

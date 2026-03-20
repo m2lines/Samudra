@@ -693,9 +693,6 @@ class Trainer:
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
 
-                if self._cpu_group is not None:
-                    dist.barrier(group=self._cpu_group)
-
                 VO: ValBatchOutput = Stepper.validate_batch(
                     self.model, data, self.loss_fn
                 )

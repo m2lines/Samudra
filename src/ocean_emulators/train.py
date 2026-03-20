@@ -295,7 +295,10 @@ class Trainer:
             # This lets all ranks synchronize after loading a batch without
             # consuming the NCCL timeout budget, preventing NCCL timeouts when
             # the networked filesystem stalls on some ranks.
-            self._cpu_group = dist.new_group(backend="gloo")
+            self._cpu_group = dist.new_group(
+                backend="gloo",
+                timeout=datetime.timedelta(hours=2),
+            )
         else:
             self._cpu_group = None
 

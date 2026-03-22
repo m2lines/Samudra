@@ -19,8 +19,10 @@ On CI, GitHub Actions builds and validates this image via:
 .github/workflows/container-physicsnemo.yml
 ```
 
-The CI workflow publishes images on `main` pushes and manual dispatches, then runs
-CPU/GPU tests from the published image on an EC2 GPU runner.
+The CI workflow smoke-tests the Dockerfile on every PR. On `main` pushes and manual
+dispatches, it publishes the x86_64 image to GHCR, runs CPU/GPU tests from that
+published image on an x86_64 EC2 GPU runner, and separately builds the same Dockerfile
+on an ARM64 `g5g` runner for ARM64 CPU/GPU container tests.
 
 Useful environment variables:
 

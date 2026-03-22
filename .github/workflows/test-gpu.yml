@@ -16,11 +16,9 @@ jobs:
   ec2:
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
-      ec2_instance_type: g4dn.xlarge
-      # Deep Learning Base AMI with Single CUDA (Ubuntu 22.04) 20260106 in us-east-1
-      # https://docs.aws.amazon.com/dlami/latest/devguide/aws-deep-learning-ami-gpubasesinglecuda-ul2204-2026-01-08.html
-      ec2_image_id: ami-003cccc5c868e7d71
-      ec2_root_device_size: 300
+      ec2_instance_type: g6.xlarge
+      ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
+      ec2_root_device_size: "+10" # AMI's reported VolumeSize (40GB) +1GB; leaves headroom for test I/O; instance runs out of disk otherwise
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
@@ -28,20 +26,6 @@ jobs:
     needs: ec2
     runs-on: ${{ needs.ec2.outputs.id }}
     steps:
-      - name: Install CUDA toolkit
-        run: |
-          sudo systemctl stop unattended-upgrades || true
-          sudo systemctl mask unattended-upgrades || true
-
-          sudo systemctl stop apt-daily.service apt-daily-upgrade.service || true
-          sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer || true
-
-          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
-          sudo dpkg -i cuda-keyring_1.1-1_all.deb
-
-          sudo apt-get -o APT::Lock::Timeout=600 -o DPkg::Lock::Timeout=600 update
-          sudo apt-get -o APT::Lock::Timeout=600 -o DPkg::Lock::Timeout=600 install -y cuda-toolkit
-
       - name: Check out code
         uses: actions/checkout@v6
 

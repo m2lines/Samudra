@@ -281,7 +281,7 @@ jobs:
               python -m pytest -p no:zarr -v -m "not manual and not cuda"
             '
 
-      - name: Run GPU tests in arm64 container
+      - name: Run GPU tests in arm64 container if supported
         timeout-minutes: 90
         run: |
           docker run --rm --gpus all \
@@ -292,7 +292,16 @@ jobs:
             "${LOCAL_ARM64_IMAGE_TAG}" -lc '
               set -euo pipefail
               . .venv/bin/activate
-              python -m pytest -p no:zarr -v -m "not manual and cuda" -x
+              if python scripts/container/check_cuda_compat.py; then
+                python -m pytest -p no:zarr -v -m "not manual and cuda" -x
+              else
+                status="$?"
+                if [ "${status}" -eq 2 ]; then
+                  echo "Skipping arm64 GPU tests because the runner GPU architecture is unsupported by the current PyTorch build."
+                  exit 0
+                fi
+                exit "${status}"
+              fi
             '
 
   report-container-test-status:

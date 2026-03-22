@@ -276,7 +276,9 @@ jobs:
             "${LOCAL_ARM64_IMAGE_TAG}" -lc '
               set -euo pipefail
               . .venv/bin/activate
-              python -m pytest -p no:zarr -n 2 -v -m "not manual and not cuda"
+              # The smaller arm64 runner is more prone to losing the GitHub runner
+              # process under xdist CPU-test load after the local image build.
+              python -m pytest -p no:zarr -v -m "not manual and not cuda"
             '
 
       - name: Run GPU tests in arm64 container

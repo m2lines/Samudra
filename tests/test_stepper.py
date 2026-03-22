@@ -4,8 +4,9 @@ import torch
 import xarray as xr
 
 from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
-from ocean_emulators.datasets import InferenceDataset
+from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
@@ -92,6 +93,45 @@ class MockModel(BaseModel):
 
     def forward_once(self, x, ctx: GridContext):
         return x[:, : self.out_channels] * 10.0 + x[:, -1]
+
+
+class ConstantResidualModel(BaseModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward_once(self, x, ctx: GridContext):
+        return torch.ones_like(x[:, : self.out_channels])
+
+
+def test_validate_batch_uses_absolute_predictions_for_residual_models():
+    wet = torch.ones((1, 1, 1, 1), dtype=torch.bool)
+    ctx = GridContext(wet, (1.0, 1.0))
+    batch = TrainData(num_prognostic_channels=1, ctx=ctx)
+    input_ = torch.tensor([[[[10.0]], [[5.0]]]])
+    label = torch.tensor([[[[11.0]]]])
+    batch.append(input_, label)
+
+    model = ConstantResidualModel(
+        in_channels=2,
+        out_channels=1,
+        hist=0,
+        pred_residuals=True,
+        last_kernel_size=3,
+        pad="circular",
+        gradient_detach_interval=0,
+    )
+
+    output = Stepper.validate_batch(
+        model,
+        batch,
+        lambda pred, target, ctx: ((pred - target) ** 2).mean(dim=(0, 2, 3)),
+    )
+
+    assert torch.equal(output.input_data, input_)
+    assert torch.equal(output.target_data, label)
+    assert torch.equal(output.gen_data, label)
+    assert torch.equal(output.loss_per_channel, torch.zeros(1))
+    assert output.loss.item() == 0.0
 
 
 # These tests will fail with OHC PR

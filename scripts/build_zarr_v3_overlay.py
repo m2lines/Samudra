@@ -10,7 +10,6 @@
 The output store contains:
 - a single root ``zarr.json`` with inline consolidated metadata for the full tree
 - symlinks to each top-level child directory from the source store
-- v3 ``dimension_names`` translated from xarray's v2 ``_ARRAY_DIMENSIONS`` attrs
 
 No chunk payloads are copied or rewritten.
 """
@@ -134,7 +133,6 @@ def convert_array_metadata(
 ) -> ArrayV3Metadata:
     """Translate one v2 array metadata document to v3."""
     codecs: list[Any] = []
-    dimension_names = extract_dimension_names(metadata_v2.attributes)
 
     if metadata_v2.order == "F":
         codecs.append(
@@ -152,7 +150,7 @@ def convert_array_metadata(
     if metadata_v2.compressor is not None:
         codecs.append(_convert_compressor(metadata_v2.compressor, metadata_v2.dtype))
 
-    fill_value: Any = metadata_v2.fill_value
+    fill_value = metadata_v2.fill_value
     if fill_value is None:
         fill_value = metadata_v2.dtype.default_scalar()
         rewrites.append(
@@ -178,24 +176,9 @@ def convert_array_metadata(
         fill_value=fill_value,
         codecs=codecs,
         attributes=metadata_v2.attributes,
-        dimension_names=dimension_names,
+        dimension_names=None,
         storage_transformers=None,
     )
-
-
-def extract_dimension_names(attributes: dict[str, Any]) -> tuple[str, ...] | None:
-    """Translate xarray's v2 dimension metadata into the v3 field."""
-    raw_dimension_names = attributes.get("_ARRAY_DIMENSIONS")
-    if raw_dimension_names is None:
-        return None
-    if not isinstance(raw_dimension_names, list | tuple):
-        raise TypeError(
-            "_ARRAY_DIMENSIONS must be a list or tuple of strings; "
-            f"got {type(raw_dimension_names).__name__}"
-        )
-    if not all(isinstance(name, str) for name in raw_dimension_names):
-        raise TypeError("_ARRAY_DIMENSIONS must contain only strings")
-    return tuple(raw_dimension_names)
 
 
 def materialize_overlay(

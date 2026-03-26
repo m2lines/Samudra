@@ -26,12 +26,19 @@ class Aggregator:
         hist: int,
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
+        *,
+        include_image_aggregators: bool = True,
     ) -> ValidateAggregator:
         val_aggregators: dict[str, ValidateSubAggregator] = {
-            "snapshot": SnapshotAggregator(metadata, hist),
-            "mean_map": MapAggregator(metadata, hist),
             "reduced": MeanAggregator(area_weights, hist),
         }
+        if include_image_aggregators:
+            val_aggregators.update(
+                {
+                    "snapshot": SnapshotAggregator(metadata, hist),
+                    "mean_map": MapAggregator(metadata, hist),
+                }
+            )
 
         return ValidateAggregator(
             val_aggregators,

@@ -7,7 +7,7 @@ import torch
 
 from ocean_emulators.config import DynamicLossConfig
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.train import Trainer
+from ocean_emulators.train import Trainer, should_log_validation_images
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.loss import DynamicLoss
 from ocean_emulators.utils.multiton import MultitonScope
@@ -161,3 +161,21 @@ def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
     with MultitonScope():
         with pytest.raises(ValueError, match="Training time range.*"):
             Trainer(train_config)
+
+
+def test_should_log_validation_images_every_n_epochs():
+    assert [
+        epoch for epoch in range(1, 26) if should_log_validation_images(epoch, 10)
+    ] == [
+        1,
+        11,
+        21,
+    ]
+
+
+def test_should_log_validation_images_rejects_invalid_inputs():
+    with pytest.raises(ValueError, match="Epoch must be >= 1"):
+        should_log_validation_images(0, 10)
+
+    with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
+        should_log_validation_images(1, 0)

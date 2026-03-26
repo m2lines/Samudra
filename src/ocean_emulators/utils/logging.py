@@ -1,6 +1,7 @@
 import datetime
 import functools
 import logging
+import math
 import resource
 import sys
 import time
@@ -87,25 +88,39 @@ class SmoothedValue:
         self.total += value * n
 
     @property
+    def has_data(self) -> bool:
+        return self.count > 0
+
+    @property
     def median(self):
+        if not self.has_data:
+            return float("nan")
         d = torch.tensor(list(self.deque))
         return d.median().item()
 
     @property
     def avg(self):
+        if not self.has_data:
+            return float("nan")
         d = torch.tensor(list(self.deque), dtype=torch.float32)
         return d.mean().item()
 
     @property
     def global_avg(self):
+        if not self.has_data:
+            return float("nan")
         return self.total / self.count
 
     @property
     def max(self):
+        if not self.has_data:
+            return float("nan")
         return max(self.deque)
 
     @property
     def value(self):
+        if not self.has_data:
+            return float("nan")
         return self.deque[-1]
 
     def __str__(self):
@@ -144,6 +159,8 @@ class MetricLogger:
     def __str__(self):
         loss_str = []
         for name, meter in self.meters.items():
+            if not meter.has_data:
+                continue
             loss_str.append(f"{name}: {str(meter)}")
         return self.delimiter.join(loss_str)
 
@@ -155,10 +172,15 @@ class MetricLogger:
         data_loader: "TrainDataLoader",
         print_freq,
         header=None,
+        start_index: int = 0,
+        total_steps: int | None = None,
     ):
         i = 0
         if not header:
             header = ""
+        num_batches = len(data_loader)
+        if total_steps is None:
+            total_steps = num_batches
         start_time = time.perf_counter()
         end = time.perf_counter()
         iter_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
@@ -171,7 +193,7 @@ class MetricLogger:
         self.meters["iter_time"] = iter_time
         self.meters["data_wait_time"] = data_wait_time
         self.meters["data_load_time"] = data_load_time
-        space_fmt = ":" + str(len(str(len(data_loader)))) + "d"
+        space_fmt = ":" + str(len(str(max(total_steps, 1)))) + "d"
         log_msg_list: list[str] = [
             header,
             "[{0" + space_fmt + "}/{1}]",
@@ -190,9 +212,15 @@ class MetricLogger:
                 data_load_time.update(obj.load_stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
-            if i % print_freq == 0 or i == len(data_loader) - 1:
-                eta_seconds = iter_time.global_avg * (len(data_loader) - i)
-                eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+            display_index = start_index + i
+            if i % print_freq == 0 or i == num_batches - 1:
+                remaining_steps = max(total_steps - display_index - 1, 0)
+                eta_seconds = iter_time.global_avg * remaining_steps
+                eta_string = (
+                    str(datetime.timedelta(seconds=int(eta_seconds)))
+                    if not math.isnan(eta_seconds)
+                    else "N/A"
+                )
                 named_metrics = dict(
                     eta=eta_string,
                     meters=str(self),
@@ -201,7 +229,7 @@ class MetricLogger:
                 if torch.cuda.is_available():
                     named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
 
-                logger.info(log_msg.format(i, len(data_loader), **named_metrics))
+                logger.info(log_msg.format(display_index, total_steps, **named_metrics))
 
                 if torch.cuda.is_available():
                     torch.cuda.reset_peak_memory_stats()
@@ -209,9 +237,10 @@ class MetricLogger:
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+        per_iteration = total_time / num_batches if num_batches > 0 else float("nan")
         logger.info(
             f"{header} Total time: {total_time_str} "
-            f"({total_time / len(data_loader):.4f} s / it)"
+            f"({per_iteration:.4f} s / it)"
         )
 
 

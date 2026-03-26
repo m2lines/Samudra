@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import itertools
 import logging
 import multiprocessing
 import os
@@ -21,6 +22,7 @@ from torch.utils.data import (
     DataLoader,
     DistributedSampler,
     RandomSampler,
+    Sampler,
 )
 
 from ocean_emulators import config
@@ -89,6 +91,20 @@ class GracefulStopRequested(RuntimeError):
     """Raised when training should stop after writing an emergency checkpoint."""
 
 
+class _OffsetBatchSampler(Sampler[list[int]]):
+    """Skip a fixed number of batches from an existing batch sampler."""
+
+    def __init__(self, batch_sampler: Sampler[list[int]], start_batch: int):
+        self._batch_sampler = batch_sampler
+        self._start_batch = max(start_batch, 0)
+
+    def __iter__(self):
+        return itertools.islice(iter(self._batch_sampler), self._start_batch, None)
+
+    def __len__(self) -> int:
+        return max(len(self._batch_sampler) - self._start_batch, 0)
+
+
 class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
@@ -123,7 +139,7 @@ class Trainer:
 
         levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
         if "all" in levels:
-            self.levels = 19
+            self.levels = 51
         else:
             self.levels = int(levels)
 
@@ -562,6 +578,13 @@ class Trainer:
         header = f"Training Epoch: [{epoch}]"
 
         total_batches = len(self.train_loader)
+        start_batch_in_epoch = max(0, start_batch_in_epoch)
+        active_train_loader = self.train_loader
+        if start_batch_in_epoch > 0:
+            active_train_loader = self._train_loader_with_batch_offset(
+                start_batch_in_epoch
+            )
+        processed_batches = 0
 
         # Ensure gradients are zeroed at the start of the epoch so we don't
         # accidentally accumulate leftovers from checkpoint/loading.
@@ -587,16 +610,21 @@ class Trainer:
         )
 
         for data_iter_step, data in enumerate(
-            metric_logger.log_every(self.train_loader, 1, header)
+            metric_logger.log_every(
+                active_train_loader,
+                1,
+                header,
+                start_index=start_batch_in_epoch,
+                total_steps=total_batches,
+            )
         ):
-            if data_iter_step < start_batch_in_epoch:
-                continue
+            global_data_iter_step = start_batch_in_epoch + data_iter_step
 
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
             in_final_cycle = (
-                data_iter_step + 1 > final_cycle_start
+                global_data_iter_step + 1 > final_cycle_start
             ) and remaining_batches > 0
 
             # Determine the actual number of microbatches in this accumulation cycle
@@ -608,8 +636,10 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            is_last = data_iter_step + 1 == total_batches
-            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
+            is_last = global_data_iter_step + 1 == total_batches
+            should_step = (
+                global_data_iter_step + 1
+            ) % self.gradient_accumulation_steps == 0
             sync_gradients = should_step or is_last
 
             sync_context: contextlib.AbstractContextManager
@@ -627,6 +657,7 @@ class Trainer:
                 scaled_loss.backward()
 
             train_aggregator.record_batch(TO)
+            processed_batches += 1
 
             self.num_batches_seen += 1
 
@@ -717,25 +748,59 @@ class Trainer:
             self._call_loss_update(data)
 
             self.profiler.after_batch(self.num_batches_seen)
-            self._last_completed_batch_in_epoch = data_iter_step
+            self._last_completed_batch_in_epoch = global_data_iter_step
 
             if self._stop_requested and sync_gradients:
                 reason = self._stop_reason or "stop requested"
                 self.save_emergency_checkpoint(
                     epoch=epoch,
-                    batch_in_epoch=data_iter_step,
+                    batch_in_epoch=global_data_iter_step,
                     reason=reason,
                 )
                 raise GracefulStopRequested(
                     f"Received stop request during epoch {epoch} at "
-                    f"batch {data_iter_step}."
+                    f"batch {global_data_iter_step}."
                 )
 
         if self.scheduler is not None:
             self.scheduler.step()
 
+        if processed_batches == 0:
+            logger.warning(
+                "No training batches were processed in epoch %s "
+                "(start_batch_in_epoch=%s, total_batches=%s).",
+                epoch,
+                start_batch_in_epoch,
+                total_batches,
+            )
+            return {"train/mean/loss": float("nan")}
+
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
+
+    def _train_loader_with_batch_offset(self, start_batch_in_epoch: int) -> TrainDataLoader:
+        """Build a train loader that starts at a specific batch index."""
+        raw_loader = self.train_loader._dataloader
+        batch_sampler = _OffsetBatchSampler(raw_loader.batch_sampler, start_batch_in_epoch)
+        loader_kwargs: dict[str, Any] = {
+            "dataset": raw_loader.dataset,
+            "batch_sampler": batch_sampler,
+            "num_workers": raw_loader.num_workers,
+            "collate_fn": raw_loader.collate_fn,
+            "pin_memory": raw_loader.pin_memory,
+            "timeout": raw_loader.timeout,
+            "worker_init_fn": raw_loader.worker_init_fn,
+            "multiprocessing_context": raw_loader.multiprocessing_context,
+            "generator": raw_loader.generator,
+            "persistent_workers": raw_loader.persistent_workers,
+        }
+        if raw_loader.num_workers > 0:
+            loader_kwargs["prefetch_factor"] = raw_loader.prefetch_factor
+        if pin_memory_device := getattr(raw_loader, "pin_memory_device", ""):
+            loader_kwargs["pin_memory_device"] = pin_memory_device
+        offset_loader = DataLoader(**loader_kwargs)
+        datasets = list(self.train_loader._datasets.values())
+        return TrainDataLoader(offset_loader, datasets, self.device)
 
     def _call_loss_update(self, data: TrainData):
         # This is a separate function to ensure locals are dropped immediately after use

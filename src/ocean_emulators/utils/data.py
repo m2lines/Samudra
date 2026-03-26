@@ -54,6 +54,56 @@ def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
     )
 
 
+def _slice_llc_dim(data: xr.Dataset, *, dim: str, start: int, end: int) -> xr.Dataset:
+    if dim not in data.dims:
+        return data
+    if end <= start:
+        raise ValueError(f"Invalid LLC slice for {dim}: [{start}:{end})")
+
+    coord = data.coords.get(dim)
+    if coord is not None and coord.ndim == 1:
+        min_coord = int(np.nanmin(coord.values))
+        max_coord = int(np.nanmax(coord.values))
+        if min_coord <= start and max_coord >= end - 1:
+            return data.sel({dim: slice(start, end - 1)})
+
+    size = data.sizes[dim]
+    if 0 <= start < end <= size:
+        return data.isel({dim: slice(start, end)})
+
+    logger.info(
+        "Skipping LLC slice for %s=[%d:%d); dim size=%d is incompatible with requested range.",
+        dim,
+        start,
+        end,
+        size,
+    )
+    return data
+
+
+def _slice_llc_region(
+    data: xr.Dataset,
+    *,
+    llc_face: int,
+    llc_i_start: int,
+    llc_i_end: int,
+    llc_j_start: int,
+    llc_j_end: int,
+) -> xr.Dataset:
+    if "face" in data.dims:
+        data = data.sel(face=llc_face, drop=True)
+    else:
+        logger.info(
+            "No face dimension in dataset; assuming pre-sliced LLC patch and skipping face selection."
+        )
+
+    data = _slice_llc_dim(data, dim="i", start=llc_i_start, end=llc_i_end)
+    data = _slice_llc_dim(data, dim="j", start=llc_j_start, end=llc_j_end)
+    data = _slice_llc_dim(data, dim="i_g", start=llc_i_start, end=llc_i_end)
+    data = _slice_llc_dim(data, dim="j_g", start=llc_j_start, end=llc_j_end)
+    return data
+
+
 @dataclasses.dataclass
 class Masks:
     """A collection of masks to expose the ocean and mask land."""
@@ -256,9 +306,9 @@ class DataSource:
         use_dask: bool,
         llc_face: int = 1,
         llc_i_start: int = 0,
-        llc_i_end: int = 719,
+        llc_i_end: int = 720,
         llc_j_start: int = 0,
-        llc_j_end: int = 719,
+        llc_j_end: int = 720,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
         data = data_location.open(chunks)
@@ -266,14 +316,13 @@ class DataSource:
         stds = stds_location.open(chunks)
 
         # LLC specific fixes
-
-        # Slice out a single LLC face and spatial extent.
-        data = data.sel(face=llc_face, drop=True)
-        data = data.isel(
-            i=slice(llc_i_start, llc_i_end),
-            j=slice(llc_j_start, llc_j_end),
-            i_g=slice(llc_i_start, llc_i_end),
-            j_g=slice(llc_j_start, llc_j_end),
+        data = _slice_llc_region(
+            data,
+            llc_face=llc_face,
+            llc_i_start=llc_i_start,
+            llc_i_end=llc_i_end,
+            llc_j_start=llc_j_start,
+            llc_j_end=llc_j_end,
         )
 
         # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS

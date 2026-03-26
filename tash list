@@ -1,0 +1,31 @@
+[33m53b51ccc[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mllc_working_restored[m[33m, [m[1;32mrescue-before-undo-20260313-122009[m[33m, [m[1;32mmerge-test-zarr-gpu-decode[m[33m, [m[1;32mmerge-test-llc-gpu-decode[m[33m, [m[1;32mllc_working[m[33m, [m[1;32mbackup/undo-20260313-121424[m[33m)[m WIP: before syncing with LLC GPU-decode
+[33m0ec2d659[m[33m ([m[1;31morigin/u/alxmrs/experiments/kr1[m[33m)[m Inc name; 16 workers.
+[33m136b83e5[m Revert "Using `spawn` context and making the data loader pickleable."
+[33m321db05f[m inc experiment number.
+[33m60f37a47[m Update experiment script -- turn off anom.
+[33m3e75e38f[m No boundary anom vars.
+[33m1f884cd6[m[33m ([m[1;31morigin/u/alxmrs/precompute-anom-script[m[33m)[m Refactor anom script.
+[33m3c35a984[m[33m ([m[1;31morigin/oa/issue-553-llc-gpu-decode[m[33m)[m Add GDS CLI tools to training container
+[33m650f8f76[m Fix LLC GPU-decode time conversion
+[33mc2d7288d[m Preserve xarray dims in v3 overlays
+[33m65ce69c1[m Fixed another quick failure.
+[33mc0c2ca16[m Add GPU decode container dependencies
+[33mf8433612[m Fix name suffix issue.
+[33mbf44f52c[m Fix slurm apptainer arg forwarding
+[33mf8806b16[m Fix script config errors.
+[33me58357d3[m Adding no-rebuild profiling scripts.
+[33m972a0b9d[m workers=2 for profiling script.
+[33m7ff3b69d[m Adjust LLC training crop and job defaults
+[33mb26007b8[m 8 workers, trying to address memory issues.
+[33m20b40ab4[m inc training.
+[33m302f607d[m Using `spawn` context and making the data loader pickleable.
+[33m456a9fbe[m Convert LLC config to sources and fix GPU-decode compatibility
+[33m56117311[m also unstagger velocity forcing
+[33mdfeed9f1[m remove prints
+[33m2dc45b9d[m reduce val range
+[33m41179b98[m config tweaks
+[33mdabb28e1[m fix deriving ocean heat
+[33m3e9100c3[m type fix with no 2d prognostics
+[33m4b3e89f8[m fix padding, make a bit bigger
+[33m710336c7[m julian conversion
+[33mbd3dcd09[m small region from cody

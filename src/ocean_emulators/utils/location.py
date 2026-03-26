@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import logging
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 from urllib.parse import quote, urljoin, urlparse
@@ -11,6 +12,37 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+
+
+logger = logging.getLogger(__name__)
+
+
+def _open_zarr_with_fallback(
+    store: str | Path,
+    *,
+    chunks: dict[str, int] | None = None,
+    storage_options: dict[str, Any] | None = None,
+) -> xr.Dataset:
+    try:
+        return xr.open_zarr(
+            store,
+            chunks=chunks,
+            consolidated=True,
+            storage_options=storage_options,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Falling back to consolidated=False for zarr store %s (%s: %s)",
+            store,
+            type(exc).__name__,
+            exc,
+        )
+        return xr.open_zarr(
+            store,
+            chunks=chunks,
+            consolidated=False,
+            storage_options=storage_options,
+        )
 
 
 class UnresolvedLocation(BaseModel):
@@ -76,12 +108,13 @@ class S3Location(ResolvedLocation, BaseModel):
     def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
         # TODO(jder): could consider passing credentials here
         # rather than relying on the environment
-
-        return xr.open_dataset(
+        storage_options = (
+            {"endpoint_url": self.endpoint_url} if self.endpoint_url is not None else None
+        )
+        return _open_zarr_with_fallback(
             self.url(),
-            backend_kwargs={"storage_options": {"endpoint_url": self.endpoint_url}},
-            engine="zarr",
             chunks=chunks,
+            storage_options=storage_options,
         )
 
     def url(self) -> str:
@@ -131,8 +164,9 @@ class LocalLocation(ResolvedLocation, BaseModel):
         return self
 
     def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
-        engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"
-        return xr.open_dataset(self.path, engine=engine, chunks=chunks)
+        if self.path.suffix == ".nc":
+            return xr.open_dataset(self.path, engine="netcdf4", chunks=chunks)
+        return _open_zarr_with_fallback(self.path, chunks=chunks)
 
     def resolve(self, location: "Location") -> "ResolvedLocation":
         if isinstance(location, UnresolvedLocation):

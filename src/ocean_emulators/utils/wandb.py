@@ -67,27 +67,36 @@ class WandBLogger(Multiton):
         checkpoint = torch.load(checkpoint_path)
         wandb_id = checkpoint.get("wandb_id")
         wandb_name = checkpoint.get("wandb_name")
+        run_name = wandb_name or cfg.experiment.name
 
         if self._enabled:
-            try:
-                self.init(
-                    config=self._make_config(cfg, data_container),
-                    name=wandb_name,
-                    dir=cfg.experiment.output_dir,
+            init_kwargs = dict(
+                config=self._make_config(cfg, data_container),
+                name=run_name,
+                dir=cfg.experiment.output_dir,
+                **cfg.experiment.wandb.model_dump(),
+            )
+
+            resumed = False
+            if wandb_id:
+                resumed = self.init(
                     resume="must",
                     id=wandb_id,
-                    **cfg.experiment.wandb.model_dump(),
+                    disable_on_failure=False,
+                    **init_kwargs,
                 )
-            except Exception:
-                # If resume fails, start new run
-                self.init(
-                    config=self._make_config(cfg, data_container),
-                    name=wandb_name,
-                    dir=cfg.experiment.output_dir,
-                    **cfg.experiment.wandb.model_dump(),
-                )
+                if not resumed:
+                    logger.warning(
+                        "Failed to resume wandb run id=%s; starting a new run.",
+                        wandb_id,
+                    )
 
-        return wandb_id, wandb_name
+            if not resumed:
+                self.init(**init_kwargs)
+                if self.run is not None:
+                    wandb_id = self.run.id
+
+        return wandb_id, run_name
 
     def _init_new_run(self, cfg: "AnyTopLevelConfig", data_container: "DataContainer"):
         """Initialize a new wandb run.
@@ -123,15 +132,19 @@ class WandBLogger(Multiton):
         assert self._enabled is False, "WandB is already initialized"
         self._enabled = enabled and is_main_process
 
-    def init(self, **kwargs):
+    def init(self, disable_on_failure: bool = True, **kwargs):
         """Initialize wandb run."""
         if self._enabled and not self._initialized:
             try:
                 self.run = wandb.init(**kwargs)
                 self._initialized = True
+                return True
             except Exception as e:
                 logger.error(f"Failed to initialize wandb: {e}")
-                self._enabled = False
+                if disable_on_failure:
+                    self._enabled = False
+                return False
+        return self._initialized
 
     def watch(self, model, **kwargs):
         """Watch model parameters and gradients."""

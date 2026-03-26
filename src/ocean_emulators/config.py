@@ -153,9 +153,9 @@ class DataConfig(BaseConfig):
     concurrent_compute: bool = False
     llc_face: int = 1
     llc_i_start: int = 0
-    llc_i_end: int = 719
+    llc_i_end: int = 720
     llc_j_start: int = 0
-    llc_j_end: int = 719
+    llc_j_end: int = 720
 
     def build(
         self,

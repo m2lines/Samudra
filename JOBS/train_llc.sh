@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-03-12-samudra_llc:all_time_test_cont:all_fields-all_depths,extent=719
+#SBATCH --job-name=2026-03-26-samudra_llc:cached_patch_test_cont:all_fields-all_depths,loc=i(2880,3600)-j(720,1440)
 #SBATCH -N 1
-#SBATCH --mem=350GB
+#SBATCH --mem=400GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=40
-#SBATCH --gres=gpu:2
-#SBATCH --time=01-23:00:00
+#SBATCH --cpus-per-task=45
+#SBATCH --gres=gpu:3
+#SBATCH --time=03-23:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -30,27 +30,31 @@ export TORCH_NCCL_DUMP_ON_TIMEOUT=1
 export TORCH_NCCL_TRACE_BUFFER_SIZE=1048576
 export NCCL_DEBUG=INFO
 
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-30}"
+# Lower default to reduce storage contention during first-batch patch loads
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-8}"
 PIN_MEM="${PIN_MEM:-false}"
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
 DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-30}"
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-0}"
-LLC_I_END="${LLC_I_END:-719}"
-LLC_J_START="${LLC_J_START:-0}"
-LLC_J_END="${LLC_J_END:-719}"
+LLC_I_START="${LLC_I_START:-2880}"
+LLC_I_END="${LLC_I_END:-3600}"
+LLC_J_START="${LLC_J_START:-720}"
+LLC_J_END="${LLC_J_END:-1440}"
 RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 
-EPOCHS="${EPOCHS:-3}"
+EPOCHS="${EPOCHS:-2}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
-GPUS="${GPUS:-2}"
+GPUS="${GPUS:-3}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
 echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
+if [[ "${GPUS}" -gt 0 ]]; then
+  echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
+fi
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
 echo "using LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 

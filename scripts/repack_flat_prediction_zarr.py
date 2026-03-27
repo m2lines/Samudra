@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 from pathlib import Path
 
 import xarray as xr
@@ -105,6 +106,7 @@ def main() -> None:
     args = parse_args()
     input_zarr = Path(args.input_zarr).expanduser().resolve()
     output_zarr = Path(args.output_zarr).expanduser().resolve()
+    temp_output_zarr = output_zarr.parent / f"{output_zarr.name}.tmp"
 
     if not input_zarr.exists():
         raise FileNotFoundError(f"Input zarr not found: {input_zarr}")
@@ -112,17 +114,25 @@ def main() -> None:
         raise FileExistsError(
             f"Output zarr already exists: {output_zarr}. Use --overwrite to replace it."
         )
+    if temp_output_zarr.exists():
+        if args.overwrite:
+            shutil.rmtree(temp_output_zarr)
+        else:
+            raise FileExistsError(
+                f"Temporary zarr already exists: {temp_output_zarr}. "
+                "Use --overwrite to replace it."
+            )
 
     ds = xr.open_zarr(input_zarr, chunks="auto")
     out = _repack(ds, args.fields)
 
     if output_zarr.exists():
-        import shutil
-
         shutil.rmtree(output_zarr)
 
     encoding = {var: {"compressor": None} for var in out.data_vars}
-    out.to_zarr(output_zarr, mode="w", encoding=encoding)
+    print(f"Writing temporary zarr: {temp_output_zarr}")
+    out.to_zarr(temp_output_zarr, mode="w", encoding=encoding)
+    temp_output_zarr.rename(output_zarr)
 
     print(f"Wrote repacked zarr: {output_zarr}")
     print(f"Variables: {list(out.data_vars)}")

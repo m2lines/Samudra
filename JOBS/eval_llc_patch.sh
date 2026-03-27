@@ -32,8 +32,9 @@ NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-2}"
 DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/}"
 DATA_LOCATION="${DATA_LOCATION:-/orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440.zarr}"
 
-TARGET_ZARR="${TARGET_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions.zarr}"
-RAW_PRED_ZARR="${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions_raw.zarr"
+RAW_PRED_ZARR="${RAW_PRED_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions.zarr}"
+TARGET_ZARR="${TARGET_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions_4d.zarr}"
+REPACK_OVERWRITE="${REPACK_OVERWRITE:-false}"
 
 echo "======== evaluating epoch-1 checkpoint on October 2012 ========"
 echo "checkpoint: ${CKPT_PATH}"
@@ -41,6 +42,7 @@ echo "inference window: ${INFER_START} -> ${INFER_END}"
 echo "num_model_steps_forward: ${NUM_MODEL_STEPS_FORWARD}"
 echo "raw prediction zarr: ${RAW_PRED_ZARR}"
 echo "target repacked zarr: ${TARGET_ZARR}"
+echo "repack overwrite: ${REPACK_OVERWRITE}"
 echo
 echo "Note: dates are parsed as Julian-noon in this codebase; with hist=1 this yields"
 echo "      prediction times offset from midnight (first prediction starts 2 hours"
@@ -71,16 +73,22 @@ if [[ ! -d "${RAW_PRED_ZARR}" ]]; then
   exit 1
 fi
 
-if [[ -e "${TARGET_ZARR}" ]]; then
+if [[ -e "${TARGET_ZARR}" && "${REPACK_OVERWRITE}" != "true" ]]; then
   echo "Target zarr already exists: ${TARGET_ZARR}" >&2
-  echo "Delete it first or set TARGET_ZARR to a new path." >&2
+  echo "Delete it first, set TARGET_ZARR to a new path, or set REPACK_OVERWRITE=true." >&2
   exit 1
 fi
 
-uv run python scripts/repack_flat_prediction_zarr.py \
-  --input-zarr "${RAW_PRED_ZARR}" \
-  --output-zarr "${TARGET_ZARR}" \
+REPACK_ARGS=(
+  --input-zarr "${RAW_PRED_ZARR}"
+  --output-zarr "${TARGET_ZARR}"
   --fields U V Theta Salt
+)
+if [[ "${REPACK_OVERWRITE}" == "true" ]]; then
+  REPACK_ARGS+=(--overwrite)
+fi
+
+uv run python scripts/repack_flat_prediction_zarr.py "${REPACK_ARGS[@]}"
 
 echo "Done. Repacked inference written to: ${TARGET_ZARR}"
 echo "Raw flat-channel predictions kept at: ${RAW_PRED_ZARR}"

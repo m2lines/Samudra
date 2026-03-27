@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../schemas/SamudraConfig.json
 
 checkpointing: all
-pred_residuals: false
+pred_residuals: true
 last_kernel_size: 3
 pad: "constant"
 
@@ -15,7 +15,8 @@ unet:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 2
-    norm: "instance"
+    norm: "group"
+    group_norm_groups: 32
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

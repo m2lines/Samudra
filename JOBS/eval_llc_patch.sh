@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH --gres=gpu:1
-#SBATCH --time=01-12:00:00
+#SBATCH --time=00-06:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
@@ -26,7 +26,7 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME:-2026-03-26-eval:samudra_llc:epoch1_oct2012_p
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch/predictions}"
 
 INFER_START="${INFER_START:-2012-10-01}"
-INFER_END="${INFER_END:-2012-11-01}"
+INFER_END="${INFER_END:-2012-10-07}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-2}"
 
 DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/}"

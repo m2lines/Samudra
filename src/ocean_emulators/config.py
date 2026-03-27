@@ -230,7 +230,7 @@ class DataConfig(BaseConfig):
 
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
-NormType = Literal["batch", "instance", "layer"]
+NormType = Literal["batch", "instance", "group", "nonorm", "layer"]
 
 
 class BlockConfig(BaseConfig):
@@ -239,6 +239,7 @@ class BlockConfig(BaseConfig):
     activation: ActivationType = "capped_gelu"
     upscale_factor: int = 4
     norm: NormType = "batch"
+    group_norm_groups: int = 32
 
     def build(self) -> CoreBlockBuilder:
         match self.activation:
@@ -282,6 +283,7 @@ class BlockConfig(BaseConfig):
                         kernel_size=self.kernel_size,
                         upscale_factor=self.upscale_factor,
                         norm=self.norm,
+                        group_norm_groups=self.group_norm_groups,
                         activation=activation,
                     )
                 case _:

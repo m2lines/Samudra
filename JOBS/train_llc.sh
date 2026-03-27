@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-03-26-samudra_llc:cached_patch_test_cont:all_fields-all_depths,loc=i(2880,3600)-j(720,1440)
+#SBATCH --job-name=2026-03-27-samudra_llc:Agulhas_patch:TEST:pred_resid=true
 #SBATCH -N 1
 #SBATCH --mem=400GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=45
-#SBATCH --gres=gpu:3
-#SBATCH --time=03-23:00:00
+#SBATCH --cpus-per-task=30
+#SBATCH --gres=gpu:2
+#SBATCH --time=01-23:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -46,8 +46,8 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 
 EPOCHS="${EPOCHS:-2}"
-SAVE_FREQ="${SAVE_FREQ:-1}"
-GPUS="${GPUS:-3}"
+SAVE_FREQ="${SAVE_FREQ:-2}"
+GPUS="${GPUS:-2}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"

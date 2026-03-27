@@ -1,6 +1,0 @@
-warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
-Resolved 299 packages in 1ms
-Audited 294 packages in 668ms
-======== train ocean_emulator samudra w/ 3 gpus on LLC4320 data ========
-warning: The `extra-build-dependencies` option is experimental and may change without warning. Pass `--preview-features extra-build-dependencies` to disable this warning.
-[2026-02-24T21:22:31.808] error: *** JOB 9641839 ON node2905 CANCELLED AT 2026-02-24T21:22:31 DUE to SIGNAL Terminated ***

@@ -34,6 +34,7 @@ from ocean_emulators.models.modules import (
     MaxPool,
     PerceiverEncoder,
     ReLU,
+    RolloutNoiseInjector,
     TransposedConvUpsample,
     UNetBackbone,
 )
@@ -478,6 +479,130 @@ class UNetBackboneConfig(BaseConfig):
         )
 
 
+class GaussianRolloutNoiseConfig(BaseConfig):
+    std: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Standard deviation for additive Gaussian noise in normalized units."
+        ),
+    )
+    mode: Literal["pixel", "lattice"] = Field(
+        default="lattice",
+        description=(
+            "Pixel-wise Gaussian noise (`pixel`) or spatially coherent lattice noise (`lattice`)."
+        ),
+    )
+    lattice_stride: int = Field(
+        default=8,
+        ge=1,
+        description=(
+            "Stride for the coarse lattice used to generate correlated Gaussian clusters."
+        ),
+    )
+    blur_kernel: int = Field(
+        default=7,
+        ge=1,
+        description="Odd kernel size for the Gaussian blur applied to lattice noise.",
+    )
+    blur_sigma: float = Field(
+        default=2.0,
+        ge=0.0,
+        description="Sigma for lattice Gaussian blur.",
+    )
+
+
+class StructuredFrontRolloutNoiseConfig(BaseConfig):
+    scale: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Strength of signed magnitude perturbations near frontal regions."
+        ),
+    )
+    front_power: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "Power used when sharpening the frontal mask derived from gradient magnitude."
+        ),
+    )
+    mask_smoothing_kernel: int = Field(
+        default=7,
+        ge=1,
+        description="Odd kernel size for smoothing the frontal mask.",
+    )
+    seed_prob: float = Field(
+        default=0.02,
+        ge=0.0,
+        le=1.0,
+        description="Base probability for placing error seeds along the frontal mask.",
+    )
+    patch_kernel: int = Field(
+        default=19,
+        ge=1,
+        description="Odd kernel size for turning sparse seeds into contiguous frontal patches.",
+    )
+    patch_sigma: float = Field(
+        default=4.0,
+        gt=0.0,
+        description="Sigma used when blurring sparse frontal seeds into patches.",
+    )
+    patch_quantile: float = Field(
+        default=0.97,
+        ge=0.0,
+        lt=1.0,
+        description=(
+            "Keep only the highest-magnitude fraction of frontal patch activations; higher means fewer patches."
+        ),
+    )
+    sign_mode: Literal["batch", "pixel", "patch"] = Field(
+        default="patch",
+        description=(
+            "Signed bias mode: one sign per sample (`batch`), per pixel (`pixel`), or per coherent patch (`patch`)."
+        ),
+    )
+
+
+class RolloutNoiseConfig(BaseConfig):
+    probability: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Probability of applying noise to each sample at each rollout step.",
+    )
+    apply_to_initial_input: bool = Field(
+        default=False,
+        description="If true, also perturb the initial teacher-forced input.",
+    )
+    gaussian: GaussianRolloutNoiseConfig = Field(
+        default_factory=GaussianRolloutNoiseConfig
+    )
+    structured_front: StructuredFrontRolloutNoiseConfig = Field(
+        default_factory=StructuredFrontRolloutNoiseConfig
+    )
+
+    def build(self, wet: Grid) -> RolloutNoiseInjector:
+        return RolloutNoiseInjector(
+            wet=wet,
+            probability=self.probability,
+            apply_to_initial_input=self.apply_to_initial_input,
+            gaussian_std=self.gaussian.std,
+            gaussian_mode=self.gaussian.mode,
+            gaussian_lattice_stride=self.gaussian.lattice_stride,
+            gaussian_blur_kernel=self.gaussian.blur_kernel,
+            gaussian_blur_sigma=self.gaussian.blur_sigma,
+            structured_scale=self.structured_front.scale,
+            structured_front_power=self.structured_front.front_power,
+            structured_mask_smoothing_kernel=self.structured_front.mask_smoothing_kernel,
+            structured_seed_prob=self.structured_front.seed_prob,
+            structured_patch_kernel=self.structured_front.patch_kernel,
+            structured_patch_sigma=self.structured_front.patch_sigma,
+            structured_patch_quantile=self.structured_front.patch_quantile,
+            structured_sign_mode=self.structured_front.sign_mode,
+        )
+
+
 class BaseModelConfig(BaseConfig, abc.ABC):
     pred_residuals: bool = False
     last_kernel_size: int = 3
@@ -501,6 +626,12 @@ class BaseModelConfig(BaseConfig, abc.ABC):
     add_3d_coordinates: bool = Field(
         default=False,
         description="Add 3d coordinates representing position on the Earth (cartesian coordinates on a unit sphere) to the input channels.",
+    )
+    rollout_noise: RolloutNoiseConfig | None = Field(
+        default=None,
+        description=(
+            "Optional autoregressive rollout noise applied during training to improve robustness."
+        ),
     )
 
     @abc.abstractmethod
@@ -547,6 +678,11 @@ class SamudraConfig(BaseModelConfig):
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
+        rollout_noise_injector = (
+            self.rollout_noise.build(wet=wet)
+            if self.rollout_noise is not None
+            else None
+        )
         add_3d_coordinates = (
             Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else None
         )
@@ -569,6 +705,7 @@ class SamudraConfig(BaseModelConfig):
             static_data=static_data,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            rollout_noise_injector=rollout_noise_injector,
         )
 
 
@@ -590,6 +727,11 @@ class FOMOConfig(BaseModelConfig):
         lon: Lon,
     ) -> FOMO:
         total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        rollout_noise_injector = (
+            self.rollout_noise.build(wet=wet)
+            if self.rollout_noise is not None
+            else None
+        )
         add_3d_coordinates = (
             Concat3dCoordinates(lat, lon) if self.add_3d_coordinates else nn.Identity()
         )
@@ -612,6 +754,7 @@ class FOMOConfig(BaseModelConfig):
             static_data=static_data,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
+            rollout_noise_injector=rollout_noise_injector,
         )
 
 

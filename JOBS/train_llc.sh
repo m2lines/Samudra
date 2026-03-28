@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-03-27-samudra_llc:Agulhas_patch:TEST:pred_resid=true
+#SBATCH --job-name=2026-03-27-samudra_llc:Agulhas_patch:4_EPOCH_VARIABLE_STRIDE_TEST(with-noise_injection,group_norm,pred_resid=true)
 #SBATCH -N 1
 #SBATCH --mem=400GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=30
 #SBATCH --gres=gpu:2
-#SBATCH --time=01-23:00:00
+#SBATCH --time=03-23:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -45,8 +45,8 @@ FINETUNE="${FINETUNE:-false}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 
-EPOCHS="${EPOCHS:-2}"
-SAVE_FREQ="${SAVE_FREQ:-2}"
+EPOCHS="${EPOCHS:-4}"
+SAVE_FREQ="${SAVE_FREQ:-1}"
 GPUS="${GPUS:-2}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"

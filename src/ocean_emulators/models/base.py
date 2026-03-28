@@ -7,6 +7,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 from ocean_emulators.datasets import InferenceDataset, TrainData
+from ocean_emulators.models.modules.rollout_noise import RolloutNoiseInjector
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.output import ModelInferenceOutput
 
@@ -23,6 +24,7 @@ class BaseModel(torch.nn.Module):
         pad,
         static_data,
         gradient_detach_interval: int,
+        rollout_noise_injector: RolloutNoiseInjector | None = None,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -35,6 +37,7 @@ class BaseModel(torch.nn.Module):
         self.hist = hist
         self.static_data = static_data
         self.gradient_detach_interval = gradient_detach_interval
+        self.rollout_noise_injector = rollout_noise_injector
 
     def forward_once(self, fts):
         raise NotImplementedError()
@@ -49,6 +52,16 @@ class BaseModel(torch.nn.Module):
         for step in range(len(train_data)):
             if step == 0:
                 input_tensor = train_data.get_initial_input()
+                if (
+                    self.training
+                    and self.rollout_noise_injector is not None
+                    and self.rollout_noise_injector.apply_to_initial_input
+                ):
+                    noisy_prognostic = self.rollout_noise_injector(
+                        input_tensor[:, : self.out_channels]
+                    )
+                    input_tensor = input_tensor.clone()
+                    input_tensor[:, : self.out_channels] = noisy_prognostic
             else:
                 prev_output = outputs[-1]
                 if (
@@ -56,6 +69,8 @@ class BaseModel(torch.nn.Module):
                     and step % self.gradient_detach_interval == 0
                 ):
                     prev_output = prev_output.detach()
+                if self.training and self.rollout_noise_injector is not None:
+                    prev_output = self.rollout_noise_injector(prev_output)
                 input_tensor = train_data.merge_prognostic_and_boundary(
                     prognostic=prev_output, step=step
                 )

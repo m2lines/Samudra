@@ -13,6 +13,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverEncoder
+from ocean_emulators.models.modules.rollout_noise import RolloutNoiseInjector
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
 if TYPE_CHECKING:
@@ -40,6 +41,7 @@ class FOMO(BaseModel):
         static_data: xr.Dataset | None,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
+        rollout_noise_injector: RolloutNoiseInjector | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -51,6 +53,7 @@ class FOMO(BaseModel):
             pad=pad,
             static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
+            rollout_noise_injector=rollout_noise_injector,
         )
         self.patch_size = encoder.patch_size
 

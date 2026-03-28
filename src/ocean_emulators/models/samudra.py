@@ -5,6 +5,7 @@ import xarray as xr
 
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.modules.rollout_noise import RolloutNoiseInjector
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.device import autocast
 
@@ -26,6 +27,7 @@ class Samudra(BaseModel):
         static_data: xr.Dataset | None,
         gradient_detach_interval: int,
         use_bfloat16: bool,
+        rollout_noise_injector: RolloutNoiseInjector | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -37,6 +39,7 @@ class Samudra(BaseModel):
             pad=pad,
             static_data=static_data,
             gradient_detach_interval=gradient_detach_interval,
+            rollout_noise_injector=rollout_noise_injector,
         )
 
         if pos_channels > 0:

@@ -12,6 +12,7 @@ from .blocks import (
     ZonallyPeriodicBilinearUpsample,
 )
 from .encoder import PerceiverEncoder
+from .rollout_noise import RolloutNoiseInjector
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -27,5 +28,6 @@ __all__ = [
     "MaxPool",
     "PerceiverEncoder",
     "ReLU",
+    "RolloutNoiseInjector",
     "UNetBackbone",
 ]

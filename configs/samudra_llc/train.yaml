@@ -25,15 +25,15 @@ val_time:
 inference_times:
   - start: "2012-10-01"
     end: "2012-11-01"
-data_stride: []
-steps: [1,2,4,8]
-step_transition: [1,2,3]
+data_stride: [1]
+steps: [1,2,4]
+step_transition: [1,2]
 preemptible: false
 
 backend: auto
 
 experiment:
-  name: 2026-03-27-samudra_llc:Agulhas_patch:4_EPOCH_VARIABLE_STRIDE_TEST(with-noise_injection,group_norm,pred_resid=true)
+  name: 2026-03-27-samudra_llc:Agulhas_patch:3_EPOCH_VARIABLE_STEP_TEST(with-noise_injection,group_norm,pred_resid=true)
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

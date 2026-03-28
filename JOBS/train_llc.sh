@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-03-27-samudra_llc:Agulhas_patch:4_EPOCH_VARIABLE_STRIDE_TEST(with-noise_injection,group_norm,pred_resid=true)
+#SBATCH --job-name=2026-03-27-samudra_llc:Agulhas_patch:3_EPOCH_VARIABLE_STEP_TEST(with-noise_injection,group_norm,pred_resid=true)
 #SBATCH -N 1
 #SBATCH --mem=400GB
 #SBATCH --ntasks=1
@@ -45,7 +45,7 @@ FINETUNE="${FINETUNE:-false}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 
-EPOCHS="${EPOCHS:-4}"
+EPOCHS="${EPOCHS:-3}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
 GPUS="${GPUS:-2}"
 

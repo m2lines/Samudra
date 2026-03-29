@@ -931,6 +931,14 @@ class TrainConfig(TopLevelConfig):
     # Data parameters at root level
     data_percent: float = 1.0
     data_stride: list[int] = [1]
+    temporal_stride: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Stride between successive training sample start times. "
+            "`1` uses every timestamp, `2` uses every other timestamp, etc."
+        ),
+    )
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]

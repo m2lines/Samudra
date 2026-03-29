@@ -26,6 +26,7 @@ inference_times:
   - start: '1975-11-25'
     end: '1975-12-25'
 data_stride: [1]
+temporal_stride: 1
 steps: [1]
 step_transition: []
 backend: auto

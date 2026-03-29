@@ -85,6 +85,7 @@ def make_loader(
                         normalize_before_mask=cfg.data.normalize_before_mask,
                         masked_fill_value=cfg.data.masked_fill_value,
                         stride=stride,
+                        temporal_stride=cfg.temporal_stride,
                     )
                     for stride in cfg.data_stride
                 ]
@@ -121,8 +122,81 @@ def calc_num_samples(cfg: TrainConfig, time_slice: slice) -> int:
     steps = cfg.steps[0]
     hist = cfg.data.hist
     stride = cfg.data_stride[0]
+    temporal_stride = cfg.temporal_stride
 
-    return data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
+    base_size = data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
+    return max(0, (base_size + temporal_stride - 1) // temporal_stride)
+
+
+def test_torch_train_dataset_temporal_stride_subsamples_window_starts() -> None:
+    time = np.arange(20)
+    lat = [0.0]
+    lon = [0.0]
+    base = np.arange(20, dtype=np.float32).reshape(20, 1, 1)
+
+    data = xr.Dataset(
+        {
+            "prognostic1": (["time", "lat", "lon"], base),
+            "boundary1": (["time", "lat", "lon"], base + 100.0),
+        },
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+    means = xr.Dataset(
+        {
+            "prognostic1": (["lat", "lon"], np.zeros((1, 1), dtype=np.float32)),
+            "boundary1": (["lat", "lon"], np.zeros((1, 1), dtype=np.float32)),
+        },
+        coords={"lat": lat, "lon": lon},
+    )
+    stds = xr.Dataset(
+        {
+            "prognostic1": (["lat", "lon"], np.ones((1, 1), dtype=np.float32)),
+            "boundary1": (["lat", "lon"], np.ones((1, 1), dtype=np.float32)),
+        },
+        coords={"lat": lat, "lon": lon},
+    )
+    masks = Masks(
+        prognostic=torch.ones((1, 1, 1), dtype=torch.bool),
+        boundary=torch.ones((1, 1), dtype=torch.bool),
+    )
+    src = DataSource("temporal_stride_test", data, means, stds, masks)
+
+    with MultitonScope():
+        _ = Normalize.init_instance(
+            src,
+            prognostic_var_names=["prognostic1"],
+            boundary_var_names=["boundary1"],
+        )
+        every_point = TorchTrainDataset(
+            src=src,
+            prognostic_var_names=["prognostic1"],
+            boundary_var_names=["boundary1"],
+            hist=0,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            stride=1,
+            temporal_stride=1,
+        )
+        every_other = TorchTrainDataset(
+            src=src,
+            prognostic_var_names=["prognostic1"],
+            boundary_var_names=["boundary1"],
+            hist=0,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            stride=1,
+            temporal_stride=2,
+        )
+
+    assert len(every_point) == 19
+    assert len(every_other) == 10
+
+    first_start = int(every_other._get_x_index(0, step=0).values[0])
+    second_start = int(every_other._get_x_index(1, step=0).values[0])
+    third_start = int(every_other._get_x_index(2, step=0).values[0])
+    assert (first_start, second_start, third_start) == (0, 2, 4)
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):

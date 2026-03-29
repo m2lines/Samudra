@@ -6,7 +6,7 @@ last_kernel_size: 3
 pad: "constant"
 
 unet:
-  ch_width: [280, 380, 480, 520]
+  ch_width: [256, 384, 512, 512] #[280, 380, 480, 520]
   dilation: [1, 2, 4, 8]
   n_layers: [1, 1, 1, 1]
 
@@ -15,8 +15,8 @@ unet:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 2
-    norm: "group"
-    group_norm_groups: 32
+    norm: "instance"
+   # group_norm_groups: 1
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"
@@ -85,21 +85,21 @@ corrector:
 #     patch_quantile: 0.65
 #     sign_mode: patch
 #
-rollout_noise:
-  probability: 0.75
-  apply_to_initial_input: false
-  gaussian:
-    std: 0.01
-    mode: lattice
-    lattice_stride: 3
-    blur_kernel: 5
-    blur_sigma: 2.0
-  structured_front:
-    scale: 0.10
-    front_power: 1.0
-    mask_smoothing_kernel: 3
-    seed_prob: 0.01
-    patch_kernel: 15
-    patch_sigma: 5.2
-    patch_quantile: 0.80
-    sign_mode: patch
+# rollout_noise:
+#   probability: 0.50
+#   apply_to_initial_input: false
+#   gaussian:
+#     std: 0.005
+#     mode: lattice
+#     lattice_stride: 4
+#     blur_kernel: 5
+#     blur_sigma: 1.6
+#   structured_front:
+#     scale: 0.05
+#     front_power: 1.0
+#     mask_smoothing_kernel: 3
+#     seed_prob: 0.005
+#     patch_kernel: 13
+#     patch_sigma: 4.0
+#     patch_quantile: 0.90
+#     sign_mode: patch

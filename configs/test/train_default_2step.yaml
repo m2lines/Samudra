@@ -26,6 +26,7 @@ inference_times:
   - start: "1975-10-30"
     end: "1975-12-20"
 data_stride: [1]
+temporal_stride: 1
 steps: [2]
 step_transition: []
 backend: auto
@@ -68,4 +69,3 @@ model:
 
     down_sampling_block: "avg_pool"
     up_sampling_block: "bilinear_upsample"
-

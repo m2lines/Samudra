@@ -37,6 +37,7 @@ inference_times:
   - start: "2010-01-03"
     end: "2014-10-05"
 data_stride: [1]
+temporal_stride: 1
 steps: [4]
 step_transition: []
 preemptible: false

@@ -188,6 +188,8 @@ class Trainer:
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
+        assert isinstance(cfg.temporal_stride, int)
+        assert cfg.temporal_stride >= 1
         assert isinstance(cfg.steps, list)
         assert isinstance(cfg.step_transition, list)
         assert len(cfg.step_transition) == len(cfg.steps) - 1
@@ -360,6 +362,7 @@ class Trainer:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
+        self.temporal_stride: int = cfg.temporal_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.ddp_use_no_sync_for_accumulation = (
@@ -926,6 +929,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
+                temporal_stride=self.temporal_stride,
                 executor=self.executor,
             )
             for stride in self.data_stride
@@ -941,6 +945,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
+                temporal_stride=1,
                 executor=self.executor,
             )
             for stride in self.data_stride

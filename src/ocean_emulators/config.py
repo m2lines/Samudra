@@ -916,12 +916,28 @@ class TrainConfig(TopLevelConfig):
     ddp_find_unused_parameters: bool = False
     ddp_broadcast_buffers: bool = True
     ddp_use_no_sync_for_accumulation: bool = True
+    ddp_max_data_workers_per_rank: int = Field(
+        default=2,
+        ge=1,
+        description=(
+            "Upper bound on DataLoader workers per rank during distributed training. "
+            "Caps worker fan-out to reduce straggler-induced collective timeouts."
+        ),
+    )
     ddp_timeout_minutes: int = Field(
-        default=10,
+        default=60,
         ge=1,
         description=(
             "Distributed process-group timeout in minutes. Increase this to "
             "avoid aborting runs when one rank occasionally stalls."
+        ),
+    )
+    slow_batch_log_threshold_seconds: float = Field(
+        default=300.0,
+        ge=0.0,
+        description=(
+            "Emit a warning when a batch's recorded data load time exceeds this "
+            "threshold. Set to 0 to disable warnings."
         ),
     )
 

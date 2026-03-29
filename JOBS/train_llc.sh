@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-03-29-samudra_llc:Agulhas_patch:instane_norm(group_norm_divisible_channels=[256,384,512,512]),pred_resid=true,1yr,temporal_stride=6
+#SBATCH --job-name=2026-03-29-samudra_llc:Agulhas_patch:group_norm=32(divisible_channels=[256,384,512,512]),pred_resid=false,1yr,temporal_stride=6
 #SBATCH -N 1
 #SBATCH --mem=400GB
 #SBATCH --ntasks=1
@@ -27,14 +27,15 @@ export MKL_NUM_THREADS=1
 
 # NCCL debugging
 export TORCH_NCCL_DUMP_ON_TIMEOUT=1
-export TORCH_NCCL_TRACE_BUFFER_SIZE=1048576
+export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 export NCCL_DEBUG=INFO
 
 # Lower default to reduce storage contention during first-batch patch loads
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-8}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-4}"
 PIN_MEM="${PIN_MEM:-false}"
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
-DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-30}"
+DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-60}"
+CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 LLC_FACE="${LLC_FACE:-1}"
 LLC_I_START="${LLC_I_START:-2880}"
 LLC_I_END="${LLC_I_END:-3600}"
@@ -56,6 +57,7 @@ if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
 fi
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
+echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
 echo "using LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 
 # Optional resume behavior:
@@ -101,6 +103,7 @@ uv run python -m torch.distributed.run \
   --ddp_broadcast_buffers "${DDP_BROADCAST_BUFFERS}" \
   --ddp_timeout_minutes "${DDP_TIMEOUT_MINUTES}" \
   --data.num_workers "${DATA_NUM_WORKERS}" \
+  --data.concurrent_compute "${CONCURRENT_COMPUTE}" \
   --pin_mem "${PIN_MEM}" \
   --data.llc_face "${LLC_FACE}" \
   --data.llc_i_start "${LLC_I_START}" \

@@ -6,10 +6,11 @@ TRAIN_SCRIPT="${TRAIN_SCRIPT:-${PROJECT_ROOT}/JOBS/train_llc.sh}"
 LOG_DIR="${LOG_DIR:-${PROJECT_ROOT}/logs}"
 
 # Shared training knobs (forwarded to each spawned job)
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-10}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-4}"
 PIN_MEM="${PIN_MEM:-false}"
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
-DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-30}"
+DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-60}"
+CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 
 # Per-job spatial knobs (edit defaults or override at submit time)
 JOB1_FACE="${JOB1_FACE:-1}"
@@ -59,7 +60,7 @@ submit_one() {
   local out_file="${LOG_DIR}/${job_name}-%j.out"
 
   local export_vars
-  export_vars="ALL,DATA_NUM_WORKERS=${DATA_NUM_WORKERS},PIN_MEM=${PIN_MEM},DDP_BROADCAST_BUFFERS=${DDP_BROADCAST_BUFFERS},DDP_TIMEOUT_MINUTES=${DDP_TIMEOUT_MINUTES},LLC_FACE=${face},LLC_I_START=${i_start},LLC_I_END=${i_end},LLC_J_START=${j_start},LLC_J_END=${j_end}"
+  export_vars="ALL,DATA_NUM_WORKERS=${DATA_NUM_WORKERS},PIN_MEM=${PIN_MEM},DDP_BROADCAST_BUFFERS=${DDP_BROADCAST_BUFFERS},DDP_TIMEOUT_MINUTES=${DDP_TIMEOUT_MINUTES},CONCURRENT_COMPUTE=${CONCURRENT_COMPUTE},LLC_FACE=${face},LLC_I_START=${i_start},LLC_I_END=${i_end},LLC_J_START=${j_start},LLC_J_END=${j_end}"
 
   local submit_out
   submit_out="$(
@@ -78,10 +79,9 @@ submit_one() {
 }
 
 echo "Submitting 4 single-GPU jobs from ${TRAIN_SCRIPT}"
-echo "Shared knobs: workers=${DATA_NUM_WORKERS} pin_mem=${PIN_MEM} ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
+echo "Shared knobs: workers=${DATA_NUM_WORKERS} pin_mem=${PIN_MEM} ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES} concurrent_compute=${CONCURRENT_COMPUTE}"
 
 submit_one 1 "${JOB1_FACE}" "${JOB1_I_START}" "${JOB1_I_END}" "${JOB1_J_START}" "${JOB1_J_END}" "${JOB1_NAME}"
 submit_one 2 "${JOB2_FACE}" "${JOB2_I_START}" "${JOB2_I_END}" "${JOB2_J_START}" "${JOB2_J_END}" "${JOB2_NAME}"
 submit_one 3 "${JOB3_FACE}" "${JOB3_I_START}" "${JOB3_I_END}" "${JOB3_J_START}" "${JOB3_J_END}" "${JOB3_NAME}"
 submit_one 4 "${JOB4_FACE}" "${JOB4_I_START}" "${JOB4_I_END}" "${JOB4_J_START}" "${JOB4_J_END}" "${JOB4_NAME}"
-

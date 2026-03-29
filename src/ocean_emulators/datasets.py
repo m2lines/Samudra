@@ -305,6 +305,8 @@ class RawTrainData:
         self.dataset_id: TorchTrainDataset.Id = dataset_id
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
+        # Source dataset indices for debugging pathological slow samples.
+        self.source_indices: list[int] = []
 
     def insert(self, all_prognostic: torch.Tensor, all_boundary: torch.Tensor):
         self.raw_data.append((all_prognostic, all_boundary))
@@ -356,6 +358,7 @@ class TrainData:
         self.num_prognostic_channels = num_prognostic_channels
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
+        self.source_indices: list[int] = []
 
     def append(self, input_: Input, label: Prognostic):
         """Add another Example as a new step."""
@@ -515,6 +518,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         TD = RawTrainData(self.id)
+        TD.source_indices.append(idx)
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
@@ -565,6 +569,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             )
             train_data.append(input, label)
         train_data.load_stats = raw_train_data.load_stats
+        train_data.source_indices = list(raw_train_data.source_indices)
         return train_data
 
     def _get_input_and_label(

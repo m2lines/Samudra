@@ -162,13 +162,25 @@ class Trainer:
         if self.distributed is not None and cfg.data.num_workers > 0:
             world_size = get_world_size()
             scaled_workers = max(1, cfg.data.num_workers // world_size)
+            capped_workers = (
+                min(scaled_workers, cfg.ddp_max_data_workers_per_rank)
+                if world_size > 1
+                else scaled_workers
+            )
             if scaled_workers != cfg.data.num_workers:
                 logger.info(
                     "Scaling data.num_workers from "
                     f"{cfg.data.num_workers} to {scaled_workers} per rank "
                     f"for world_size={world_size}."
                 )
-                cfg.data.num_workers = scaled_workers
+            if capped_workers != scaled_workers:
+                logger.info(
+                    "Capping data.num_workers per rank from "
+                    f"{scaled_workers} to {capped_workers} "
+                    f"(ddp_max_data_workers_per_rank="
+                    f"{cfg.ddp_max_data_workers_per_rank})."
+                )
+            cfg.data.num_workers = capped_workers
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -203,6 +215,12 @@ class Trainer:
                 f"Training time range {cfg.train_time} overlaps "
                 f"with validation time range {cfg.val_time}"
             )
+
+        if cfg.data.concurrent_compute:
+            logger.warning(
+                "Forcing data.concurrent_compute=false for training stability."
+            )
+            cfg.data.concurrent_compute = False
 
         self.executor: ThreadPoolExecutor | None = None
         if cfg.data.concurrent_compute:
@@ -367,6 +385,9 @@ class Trainer:
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.ddp_use_no_sync_for_accumulation = (
             cfg.ddp_use_no_sync_for_accumulation
+        )
+        self.slow_batch_log_threshold_seconds: float = (
+            cfg.slow_batch_log_threshold_seconds
         )
         self.ddp_static_graph: bool = cfg.ddp_static_graph
         if (
@@ -743,6 +764,23 @@ class Trainer:
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
 
+            if (
+                self.slow_batch_log_threshold_seconds > 0
+                and data.load_stats is not None
+                and data.load_stats.load_time_seconds
+                >= self.slow_batch_log_threshold_seconds
+            ):
+                logger.warning(
+                    "Slow batch load detected: rank=%s epoch=%s batch=%s "
+                    "load_time=%.3fs threshold=%.3fs source_indices=%s",
+                    get_rank(),
+                    epoch,
+                    global_data_iter_step,
+                    data.load_stats.load_time_seconds,
+                    self.slow_batch_log_threshold_seconds,
+                    data.source_indices,
+                )
+
             self.wandb_logger.log(metrics, step=self.num_batches_seen)
 
             metric_logger.update(loss=loss_value_reduce.item())
@@ -945,7 +983,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                temporal_stride=1,
+                temporal_stride=self.temporal_stride,
                 executor=self.executor,
             )
             for stride in self.data_stride

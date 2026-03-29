@@ -30,7 +30,7 @@ def _cuda_diagnostics() -> str:
 
 def init_train_backend(
     backend: TrainBackendConfig,
-    ddp_timeout_minutes: int = 10,
+    ddp_timeout_minutes: int = 60,
 ) -> tuple[torch.device, DistributedConfig | None]:
     """Given backend config, get the device and (if any) distributed configuration."""
     match backend:

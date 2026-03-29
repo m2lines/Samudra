@@ -21,6 +21,9 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
     assert all(d.dataset_id == batched_data.dataset_id for d in data), (
         "we don't support heterogenous batches yet"
     )
+    batched_data.source_indices = [
+        idx for d in data for idx in d.source_indices
+    ]
 
     steps = len(data[0].raw_data)
     for step in range(steps):

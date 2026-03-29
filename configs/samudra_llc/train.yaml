@@ -34,7 +34,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-03-29-samudra_llc:Agulhas_patch:instane_norm(group_norm_divisible_channels=[256,384,512,512]),pred_resid=true,1yr,temporal_stride=6
+  name: 2026-03-29-samudra_llc:Agulhas_patch:group_norm=32(divisible_channels=[256,384,512,512]),pred_resid=false,1yr,temporal_stride=6
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

@@ -1,4 +1,5 @@
 import itertools
+import math
 import random
 from collections.abc import Callable, Hashable
 from typing import TYPE_CHECKING, Self
@@ -312,8 +313,15 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
 
     def __len__(self):
         """Number of batches for this worker (same for all ranks)."""
-        total_batches = len(self._inner)
+        n = self.num_replicas
+        total = 0
+        for sampler in self._inner._samplers:
+            group_len = len(sampler)
+            if self.drop_last:
+                total += (group_len // n) * n
+            else:
+                total += math.ceil(group_len / n) * n
         if self.drop_last:
-            return total_batches // self.num_replicas
+            return total // n
         else:
-            return (total_batches + self.num_replicas - 1) // self.num_replicas
+            return math.ceil(total / n)

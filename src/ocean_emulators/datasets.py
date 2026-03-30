@@ -2,7 +2,7 @@ import logging
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import final
+from typing import ClassVar, final
 
 import numpy as np
 import torch
@@ -444,6 +444,19 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
     FLAG = LoaderVersion.OM4_TORCH
 
+    # Shared across all instances within a process. Created lazily on first
+    # __getitem__ call so that each forked DataLoader worker gets its own
+    # clean executor — avoids inheriting fork-corrupted locks from the parent.
+    _shared_executor: ClassVar[ThreadPoolExecutor | None] = None
+
+    @classmethod
+    def _get_executor(cls) -> ThreadPoolExecutor:
+        if cls._shared_executor is None:
+            cls._shared_executor = ThreadPoolExecutor(
+                thread_name_prefix="concurrent_compute"
+            )
+        return cls._shared_executor
+
     @elapsed
     def __init__(
         self,
@@ -456,7 +469,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         normalize_before_mask: bool,
         masked_fill_value: float,
         stride: int = 1,
-        executor: ThreadPoolExecutor | None = None,
+        concurrent_compute: bool = False,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
@@ -468,7 +481,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
-        self._executor = executor
+        self._concurrent_compute = concurrent_compute
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
@@ -537,11 +550,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             )  # forecasted data
             prognostic_selected = [input_selected, label_selected]
 
-            if self._executor is not None:
+            if self._concurrent_compute:
                 datasets = prognostic_selected + [boundary_selected]
                 concurrent_compute(
                     *datasets,
-                    executor=self._executor,
+                    executor=self._get_executor(),
                 )
 
             if "lev" in prognostic_selected[0].dims:
@@ -667,7 +680,7 @@ def concurrent_compute(
 
     futures = []
     for ds in datasets:
-        for var in ds.variables.values():
+        for var in ds.data_vars.variables.values():
             futures.append(executor.submit(load_variable_data, var))
 
     wait(futures)

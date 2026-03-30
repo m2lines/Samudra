@@ -9,7 +9,6 @@ import time
 import warnings
 from collections import OrderedDict
 from collections.abc import Iterable
-from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any, assert_never
@@ -187,11 +186,7 @@ class Trainer:
                 f"with validation time range {cfg.val_time}"
             )
 
-        self.executor: ThreadPoolExecutor | None = None
-        if cfg.data.concurrent_compute:
-            self.executor = ThreadPoolExecutor(
-                max_workers=None, thread_name_prefix="concurrent_compute"
-            )
+        self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_src = self.data_container.primary_source
 
@@ -792,7 +787,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                executor=self.executor,
+                concurrent_compute=self.concurrent_compute,
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -809,7 +804,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                executor=self.executor,
+                concurrent_compute=self.concurrent_compute,
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -1087,8 +1082,6 @@ class Trainer:
             self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
-        if self.executor is not None:
-            self.executor.shutdown()
         self.wandb_logger.finish()
 
 

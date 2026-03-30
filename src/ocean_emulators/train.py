@@ -434,9 +434,9 @@ class Trainer:
                 cur_step = self.get_current_step(epoch)
                 self.init_data_loaders(cur_step)
 
-            if isinstance(self.train_sampler, DistributedSampler):
+            if hasattr(self.train_sampler, "set_epoch"):
                 self.train_sampler.set_epoch(epoch)
-            if isinstance(self.val_sampler, DistributedSampler):
+            if hasattr(self.val_sampler, "set_epoch"):
                 self.val_sampler.set_epoch(epoch)
 
             start_epoch_train_time = time.perf_counter()

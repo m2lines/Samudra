@@ -1,5 +1,6 @@
 import enum
 import logging
+from typing import Self
 
 logger = logging.getLogger(__name__)
 
@@ -321,7 +322,7 @@ class TensorMap(Multiton):
         for i, k in enumerate(self.boundary_var_names):
             self.INPT_BOUNDARY_IDX[k] = torch.tensor([i])
 
-    def to(self, device: torch.device) -> "TensorMap":
+    def to(self, device: torch.device) -> Self:
         """Move all index tensors to the given device.
 
         Call this once after model initialization so that indexing a GPU tensor

@@ -902,7 +902,13 @@ class Trainer:
         self.val_sampler = val_batch_sampler
 
         # Create data loaders (same for both distributed and non-distributed)
-        # When using batch_sampler, don't specify batch_size or sampler
+        # When using batch_sampler, don't specify batch_size or sampler.
+        # timeout (seconds): if a DataLoader worker doesn't produce a batch
+        # within this window, raise an error instead of hanging the whole
+        # training run.  A stuck worker would otherwise block all DDP ranks
+        # at the next collective.
+        worker_timeout = 1800 if self.num_workers > 0 else 0  # 30 minutes or 0.
+
         train_dataloader = DataLoader(
             train_data,
             batch_sampler=train_batch_sampler,
@@ -910,6 +916,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            timeout=worker_timeout,
         )
 
         val_dataloader = DataLoader(
@@ -919,6 +926,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            timeout=worker_timeout,
         )
 
         # Wrap dataloaders to handle GPU post-processing

@@ -26,7 +26,7 @@ inference_times:
   - start: "2012-10-01"
     end: "2012-11-01"
 data_stride: [1]
-temporal_stride: 6
+temporal_stride: 5
 steps: [1]
 step_transition: []
 preemptible: false
@@ -34,7 +34,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-03-29-samudra_llc:Agulhas_patch:group_norm=32(divisible_channels=[256,384,512,512]),pred_resid=false,1yr,temporal_stride=6
+  name: 2026-03-30-CONT:2026-03-29-samudra_llc:Agulhas_patch:group_norm=32(divisible_channels=[256,384,512,512]),pred_resid=false,1yr,temporal_stride=6-11154413.out-WITH-temporal_stride=5,noise=low,no_frontal_noise
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

@@ -39,6 +39,12 @@ class WandBLogger(Multiton):
             "data/attrs": data_container.source.data.attrs,
         }
 
+    def _wandb_init_kwargs(self, cfg: "AnyTopLevelConfig"):
+        # Filter internal settings not accepted by wandb.init
+        wandb_kwargs = cfg.experiment.wandb.model_dump()
+        wandb_kwargs.pop("resume_from_checkpoint", None)
+        return wandb_kwargs
+
     def setup_run(
         self,
         checkpoint_path: str | None,
@@ -62,6 +68,8 @@ class WandBLogger(Multiton):
 
         if finetune:
             return self._init_new_run(cfg, data_container)
+        if not cfg.experiment.wandb.resume_from_checkpoint:
+            return self._init_new_run(cfg, data_container)
 
         # Load checkpoint and try to resume
         checkpoint = torch.load(checkpoint_path)
@@ -74,7 +82,7 @@ class WandBLogger(Multiton):
                 config=self._make_config(cfg, data_container),
                 name=run_name,
                 dir=cfg.experiment.output_dir,
-                **cfg.experiment.wandb.model_dump(),
+                **self._wandb_init_kwargs(cfg),
             )
 
             resumed = False
@@ -113,7 +121,7 @@ class WandBLogger(Multiton):
                 config=self._make_config(cfg, data_container),
                 name=wandb_name,
                 dir=cfg.experiment.output_dir,
-                **cfg.experiment.wandb.model_dump(),
+                **self._wandb_init_kwargs(cfg),
             )
 
             wandb_id = self.run.id if self.run else None

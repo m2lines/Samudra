@@ -305,20 +305,13 @@ class Trainer:
             finetune=cfg.finetune,
         )
 
-        # Log effective batch size
+        # Log effective batch size (wandb logging happens after resume state is loaded)
         effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
         logger.info(
             f"Effective batch size: {effective_batch_size} "
             f"(batch_size={cfg.batch_size} × "
             f"gradient_accumulation_steps={cfg.gradient_accumulation_steps})"
         )
-        if self.is_wandb_enabled():
-            self.wandb_logger.log(
-                {
-                    "config/effective_batch_size": effective_batch_size,
-                },
-                step=0,
-            )
 
         self.num_batches_seen = 0
         self.start_batch_in_epoch = 0
@@ -339,6 +332,14 @@ class Trainer:
         else:
             self.start_epoch = 1
             self.start_batch_in_epoch = 0
+
+        if self.is_wandb_enabled():
+            self.wandb_logger.log(
+                {
+                    "config/effective_batch_size": effective_batch_size,
+                },
+                step=self.num_batches_seen,
+            )
 
         self._stop_requested = False
         self._stop_reason: str | None = None

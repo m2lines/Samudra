@@ -60,6 +60,7 @@ class WandBConfig(BaseConfig):
     group: str | None = None
     tags: list[str] | None = None
     notes: str | None = None
+    resume_from_checkpoint: bool = False
 
 
 class JulianDate:

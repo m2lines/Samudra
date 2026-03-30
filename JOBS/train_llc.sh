@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-03-29-samudra_llc:Agulhas_patch:group_norm=32(divisible_channels=[256,384,512,512]),pred_resid=false,1yr,temporal_stride=6
+#SBATCH --job-name=2026-03-30-CONT:2026-03-29-samudra_llc:Agulhas_patch:group_norm=32(divisible_channels=[256,384,512,512]),pred_resid=false,1yr,temporal_stride=6-11154413.out-WITH-temporal_stride=5,noise=low,no_frontal_noise
 #SBATCH -N 1
 #SBATCH --mem=400GB
 #SBATCH --ntasks=1
@@ -46,7 +46,7 @@ FINETUNE="${FINETUNE:-false}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 
-EPOCHS="${EPOCHS:-1}"
+EPOCHS="${EPOCHS:-2}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
 GPUS="${GPUS:-2}"
 

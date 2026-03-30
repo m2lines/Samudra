@@ -453,7 +453,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def _get_executor(cls) -> ThreadPoolExecutor:
         if cls._shared_executor is None:
             cls._shared_executor = ThreadPoolExecutor(
-                thread_name_prefix="concurrent_compute"
+                max_workers=None, thread_name_prefix="concurrent_compute"
             )
         return cls._shared_executor
 

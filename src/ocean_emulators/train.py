@@ -787,7 +787,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                concurrent_compute=self.concurrent_compute,
+                concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -804,7 +804,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                concurrent_compute=self.concurrent_compute,
+                concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
             for src, dst in srcs

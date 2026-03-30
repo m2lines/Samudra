@@ -469,7 +469,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         normalize_before_mask: bool,
         masked_fill_value: float,
         stride: int = 1,
-        concurrent_compute: bool = False,
+        concurrent_compute_: bool = False,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
@@ -481,7 +481,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
-        self._concurrent_compute = concurrent_compute
+        self._concurrent_compute = concurrent_compute_
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (

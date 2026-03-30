@@ -285,6 +285,7 @@ class Trainer:
         else:
             self.start_epoch = 1
 
+        self._cpu_group = None
         # Modify DDP setup based on device
         if self.distributed is not None:
             self.model = nn.parallel.DistributedDataParallel(
@@ -297,10 +298,8 @@ class Trainer:
             # the networked filesystem stalls on some ranks.
             self._cpu_group = dist.new_group(
                 backend="gloo",
-                timeout=datetime.timedelta(hours=2),
+                timeout=datetime.timedelta(minutes=30),
             )
-        else:
-            self._cpu_group = None
 
         # EMA (must come after DDP setup so parameter names match final self.model)
         if not loaded_checkpoint:

@@ -274,15 +274,16 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         for sampler in self._inner._samplers:
             group_chunks = list(itertools.batched(sampler, self.num_replicas))
             if group_chunks and len(group_chunks[-1]) < self.num_replicas:
-                if self.drop_last:
-                    group_chunks.pop()
-                else:
-                    # Pad the incomplete chunk with duplicates from the same
-                    # group so every chunk is homogeneous and full-sized.
-                    last = list(group_chunks[-1])
-                    while len(last) < self.num_replicas:
-                        last.append(last[-1])
-                    group_chunks[-1] = tuple(last)
+                # Always pad incomplete chunks so every chunk is homogeneous
+                # and full-sized. Without padding, an incomplete chunk would
+                # break the stride alignment for all subsequent chunks.
+                # Dropping here would erase entire groups that have fewer
+                # batches than num_replicas; global trimming below handles
+                # drop_last instead.
+                last = list(group_chunks[-1])
+                while len(last) < self.num_replicas:
+                    last.append(last[-1])
+                group_chunks[-1] = tuple(last)
             if self.shuffle:
                 rng.shuffle(group_chunks)
             chunks.extend(group_chunks)
@@ -316,11 +317,9 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         n = self.num_replicas
         total = 0
         for sampler in self._inner._samplers:
-            group_len = len(sampler)
-            if self.drop_last:
-                total += (group_len // n) * n
-            else:
-                total += math.ceil(group_len / n) * n
+            # Per-group chunks are always padded to num_replicas (never
+            # dropped), so use ceil here regardless of drop_last.
+            total += math.ceil(len(sampler) / n) * n
         if self.drop_last:
             return total // n
         else:

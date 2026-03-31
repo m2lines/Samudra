@@ -298,10 +298,11 @@ class TestDistributedBatchSamplerDistribution:
             )
             all_batches.extend(list(sampler))
 
-        # With 10 batches and 3 replicas, trimming gives 9 batches (3 per worker)
-        # So we should have 9 batches * 2 samples = 18 indices (not all 20)
+        # With 10 batches and 3 replicas, per-group chunks are padded to 12
+        # (not dropped) to avoid erasing small groups. 12 / 3 = 4 per rank.
+        # 4 batches * 3 ranks * 2 samples = 24 indices.
         all_indices = [idx for batch in all_batches for idx in batch]
-        assert len(all_indices) == 18
+        assert len(all_indices) == 24
 
     def test_set_epoch_changes_ordering(self):
         """Different epochs should produce different batch orderings."""

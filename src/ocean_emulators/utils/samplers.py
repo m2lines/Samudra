@@ -281,8 +281,12 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
                 # batches than num_replicas; global trimming below handles
                 # drop_last instead.
                 last = list(group_chunks[-1])
+                # Sample from all of this group's batches (not just the
+                # tail) so padding doesn't systematically over-weight
+                # the same examples every epoch.
+                all_group_batches = list(itertools.chain.from_iterable(group_chunks))
                 while len(last) < self.num_replicas:
-                    last.append(last[-1])
+                    last.append(rng.choice(all_group_batches))
                 group_chunks[-1] = tuple(last)
             if self.shuffle:
                 rng.shuffle(group_chunks)

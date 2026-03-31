@@ -1123,9 +1123,11 @@ def main():
 
     try:
         trainer.run()
-    except Exception as e:
+    except Exception:
         logger.exception("Training failed with an exception")
-        raise e
+        raise
+    finally:
+        trainer.finish()
 
 
 if __name__ == "__main__":

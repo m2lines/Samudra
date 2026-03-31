@@ -286,7 +286,10 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
                 # the same examples every epoch.
                 all_group_batches = list(itertools.chain.from_iterable(group_chunks))
                 while len(last) < self.num_replicas:
-                    last.append(rng.choice(all_group_batches))
+                    if self.shuffle:
+                        last.append(rng.choice(all_group_batches))
+                    else:
+                        last.append(all_group_batches[-1])
                 group_chunks[-1] = tuple(last)
             if self.shuffle:
                 rng.shuffle(group_chunks)

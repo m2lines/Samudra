@@ -129,14 +129,14 @@ SECONDS_PER_TIME_STEP = 60  # hourly
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
-    "single1": [f"Theta_{DEPTH_I_LEVELS[0]}"],
+    "single_1": [f"Theta_{DEPTH_I_LEVELS[0]}"],
     "all": [k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS]
     + ["Eta"],
 }
 
 BoundaryVarNames = list[str]
 BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
-    "single1": ["oceQnet"],
+    "single_1": ["oceQnet"],
     "all": ["oceTAUX", "oceTAUY", "oceQnet", "Eta"],
 }
 

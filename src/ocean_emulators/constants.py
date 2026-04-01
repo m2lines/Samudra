@@ -69,49 +69,51 @@ DEPTH_LEVELS = [
     45.855,
     52.69,
     60.28,
-    68.685, 
-    77.965, 
-    88.175, 
-    99.37, 
-    111.6, 
-    124.915, 
-    139.365, 
+    68.685,
+    77.965,
+    88.175,
+    99.37,
+    111.6,
+    124.915,
+    139.365,
     154.99,
     171.825,
-    189.9, 
-    209.235, 
-    229.855, 
-    251.77, 
-    274.985, 
-    299.505, 
-    325.32, 
+    189.9,
+    209.235,
+    229.855,
+    251.77,
+    274.985,
+    299.505,
+    325.32,
     352.42,
-    380.79, 
-    410.41, 
-    441.255, 
-    473.305, 
-    506.54, 
-    540.935, 
-    576.465, 
+    380.79,
+    410.41,
+    441.255,
+    473.305,
+    506.54,
+    540.935,
+    576.465,
     613.11,
-    650.855, 
-    689.685, 
-    729.595, 
-    770.585, 
-    812.66, 
-    855.835, 
-    900.135, 
+    650.855,
+    689.685,
+    729.595,
+    770.585,
+    812.66,
+    855.835,
+    900.135,
     945.595,
 ]
 
 # SELECT A SUBSET OF THE TOTAL DEPTH LEVELS
 # SELECT A SUBSET OF THE TOTAL DEPTH LEVELS
-#DEPTH_LEVELS = DEPTH_LEVELS[::3]
+# DEPTH_LEVELS = DEPTH_LEVELS[::3]
 
-NEXT_DEPTH_LEVEL = 1000#900.135#1000
+NEXT_DEPTH_LEVEL = 1000  # 900.135#1000
 
 # Depth thicknesses
-DEPTH_THICKNESS = [n - p for p, n in zip(DEPTH_LEVELS, DEPTH_LEVELS[1:] + [NEXT_DEPTH_LEVEL])]
+DEPTH_THICKNESS = [
+    n - p for p, n in zip(DEPTH_LEVELS, DEPTH_LEVELS[1:] + [NEXT_DEPTH_LEVEL])
+]
 
 N = len(DEPTH_LEVELS)
 DEPTH_I_LEVELS = [str(i) for i in range(N)]
@@ -123,20 +125,18 @@ HEAT_VAR_NAME = "Theta"
 
 RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
 CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
-SECONDS_PER_TIME_STEP = 60 # hourly
+SECONDS_PER_TIME_STEP = 60  # hourly
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
-    "single": [f"Theta_{DEPTH_I_LEVELS[0]}"],
-    "all": [
-        k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS
-    ]
+    "single1": [f"Theta_{DEPTH_I_LEVELS[0]}"],
+    "all": [k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS]
     + ["Eta"],
 }
 
 BoundaryVarNames = list[str]
 BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
-    "single": ["oceQnet"],
+    "single1": ["oceQnet"],
     "all": ["oceTAUX", "oceTAUY", "oceQnet", "Eta"],
 }
 
@@ -175,6 +175,7 @@ DEFAULT_METADATA = {
         "units": "W/m^2",
     },
 }
+
 
 def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
     metadata = {}
@@ -233,7 +234,13 @@ class TensorMap(Multiton):
             )
         )
 
-        assert 51 == len(DEPTH_I_LEVELS) == len(DEPTH_THICKNESS) == len(DEPTH_LEVELS) == len(MASK_VARS)
+        assert (
+            51
+            == len(DEPTH_I_LEVELS)
+            == len(DEPTH_THICKNESS)
+            == len(DEPTH_LEVELS)
+            == len(MASK_VARS)
+        )
 
         levels_str = prognostic_vars_key.split("_")[-1]
         if "all" in levels_str:
@@ -289,4 +296,3 @@ class TensorMap(Multiton):
         """
         for i, k in enumerate(self.boundary_var_names):
             self.INPT_BOUNDARY_IDX[k] = torch.tensor([i])
-            

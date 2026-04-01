@@ -249,6 +249,7 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
     masks: Masks
+    use_zarr_gpu_decode: bool = False
 
     @cached_property
     def is_compact(self) -> bool:
@@ -513,6 +514,7 @@ class DataSource:
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
             name=f"{data_location}-{use_dask}",
+            use_zarr_gpu_decode=zarr_gpu_decode,
         )
 
     @classmethod
@@ -526,6 +528,7 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
+        use_zarr_gpu_decode: bool = False,
     ) -> Self:
         data, means, stds = validate_data(
             data,
@@ -542,6 +545,7 @@ class DataSource:
             means=means,
             stds=stds,
             masks=masks,
+            use_zarr_gpu_decode=use_zarr_gpu_decode,
         )
 
 

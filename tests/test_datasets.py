@@ -19,6 +19,7 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
+import ocean_emulators.datasets as datasets_mod
 from ocean_emulators.config import TimeConfig, TrainConfig, TrainSchedule
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
@@ -686,6 +687,56 @@ def test_train_dataset_no_input_change(
     # Get a fresh copy from the loader
     td_new = train_loader[0]
     assert torch.equal(td_new.get_input(1), inp1)
+
+
+@pytest.mark.parametrize("normalize_before_mask", [True])
+@pytest.mark.parametrize("masked_fill_value", [0.0])
+def test_train_dataset_gpu_decode_context_reentered_on_materialization(
+    tiny_dataset_input, monkeypatch, caplog
+):
+    train_loader, _ = tiny_dataset_input
+    train_loader.dataset.use_zarr_gpu_decode = True
+    entered = 0
+
+    @contextlib.contextmanager
+    def fake_gpu_context(use_gpu_zarr_decode: bool):
+        nonlocal entered
+        assert use_gpu_zarr_decode is True
+        entered += 1
+        yield
+
+    monkeypatch.setattr(datasets_mod, "_zarr_gpu_decode_context", fake_gpu_context)
+
+    with caplog.at_level("INFO"):
+        _ = train_loader[0]
+
+    assert entered >= 3
+    assert "TorchTrainDataset GPU zarr materialization" in caplog.text
+
+
+@pytest.mark.parametrize("normalize_before_mask", [True])
+@pytest.mark.parametrize("masked_fill_value", [0.0])
+def test_inference_dataset_gpu_decode_context_reentered_on_materialization(
+    tiny_dataset_input, monkeypatch, caplog
+):
+    _, inference_dataset = tiny_dataset_input
+    inference_dataset.use_zarr_gpu_decode = True
+    entered = 0
+
+    @contextlib.contextmanager
+    def fake_gpu_context(use_gpu_zarr_decode: bool):
+        nonlocal entered
+        assert use_gpu_zarr_decode is True
+        entered += 1
+        yield
+
+    monkeypatch.setattr(datasets_mod, "_zarr_gpu_decode_context", fake_gpu_context)
+
+    with caplog.at_level("INFO"):
+        _ = inference_dataset[0]
+
+    assert entered >= 3
+    assert "InferenceDataset GPU zarr materialization" in caplog.text
 
 
 @pytest.mark.parametrize("normalize_before_mask", [True, False])

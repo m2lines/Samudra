@@ -30,6 +30,7 @@ from ocean_emulators.utils.data import (
     conditional_rearrange,
 )
 from ocean_emulators.utils.device import using_gpu
+from ocean_emulators.utils.location import _zarr_gpu_decode_context
 from ocean_emulators.utils.logging import elapsed
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,20 @@ def _to_torch_float32(array_like: Any) -> torch.Tensor:
 
 def _dataarray_to_torch_float32(array: xr.DataArray) -> torch.Tensor:
     return _to_torch_float32(array.data)
+
+
+def _array_like_type_name(array_like: Any) -> str:
+    return f"{type(array_like).__module__}.{type(array_like).__qualname__}"
+
+
+def _materialize_dataarray_to_torch_float32(
+    array: xr.DataArray,
+    *,
+    use_zarr_gpu_decode: bool,
+) -> tuple[torch.Tensor, str]:
+    with _zarr_gpu_decode_context(use_zarr_gpu_decode):
+        array_like = array.data
+    return _to_torch_float32(array_like), _array_like_type_name(array_like)
 
 
 def _mask_on_tensor_device(mask: torch.Tensor, tensor: torch.Tensor) -> torch.Tensor:
@@ -99,6 +114,8 @@ class InferenceDataset(Dataset):
         self.input_res = src.resolution
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.use_zarr_gpu_decode = src.use_zarr_gpu_decode
+        self._logged_gpu_decode_materialization = False
         self._times = data.time
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
@@ -241,7 +258,15 @@ class InferenceDataset(Dataset):
             data_in_da = data_in_ds.to_array().transpose(
                 "window_dim", "time", "variable", "lat", "lon"
             )
-        data_in = _dataarray_to_torch_float32(data_in_da)
+        data_in, backend_type = _materialize_dataarray_to_torch_float32(
+            data_in_da,
+            use_zarr_gpu_decode=self.use_zarr_gpu_decode,
+        )
+        self._maybe_log_gpu_decode_materialization(
+            tensor_name="prognostic",
+            backend_type=backend_type,
+            tensor=data_in,
+        )
         wet = _mask_on_tensor_device(self.wet, data_in)
         data_in = torch.where(wet, data_in, self.masked_fill_value)
         if not self.normalize_before_mask:
@@ -269,7 +294,15 @@ class InferenceDataset(Dataset):
         data_in_boundary_da = data_in_boundary_ds.to_array().transpose(
             "window_dim", "time", "variable", "lat", "lon"
         )
-        data_in_boundary = _dataarray_to_torch_float32(data_in_boundary_da)
+        data_in_boundary, backend_type = _materialize_dataarray_to_torch_float32(
+            data_in_boundary_da,
+            use_zarr_gpu_decode=self.use_zarr_gpu_decode,
+        )
+        self._maybe_log_gpu_decode_materialization(
+            tensor_name="boundary",
+            backend_type=backend_type,
+            tensor=data_in_boundary,
+        )
         wet_surface = _mask_on_tensor_device(self.wet_surface, data_in_boundary)
         data_in_boundary = torch.where(
             wet_surface,
@@ -304,7 +337,15 @@ class InferenceDataset(Dataset):
             label_da = label_ds.to_array().transpose(
                 "window_dim", "time", "variable", "lat", "lon"
             )
-        label = _dataarray_to_torch_float32(label_da)
+        label, backend_type = _materialize_dataarray_to_torch_float32(
+            label_da,
+            use_zarr_gpu_decode=self.use_zarr_gpu_decode,
+        )
+        self._maybe_log_gpu_decode_materialization(
+            tensor_name="label",
+            backend_type=backend_type,
+            tensor=label,
+        )
         wet = _mask_on_tensor_device(self.wet, label)
         label = torch.where(wet, label, self.masked_fill_value)
         if not self.normalize_before_mask:
@@ -314,6 +355,27 @@ class InferenceDataset(Dataset):
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
         return label
+
+    def _maybe_log_gpu_decode_materialization(
+        self,
+        *,
+        tensor_name: str,
+        backend_type: str,
+        tensor: torch.Tensor,
+    ) -> None:
+        if not self.use_zarr_gpu_decode or self._logged_gpu_decode_materialization:
+            return
+
+        logger.info(
+            "InferenceDataset GPU zarr materialization: "
+            "source=%s tensor=%s backend=%s tensor_device=%s tensor_is_cuda=%s",
+            self._prognostic_src.name,
+            tensor_name,
+            backend_type,
+            tensor.device,
+            tensor.is_cuda,
+        )
+        self._logged_gpu_decode_materialization = True
 
     def get_coords_dict(self):
         return {
@@ -485,6 +547,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._executor = executor
+        self.use_zarr_gpu_decode = any(src.use_zarr_gpu_decode for src in srcs)
+        self._logged_gpu_decode_materialization = False
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
@@ -561,26 +625,40 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
             if "lev" in prognostic_selected[0].dims:
                 prognostics = [
-                    _dataarray_to_torch_float32(
+                    _materialize_dataarray_to_torch_float32(
                         conditional_rearrange(
                             selected,
                             "time (variable lev)=var lat lon",
                             concat_dim="var",
-                        ).rename({"var": "variable"})
+                        ).rename({"var": "variable"}),
+                        use_zarr_gpu_decode=self.use_zarr_gpu_decode,
                     )
                     for selected in prognostic_selected
                 ]
             else:
                 prognostics = [
-                    _dataarray_to_torch_float32(
-                        selected.to_array().transpose("time", "variable", "lat", "lon")
+                    _materialize_dataarray_to_torch_float32(
+                        selected.to_array().transpose("time", "variable", "lat", "lon"),
+                        use_zarr_gpu_decode=self.use_zarr_gpu_decode,
                     )
                     for selected in prognostic_selected
                 ]
-            boundary = _dataarray_to_torch_float32(
-                boundary_selected.to_array().transpose("time", "variable", "lat", "lon")
+            boundary, boundary_backend = _materialize_dataarray_to_torch_float32(
+                boundary_selected.to_array().transpose(
+                    "time", "variable", "lat", "lon"
+                ),
+                use_zarr_gpu_decode=self.use_zarr_gpu_decode,
             )
-            input_, label = prognostics[0], prognostics[-1]
+            input_, input_backend = prognostics[0]
+            label, label_backend = prognostics[-1]
+            self._maybe_log_gpu_decode_materialization(
+                input_backend=input_backend,
+                boundary_backend=boundary_backend,
+                label_backend=label_backend,
+                input_tensor=input_,
+                boundary_tensor=boundary,
+                label_tensor=label,
+            )
             TD.insert(input_, boundary, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
@@ -662,6 +740,37 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         window_index = idx + step * (self.hist + 1) * self.stride
         return self.rolling_indices.isel(window=window_index, drop=True)
+
+    def _maybe_log_gpu_decode_materialization(
+        self,
+        *,
+        input_backend: str,
+        boundary_backend: str,
+        label_backend: str,
+        input_tensor: torch.Tensor,
+        boundary_tensor: torch.Tensor,
+        label_tensor: torch.Tensor,
+    ) -> None:
+        if not self.use_zarr_gpu_decode or self._logged_gpu_decode_materialization:
+            return
+
+        logger.info(
+            "TorchTrainDataset GPU zarr materialization: "
+            "dataset=%s input_backend=%s boundary_backend=%s label_backend=%s "
+            "input_device=%s boundary_device=%s label_device=%s "
+            "input_is_cuda=%s boundary_is_cuda=%s label_is_cuda=%s",
+            self.id,
+            input_backend,
+            boundary_backend,
+            label_backend,
+            input_tensor.device,
+            boundary_tensor.device,
+            label_tensor.device,
+            input_tensor.is_cuda,
+            boundary_tensor.is_cuda,
+            label_tensor.is_cuda,
+        )
+        self._logged_gpu_decode_materialization = True
 
 
 def concurrent_compute(

@@ -1,5 +1,6 @@
 import logging
 import time
+from collections.abc import Callable
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Any, final
@@ -62,11 +63,14 @@ def _array_like_type_name(array_like: Any) -> str:
 
 
 def _materialize_dataarray_to_torch_float32(
-    array: xr.DataArray,
+    build_array: Callable[[], xr.DataArray],
     *,
     use_zarr_gpu_decode: bool,
 ) -> tuple[torch.Tensor, str]:
     with _zarr_gpu_decode_context(use_zarr_gpu_decode):
+        # Keep every xarray transformation that can touch backend data inside
+        # the Zarr GPU config scope.
+        array = build_array()
         array_like = array.data
     return _to_torch_float32(array_like), _array_like_type_name(array_like)
 
@@ -248,18 +252,18 @@ class InferenceDataset(Dataset):
         else:
             data_in_ds = data_in_src.data
 
-        if "lev" in data_in_ds.dims:
-            data_in_da = conditional_rearrange(
-                data_in_ds,
-                "window_dim time (variable lev)=var lat lon",
-                concat_dim="var",
-            ).rename({"var": "variable"})
-        else:
-            data_in_da = data_in_ds.to_array().transpose(
-                "window_dim", "time", "variable", "lat", "lon"
-            )
         data_in, backend_type = _materialize_dataarray_to_torch_float32(
-            data_in_da,
+            lambda: (
+                conditional_rearrange(
+                    data_in_ds,
+                    "window_dim time (variable lev)=var lat lon",
+                    concat_dim="var",
+                ).rename({"var": "variable"})
+                if "lev" in data_in_ds.dims
+                else data_in_ds.to_array().transpose(
+                    "window_dim", "time", "variable", "lat", "lon"
+                )
+            ),
             use_zarr_gpu_decode=self.use_zarr_gpu_decode,
         )
         self._maybe_log_gpu_decode_materialization(
@@ -291,11 +295,10 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_da = data_in_boundary_ds.to_array().transpose(
-            "window_dim", "time", "variable", "lat", "lon"
-        )
         data_in_boundary, backend_type = _materialize_dataarray_to_torch_float32(
-            data_in_boundary_da,
+            lambda: data_in_boundary_ds.to_array().transpose(
+                "window_dim", "time", "variable", "lat", "lon"
+            ),
             use_zarr_gpu_decode=self.use_zarr_gpu_decode,
         )
         self._maybe_log_gpu_decode_materialization(
@@ -327,18 +330,18 @@ class InferenceDataset(Dataset):
             label_ds = label_src.normalize()
         else:
             label_ds = label_src.data
-        if "lev" in label_ds.dims:
-            label_da = conditional_rearrange(
-                label_ds,
-                "window_dim time (variable lev)=var lat lon",
-                concat_dim="var",
-            ).rename({"var": "variable"})
-        else:
-            label_da = label_ds.to_array().transpose(
-                "window_dim", "time", "variable", "lat", "lon"
-            )
         label, backend_type = _materialize_dataarray_to_torch_float32(
-            label_da,
+            lambda: (
+                conditional_rearrange(
+                    label_ds,
+                    "window_dim time (variable lev)=var lat lon",
+                    concat_dim="var",
+                ).rename({"var": "variable"})
+                if "lev" in label_ds.dims
+                else label_ds.to_array().transpose(
+                    "window_dim", "time", "variable", "lat", "lon"
+                )
+            ),
             use_zarr_gpu_decode=self.use_zarr_gpu_decode,
         )
         self._maybe_log_gpu_decode_materialization(
@@ -626,7 +629,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             if "lev" in prognostic_selected[0].dims:
                 prognostics = [
                     _materialize_dataarray_to_torch_float32(
-                        conditional_rearrange(
+                        lambda selected=selected: conditional_rearrange(
                             selected,
                             "time (variable lev)=var lat lon",
                             concat_dim="var",
@@ -638,13 +641,15 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             else:
                 prognostics = [
                     _materialize_dataarray_to_torch_float32(
-                        selected.to_array().transpose("time", "variable", "lat", "lon"),
+                        lambda selected=selected: selected.to_array().transpose(
+                            "time", "variable", "lat", "lon"
+                        ),
                         use_zarr_gpu_decode=self.use_zarr_gpu_decode,
                     )
                     for selected in prognostic_selected
                 ]
             boundary, boundary_backend = _materialize_dataarray_to_torch_float32(
-                boundary_selected.to_array().transpose(
+                lambda: boundary_selected.to_array().transpose(
                     "time", "variable", "lat", "lon"
                 ),
                 use_zarr_gpu_decode=self.use_zarr_gpu_decode,

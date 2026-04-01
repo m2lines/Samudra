@@ -51,6 +51,42 @@ def test_dataarray_to_torch_float32_handles_dask_arrays():
     assert torch.equal(tensor, torch.tensor(data, dtype=torch.float32))
 
 
+def test_materialize_dataarray_to_torch_float32_builds_array_inside_gpu_context(
+    monkeypatch,
+):
+    ds = xr.Dataset({"foo": (("x", "y"), np.arange(6, dtype=np.float32).reshape(2, 3))})
+    entered = False
+    to_array_inside_context = False
+    original_to_array = xr.Dataset.to_array
+
+    @contextlib.contextmanager
+    def fake_gpu_context(use_gpu_zarr_decode: bool):
+        nonlocal entered
+        assert use_gpu_zarr_decode is True
+        entered = True
+        try:
+            yield
+        finally:
+            entered = False
+
+    def wrapped_to_array(self, *args, **kwargs):
+        nonlocal to_array_inside_context
+        to_array_inside_context = entered
+        return original_to_array(self, *args, **kwargs)
+
+    monkeypatch.setattr(datasets_mod, "_zarr_gpu_decode_context", fake_gpu_context)
+    monkeypatch.setattr(xr.Dataset, "to_array", wrapped_to_array)
+
+    tensor, backend_type = datasets_mod._materialize_dataarray_to_torch_float32(
+        lambda: ds.to_array(),
+        use_zarr_gpu_decode=True,
+    )
+
+    assert to_array_inside_context is True
+    assert backend_type == "numpy.ndarray"
+    assert torch.equal(tensor, torch.tensor(ds["foo"].values).unsqueeze(0))
+
+
 @pytest.fixture
 def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoader]:
     cfg, trainer = trainer_pair

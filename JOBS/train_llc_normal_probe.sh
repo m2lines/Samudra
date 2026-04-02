@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH -p pi_abodner
-#SBATCH --job-name=2026-04-02-CONT:[2026-03-29-samudra_llc:Agulhas_patch:group_norm=32(divisible_channels=[256,384,512,512]),pred_resid=false,1yr,temporal_stride=6-11154413.out][temporal_stride=3,steps=2_ON_FULL_LLC_DATA]-WITH_num_workers=2_per_gpu
+#SBATCH -p mit_normal_gpu
+#SBATCH --job-name=2026-04-02:samudra_llc:Agulhas_patch:temporal_stride=24_probe
 #SBATCH -N 1
-#SBATCH --mem=400GB
+#SBATCH --mem=100GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=30
-#SBATCH --gres=gpu:2
-#SBATCH --time=03-23:00:00
+#SBATCH --cpus-per-task=15
+#SBATCH -G h200:1
+#SBATCH --time=02:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -31,7 +31,7 @@ export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 export NCCL_DEBUG=INFO
 
 # DDP params
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-4}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
 PIN_MEM="${PIN_MEM:-false}"
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
 DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-60}"
@@ -49,9 +49,9 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-true}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 
-EPOCHS="${EPOCHS:-2}"
+EPOCHS="${EPOCHS:-1}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
-GPUS="${GPUS:-2}"
+GPUS="${GPUS:-1}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
@@ -102,7 +102,7 @@ trap 'forward_signal INT' INT
 
 uv run python -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
-  -m ocean_emulators.train configs/samudra_llc/train.yaml \
+  -m ocean_emulators.train configs/samudra_llc/train_normal.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   --gradient_accumulation_steps 4 \

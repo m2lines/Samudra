@@ -323,6 +323,31 @@ class Trainer:
                 self.start_batch_in_epoch = 0
             else:
                 self.load_checkpoint(cfg.resume_ckpt_path)
+                if cfg.reset_optimizer_on_resume or cfg.reset_scheduler_on_resume:
+                    if cfg.reset_optimizer_on_resume:
+                        self.optimizer = torch.optim.Adam(
+                            self.model.parameters(), lr=cfg.learning_rate
+                        )
+                        logger.info(
+                            "Reset optimizer state on resume (lr=%s).",
+                            cfg.learning_rate,
+                        )
+                    # Scheduler is tied to the optimizer; rebuild if either reset is requested.
+                    if cfg.scheduler:
+                        self.scheduler = cfg.scheduler.build(
+                            self.optimizer, cfg.epochs
+                        )
+                        logger.info("Reset scheduler state on resume.")
+                    else:
+                        self.scheduler = None
+                        if cfg.reset_scheduler_on_resume:
+                            logger.info(
+                                "No scheduler configured; skipping scheduler reset."
+                            )
+                    logger.info(
+                        "Optimizer LR after reset: %s",
+                        self.optimizer.param_groups[-1]["lr"],
+                    )
                 if not self.wandb_logger.enabled and is_main_process():
                     warnings.warn(
                         "This checkpoint had wandb enabled, \

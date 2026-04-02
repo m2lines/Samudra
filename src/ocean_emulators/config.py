@@ -899,6 +899,20 @@ class TrainConfig(TopLevelConfig):
     loss: Loss = "mse"
     finetune: bool = False
     resume_ckpt_path: str | None = None
+    reset_optimizer_on_resume: bool = Field(
+        default=False,
+        description=(
+            "When resuming from a checkpoint, reinitialize the optimizer state "
+            "instead of loading it from the checkpoint."
+        ),
+    )
+    reset_scheduler_on_resume: bool = Field(
+        default=False,
+        description=(
+            "When resuming from a checkpoint, reinitialize the scheduler state "
+            "instead of loading it from the checkpoint."
+        ),
+    )
     debug: bool = False
     test_using_ema: bool = True
     ema_decay: float = 0.999

@@ -46,5 +46,5 @@ experiment:
   prognostic_vars_key: all #single1
   boundary_vars_key: all
 
-data: !include ../data/llc.yaml
-model: !include model.yaml
+data: !include ../data/llc_normal.yaml
+model: !include model_normal.yaml

@@ -19,16 +19,20 @@
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
 #   export GHCR_TOKEN=...
+#   export FORCE_PULL=1     # remove cached SIF for IMAGE_REF and repull
+#
+# Optional Nsight Systems profiling inside the container:
+#   export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=none"
+#   # If NSYS_ARGS omits -o/--output, reports are written under:
+#   #   ${OUTPUT_BASE}/${NAME}/nsys/
 
 #SBATCH --job-name=oe-train
 #SBATCH --output=slurm-%j.out
-#SBATCH --account=torch_pr_347_courant
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 # For 8-GPU runs on gr102, request full-node CPUs and QOS-capped memory.
 #SBATCH --cpus-per-task=128
 #SBATCH --mem=1400G
-#SBATCH --gres=gpu:rtx6000:8
 #SBATCH --time=02:00:00
 
 set -euo pipefail
@@ -61,6 +65,8 @@ ARGS_FILE="${ARGS_FILE:-}"
 PRE_TRAIN_DIAGNOSTICS="${PRE_TRAIN_DIAGNOSTICS:-0}"
 PRE_TRAIN_ZARR_PROBE_PATH="${PRE_TRAIN_ZARR_PROBE_PATH:-}"
 PRE_TRAIN_ZARR_PROBE_VAR="${PRE_TRAIN_ZARR_PROBE_VAR:-}"
+NSYS_ARGS="${NSYS_ARGS:-}"
+FORCE_PULL="${FORCE_PULL:-0}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -105,6 +111,7 @@ if [[ -e "${RUN_DIR}" ]]; then
   echo "Pick a unique NAME_SUFFIX." >&2
   exit 4
 fi
+NSYS_OUTPUT_DIR="${RUN_DIR}/nsys"
 
 # W&B mode defaults: online if key provided, else disabled.
 WANDB_MODE="${WANDB_MODE:-}"
@@ -162,6 +169,16 @@ echo "Outputs:    ${OUTPUT_BASE}"
 echo "W&B mode:   ${WANDB_MODE}"
 echo "Image ref:  ${IMAGE_REF}"
 echo "SIF path:   ${SIF_PATH}"
+echo "Force pull: ${FORCE_PULL}"
+if [[ -n "${NSYS_ARGS}" ]]; then
+  echo "NSYS args:  ${NSYS_ARGS}"
+  echo "NSYS out:   ${NSYS_OUTPUT_DIR}"
+fi
+
+if [[ "${FORCE_PULL}" == "1" ]]; then
+  echo "FORCE_PULL=1; removing cached SIF before pull."
+  rm -f "${SIF_PATH}"
+fi
 
 if [[ ! -s "${SIF_PATH}" ]]; then
   echo "SIF not found locally. Pulling from registry..."
@@ -237,6 +254,9 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
+if [[ -n "${NSYS_ARGS}" ]]; then
+  mkdir -p "${NSYS_OUTPUT_DIR}"
+fi
 
 export OE_CONFIG_IN_CONTAINER="${CONFIG_IN_CONTAINER}"
 export OE_TRAIN_NAME="${NAME}"
@@ -247,6 +267,8 @@ export OE_GPUS_PER_NODE="${GPUS_PER_NODE}"
 export OE_PRE_TRAIN_DIAGNOSTICS="${PRE_TRAIN_DIAGNOSTICS}"
 export OE_PRE_TRAIN_ZARR_PROBE_PATH="${PRE_TRAIN_ZARR_PROBE_PATH}"
 export OE_PRE_TRAIN_ZARR_PROBE_VAR="${PRE_TRAIN_ZARR_PROBE_VAR}"
+export OE_NSYS_ARGS="${NSYS_ARGS}"
+export OE_NSYS_OUTPUT_DIR="${NSYS_OUTPUT_DIR}"
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
@@ -264,6 +286,30 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo "ERROR: config not found inside container: ${OE_CONFIG_IN_CONTAINER}" >&2
         echo "Hint: rebuild/pull a container tag that includes /workspace/configs." >&2
         exit 2
+      fi
+      profiler_cmd=()
+      if [[ -n "${OE_NSYS_ARGS}" ]]; then
+        if ! command -v nsys >/dev/null 2>&1; then
+          echo "ERROR: NSYS_ARGS was set, but nsys is not available inside the container PATH." >&2
+          exit 3
+        fi
+        read -r -a nsys_args <<< "${OE_NSYS_ARGS}"
+        has_nsys_output=0
+        for arg in "${nsys_args[@]}"; do
+          case "${arg}" in
+            -o|--output|-o?*|--output=*)
+              has_nsys_output=1
+              break
+              ;;
+          esac
+        done
+        profiler_cmd=(nsys profile "${nsys_args[@]}")
+        if [[ "${has_nsys_output}" == "0" ]]; then
+          profiler_cmd+=(
+            -o "${OE_NSYS_OUTPUT_DIR}/nsys-node${SLURM_NODEID:-0}-proc${SLURM_PROCID:-0}"
+          )
+        fi
+        echo "Nsight Systems profiling enabled on proc ${SLURM_PROCID:-unset}."
       fi
       if [[ "${OE_PRE_TRAIN_DIAGNOSTICS}" == "1" && "${SLURM_PROCID}" == "0" ]]; then
         echo "===== Pre-train diagnostics start ====="
@@ -391,7 +437,7 @@ if probe_path:
 PY
         echo "===== Pre-train diagnostics end ====="
       fi
-      exec /workspace/.venv/bin/python -m torch.distributed.run \
+      exec "${profiler_cmd[@]}" /workspace/.venv/bin/python -m torch.distributed.run \
         --nnodes='"${SLURM_NNODES}"' \
         --nproc_per_node="${OE_GPUS_PER_NODE}" \
         --master_addr='"${MASTER_ADDR}"' \
@@ -403,5 +449,8 @@ PY
         --experiment.base_output_dir="${OE_OUTPUT_BASE}" \
         --experiment.wandb.mode="${OE_WANDB_MODE}" \
         --backend="nccl" \
+        --data.sources="[{\"data_location\":\"/orcd/home/002/jrusak/orcd/pool/data/LLC4320v3\",\"data_means_location\":\"/orcd/data/abodner/002/cody/LLC_means_stds/var_96_LLC_means.zarr\",\"data_stds_location\":\"/orcd/data/abodner/002/cody/LLC_means_stds/var_96_LLC_stds.zarr\"}]" \
+        --experiment.prognostic_vars_key=single_1 \
+        --experiment.boundary_vars_key=single_1 \
         "$@"
     ' bash "${EXTRA_TRAIN_ARGS[@]}"

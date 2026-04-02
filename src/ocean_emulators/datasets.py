@@ -110,7 +110,7 @@ class InferenceDataset(Dataset):
             self.wet_surface = self.wet_surface.pin_memory()
             self.wet_label = self.wet_label.pin_memory()
 
-        self.ctx = GridContext(self.wet_label, self.input_res)
+        self.ctx = GridContext(self.wet_label, self.input_res, self.input_res)
 
     def __len__(self):
         return self.size
@@ -503,8 +503,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.wet_surface: GridMask = src.masks.boundary
 
         self.ctx = GridContext(
-            self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
-            self.prognostic_srcs[0].resolution,
+            label_mask=self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
+            input_resolution_cpu=self.prognostic_srcs[0].resolution,
+            output_resolution_cpu=self.prognostic_srcs[-1].resolution,
         )
 
         self.size: int = (

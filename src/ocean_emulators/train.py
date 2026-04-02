@@ -146,6 +146,10 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
+        if self.train_schedule == "mix" and cfg.model.pred_residuals:
+            raise ValueError(
+                "Residual predictions on a mixed multiscale training schedule is not currently supported."
+            )
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:

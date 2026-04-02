@@ -91,6 +91,9 @@ class FOMO(BaseModel):
                 fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
             fts = self.encoder(fts, ctx.input_resolution_cpu)
             fts = self.processor(fts)
+
+            # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use
+            #  residual predictions (`self.pred_residuals` must be `False`).
             fts = self.decoder(fts, ctx.output_resolution_cpu)
 
         # Convert back to float32

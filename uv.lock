@@ -2832,7 +2832,7 @@ requires-dist = [
     { name = "xarray", extras = ["io"], specifier = ">=2026.2" },
     { name = "xarray-einstats", extras = ["einops"], specifier = ">=0.8" },
     { name = "xesmf", specifier = ">=0.8.10" },
-    { name = "zarr", git = "https://github.com/Open-Athena/zarr-python.git?rev=96e2f752b9483ac36cc891eb7390f8af9556c0d9" },
+    { name = "zarr", git = "https://github.com/Open-Athena/zarr-python.git?rev=80477e01d527551d1a85ea776bf5a852365e5193" },
 ]
 provides-extras = ["cuda"]
 
@@ -5104,8 +5104,8 @@ wheels = [
 
 [[package]]
 name = "zarr"
-version = "3.1.1.dev2775+g96e2f752b.d20260312"
-source = { git = "https://github.com/Open-Athena/zarr-python.git?rev=96e2f752b9483ac36cc891eb7390f8af9556c0d9#96e2f752b9483ac36cc891eb7390f8af9556c0d9" }
+version = "3.1.1.dev2777+g80477e01d"
+source = { git = "https://github.com/Open-Athena/zarr-python.git?rev=80477e01d527551d1a85ea776bf5a852365e5193#80477e01d527551d1a85ea776bf5a852365e5193" }
 dependencies = [
     { name = "donfig" },
     { name = "google-crc32c" },

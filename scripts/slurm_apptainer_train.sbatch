@@ -244,11 +244,44 @@ fi
 # Bind mounts.
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
 mkdir -p "${DATA_CACHE_DIR}"
+HOST_SSL_CERT_FILE="${HOST_SSL_CERT_FILE:-${SSL_CERT_FILE:-}}"
+if [[ -z "${HOST_SSL_CERT_FILE}" ]]; then
+  for candidate in \
+    /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    /etc/pki/tls/certs/ca-bundle.crt \
+    /etc/ssl/certs/ca-certificates.crt \
+    /etc/ssl/cert.pem; do
+    if [[ -f "${candidate}" ]]; then
+      HOST_SSL_CERT_FILE="${candidate}"
+      break
+    fi
+  done
+fi
+if [[ -n "${HOST_SSL_CERT_FILE}" ]]; then
+  resolved_host_ssl_cert_file="$(readlink -f "${HOST_SSL_CERT_FILE}" 2>/dev/null || true)"
+  if [[ -n "${resolved_host_ssl_cert_file}" ]] && [[ -f "${resolved_host_ssl_cert_file}" ]]; then
+    HOST_SSL_CERT_FILE="${resolved_host_ssl_cert_file}"
+  fi
+fi
+if [[ -n "${HOST_SSL_CERT_FILE}" ]] && [[ ! -f "${HOST_SSL_CERT_FILE}" ]]; then
+  echo "WARNING: host SSL_CERT_FILE does not exist: ${HOST_SSL_CERT_FILE}" >&2
+  HOST_SSL_CERT_FILE=""
+fi
+CONTAINER_SSL_CERT_FILE=""
+if [[ -n "${HOST_SSL_CERT_FILE}" ]]; then
+  CONTAINER_SSL_CERT_FILE="/run/host-ca-certificates.pem"
+  echo "Host CA bundle: ${HOST_SSL_CERT_FILE} -> ${CONTAINER_SSL_CERT_FILE}"
+else
+  echo "Host CA bundle: not found; falling back to container defaults/certifi"
+fi
 binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
+if [[ -n "${CONTAINER_SSL_CERT_FILE}" ]]; then
+  binds+=("${HOST_SSL_CERT_FILE}:${CONTAINER_SSL_CERT_FILE}:ro")
+fi
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
 # Create the run directory after preflight validation so early failures are
@@ -269,6 +302,7 @@ export OE_PRE_TRAIN_ZARR_PROBE_PATH="${PRE_TRAIN_ZARR_PROBE_PATH}"
 export OE_PRE_TRAIN_ZARR_PROBE_VAR="${PRE_TRAIN_ZARR_PROBE_VAR}"
 export OE_NSYS_ARGS="${NSYS_ARGS}"
 export OE_NSYS_OUTPUT_DIR="${NSYS_OUTPUT_DIR}"
+export OE_SSL_CERT_FILE_IN_CONTAINER="${CONTAINER_SSL_CERT_FILE}"
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
@@ -282,6 +316,49 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo "ERROR: /workspace/.venv/bin/python not found inside container" >&2
         exit 1
       fi
+      configure_ssl_env() {
+        local cert_file=""
+        local candidate
+        if [[ -n "${OE_SSL_CERT_FILE_IN_CONTAINER:-}" ]] \
+          && [[ -f "${OE_SSL_CERT_FILE_IN_CONTAINER}" ]]; then
+          cert_file="${OE_SSL_CERT_FILE_IN_CONTAINER}"
+        else
+          for candidate in \
+            /etc/ssl/certs/ca-certificates.crt \
+            /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+            /etc/pki/tls/certs/ca-bundle.crt \
+            /etc/ssl/cert.pem; do
+            if [[ -f "${candidate}" ]]; then
+              cert_file="${candidate}"
+              break
+            fi
+          done
+        fi
+        if [[ -z "${cert_file}" ]]; then
+          cert_file="$(
+            /workspace/.venv/bin/python -c "import certifi; print(certifi.where())" \
+              2>/dev/null || true
+          )"
+        fi
+        if [[ -n "${cert_file}" ]] && [[ -f "${cert_file}" ]]; then
+          export SSL_CERT_FILE="${cert_file}"
+          export REQUESTS_CA_BUNDLE="${cert_file}"
+          export CURL_CA_BUNDLE="${cert_file}"
+          if [[ -d /etc/ssl/certs ]]; then
+            export SSL_CERT_DIR=/etc/ssl/certs
+          elif [[ -d /etc/pki/tls/certs ]]; then
+            export SSL_CERT_DIR=/etc/pki/tls/certs
+          else
+            unset SSL_CERT_DIR
+          fi
+          export OE_ACTIVE_SSL_CERT_FILE="${cert_file}"
+        else
+          unset SSL_CERT_FILE REQUESTS_CA_BUNDLE CURL_CA_BUNDLE SSL_CERT_DIR
+          export OE_ACTIVE_SSL_CERT_FILE=""
+          echo "WARNING: no CA bundle was found inside the container." >&2
+        fi
+      }
+      configure_ssl_env
       if [[ ! -f "${OE_CONFIG_IN_CONTAINER}" ]]; then
         echo "ERROR: config not found inside container: ${OE_CONFIG_IN_CONTAINER}" >&2
         echo "Hint: rebuild/pull a container tag that includes /workspace/configs." >&2
@@ -321,6 +398,13 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo "slurm_procid: ${SLURM_PROCID:-unset}"
         echo "cuda_visible_devices: ${CUDA_VISIBLE_DEVICES:-unset}"
         echo "data_root: ${OE_DATA_ROOT}"
+        echo "ssl_cert_file: ${OE_ACTIVE_SSL_CERT_FILE:-unset}"
+        echo "ssl_cert_dir: ${SSL_CERT_DIR:-unset}"
+        echo "requests_ca_bundle: ${REQUESTS_CA_BUNDLE:-unset}"
+        if [[ -n "${OE_ACTIVE_SSL_CERT_FILE:-}" ]]; then
+          echo "+ ls -l ${OE_ACTIVE_SSL_CERT_FILE}"
+          ls -l "${OE_ACTIVE_SSL_CERT_FILE}" || true
+        fi
         if command -v nvidia-smi >/dev/null 2>&1; then
           echo "+ nvidia-smi -L"
           nvidia-smi -L || true

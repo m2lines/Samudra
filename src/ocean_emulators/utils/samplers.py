@@ -274,23 +274,24 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         for sampler in self._inner._samplers:
             group_chunks = list(itertools.batched(sampler, self.num_replicas))
             if group_chunks and len(group_chunks[-1]) < self.num_replicas:
-                # Always pad incomplete chunks so every chunk is homogeneous
-                # and full-sized. Without padding, an incomplete chunk would
-                # break the stride alignment for all subsequent chunks.
-                # Dropping here would erase entire groups that have fewer
-                # batches than num_replicas; global trimming below handles
-                # drop_last instead.
-                last = list(group_chunks[-1])
-                # Sample from all of this group's batches (not just the
-                # tail) so padding doesn't systematically over-weight
-                # the same examples every epoch.
-                all_group_batches = list(itertools.chain.from_iterable(group_chunks))
-                while len(last) < self.num_replicas:
-                    if self.shuffle:
-                        last.append(rng.choice(all_group_batches))
-                    else:
-                        last.append(all_group_batches[-1])
-                group_chunks[-1] = tuple(last)
+                if self.drop_last:
+                    group_chunks.pop()
+                else:
+                    # Pad the incomplete chunk with duplicates from the same
+                    # group so every chunk is homogeneous and full-sized.
+                    last = list(group_chunks[-1])
+                    # Sample from all of this group's batches (not just the
+                    # tail) so padding doesn't systematically over-weight
+                    # the same examples every epoch.
+                    all_group_batches = list(
+                        itertools.chain.from_iterable(group_chunks)
+                    )
+                    while len(last) < self.num_replicas:
+                        if self.shuffle:
+                            last.append(rng.choice(all_group_batches))
+                        else:
+                            last.append(all_group_batches[-1])
+                        group_chunks[-1] = tuple(last)
             if self.shuffle:
                 rng.shuffle(group_chunks)
             chunks.extend(group_chunks)

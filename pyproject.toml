@@ -44,7 +44,7 @@ dependencies = [
   "xarray[io]>=2026.2",
   "xarray-einstats[einops]>=0.8",
   "xesmf>=0.8.10",
-  "zarr @ git+https://github.com/Open-Athena/zarr-python.git@80477e01d527551d1a85ea776bf5a852365e5193",
+  "zarr @ git+https://github.com/Open-Athena/zarr-python.git@b8ae2078315c1acf7e7e22935bf3cab87c9435bb",
 ]
 optional-dependencies.cuda = [
   "flash-attn>=2.7.4.post1,<3",

@@ -291,7 +291,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
                             last.append(rng.choice(all_group_batches))
                         else:
                             last.append(all_group_batches[-1])
-                        group_chunks[-1] = tuple(last)
+                    group_chunks[-1] = tuple(last)
             if self.shuffle:
                 rng.shuffle(group_chunks)
             chunks.extend(group_chunks)
@@ -325,9 +325,11 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         n = self.num_replicas
         total = 0
         for sampler in self._inner._samplers:
-            # Per-group chunks are always padded to num_replicas (never
-            # dropped), so use ceil here regardless of drop_last.
-            total += math.ceil(len(sampler) / n) * n
+            group_len = len(sampler)
+            if self.drop_last:
+                total += (group_len // n) * n
+            else:
+                total += math.ceil(group_len / n) * n
         if self.drop_last:
             return total // n
         else:

@@ -30,8 +30,9 @@ export TORCH_NCCL_DUMP_ON_TIMEOUT=1
 export TORCH_NCCL_TRACE_BUFFER_SIZE=1048576
 export NCCL_DEBUG=INFO
 
-# GPU zarr decode requires num_workers=0 in this branch
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-0}"
+# GPU zarr decode uses structured data.loading config in this branch
+KVIKIO_TASK_SIZE="${KVIKIO_TASK_SIZE:-67108864}"
+KVIKIO_NUM_THREADS="${KVIKIO_NUM_THREADS:-8}"
 PIN_MEM="${PIN_MEM:-false}"
 LLC_FACE="${LLC_FACE:-1}"
 LLC_I_START="${LLC_I_START:-0}"
@@ -49,7 +50,7 @@ GPUS="${GPUS:-2}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
-echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
+echo "using kvikio task_size=${KVIKIO_TASK_SIZE} num_threads=${KVIKIO_NUM_THREADS} and ${PIN_MEM} pin memory"
 echo "using LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 
 # Optional resume behavior:
@@ -90,7 +91,8 @@ uv run python -m torch.distributed.run \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   --gradient_accumulation_steps 4 \
-  --data.num_workers "${DATA_NUM_WORKERS}" \
+  --data.loading.kvikio_task_size "${KVIKIO_TASK_SIZE}" \
+  --data.loading.kvikio_num_threads "${KVIKIO_NUM_THREADS}" \
   --pin_mem "${PIN_MEM}" \
   --data.llc_face "${LLC_FACE}" \
   --data.llc_i_start "${LLC_I_START}" \

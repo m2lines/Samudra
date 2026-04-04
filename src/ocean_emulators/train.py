@@ -136,8 +136,15 @@ class Trainer:
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
 
+        cpu_loading = (
+            cfg.data.loading
+            if isinstance(cfg.data.loading, config.CpuDataLoadingConfig)
+            else None
+        )
+        data_num_workers = cpu_loading.num_workers if cpu_loading is not None else 0
+
         self.mp_context: BaseContext | None = None
-        if cfg.data.num_workers > 0:
+        if data_num_workers > 0:
             if self.data_container.supports_fork:
                 self.mp_context = multiprocessing.get_context("fork")
             else:
@@ -300,7 +307,7 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.num_workers: int = cfg.data.num_workers
+        self.num_workers: int = data_num_workers
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
         self.val_time = cfg.val_time

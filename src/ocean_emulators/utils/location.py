@@ -32,20 +32,25 @@ def _zarr_gpu_decode_context(
         import zarr
     except ModuleNotFoundError as exc:
         raise RuntimeError(
-            "data.zarr_gpu_decode=true requires the zarr package to be installed."
+            "data.loading.type=gpu requires the zarr package to be installed."
         ) from exc
 
     config = getattr(zarr, "config", None)
     enable_gpu = getattr(config, "enable_gpu", None)
     if enable_gpu is None:
         raise RuntimeError(
-            "data.zarr_gpu_decode=true requires a zarr build that provides "
+            "data.loading.type=gpu requires a zarr build that provides "
             "`zarr.config.enable_gpu()`."
         )
     return enable_gpu()
 
 
-def _local_gds_store(path: Path) -> Any | None:
+def _local_gds_store(
+    path: Path,
+    *,
+    kvikio_task_size: int | None = None,
+    kvikio_num_threads: int | None = None,
+) -> Any | None:
     try:
         import kvikio.zarr as kvikio_zarr  # type: ignore[import-not-found,import-untyped]
     except ModuleNotFoundError:
@@ -56,7 +61,10 @@ def _local_gds_store(path: Path) -> Any | None:
         return None
 
     try:
-        _configure_kvikio_for_gpu_decode()
+        _configure_kvikio_for_gpu_decode(
+            kvikio_task_size=kvikio_task_size,
+            kvikio_num_threads=kvikio_num_threads,
+        )
         return kvikio_zarr.GDSStore(str(path))
     except Exception as exc:
         logger.warning(
@@ -68,17 +76,27 @@ def _local_gds_store(path: Path) -> Any | None:
         return None
 
 
-def _configure_kvikio_for_gpu_decode() -> None:
+def _configure_kvikio_for_gpu_decode(
+    *,
+    kvikio_task_size: int | None = None,
+    kvikio_num_threads: int | None = None,
+) -> None:
     try:
         import kvikio.defaults as kvikio_defaults  # type: ignore[import-not-found,import-untyped]
     except ModuleNotFoundError:
         return
 
-    task_size = int(
-        os.environ.get("OE_KVIKIO_TASK_SIZE", str(_DEFAULT_KVIKIO_TASK_SIZE))
+    task_size = (
+        kvikio_task_size
+        if kvikio_task_size is not None
+        else int(os.environ.get("OE_KVIKIO_TASK_SIZE", str(_DEFAULT_KVIKIO_TASK_SIZE)))
     )
-    num_threads = int(
-        os.environ.get("OE_KVIKIO_NUM_THREADS", str(_DEFAULT_KVIKIO_NUM_THREADS))
+    num_threads = (
+        kvikio_num_threads
+        if kvikio_num_threads is not None
+        else int(
+            os.environ.get("OE_KVIKIO_NUM_THREADS", str(_DEFAULT_KVIKIO_NUM_THREADS))
+        )
     )
     if task_size <= 0:
         raise ValueError(f"OE_KVIKIO_TASK_SIZE must be > 0, got {task_size}.")
@@ -124,7 +142,7 @@ def _open_with_optional_gpu_decode(
             f"{location} with xarray. "
             "This usually means xarray/zarr GPU-buffer integration is incompatible "
             "with the current store or environment. "
-            "Set data.zarr_gpu_decode=false to continue on the CPU path."
+            "Set data.loading.type=cpu to continue on the CPU path."
         ) from exc
 
 
@@ -161,6 +179,8 @@ class ResolvedLocation(ABC):
         chunks: dict[str, int] | None = None,
         *,
         use_gpu_zarr_decode: bool = False,
+        kvikio_task_size: int | None = None,
+        kvikio_num_threads: int | None = None,
     ) -> xr.Dataset:
         pass
 
@@ -198,7 +218,10 @@ class S3Location(ResolvedLocation, BaseModel):
         chunks: dict[str, int] | None = None,
         *,
         use_gpu_zarr_decode: bool = False,
+        kvikio_task_size: int | None = None,
+        kvikio_num_threads: int | None = None,
     ) -> xr.Dataset:
+        del kvikio_task_size, kvikio_num_threads
         # TODO(jder): could consider passing credentials here
         # rather than relying on the environment
         return _open_with_optional_gpu_decode(
@@ -265,13 +288,22 @@ class LocalLocation(ResolvedLocation, BaseModel):
         chunks: dict[str, int] | None = None,
         *,
         use_gpu_zarr_decode: bool = False,
+        kvikio_task_size: int | None = None,
+        kvikio_num_threads: int | None = None,
     ) -> xr.Dataset:
         engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"
         if engine == "netcdf4":
+            del kvikio_task_size, kvikio_num_threads
             return xr.open_dataset(self.path, engine=engine, chunks=chunks)
 
         path_or_store: Path | Any = self.path
-        if use_gpu_zarr_decode and (gds_store := _local_gds_store(self.path)):
+        if use_gpu_zarr_decode and (
+            gds_store := _local_gds_store(
+                self.path,
+                kvikio_task_size=kvikio_task_size,
+                kvikio_num_threads=kvikio_num_threads,
+            )
+        ):
             path_or_store = gds_store
 
         return _open_with_optional_gpu_decode(

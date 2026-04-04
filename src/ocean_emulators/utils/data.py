@@ -455,9 +455,16 @@ class DataSource:
         llc_j_start: int = 0,
         llc_j_end: int = 719,
         zarr_gpu_decode: bool = False,
+        kvikio_task_size: int | None = None,
+        kvikio_num_threads: int | None = None,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
-        data = data_location.open(chunks, use_gpu_zarr_decode=zarr_gpu_decode)
+        data = data_location.open(
+            chunks,
+            use_gpu_zarr_decode=zarr_gpu_decode,
+            kvikio_task_size=kvikio_task_size,
+            kvikio_num_threads=kvikio_num_threads,
+        )
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
 

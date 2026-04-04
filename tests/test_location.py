@@ -166,7 +166,11 @@ class TestLocalLocation:
             monkeypatch.setattr(
                 location_mod, "_zarr_gpu_decode_context", fake_gpu_context
             )
-            monkeypatch.setattr(location_mod, "_local_gds_store", lambda _: None)
+            monkeypatch.setattr(
+                location_mod,
+                "_local_gds_store",
+                lambda _, **__: None,
+            )
 
             loc = LocalLocation(path=zarr_path)
             opened_ds = loc.open(use_gpu_zarr_decode=True)
@@ -193,7 +197,7 @@ class TestLocalLocation:
             return xr.Dataset({"temperature": (["x"], [1])})
 
         monkeypatch.setattr(location_mod, "_zarr_gpu_decode_context", fake_gpu_context)
-        monkeypatch.setattr(location_mod, "_local_gds_store", lambda _: None)
+        monkeypatch.setattr(location_mod, "_local_gds_store", lambda _, **__: None)
         monkeypatch.setattr(location_mod.xr, "open_dataset", fake_open_dataset)
 
         loc = LocalLocation(path=Path("/tmp/test.zarr"))
@@ -284,6 +288,48 @@ class TestLocalLocation:
         location_mod._local_gds_store(Path("/tmp/test.zarr"))
 
         assert set_calls == [{"task_size": 128 * 1024 * 1024, "num_threads": 3}]
+
+    def test_local_location_open_passes_configured_kvikio_settings(self, monkeypatch):
+        import ocean_emulators.utils.location as location_mod
+
+        captured: dict[str, object] = {}
+
+        @contextlib.contextmanager
+        def fake_gpu_context(use_gpu_zarr_decode: bool):
+            assert use_gpu_zarr_decode is True
+            yield
+
+        def fake_local_gds_store(
+            path: Path,
+            *,
+            kvikio_task_size: int | None = None,
+            kvikio_num_threads: int | None = None,
+        ) -> None:
+            captured["path"] = path
+            captured["task_size"] = kvikio_task_size
+            captured["num_threads"] = kvikio_num_threads
+            return None
+
+        monkeypatch.setattr(location_mod, "_zarr_gpu_decode_context", fake_gpu_context)
+        monkeypatch.setattr(location_mod, "_local_gds_store", fake_local_gds_store)
+        monkeypatch.setattr(
+            location_mod.xr,
+            "open_dataset",
+            lambda *args, **kwargs: xr.Dataset({"temperature": (["x"], [1])}),
+        )
+
+        loc = LocalLocation(path=Path("/tmp/test.zarr"))
+        loc.open(
+            use_gpu_zarr_decode=True,
+            kvikio_task_size=32 * 1024 * 1024,
+            kvikio_num_threads=5,
+        )
+
+        assert captured == {
+            "path": Path("/tmp/test.zarr"),
+            "task_size": 32 * 1024 * 1024,
+            "num_threads": 5,
+        }
 
 
 class TestS3Location:

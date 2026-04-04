@@ -146,6 +146,23 @@ class DataSourceConfig(BaseConfig):
     )
 
 
+class CpuDataLoadingConfig(BaseConfig):
+    type: Literal["cpu"] = "cpu"
+    num_workers: int = Field(default=4, ge=0)
+
+
+class GpuDataLoadingConfig(BaseConfig):
+    type: Literal["gpu"] = "gpu"
+    kvikio_task_size: int = Field(default=64 * 1024 * 1024, gt=0)
+    kvikio_num_threads: int = Field(default=8, gt=0)
+
+
+DataLoadingConfig = Annotated[
+    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    Field(discriminator="type"),
+]
+
+
 class DataConfig(BaseConfig):
     sources: list[DataSourceConfig] = Field(
         description=(
@@ -155,13 +172,12 @@ class DataConfig(BaseConfig):
         min_length=1,
     )
     static_data_vars: list[str] | None = None
-    num_workers: int = 4
+    loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
-    zarr_gpu_decode: bool = False
     llc_face: int = 1
     llc_i_start: int = 0
     llc_i_end: int = 720
@@ -174,15 +190,11 @@ class DataConfig(BaseConfig):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
-        if self.zarr_gpu_decode and self.num_workers != 0:
-            raise ValueError(
-                "data.zarr_gpu_decode=true requires data.num_workers=0 "
-                "because GPU-backed zarr buffers cannot be passed across "
-                "DataLoader worker processes."
-            )
-
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
+        gpu_loading = (
+            self.loading if isinstance(self.loading, GpuDataLoadingConfig) else None
+        )
 
         def make_source(
             data_location: Location,
@@ -206,7 +218,13 @@ class DataConfig(BaseConfig):
                 llc_i_end=self.llc_i_end,
                 llc_j_start=self.llc_j_start,
                 llc_j_end=self.llc_j_end,
-                zarr_gpu_decode=self.zarr_gpu_decode,
+                zarr_gpu_decode=gpu_loading is not None,
+                kvikio_task_size=(
+                    gpu_loading.kvikio_task_size if gpu_loading is not None else None
+                ),
+                kvikio_num_threads=(
+                    gpu_loading.kvikio_num_threads if gpu_loading is not None else None
+                ),
             )
 
             return data_source, all(

@@ -7,6 +7,7 @@ import torch
 import xarray as xr
 from numcodecs import Blosc  # type: ignore[import-untyped]
 
+from ocean_emulators.config import GpuDataLoadingConfig
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.location import LocalLocation
 from ocean_emulators.utils.multiton import MultitonScope
@@ -117,8 +118,7 @@ def test_local_location_open_with_gpu_decode_reports_xarray_failure():
 def test_tiny_training_gpu_decode_smoke(train_config):
     _require_cuda()
 
-    train_config.data.zarr_gpu_decode = True
-    train_config.data.num_workers = 0
+    train_config.data.loading = GpuDataLoadingConfig()
     train_config.epochs = 1
     train_config.save_freq = 1000
 

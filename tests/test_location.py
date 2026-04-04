@@ -1,6 +1,9 @@
 import contextlib
+import sys
 import tempfile
+import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 import xarray as xr
@@ -199,6 +202,88 @@ class TestLocalLocation:
         assert isinstance(opened_ds, xr.Dataset)
         assert captured_kwargs["decode_cf"] is False
         assert captured_kwargs["create_default_indexes"] is False
+
+    def test_local_gds_store_configures_kvikio_defaults(self, monkeypatch):
+        import ocean_emulators.utils.location as location_mod
+
+        created_paths: list[str] = []
+        set_calls: list[dict[str, int]] = []
+        current = {
+            "task_size": 4 * 1024 * 1024,
+            "num_threads": 1,
+        }
+
+        kvikio_pkg: Any = types.ModuleType("kvikio")
+        kvikio_pkg.__path__ = []  # type: ignore[attr-defined]
+
+        kvikio_zarr: Any = types.ModuleType("kvikio.zarr")
+
+        class FakeGDSStore:
+            def __init__(self, path: str):
+                created_paths.append(path)
+                self.path = path
+
+        kvikio_zarr.GDSStore = FakeGDSStore
+
+        kvikio_defaults: Any = types.ModuleType("kvikio.defaults")
+
+        def fake_get(key: str) -> int:
+            return current[key]
+
+        def fake_set(config: dict[str, int]) -> object:
+            set_calls.append(dict(config))
+            current.update(config)
+            return object()
+
+        kvikio_defaults.get = fake_get
+        kvikio_defaults.set = fake_set
+
+        monkeypatch.setitem(sys.modules, "kvikio", kvikio_pkg)
+        monkeypatch.setitem(sys.modules, "kvikio.zarr", kvikio_zarr)
+        monkeypatch.setitem(sys.modules, "kvikio.defaults", kvikio_defaults)
+        monkeypatch.delenv("OE_KVIKIO_TASK_SIZE", raising=False)
+        monkeypatch.delenv("OE_KVIKIO_NUM_THREADS", raising=False)
+
+        store = location_mod._local_gds_store(Path("/tmp/test.zarr"))
+
+        assert isinstance(store, FakeGDSStore)
+        assert created_paths == ["/tmp/test.zarr"]
+        assert set_calls == [{"task_size": 64 * 1024 * 1024, "num_threads": 8}]
+
+    def test_local_gds_store_honors_kvikio_env_overrides(self, monkeypatch):
+        import ocean_emulators.utils.location as location_mod
+
+        current = {
+            "task_size": 4 * 1024 * 1024,
+            "num_threads": 1,
+        }
+        set_calls: list[dict[str, int]] = []
+
+        kvikio_pkg: Any = types.ModuleType("kvikio")
+        kvikio_pkg.__path__ = []  # type: ignore[attr-defined]
+
+        kvikio_zarr: Any = types.ModuleType("kvikio.zarr")
+        kvikio_zarr.GDSStore = lambda path: path
+
+        kvikio_defaults: Any = types.ModuleType("kvikio.defaults")
+        kvikio_defaults.get = lambda key: current[key]
+
+        def fake_set(config: dict[str, int]) -> object:
+            set_calls.append(dict(config))
+            current.update(config)
+            return object()
+
+        kvikio_defaults.set = fake_set
+
+        monkeypatch.setitem(sys.modules, "kvikio", kvikio_pkg)
+        monkeypatch.setitem(sys.modules, "kvikio.zarr", kvikio_zarr)
+        monkeypatch.setitem(sys.modules, "kvikio.defaults", kvikio_defaults)
+        monkeypatch.setenv("OE_KVIKIO_TASK_SIZE", str(128 * 1024 * 1024))
+        monkeypatch.setenv("OE_KVIKIO_NUM_THREADS", "3")
+
+        location_mod._local_gds_store(Path("/tmp/test.zarr"))
+
+        assert set_calls == [{"task_size": 128 * 1024 * 1024, "num_threads": 3}]
 
 
 class TestS3Location:

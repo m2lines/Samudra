@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import os
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
@@ -16,6 +17,9 @@ from pydantic import (
 )
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_KVIKIO_TASK_SIZE = 64 * 1024 * 1024
+_DEFAULT_KVIKIO_NUM_THREADS = 8
 
 
 def _zarr_gpu_decode_context(
@@ -52,6 +56,7 @@ def _local_gds_store(path: Path) -> Any | None:
         return None
 
     try:
+        _configure_kvikio_for_gpu_decode()
         return kvikio_zarr.GDSStore(str(path))
     except Exception as exc:
         logger.warning(
@@ -61,6 +66,44 @@ def _local_gds_store(path: Path) -> Any | None:
             exc,
         )
         return None
+
+
+def _configure_kvikio_for_gpu_decode() -> None:
+    try:
+        import kvikio.defaults as kvikio_defaults  # type: ignore[import-not-found,import-untyped]
+    except ModuleNotFoundError:
+        return
+
+    task_size = int(
+        os.environ.get("OE_KVIKIO_TASK_SIZE", str(_DEFAULT_KVIKIO_TASK_SIZE))
+    )
+    num_threads = int(
+        os.environ.get("OE_KVIKIO_NUM_THREADS", str(_DEFAULT_KVIKIO_NUM_THREADS))
+    )
+    if task_size <= 0:
+        raise ValueError(f"OE_KVIKIO_TASK_SIZE must be > 0, got {task_size}.")
+    if num_threads <= 0:
+        raise ValueError(f"OE_KVIKIO_NUM_THREADS must be > 0, got {num_threads}.")
+
+    current_task_size = kvikio_defaults.get("task_size")
+    current_num_threads = kvikio_defaults.get("num_threads")
+    if current_task_size == task_size and current_num_threads == num_threads:
+        return
+
+    kvikio_defaults.set(
+        {
+            "task_size": task_size,
+            "num_threads": num_threads,
+        }
+    )
+    logger.info(
+        "Configured kvikIO for GPU zarr decode: task_size=%d num_threads=%d "
+        "(was task_size=%d num_threads=%d)",
+        task_size,
+        num_threads,
+        current_task_size,
+        current_num_threads,
+    )
 
 
 def _open_with_optional_gpu_decode(

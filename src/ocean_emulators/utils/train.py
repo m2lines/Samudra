@@ -57,10 +57,10 @@ class CheckpointPaths:
 
     @property
     def latest_batch_checkpoint_path(self) -> Path:
-        return self.checkpoint_dir / "ckpt_batch.pt"
+        return self.checkpoint_dir / "ckpt_emergency.pt"
 
     def latest_batch_checkpoint_path_for_rank(self, rank: int) -> Path:
-        return self.checkpoint_dir / f"ckpt_batch_rank{rank}.pt"
+        return self.checkpoint_dir / f"ckpt_emergency_rank{rank}.pt"
 
     def latest_resumable_checkpoint_path(self) -> Path | None:
         candidates = [

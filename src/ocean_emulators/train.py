@@ -4,6 +4,7 @@ import itertools
 import logging
 import multiprocessing
 import os
+import signal
 import tempfile
 import time
 import warnings
@@ -56,6 +57,7 @@ from ocean_emulators.utils.data import DataSource, Normalize, get_inference_step
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
     all_reduce_mean,
+    get_rank,
     get_world_size,
     is_main_process,
     set_seed,
@@ -81,6 +83,10 @@ from ocean_emulators.utils.train import (
 from ocean_emulators.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
+
+
+class GracefulStopRequested(RuntimeError):
+    """Raised when training should stop after writing an emergency checkpoint."""
 
 
 class Trainer:
@@ -263,6 +269,11 @@ class Trainer:
                 step=0,
             )
 
+        self._stop_requested = False
+        self._stop_reason: str | None = None
+        self._active_epoch: int | None = None
+        self._last_completed_batch_in_epoch = -1
+
         self.num_batches_seen = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
@@ -342,6 +353,8 @@ class Trainer:
         self.val_loader: TrainDataLoader
         self.inference_loader: DataLoader[TrainData]
 
+        self._install_signal_handlers()
+
     def init_inference_stores(self):
         # Determine number of processes based on device
         if using_gpu():
@@ -405,66 +418,95 @@ class Trainer:
         self.profiler.start()
 
         start_time = time.perf_counter()
-        for epoch in range(self.start_epoch, self.epochs + 1):
-            # Iterative step training
-            if epoch == self.start_epoch or epoch in self.step_transition:
-                cur_step = self.get_current_step(epoch)
-                self.init_data_loaders(cur_step)
+        try:
+            for epoch in range(self.start_epoch, self.epochs + 1):
+                self._active_epoch = epoch
 
-            if isinstance(self.train_sampler, DistributedSampler):
-                self.train_sampler.set_epoch(epoch)
-            if isinstance(self.val_sampler, DistributedSampler):
-                self.val_sampler.set_epoch(epoch)
+                # Iterative step training
+                if epoch == self.start_epoch or epoch in self.step_transition:
+                    cur_step = self.get_current_step(epoch)
+                    self.init_data_loaders(cur_step)
 
-            start_epoch_train_time = time.perf_counter()
-            train_stats = self.train_one_epoch(epoch)
-            end_epoch_train_time = time.perf_counter()
-            val_stats = self.validate_one_epoch(epoch)
-            end_epoch_val_time = time.perf_counter()
+                if isinstance(self.train_sampler, DistributedSampler):
+                    self.train_sampler.set_epoch(epoch)
+                if isinstance(self.val_sampler, DistributedSampler):
+                    self.val_sampler.set_epoch(epoch)
 
-            if -1 in self.inference_epochs or epoch in self.inference_epochs:
-                inf_stats = self.inference_one_epoch(epoch)
-                end_epoch_inf_time = time.perf_counter()
-            else:
-                inf_stats = {}
-                end_epoch_inf_time = None
+                start_epoch_train_time = time.perf_counter()
+                train_stats = self.train_one_epoch(epoch)
+                end_epoch_train_time = time.perf_counter()
 
-            train_loss = train_stats["train/mean/loss"]
-            v_loss = val_stats["val/mean/loss"]
-            inf_loss = inf_stats.get("inference/time_mean_norm/rmse/channel_mean", None)
+                if self._stop_requested:
+                    reason = self._stop_reason or "stop requested"
+                    self.save_emergency_checkpoint(
+                        epoch=epoch,
+                        batch_in_epoch=self._last_completed_batch_in_epoch,
+                        reason=reason,
+                    )
+                    raise GracefulStopRequested(
+                        f"Stopping after emergency checkpoint ({reason})."
+                    )
 
-            logger.info(f"Achieved Train Loss = {train_loss:.3f}")
-            logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
-            if inf_loss is not None:
-                logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
+                val_stats = self.validate_one_epoch(epoch)
+                end_epoch_val_time = time.perf_counter()
 
-            if is_main_process():
-                self.save_all_checkpoints(epoch, v_loss, inf_loss)
+                if -1 in self.inference_epochs or epoch in self.inference_epochs:
+                    inf_stats = self.inference_one_epoch(epoch)
+                    end_epoch_inf_time = time.perf_counter()
+                else:
+                    inf_stats = {}
+                    end_epoch_inf_time = None
 
-            time_elapsed = time.perf_counter() - start_epoch_train_time
-
-            log_stats = {
-                **train_stats,
-                **val_stats,
-                **inf_stats,
-                "epoch": epoch,
-                "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
-                "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
-                "epoch_total_seconds": time_elapsed,
-            }
-
-            if end_epoch_inf_time is not None:
-                log_stats["epoch_inference_seconds"] = (
-                    end_epoch_inf_time - end_epoch_val_time
+                train_loss = train_stats["train/mean/loss"]
+                v_loss = val_stats["val/mean/loss"]
+                inf_loss = inf_stats.get(
+                    "inference/time_mean_norm/rmse/channel_mean", None
                 )
 
-            if is_main_process():
-                self.wandb_logger.log(log_stats, step=self.num_batches_seen)
+                logger.info(f"Achieved Train Loss = {train_loss:.3f}")
+                logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
+                if inf_loss is not None:
+                    logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
-        total_time = time.perf_counter() - start_time
-        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logger.info(f"Training time {total_time_str}")
-        self.finish()
+                if is_main_process():
+                    self.save_all_checkpoints(epoch, v_loss, inf_loss)
+
+                time_elapsed = time.perf_counter() - start_epoch_train_time
+
+                log_stats = {
+                    **train_stats,
+                    **val_stats,
+                    **inf_stats,
+                    "epoch": epoch,
+                    "epoch_train_seconds": end_epoch_train_time
+                    - start_epoch_train_time,
+                    "epoch_validation_seconds": end_epoch_val_time
+                    - end_epoch_train_time,
+                    "epoch_total_seconds": time_elapsed,
+                }
+
+                if end_epoch_inf_time is not None:
+                    log_stats["epoch_inference_seconds"] = (
+                        end_epoch_inf_time - end_epoch_val_time
+                    )
+
+                if is_main_process():
+                    self.wandb_logger.log(log_stats, step=self.num_batches_seen)
+        except GracefulStopRequested as e:
+            logger.warning(str(e))
+        except Exception:
+            if self._active_epoch is not None:
+                self.save_emergency_checkpoint(
+                    epoch=self._active_epoch,
+                    batch_in_epoch=self._last_completed_batch_in_epoch,
+                    reason="uncaught_exception",
+                )
+            raise
+        finally:
+            total_time = time.perf_counter() - start_time
+            total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+            logger.info(f"Training time {total_time_str}")
+            self.finish()
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
@@ -597,6 +639,19 @@ class Trainer:
             self._maybe_update_loss(TO, data)
 
             self.profiler.after_batch(self.num_batches_seen)
+            self._last_completed_batch_in_epoch = data_iter_step
+
+            if self._stop_requested and (should_step or is_last):
+                reason = self._stop_reason or "stop requested"
+                self.save_emergency_checkpoint(
+                    epoch=epoch,
+                    batch_in_epoch=data_iter_step,
+                    reason=reason,
+                )
+                raise GracefulStopRequested(
+                    f"Received stop request during epoch {epoch} at "
+                    f"batch {data_iter_step}."
+                )
 
         if self.scheduler is not None:
             self.scheduler.step()
@@ -914,6 +969,63 @@ class Trainer:
         )
         self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
 
+    def _install_signal_handlers(self) -> None:
+        handled_signals = [signal.SIGTERM, signal.SIGINT]
+        if hasattr(signal, "SIGUSR1"):
+            handled_signals.append(signal.SIGUSR1)
+
+        for signum in handled_signals:
+            signal.signal(signum, self._handle_signal)
+
+    def _handle_signal(self, signum: int, _frame: Any) -> None:
+        if self._stop_requested:
+            return
+
+        try:
+            signame = signal.Signals(signum).name
+        except ValueError:
+            signame = f"signal_{signum}"
+
+        self._stop_requested = True
+        self._stop_reason = signame
+        logger.warning(
+            f"Received {signame}; saving emergency minibatch checkpoint at "
+            "next safe optimization step."
+        )
+
+    def save_emergency_checkpoint(
+        self,
+        epoch: int,
+        batch_in_epoch: int,
+        reason: str,
+    ) -> Path | None:
+        batch_in_epoch = max(-1, batch_in_epoch)
+        checkpoint_path = (
+            self.ckpt_paths.latest_batch_checkpoint_path
+            if is_main_process()
+            else self.ckpt_paths.latest_batch_checkpoint_path_for_rank(get_rank())
+        )
+
+        try:
+            self.save_checkpoint(
+                epoch=epoch,
+                checkpoint_path=checkpoint_path,
+                batch_in_epoch=batch_in_epoch,
+                epoch_complete=False,
+                save_reason=reason,
+            )
+            logger.warning(
+                f"Saved emergency minibatch checkpoint to {checkpoint_path} "
+                f"(epoch={epoch}, batch_in_epoch={batch_in_epoch}, reason={reason})"
+            )
+            return checkpoint_path
+        except Exception:
+            logger.exception(
+                f"Failed to save emergency minibatch checkpoint to "
+                f"{checkpoint_path}"
+            )
+            return None
+
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():
             is_best_val_loss = False
@@ -969,6 +1081,9 @@ class Trainer:
         epoch: int,
         checkpoint_path: Path,
         for_inference: bool = False,
+        batch_in_epoch: int | None = None,
+        epoch_complete: bool = True,
+        save_reason: str | None = None,
     ):
         if for_inference:
             with self._ema_context():
@@ -984,6 +1099,7 @@ class Trainer:
                 "model": model_state_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "epoch": epoch,
+                "epoch_complete": epoch_complete,
                 "best_val_loss": self.best_val_loss,
                 "best_inf_loss": self.best_inf_loss,
                 "ema": self._ema.get_state(include_ema_params=not for_inference),
@@ -991,6 +1107,10 @@ class Trainer:
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
+            if batch_in_epoch is not None:
+                checkpoint["batch_in_epoch"] = batch_in_epoch
+            if save_reason is not None:
+                checkpoint["save_reason"] = save_reason
             loss_state: dict[str, Any] | None = None
             if state_dict_fn := getattr(self.loss_fn, "state_dict", None):
                 loss_state = state_dict_fn()

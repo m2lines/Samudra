@@ -537,6 +537,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         normalize_before_mask: bool,
         masked_fill_value: float,
         stride: int = 1,
+        temporal_stride: int = 1,
         executor: ThreadPoolExecutor | None = None,
     ):
         super().__init__()
@@ -547,6 +548,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.hist: int = hist
         self.steps: int = steps
         self.stride: int = stride
+        if temporal_stride < 1:
+            raise ValueError("temporal_stride must be >= 1")
+        self.temporal_stride: int = temporal_stride
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._executor = executor
@@ -592,10 +596,14 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             self.prognostic_srcs[0].resolution,
         )
 
-        self.size: int = (
+        base_size = (
             time_.size
             - self.steps * (self.hist + 1) * self.stride
             - self.hist * self.stride
+        )
+        self.size: int = max(
+            0,
+            (base_size + self.temporal_stride - 1) // self.temporal_stride,
         )
 
     def __len__(self) -> int:
@@ -743,7 +751,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         if idx >= len(self):
             raise IndexError("Index out of range")
 
-        window_index = idx + step * (self.hist + 1) * self.stride
+        window_index = idx * self.temporal_stride + step * (self.hist + 1) * self.stride
         return self.rolling_indices.isel(window=window_index, drop=True)
 
     def _maybe_log_gpu_decode_materialization(

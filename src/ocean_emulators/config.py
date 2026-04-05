@@ -1027,6 +1027,7 @@ class TrainConfig(TopLevelConfig):
     # Data parameters at root level
     data_percent: float = 1.0
     data_stride: list[int] = [1]
+    temporal_stride: int = Field(default=1, ge=1)
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]

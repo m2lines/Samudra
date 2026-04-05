@@ -305,6 +305,7 @@ class Trainer:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
+        self.temporal_stride: int = cfg.temporal_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.num_workers: int = data_num_workers
@@ -775,6 +776,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
+                temporal_stride=self.temporal_stride,
                 executor=self.executor,
             )
             for stride in self.data_stride
@@ -792,6 +794,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
+                temporal_stride=self.temporal_stride,
                 executor=self.executor,
             )
             for stride in self.data_stride

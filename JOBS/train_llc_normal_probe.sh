@@ -1,15 +1,16 @@
 #!/bin/bash
-#SBATCH -p pi_abodner
-#SBATCH --job-name=2026-04-05-llc_samudra_2h200_all_cody_speed-test
+#SBATCH -p mit_normal_gpu
+#SBATCH --job-name=2026-04-05:samudra_llc:Agulhas_patch:temporal_stride=24_gpu-decode_probe
 #SBATCH -N 1
-#SBATCH --mem=200GB
+#SBATCH --mem=100GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=30
-#SBATCH --gres=gpu:2
-#SBATCH --time=00-23:00:00
+#SBATCH --cpus-per-task=15
+#SBATCH -G h200:1
+#SBATCH --time=02:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator_gpudecode/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator_gpudecode/logs/%x-%j.out
+
 # load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0
 
@@ -33,11 +34,12 @@ export NCCL_DEBUG=INFO
 # GPU zarr decode requires num_workers=0 in this branch
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-0}"
 PIN_MEM="${PIN_MEM:-false}"
+CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-0}"
-LLC_I_END="${LLC_I_END:-720}"
-LLC_J_START="${LLC_J_START:-0}"
-LLC_J_END="${LLC_J_END:-720}"
+LLC_I_START="${LLC_I_START:-2880}"
+LLC_I_END="${LLC_I_END:-3600}"
+LLC_J_START="${LLC_J_START:-720}"
+LLC_J_END="${LLC_J_END:-1440}"
 RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
@@ -45,11 +47,12 @@ BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 
 EPOCHS="${EPOCHS:-1}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
-GPUS="${GPUS:-2}"
+GPUS="${GPUS:-1}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
-echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
+echo "using ${DATA_NUM_WORKERS} data workers (cpu loading only) and ${PIN_MEM} pin memory"
+echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
 echo "using LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 
 # Optional resume behavior:
@@ -86,12 +89,12 @@ trap 'forward_signal INT' INT
 
 uv run python -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
-  -m ocean_emulators.train configs/samudra_llc/train.yaml \
+  -m ocean_emulators.train configs/samudra_llc/train_normal.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   --gradient_accumulation_steps 4 \
-  --data.num_workers "${DATA_NUM_WORKERS}" \
   --pin_mem "${PIN_MEM}" \
+  --data.concurrent_compute "${CONCURRENT_COMPUTE}" \
   --data.llc_face "${LLC_FACE}" \
   --data.llc_i_start "${LLC_I_START}" \
   --data.llc_i_end "${LLC_I_END}" \

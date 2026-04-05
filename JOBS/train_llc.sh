@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-04-05-llc_samudra_2h200_all_cody_speed-test
+#SBATCH --job-name=2026-04-05-llc_samudra_2h100_single_1,group_norm,temporal_stride,DDP,etc_test
 #SBATCH -N 1
 #SBATCH --mem=200GB
 #SBATCH --ntasks=1
@@ -33,11 +33,14 @@ export NCCL_DEBUG=INFO
 # GPU zarr decode requires num_workers=0 in this branch
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-0}"
 PIN_MEM="${PIN_MEM:-false}"
+DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
+DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-30}"
+CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-0}"
-LLC_I_END="${LLC_I_END:-720}"
-LLC_J_START="${LLC_J_START:-0}"
-LLC_J_END="${LLC_J_END:-720}"
+LLC_I_START="${LLC_I_START:-2880}"
+LLC_I_END="${LLC_I_END:-3600}"
+LLC_J_START="${LLC_J_START:-720}"
+LLC_J_END="${LLC_J_END:-1440}"
 RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
@@ -52,6 +55,9 @@ echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FR
 echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
 echo "using LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 
+
+echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
+echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
 # Optional resume behavior:
 # - RESUME_CKPT_PATH set + FINETUNE=false resumes optimizer/scheduler and starts at ckpt epoch + 1.
 # - RESUME_CKPT_PATH set + FINETUNE=true loads model weights only and starts from epoch 1.
@@ -90,6 +96,10 @@ uv run python -m torch.distributed.run \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   --gradient_accumulation_steps 4 \
+  --ddp_bucket_cap_mb 25 \
+  --ddp_use_no_sync_for_accumulation true \
+  --ddp_broadcast_buffers "${DDP_BROADCAST_BUFFERS}" \
+  --ddp_timeout_minutes "${DDP_TIMEOUT_MINUTES}" \
   --data.num_workers "${DATA_NUM_WORKERS}" \
   --pin_mem "${PIN_MEM}" \
   --data.llc_face "${LLC_FACE}" \

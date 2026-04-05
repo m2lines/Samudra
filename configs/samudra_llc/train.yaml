@@ -26,6 +26,7 @@ inference_times:
   - start: "2012-10-16"
     end: "2012-11-14"
 data_stride: [1]
+temporal_stride: 24
 steps: [1]
 step_transition: []
 preemptible: false
@@ -33,15 +34,15 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-03-17-samudra_llc:gpu-decompress-test:all_fields-depths,loc=(i:0-720,j:0,720)
+  name: 2026-04-05-llc_samudra_2h100_single_1,group_norm,temporal_stride,DDP,etc_test
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
     mode: online #disabled
     project: default
-  prognostic_vars_key: all #single1
-  boundary_vars_key: all
+  prognostic_vars_key: single_1 #single1
+  boundary_vars_key: single_1
 
 data: !include ../data/llc.yaml
 model: !include model.yaml

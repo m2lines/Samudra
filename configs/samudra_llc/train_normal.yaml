@@ -32,15 +32,15 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-04-02:samudra_llc:Agulhas_patch:temporal_stride=24
+  name: 2026-04-05-llc_samudra_2h100_single_1,group_norm,temporal_stride_test
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
     mode: online #disabled
     project: default
-  prognostic_vars_key: all
-  boundary_vars_key: all
+  prognostic_vars_key: single_1 # all
+  boundary_vars_key: single_1
 
-data: !include ../data/llc_normal.yaml
+data: !include ../data/llc.yaml
 model: !include model_normal.yaml

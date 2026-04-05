@@ -30,8 +30,6 @@ export TORCH_NCCL_DUMP_ON_TIMEOUT=1
 export TORCH_NCCL_TRACE_BUFFER_SIZE=1048576
 export NCCL_DEBUG=INFO
 
-# GPU zarr decode requires num_workers=0 in this branch
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-0}"
 PIN_MEM="${PIN_MEM:-false}"
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
 DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-30}"
@@ -52,7 +50,7 @@ GPUS="${GPUS:-2}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
-echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
+echo "using GPU decode (data.loading.type=gpu); pin_mem=${PIN_MEM}"
 echo "using LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 
 
@@ -100,7 +98,6 @@ uv run python -m torch.distributed.run \
   --ddp_use_no_sync_for_accumulation true \
   --ddp_broadcast_buffers "${DDP_BROADCAST_BUFFERS}" \
   --ddp_timeout_minutes "${DDP_TIMEOUT_MINUTES}" \
-  --data.num_workers "${DATA_NUM_WORKERS}" \
   --pin_mem "${PIN_MEM}" \
   --data.llc_face "${LLC_FACE}" \
   --data.llc_i_start "${LLC_I_START}" \

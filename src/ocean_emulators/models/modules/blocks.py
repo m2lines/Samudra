@@ -52,7 +52,7 @@ def sinusoidal_2d_position_embedding(
         ],
         dim=-1,
     )
-    return embedding.permute(2, 0, 1).unsqueeze(0).to(dtype=dtype)
+    return rearrange(embedding, "h w c -> 1 c h w").to(dtype=dtype)
 
 
 class PointwiseLinear(torch.nn.Module):
@@ -422,24 +422,18 @@ class AxialAttention(nn.Module):
                     C,
                     device=x.device,
                 )
-                positional_embedding = (
-                    positional_embedding.transpose(0, 1)
-                    .unsqueeze(0)
-                    .unsqueeze(-1)
-                    .to(dtype=x.dtype)
-                )
+                positional_embedding = rearrange(
+                    positional_embedding, "h c -> 1 c h 1"
+                ).to(dtype=x.dtype)
             else:
                 positional_embedding = sinusoidal_1d_position_embedding(
                     W,
                     C,
                     device=x.device,
                 )
-                positional_embedding = (
-                    positional_embedding.transpose(0, 1)
-                    .unsqueeze(0)
-                    .unsqueeze(2)
-                    .to(dtype=x.dtype)
-                )
+                positional_embedding = rearrange(
+                    positional_embedding, "w c -> 1 c 1 w"
+                ).to(dtype=x.dtype)
             x = x + positional_embedding
 
         if self.axis == "height":

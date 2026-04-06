@@ -4,6 +4,7 @@ from typing import Literal, Protocol
 import torch
 import torch.nn as nn
 import torch.utils.checkpoint
+from einops import rearrange
 from jaxtyping import Float
 
 from ocean_emulators.models.modules.activations import CappedGELU
@@ -368,16 +369,16 @@ class AxialAttention(nn.Module):
         B, C, H, W = x.shape
 
         if self.axis == "height":
-            # (B, C, H, W) -> (B*W, H, C): attend along height for each column
-            x = x.permute(0, 3, 2, 1).reshape(B * W, H, C)
+            x = rearrange(x, "b c h w -> (b w) h c")
         else:
-            # (B, C, H, W) -> (B*H, W, C): attend along width for each row
-            x = x.permute(0, 2, 3, 1).reshape(B * H, W, C)
+            x = rearrange(x, "b c h w -> (b h) w c")
 
         batch_size, seq_len, _ = x.shape
 
         qkv = self.qkv(x).reshape(batch_size, seq_len, 3, self.num_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, batch, heads, seq, head_dim)
+        qkv = rearrange(
+            qkv, "batch seq three heads head_dim -> three batch heads seq head_dim"
+        )
         q, k, v = qkv.unbind(0)
 
         # Use scaled_dot_product_attention (supports flash / memory-efficient kernels)
@@ -403,14 +404,14 @@ class AxialAttention(nn.Module):
                 # Reshape back to (B, H, W, W) then average over batch and H
                 self.last_attn_weights = attn_avg.reshape(B, H, W, W).mean(dim=(0, 1))
 
-        out = out.transpose(1, 2).reshape(batch_size, seq_len, C)
+        out = rearrange(out, "batch heads seq head_dim -> batch seq (heads head_dim)")
         out = self.proj(out)
         out = self.proj_drop(out)
 
         if self.axis == "height":
-            out = out.reshape(B, W, H, C).permute(0, 3, 2, 1)
+            out = rearrange(out, "(b w) h c -> b c h w", b=B, w=W)
         else:
-            out = out.reshape(B, H, W, C).permute(0, 3, 1, 2)
+            out = rearrange(out, "(b h) w c -> b c h w", b=B, h=H)
 
         return out
 
@@ -517,11 +518,12 @@ class FullAttention(nn.Module):
         B, C, H, W = x.shape
         seq_len = H * W
 
-        # (B, C, H, W) -> (B, H*W, C)
-        x = x.permute(0, 2, 3, 1).reshape(B, seq_len, C)
+        x = rearrange(x, "b c h w -> b (h w) c")
 
         qkv = self.qkv(x).reshape(B, seq_len, 3, self.num_heads, self.head_dim)
-        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, B, heads, seq, head_dim)
+        qkv = rearrange(
+            qkv, "batch seq three heads head_dim -> three batch heads seq head_dim"
+        )
         q, k, v = qkv.unbind(0)
 
         out = torch.nn.functional.scaled_dot_product_attention(
@@ -539,12 +541,11 @@ class FullAttention(nn.Module):
             self.last_attn_weights = attn_weights.mean(dim=1).mean(dim=0).detach().cpu()
             self.last_spatial_shape = (H, W)
 
-        out = out.transpose(1, 2).reshape(B, seq_len, C)
+        out = rearrange(out, "batch heads seq head_dim -> batch seq (heads head_dim)")
         out = self.proj(out)
         out = self.proj_drop(out)
 
-        # (B, H*W, C) -> (B, C, H, W)
-        out = out.reshape(B, H, W, C).permute(0, 3, 1, 2)
+        out = rearrange(out, "b (h w) c -> b c h w", h=H, w=W)
         return out
 
 

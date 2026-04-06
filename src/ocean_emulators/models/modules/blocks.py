@@ -379,6 +379,12 @@ class AxialAttention(nn.Module):
     References:
         Axial Attention in Multidimensional Transformers (Ho et al., 2019)
         https://arxiv.org/abs/1912.12180
+
+    When ``positional_embedding`` is enabled, this module applies an axis-specific
+    1D sinusoidal embedding before projecting QKV:
+
+    - height attention gets a ``(1, C, H, 1)`` embedding
+    - width attention gets a ``(1, C, 1, W)`` embedding
     """
 
     def __init__(
@@ -557,6 +563,11 @@ class FullAttention(nn.Module):
         qkv_bias: Whether to include bias in QKV projection.
         attn_drop: Dropout rate for attention weights.
         proj_drop: Dropout rate for output projection.
+
+    When ``positional_embedding`` is enabled, this module applies a full 2D
+    sinusoidal embedding of shape ``(1, C, H, W)`` before projecting QKV.
+    It also applies per-head LayerNorm to Q and K after projection to reduce
+    logit scale drift and attention sink collapse.
     """
 
     def __init__(

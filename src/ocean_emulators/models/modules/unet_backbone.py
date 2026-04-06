@@ -54,7 +54,7 @@ class UNetBackbone(nn.Module):
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
         encoder_attention_blocks: list[nn.Module | None] | None = None,
-        bottleneck_attention_block: nn.Module | None = None,
+        bottleneck_block: nn.Module | None = None,
         decoder_attention_blocks: list[nn.Module | None] | None = None,
     ):
         super().__init__()
@@ -101,20 +101,19 @@ class UNetBackbone(nn.Module):
             # Down sampling block
             layers.append(downsampling_block)
 
-        # Middle block
-        layers.append(
-            create_block(
-                in_channels=b,
-                out_channels=b,
-                dilation=dilation[i],
-                n_layers=n_layers[i],
-                pad=pad,
-                checkpoint_simple=checkpoint_simple,
+        if bottleneck_block is None:
+            layers.append(
+                create_block(
+                    in_channels=b,
+                    out_channels=b,
+                    dilation=dilation[i],
+                    n_layers=n_layers[i],
+                    pad=pad,
+                    checkpoint_simple=checkpoint_simple,
+                )
             )
-        )
-
-        if bottleneck_attention_block is not None:
-            layers.append(bottleneck_attention_block)
+        else:
+            layers.append(bottleneck_block)
 
         # First upsampling
         layers.append(create_upsampling_block(in_channels=b, out_channels=b))

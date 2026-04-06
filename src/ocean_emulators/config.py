@@ -653,13 +653,13 @@ class UNetBackboneConfig(BaseConfig):
 
         encoder_attention_configs: list[AttentionBlockConfig | None] | None = None
         decoder_attention_configs: list[AttentionBlockConfig | None] | None = None
-        bottleneck_attention_config: BottleneckBlockConfig | None = None
+        bottleneck_config: BottleneckBlockConfig | None = None
 
         if self.attention is not None:
             encoder_attention_configs = self.attention.encoder
             decoder_attention_configs = self.attention.decoder
 
-            bottleneck_attention_config = self.attention.bottleneck
+            bottleneck_config = self.attention.bottleneck
 
             if encoder_attention_configs is not None:
                 assert len(encoder_attention_configs) == len(self.ch_width), (
@@ -704,9 +704,9 @@ class UNetBackboneConfig(BaseConfig):
                 else:
                     encoder_attention_blocks.append(cfg.build(channels))
 
-        bottleneck_attention_block = (
-            bottleneck_attention_config.build(self.ch_width[-1])
-            if bottleneck_attention_config is not None
+        bottleneck_block = (
+            bottleneck_config.build(self.ch_width[-1])
+            if bottleneck_config is not None
             else None
         )
         decoder_attention_blocks: list[nn.Module | None] | None = None
@@ -735,7 +735,7 @@ class UNetBackboneConfig(BaseConfig):
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
             encoder_attention_blocks=encoder_attention_blocks,
-            bottleneck_attention_block=bottleneck_attention_block,
+            bottleneck_block=bottleneck_block,
             decoder_attention_blocks=decoder_attention_blocks,
         )
 

@@ -7,7 +7,7 @@ pad: "constant"
 use_bfloat16: true
 
 unet:
-  ch_width: [280, 380, 480, 520]
+  ch_width: [256, 384, 512, 512] #make channels divisible by 32 for group norm, old:[280, 380, 480, 520]#
   dilation: [1, 2, 4, 8]
   n_layers: [1, 1, 1, 1]
 

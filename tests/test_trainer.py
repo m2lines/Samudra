@@ -116,7 +116,7 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     hist = trainer.hist
     resolution = trainer.inference_src.resolution
     wet = trainer.inference_src.masks.prognostic_with_hist(hist)
-    ctx = GridContext(wet, resolution).to(trainer.device)
+    ctx = GridContext(wet, resolution, resolution).to(trainer.device)
     data = trainer.inference_loader.dataset[0]
     X, y = data
     trainer.best_val_loss = 10

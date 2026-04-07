@@ -40,7 +40,9 @@ def test_positional_parameters_update(dummy_src: DataSource):
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
     x = torch.randn(1, 2, h, w)
     optimizer.zero_grad()
-    out = model.forward_once(x, GridContext(masks.prognostic, src.resolution))
+    out = model.forward_once(
+        x, GridContext(masks.prognostic, src.resolution, src.resolution)
+    )
     loss = out.sum()
     loss.backward()
     before = model.positional_params.detach().clone()

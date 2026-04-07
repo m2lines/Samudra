@@ -110,6 +110,8 @@ class InferenceDataset(Dataset):
             self.wet_surface = self.wet_surface.pin_memory()
             self.wet_label = self.wet_label.pin_memory()
 
+        # Inference only currently supports the same output resolution as the input
+        # resolution.
         self.ctx = GridContext(self.wet_label, self.input_res, self.input_res)
 
     def __len__(self):

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775590771963,
+  "lastUpdate": 1775590774949,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -17907,6 +17907,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08961006653183477",
             "extra": "mean: 47.028980221999994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0975ca0d847ff107cddc9f8c8dffdb65440809d2",
+          "message": "eval.py script supports single scale evaluations of mulit-scale FOMO models. (#652)\n\nAdded multiscale eval config + fixed config.py\n\nFixes #651.",
+          "timestamp": "2026-04-07T19:20:09Z",
+          "tree_id": "6bfe1ac279a953a43925941512b350a4080e4679",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/0975ca0d847ff107cddc9f8c8dffdb65440809d2"
+        },
+        "date": 1775590774542,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1889591849963308,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0011639515384186262",
+            "extra": "mean: 841.0717647999718 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1949546400062594,
+            "unit": "iter/sec",
+            "range": "stddev: 0.020655878441845174",
+            "extra": "mean: 5.1293983050000405 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.02114610254532436,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1602310255483544",
+            "extra": "mean: 47.290038334799966 sec\nrounds: 5"
           }
         ]
       }

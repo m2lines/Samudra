@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775583883156,
+  "lastUpdate": 1775584988359,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8814,6 +8814,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5204271059076977",
             "extra": "mean: 61.24477300900001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a33a478972a181d48324b39ea74b04c1fc9a664a",
+          "message": "GridContext also needs an output resolution. (#662)\n\nThis is a small fix that enables \"mix\" resolution training. Currently,\nonly \"standard\" and \"match\" training schedules are supported, with\n\"match\" being multi-resolution. To enable \"mix\" schedule, where the\ninput and output resolution commonly differ, we need to give the\nGridContext access to the output resolution to be used inside the FOMO\nmodel. Once this exists, it's a trivial update to fix the FOMO model to\nallow for mixed resolutions.\n\nFixes #663.",
+          "timestamp": "2026-04-07T17:43:16Z",
+          "tree_id": "e997ff88a672cb5a527d3b3139c4f9ca0b14827c",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a33a478972a181d48324b39ea74b04c1fc9a664a"
+        },
+        "date": 1775584987303,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.15601617084621,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0018487527274192686",
+            "extra": "mean: 865.0398023999912 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18675489009707189,
+            "unit": "iter/sec",
+            "range": "stddev: 0.046272019875757804",
+            "extra": "mean: 5.35461213079999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.016657064158512494,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11048459003709105",
+            "extra": "mean: 60.03458895779998 sec\nrounds: 5"
           }
         ]
       }

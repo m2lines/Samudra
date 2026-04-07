@@ -150,7 +150,7 @@ class Trainer:
             raise ValueError(
                 "Residual predictions on a mixed multiscale training schedule is not currently supported."
             )
-        if self.train_schedule == "mix" and cfg.steps[0] > 1:
+        if self.train_schedule == "mix" and any(step > 1 for step in cfg.steps):
             raise ValueError(
                 "Step predictions on a mixed multiscale training schedule is not currently supported."
             )

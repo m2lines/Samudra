@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775587019521,
+  "lastUpdate": 1775590771963,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8904,6 +8904,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.17903304124765154",
             "extra": "mean: 56.986809573 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0975ca0d847ff107cddc9f8c8dffdb65440809d2",
+          "message": "eval.py script supports single scale evaluations of mulit-scale FOMO models. (#652)\n\nAdded multiscale eval config + fixed config.py\n\nFixes #651.",
+          "timestamp": "2026-04-07T19:20:09Z",
+          "tree_id": "6bfe1ac279a953a43925941512b350a4080e4679",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/0975ca0d847ff107cddc9f8c8dffdb65440809d2"
+        },
+        "date": 1775590770917,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1809244233022007,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0024717348719071",
+            "extra": "mean: 846.7942404000041 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1917211536472621,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0192351991324498",
+            "extra": "mean: 5.215908526400005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.017434358839785908,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3661129115618577",
+            "extra": "mean: 57.35800261940002 sec\nrounds: 5"
           }
         ]
       }

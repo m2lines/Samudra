@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775587016360,
+  "lastUpdate": 1775587019521,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -17817,6 +17817,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3179247704823358",
             "extra": "mean: 49.97530393839995 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "01a66ee965e09f1133cc9dd984461073459e6bc0",
+          "message": "Each worker should have its own ThreadPoolExecutor.  (#660)\n\nThis PR creates the ThreadPoolExecutors late when enabled. We add a\nprivate, static `_get_executor()` method to the DataLoader class. This\nmeans that there will be one thread pool created per worker (we create\nmultiple dataloaders per zarr dataset; this only makes 1 pool per scale\nof data).",
+          "timestamp": "2026-04-07T18:17:38Z",
+          "tree_id": "e45587ee9818bd29b62178a862056ad1601abd0b",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/01a66ee965e09f1133cc9dd984461073459e6bc0"
+        },
+        "date": 1775587019145,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1936095277426495,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0022862920064515907",
+            "extra": "mean: 837.7949209999997 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.19697360176661913,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03485133818710652",
+            "extra": "mean: 5.076822432199992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.02126348467008016,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08961006653183477",
+            "extra": "mean: 47.028980221999994 sec\nrounds: 5"
           }
         ]
       }

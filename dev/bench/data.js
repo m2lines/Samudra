@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775583881430,
+  "lastUpdate": 1775583883156,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -17637,6 +17637,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.8179069995298299",
             "extra": "mean: 50.4127789206 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ef27f4b2e240072839c6e21811554f362e4448d2",
+          "message": "Immediately move TensorMap to GPU to reduce high AllReduce times during multiscale training. (#659)\n\nThis doesn't totally fix the underlying issue with deploying our\nmulti-scale model on torch, but it does significantly improve\nperformance. It does so by reducing the CPU/GPU transfer overhead in one\nof the \"chattiest\" parts of the training loop.",
+          "timestamp": "2026-04-07T10:24:36-07:00",
+          "tree_id": "7f415896f6648035bd652f48d6b3f8295bc1370c",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/ef27f4b2e240072839c6e21811554f362e4448d2"
+        },
+        "date": 1775583882783,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.140171887429229,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005155969795983614",
+            "extra": "mean: 877.0607406000181 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18683199233769085,
+            "unit": "iter/sec",
+            "range": "stddev: 0.051111485273592376",
+            "extra": "mean: 5.352402377599992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.019743307857285695,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6493454588502529",
+            "extra": "mean: 50.65007379860001 sec\nrounds: 5"
           }
         ]
       }

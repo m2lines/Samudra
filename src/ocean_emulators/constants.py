@@ -1,5 +1,6 @@
 import enum
 import logging
+from typing import Self
 
 logger = logging.getLogger(__name__)
 
@@ -320,3 +321,18 @@ class TensorMap(Multiton):
         """
         for i, k in enumerate(self.boundary_var_names):
             self.INPT_BOUNDARY_IDX[k] = torch.tensor([i])
+
+    def to(self, device: torch.device) -> Self:
+        """Move all index tensors to the given device.
+
+        Call this once after model initialization so that indexing a GPU tensor
+        with these indices stays on-device and avoids implicit CUDA syncs.
+        """
+        for k in self.VAR_3D_IDX:
+            self.VAR_3D_IDX[k] = self.VAR_3D_IDX[k].to(device)
+        for k in self.DP_3D_IDX:
+            self.DP_3D_IDX[k] = self.DP_3D_IDX[k].to(device)
+        for k in self.INPT_BOUNDARY_IDX:
+            self.INPT_BOUNDARY_IDX[k] = self.INPT_BOUNDARY_IDX[k].to(device)
+        self.dz = self.dz.to(device)
+        return self

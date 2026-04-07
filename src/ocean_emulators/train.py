@@ -159,7 +159,7 @@ class Trainer:
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        )
+        ).to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")

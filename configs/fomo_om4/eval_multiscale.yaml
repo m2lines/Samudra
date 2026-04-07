@@ -7,6 +7,9 @@
 # reorder the sources list so the target resolution is first.
 # All three sources must always be present so the model builds
 # with the correct max grid size for the encoder patch grid.
+# The max grid size affects the rotary positional embedding
+# dimension for the encoder's Perceiver. If it is set wrong,
+# it would likely cause hard-to-debug model level errors.
 # Setting multiple data sources lets us use checkpoints for
 # FOMO models that use multiple scales.
 

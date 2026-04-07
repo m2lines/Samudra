@@ -40,6 +40,10 @@ def val_batch_of(
                 torch.linspace(-90, 90, steps=h),
                 torch.linspace(-180, 180, steps=w),
             ),
+            output_resolution_cpu=(
+                torch.linspace(-90, 90, steps=h),
+                torch.linspace(-180, 180, steps=w),
+            ),
         ),
     )
     return batch

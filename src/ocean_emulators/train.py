@@ -9,7 +9,6 @@ import time
 import warnings
 from collections import OrderedDict
 from collections.abc import Iterable
-from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any, assert_never
@@ -147,6 +146,14 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
+        if self.train_schedule == "mix" and cfg.model.pred_residuals:
+            raise ValueError(
+                "Residual predictions on a mixed multiscale training schedule is not currently supported."
+            )
+        if self.train_schedule == "mix" and any(step > 1 for step in cfg.steps):
+            raise ValueError(
+                "Step predictions on a mixed multiscale training schedule is not currently supported."
+            )
 
         self.mp_context: BaseContext | None = None
         if cfg.data.num_workers > 0:
@@ -160,7 +167,7 @@ class Trainer:
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        )
+        ).to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -180,11 +187,7 @@ class Trainer:
                 f"with validation time range {cfg.val_time}"
             )
 
-        self.executor: ThreadPoolExecutor | None = None
-        if cfg.data.concurrent_compute:
-            self.executor = ThreadPoolExecutor(
-                max_workers=None, thread_name_prefix="concurrent_compute"
-            )
+        self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_src = self.data_container.primary_source
 
@@ -800,7 +803,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                executor=self.executor,
+                concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -817,7 +820,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                executor=self.executor,
+                concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -1103,8 +1106,6 @@ class Trainer:
             self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
-        if self.executor is not None:
-            self.executor.shutdown()
         if self._cpu_group is not None:
             dist.destroy_process_group(self._cpu_group)
             self._cpu_group = None

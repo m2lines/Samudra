@@ -968,6 +968,14 @@ class TrainConfig(TopLevelConfig):
     disk_mode: bool = True
     pin_mem: bool = True
     save_freq: int = 5
+    validation_image_log_freq: int = Field(
+        default=10,
+        ge=1,
+        description=(
+            "How often to log expensive validation images. Epochs are 1-based, so "
+            "a value of 10 logs on epochs 1, 11, 21, ..."
+        ),
+    )
     epochs: int = 120
     preemptible: bool = True
     batch_size: int = 2

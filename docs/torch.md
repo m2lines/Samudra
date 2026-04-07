@@ -72,6 +72,9 @@ Key behavior:
 - To change training code or YAML configs, rebuild/publish a new container tag and
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
 - Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
+- Defaults to a 8-hour walltime in `scripts/slurm_apptainer_train.sbatch`.
+- Our 1-degree jobs take around 4-6 hours, so this is safe; you should probalby
+  increase it by data size for 1/2-degree (i.e. 4x more data = 4x more time) etc.
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 

@@ -1,8 +1,9 @@
 import torch
 
+import ocean_emulators.constants as c
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
 from ocean_emulators.utils.ctx import GridContext
-from ocean_emulators.utils.data import DataSource
+from ocean_emulators.utils.data import DataSource, Normalize
 
 
 def test_positional_parameters_update(dummy_src: DataSource):
@@ -20,12 +21,17 @@ def test_positional_parameters_update(dummy_src: DataSource):
         ),
         pos_channels=1,
     )
+    tensor_map = c.TensorMap.get_instance()
+    normalize = Normalize.get_instance()
     model = config.build(
         in_channels=2,
         out_channels=1,
         hist=0,
         static_data_for_corrector=None,
         srcs=[src],
+        tensor_map=tensor_map,
+        normalize=normalize,
+        dataset_spec=src.dataset_spec,
     )
 
     # Verify we have created the positional embeddings

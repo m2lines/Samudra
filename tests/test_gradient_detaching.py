@@ -50,11 +50,11 @@ def create_samudra_model():
             )
 
             # Initialize TensorMap and Normalize
-            TensorMap.init_instance("thetao_1", "hfds")
-            Normalize.init_instance(
+            tensor_map = TensorMap.init_instance("thetao_1", "hfds")
+            normalize = Normalize.init_instance(
                 src,
-                TensorMap.get_instance().prognostic_var_names,
-                TensorMap.get_instance().boundary_var_names,
+                tensor_map.prognostic_var_names,
+                tensor_map.boundary_var_names,
             )
 
             # Create Samudra model with the specified gradient_detach_interval
@@ -72,6 +72,9 @@ def create_samudra_model():
                 hist=1,
                 static_data_for_corrector=None,
                 srcs=[src],
+                tensor_map=tensor_map,
+                normalize=normalize,
+                dataset_spec=src.dataset_spec,
             )
 
             # Create TrainData compatible with model dimensions

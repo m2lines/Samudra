@@ -29,7 +29,7 @@ decoder:
   context_patches: 1  # Look at this many window_patches around the target patch.
 
 processor:
-  ch_width: [380, 480, 520]
+  ch_width: [512, 640, 768]  # v32: widened to raise GPU util (v31 ~46%, mem headroom 27GB)
   dilation: [1, 1, 1]
   n_layers: [1, 1, 1]
 

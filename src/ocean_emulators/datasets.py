@@ -39,6 +39,10 @@ logger = logging.getLogger(__name__)
 
 
 def _to_torch_float32(array_like: Any) -> torch.Tensor:
+    get_duck_array = getattr(array_like, "get_duck_array", None)
+    if callable(get_duck_array):
+        array_like = get_duck_array()
+
     if hasattr(array_like, "compute"):
         array_like = array_like.compute()
 
@@ -64,8 +68,21 @@ def _materialize_dataarray_to_torch_float32(
     *,
     use_zarr_gpu_decode: bool,
 ) -> torch.Tensor:
-    with _zarr_gpu_decode_context(use_zarr_gpu_decode):
-        return _to_torch_float32(build_array().data)
+    try:
+        with _zarr_gpu_decode_context(use_zarr_gpu_decode):
+            return _to_torch_float32(build_array().data)
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        if not use_zarr_gpu_decode:
+            raise
+
+        raise RuntimeError(
+            "GPU zarr decode failed while materializing tensors from xarray. "
+            "This usually means xarray/zarr GPU-buffer integration is incompatible "
+            "with the current store or environment. "
+            "Set data.loading.type=cpu to continue on the CPU path."
+        ) from exc
 
 
 def _stack_time_variable_lat_lon(dataset: xr.Dataset) -> xr.DataArray:

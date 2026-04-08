@@ -14,6 +14,7 @@ from ocean_emulators.datasets import (
     TorchTrainDataset,
     TrainDataLoader,
     _dataarray_to_torch_float32,
+    _to_torch_float32,
 )
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
@@ -63,6 +64,40 @@ def test_materialize_dataarray_to_torch_float32_builds_array_inside_gpu_context(
 
     assert to_array_inside_context is True
     assert torch.equal(tensor, torch.tensor(ds["foo"].values).unsqueeze(0))
+
+
+def test_to_torch_float32_prefers_duck_array_over_numpy_protocol():
+    class FakeIndexedArray:
+        def get_duck_array(self):
+            return np.arange(6, dtype=np.float32).reshape(2, 3)
+
+        def __array__(self, dtype=None, copy=None):  # pragma: no cover - guardrail
+            raise AssertionError("Expected get_duck_array to be used first.")
+
+    tensor = _to_torch_float32(FakeIndexedArray())
+
+    assert torch.equal(
+        tensor,
+        torch.arange(6, dtype=torch.float32).reshape(2, 3),
+    )
+
+
+def test_materialize_dataarray_to_torch_float32_wraps_gpu_decode_errors(monkeypatch):
+    @contextlib.contextmanager
+    def fake_gpu_context(use_gpu_zarr_decode: bool):
+        assert use_gpu_zarr_decode is True
+        yield
+
+    monkeypatch.setattr(datasets_mod, "_zarr_gpu_decode_context", fake_gpu_context)
+
+    with pytest.raises(
+        RuntimeError,
+        match="GPU zarr decode failed while materializing tensors from xarray",
+    ):
+        datasets_mod._materialize_dataarray_to_torch_float32(
+            lambda: (_ for _ in ()).throw(TypeError("boom")),
+            use_zarr_gpu_decode=True,
+        )
 
 
 @pytest.fixture

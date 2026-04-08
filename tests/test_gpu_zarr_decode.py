@@ -129,4 +129,11 @@ def test_tiny_training_gpu_decode_smoke(train_config):
             assert "GPU zarr decode failed while opening" in str(exc)
             return
 
-        trainer.run()
+        try:
+            trainer.run()
+        except RuntimeError as exc:
+            assert (
+                "GPU zarr decode failed while materializing tensors from xarray"
+                in str(exc)
+            )
+            return

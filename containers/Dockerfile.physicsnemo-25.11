@@ -39,7 +39,7 @@ RUN apt-get update \
     && dpkg -i /tmp/cuda-keyring.deb \
     && apt-get update \
     && apt-get install -y --no-install-recommends /tmp/nsight-systems-cli.deb "${CUDA_GDS_TOOLS_PACKAGE}" \
-    && find "${CUDA_GDS_TOOLS_DIR}" -maxdepth 1 -type f -perm /111 -exec ln -sf {} /usr/local/bin/ \\; \
+    && find "${CUDA_GDS_TOOLS_DIR}" -maxdepth 1 -type f -perm /111 -exec ln -sf {} /usr/local/bin/ ';' \
     && rm -f /tmp/nsight-systems-cli.deb /tmp/cuda-keyring.deb \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/local/bin/nsys /usr/local/cuda/bin/nsys \

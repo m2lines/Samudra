@@ -8,6 +8,8 @@ from ocean_emulators.config import (
     DataConfig,
     DataSourceConfig,
     GpuDataLoadingConfig,
+    LlcDatasetConfig,
+    Om4DatasetConfig,
     TrainConfig,
 )
 from ocean_emulators.config_schema import get_pydantic_models
@@ -44,6 +46,32 @@ def test_data_config_defaults_to_cpu_loading():
     assert isinstance(cfg.loading, CpuDataLoadingConfig)
     assert cfg.loading.num_workers == 4
     assert cfg.loading.num_pytorch_workers() == 4
+    assert isinstance(cfg.dataset, Om4DatasetConfig)
+
+
+def test_data_config_accepts_llc_dataset_type():
+    cfg = DataConfig.model_validate(
+        {
+            "dataset": {
+                "type": "llc",
+                "face": 2,
+                "i_start": 10,
+                "i_end": 20,
+                "j_start": 30,
+                "j_end": 40,
+            },
+            "sources": [
+                {
+                    "data_location": "data.zarr",
+                    "data_means_location": "means.zarr",
+                    "data_stds_location": "stds.zarr",
+                }
+            ],
+        }
+    )
+
+    assert isinstance(cfg.dataset, LlcDatasetConfig)
+    assert cfg.dataset.face == 2
 
 
 def test_data_config_accepts_gpu_loading():

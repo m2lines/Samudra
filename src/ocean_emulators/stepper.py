@@ -8,8 +8,10 @@ logger = logging.getLogger(__name__)
 import torch
 
 from ocean_emulators.aggregator import InferenceEvaluatorAggregator
+from ocean_emulators.constants import TensorMap
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.output import (
     ModelInferenceOutput,
@@ -58,11 +60,17 @@ class Stepper:
         model_path: str | PathLike | None = None,
         num_model_steps_forward: int = 200,
         save_zarr: bool = False,
+        tensor_map: TensorMap | None = None,
+        normalize: Normalize | None = None,
     ) -> None:
         if save_zarr:
             if output_dir is None or model_path is None:
                 raise ValueError(
                     "output_dir and model_path must be provided if save_zarr is True"
+                )
+            if tensor_map is None or normalize is None:
+                raise ValueError(
+                    "tensor_map and normalize must be provided if save_zarr is True"
                 )
             coords = dataset.get_coords_dict()
             if num_model_steps_forward > 0:
@@ -75,6 +83,8 @@ class Stepper:
                 hist=inf_aggregator.hist,
                 model_path=model_path,
                 time_chunk_size=chunk_size,
+                normalize=normalize,
+                tensor_map=tensor_map,
             )
         else:
             writer = None

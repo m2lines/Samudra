@@ -16,11 +16,10 @@ if TYPE_CHECKING:
     from ocean_emulators.config import TimeConfig
 
 from ocean_emulators.constants import (
-    DEPTH_I_LEVELS,
-    DEPTH_LEVELS,
-    MASK_VARS,
+    OM4_DATASET_SPEC,
     BatchTimeSeriesOutput,
     BoundaryVarNames,
+    DatasetSpec,
     DictSingleChannelVar,
     Grid,
     GridMask,
@@ -83,6 +82,7 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
     masks: Masks
+    dataset_spec: DatasetSpec = OM4_DATASET_SPEC
 
     @cached_property
     def is_compact(self) -> bool:
@@ -107,7 +107,7 @@ class DataSource:
 
     @cached_property
     def metadata(self) -> dict:
-        return construct_metadata(self.data)
+        return construct_metadata(self.data, self.dataset_spec)
 
     def filter(
         self,
@@ -273,6 +273,7 @@ class DataSource:
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
         *,
+        dataset_spec: DatasetSpec,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None,
@@ -287,6 +288,7 @@ class DataSource:
             data,
             means,
             stds,
+            dataset_spec=dataset_spec,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
@@ -300,6 +302,7 @@ class DataSource:
         means: xr.Dataset,
         stds: xr.Dataset,
         *,
+        dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None = None,
@@ -309,10 +312,11 @@ class DataSource:
             data,
             means,
             stds,
+            dataset_spec=dataset_spec,
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
         )
-        masks = extract_wet_mask(data, prognostic_var_names)
+        masks = extract_wet_mask(data, prognostic_var_names, dataset_spec=dataset_spec)
 
         return cls(
             name=name,
@@ -320,6 +324,7 @@ class DataSource:
             means=means,
             stds=stds,
             masks=masks,
+            dataset_spec=dataset_spec,
         )
 
 
@@ -418,6 +423,7 @@ class DataContainer:
     inference_source: DataSource
     loader_version: LoaderVersion
     supports_fork: bool
+    dataset_spec: DatasetSpec = OM4_DATASET_SPEC
     # TODO(559): static_data should belong to the DataSource, since we now
     #  deal with multiple resolutions.
     static_data: xr.Dataset | None = None
@@ -515,29 +521,47 @@ def conditional_rearrange(
 
 
 def extract_wet_mask(
-    data: xr.Dataset, prognostic_var_names: PrognosticVarNames
+    data: xr.Dataset,
+    prognostic_var_names: PrognosticVarNames,
+    *,
+    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
 ) -> Masks:
     """A mask for where the oceans are. Water is wet."""
-    data_ = flatten_masks(data)
-    wet_mask = data_[MASK_VARS]
+    data_ = flatten_masks(data, dataset_spec=dataset_spec)
+    wet_mask = data_[list(dataset_spec.mask_vars)]
     if "time" in wet_mask.dims:
         wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
-        wet_surface_mask_np = wet_mask[MASK_VARS[0]].isel(time=0).to_numpy()
+        wet_surface_mask_np = (
+            wet_mask[dataset_spec.mask_vars[0]].isel(time=0).to_numpy()
+        )
     else:
         wet_mask_np = wet_mask.to_array().to_numpy()
-        wet_surface_mask_np = wet_mask[MASK_VARS[0]].to_numpy()
+        wet_surface_mask_np = wet_mask[dataset_spec.mask_vars[0]].to_numpy()
 
-    depth_ind = _parse_lev_from_output_var(prognostic_var_names)
+    depth_ind = _parse_lev_from_output_var(
+        prognostic_var_names, dataset_spec=dataset_spec
+    )
 
     wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
     wet_surface = torch.from_numpy(wet_surface_mask_np)
     return Masks(wet_inp.bool(), wet_surface.bool())
 
 
-def _parse_lev_from_output_var(prognostic_var_names: PrognosticVarNames) -> list[int]:
+def _parse_lev_from_output_var(
+    prognostic_var_names: PrognosticVarNames,
+    *,
+    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+) -> list[int]:
     """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
     depth_inds = []
     for var_depth_i in prognostic_var_names:
+        if "_lev_" in var_depth_i:
+            _, lev_depth = var_depth_i.split("_lev_", maxsplit=1)
+            depth_inds.append(
+                dataset_spec.depth_levels.index(float(lev_depth.replace("_", ".")))
+            )
+            continue
+
         # Examples: "so_18", "zos"
         var_split = var_depth_i.split("_")
         if len(var_split) == 1:
@@ -548,35 +572,44 @@ def _parse_lev_from_output_var(prognostic_var_names: PrognosticVarNames) -> list
     return depth_inds
 
 
-def flatten_masks(data: xr.Dataset) -> xr.Dataset:
-    """Adds data_vars "mask_0"..."mask_18" with dimensions (y, x)."""
+def flatten_masks(
+    data: xr.Dataset,
+    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+) -> xr.Dataset:
+    """Adds level-wise mask variables with dimensions (y, x)."""
     data_ = data.copy()
-    if MASK_VARS[0] not in data_.variables:
-        assert "wetmask" in data_.variables, (
+    mask_vars = list(dataset_spec.mask_vars)
+    if mask_vars[0] not in data_.variables:
+        assert dataset_spec.mask_all_levels_var in data_.variables, (
             "Wet mask cannot be constructed without "
             "either the wetmask variable or the level-wise masks"
         )
 
-        wet_mask = data_["wetmask"]
-        for i, lev in enumerate(DEPTH_I_LEVELS):
-            assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
-            data_[f"mask_{lev}"] = wet_mask.isel(lev=i)
+        wet_mask = data_[dataset_spec.mask_all_levels_var]
+        for i, mask_var in enumerate(mask_vars):
+            data_[mask_var] = wet_mask.isel(lev=i)
 
-        data_ = data_.drop_vars("wetmask")
+        data_ = data_.drop_vars(dataset_spec.mask_all_levels_var)
 
     return data_
 
 
-def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
-    """Adds a "wetmask" `xarray.DataArray` with dimensions (lev, y, x)."""
+def unflatten_masks(
+    data: xr.Dataset,
+    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+) -> xr.Dataset:
+    """Adds a stacked wet mask `xarray.DataArray` with dimensions (lev, y, x)."""
     data_ = data.copy()
-    if "wetmask" not in data_.variables:
-        assert MASK_VARS[0] in data_.variables, "Wet mask must have masks as data vars!"
+    mask_vars = list(dataset_spec.mask_vars)
+    if dataset_spec.mask_all_levels_var not in data_.variables:
+        assert mask_vars[0] in data_.variables, "Wet mask must have masks as data vars!"
 
-        wetmask = data_[MASK_VARS].to_array(dim="lev", name="wetmask")
+        wetmask = data_[mask_vars].to_array(
+            dim="lev", name=dataset_spec.mask_all_levels_var
+        )
 
-        data_["wetmask"] = wetmask.assign_coords(lev=data_.lev)
-        data_ = data_.drop_vars(MASK_VARS)
+        data_[dataset_spec.mask_all_levels_var] = wetmask.assign_coords(lev=data_.lev)
+        data_ = data_.drop_vars(mask_vars)
 
     return data_
 
@@ -651,26 +684,30 @@ def get_inference_steps(data_source: DataSource, hist: int = 1):
     return num_steps
 
 
-def convert_tensor_out_to_dict(tensor_out: torch.Tensor) -> DictSingleChannelVar:
-    tensor_map = TensorMap.get_instance()
+def convert_tensor_out_to_dict(
+    tensor_out: torch.Tensor,
+    *,
+    tensor_map: TensorMap,
+) -> DictSingleChannelVar:
     assert tensor_out.ndim == 5
     assert tensor_out.shape[2] == len(tensor_map.prognostic_var_names)
     out_dict = {}
     for i, var in enumerate(tensor_map.prognostic_var_names):
         out_dict[var] = tensor_out[:, :, i]
-    out_dict.update(add_derived_variables(tensor_out))
+    out_dict.update(add_derived_variables(tensor_out, tensor_map=tensor_map))
     return out_dict
 
 
 def get_aggregator_dicts(
     data: Prognostic | Input,
+    normalize: "Normalize",
+    tensor_map: TensorMap,
     wet: torch.Tensor,
     long_rollout: bool,
     input_type: Literal["prognostic", "input"] = "prognostic",
     num_prognostic_channels: int = 0,
     hist: int = 1,
 ) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
-    normalize = Normalize.get_instance()
     # Remove boundary data if input
     if input_type == "input":
         data = data[:, :num_prognostic_channels]
@@ -692,13 +729,13 @@ def get_aggregator_dicts(
     # Get normalized dict
     data_normalized = data_reshaped.clone()
     data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
-    data_dict = convert_tensor_out_to_dict(data_normalized)
+    data_dict = convert_tensor_out_to_dict(data_normalized, tensor_map=tensor_map)
     # Unnormalize
     data_unnorm = normalize.unnormalize_tensor_prognostic(
         data_reshaped, fill_value=float("nan")
     )
     # Get unnormalized dict
-    data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
+    data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm, tensor_map=tensor_map)
     return data_dict, data_unnorm_dict
 
 
@@ -732,7 +769,10 @@ def compute_anomalies(
     return data, means, stds
 
 
-def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
+def with_level_index_vars(
+    data: xr.Dataset,
+    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+) -> xr.Dataset:
     """
     Ensure variable names use a depth level index, not depth level value.
     """
@@ -746,7 +786,7 @@ def with_level_index_vars(data: xr.Dataset) -> xr.Dataset:
             var_split = var_str.split("_lev_")
             var = var_split[0]
             lev_in_depth = float(var_split[1].replace("_", "."))
-            lev_in_depth_idx = DEPTH_LEVELS.index(lev_in_depth)
+            lev_in_depth_idx = dataset_spec.depth_levels.index(lev_in_depth)
             data_copy = data_copy.rename({var_str: f"{var}_{lev_in_depth_idx!s}"})
 
     return data_copy
@@ -770,6 +810,7 @@ def validate_data(
     data: xr.Dataset,
     means: xr.Dataset,
     stds: xr.Dataset,
+    dataset_spec: DatasetSpec,
     boundary_var_names: BoundaryVarNames,
     static_data_vars: list[str] | None = None,
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
@@ -787,15 +828,15 @@ def validate_data(
         data = with_lat_lon_coords(data)
     else:
         data = (
-            data.pipe(flatten_masks)
-            .pipe(with_level_index_vars)
+            data.pipe(flatten_masks, dataset_spec=dataset_spec)
+            .pipe(with_level_index_vars, dataset_spec=dataset_spec)
             .pipe(with_lat_lon_coords)
         )
 
         # Check if data variables are in the right format
         # This check is to ensure we convert data to the correct format
-        means = with_level_index_vars(means)
-        stds = with_level_index_vars(stds)
+        means = with_level_index_vars(means, dataset_spec=dataset_spec)
+        stds = with_level_index_vars(stds, dataset_spec=dataset_spec)
 
     # Check if any anomalies are needed to be computed
     anomalies_vars = get_anomalies_vars(boundary_var_names)
@@ -808,9 +849,33 @@ def validate_data(
     return out
 
 
-# TODO: Repetitive code. Refactor
-class Normalize(Multiton):
-    def _initialize(
+class Normalize:
+    @classmethod
+    def get_instance(cls) -> "Normalize":
+        instance = Multiton._current_scope.get(cls)
+        if instance is None:
+            raise ValueError(f"{cls} not initialized")
+        return instance
+
+    @classmethod
+    def init_instance(
+        cls,
+        src: DataSource,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
+    ) -> "Normalize":
+        if Multiton._current_scope.get(cls) is not None:
+            raise ValueError(f"{cls} already initialized")
+
+        instance = cls(
+            src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+        )
+        Multiton._current_scope[cls] = instance
+        return instance
+
+    def __init__(
         self,
         src: DataSource,
         prognostic_var_names: PrognosticVarNames,
@@ -843,8 +908,12 @@ class Normalize(Multiton):
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
     ) -> torch.Tensor:
         """Normalize prognostic tensor."""
-        tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
-        tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
+        tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device).to(
+            data.dtype
+        )
+        tensor_std = self._to_tensor(self._prognostic_std_np, data.device).to(
+            data.dtype
+        )
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1
@@ -862,8 +931,12 @@ class Normalize(Multiton):
         self, data: torch.Tensor, fill_value=float("nan")
     ) -> torch.Tensor:
         """Unnormalize prognostic tensor and apply fill value to land cells."""
-        tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
-        tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
+        tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device).to(
+            data.dtype
+        )
+        tensor_std = self._to_tensor(self._prognostic_std_np, data.device).to(
+            data.dtype
+        )
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1
@@ -880,8 +953,10 @@ class Normalize(Multiton):
         self, data: torch.Tensor, fill_value=float("nan")
     ) -> torch.Tensor:
         """Unnormalize boundary tensor."""
-        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device)
-        tensor_std = self._to_tensor(self._boundary_std_np, data.device)
+        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device).to(
+            data.dtype
+        )
+        tensor_std = self._to_tensor(self._boundary_std_np, data.device).to(data.dtype)
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1

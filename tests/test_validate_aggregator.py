@@ -5,7 +5,7 @@ from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.utils.ctx import GridContext
-from ocean_emulators.utils.data import DataSource
+from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics
 
@@ -73,11 +73,19 @@ class FakeSubAggregator(ValidateSubAggregator):
 def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: DataSource):
     val_batch = val_batch_of(*dummy_src.grid_size)
     num_prog_channels = val_batch.loss_per_channel.shape[0]
-    val_agg = ValidateAggregator({}, hist=0, num_prognostic_channels=num_prog_channels)
+    tensor_map = TensorMap.get_instance()
+    normalize = Normalize.get_instance()
+    val_agg = ValidateAggregator(
+        {},
+        hist=0,
+        num_prognostic_channels=num_prog_channels,
+        tensor_map=tensor_map,
+        normalize=normalize,
+    )
     val_agg.record_validation_batch(val_batch)
     val_agg.record_validation_batch(val_batch)
 
-    train_agg = TrainAggregator()
+    train_agg = TrainAggregator(tensor_map)
     train_agg.record_batch(val_batch)
     train_agg.record_batch(val_batch)
 
@@ -92,13 +100,19 @@ def test_train_val_aggregator__with_fake_subagg__is_added_to_logs(
 ):
     val_batch = val_batch_of(*dummy_src.grid_size)
     num_prog_channels = val_batch.loss_per_channel.shape[0]
+    tensor_map = TensorMap.get_instance()
+    normalize = Normalize.get_instance()
     val_agg = ValidateAggregator(
-        {"fake": FakeSubAggregator()}, hist=0, num_prognostic_channels=num_prog_channels
+        {"fake": FakeSubAggregator()},
+        hist=0,
+        num_prognostic_channels=num_prog_channels,
+        tensor_map=tensor_map,
+        normalize=normalize,
     )
     val_agg.record_validation_batch(val_batch)
     val_agg.record_validation_batch(val_batch)
 
-    train_agg = TrainAggregator()
+    train_agg = TrainAggregator(tensor_map)
     train_agg.record_batch(val_batch)
     train_agg.record_batch(val_batch)
 
@@ -121,8 +135,14 @@ def test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match(
 ):
     val_batch = val_batch_of(*dummy_src.grid_size, hist=1, batch_size=2)
     num_prog_channels = val_batch.loss_per_channel.shape[0]
+    tensor_map = TensorMap.get_instance()
+    normalize = Normalize.get_instance()
     val_agg = ValidateAggregator(
-        {"fake": FakeSubAggregator()}, hist=1, num_prognostic_channels=num_prog_channels
+        {"fake": FakeSubAggregator()},
+        hist=1,
+        num_prognostic_channels=num_prog_channels,
+        tensor_map=tensor_map,
+        normalize=normalize,
     )
     val_agg.record_validation_batch(val_batch)
     val_logs = val_agg.get_logs(label="test")
@@ -139,6 +159,8 @@ def test_validation_aggregator__reduced_only__omits_image_logs(
         hist=0,
         area_weights=dummy_src.spherical_area_weights,
         num_prognostic_channels=num_prog_channels,
+        tensor_map=TensorMap.get_instance(),
+        normalize=Normalize.get_instance(),
         include_image_aggregators=False,
     )
 

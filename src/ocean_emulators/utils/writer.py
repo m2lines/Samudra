@@ -18,6 +18,8 @@ class ZarrWriter:
         hist: int,
         model_path: str | os.PathLike,
         time_chunk_size: int,
+        normalize: Normalize,
+        tensor_map: TensorMap,
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
 
@@ -33,8 +35,8 @@ class ZarrWriter:
         self.model_path = model_path
         self.time_chunk_size = time_chunk_size
 
-        self.normalize = Normalize.get_instance()
-        self.tensor_map = TensorMap.get_instance()
+        self.normalize = normalize
+        self.tensor_map = tensor_map
 
     def record_batch(self, IO: ModelInferenceOutput):
         pred_tensor = IO.prediction

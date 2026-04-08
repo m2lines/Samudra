@@ -67,15 +67,20 @@ def compute_global_ocean_heat_content(
     return global_HC_t
 
 
-def add_derived_variables(tensor_out: torch.Tensor) -> dict[str, torch.Tensor]:
+def add_derived_variables(
+    tensor_out: torch.Tensor,
+    *,
+    tensor_map: TensorMap,
+) -> dict[str, torch.Tensor]:
     """
     Add derived variables to the output.
     """
     # Ocean heat content
     derived_vars = {}
-    tensor_map = TensorMap.get_instance()
     dz = tensor_map.dz.to(tensor_out.device)
-    thetao = tensor_out[:, :, tensor_map.VAR_3D_IDX["thetao"]]
+    thetao = tensor_out[
+        :, :, tensor_map.VAR_3D_IDX[tensor_map.dataset_spec.ocean_heat_temperature_var]
+    ]
     ohct = compute_ocean_heat_content(thetao, dz)
     derived_vars["ocean_heat_content"] = ohct
 

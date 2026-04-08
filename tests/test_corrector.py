@@ -6,6 +6,7 @@ import torch
 import xarray as xr
 
 from ocean_emulators.aggregator.metrics import area_weighted_sum
+from ocean_emulators.constants import OM4_DATASET_SPEC
 from ocean_emulators.derived_variables import compute_global_ocean_heat_content
 from ocean_emulators.models.corrector import OceanHeatCorrector, ReLUCorrector
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
@@ -218,6 +219,7 @@ def test_ocean_heat_corrector(ocean_heat_init):
         area_weights=torch.ones(wet_mask.shape),
         tensor_map=tensor_map,
         normalize=normalize,
+        dataset_spec=OM4_DATASET_SPEC,
         hfgeou_tensor=hfgeou_tensor,
         sea_surface_fraction_tensor=sea_surface_fraction_tensor,
     )

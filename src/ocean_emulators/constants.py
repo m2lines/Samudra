@@ -1,6 +1,7 @@
+import dataclasses
 import enum
 import logging
-from typing import Self
+from typing import Literal, Self
 
 logger = logging.getLogger(__name__)
 
@@ -46,171 +47,348 @@ HistChanneled = Float[Tensor, "batch hist_prognostic_vars lat lon"]
 
 MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
+DatasetType = Literal["om4", "llc"]
+
+PrognosticVarNames = list[str]
+BoundaryVarNames = list[str]
+
+
+@dataclasses.dataclass(frozen=True)
+class DatasetSpec:
+    type: DatasetType
+    depth_levels: tuple[float, ...]
+    depth_thickness: tuple[float, ...]
+    mask_vars: tuple[str, ...]
+    mask_all_levels_var: str
+    seconds_per_time_step: int
+    prognostic_vars: dict[str, PrognosticVarNames]
+    boundary_vars: dict[str, BoundaryVarNames]
+    default_metadata: dict[str, dict[str, str]]
+    ocean_heat_temperature_var: str
+    surface_heat_flux_var: str
+
+    def __post_init__(self) -> None:
+        if len(self.depth_levels) != len(self.depth_thickness):
+            raise ValueError(
+                "depth_levels and depth_thickness must have the same length"
+            )
+        if len(self.depth_levels) != len(self.mask_vars):
+            raise ValueError("depth_levels and mask_vars must have the same length")
+
+    @property
+    def depth_i_levels(self) -> tuple[str, ...]:
+        return tuple(str(i) for i in range(len(self.depth_levels)))
+
+    def prognostic_var_names(self, key: str) -> PrognosticVarNames:
+        return self.prognostic_vars[key]
+
+    def boundary_var_names(self, key: str) -> BoundaryVarNames:
+        return self.boundary_vars[key]
+
+
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels
 # and all 2D variables do not have any digits / underscores in their names
 
-# These represent depth centers
-DEPTH_LEVELS = [
-    2.5,
-    10.0,
-    22.5,
-    40.0,
-    65.0,
-    105.0,
-    165.0,
-    250.0,
-    375.0,
-    550.0,
-    775.0,
-    1050.0,
-    1400.0,
-    1850.0,
-    2400.0,
-    3100.0,
-    4000.0,
-    5000.0,
-    6000.0,
-]
-
-# Depth thicknesses
-DEPTH_THICKNESS = [
-    5.0,
-    10.0,
-    15.0,
-    20.0,
-    30.0,
-    50.0,
-    70.0,
-    100.0,
-    150.0,
-    200.0,
-    250.0,
-    300.0,
-    400.0,
-    500.0,
-    600.0,
-    800.0,
-    1000.0,
-    1000.0,
-    1000.0,
-]
-
-DEPTH_I_LEVELS = [
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-    "10",
-    "11",
-    "12",
-    "13",
-    "14",
-    "15",
-    "16",
-    "17",
-    "18",
-]
-
-MASK_VARS = [
-    "mask_0",
-    "mask_1",
-    "mask_2",
-    "mask_3",
-    "mask_4",
-    "mask_5",
-    "mask_6",
-    "mask_7",
-    "mask_8",
-    "mask_9",
-    "mask_10",
-    "mask_11",
-    "mask_12",
-    "mask_13",
-    "mask_14",
-    "mask_15",
-    "mask_16",
-    "mask_17",
-    "mask_18",
-]
-
 RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
 CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
-SECONDS_PER_TIME_STEP = 5 * 24 * 60 * 60  # 5 day average
 
-PrognosticVarNames = list[str]
-PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
-    "thetao_1": [f"thetao_{DEPTH_I_LEVELS[0]}"],
-    "thermo_dynamic_5": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS[:5]
-    ]
-    + ["zos"],
-    "thermo_dynamic_all": [
-        k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in DEPTH_I_LEVELS
-    ]
-    + ["zos"],
-    "thermo_all": [k + str(j) for k in ["thetao_", "so_"] for j in DEPTH_I_LEVELS]
-    + ["zos"],
-}
-BoundaryVarNames = list[str]
-BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
-    "hfds": ["hfds"],
-    "tau_hfds": ["tauuo", "tauvo", "hfds"],
-    "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
-}
+OM4_DATASET_SPEC = DatasetSpec(
+    type="om4",
+    depth_levels=(
+        2.5,
+        10.0,
+        22.5,
+        40.0,
+        65.0,
+        105.0,
+        165.0,
+        250.0,
+        375.0,
+        550.0,
+        775.0,
+        1050.0,
+        1400.0,
+        1850.0,
+        2400.0,
+        3100.0,
+        4000.0,
+        5000.0,
+        6000.0,
+    ),
+    depth_thickness=(
+        5.0,
+        10.0,
+        15.0,
+        20.0,
+        30.0,
+        50.0,
+        70.0,
+        100.0,
+        150.0,
+        200.0,
+        250.0,
+        300.0,
+        400.0,
+        500.0,
+        600.0,
+        800.0,
+        1000.0,
+        1000.0,
+        1000.0,
+    ),
+    mask_vars=tuple(f"mask_{i}" for i in range(19)),
+    mask_all_levels_var="wetmask",
+    seconds_per_time_step=5 * 24 * 60 * 60,
+    prognostic_vars={
+        "thetao_1": ["thetao_0"],
+        "thermo_dynamic_5": [
+            k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in range(5)
+        ]
+        + ["zos"],
+        "thermo_dynamic_all": [
+            k + str(j) for k in ["uo_", "vo_", "thetao_", "so_"] for j in range(19)
+        ]
+        + ["zos"],
+        "thermo_all": [k + str(j) for k in ["thetao_", "so_"] for j in range(19)]
+        + ["zos"],
+    },
+    boundary_vars={
+        "hfds": ["hfds"],
+        "tau_hfds": ["tauuo", "tauvo", "hfds"],
+        "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
+    },
+    default_metadata={
+        "thetao": {
+            "long_name": "Sea Water Potential Temperature",
+            "units": r"\degree C",
+        },
+        "so": {
+            "long_name": "Sea Water Salinity",
+            "units": "psu",
+        },
+        "uo": {
+            "long_name": "Sea Water X Velocity",
+            "units": "m/s",
+        },
+        "vo": {
+            "long_name": "Sea Water Y Velocity",
+            "units": "m/s",
+        },
+        "zos": {
+            "long_name": "Sea surface height above geoid",
+            "units": "m",
+        },
+        "tos": {
+            "long_name": "Sea surface temperature",
+            "units": r"\degree C",
+        },
+        "tauuo": {
+            "long_name": "Surface Downward X Stress",
+            "units": "N/m^2",
+        },
+        "tauvo": {
+            "long_name": "Surface Downward Y Stress",
+            "units": "N/m^2",
+        },
+        "hfds": {
+            "long_name": "Surface ocean heat flux from "
+            "SW+LW+latent+sensible+masstransfer+frazil+seaice_melt_heat",
+            "units": "W/m^2",
+        },
+        "hfds_anomalies": {
+            "long_name": "hfds anomalies",
+            "units": "W/m^2",
+        },
+    },
+    ocean_heat_temperature_var="thetao",
+    surface_heat_flux_var="hfds",
+)
 
-DEFAULT_METADATA = {
-    "thetao": {
-        "long_name": "Sea Water Potential Temperature",
-        "units": r"\degree C",
+LLC_DATASET_SPEC = DatasetSpec(
+    type="llc",
+    depth_levels=(
+        0.5,
+        1.57,
+        2.79,
+        4.185,
+        5.78,
+        7.595,
+        9.66,
+        12.01,
+        14.68,
+        17.705,
+        21.125,
+        24.99,
+        29.345,
+        34.24,
+        39.725,
+        45.855,
+        52.69,
+        60.28,
+        68.685,
+        77.965,
+        88.175,
+        99.37,
+        111.6,
+        124.915,
+        139.365,
+        154.99,
+        171.825,
+        189.9,
+        209.235,
+        229.855,
+        251.77,
+        274.985,
+        299.505,
+        325.32,
+        352.42,
+        380.79,
+        410.41,
+        441.255,
+        473.305,
+        506.54,
+        540.935,
+        576.465,
+        613.11,
+        650.855,
+        689.685,
+        729.595,
+        770.585,
+        812.66,
+        855.835,
+        900.135,
+        945.595,
+    ),
+    depth_thickness=(
+        1.07,
+        1.22,
+        1.395,
+        1.595,
+        1.815,
+        2.065,
+        2.35,
+        2.67,
+        3.025,
+        3.42,
+        3.865,
+        4.355,
+        4.895,
+        5.485,
+        6.13,
+        6.835,
+        7.59,
+        8.405,
+        9.28,
+        10.21,
+        11.195,
+        12.23,
+        13.315,
+        14.45,
+        15.625,
+        16.835,
+        18.075,
+        19.335,
+        20.62,
+        21.915,
+        23.215,
+        24.52,
+        25.815,
+        27.1,
+        28.37,
+        29.62,
+        30.845,
+        32.05,
+        33.235,
+        34.395,
+        35.53,
+        36.645,
+        37.745,
+        38.83,
+        39.91,
+        40.99,
+        42.075,
+        43.175,
+        44.3,
+        45.46,
+        54.405,
+    ),
+    mask_vars=tuple(f"wetmask_{i}" for i in range(51)),
+    mask_all_levels_var="wetmask",
+    seconds_per_time_step=60,
+    prognostic_vars={
+        "single_1": ["Theta_0"],
+        "all": [k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in range(51)]
+        + ["Eta"],
     },
-    "so": {
-        "long_name": "Sea Water Salinity",
-        "units": "psu",
+    boundary_vars={
+        "single_1": ["oceQnet"],
+        "all": ["oceTAUX", "oceTAUY", "oceQnet", "Eta"],
     },
-    "uo": {
-        "long_name": "Sea Water X Velocity",
-        "units": "m/s",
+    default_metadata={
+        "Theta": {
+            "long_name": "Sea Water Potential Temperature",
+            "units": r"\degree C",
+        },
+        "Salt": {
+            "long_name": "Sea Water Salinity",
+            "units": "psu",
+        },
+        "U": {
+            "long_name": "Sea Water X Velocity",
+            "units": "m/s",
+        },
+        "V": {
+            "long_name": "Sea Water Y Velocity",
+            "units": "m/s",
+        },
+        "Eta": {
+            "long_name": "Sea surface height above geoid",
+            "units": "m",
+        },
+        "oceTAUX": {
+            "long_name": "Surface Downward X Stress",
+            "units": "N/m^2",
+        },
+        "oceTAUY": {
+            "long_name": "Surface Downward Y Stress",
+            "units": "N/m^2",
+        },
+        "oceQnet": {
+            "long_name": "Surface ocean heat flux from "
+            "SW+LW+latent+sensible+masstransfer+frazil+seaice_melt_heat",
+            "units": "W/m^2",
+        },
     },
-    "vo": {
-        "long_name": "Sea Water Y Velocity",
-        "units": "m/s",
-    },
-    "zos": {
-        "long_name": "Sea surface height above geoid",
-        "units": "m",
-    },
-    "tos": {
-        "long_name": "Sea surface temperature",
-        "units": r"\degree C",
-    },
-    "tauuo": {
-        "long_name": "Surface Downward X Stress",
-        "units": "N/m^2",
-    },
-    "tauvo": {
-        "long_name": "Surface Downward Y Stress",
-        "units": "N/m^2",
-    },
-    "hfds": {
-        "long_name": "Surface ocean heat flux from "
-        "SW+LW+latent+sensible+masstransfer+frazil+seaice_melt_heat",
-        "units": "W/m^2",
-    },
-    "hfds_anomalies": {
-        "long_name": "hfds anomalies",
-        "units": "W/m^2",
-    },
-}
+    ocean_heat_temperature_var="Theta",
+    surface_heat_flux_var="oceQnet",
+)
 
 
-def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
+def get_dataset_spec(dataset_type: DatasetType) -> DatasetSpec:
+    match dataset_type:
+        case "om4":
+            return OM4_DATASET_SPEC
+        case "llc":
+            return LLC_DATASET_SPEC
+    raise ValueError(f"Unsupported dataset type: {dataset_type}")
+
+
+DEPTH_LEVELS = list(OM4_DATASET_SPEC.depth_levels)
+DEPTH_THICKNESS = list(OM4_DATASET_SPEC.depth_thickness)
+DEPTH_I_LEVELS = list(OM4_DATASET_SPEC.depth_i_levels)
+MASK_VARS = list(OM4_DATASET_SPEC.mask_vars)
+MASK_ALL_LEVELS_VAR = OM4_DATASET_SPEC.mask_all_levels_var
+SECONDS_PER_TIME_STEP = OM4_DATASET_SPEC.seconds_per_time_step
+PROGNOSTIC_VARS = OM4_DATASET_SPEC.prognostic_vars
+BOUNDARY_VARS = OM4_DATASET_SPEC.boundary_vars
+DEFAULT_METADATA = OM4_DATASET_SPEC.default_metadata
+
+
+def construct_metadata(
+    data: xr.Dataset,
+    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+) -> dict[str, dict[str, str]]:
     metadata = {}
     for var in data.variables:
         try:
@@ -219,10 +397,12 @@ def construct_metadata(data: xr.Dataset) -> dict[str, dict[str, str]]:
                 "units": data[var].units,
             }
         except AttributeError:
-            if var in DEFAULT_METADATA.keys():
-                metadata[str(var)] = DEFAULT_METADATA[str(var)]
-            elif (key := str(var).split("_")[0]) in DEFAULT_METADATA.keys():
-                metadata[str(var)] = DEFAULT_METADATA[key]
+            if var in dataset_spec.default_metadata.keys():
+                metadata[str(var)] = dataset_spec.default_metadata[str(var)]
+            elif (
+                key := str(var).split("_")[0]
+            ) in dataset_spec.default_metadata.keys():
+                metadata[str(var)] = dataset_spec.default_metadata[key]
             else:
                 logger.info(f"{var} does not have any default metadata")
                 metadata[str(var)] = {
@@ -237,15 +417,45 @@ class LoaderVersion(enum.Enum):
     OM4_TORCH = "om4-torch"
 
 
-# TODO(#95): See if this can be removed and replaced.
-class TensorMap(Multiton):
-    def _initialize(self, prognostic_vars_key: str, boundary_vars_key: str):
+class TensorMap:
+    @classmethod
+    def get_instance(cls) -> "TensorMap":
+        instance = Multiton._current_scope.get(cls)
+        if instance is None:
+            raise ValueError(f"{cls} not initialized")
+        return instance
+
+    @classmethod
+    def init_instance(
+        cls,
+        prognostic_vars_key: str,
+        boundary_vars_key: str,
+        dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+    ) -> "TensorMap":
+        if Multiton._current_scope.get(cls) is not None:
+            raise ValueError(f"{cls} already initialized")
+
+        instance = cls(
+            prognostic_vars_key,
+            boundary_vars_key,
+            dataset_spec=dataset_spec,
+        )
+        Multiton._current_scope[cls] = instance
+        return instance
+
+    def __init__(
+        self,
+        prognostic_vars_key: str,
+        boundary_vars_key: str,
+        dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+    ):
         """
         Maps input variables / depth levels to their indices in the input tensor.
 
         VAR_3D_IDX maps the input variables to their indices in the input tensor
         DP_3D_IDX maps the depth levels to their indices in the input tensor
         """
+        self.dataset_spec = dataset_spec
         self.prognostic_vars_key = prognostic_vars_key
         self.VAR_3D_IDX: dict[str, torch.Tensor] = {}
         self.DP_3D_IDX: dict[str, torch.Tensor] = {}
@@ -253,7 +463,11 @@ class TensorMap(Multiton):
         self.INPT_BOUNDARY_IDX: dict[str, torch.Tensor] = {}
         self.VAR_SET_2D = []
         self.VAR_SET_3D = []
-        for out in PROGNOSTIC_VARS[prognostic_vars_key]:
+        self.prognostic_var_names = dataset_spec.prognostic_var_names(
+            prognostic_vars_key
+        )
+        self.boundary_var_names = dataset_spec.boundary_var_names(boundary_vars_key)
+        for out in self.prognostic_var_names:
             var_split = out.split("_")
             if len(var_split) == 1:
                 self.VAR_SET_2D.append(var_split[0])
@@ -262,21 +476,17 @@ class TensorMap(Multiton):
 
         # Consistent order of variables
         self.VAR_SET = list(
-            dict.fromkeys(
-                [out.split("_")[0] for out in PROGNOSTIC_VARS[prognostic_vars_key]]
-            )
+            dict.fromkeys([out.split("_")[0] for out in self.prognostic_var_names])
         )
 
         levels_str = prognostic_vars_key.split("_")[-1]
         if "all" in levels_str:
-            levels = 19
+            levels = len(dataset_spec.depth_i_levels)
         else:
             levels = int(levels_str)
 
-        self.DEPTH_SET = DEPTH_I_LEVELS[:levels]
-        self.prognostic_var_names = PROGNOSTIC_VARS[prognostic_vars_key]
-        self.boundary_var_names = BOUNDARY_VARS[boundary_vars_key]
-        self.dz = torch.tensor(DEPTH_THICKNESS[:levels])
+        self.DEPTH_SET = list(dataset_spec.depth_i_levels[:levels])
+        self.dz = torch.tensor(dataset_spec.depth_thickness[:levels])
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()

@@ -275,8 +275,10 @@ def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
         )
     data_dict, data_unnorm_dict = get_aggregator_dicts(
         data,
-        wet,
-        long_rollout,
+        normalize=normalize,
+        tensor_map=tensor_map,
+        wet=wet,
+        long_rollout=long_rollout,
         input_type=input_type,
         num_prognostic_channels=num_prognostic_channels * (hist + 1),
         hist=hist,

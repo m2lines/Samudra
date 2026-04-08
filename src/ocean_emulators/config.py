@@ -15,9 +15,12 @@ from torch.nn import GELU
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import (
     BoundaryVarNames,
+    DatasetSpec,
     Grid,
     LoaderVersion,
     PrognosticVarNames,
+    TensorMap,
+    get_dataset_spec,
 )
 from ocean_emulators.models import FOMO, FOMini, Samudra
 from ocean_emulators.models.base import BaseModel
@@ -39,7 +42,7 @@ from ocean_emulators.models.modules import (
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.models.modules.encoder import patch_from
-from ocean_emulators.utils.data import DataContainer, DataSource
+from ocean_emulators.utils.data import DataContainer, DataSource, Normalize
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
@@ -176,7 +179,33 @@ DataLoadingConfig = Annotated[
 ]
 
 
+class Om4DatasetConfig(BaseConfig):
+    type: Literal["om4"] = "om4"
+
+    def build_spec(self) -> DatasetSpec:
+        return get_dataset_spec(self.type)
+
+
+class LlcDatasetConfig(BaseConfig):
+    type: Literal["llc"] = "llc"
+    face: int = 1
+    i_start: int = 0
+    i_end: int = 720
+    j_start: int = 0
+    j_end: int = 720
+
+    def build_spec(self) -> DatasetSpec:
+        return get_dataset_spec(self.type)
+
+
+DatasetConfig = Annotated[
+    Om4DatasetConfig | LlcDatasetConfig,
+    Field(discriminator="type"),
+]
+
+
 class DataConfig(BaseConfig):
+    dataset: DatasetConfig = Field(default_factory=Om4DatasetConfig)
     sources: list[DataSourceConfig] = Field(
         description=(
             "Data sources to include, each with explicit data/means/stds "
@@ -198,6 +227,14 @@ class DataConfig(BaseConfig):
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
+        dataset_spec = self.dataset.build_spec()
+        if self.dataset.type != "om4":
+            raise NotImplementedError(
+                f"Dataset type {self.dataset.type!r} is not wired into the data "
+                "loader yet. The dataset-family interface lands in this PR; LLC "
+                "reader support follows in the next slice."
+            )
+
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
@@ -214,6 +251,7 @@ class DataConfig(BaseConfig):
                 data_location=resolved_data_location,
                 means_location=resolved_means_location,
                 stds_location=resolved_stds_location,
+                dataset_spec=dataset_spec,
                 prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names,
                 static_data_vars=self.static_data_vars,
@@ -262,11 +300,12 @@ class DataConfig(BaseConfig):
         )
 
         return DataContainer(
-            sources,
-            inference_source,
-            loader_version,
-            supports_fork,
-            static_data,
+            sources=sources,
+            inference_source=inference_source,
+            loader_version=loader_version,
+            supports_fork=supports_fork,
+            dataset_spec=dataset_spec,
+            static_data=static_data,
         )
 
 
@@ -339,7 +378,14 @@ class CorrectorConfig(BaseConfig):
     ocean_heat_corrector: bool = False
 
     def build(
-        self, hist: int, area_weights: Grid, static_data: xr.Dataset | None
+        self,
+        hist: int,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
+        *,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> nn.Module:
         # This prevents a circular import bug.
         from ocean_emulators.models.corrector import Correctors
@@ -350,6 +396,9 @@ class CorrectorConfig(BaseConfig):
             hist=hist,
             area_weights=area_weights,
             static_data=static_data,
+            tensor_map=tensor_map,
+            normalize=normalize,
+            dataset_spec=dataset_spec,
         )
 
 
@@ -660,6 +709,9 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> BaseModel:
         pass
 
@@ -683,6 +735,9 @@ class SamudraConfig(BaseModelConfig):
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> Samudra:
         corrector = None
         if len(srcs) != 1:
@@ -692,7 +747,12 @@ class SamudraConfig(BaseModelConfig):
         src = srcs[0]
         if self.corrector is not None:
             corrector = self.corrector.build(
-                hist, src.spherical_area_weights, static_data_for_corrector
+                hist,
+                src.spherical_area_weights,
+                static_data_for_corrector,
+                tensor_map=tensor_map,
+                normalize=normalize,
+                dataset_spec=dataset_spec,
             )
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
@@ -746,6 +806,9 @@ class FOMOConfig(BaseModelConfig):
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> FOMO:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
@@ -833,6 +896,9 @@ class FOMiniConfig(BaseModelConfig):
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> FOMini:
         if self.add_3d_coordinates:
             raise ValueError(

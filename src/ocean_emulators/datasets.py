@@ -563,34 +563,14 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
             if "lev" in prognostic_selected[0].dims:
                 prognostics = [
-                    torch.from_numpy(
-                        conditional_rearrange(
-                            selected,
-                            "time (variable lev)=var lat lon",
-                            concat_dim="var",
-                        )
-                        .rename({"var": "variable"})
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
-                    )
+                    _compact_dataset_to_tensor(selected)
                     for selected in prognostic_selected
                 ]
             else:
                 prognostics = [
-                    torch.from_numpy(
-                        selected.to_array()
-                        .transpose("time", "variable", "lat", "lon")
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
-                    )
-                    for selected in prognostic_selected
+                    _dataset_to_tensor(selected) for selected in prognostic_selected
                 ]
-            boundary = torch.from_numpy(
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-                .astype(np.float32, copy=False)
-            )
+            boundary = _dataset_to_tensor(boundary_selected)
             input_, label = prognostics[0], prognostics[-1]
             TD.insert(input_, boundary, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
@@ -663,6 +643,87 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         return self.rolling_indices.isel(window=window_index, drop=True)
 
 
+def _compact_dataset_to_tensor(ds: xr.Dataset, lev_dim: str = "lev") -> torch.Tensor:
+    """Convert a compact Dataset (variables with/without a level dim) to a Tensor.
+
+    Flattens `(variable, lev)` into a single channel dimension, matching the
+    output of ``conditional_rearrange`` but using direct numpy operations.
+
+    Variables with ``lev_dim`` contribute ``n_lev`` channels each; variables
+    without it contribute 1 channel.  Channel order follows dataset variable
+    order, preserving the same semantics as the einops path.
+    """
+    var_names = list(ds.data_vars)
+    first = ds[var_names[0]]
+    if hasattr(first.variable.data, "dask"):
+        logger.warning(
+            "_compact_dataset_to_tensor: variable %s is still dask-backed "
+            "(concurrent_compute may have failed). Loading synchronously.",
+            first.name,
+        )
+        ds.load()
+
+    # Count total channels.
+    n_channels = 0
+    for name in var_names:
+        v = ds[name]
+        if lev_dim in v.dims:
+            n_channels += v.sizes[lev_dim]
+        else:
+            n_channels += 1
+
+    # Determine spatial shape from first variable (skip time and optional lev).
+    spatial_dims = [d for d in first.dims if d not in ("time", lev_dim)]
+    spatial_shape = tuple(first.sizes[d] for d in spatial_dims)
+    n_time = first.sizes["time"]
+
+    out = np.empty((n_time, n_channels, *spatial_shape), dtype=np.float32)
+
+    ch = 0
+    for name in var_names:
+        v = ds[name]
+        vals = v.values  # already loaded by concurrent_compute
+        if lev_dim in v.dims:
+            # vals shape: (time, lev, *spatial) or (lev, time, *spatial)
+            # Ensure (time, lev, *spatial) ordering.
+            lev_axis = v.dims.index(lev_dim)
+            time_axis = v.dims.index("time")
+            if time_axis > lev_axis:
+                # (lev, time, ...) → (time, lev, ...)
+                vals = np.moveaxis(vals, time_axis, 0)
+            n_lev = vals.shape[1]
+            out[:, ch : ch + n_lev] = vals
+            ch += n_lev
+        else:
+            # vals shape: (time, *spatial)
+            out[:, ch] = vals
+            ch += 1
+
+    return torch.from_numpy(out)
+
+
+def _dataset_to_tensor(ds: xr.Dataset) -> torch.Tensor:
+    """Convert an xarray Dataset to a torch Tensor without expensive numpy.stack.
+
+    Replaces the slow ``ds.to_array().transpose(...).to_numpy().astype(float32)``
+    chain by pre-allocating a single array and filling each variable in-place.
+    """
+    var_names = list(ds.data_vars)
+    first = ds[var_names[0]]
+    if hasattr(first.variable.data, "dask"):
+        logger.warning(
+            "_dataset_to_tensor: variable %s is still dask-backed "
+            "(concurrent_compute may have failed). Loading synchronously.",
+            first.name,
+        )
+        ds.load()
+    shape = first.shape  # (time, lat, lon)
+    out = np.empty((shape[0], len(var_names), *shape[1:]), dtype=np.float32)
+    for i, name in enumerate(var_names):
+        out[:, i] = ds[name].values
+    return torch.from_numpy(out)
+
+
 def concurrent_compute(
     *datasets: xr.Dataset,
     executor: ThreadPoolExecutor,
@@ -676,6 +737,13 @@ def concurrent_compute(
             futures.append(executor.submit(load_variable_data, var))
 
     wait(futures)
+
+    # Surface any exceptions that were silently swallowed by wait().
+    # Without this, a failed var.load() leaves the Variable dask-backed,
+    # and _dataset_to_tensor falls back to a synchronous zarr read that
+    # can hang for 600+ seconds, causing DataLoader timeouts.
+    for future in futures:
+        future.result()  # raises if load() failed
 
 
 @final
@@ -705,11 +773,49 @@ class TrainDataLoader:
         self._device = device
 
     def __iter__(self):
-        """Iterate over the dataloader, converting RawTrainData to TrainData."""
-        for raw_train_data in self._dataloader:
-            dataset = self._datasets[raw_train_data.dataset_id]
-            train_data = dataset.to_train_data(raw_train_data, self._device)
-            yield train_data
+        """Iterate over the dataloader, converting RawTrainData to TrainData.
+
+        Uses a prefetch buffer with a dedicated CUDA stream so that the
+        CPU→GPU transfer of the *next* batch overlaps with the current
+        batch's forward/backward pass.
+        """
+        if self._device.type != "cuda":
+            # Fall back to simple iteration on CPU.
+            for raw_train_data in self._dataloader:
+                dataset = self._datasets[raw_train_data.dataset_id]
+                yield dataset.to_train_data(raw_train_data, self._device)
+            return
+
+        stream = torch.cuda.Stream(device=self._device)
+        prefetched: TrainData | None = None
+
+        dl_iter = iter(self._dataloader)
+
+        # Kick off the first transfer.
+        first = next(dl_iter, None)
+        if first is None:
+            return
+        with torch.cuda.stream(stream):
+            dataset = self._datasets[first.dataset_id]
+            prefetched = dataset.to_train_data(first, self._device)
+
+        for raw_train_data in dl_iter:
+            # Wait for the previous prefetch to finish.
+            torch.cuda.current_stream(self._device).wait_stream(stream)
+            assert prefetched is not None
+            current = prefetched
+
+            # Start transferring the next batch on the side stream.
+            with torch.cuda.stream(stream):
+                dataset = self._datasets[raw_train_data.dataset_id]
+                prefetched = dataset.to_train_data(raw_train_data, self._device)
+
+            yield current
+
+        # Yield the last prefetched batch.
+        if prefetched is not None:
+            torch.cuda.current_stream(self._device).wait_stream(stream)
+            yield prefetched
 
     def __len__(self) -> int:
         return len(self._dataloader)

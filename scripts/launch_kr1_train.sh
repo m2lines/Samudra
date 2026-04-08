@@ -44,10 +44,7 @@ fi
 export CONFIG=configs/fomo_om4/train_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_v38
-# v38: diagnostic retry — apptainer strips host env unless APPTAINERENV_-prefixed.
-export APPTAINERENV_CUDA_LAUNCH_BLOCKING=1
-export APPTAINERENV_TORCH_USE_CUDA_DSA=1
+export NAME_SUFFIX=kr1_fomo_multiscale_v39
 
 # ── Data root: parent dir containing all three resolution subdirectories ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"

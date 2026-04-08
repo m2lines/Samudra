@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Script to clone remote Oceans Emulator data locally."""
+"""Script to clone and compact Zarr ocean data."""
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [

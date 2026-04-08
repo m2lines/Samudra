@@ -560,7 +560,17 @@ class Trainer:
 
             # Scale loss by the actual number of microbatches that will be accumulated
             scaled_loss = TO.loss / r
-            scaled_loss.backward()
+
+            # Skip DDP gradient allreduce on non-final microbatches so that
+            # accumulation actually saves communication overhead (otherwise
+            # every backward triggers its own sync and r>1 is a pure no-op
+            # for throughput).
+            is_accum_step = (data_iter_step + 1) % self.gradient_accumulation_steps != 0
+            if is_accum_step and hasattr(self.model, "no_sync"):
+                with self.model.no_sync():
+                    scaled_loss.backward()
+            else:
+                scaled_loss.backward()
 
             train_aggregator.record_batch(TO)
 

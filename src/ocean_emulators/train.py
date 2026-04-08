@@ -591,10 +591,20 @@ class Trainer:
                 else self.scheduler.get_last_lr()[0]
             )
 
+            # Only run the heavy per-channel all_reduce + wandb logging every
+            # 5 steps to stop per-iter CUDA syncs from dominating the loop.
+            # Intermediate iters use the local (unreduced) loss for the
+            # metric logger; this is fine for the running average.
+            do_full_metrics = (data_iter_step % 5 == 0)
+
             with torch.no_grad():
                 # Reduce losses
-                loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
+                if do_full_metrics:
+                    loss_value_reduce = all_reduce_mean(TO.loss.detach())
+                    loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
+                else:
+                    loss_value_reduce = TO.loss.detach()
+                    loss_per_channel_reduce = TO.loss_per_channel.detach()
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
@@ -657,7 +667,8 @@ class Trainer:
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
 
-            self.wandb_logger.log(metrics, step=self.num_batches_seen)
+            if do_full_metrics:
+                self.wandb_logger.log(metrics, step=self.num_batches_seen)
 
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)

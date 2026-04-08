@@ -208,7 +208,66 @@ export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
 
-# Bind mounts.
+# Create the run directory after preflight validation so early failures are
+# retryable with the same NAME.
+mkdir -p "${RUN_DIR}"
+
+# ── Optional data staging to node-local NVMe ──
+# Set STAGE_DATA=1 to copy zarr data from DATA_ROOT to fast node-local storage
+# before training.  This avoids /scratch I/O stalls during training.
+# STAGE_SOURCES: space-separated list of subdirectories to stage.
+# STAGE_TIME_START / STAGE_TIME_END: optional time range to reduce copy size.
+# STAGE_DST: destination directory on node-local storage.
+STAGE_DATA="${STAGE_DATA:-0}"
+STAGE_DST="${STAGE_DST:-/state/partition1/data}"
+STAGE_SOURCES="${STAGE_SOURCES:-}"
+STAGE_TIME_START="${STAGE_TIME_START:-}"
+STAGE_TIME_END="${STAGE_TIME_END:-}"
+
+if [[ "${STAGE_DATA}" == "1" && -n "${STAGE_SOURCES}" ]]; then
+  echo ""
+  echo "=== Staging data to node-local NVMe ==="
+  echo "Source:      ${DATA_ROOT}"
+  echo "Destination: ${STAGE_DST}"
+  echo "Sources:     ${STAGE_SOURCES}"
+  if [[ -n "${STAGE_TIME_START}" && -n "${STAGE_TIME_END}" ]]; then
+    echo "Time range:  ${STAGE_TIME_START} to ${STAGE_TIME_END}"
+  fi
+  echo ""
+
+  STAGE_BIND="${DATA_ROOT}:${DATA_ROOT},${STAGE_DST}:${STAGE_DST}"
+  if [[ "${MOUNT_SOURCE:-1}" != "0" ]]; then
+    STAGE_BIND="${STAGE_BIND},${REPO_DIR}/src:/workspace/src,${REPO_DIR}/scripts:/workspace/scripts"
+  fi
+  mkdir -p "${STAGE_DST}"
+
+  STAGE_ARGS="--src-root ${DATA_ROOT} --dst-root ${STAGE_DST}"
+  if [[ -n "${STAGE_TIME_START}" ]]; then
+    STAGE_ARGS="${STAGE_ARGS} --time-start ${STAGE_TIME_START}"
+  fi
+  if [[ -n "${STAGE_TIME_END}" ]]; then
+    STAGE_ARGS="${STAGE_ARGS} --time-end ${STAGE_TIME_END}"
+  fi
+
+  "${APPTAINER_BIN}" exec --nv \
+    --bind "${STAGE_BIND}" \
+    --pwd /workspace \
+    "${SIF_PATH}" \
+    bash -lc "
+      export PYTHONPATH=/workspace/src:\${PYTHONPATH:-}
+      /workspace/.venv/bin/python /workspace/scripts/stage_data.py \
+        ${STAGE_ARGS} ${STAGE_SOURCES}
+    "
+  STAGE_EXIT=$?
+  if [[ ${STAGE_EXIT} -ne 0 ]]; then
+    echo "ERROR: Data staging failed (exit ${STAGE_EXIT}). Falling back to ${DATA_ROOT}." >&2
+  else
+    echo "Data staging complete. Switching DATA_ROOT to ${STAGE_DST}"
+    DATA_ROOT="${STAGE_DST}"
+  fi
+fi
+
+# Bind mounts — built after staging so DATA_ROOT reflects the (possibly local) path.
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
 mkdir -p "${DATA_CACHE_DIR}"
 binds=(
@@ -216,11 +275,52 @@ binds=(
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
+if [[ "${MOUNT_SOURCE:-1}" != "0" ]]; then
+  binds+=("${REPO_DIR}/src:/workspace/src")
+  binds+=("${REPO_DIR}/configs:/workspace/configs")
+fi
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
-# Create the run directory after preflight validation so early failures are
-# retryable with the same NAME.
-mkdir -p "${RUN_DIR}"
+# ── Optional periodic py-spy dump watchdog ──
+# Set PYSPY_WATCHDOG=1 to enable periodic stack dumps of all training processes
+# (including DataLoader workers).  Dumps land in ${RUN_DIR}/pyspy_dumps.log.
+# PYSPY_INTERVAL controls the dump frequency in seconds (default: 60).
+PYSPY_WATCHDOG="${PYSPY_WATCHDOG:-0}"
+PYSPY_INTERVAL="${PYSPY_INTERVAL:-60}"
+PYSPY_DUMP_LOG="${RUN_DIR}/pyspy_dumps.log"
+
+# ── Optional py-spy record (flamegraph profiling) ──
+# Set PYSPY_RECORD=1 to record a flamegraph/speedscope profile of the full run.
+# Output lands in ${RUN_DIR}/pyspy_profile.<format>.
+PYSPY_RECORD="${PYSPY_RECORD:-0}"
+PYSPY_RECORD_RATE="${PYSPY_RECORD_RATE:-1}"
+PYSPY_RECORD_FORMAT="${PYSPY_RECORD_FORMAT:-speedscope}"
+PYSPY_RECORD_FILE="${RUN_DIR}/pyspy_profile.${PYSPY_RECORD_FORMAT}"
+
+# ── Optional NVIDIA Nsight Systems (nsys) profiling ──
+# Set NSYS_PROFILE=1 to wrap torchrun with nsys for GPU-level profiling.
+# Use NSYS_DELAY to skip warmup (seconds) and NSYS_DURATION to limit capture.
+# Mode: "lite" for low-overhead overview, "detailed" for full CUDA+Python backtraces.
+NSYS_PROFILE="${NSYS_PROFILE:-0}"
+NSYS_DELAY="${NSYS_DELAY:-120}"
+NSYS_DURATION="${NSYS_DURATION:-120}"
+NSYS_MODE="${NSYS_MODE:-lite}"
+NSYS_OUTPUT="${RUN_DIR}/nsys_profile"
+
+# ── Optional THP (Transparent Huge Pages) diagnostic monitoring ──
+# Set THP_MONITOR=1 to periodically sample /proc/vmstat for THP and compaction
+# counters. This diagnoses stalls caused by synchronous huge page defragmentation
+# (see: /sys/kernel/mm/transparent_hugepage/defrag).
+THP_MONITOR="${THP_MONITOR:-0}"
+THP_MONITOR_INTERVAL="${THP_MONITOR_INTERVAL:-5}"
+THP_VMSTAT_LOG="${RUN_DIR}/thp_vmstat.log"
+THP_SETTINGS_LOG="${RUN_DIR}/thp_settings.log"
+
+# ── Optional strace madvise tracing ──
+# Set STRACE_MADVISE=1 to attach strace to one DataLoader worker process
+# and capture madvise() syscalls (the trigger for THP defrag).
+STRACE_MADVISE="${STRACE_MADVISE:-0}"
+STRACE_LOG="${RUN_DIR}/strace_madvise.log"
 if [[ -n "${NSYS_ARGS}" ]]; then
   mkdir -p "${NSYS_OUTPUT_DIR}"
 fi
@@ -275,11 +375,207 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         --master_addr=${MASTER_ADDR} \
         --master_port=${MASTER_PORT} \
         --node_rank=\${SLURM_PROCID} \
-        -m ocean_emulators.train \"${CONFIG_IN_CONTAINER}\" \
-        --experiment.name=\"${NAME}\" \
-        --experiment.data_root=\"${DATA_ROOT}\" \
-        --experiment.base_output_dir=\"${OUTPUT_BASE}\" \
-        --experiment.wandb.mode=\"${WANDB_MODE}\" \
-        --backend=\"nccl\" \
-        ${ARGS}
+        -m ocean_emulators.train ${CONFIG_IN_CONTAINER} \
+        --experiment.name=${NAME} \
+        --experiment.data_root=${DATA_ROOT} \
+        --experiment.base_output_dir=${OUTPUT_BASE} \
+        --experiment.wandb.mode=${WANDB_MODE} \
+        --backend=nccl \
+        ${ARGS}\"
+
+      # Optionally wrap torchrun with nsys for GPU-level profiling.
+      # nsys captures for NSYS_DURATION seconds after NSYS_DELAY, then stops
+      # collection but lets the wrapped process continue running.
+      if [[ \"${NSYS_PROFILE}\" == \"1\" ]]; then
+        if [[ \"${NSYS_MODE}\" == \"detailed\" ]]; then
+          NSYS_ARGS=\"--trace=cuda,nvtx,osrt,nccl --cudabacktrace=all --sample=none\"
+        else
+          NSYS_ARGS=\"--trace=cuda,nvtx,osrt,nccl --sample=none\"
+        fi
+        echo \"[nsys] Profiling: delay=${NSYS_DELAY}s duration=${NSYS_DURATION}s mode=${NSYS_MODE}\"
+        echo \"[nsys] Output: ${NSYS_OUTPUT}\"
+        nsys profile \
+          \${NSYS_ARGS} \
+          --delay=${NSYS_DELAY} \
+          --duration=${NSYS_DURATION} \
+          --output=\"${NSYS_OUTPUT}\" \
+          --force-overwrite=true \
+          \${TRAIN_CMD} &
+        TORCHRUN_PID=\$!
+        # nsys sends SIGTERM after duration expires. Trap it so training
+        # continues and we just lose nsys (the profile is already saved).
+      else
+        \${TRAIN_CMD} &
+        TORCHRUN_PID=\$!
+      fi
+
+      # ── THP settings snapshot ──
+      if [[ \"${THP_MONITOR}\" == \"1\" ]]; then
+        echo \"[thp] Logging THP kernel settings → ${THP_SETTINGS_LOG}\"
+        {
+          echo \"=== THP Settings at \$(date -Iseconds) ===\"
+          echo \"--- /sys/kernel/mm/transparent_hugepage/enabled ---\"
+          cat /sys/kernel/mm/transparent_hugepage/enabled 2>&1 || echo \"(not readable)\"
+          echo \"--- /sys/kernel/mm/transparent_hugepage/defrag ---\"
+          cat /sys/kernel/mm/transparent_hugepage/defrag 2>&1 || echo \"(not readable)\"
+          echo \"--- /sys/kernel/mm/transparent_hugepage/khugepaged/defrag ---\"
+          cat /sys/kernel/mm/transparent_hugepage/khugepaged/defrag 2>&1 || echo \"(not readable)\"
+          echo \"--- /sys/kernel/mm/transparent_hugepage/khugepaged/scan_sleep_millisecs ---\"
+          cat /sys/kernel/mm/transparent_hugepage/khugepaged/scan_sleep_millisecs 2>&1 || echo \"(not readable)\"
+          echo \"--- Initial /proc/vmstat THP counters ---\"
+          grep -E 'thp_|compact_|pgmigrate_' /proc/vmstat 2>&1 || echo \"(not readable)\"
+          echo \"\"
+        } > \"${THP_SETTINGS_LOG}\"
+
+        echo \"[thp] Periodic vmstat sampling every ${THP_MONITOR_INTERVAL}s → ${THP_VMSTAT_LOG}\"
+        (
+          while kill -0 \${TORCHRUN_PID} 2>/dev/null; do
+            {
+              echo \"=== \$(date -Iseconds) ===\"
+              grep -E 'thp_|compact_|pgmigrate_' /proc/vmstat 2>/dev/null || true
+              # Also capture per-node memory info for NUMA awareness
+              grep -E 'MemFree|MemAvailable|AnonHugePages|HugePages' /proc/meminfo 2>/dev/null || true
+              echo \"\"
+            } >> \"${THP_VMSTAT_LOG}\"
+            sleep ${THP_MONITOR_INTERVAL}
+          done
+          echo \"[thp] torchrun exited, vmstat monitor stopping.\"
+        ) &
+        THP_MONITOR_PID=\$!
+      fi
+
+      # ── strace madvise on one DataLoader worker ──
+      if [[ \"${STRACE_MADVISE}\" == \"1\" ]]; then
+        echo \"[strace] Will attach to first DataLoader worker after 30s warmup → ${STRACE_LOG}\"
+        (
+          sleep 30  # Let DataLoader workers spawn
+          # Find the first DataLoader worker child of torchrun
+          DL_PID=\"\"
+          for child in \$(pgrep -P \${TORCHRUN_PID} 2>/dev/null); do
+            for grandchild in \$(pgrep -P \${child} 2>/dev/null); do
+              # DataLoader workers are children of the training processes
+              CMDLINE=\$(cat /proc/\${grandchild}/cmdline 2>/dev/null | tr '\\0' ' ')
+              if echo \"\${CMDLINE}\" | grep -q 'dataloader\\|worker'; then
+                DL_PID=\${grandchild}
+                break 2
+              fi
+            done
+          done
+
+          # If we couldn't find by name, just pick the first grandchild
+          if [[ -z \"\${DL_PID}\" ]]; then
+            for child in \$(pgrep -P \${TORCHRUN_PID} 2>/dev/null | head -1); do
+              DL_PID=\$(pgrep -P \${child} 2>/dev/null | head -1)
+              break
+            done
+          fi
+
+          if [[ -n \"\${DL_PID}\" ]]; then
+            echo \"[strace] Attaching to PID \${DL_PID}\" >> \"${STRACE_LOG}\"
+            # Trace madvise, mmap, mprotect — the syscalls involved in THP
+            if command -v strace >/dev/null 2>&1; then
+              strace -p \${DL_PID} -e trace=madvise,mmap,mprotect \
+                -tt -T -f \
+                -o \"${STRACE_LOG}\" 2>&1 &
+              STRACE_PID=\$!
+              echo \"[strace] Recording madvise/mmap/mprotect on PID \${DL_PID} (strace PID \${STRACE_PID})\"
+            else
+              echo \"[strace] strace not found in container, falling back to /proc/\${DL_PID}/syscall polling\"
+              # Fallback: poll /proc/<pid>/syscall to detect if stuck in madvise
+              while kill -0 \${DL_PID} 2>/dev/null && kill -0 \${TORCHRUN_PID} 2>/dev/null; do
+                {
+                  echo \"=== \$(date -Iseconds) PID=\${DL_PID} ===\"
+                  cat /proc/\${DL_PID}/syscall 2>/dev/null || echo \"(unreadable)\"
+                  cat /proc/\${DL_PID}/status 2>/dev/null | grep -E 'State|VmRSS|VmHWM|HugetlbPages' || true
+                  # Check smaps for AnonHugePages
+                  grep AnonHugePages /proc/\${DL_PID}/smaps_rollup 2>/dev/null || true
+                } >> \"${STRACE_LOG}\"
+                sleep 2
+              done
+            fi
+          else
+            echo \"[strace] Could not find a DataLoader worker PID\" >> \"${STRACE_LOG}\"
+          fi
+        ) &
+        STRACE_BG_PID=\$!
+      fi
+
+      # ── py-spy dump watchdog ──
+      if [[ \"${PYSPY_WATCHDOG}\" == \"1\" ]]; then
+        echo \"[watchdog] Periodic py-spy dump every ${PYSPY_INTERVAL}s → ${PYSPY_DUMP_LOG}\"
+        (
+          PYSPY=/workspace/.venv/bin/py-spy
+          if [[ ! -x \${PYSPY} ]]; then
+            echo \"[watchdog] py-spy not found at \${PYSPY}, disabling watchdog\" >&2
+            exit 0
+          fi
+          while kill -0 \${TORCHRUN_PID} 2>/dev/null; do
+            {
+              echo \"\"
+              echo \"======================================\"
+              echo \"=== \$(date -Iseconds) ===\"
+              echo \"======================================\"
+              timeout 30 \${PYSPY} dump --subprocesses --pid \${TORCHRUN_PID} 2>&1 || echo \"[watchdog] py-spy dump timed out or failed\"
+            } >> \"${PYSPY_DUMP_LOG}\"
+            sleep ${PYSPY_INTERVAL}
+          done
+          echo \"[watchdog] torchrun exited, watchdog stopping.\"
+        ) &
+        WATCHDOG_PID=\$!
+      fi
+
+      # ── py-spy record watchdog (windowed flamegraph snapshots) ──
+      # Records 5-second windows at PYSPY_RECORD_RATE hz every PYSPY_INTERVAL seconds.
+      # Each window produces a separate speedscope file for targeted analysis.
+      if [[ \"${PYSPY_RECORD}\" == \"1\" ]]; then
+        PYSPY_RECORD_DIR=\"${RUN_DIR}/pyspy_records\"
+        mkdir -p \"\${PYSPY_RECORD_DIR}\" 2>/dev/null || true
+        echo \"[record] py-spy windowed record: ${PYSPY_RECORD_RATE}hz × 5s every ${PYSPY_INTERVAL}s → \${PYSPY_RECORD_DIR}/\"
+        (
+          PYSPY=/workspace/.venv/bin/py-spy
+          if [[ ! -x \${PYSPY} ]]; then
+            echo \"[record] py-spy not found at \${PYSPY}, skipping\" >&2
+            exit 0
+          fi
+          SEQ=0
+          while kill -0 \${TORCHRUN_PID} 2>/dev/null; do
+            STAMP=\$(date +%Y%m%dT%H%M%S)
+            OUTFILE=\"\${PYSPY_RECORD_DIR}/\${STAMP}_\${SEQ}.${PYSPY_RECORD_FORMAT}\"
+            \${PYSPY} record \
+              --subprocesses \
+              --pid \${TORCHRUN_PID} \
+              --rate ${PYSPY_RECORD_RATE} \
+              --format ${PYSPY_RECORD_FORMAT} \
+              --duration 5 \
+              --output \"\${OUTFILE}\" 2>&1 || echo \"[record] py-spy record failed for window \${SEQ}\"
+            SEQ=\$((SEQ + 1))
+            sleep ${PYSPY_INTERVAL}
+          done
+          echo \"[record] torchrun exited, record watchdog stopping.\"
+        ) &
+        RECORD_PID=\$!
+      fi
+
+      # Wait for torchrun to finish; propagate its exit code.
+      wait \${TORCHRUN_PID}
+      TORCHRUN_EXIT=\$?
+
+      # Stop all background monitors.
+      for BGPID in \"\${WATCHDOG_PID:-}\" \"\${RECORD_PID:-}\" \"\${THP_MONITOR_PID:-}\" \"\${STRACE_BG_PID:-}\" \"\${STRACE_PID:-}\"; do
+        if [[ -n \"\${BGPID}\" ]]; then
+          kill \${BGPID} 2>/dev/null || true
+          wait \${BGPID} 2>/dev/null || true
+        fi
+      done
+
+      # Final THP snapshot for comparison with initial.
+      if [[ \"${THP_MONITOR}\" == \"1\" ]]; then
+        {
+          echo \"=== Final THP counters at \$(date -Iseconds) ===\"
+          grep -E 'thp_|compact_|pgmigrate_' /proc/vmstat 2>/dev/null || true
+          grep -E 'MemFree|MemAvailable|AnonHugePages|HugePages' /proc/meminfo 2>/dev/null || true
+        } >> \"${THP_SETTINGS_LOG}\"
+      fi
+
+      exit \${TORCHRUN_EXIT}
     "

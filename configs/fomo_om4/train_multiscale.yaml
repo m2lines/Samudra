@@ -5,11 +5,14 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 1  # fallback; bs=2 OOMs on 1/4°
-# v35: per-scale batch sizes. Source order: [¼°, ½°, 1°]. ¼° memory-bound at
-# bs=1 (~23 GB); ½° and 1° have huge headroom, so raise their batches to
-# amortize Python/kernel-launch overhead and lift GPU util past 50%.
-per_scale_batch_size: [1, 2, 2]  # v36: bs=4 on 1° tripped CUDA illegal mem access in gemm n=2211840
+batch_size: 1  # bs=2 OOMs on 1/4°
+# v35-v38 tried per_scale_batch_size=[1,2,2]/[1,2,4] to lift GPU util,
+# but the FOMO model crashes with CUDA illegal-mem at bs>1 in any group
+# (likely a latent bug in the model — even CUDA_LAUNCH_BLOCKING couldn't
+# surface a Python frame; the abort happens in a TensorImpl destructor).
+# Reverting to uniform bs=1 to land on v31's known-good baseline. The
+# per-scale sampler infrastructure stays in place for a future debug pass.
+per_scale_batch_size: null
 gradient_accumulation_steps: 1
 learning_rate: 0.0006
 scheduler: { type: cosine }

@@ -920,6 +920,16 @@ class Trainer:
         self.train_sampler = train_batch_sampler
         self.val_sampler = val_batch_sampler
 
+        pin_memory = self.pin_mem
+        if pin_memory and any(
+            dataset.use_zarr_gpu_decode for dataset in train_datasets + val_datasets
+        ):
+            logger.info(
+                "Disabling DataLoader pin_memory because GPU zarr decode "
+                "materializes tensors directly on the device."
+            )
+            pin_memory = False
+
         # Create data loaders (same for both distributed and non-distributed)
         # When using batch_sampler, don't specify batch_size or sampler
         train_dataloader = DataLoader(
@@ -927,7 +937,7 @@ class Trainer:
             batch_sampler=train_batch_sampler,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers and self.num_workers > 0,
-            pin_memory=self.pin_mem,
+            pin_memory=pin_memory,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
         )
@@ -937,7 +947,7 @@ class Trainer:
             batch_sampler=val_batch_sampler,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers and self.num_workers > 0,
-            pin_memory=self.pin_mem,
+            pin_memory=pin_memory,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
         )

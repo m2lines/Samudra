@@ -217,6 +217,7 @@ class DataSource:
     stds: xr.Dataset
     masks: Masks
     dataset_spec: DatasetSpec
+    use_zarr_gpu_decode: bool = False
 
     @cached_property
     def is_compact(self) -> bool:
@@ -396,6 +397,8 @@ class DataSource:
 
         means = torch.from_numpy(means_np).reshape(reshape_vars)
         stds = torch.from_numpy(stds_np).reshape(reshape_vars)
+        means = means.to(data.device, dtype=data.dtype, non_blocking=True)
+        stds = stds.to(data.device, dtype=data.dtype, non_blocking=True)
 
         norm = (data - means) / stds
         if fill_nan:
@@ -415,6 +418,9 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None,
         use_dask: bool,
+        use_gpu_zarr_decode: bool = False,
+        kvikio_task_size: int | None = None,
+        kvikio_num_threads: int | None = None,
         canonicalize: Callable[
             [xr.Dataset, xr.Dataset, xr.Dataset],
             tuple[xr.Dataset, xr.Dataset, xr.Dataset],
@@ -422,7 +428,12 @@ class DataSource:
         | None = None,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
-        data = data_location.open(chunks)
+        data = data_location.open(
+            chunks,
+            use_gpu_zarr_decode=use_gpu_zarr_decode,
+            kvikio_task_size=kvikio_task_size,
+            kvikio_num_threads=kvikio_num_threads,
+        )
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
         if canonicalize is not None:
@@ -437,6 +448,7 @@ class DataSource:
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
             name=f"{data_location}-{use_dask}",
+            use_zarr_gpu_decode=use_gpu_zarr_decode,
         )
 
     @classmethod
@@ -451,6 +463,7 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
+        use_zarr_gpu_decode: bool = False,
     ) -> Self:
         data, means, stds = validate_data(
             data,
@@ -469,6 +482,7 @@ class DataSource:
             stds=stds,
             masks=masks,
             dataset_spec=dataset_spec,
+            use_zarr_gpu_decode=use_zarr_gpu_decode,
         )
 
 

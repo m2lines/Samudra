@@ -1108,6 +1108,12 @@ class TrainConfig(TopLevelConfig):
     epochs: int = 120
     preemptible: bool = True
     batch_size: int = 2
+    # Optional per-scale override for multi-scale runs. When set, must have
+    # the same length as data.sources; the i-th value is used as the batch
+    # size for the i-th data source. `batch_size` is the fallback for scales
+    # that aren't listed. Different scales keep separate batches (DDP groups
+    # by resolution), so this is safe.
+    per_scale_batch_size: list[int] | None = None
     learning_rate: float = 2e-4
     gradient_accumulation_steps: int = 1
     scheduler: SchedulerConfig | None = None

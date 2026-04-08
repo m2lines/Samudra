@@ -146,6 +146,23 @@ class DataSourceConfig(BaseConfig):
     )
 
 
+class CpuDataLoadingConfig(BaseConfig):
+    type: Literal["cpu"] = "cpu"
+    num_workers: int = Field(default=4, ge=0)
+
+
+class GpuDataLoadingConfig(BaseConfig):
+    type: Literal["gpu"] = "gpu"
+    kvikio_task_size: int = Field(default=64 * 1024 * 1024, gt=0)
+    kvikio_num_threads: int = Field(default=8, gt=0)
+
+
+DataLoadingConfig = Annotated[
+    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    Field(discriminator="type"),
+]
+
+
 class DataConfig(BaseConfig):
     sources: list[DataSourceConfig] = Field(
         description=(
@@ -155,7 +172,7 @@ class DataConfig(BaseConfig):
         min_length=1,
     )
     static_data_vars: list[str] | None = None
-    num_workers: int = 4
+    loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True

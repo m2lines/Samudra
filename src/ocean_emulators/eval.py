@@ -7,7 +7,7 @@ import torch
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
-from ocean_emulators.config import EvalConfig
+from ocean_emulators.config import CpuDataLoadingConfig, EvalConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -43,10 +43,16 @@ class Eval:
         self.device = init_eval_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
+        cpu_loading = (
+            cfg.data.loading
+            if isinstance(cfg.data.loading, CpuDataLoadingConfig)
+            else None
+        )
+        data_num_workers = cpu_loading.num_workers if cpu_loading is not None else 0
         if not using_gpu():
-            cfg.data.num_workers = 0  # Disable multi-processing on CPU
-        elif cfg.disk_mode:
-            cfg.data.num_workers = torch.cuda.device_count() * cfg.data.num_workers
+            data_num_workers = 0  # Disable multi-processing on CPU
+        elif cfg.disk_mode and cpu_loading is not None:
+            data_num_workers = torch.cuda.device_count() * cpu_loading.num_workers
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
@@ -141,7 +147,7 @@ class Eval:
         self.hist = cfg.data.hist
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
-        self.num_workers = cfg.data.num_workers
+        self.num_workers = data_num_workers
         self.inference_time = cfg.inference_time
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr

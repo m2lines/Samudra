@@ -111,7 +111,9 @@ class Trainer:
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
         # Backend
-        self.device, self.distributed = init_train_backend(cfg.backend)
+        self.device, self.distributed = init_train_backend(
+            cfg.backend, ddp_timeout_minutes=cfg.ddp_timeout_minutes
+        )
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
@@ -156,8 +158,41 @@ class Trainer:
                 "Step predictions on a mixed multiscale training schedule is not currently supported."
             )
 
+        cpu_loading = (
+            cfg.data.loading
+            if isinstance(cfg.data.loading, config.CpuDataLoadingConfig)
+            else None
+        )
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
+
+        if (
+            self.distributed is not None
+            and cpu_loading is not None
+            and data_num_workers > 0
+        ):
+            world_size = get_world_size()
+            scaled_workers = max(1, data_num_workers // world_size)
+            capped_workers = (
+                min(scaled_workers, cfg.ddp_max_data_workers_per_rank)
+                if world_size > 1
+                else scaled_workers
+            )
+            if scaled_workers != data_num_workers:
+                logger.info(
+                    "Scaling data.loading.num_workers from "
+                    f"{data_num_workers} to {scaled_workers} per rank "
+                    f"for world_size={world_size}."
+                )
+            if capped_workers != scaled_workers:
+                logger.info(
+                    "Capping data.loading.num_workers per rank from "
+                    f"{scaled_workers} to {capped_workers} "
+                    f"(ddp_max_data_workers_per_rank="
+                    f"{cfg.ddp_max_data_workers_per_rank})."
+                )
+            cpu_loading.num_workers = capped_workers
+            data_num_workers = capped_workers
 
         self.mp_context: BaseContext | None = None
         if data_num_workers > 0:
@@ -298,9 +333,24 @@ class Trainer:
 
         # Modify DDP setup based on device
         if self.distributed is not None:
+            assert self.distributed.gpu is not None
+            ddp_options = {
+                "device_ids": [self.distributed.gpu],
+                "bucket_cap_mb": cfg.ddp_bucket_cap_mb,
+                "gradient_as_bucket_view": cfg.ddp_gradient_as_bucket_view,
+                "static_graph": cfg.ddp_static_graph,
+                "find_unused_parameters": cfg.ddp_find_unused_parameters,
+                "broadcast_buffers": cfg.ddp_broadcast_buffers,
+            }
+            logger.info(f"Initializing DDP with options: {ddp_options}")
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
+                bucket_cap_mb=cfg.ddp_bucket_cap_mb,
+                gradient_as_bucket_view=cfg.ddp_gradient_as_bucket_view,
+                static_graph=cfg.ddp_static_graph,
+                find_unused_parameters=cfg.ddp_find_unused_parameters,
+                broadcast_buffers=cfg.ddp_broadcast_buffers,
             )
 
         # EMA (must come after DDP setup so parameter names match final self.model)
@@ -325,6 +375,18 @@ class Trainer:
         self.temporal_stride: int = cfg.temporal_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
+        self.ddp_use_no_sync_for_accumulation = cfg.ddp_use_no_sync_for_accumulation
+        self.ddp_static_graph: bool = cfg.ddp_static_graph
+        if (
+            self.ddp_static_graph
+            and self.ddp_use_no_sync_for_accumulation
+            and self.gradient_accumulation_steps > 1
+        ):
+            logger.warning(
+                "Disabling DDP no_sync accumulation because ddp_static_graph=true. "
+                "This avoids known DDP reducer assertions in this PyTorch setup."
+            )
+            self.ddp_use_no_sync_for_accumulation = False
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
@@ -338,6 +400,9 @@ class Trainer:
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
         self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
+        self.slow_batch_log_threshold_seconds: float = (
+            cfg.slow_batch_log_threshold_seconds
+        )
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
         self.validation_images_enabled = self._sync_flag_from_main(
@@ -507,6 +572,17 @@ class Trainer:
             if remaining_batches > 0
             else total_batches
         )
+        ddp_model = (
+            self.model
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else None
+        )
+        use_no_sync = (
+            ddp_model is not None
+            and self.ddp_use_no_sync_for_accumulation
+            and self.gradient_accumulation_steps > 1
+            and not self.ddp_static_graph
+        )
 
         for data_iter_step, data in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
@@ -526,19 +602,28 @@ class Trainer:
 
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
+            is_last = data_iter_step + 1 == total_batches
+            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
+            sync_gradients = should_step or is_last
 
-            TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
+            sync_context: contextlib.AbstractContextManager[None]
+            if use_no_sync and not sync_gradients:
+                assert ddp_model is not None
+                sync_context = ddp_model.no_sync()
+            else:
+                sync_context = contextlib.nullcontext()
 
-            # Scale loss by the actual number of microbatches that will be accumulated
-            scaled_loss = TO.loss / r
-            scaled_loss.backward()
+            with sync_context:
+                TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
+
+                # Scale loss by the actual number of microbatches that will be accumulated
+                scaled_loss = TO.loss / r
+                scaled_loss.backward()
 
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
 
-            is_last = data_iter_step + 1 == total_batches
-            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
             # Step optimizer after accumulating enough batches or at the end
             if should_step or is_last:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
@@ -554,8 +639,14 @@ class Trainer:
 
             with torch.no_grad():
                 # Reduce losses
-                loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
+                if sync_gradients:
+                    loss_value_reduce = all_reduce_mean(TO.loss.detach())
+                    loss_per_channel_reduce = all_reduce_mean(
+                        TO.loss_per_channel.detach()
+                    )
+                else:
+                    loss_value_reduce = TO.loss.detach()
+                    loss_per_channel_reduce = TO.loss_per_channel.detach()
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
@@ -614,6 +705,17 @@ class Trainer:
                             "train/batch/loss_unscaled": unscaled_loss,
                         }
                     )
+
+            data_load_time = metric_logger.meters["data_load_time"].value
+            if data_load_time > self.slow_batch_log_threshold_seconds:
+                logger.warning(
+                    "Slow batch load time %.1fs exceeded threshold %.1fs "
+                    "at epoch %s batch %s.",
+                    data_load_time,
+                    self.slow_batch_log_threshold_seconds,
+                    epoch,
+                    data_iter_step,
+                )
 
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value

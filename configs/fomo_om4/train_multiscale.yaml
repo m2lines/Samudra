@@ -9,7 +9,7 @@ batch_size: 1  # fallback; bs=2 OOMs on 1/4°
 # v35: per-scale batch sizes. Source order: [¼°, ½°, 1°]. ¼° memory-bound at
 # bs=1 (~23 GB); ½° and 1° have huge headroom, so raise their batches to
 # amortize Python/kernel-launch overhead and lift GPU util past 50%.
-per_scale_batch_size: [1, 2, 4]
+per_scale_batch_size: [1, 2, 2]  # v36: bs=4 on 1° tripped CUDA illegal mem access in gemm n=2211840
 gradient_accumulation_steps: 1
 learning_rate: 0.0006
 scheduler: { type: cosine }

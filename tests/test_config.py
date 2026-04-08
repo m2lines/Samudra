@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import cftime
+import numpy as np
 import pytest
+import xarray as xr
 from pydantic import ValidationError
 
 from ocean_emulators.config import (
@@ -10,10 +13,100 @@ from ocean_emulators.config import (
     GpuDataLoadingConfig,
     LlcDatasetConfig,
     Om4DatasetConfig,
+    TimeConfig,
     TrainConfig,
 )
 from ocean_emulators.config_schema import get_pydantic_models
-from ocean_emulators.utils.location import UnresolvedLocation
+from ocean_emulators.utils.location import LocalLocation, UnresolvedLocation
+
+
+def _write_llc_fixture(tmp_path: Path) -> None:
+    n_time = 3
+    n_face = 2
+    n_lev = 51
+    n_j = 4
+    n_i = 5
+    times = np.array(
+        [
+            "2011-09-10T12:00:00",
+            "2011-09-11T12:00:00",
+            "2011-09-12T12:00:00",
+        ],
+        dtype="datetime64[ns]",
+    )
+
+    data = xr.Dataset(
+        {
+            "Theta": (
+                ["time", "face", "k", "j", "i"],
+                np.arange(
+                    n_time * n_face * n_lev * n_j * n_i,
+                    dtype=np.float32,
+                ).reshape(n_time, n_face, n_lev, n_j, n_i),
+            ),
+            "oceQnet": (
+                ["time", "face", "j", "i"],
+                np.arange(n_time * n_face * n_j * n_i, dtype=np.float32).reshape(
+                    n_time, n_face, n_j, n_i
+                ),
+            ),
+            "mask_c": (
+                ["face", "k", "j", "i"],
+                np.ones((n_face, n_lev, n_j, n_i), dtype=bool),
+            ),
+            "U": (
+                ["time", "face", "k", "j", "i_g"],
+                np.arange(
+                    n_time * n_face * n_lev * n_j * n_i,
+                    dtype=np.float32,
+                ).reshape(n_time, n_face, n_lev, n_j, n_i),
+            ),
+            "V": (
+                ["time", "face", "k", "j_g", "i"],
+                np.arange(
+                    n_time * n_face * n_lev * n_j * n_i,
+                    dtype=np.float32,
+                ).reshape(n_time, n_face, n_lev, n_j, n_i),
+            ),
+            "oceTAUX": (
+                ["time", "face", "j", "i_g"],
+                np.arange(n_time * n_face * n_j * n_i, dtype=np.float32).reshape(
+                    n_time, n_face, n_j, n_i
+                ),
+            ),
+            "oceTAUY": (
+                ["time", "face", "j_g", "i"],
+                np.arange(n_time * n_face * n_j * n_i, dtype=np.float32).reshape(
+                    n_time, n_face, n_j, n_i
+                ),
+            ),
+        },
+        coords={
+            "time": times,
+            "face": np.arange(n_face),
+            "k": np.arange(n_lev),
+            "j": np.arange(n_j),
+            "i": np.arange(n_i),
+            "j_g": np.arange(n_j),
+            "i_g": np.arange(n_i),
+        },
+    )
+    means = xr.Dataset(
+        {
+            **{f"Theta_lev_{i}": float(i) for i in range(n_lev)},
+            "oceQnet": 0.0,
+        }
+    )
+    stds = xr.Dataset(
+        {
+            **{f"Theta_lev_{i}": 1.0 for i in range(n_lev)},
+            "oceQnet": 1.0,
+        }
+    )
+
+    data.to_zarr(tmp_path / "data.zarr")
+    means.to_netcdf(tmp_path / "means.nc")
+    stds.to_netcdf(tmp_path / "stds.nc")
 
 
 def test_data_config_rejects_legacy_num_workers_field():
@@ -85,6 +178,68 @@ def test_data_config_accepts_llc_dataset_type():
     assert isinstance(cfg.dataset, LlcDatasetConfig)
     assert cfg.dataset.face == 2
     assert cfg.dataset.build().prognostic_var_names == ["Theta_0"]
+
+
+def test_data_config_rejects_invalid_llc_crop():
+    with pytest.raises(ValidationError, match="i_start < i_end"):
+        DataConfig.model_validate(
+            {
+                "dataset": {
+                    "type": "llc",
+                    "i_start": 20,
+                    "i_end": 20,
+                },
+                "sources": [
+                    {
+                        "data_location": "data.zarr",
+                        "data_means_location": "means.zarr",
+                        "data_stds_location": "stds.zarr",
+                    }
+                ],
+            }
+        )
+
+
+def test_data_config_builds_llc_source_from_local_files(tmp_path):
+    _write_llc_fixture(tmp_path)
+    cfg = DataConfig.model_validate(
+        {
+            "dataset": {
+                "type": "llc",
+                "face": 1,
+                "i_start": 1,
+                "i_end": 4,
+                "j_start": 1,
+                "j_end": 3,
+            },
+            "sources": [
+                {
+                    "data_location": "data.zarr",
+                    "data_means_location": "means.nc",
+                    "data_stds_location": "stds.nc",
+                }
+            ],
+        }
+    )
+
+    container = cfg.build(
+        LocalLocation(path=tmp_path),
+        prognostic_var_names=["Theta_0"],
+        boundary_var_names=["oceQnet"],
+    )
+    source = container.primary_source
+
+    assert source.dataset_spec.type == "llc"
+    assert "Theta_0" in source.data.variables
+    assert "wetmask_0" in source.data.variables
+    assert "face" not in source.data.dims
+    assert source.data["Theta_0"].shape == (3, 2, 3)
+    assert isinstance(source.data.time.values[0], cftime.DatetimeJulian)
+
+    sliced = source.slice(
+        TimeConfig.model_validate({"start": "2011-09-10", "end": "2011-09-12"})
+    )
+    assert sliced.data.sizes["time"] == 2
 
 
 def test_data_config_accepts_gpu_loading():

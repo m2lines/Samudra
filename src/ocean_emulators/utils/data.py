@@ -1,4 +1,5 @@
 import dataclasses
+import datetime as dt
 import logging
 import re
 from collections import defaultdict
@@ -6,6 +7,7 @@ from collections.abc import Callable
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Self
 
+import cftime
 import numpy as np
 import torch
 import xarray as xr
@@ -38,6 +40,140 @@ from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.location import ResolvedLocation
 
 logger = logging.getLogger(__name__)
+
+
+def _coerce_time_bounds(
+    time_coord: xr.DataArray, time_cfg: "TimeConfig"
+) -> tuple[object, object]:
+    """Coerce configured bounds to the coordinate type used by the dataset."""
+    if np.issubdtype(time_coord.dtype, np.datetime64):
+        return (
+            np.datetime64(str(time_cfg.start)),
+            np.datetime64(str(time_cfg.end)),
+        )
+
+    if time_coord.dtype == object:
+        values = np.asarray(time_coord.values)
+        sample = values.ravel()[0] if values.size else None
+        if isinstance(sample, cftime.datetime):
+            return time_cfg.start.datetime, time_cfg.end.datetime
+        if isinstance(sample, (np.datetime64, dt.datetime, dt.date)):
+            return (
+                np.datetime64(str(time_cfg.start)),
+                np.datetime64(str(time_cfg.end)),
+            )
+
+    units = time_coord.attrs.get("units")
+    calendar = time_coord.attrs.get("calendar", "standard")
+    if units is None:
+        raise ValueError(
+            "Time coordinate is numeric but missing 'units'; unable to compare with "
+            "configured Julian dates."
+        )
+
+    start = cftime.date2num(time_cfg.start.datetime, units=units, calendar=calendar)
+    end = cftime.date2num(time_cfg.end.datetime, units=units, calendar=calendar)
+    return start, end
+
+
+def _format_time_value(value: object, time_coord: xr.DataArray) -> str:
+    if isinstance(value, cftime.datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, np.datetime64):
+        return np.datetime_as_string(value, unit="D")
+
+    units = time_coord.attrs.get("units")
+    calendar = time_coord.attrs.get("calendar", "standard")
+    if units is not None:
+        try:
+            converted = cftime.num2date(value, units=units, calendar=calendar)
+            if isinstance(converted, np.ndarray):
+                converted = converted.item()
+            if isinstance(converted, cftime.datetime):
+                return converted.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+
+    return str(value)
+
+
+def _time_values(time_coord: xr.DataArray) -> np.ndarray:
+    """Return coordinate values as a NumPy array, computing dask if needed."""
+    return np.asarray(time_coord.values)
+
+
+def _time_indices(time_coord: xr.DataArray, start: object, end: object) -> np.ndarray:
+    """Return positional indices for a time window without requiring xarray indexes."""
+    values = _time_values(time_coord)
+    return np.nonzero((values >= start) & (values < end))[0]
+
+
+def _to_julian_datetime(value: object) -> cftime.DatetimeJulian:
+    """Convert a date-like value to the equivalent Julian-calendar datetime."""
+    if isinstance(value, cftime.DatetimeJulian):
+        return value
+    if isinstance(value, cftime.datetime):
+        return cftime.DatetimeJulian(
+            value.year,
+            value.month,
+            value.day,
+            value.hour,
+            value.minute,
+            value.second,
+            value.microsecond,
+        )
+    if isinstance(value, dt.datetime):
+        return cftime.DatetimeJulian(
+            value.year,
+            value.month,
+            value.day,
+            value.hour,
+            value.minute,
+            value.second,
+            value.microsecond,
+        )
+    if isinstance(value, dt.date):
+        return cftime.DatetimeJulian(value.year, value.month, value.day)
+    raise TypeError(f"Unsupported time value type: {type(value).__name__}")
+
+
+def _convert_llc_time_coord_to_julian(time_coord: xr.DataArray) -> np.ndarray:
+    """Convert LLC time coordinates to Julian-calendar cftime datetimes."""
+    values = _time_values(time_coord)
+    if values.size == 0:
+        return values.astype(object)
+
+    if np.issubdtype(values.dtype, np.datetime64):
+        microseconds = values.astype("datetime64[us]").astype(np.int64)
+        converted = cftime.num2date(
+            microseconds,
+            "microseconds since 1970-01-01",
+            calendar="julian",
+        )
+        return np.asarray(converted, dtype=object)
+
+    if values.dtype == object:
+        flat_values = values.ravel()
+        sample = flat_values[0]
+        if isinstance(sample, (cftime.datetime, dt.datetime, dt.date)):
+            return np.asarray(
+                [_to_julian_datetime(value) for value in flat_values],
+                dtype=object,
+            ).reshape(values.shape)
+
+    units = time_coord.attrs.get("units")
+    if units is None:
+        raise ValueError(
+            "LLC time coordinate is numeric but missing 'units'; unable to decode "
+            "raw time values."
+        )
+    calendar = time_coord.attrs.get("calendar", "standard")
+    decoded = cftime.num2date(values, units=units, calendar=calendar)
+    decoded_array = np.asarray(decoded, dtype=object)
+    return np.asarray(
+        [_to_julian_datetime(value) for value in decoded_array.ravel()],
+        dtype=object,
+    ).reshape(decoded_array.shape)
 
 
 def _var_name_encode_level(var_name: str) -> bool:
@@ -188,23 +324,26 @@ class DataSource:
 
     def slice(self, time: "TimeConfig") -> Self:
         """Slice the data source to only include the specified time slice."""
-        data_time_min = self.data.time.min().item()
-        data_time_max = self.data.time.max().item()
-        if time.start.datetime > data_time_max or time.end.datetime < data_time_min:
+        start, end = _coerce_time_bounds(self.data.time, time)
+        time_values = _time_values(self.data.time)
+        data_time_min = time_values.min()
+        data_time_max = time_values.max()
+        if start > data_time_max or end < data_time_min:
             raise ValueError(
                 f"Time slice {time} is entirely outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"{_format_time_value(data_time_min, self.data.time)} to "
+                f"{_format_time_value(data_time_max, self.data.time)}"
             )
 
-        if time.start.datetime < data_time_min or time.end.datetime > data_time_max:
+        if start < data_time_min or end > data_time_max:
             logger.warning(
                 f"Time slice {time} is partially outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"{_format_time_value(data_time_min, self.data.time)} to "
+                f"{_format_time_value(data_time_max, self.data.time)}"
             )
 
-        data = self.data.sel(time=time.time_slice)
+        indices = _time_indices(self.data.time, start, end)
+        data = self.data.isel(time=indices)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
 
     # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
@@ -276,11 +415,18 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None,
         use_dask: bool,
+        canonicalize: Callable[
+            [xr.Dataset, xr.Dataset, xr.Dataset],
+            tuple[xr.Dataset, xr.Dataset, xr.Dataset],
+        ]
+        | None = None,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
         data = data_location.open(chunks)
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
+        if canonicalize is not None:
+            data, means, stds = canonicalize(data, means, stds)
 
         return cls.from_datasets(
             data,
@@ -336,6 +482,126 @@ def _flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
     else:
         array = means_or_stds.to_dataarray()
     return torch.from_numpy(array.to_numpy().flatten())
+
+
+def _rename_llc_level_index_vars(ds: xr.Dataset) -> xr.Dataset:
+    rename_map = {
+        name: f"{var}_{lev}"
+        for name in ds.variables
+        if isinstance(name, str) and "_lev_" in name
+        for var, lev in [name.split("_lev_", maxsplit=1)]
+    }
+    return ds.rename(rename_map) if rename_map else ds
+
+
+def _flatten_llc_level_vars(
+    data: xr.Dataset,
+    *,
+    dataset_spec: DatasetSpec,
+) -> xr.Dataset:
+    data_copy = data.copy()
+    for name in list(data_copy.data_vars):
+        if "lev" not in data_copy[name].dims:
+            continue
+
+        n_levels = data_copy[name].sizes["lev"]
+        expected_levels = len(dataset_spec.depth_i_levels)
+        if n_levels != expected_levels:
+            raise ValueError(
+                f"Expected {expected_levels} levels for LLC variable {name}, got "
+                f"{n_levels}"
+            )
+
+        for index, lev in enumerate(dataset_spec.depth_i_levels):
+            data_copy[f"{name}_{lev}"] = data_copy[name].isel(lev=index)
+        data_copy = data_copy.drop_vars(name)
+
+    return data_copy
+
+
+def canonicalize_llc_datasets(
+    data: xr.Dataset,
+    means: xr.Dataset,
+    stds: xr.Dataset,
+    *,
+    face: int,
+    i_start: int,
+    i_end: int,
+    j_start: int,
+    j_end: int,
+    dataset_spec: DatasetSpec,
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    """Standardize raw LLC inputs to the common non-compact loader layout."""
+    data_copy = data.copy()
+
+    if "face" in data_copy.dims or "face" in data_copy.coords:
+        data_copy = data_copy.sel(face=face, drop=True)
+
+    spatial_indexers = {}
+    if "i" in data_copy.dims:
+        spatial_indexers["i"] = slice(i_start, i_end)
+    if "i_g" in data_copy.dims:
+        spatial_indexers["i_g"] = slice(i_start, i_end)
+    if "j" in data_copy.dims:
+        spatial_indexers["j"] = slice(j_start, j_end)
+    if "j_g" in data_copy.dims:
+        spatial_indexers["j_g"] = slice(j_start, j_end)
+    if spatial_indexers:
+        data_copy = data_copy.isel(spatial_indexers)
+
+    unstagger_map = {
+        "U": {"i_g": "i"},
+        "V": {"j_g": "j"},
+        "oceTAUX": {"i_g": "i"},
+        "oceTAUY": {"j_g": "j"},
+    }
+    for var_name, rename_dims in unstagger_map.items():
+        if var_name not in data_copy.variables:
+            continue
+        used_renames = {
+            old: new
+            for old, new in rename_dims.items()
+            if old in data_copy[var_name].dims
+        }
+        if used_renames:
+            data_copy[var_name] = data_copy[var_name].rename(used_renames)
+
+    remaining_staggered = [
+        name
+        for name in data_copy.data_vars
+        if "i_g" in data_copy[name].dims or "j_g" in data_copy[name].dims
+    ]
+    if remaining_staggered:
+        raise ValueError(
+            "LLC canonicalization left staggered variables unresolved: "
+            f"{remaining_staggered}"
+        )
+
+    data_copy = data_copy.drop_vars(["i_g", "j_g"], errors="ignore")
+    rename_map = {
+        old: new
+        for old, new in {
+            "k": "lev",
+            "mask_c": "wetmask",
+            "i": "x",
+            "j": "y",
+        }.items()
+        if old in data_copy.dims
+        or old in data_copy.variables
+        or old in data_copy.coords
+    }
+    if rename_map:
+        data_copy = data_copy.rename(rename_map)
+
+    if "time" in data_copy.coords:
+        julian_times = _convert_llc_time_coord_to_julian(data_copy["time"])
+        data_copy = data_copy.assign_coords(time=("time", julian_times))
+
+    means_copy = _rename_llc_level_index_vars(means.copy())
+    stds_copy = _rename_llc_level_index_vars(stds.copy())
+    data_copy = _flatten_llc_level_vars(data_copy, dataset_spec=dataset_spec)
+
+    return data_copy, means_copy, stds_copy
 
 
 @dataclasses.dataclass

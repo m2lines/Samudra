@@ -1,17 +1,21 @@
 import math
 
+import cftime
 import numpy as np
 import pytest
 import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from ocean_emulators.constants import TensorMap
+from ocean_emulators.config import TimeConfig
+from ocean_emulators.constants import TensorMap, build_llc_spec
 from ocean_emulators.utils.data import (
     DataSource,
     Masks,
     Normalize,
     OceanData,
+    _convert_llc_time_coord_to_julian,
+    canonicalize_llc_datasets,
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
@@ -19,6 +23,69 @@ from ocean_emulators.utils.data import (
     with_level_index_vars,
 )
 from tests.conftest import TEST_DATASET_SPEC
+
+
+def _raw_llc_datasets() -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    n_time = 3
+    n_face = 2
+    n_lev = 51
+    n_j = 4
+    n_i = 5
+    times = np.array(
+        [
+            "2011-09-10T12:00:00",
+            "2011-09-11T12:00:00",
+            "2011-09-12T12:00:00",
+        ],
+        dtype="datetime64[ns]",
+    )
+
+    theta = np.arange(n_time * n_face * n_lev * n_j * n_i, dtype=np.float32).reshape(
+        n_time, n_face, n_lev, n_j, n_i
+    )
+    qnet = np.arange(n_time * n_face * n_j * n_i, dtype=np.float32).reshape(
+        n_time, n_face, n_j, n_i
+    )
+    mask = np.ones((n_face, n_lev, n_j, n_i), dtype=bool)
+    mask[:, :, 0, 0] = False
+    u = theta + 10_000
+    v = theta + 20_000
+    taux = qnet + 30_000
+    tauy = qnet + 40_000
+
+    data = xr.Dataset(
+        {
+            "Theta": (["time", "face", "k", "j", "i"], theta),
+            "oceQnet": (["time", "face", "j", "i"], qnet),
+            "mask_c": (["face", "k", "j", "i"], mask),
+            "U": (["time", "face", "k", "j", "i_g"], u),
+            "V": (["time", "face", "k", "j_g", "i"], v),
+            "oceTAUX": (["time", "face", "j", "i_g"], taux),
+            "oceTAUY": (["time", "face", "j_g", "i"], tauy),
+        },
+        coords={
+            "time": times,
+            "face": np.arange(n_face),
+            "k": np.arange(n_lev),
+            "j": np.arange(n_j),
+            "i": np.arange(n_i),
+            "j_g": np.arange(n_j),
+            "i_g": np.arange(n_i),
+        },
+    )
+    means = xr.Dataset(
+        {
+            **{f"Theta_lev_{i}": float(i) for i in range(n_lev)},
+            "oceQnet": 0.0,
+        }
+    )
+    stds = xr.Dataset(
+        {
+            **{f"Theta_lev_{i}": 1.0 for i in range(n_lev)},
+            "oceQnet": 1.0,
+        }
+    )
+    return data, means, stds
 
 
 def test_mask_roundtrip(data_source):
@@ -189,6 +256,95 @@ def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
     normalized = normalize.normalize_tensor_prognostic(input_data)
     unnormalized = normalize.unnormalize_tensor_prognostic(normalized, fill_value)
     assert (torch.sum(torch.isnan(unnormalized)) > 0) == (math.isnan(fill_value))
+
+
+def test_data_source_slice_with_numeric_time_coords():
+    time_values = np.array([2, 7, 12, 17], dtype=np.float64)
+    time_coord = xr.Variable(
+        "time",
+        time_values,
+        attrs={
+            "units": "days since 1958-01-01 12:00:00",
+            "calendar": "julian",
+        },
+    )
+    data = xr.Dataset(
+        {"temperature": ("time", np.array([10.0, 20.0, 30.0, 40.0]))},
+        coords={"time": time_coord},
+    )
+    source = DataSource(
+        "numeric-time",
+        data,
+        xr.Dataset(),
+        xr.Dataset(),
+        Masks(
+            prognostic=torch.ones((1, 1, 1), dtype=torch.bool),
+            boundary=torch.ones((1, 1), dtype=torch.bool),
+        ),
+        dataset_spec=TEST_DATASET_SPEC,
+    )
+
+    sliced = source.slice(
+        TimeConfig.model_validate({"start": "1958-01-08", "end": "1958-01-18"})
+    )
+    np.testing.assert_array_equal(sliced.data.time.values, np.array([7.0, 12.0]))
+    np.testing.assert_array_equal(
+        sliced.data["temperature"].values, np.array([20.0, 30.0])
+    )
+
+
+def test_convert_llc_time_coord_to_julian_handles_datetime64_values():
+    time_coord = xr.DataArray(
+        np.array(
+            ["2011-09-10T12:00:00", "2011-09-13T18:00:00"],
+            dtype="datetime64[ns]",
+        ),
+        dims=["time"],
+    )
+
+    converted = _convert_llc_time_coord_to_julian(time_coord)
+
+    assert isinstance(converted[0], cftime.DatetimeJulian)
+    assert [value.strftime("%Y-%m-%d %H:%M:%S") for value in converted.tolist()] == [
+        "2011-09-10 12:00:00",
+        "2011-09-13 18:00:00",
+    ]
+
+
+def test_canonicalize_llc_datasets_standardizes_layout():
+    data, means, stds = _raw_llc_datasets()
+    expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
+
+    llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=build_llc_spec(),
+    )
+
+    assert "face" not in llc_data.dims
+    assert "i_g" not in llc_data.dims
+    assert "j_g" not in llc_data.dims
+    assert "Theta" not in llc_data.variables
+    assert "wetmask" not in llc_data.variables
+    assert "Theta_0" in llc_data.variables
+    assert "Theta_50" in llc_data.variables
+    assert "U_0" in llc_data.variables
+    assert "V_0" in llc_data.variables
+    assert "wetmask_0" in llc_data.variables
+    assert llc_data["Theta_0"].dims == ("time", "y", "x")
+    assert llc_data["Theta_0"].shape == (3, 2, 3)
+    assert llc_data["Theta_0"].isel(time=0, y=0, x=0).item() == expected_theta_0
+    assert isinstance(llc_data.time.values[0], cftime.DatetimeJulian)
+    assert "Theta_0" in llc_means.variables
+    assert "Theta_0" in llc_stds.variables
+    assert "Theta_lev_0" not in llc_means.variables
+    assert "Theta_lev_0" not in llc_stds.variables
 
 
 @pytest.fixture

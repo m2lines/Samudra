@@ -41,7 +41,12 @@ from ocean_emulators.models.modules import (
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.models.modules.encoder import patch_from
-from ocean_emulators.utils.data import DataContainer, DataSource, Normalize
+from ocean_emulators.utils.data import (
+    DataContainer,
+    DataSource,
+    Normalize,
+    canonicalize_llc_datasets,
+)
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
@@ -199,21 +204,55 @@ class Om4DatasetConfig(BaseConfig):
             self.boundary_vars_key,
         )
 
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        return data, means, stds
+
 
 class LlcDatasetConfig(BaseConfig):
     type: Literal["llc"] = "llc"
     prognostic_vars_key: str = "single_1"
     boundary_vars_key: str = "single_1"
-    face: int = 1
-    i_start: int = 0
-    i_end: int = 720
-    j_start: int = 0
-    j_end: int = 720
+    face: int = Field(default=1, ge=0)
+    i_start: int = Field(default=0, ge=0)
+    i_end: int = Field(default=720, gt=0)
+    j_start: int = Field(default=0, ge=0)
+    j_end: int = Field(default=720, gt=0)
 
     def build(self) -> DatasetSpec:
         return build_llc_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
+        )
+
+    @pydantic.model_validator(mode="after")
+    def validate_crop_bounds(self) -> Self:
+        if self.i_end <= self.i_start:
+            raise ValueError("LLC crop bounds must satisfy i_start < i_end")
+        if self.j_end <= self.j_start:
+            raise ValueError("LLC crop bounds must satisfy j_start < j_end")
+        return self
+
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        return canonicalize_llc_datasets(
+            data,
+            means,
+            stds,
+            face=self.face,
+            i_start=self.i_start,
+            i_end=self.i_end,
+            j_start=self.j_start,
+            j_end=self.j_end,
+            dataset_spec=self.build(),
         )
 
 
@@ -245,12 +284,6 @@ class DataConfig(BaseConfig):
         data_root: ResolvedLocation,
     ) -> DataContainer:
         dataset_spec = self.dataset.build()
-        if self.dataset.type != "om4":
-            raise NotImplementedError(
-                f"Dataset type {self.dataset.type!r} is not wired into the data "
-                "loader yet. The dataset-family interface lands in this PR; LLC "
-                "reader support follows in the next slice."
-            )
 
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
@@ -273,6 +306,7 @@ class DataConfig(BaseConfig):
                 boundary_var_names=dataset_spec.boundary_var_names,
                 static_data_vars=self.static_data_vars,
                 use_dask=turn_on_dask,
+                canonicalize=self.dataset.canonicalize_datasets,
             )
 
             return data_source, all(

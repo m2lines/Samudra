@@ -11,15 +11,15 @@ patch_extent: [3.0, 5.0]
 
 encoder:
   perceiver:
-    depth: 2  # Reduced from 3
-    latent_dim: 48  # Reduced from 64
-    num_latents: 128  # Reduced from 256
+    depth: 2
+    latent_dim: 64  # v30: restored from 48 to raise per-kernel arithmetic intensity
+    num_latents: 256  # v30: restored from 128
 
 decoder:
   perceiver:
-    depth: 2  # Match encoder depth
-    latent_dim: 48  # Match encoder latent_dim
-    num_latents: 128  # Match encoder num_latents
+    depth: 2
+    latent_dim: 64  # v30
+    num_latents: 256  # v30
   queries_dim: 64  # on the small end, but typical for PercieverIO models (usually in the ~100s-1000s).
   window_patches: 12  # Must evenly divide latent grid (60x72). Enables real spatial windowing.
   context_patches: 1  # Look at this many window_patches around the target patch.

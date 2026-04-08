@@ -501,6 +501,8 @@ def _flatten_llc_level_vars(
 ) -> xr.Dataset:
     data_copy = data.copy()
     for name in list(data_copy.data_vars):
+        if not isinstance(name, str):
+            continue
         if "lev" not in data_copy[name].dims:
             continue
 

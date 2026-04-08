@@ -285,8 +285,8 @@ def test_test_util__data_source_roundtrip(
 
     # start
     dims_uncoded = DataSourceDims(
-        lat=lat,
-        lng=lng,
+        lat=np.asarray(lat, dtype=np.float64),
+        lng=np.asarray(lng, dtype=np.float64),
         days_since_start=days_since_start,
         start_day=start_day_cf,
     )

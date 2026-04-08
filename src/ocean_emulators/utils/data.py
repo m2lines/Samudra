@@ -51,6 +51,7 @@ def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
         not _var_name_encode_level(str(v))
         for d in [data, means, stds]
         for v in d.keys()
+        if not str(v).startswith("mask")
     )
 
 
@@ -949,18 +950,38 @@ class LoadStats:
 def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
     data = ds.copy()
 
-    var_groups = defaultdict(list)
+    var_groups: dict[str, list[str]] = defaultdict(list)
     for key in data.keys():
-        if "_lev_" in (k := str(key)):
+        k = str(key)
+        if "_lev_" in k:
+            # Format: {var}_lev_{depth} (e.g., so_lev_2_5)
             base_name = k.split("_lev_")[0]
             var_groups[base_name].append(k)
+        elif re.match(r"^(.+?)_(\d+)$", k):
+            # Format: {var}_{index} (e.g., so_0, thetao_18)
+            # Exclude known non-leveled vars like mask_0..mask_18
+            m = re.match(r"^(.+?)_(\d+)$", k)
+            assert m is not None
+            base_name = m.group(1)
+            if base_name not in ("mask",):
+                var_groups[base_name].append(k)
 
-    def _parse_level(x) -> float:
+    def _parse_level_lev(x: str) -> float:
         return float(x.split("_lev_")[1].replace("_", "."))
 
+    def _parse_level_idx(x: str) -> int:
+        m = re.match(r"^.+?_(\d+)$", x)
+        assert m is not None
+        return int(m.group(1))
+
     for base_var, vars_ in var_groups.items():
-        sorted_vars = sorted(vars_, key=_parse_level)
-        levels = [_parse_level(var) for var in sorted_vars]
+        if "_lev_" in vars_[0]:
+            sorted_vars = sorted(vars_, key=_parse_level_lev)
+            levels = [_parse_level_lev(var) for var in sorted_vars]
+        else:
+            sorted_vars = sorted(vars_, key=_parse_level_idx)
+            indices = [_parse_level_idx(var) for var in sorted_vars]
+            levels = [DEPTH_LEVELS[i] for i in indices]
         if hasattr(data, "lev"):
             levels = data.lev.values
         da = xr.concat([data[var] for var in sorted_vars], dim="lev").assign_coords(

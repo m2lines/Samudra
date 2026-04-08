@@ -334,6 +334,7 @@ class Trainer:
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
+        self.per_scale_batch_size: list[int] | None = cfg.per_scale_batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
@@ -563,7 +564,7 @@ class Trainer:
             # for throughput).
             is_accum_step = (data_iter_step + 1) % self.gradient_accumulation_steps != 0
             if is_accum_step and hasattr(self.model, "no_sync"):
-                with self.model.no_sync():
+                with self.model.no_sync():  # type: ignore[operator]
                     scaled_loss.backward()
             else:
                 scaled_loss.backward()
@@ -591,13 +592,15 @@ class Trainer:
             # 5 steps to stop per-iter CUDA syncs from dominating the loop.
             # Intermediate iters use the local (unreduced) loss for the
             # metric logger; this is fine for the running average.
-            do_full_metrics = (data_iter_step % 5 == 0)
+            do_full_metrics = data_iter_step % 5 == 0
 
             with torch.no_grad():
                 # Reduce losses
                 if do_full_metrics:
                     loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                    loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
+                    loss_per_channel_reduce = all_reduce_mean(
+                        TO.loss_per_channel.detach()
+                    )
                 else:
                     loss_value_reduce = TO.loss.detach()
                     loss_per_channel_reduce = TO.loss_per_channel.detach()
@@ -922,6 +925,35 @@ class Trainer:
         def group_key(ds):
             return tuple(prog.grid_size for prog in ds.prognostic_srcs)
 
+        # Resolve per-scale batch size. When `per_scale_batch_size` is set in
+        # the config, map each source to its own batch size by group key so
+        # cheaper (lower-res) scales can run with larger batches without OOM
+        # on the ¼° scale.
+        bs_arg: int | dict
+        if self.per_scale_batch_size is not None:
+            assert self.train_schedule in ("match", "standard"), (
+                "per_scale_batch_size only supported for 'match'/'standard' schedules"
+            )
+            assert len(self.per_scale_batch_size) == len(scales), (
+                f"per_scale_batch_size length {len(self.per_scale_batch_size)} "
+                f"must match number of data sources {len(scales)}"
+            )
+            # Build a group-key → batch size map. Match schedule constructs
+            # each TorchTrainDataset with src=dst, so its group key is
+            # (src.grid_size, dst.grid_size). Standard schedule has a single
+            # src with no dst.
+            if self.train_schedule == "match":
+                bs_arg = {
+                    (s.grid_size, s.grid_size): b
+                    for s, b in zip(scales, self.per_scale_batch_size)
+                }
+            else:  # standard
+                bs_arg = {
+                    (s.grid_size,): b for s, b in zip(scales, self.per_scale_batch_size)
+                }
+        else:
+            bs_arg = self.batch_size
+
         if self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
@@ -929,7 +961,7 @@ class Trainer:
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=train_datasets,
                 group_key=group_key,
-                batch_size=self.batch_size,
+                batch_size=bs_arg,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
                 shuffle=True,
@@ -939,7 +971,7 @@ class Trainer:
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=val_datasets,
                 group_key=group_key,
-                batch_size=self.batch_size,
+                batch_size=bs_arg,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
                 shuffle=False,
@@ -950,7 +982,7 @@ class Trainer:
             train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=train_datasets,
                 group_key=group_key,
-                batch_size=self.batch_size,
+                batch_size=bs_arg,
                 shuffle=True,
                 drop_last=True,
             )
@@ -958,7 +990,7 @@ class Trainer:
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=val_datasets,
                 group_key=group_key,
-                batch_size=self.batch_size,
+                batch_size=bs_arg,
                 shuffle=True,
                 drop_last=False,
             )

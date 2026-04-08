@@ -19,6 +19,7 @@ from typing import Any, assert_never
 
 import dask
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from torch.utils.data import (
     ConcatDataset,
@@ -306,6 +307,16 @@ class Trainer:
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
             )
+            # Create a CPU-side (Gloo) process group for data-loading barriers.
+            # This lets all ranks synchronize after loading a batch without
+            # consuming the NCCL timeout budget, preventing NCCL timeouts when
+            # the networked filesystem stalls on some ranks.
+            self._cpu_group = dist.new_group(
+                backend="gloo",
+                timeout=datetime.timedelta(hours=2),
+            )
+        else:
+            self._cpu_group = None
 
         # EMA (must come after DDP setup so parameter names match final self.model)
         if not loaded_checkpoint:
@@ -527,6 +538,21 @@ class Trainer:
             else:
                 r = self.gradient_accumulation_steps
 
+            # Log grid resolution for every rank in the first few steps of
+            # each epoch to help diagnose cross-rank resolution mismatches.
+            if data_iter_step < 5:
+                res = data.ctx.label_mask.shape[-2:]
+                rank = self.distributed.rank if self.distributed else 0
+                logger.debug(
+                    f"rank {rank} step {data_iter_step} grid {res[0]}x{res[1]}"
+                )
+
+            # Synchronize all ranks after data loading so that no rank
+            # starts GPU work (and hits NCCL collectives) while another is
+            # still blocked on a slow networked filesystem read.
+            if self._cpu_group is not None:
+                dist.barrier(group=self._cpu_group)
+
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
@@ -710,6 +736,9 @@ class Trainer:
             ):
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
+
+                if self._cpu_group is not None:
+                    dist.barrier(group=self._cpu_group)
 
                 VO: ValBatchOutput = validate_batch(self.model, data, self.loss_fn)
                 val_aggregator.record_validation_batch(VO)
@@ -923,6 +952,12 @@ class Trainer:
 
         # Create data loaders (same for both distributed and non-distributed)
         # When using batch_sampler, don't specify batch_size or sampler
+        # timeout (seconds): if a DataLoader worker doesn't produce a batch
+        # within this window, raise an error instead of hanging the whole
+        # training run.  A stuck worker would otherwise block all DDP ranks
+        # at the next collective.
+        worker_timeout = 1800 if self.num_workers > 0 else 0
+
         train_dataloader = DataLoader(
             train_data,
             batch_sampler=train_batch_sampler,
@@ -931,6 +966,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            timeout=worker_timeout,
         )
 
         val_dataloader = DataLoader(
@@ -941,6 +977,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            timeout=worker_timeout,
         )
 
         # Wrap dataloaders to handle GPU post-processing
@@ -1127,6 +1164,9 @@ class Trainer:
             self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
+        if self._cpu_group is not None:
+            dist.destroy_process_group(self._cpu_group)
+            self._cpu_group = None
         self.wandb_logger.finish()
 
 

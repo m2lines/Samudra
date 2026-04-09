@@ -678,6 +678,7 @@ def test_train_dataset_no_input_change(
 
     prog1, bnd1 = td.get_input(1)
     prog1_orig, bnd1_orig = prog1.clone(), bnd1.clone()
+    td.merge_prognostic_and_boundary(pred, 1)
 
     # Get a fresh copy from the loader
     td_new = train_loader[0]

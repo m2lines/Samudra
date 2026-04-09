@@ -1,9 +1,11 @@
 import gc
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
+from wandb.data_types import WBValue
 
 from ocean_emulators.utils.wandb import WandBLogger
 
@@ -133,3 +135,163 @@ def _stitch_data_panels(data: list[list[np.ndarray]], fill_value) -> np.ndarray:
             stitched_data[start_row:end_row, start_col:end_col] = arr
 
     return stitched_data
+
+
+def _downsample_for_display(data: np.ndarray, max_size: int = 256) -> np.ndarray:
+    """Average-pool a 2D array for display if it is too large."""
+    height, width = data.shape
+    if height <= max_size and width <= max_size:
+        return data
+
+    out_height = min(height, max_size)
+    out_width = min(width, max_size)
+    row_edges = np.linspace(0, height, out_height + 1, dtype=int)
+    col_edges = np.linspace(0, width, out_width + 1, dtype=int)
+    pooled = np.empty((out_height, out_width), dtype=np.float32)
+
+    for i in range(out_height):
+        for j in range(out_width):
+            block = data[
+                row_edges[i] : row_edges[i + 1], col_edges[j] : col_edges[j + 1]
+            ]
+            pooled[i, j] = float(block.mean())
+
+    return pooled
+
+
+def plot_attention_map(
+    attn_weights: np.ndarray,
+    axis: Literal["height", "width", "full"],
+    caption: str | None = None,
+) -> WBValue:
+    """Plot an attention weight matrix as a heatmap.
+
+    Args:
+        attn_weights: 2D array of shape ``(seq, seq)`` representing averaged
+            attention weights.
+        axis: ``"height"``, ``"width"``, or ``"full"`` — selects axis labels.
+        caption: Optional caption for the W&B image.
+
+    Returns:
+        A W&B Image suitable for logging.
+    """
+    wandb_logger = WandBLogger.get_instance()
+    display_weights = _downsample_for_display(attn_weights)
+
+    if display_weights.shape != attn_weights.shape:
+        size_note = (
+            f"Displayed as {display_weights.shape[0]}x{display_weights.shape[1]} "
+            f"from original {attn_weights.shape[0]}x{attn_weights.shape[1]}."
+        )
+        caption = f"{caption} {size_note}" if caption else size_note
+
+    fig = Figure(figsize=(6, 5))
+    ax = fig.add_subplot(111)
+    im = ax.imshow(display_weights, cmap="viridis", aspect="auto")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    if axis == "height":
+        ax.set_xlabel("Key (latitude index)")
+        ax.set_ylabel("Query (latitude index)")
+        ax.set_title("Height-axis attention")
+    elif axis == "width":
+        ax.set_xlabel("Key (longitude index)")
+        ax.set_ylabel("Query (longitude index)")
+        ax.set_title("Width-axis attention")
+    else:
+        ax.set_xlabel("Key token index")
+        ax.set_ylabel("Query token index")
+        ax.set_title("Full 2D attention")
+
+    fig.tight_layout()
+    image = wandb_logger.Image(fig, caption=caption)
+    plt.close(fig)
+    gc.collect()
+    return image
+
+
+def plot_attention_receptive_field(
+    height_weights: np.ndarray,
+    width_weights: np.ndarray,
+    query_lat: int,
+    query_lon: int,
+    caption: str | None = None,
+) -> WBValue:
+    """Plot a 2D receptive-field heatmap for a single query location.
+
+    Combines height and width attention via outer product to show where
+    a given ``(lat, lon)`` point attends in the full spatial grid.
+
+    Args:
+        height_weights: ``(H, H)`` height attention matrix.
+        width_weights: ``(W, W)`` width attention matrix.
+        query_lat: Latitude index of the query point.
+        query_lon: Longitude index of the query point.
+        caption: Optional caption for the W&B image.
+
+    Returns:
+        A W&B Image suitable for logging.
+    """
+    wandb_logger = WandBLogger.get_instance()
+
+    # Outer product of the row for this query in each axis
+    h_row = height_weights[query_lat]  # (H,)
+    w_row = width_weights[query_lon]  # (W,)
+    receptive_field = np.outer(h_row, w_row)  # (H, W)
+
+    fig = Figure(figsize=(8, 4))
+    ax = fig.add_subplot(111)
+    im = ax.imshow(receptive_field, cmap="inferno", aspect="auto", origin="lower")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    ax.set_xlabel("Longitude index")
+    ax.set_ylabel("Latitude index")
+    ax.set_title(f"Receptive field at ({query_lat}, {query_lon})")
+    fig.tight_layout()
+
+    image = wandb_logger.Image(fig, caption=caption)
+    plt.close(fig)
+    gc.collect()
+    return image
+
+
+def plot_full_attention_receptive_field(
+    attn_weights: np.ndarray,
+    grid_shape: tuple[int, int],
+    query_lat: int,
+    query_lon: int,
+    caption: str | None = None,
+) -> WBValue:
+    """Plot the attention map from one query token back onto the 2D grid.
+
+    Args:
+        attn_weights: ``(H*W, H*W)`` full-attention matrix averaged over heads
+            and batch.
+        grid_shape: The original 2D spatial layout corresponding to the token
+            sequence order.
+        query_lat: Query latitude index on the 2D grid.
+        query_lon: Query longitude index on the 2D grid.
+        caption: Optional caption for the W&B image.
+    """
+    height, width = grid_shape
+    if not (0 <= query_lat < height and 0 <= query_lon < width):
+        raise IndexError(
+            f"Query ({query_lat}, {query_lon}) is outside the grid shape {grid_shape}."
+        )
+
+    query_index = query_lat * width + query_lon
+    receptive_field = attn_weights[query_index].reshape(height, width)
+
+    wandb_logger = WandBLogger.get_instance()
+    fig = Figure(figsize=(8, 4))
+    ax = fig.add_subplot(111)
+    im = ax.imshow(receptive_field, cmap="inferno", aspect="auto", origin="lower")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    ax.set_xlabel("Longitude index")
+    ax.set_ylabel("Latitude index")
+    ax.set_title(f"Full-attention receptive field at ({query_lat}, {query_lon})")
+    fig.tight_layout()
+
+    image = wandb_logger.Image(fig, caption=caption)
+    plt.close(fig)
+    gc.collect()
+    return image

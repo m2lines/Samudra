@@ -5,10 +5,15 @@ See the original repository at: https://github.com/ai2cm/ace/tree/39133c18524cda
 """
 
 import torch
+import torch.nn as nn
 
 from ocean_emulators.aggregator.inference import InferenceEvaluatorAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate import ValidateAggregator
+from ocean_emulators.aggregator.validate.attention import (
+    AttentionAggregator,
+    has_attention_blocks,
+)
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator

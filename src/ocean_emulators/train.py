@@ -32,6 +32,7 @@ from ocean_emulators.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
+from ocean_emulators.aggregator.validate.attention import capture_attention
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig, TrainSchedule, build_loss_fn
 from ocean_emulators.constants import (
@@ -669,6 +670,7 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 
+        total_val_batches = len(self.val_loader)
         with torch.no_grad(), self._test_context():
             for data_iter_step, data in enumerate(
                 metric_logger.log_every(self.val_loader, 1, header)
@@ -676,9 +678,17 @@ class Trainer:
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
 
-                VO: ValBatchOutput = Stepper.validate_batch(
-                    self.model, data, self.loss_fn
+                # Capture attention maps on the last batch only (zero overhead otherwise).
+                is_last_batch = data_iter_step == total_val_batches - 1
+                ctx = (
+                    capture_attention(self.model)
+                    if is_last_batch
+                    else contextlib.nullcontext()
                 )
+                with ctx:
+                    VO: ValBatchOutput = Stepper.validate_batch(
+                        self.model, data, self.loss_fn
+                    )
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 

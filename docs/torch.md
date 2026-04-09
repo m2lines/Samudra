@@ -124,10 +124,10 @@ sbatch \
   scripts/slurm_apptainer_train.sbatch
 ```
 
-To enable profiling for a run:
+To enable profiling for a run, you typically want something like this:
 
 ```bash
-export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu"
+export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu --delay=300 --duration=120"
 ```
 
 ### Monitoring

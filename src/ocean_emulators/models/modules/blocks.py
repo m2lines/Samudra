@@ -1,3 +1,4 @@
+import math
 from collections.abc import Callable
 from typing import Literal, Protocol
 
@@ -8,6 +9,50 @@ from einops import rearrange
 from jaxtyping import Float
 
 from ocean_emulators.models.modules.activations import CappedGELU
+
+
+def sinusoidal_1d_position_embedding(
+    length: int,
+    dim: int,
+    *,
+    device: torch.device,
+) -> torch.Tensor:
+    if dim <= 0:
+        return torch.empty(length, 0, device=device, dtype=torch.float32)
+
+    position = torch.arange(length, device=device, dtype=torch.float32).unsqueeze(1)
+    div_term = torch.exp(
+        torch.arange(0, dim, 2, device=device, dtype=torch.float32)
+        * (-(math.log(10000.0) / max(dim, 1)))
+    )
+
+    embedding = torch.zeros(length, dim, device=device, dtype=torch.float32)
+    embedding[:, 0::2] = torch.sin(position * div_term)
+    embedding[:, 1::2] = torch.cos(position * div_term[: embedding[:, 1::2].shape[1]])
+    return embedding
+
+
+def sinusoidal_2d_position_embedding(
+    height: int,
+    width: int,
+    dim: int,
+    *,
+    device: torch.device,
+    dtype: torch.dtype,
+) -> torch.Tensor:
+    row_dim = dim // 2
+    col_dim = dim - row_dim
+    row_embedding = sinusoidal_1d_position_embedding(height, row_dim, device=device)
+    col_embedding = sinusoidal_1d_position_embedding(width, col_dim, device=device)
+
+    embedding = torch.cat(
+        [
+            row_embedding.unsqueeze(1).expand(-1, width, -1),
+            col_embedding.unsqueeze(0).expand(height, -1, -1),
+        ],
+        dim=-1,
+    )
+    return rearrange(embedding, "h w c -> 1 c h w").to(dtype=dtype)
 
 
 class PointwiseLinear(torch.nn.Module):
@@ -339,6 +384,7 @@ class AxialAttention(nn.Module):
     def __init__(
         self,
         dim: int,
+        positional_embedding: Literal["sinusoidal_1d"] | None,
         num_heads: int,
         qkv_bias: bool,
         attn_drop: float,
@@ -352,6 +398,7 @@ class AxialAttention(nn.Module):
         self.head_dim = dim // num_heads
         self.axis = axis
         self.attn_drop_p = attn_drop
+        self.positional_embedding = positional_embedding
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.proj = nn.Linear(dim, dim)
@@ -367,6 +414,27 @@ class AxialAttention(nn.Module):
         x: Float[torch.Tensor, "batch channels height width"],
     ) -> Float[torch.Tensor, "batch channels height width"]:
         B, C, H, W = x.shape
+
+        if self.positional_embedding is not None:
+            if self.axis == "height":
+                positional_embedding = sinusoidal_1d_position_embedding(
+                    H,
+                    C,
+                    device=x.device,
+                )
+                positional_embedding = rearrange(
+                    positional_embedding, "h c -> 1 c h 1"
+                ).to(dtype=x.dtype)
+            else:
+                positional_embedding = sinusoidal_1d_position_embedding(
+                    W,
+                    C,
+                    device=x.device,
+                )
+                positional_embedding = rearrange(
+                    positional_embedding, "w c -> 1 c 1 w"
+                ).to(dtype=x.dtype)
+            x = x + positional_embedding
 
         if self.axis == "height":
             x = rearrange(x, "b c h w -> (b w) h c")
@@ -435,6 +503,7 @@ class AxialAttentionBlock(nn.Module):
     def __init__(
         self,
         channels: int,
+        positional_embedding: Literal["sinusoidal_1d"] | None = None,
         num_heads: int = 8,
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
@@ -443,6 +512,7 @@ class AxialAttentionBlock(nn.Module):
         self.norm_h = nn.GroupNorm(1, channels)
         self.attn_h = AxialAttention(
             channels,
+            positional_embedding,
             num_heads,
             qkv_bias=True,
             axis="height",
@@ -452,6 +522,7 @@ class AxialAttentionBlock(nn.Module):
         self.norm_w = nn.GroupNorm(1, channels)
         self.attn_w = AxialAttention(
             channels,
+            positional_embedding,
             num_heads,
             qkv_bias=True,
             axis="width",
@@ -491,6 +562,7 @@ class FullAttention(nn.Module):
     def __init__(
         self,
         dim: int,
+        positional_embedding: Literal["sinusoidal_2d"] | None,
         num_heads: int,
         qkv_bias: bool,
         attn_drop: float,
@@ -502,8 +574,11 @@ class FullAttention(nn.Module):
         self.num_heads = num_heads
         self.head_dim = dim // num_heads
         self.attn_drop_p = attn_drop
+        self.positional_embedding = positional_embedding
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.q_norm = nn.LayerNorm(self.head_dim)
+        self.k_norm = nn.LayerNorm(self.head_dim)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
@@ -518,6 +593,15 @@ class FullAttention(nn.Module):
         B, C, H, W = x.shape
         seq_len = H * W
 
+        if self.positional_embedding is not None:
+            x = x + sinusoidal_2d_position_embedding(
+                H,
+                W,
+                C,
+                device=x.device,
+                dtype=x.dtype,
+            )
+
         x = rearrange(x, "b c h w -> b (h w) c")
 
         qkv = self.qkv(x).reshape(B, seq_len, 3, self.num_heads, self.head_dim)
@@ -525,6 +609,8 @@ class FullAttention(nn.Module):
             qkv, "batch seq three heads head_dim -> three batch heads seq head_dim"
         )
         q, k, v = qkv.unbind(0)
+        q = self.q_norm(q)
+        k = self.k_norm(k)
 
         out = torch.nn.functional.scaled_dot_product_attention(
             q,
@@ -565,6 +651,7 @@ class FullAttentionBlock(nn.Module):
     def __init__(
         self,
         channels: int,
+        positional_embedding: Literal["sinusoidal_2d"] | None = None,
         num_heads: int = 8,
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
@@ -573,6 +660,7 @@ class FullAttentionBlock(nn.Module):
         self.norm = nn.GroupNorm(1, channels)
         self.attn = FullAttention(
             channels,
+            positional_embedding,
             num_heads,
             qkv_bias=True,
             attn_drop=attn_drop,

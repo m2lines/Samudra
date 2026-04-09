@@ -1,7 +1,7 @@
 import abc
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import Annotated, Literal, Self, assert_never, cast
 
 import cftime
 import pydantic
@@ -269,24 +269,50 @@ class AttentionBlockConfig(BaseConfig):
         default=0.0,
         description="Dropout rate applied to the output projection.",
     )
+    positional_embedding: Literal["sinusoidal_1d", "sinusoidal_2d"] | None = Field(
+        default=None,
+        description=(
+            "Optional positional encoding added inside the attention block before "
+            "QKV projection. Use `sinusoidal_1d` with axial attention and "
+            "`sinusoidal_2d` with full attention."
+        ),
+    )
 
     def build(self, channels: int) -> nn.Module:
         assert channels % self.num_heads == 0, (
             f"channels {channels} must be divisible by num_heads {self.num_heads}"
         )
         if self.attention_type == "axial":
+            if self.positional_embedding not in (None, "sinusoidal_1d"):
+                raise ValueError(
+                    "Axial attention only supports positional_embedding='sinusoidal_1d'."
+                )
+            axial_positional_embedding = cast(
+                Literal["sinusoidal_1d"] | None,
+                self.positional_embedding,
+            )
             return AxialAttentionBlock(
                 channels=channels,
                 num_heads=self.num_heads,
                 attn_drop=self.attn_drop,
                 proj_drop=self.proj_drop,
+                positional_embedding=axial_positional_embedding,
             )
         if self.attention_type == "full":
+            if self.positional_embedding not in (None, "sinusoidal_2d"):
+                raise ValueError(
+                    "Full attention only supports positional_embedding='sinusoidal_2d'."
+                )
+            full_positional_embedding = cast(
+                Literal["sinusoidal_2d"] | None,
+                self.positional_embedding,
+            )
             return FullAttentionBlock(
                 channels=channels,
                 num_heads=self.num_heads,
                 attn_drop=self.attn_drop,
                 proj_drop=self.proj_drop,
+                positional_embedding=full_positional_embedding,
             )
         assert_never(self.attention_type)
 

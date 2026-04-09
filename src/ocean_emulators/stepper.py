@@ -42,14 +42,7 @@ class Stepper:
         assert len(batch) == 1  # Assert we are using one step of input and output
         input = batch.get_input(0)
         label = batch.get_label(0)
-        # TODO(jder): we need the underlying model so we can use forward_once;
-        # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
-        model = (
-            model.module
-            if isinstance(model, torch.nn.parallel.DistributedDataParallel)
-            else model
-        )
-        outs = model.forward_once(input, batch.ctx)
+        outs = model(batch)[0]
         loss_per_channel = loss_fn(outs, label, batch.ctx)
         loss = torch.mean(loss_per_channel)
         return ValBatchOutput(loss, loss_per_channel, input, label, outs, batch.ctx)

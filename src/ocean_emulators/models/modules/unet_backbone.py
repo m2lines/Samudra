@@ -82,6 +82,7 @@ class UNetBackbone(nn.Module):
 
         # going down
         layers: list[nn.Module] = []
+        encoder_skip_indices: list[int] = []
         for i, (a, b) in enumerate(pairwise(ch_width)):
             # Core block
             layers.append(
@@ -98,6 +99,7 @@ class UNetBackbone(nn.Module):
                 attention_block = encoder_attention_blocks[i]
                 if attention_block is not None:
                     layers.append(attention_block)
+            encoder_skip_indices.append(len(layers) - 1)
             # Down sampling block
             layers.append(downsampling_block)
 
@@ -161,6 +163,7 @@ class UNetBackbone(nn.Module):
         assert isinstance(first_block, CoreBlock)
         self.N_pad = first_block.N_pad
         self.layers = nn.ModuleList(layers)
+        self.encoder_skip_indices = set(encoder_skip_indices)
         self.num_steps = int(len(ch_width) - 1)
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
@@ -168,7 +171,7 @@ class UNetBackbone(nn.Module):
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
         count = 0
-        for layer in self.layers:
+        for layer_index, layer in enumerate(self.layers):
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
@@ -186,7 +189,7 @@ class UNetBackbone(nn.Module):
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:
-                if isinstance(layer, CoreBlock):
+                if layer_index in self.encoder_skip_indices:
                     skip_inputs[count] = fts
                     count += 1
             elif count >= self.num_steps:

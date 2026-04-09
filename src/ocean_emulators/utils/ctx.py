@@ -18,11 +18,15 @@ class GridContext:
         label_mask: Boolean mask indicating valid ocean cells for each prognostic
             variable. Shape: (num_prognostic_vars, lat, lon). Land cells are False.
         input_resolution_cpu: Tuple of (latitude, longitude) coordinate tensors defining
-            the spatial grid. Used for cosine-latitude weighting in loss functions.
+            the input spatial grid. Used by encoders for positional encoding.
+        output_resolution_cpu: Tuple of (latitude, longitude) coordinate tensors defining
+            the output spatial grid. Used by decoders to determine output shape and
+            pixel-query positions. Defaults to input_resolution_cpu for single-scale use.
     """
 
     label_mask: PrognosticMask
     input_resolution_cpu: tuple[Lat, Lon]
+    output_resolution_cpu: tuple[Lat, Lon]
 
     def to(self, device: torch.device) -> Self:
         """Move the label mask to the specified device."""

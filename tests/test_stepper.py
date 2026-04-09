@@ -261,7 +261,8 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     assert torch.equal(input_tensor.flatten(), expected_input)
 
     pred = model.forward_once(
-        input_tensor, GridContext(wet, inference_dataset.input_res)
+        input_tensor,
+        GridContext(wet, inference_dataset.input_res, inference_dataset.input_res),
     )
     assert pred.shape == (1, num_prognostic_channels, 1, 1)
     expected_pred = torch.tensor(

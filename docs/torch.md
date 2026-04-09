@@ -59,6 +59,7 @@ It expects environment variables:
 - `OUTPUT_BASE` (optional): host output base dir passed to
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
+- `NSYS_ARGS` (optional): if set, wrap the training launch with `nsys profile`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)
@@ -72,6 +73,8 @@ Key behavior:
 - To change training code or YAML configs, rebuild/publish a new container tag and
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
 - Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
+- If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
+  `${OUTPUT_BASE}/${NAME}/nsys/`.
 - Defaults to a 8-hour walltime in `scripts/slurm_apptainer_train.sbatch`.
 - Our 1-degree jobs take around 4-6 hours, so this is safe; you should probalby
   increase it by data size for 1/2-degree (i.e. 4x more data = 4x more time) etc.
@@ -119,6 +122,12 @@ sbatch \
   --gres=gpu:rtx6000:8 \
   --time=24:00:00 \
   scripts/slurm_apptainer_train.sbatch
+```
+
+To enable profiling for a run:
+
+```bash
+export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu"
 ```
 
 ### Monitoring

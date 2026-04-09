@@ -146,15 +146,26 @@ class DataSourceConfig(BaseConfig):
     )
 
 
-class CpuDataLoadingConfig(BaseConfig):
+class BaseDataLoadingConfig(BaseConfig):
+    def num_pytorch_workers(self) -> int:
+        raise NotImplementedError
+
+
+class CpuDataLoadingConfig(BaseDataLoadingConfig):
     type: Literal["cpu"] = "cpu"
     num_workers: int = Field(default=4, ge=0)
 
+    def num_pytorch_workers(self) -> int:
+        return self.num_workers
 
-class GpuDataLoadingConfig(BaseConfig):
+
+class GpuDataLoadingConfig(BaseDataLoadingConfig):
     type: Literal["gpu"] = "gpu"
     kvikio_task_size: int = Field(default=64 * 1024 * 1024, gt=0)
     kvikio_num_threads: int = Field(default=8, gt=0)
+
+    def num_pytorch_workers(self) -> int:
+        return 0
 
 
 DataLoadingConfig = Annotated[

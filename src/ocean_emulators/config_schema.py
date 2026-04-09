@@ -14,38 +14,42 @@ from ocean_emulators.viz import VizConfig
 
 def get_pydantic_models(
     model: type[pydantic.BaseModel],
-    seen: dict[str, type[pydantic.BaseModel]] | None = None,
+    models: dict[str, type[pydantic.BaseModel]] | None = None,
+    seen: set[int] | None = None,
 ) -> dict[str, type[pydantic.BaseModel]]:
     """Recursively find all Pydantic models in a model's fields.
 
     Args:
         model: The Pydantic model to start from
-        seen: Dictionary of already seen models (keyed by model name)
+        models: Collected models keyed by model name
+        seen: Visited annotation objects keyed by identity
 
     Returns:
         Dictionary of model names to model classes
     """
+    if models is None:
+        models = {}
     if seen is None:
-        seen = {}
+        seen = set()
 
-    model_name = model.__name__
-    if model_name in seen:
-        return seen
-
-    seen[model_name] = model
-
-    for field in model.model_fields.values():
-        _collect_pydantic_models(field.annotation, seen)
-
-    return seen
+    _collect_pydantic_models(model, models, seen)
+    return models
 
 
 def _collect_pydantic_models(
     annotation: object,
-    seen: dict[str, type[pydantic.BaseModel]],
+    models: dict[str, type[pydantic.BaseModel]],
+    seen: set[int],
 ) -> None:
+    annotation_id = id(annotation)
+    if annotation_id in seen:
+        return
+    seen.add(annotation_id)
+
     if isinstance(annotation, type) and issubclass(annotation, pydantic.BaseModel):
-        get_pydantic_models(annotation, seen)
+        models[annotation.__name__] = annotation
+        for field in annotation.model_fields.values():
+            _collect_pydantic_models(field.annotation, models, seen)
         return
 
     origin = get_origin(annotation)
@@ -53,7 +57,7 @@ def _collect_pydantic_models(
         return
 
     for arg in get_args(annotation):
-        _collect_pydantic_models(arg, seen)
+        _collect_pydantic_models(arg, models, seen)
 
 
 def generate_schemas(

@@ -7,7 +7,7 @@ import torch
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
-from ocean_emulators.config import CpuDataLoadingConfig, EvalConfig
+from ocean_emulators.config import EvalConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -43,16 +43,11 @@ class Eval:
         self.device = init_eval_backend(cfg.backend)
 
         # Adjust workers and memory pinning based on device
-        cpu_loading = (
-            cfg.data.loading
-            if isinstance(cfg.data.loading, CpuDataLoadingConfig)
-            else None
-        )
-        data_num_workers = cpu_loading.num_workers if cpu_loading is not None else 0
+        data_num_workers = cfg.data.loading.num_pytorch_workers()
         if not using_gpu():
             data_num_workers = 0  # Disable multi-processing on CPU
-        elif cfg.disk_mode and cpu_loading is not None:
-            data_num_workers = torch.cuda.device_count() * cpu_loading.num_workers
+        elif cfg.disk_mode:
+            data_num_workers = torch.cuda.device_count() * data_num_workers
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)

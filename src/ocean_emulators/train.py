@@ -154,12 +154,7 @@ class Trainer:
                 "Step predictions on a mixed multiscale training schedule is not currently supported."
             )
 
-        cpu_loading = (
-            cfg.data.loading
-            if isinstance(cfg.data.loading, config.CpuDataLoadingConfig)
-            else None
-        )
-        data_num_workers = cpu_loading.num_workers if cpu_loading is not None else 0
+        data_num_workers = cfg.data.loading.num_pytorch_workers()
 
         self.mp_context: BaseContext | None = None
         if data_num_workers > 0:

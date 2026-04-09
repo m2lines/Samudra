@@ -10,6 +10,7 @@ from ocean_emulators.config import (
     GpuDataLoadingConfig,
     TrainConfig,
 )
+from ocean_emulators.config_schema import get_pydantic_models
 from ocean_emulators.utils.location import UnresolvedLocation
 
 
@@ -42,6 +43,7 @@ def test_data_config_defaults_to_cpu_loading():
 
     assert isinstance(cfg.loading, CpuDataLoadingConfig)
     assert cfg.loading.num_workers == 4
+    assert cfg.loading.num_pytorch_workers() == 4
 
 
 def test_data_config_accepts_gpu_loading():
@@ -65,6 +67,7 @@ def test_data_config_accepts_gpu_loading():
     assert isinstance(cfg.loading, GpuDataLoadingConfig)
     assert cfg.loading.kvikio_task_size == 32 * 1024 * 1024
     assert cfg.loading.kvikio_num_threads == 4
+    assert cfg.loading.num_pytorch_workers() == 0
 
 
 def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
@@ -86,3 +89,10 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
+
+
+def test_get_pydantic_models_collects_loading_variants():
+    models = get_pydantic_models(TrainConfig)
+
+    assert models["CpuDataLoadingConfig"] is CpuDataLoadingConfig
+    assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
